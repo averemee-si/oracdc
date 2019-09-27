@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.kafka.connect;
+package eu.solutions.a2.cdc.oracle;
 
 import java.util.List;
 import java.util.Map;
@@ -20,13 +20,13 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.source.SourceConnector;
 
-public class OraCdcSourceConnector extends SourceConnector {
+import eu.solutions.a2.cdc.oracle.utils.Version;
 
-	public static final String VERSION = "0.9.0";
+public class OraCdcSourceConnector extends SourceConnector {
 
 	@Override
 	public String version() {
-		return VERSION;
+		return Version.getVersion();
 	}
 
 	@Override

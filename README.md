@@ -53,9 +53,9 @@ or download drivers from [https://www.oracle.com/database/technologies/jdbc-ucp-
 ### Mandatory parameters
 `a2.jdbc.url` - JDBC connection URL
 
-`a2.username` - JDBC connection username
+`a2.jdbc.username` - JDBC connection username
 
-`a2.password` - JDBC connection password
+`a2.jdbc.password` - JDBC connection password
 
 ### Optional parameters
 `a2.target.broker` - Type of broker/stream used (**kafka**/**kinesis**). Set to **kafka** by default, for Amazon Kinesis must set to **kinesis**
