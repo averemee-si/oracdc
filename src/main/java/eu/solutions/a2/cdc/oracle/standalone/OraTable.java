@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle;
+package eu.solutions.a2.cdc.oracle.standalone;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -36,10 +36,11 @@ import java.util.Map;
 
 import org.apache.log4j.Logger;
 
-import eu.solutions.a2.cdc.oracle.avro.AvroSchema;
-import eu.solutions.a2.cdc.oracle.avro.Envelope;
-import eu.solutions.a2.cdc.oracle.avro.Payload;
-import eu.solutions.a2.cdc.oracle.avro.Source;
+import eu.solutions.a2.cdc.oracle.ConnectionFactory;
+import eu.solutions.a2.cdc.oracle.standalone.avro.AvroSchema;
+import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
+import eu.solutions.a2.cdc.oracle.standalone.avro.Payload;
+import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 public class OraTable implements Runnable {

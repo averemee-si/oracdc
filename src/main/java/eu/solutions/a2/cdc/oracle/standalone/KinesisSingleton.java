@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle;
+package eu.solutions.a2.cdc.oracle.standalone;
 
 import java.nio.ByteBuffer;
 import java.util.Properties;
@@ -31,7 +31,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import eu.solutions.a2.cdc.oracle.avro.Envelope;
+import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
 	

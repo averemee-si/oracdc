@@ -34,7 +34,12 @@ import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 
-import eu.solutions.a2.cdc.oracle.avro.Source;
+import eu.solutions.a2.cdc.oracle.standalone.CommonJobSingleton;
+import eu.solutions.a2.cdc.oracle.standalone.KafkaSingleton;
+import eu.solutions.a2.cdc.oracle.standalone.KinesisSingleton;
+import eu.solutions.a2.cdc.oracle.standalone.OraTable;
+import eu.solutions.a2.cdc.oracle.standalone.SendMethodIntf;
+import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 public class OraCdcProducer {

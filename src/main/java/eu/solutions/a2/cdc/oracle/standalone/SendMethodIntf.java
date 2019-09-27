@@ -11,11 +11,11 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle;
+package eu.solutions.a2.cdc.oracle.standalone;
 
 import java.util.Properties;
 
-import eu.solutions.a2.cdc.oracle.avro.Envelope;
+import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
 
 public interface SendMethodIntf {
 	public void parseSettings(final Properties props, final String configPath, final int exitCode);

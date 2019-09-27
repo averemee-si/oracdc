@@ -11,25 +11,20 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle;
+package eu.solutions.a2.cdc.oracle.kafka.connect;
 
 import java.util.List;
 import java.util.Map;
 
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.connect.source.SourceConnector;
+import org.apache.kafka.connect.source.SourceRecord;
+import org.apache.kafka.connect.source.SourceTask;
 import org.apache.log4j.Logger;
 
-import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceConnectorConfig;
-import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceTask;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
-public class OraCdcSourceConnector extends SourceConnector {
+public class OraCdcSourceTask extends SourceTask {
 
-	private static final Logger LOGGER = Logger.getLogger(OraCdcSourceConnector.class);
-
-	private OraCdcSourceConnectorConfig config;
+	private static final Logger LOGGER = Logger.getLogger(OraCdcSourceTask.class);
 
 	@Override
 	public String version() {
@@ -38,30 +33,21 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc Source Connector");
-		config = new OraCdcSourceConnectorConfig(props);
-		//TODO - more
+		LOGGER.info("Starting oracdc Source Task");
+		// TODO Auto-generated method stub
+		
 	}
 
 	@Override
-	public void stop() {
-		//TODO Do we need more here?
-	}
-
-	@Override
-	public Class<? extends Task> taskClass() {
-		return OraCdcSourceTask.class;
-	}
-
-	@Override
-	public List<Map<String, String>> taskConfigs(int maxTasks) {
+	public List<SourceRecord> poll() throws InterruptedException {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public ConfigDef config() {
-		return OraCdcSourceConnectorConfig.config();
+	public void stop() {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

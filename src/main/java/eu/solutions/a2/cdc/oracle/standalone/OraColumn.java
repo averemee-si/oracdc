@@ -11,13 +11,13 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle;
+package eu.solutions.a2.cdc.oracle.standalone;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 
-import eu.solutions.a2.cdc.oracle.avro.AvroSchema;
+import eu.solutions.a2.cdc.oracle.standalone.avro.AvroSchema;
 
 public class OraColumn {
 
