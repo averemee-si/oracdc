@@ -92,13 +92,13 @@ public class OraCdcProducer {
 		}
 		final String username = props.getProperty("a2.jdbc.username");
 		if (username == null || "".equals(username.trim())) {
-			LOGGER.fatal("a2.username not specified in configuration file " + argv[0]);
+			LOGGER.fatal("a2.jdbc.username not specified in configuration file " + argv[0]);
 			LOGGER.fatal("Exiting.");
 			System.exit(1);
 		}
 		final String password = props.getProperty("a2.jdbc.password");
 		if (password == null || "".equals(password.trim())) {
-			LOGGER.fatal("a2.password not specified in configuration file " + argv[0]);
+			LOGGER.fatal("a2.jdbc.password not specified in configuration file " + argv[0]);
 			LOGGER.fatal("Exiting.");
 			System.exit(1);
 		}
