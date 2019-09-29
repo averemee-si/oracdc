@@ -81,17 +81,5 @@
 				</executions>
 			</plugin>
 		</plugins>
-		<resources>
-			<resource>
-				<directory>${basedir}</directory>
-				<includes>
-					<include>oracdc-producer.sh</include>
-					<include>oracdc-producer.conf</include>
-					<include>log4j.properties</include>
-					<include>LICENSE</include>
-					<include>README.md</include>
-				</includes>
-			</resource>
-		</resources>
 	</build>
 </project>
