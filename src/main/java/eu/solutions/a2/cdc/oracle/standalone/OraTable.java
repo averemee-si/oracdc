@@ -24,7 +24,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.RowId;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -278,9 +277,7 @@ where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
 			case Types.DATE:
 				if (deleteOp)
 					//TODO Timezone support!!!!
-					columnValues.put(
-							columnName,
-							iso8601DateFmt.format(new Date(rsLog.getDate(columnName).getTime())));
+					columnValues.put(columnName, rsLog.getDate(columnName).getTime());
 				else
 					stmtMaster.setDate(i + 1, rsLog.getDate(columnName));
 				break;
@@ -310,10 +307,7 @@ where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
 				break;
 			case Types.BINARY:
 				if (deleteOp)
-					// Encode BINARY to Base64
-					columnValues.put(
-							columnName,
-							Base64.getEncoder().encodeToString(rsLog.getBytes(columnName)));
+					columnValues.put(columnName, rsLog.getBytes(columnName));
 				else
 					stmtMaster.setBytes(i + 1, rsLog.getBytes(columnName));
 				break;
@@ -334,9 +328,7 @@ where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
 			case Types.TIMESTAMP:
 				if (deleteOp)
 					//TODO Timezone support!!!!
-					columnValues.put(
-							columnName,
-							iso8601TimestampFmt.format(new Date(rsLog.getTimestamp(columnName).getTime())));
+					columnValues.put(columnName, rsLog.getTimestamp(columnName).getTime());
 				else
 					stmtMaster.setTimestamp(i + 1, rsLog.getTimestamp(columnName));
 				break;
@@ -357,139 +349,135 @@ where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
 		for (int i = 0; i < allColumns.size(); i++) {
 			final OraColumn oraColumn = allColumns.get(i);
 			final String columnName = oraColumn.getColumnName();
-			switch (oraColumn.getJdbcType()) {
-			case Types.DATE:
-				//TODO Timezone support!!!!
-				final java.sql.Date dateColumnValue = rsMaster.getDate(columnName);
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(
-							columnName,
-							iso8601DateFmt.format(new Date(dateColumnValue.getTime())));
-				break;
-			case Types.TINYINT:
-				final byte byteColumnValue = rsMaster.getByte(columnName);
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(columnName, byteColumnValue);									
-				break;
-			case Types.SMALLINT:
-				final short shortColumnValue = rsMaster.getShort(columnName); 
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(columnName, shortColumnValue);
-				break;
-			case Types.INTEGER:
-				final int intColumnValue = rsMaster.getInt(columnName); 
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(columnName, intColumnValue);
-				break;
-			case Types.BIGINT:
-				final long longColumnValue = rsMaster.getLong(columnName); 
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(columnName, longColumnValue);
-				break;
-			case Types.BINARY:
-				// Encode BINARY to Base64
-				final byte[] binaryColumnValue = rsMaster.getBytes(columnName);
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(
-							columnName,
-							Base64.getEncoder().encodeToString(binaryColumnValue));
-				break;
-			case Types.CHAR:
-			case Types.VARCHAR:
-				final String charColumnValue = rsMaster.getString(columnName); 
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(columnName, charColumnValue);
-				break;
-			case Types.NCHAR:
-			case Types.NVARCHAR:
-				final String nCharColumnValue = rsMaster.getNString(columnName); 
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(columnName, nCharColumnValue);
-				break;
-			case Types.TIMESTAMP:
-				//TODO Timezone support!!!!
-				final Timestamp tsColumnValue = rsMaster.getTimestamp(columnName);
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(
-							columnName,
-							iso8601TimestampFmt.format(new Date(tsColumnValue.getTime())));
-				break;
-			case Types.FLOAT:
-				final float floatColumnValue = rsMaster.getFloat(columnName); 
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(columnName, floatColumnValue);
-				break;
-			case Types.DOUBLE:
-				final double doubleColumnValue = rsMaster.getDouble(columnName); 
-				if (rsMaster.wasNull())
-					columnValues.put(columnName, null);
-				else
-					columnValues.put(columnName, doubleColumnValue);
-				break;
-			case Types.BLOB:
-				final Blob blobColumnValue = rsMaster.getBlob(columnName);
-				if (rsMaster.wasNull() || blobColumnValue.length() < 1) {
-					columnValues.put(columnName, null);
-				} else {
-					try (InputStream is = blobColumnValue.getBinaryStream();
+			if (!columnValues.containsKey(columnName)) {
+				// Don't process PK value again
+				switch (oraColumn.getJdbcType()) {
+				case Types.DATE:
+					//TODO Timezone support!!!!
+					final long dateColumnValue = rsMaster.getDate(columnName).getTime();
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, dateColumnValue);
+					break;
+				case Types.TINYINT:
+					final byte byteColumnValue = rsMaster.getByte(columnName);
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, byteColumnValue);									
+					break;
+				case Types.SMALLINT:
+					final short shortColumnValue = rsMaster.getShort(columnName); 
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, shortColumnValue);
+					break;
+				case Types.INTEGER:
+					final int intColumnValue = rsMaster.getInt(columnName); 
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, intColumnValue);
+					break;
+				case Types.BIGINT:
+					final long longColumnValue = rsMaster.getLong(columnName); 
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, longColumnValue);
+					break;
+				case Types.BINARY:
+					final byte[] binaryColumnValue = rsMaster.getBytes(columnName);
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, binaryColumnValue);
+					break;
+				case Types.CHAR:
+				case Types.VARCHAR:
+					final String charColumnValue = rsMaster.getString(columnName); 
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, charColumnValue);
+					break;
+				case Types.NCHAR:
+				case Types.NVARCHAR:
+					final String nCharColumnValue = rsMaster.getNString(columnName); 
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, nCharColumnValue);
+					break;
+				case Types.TIMESTAMP:
+					//TODO Timezone support!!!!
+					final long tsColumnValue = rsMaster.getTimestamp(columnName).getTime();
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, tsColumnValue);
+					break;
+				case Types.FLOAT:
+					final float floatColumnValue = rsMaster.getFloat(columnName); 
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, floatColumnValue);
+					break;
+				case Types.DOUBLE:
+					final double doubleColumnValue = rsMaster.getDouble(columnName); 
+					if (rsMaster.wasNull())
+						columnValues.put(columnName, null);
+					else
+						columnValues.put(columnName, doubleColumnValue);
+					break;
+				case Types.BLOB:
+					final Blob blobColumnValue = rsMaster.getBlob(columnName);
+					if (rsMaster.wasNull() || blobColumnValue.length() < 1) {
+						columnValues.put(columnName, null);
+					} else {
+						try (InputStream is = blobColumnValue.getBinaryStream();
 							ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-						final byte[] data = new byte[16384];
-						int bytesRead;
-						while ((bytesRead = is.read(data, 0, data.length)) != -1) {
-							baos.write(data, 0, bytesRead);
-						}
-						columnValues.put(columnName, Base64.getEncoder().encodeToString(baos.toByteArray()));
-					} catch (IOException ioe) {
-						LOGGER.error("IO Error while processing BLOB column " + 
+							final byte[] data = new byte[16384];
+							int bytesRead;
+							while ((bytesRead = is.read(data, 0, data.length)) != -1) {
+								baos.write(data, 0, bytesRead);
+							}
+							columnValues.put(columnName, baos.toByteArray());
+						} catch (IOException ioe) {
+							LOGGER.error("IO Error while processing BLOB column " + 
 									 tableOwner + "." + masterTable + "(" + columnName + ")");
-						LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-					}
-				}
-				break;
-			case Types.CLOB:
-				final Clob clobColumnValue = rsMaster.getClob(columnName);
-				if (rsMaster.wasNull() || clobColumnValue.length() < 1) {
-					columnValues.put(columnName, null);
-				} else {
-					try (Reader reader = clobColumnValue.getCharacterStream()) {
-						final char[] data = new char[8192];
-						StringBuilder sbClob = new StringBuilder(8192);
-						int charsRead;
-						while ((charsRead = reader.read(data, 0, data.length)) != -1) {
-							sbClob.append(data, 0, charsRead);
+							LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}
-						columnValues.put(columnName, sbClob.toString());
-					} catch (IOException ioe) {
-						LOGGER.error("IO Error while processing CLOB column " + 
-								 tableOwner + "." + masterTable + "(" + columnName + ")");
-						LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 					}
+					break;
+				case Types.CLOB:
+					final Clob clobColumnValue = rsMaster.getClob(columnName);
+					if (rsMaster.wasNull() || clobColumnValue.length() < 1) {
+						columnValues.put(columnName, null);
+					} else {
+						try (Reader reader = clobColumnValue.getCharacterStream()) {
+							final char[] data = new char[8192];
+							StringBuilder sbClob = new StringBuilder(8192);
+							int charsRead;
+							while ((charsRead = reader.read(data, 0, data.length)) != -1) {
+								sbClob.append(data, 0, charsRead);
+							}
+							columnValues.put(columnName, sbClob.toString());
+						} catch (IOException ioe) {
+							LOGGER.error("IO Error while processing CLOB column " + 
+									tableOwner + "." + masterTable + "(" + columnName + ")");
+							LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+						}
+					}
+					break;
+				default:
+					break;
 				}
-				break;
-			default:
-				break;
 			}
 		}
 	}

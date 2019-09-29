@@ -26,7 +26,6 @@ public class OraColumn {
 	private final String oraType;
 	private final int jdbcType;
 	private final boolean nullable;
-//	private final Schema schemaType;
 	private final AvroSchema avroSchema;
 	
 
@@ -43,9 +42,9 @@ public class OraColumn {
 			case "DATE":
 				jdbcType = Types.DATE;
 				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
+					this.avroSchema = AvroSchema.DATE_OPTIONAL();
 				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
+					this.avroSchema = AvroSchema.DATE_MANDATORY();
 				break;
 			case "FLOAT":
 				jdbcType = Types.FLOAT;
@@ -97,11 +96,10 @@ public class OraColumn {
 				break;
 			case "RAW":
 				jdbcType = Types.BINARY;
-				// We'll use Base64 for this
 				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
+					this.avroSchema = AvroSchema.BYTES_OPTIONAL();
 				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
+					this.avroSchema = AvroSchema.BYTES_MANDATORY();
 				break;
 			case "CHAR":
 				jdbcType = Types.CHAR;
@@ -133,11 +131,10 @@ public class OraColumn {
 				break;
 			case "BLOB":
 				jdbcType = Types.BLOB;
-				// We'll use Base64 for this
 				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
+					this.avroSchema = AvroSchema.BYTES_OPTIONAL();
 				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
+					this.avroSchema = AvroSchema.BYTES_MANDATORY();
 				break;
 			case "CLOB":
 				jdbcType = Types.CLOB;
@@ -153,9 +150,9 @@ public class OraColumn {
 			case "TIMESTAMP(6)":
 			case "TIMESTAMP(9)":
 				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
+					this.avroSchema = AvroSchema.TIMESTAMP_OPTIONAL();
 				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
+					this.avroSchema = AvroSchema.TIMESTAMP_MANDATORY();
 				jdbcType = Types.TIMESTAMP;
 				break;
 			default:
