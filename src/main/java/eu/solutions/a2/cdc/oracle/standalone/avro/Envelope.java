@@ -23,8 +23,10 @@ public class Envelope implements Serializable {
 	private static final long serialVersionUID = -7464095366511208593L;
 
 	@JsonInclude(Include.NON_NULL)
-	private final AvroSchema schema;
-	private final Payload payload;
+	private AvroSchema schema;
+	private Payload payload;
+
+	public Envelope() {}
 
 	public Envelope(final AvroSchema schema, final Payload payload) {
 		this.schema = schema;
@@ -35,8 +37,17 @@ public class Envelope implements Serializable {
 		return schema;
 	}
 
+	public void setSchema(AvroSchema schema) {
+		this.schema = schema;
+	}
+
 	public Payload getPayload() {
 		return payload;
 	}
+
+	public void setPayload(Payload payload) {
+		this.payload = payload;
+	}
+
 
 }

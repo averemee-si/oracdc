@@ -27,18 +27,36 @@ public class Source implements Serializable {
 	private static final long serialVersionUID = 2184010528102467656L;
 
 	private static BigInteger DBID;
-	private static String DATABASE_NAME; 
+	private BigInteger dbId;
+	private static String DATABASE_NAME;
+	private String databaseName;
 	private static String PLATFORM_NAME;
-	private static int INSTANCE_NUMBER;  
+	private String platformName;
+	private static int INSTANCE_NUMBER = -1;  
+	private int instanceNumber;
 	private static String INSTANCE_NAME;
+	private String instanceName;
 	private static String HOST_NAME;
+	private String hostName;
 	private static String VERSION;
+	private String version;
 	private long ts_ms;
-	private final String owner;
-	private final String table;
+	private String owner;
+	private String table;
 	private BigInteger scn;
 
+	public Source() {
+		dbId = DBID;
+		databaseName = DATABASE_NAME;
+		platformName = PLATFORM_NAME;
+		instanceNumber = INSTANCE_NUMBER;
+		instanceName = INSTANCE_NAME;
+		hostName = HOST_NAME;
+		version = VERSION;
+	}
+
 	public Source(final String owner, final String table) {
+		this();
 		this.owner = owner;
 		this.table = table;
 	}
@@ -132,37 +150,57 @@ public class Source implements Serializable {
 	}
 
 	public BigInteger getDbid() {
-		return DBID;
+		return dbId;
+	}
+	public void setDbid(BigInteger dbId) {
+		this.dbId = dbId;
 	}
 
 	public String getDatabase_name() {
-		return DATABASE_NAME;
+		return databaseName;
+	}
+	public void setDatabase_name(String databaseName) {
+		this.databaseName = databaseName;
 	}
 
 	public String getPlatform_name() {
-		return PLATFORM_NAME;
+		return platformName;
+	}
+	public void setPlatform_name(String platformName) {
+		this.platformName = platformName;
 	}
 
 	public int getInstance_number() {
-		return INSTANCE_NUMBER;
+		return instanceNumber;
+	}
+	public void setInstance_number(int instanceNumber) {
+		this.instanceNumber = instanceNumber;
 	}
 
 	public String getInstance_name() {
-		return INSTANCE_NAME;
+		return instanceName;
+	}
+	public void setInstance_name(String instanceName) {
+		this.instanceName = instanceName;
 	}
 
 	public String getHost_name() {
-		return HOST_NAME;
+		return hostName;
+	}
+	public void setHost_name(String hostName) {
+		this.hostName = hostName;
 	}
 
 	public String getVersion() {
-		return VERSION;
+		return version;
+	}
+	public void setVersion(String version) {
+		this.version = version;
 	}
 
 	public long getTs_ms() {
 		return ts_ms;
 	}
-
 	public void setTs_ms(long ts_ms) {
 		this.ts_ms = ts_ms;
 	}
@@ -170,15 +208,20 @@ public class Source implements Serializable {
 	public String getOwner() {
 		return owner;
 	}
+	public void setOwner(String owner) {
+		this.owner = owner;
+	}
 
 	public String getTable() {
 		return table;
+	}
+	public void setTable(String table) {
+		this.table = table;
 	}
 
 	public BigInteger getScn() {
 		return scn;
 	}
-
 	public void setScn(BigInteger scn) {
 		this.scn = scn;
 	}

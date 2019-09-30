@@ -22,9 +22,11 @@ public class Payload implements Serializable {
 
 	private Map<String, Object> before;
 	private Map<String, Object> after;
-	private final Source source;
-	private final String op;
+	private Source source;
+	private String op;
 	private long ts_ms;
+
+	public Payload() {}
 
 	public Payload(final Source source, final String op) {
 		this.source = source;
@@ -34,7 +36,6 @@ public class Payload implements Serializable {
 	public Map<String, Object> getBefore() {
 		return before;
 	}
-
 	public void setBefore(Map<String, Object> before) {
 		this.before = before;
 	}
@@ -42,7 +43,6 @@ public class Payload implements Serializable {
 	public Map<String, Object> getAfter() {
 		return after;
 	}
-
 	public void setAfter(Map<String, Object> after) {
 		this.after = after;
 	}
@@ -50,18 +50,22 @@ public class Payload implements Serializable {
 	public Source getSource() {
 		return source;
 	}
+	public void setSource(Source source) {
+		this.source = source;
+	}
 
 	public String getOp() {
 		return op;
+	}
+	public void setOp(String op) {
+		this.op = op;
 	}
 
 	public long getTs_ms() {
 		return ts_ms;
 	}
-
 	public void setTs_ms(long ts_ms) {
 		this.ts_ms = ts_ms;
 	}
 
-	
 }

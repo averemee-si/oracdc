@@ -24,8 +24,8 @@ public class AvroSchema implements Serializable {
 
 	private static final long serialVersionUID = 6661643576035090070L;
 
-	final private String type;
-	final private boolean optional;
+	private String type;
+	private boolean optional;
 	@JsonInclude(Include.NON_NULL)
 	private Integer version;
 	@JsonInclude(Include.NON_NULL)
@@ -35,7 +35,9 @@ public class AvroSchema implements Serializable {
 	@JsonInclude(Include.NON_NULL)
 	private List<AvroSchema> fields;
 
-	private AvroSchema(String type, boolean optional) {
+	public AvroSchema() {}
+
+	private AvroSchema(final String type, final boolean optional) {
 		this.type = type;
 		this.optional = optional;
 	}
@@ -133,15 +135,20 @@ public class AvroSchema implements Serializable {
 	public String getType() {
 		return type;
 	}
+	public void setType(String type) {
+		this.type = type;
+	}
 
 	public boolean isOptional() {
 		return optional;
+	}
+	public void setOptional(boolean optional) {
+		this.optional = optional;
 	}
 
 	public Integer getVersion() {
 		return version;
 	}
-
 	public void setVersion(Integer version) {
 		this.version = version;
 	}
@@ -149,7 +156,6 @@ public class AvroSchema implements Serializable {
 	public String getField() {
 		return field;
 	}
-
 	public void setField(String field) {
 		this.field = field;
 	}
@@ -157,7 +163,6 @@ public class AvroSchema implements Serializable {
 	public String getName() {
 		return name;
 	}
-
 	public void setName(String name) {
 		this.name = name;
 	}
@@ -165,5 +170,9 @@ public class AvroSchema implements Serializable {
 	public List<AvroSchema> getFields() {
 		return fields;
 	}
+	public void setFields(List<AvroSchema> fields) {
+		this.fields = fields;
+	}
+
 
 }
