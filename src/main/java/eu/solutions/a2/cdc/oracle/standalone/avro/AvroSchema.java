@@ -24,6 +24,19 @@ public class AvroSchema implements Serializable {
 
 	private static final long serialVersionUID = 6661643576035090070L;
 
+	public static final String TYPE_STRUCT = "struct";
+	public static final String TYPE_INT8 = "int8";
+	public static final String TYPE_INT16 = "int16";
+	public static final String TYPE_INT32 = "int32";
+	public static final String TYPE_INT64 = "int64";
+	public static final String TYPE_FLOAT32 = "float32";
+	public static final String TYPE_FLOAT64 = "float64";
+	public static final String TYPE_STRING = "string";
+	public static final String TYPE_BOOLEAN = "boolean";
+	public static final String TYPE_BYTES = "bytes";
+	public static final String TYPE_NAME_DATE = "org.apache.kafka.connect.data.Date";
+	public static final String TYPE_NAME_TIMESTAMP = "org.apache.kafka.connect.data.Timestamp";
+
 	private String type;
 	private boolean optional;
 	@JsonInclude(Include.NON_NULL)
@@ -43,87 +56,87 @@ public class AvroSchema implements Serializable {
 	}
 
 	public static AvroSchema STRUCT_MANDATORY() {
-		return new AvroSchema("struct", false);
+		return new AvroSchema(TYPE_STRUCT, false);
 	}
 	public static AvroSchema INT8_MANDATORY() {
-		return new AvroSchema("int8", false);
+		return new AvroSchema(TYPE_INT8, false);
 	}
 	public static AvroSchema INT16_MANDATORY() {
-		return new AvroSchema("int16", false);
+		return new AvroSchema(TYPE_INT16, false);
 	}
 	public static AvroSchema INT32_MANDATORY() {
-		return new AvroSchema("int32", false);
+		return new AvroSchema(TYPE_INT32, false);
 	}
 	public static AvroSchema INT64_MANDATORY() {
-		return new AvroSchema("int64", false);
+		return new AvroSchema(TYPE_INT64, false);
 	}
 	public static AvroSchema FLOAT32_MANDATORY() {
-		return new AvroSchema("float32", false);
+		return new AvroSchema(TYPE_FLOAT32, false);
 	}
 	public static AvroSchema FLOAT64_MANDATORY() {
-		return new AvroSchema("float64", false);
+		return new AvroSchema(TYPE_FLOAT64, false);
 	}
 	public static AvroSchema STRING_MANDATORY() {
-		return new AvroSchema("string", false);
+		return new AvroSchema(TYPE_STRING, false);
 	}
 	public static AvroSchema BOOLEAN_MANDATORY() {
-		return new AvroSchema("boolean", false);
+		return new AvroSchema(TYPE_BOOLEAN, false);
 	}
 	public static AvroSchema BYTES_MANDATORY() {
-		return new AvroSchema("bytes", false);
+		return new AvroSchema(TYPE_BYTES, false);
 	}
 	public static AvroSchema DATE_MANDATORY() {
 		AvroSchema schema = INT32_MANDATORY();
-		schema.setName("org.apache.kafka.connect.data.Date");
+		schema.setName(TYPE_NAME_DATE);
 		schema.setVersion(1);
 		return schema;
 	}
 	public static AvroSchema TIMESTAMP_MANDATORY() {
 		AvroSchema schema = INT64_MANDATORY();
-		schema.setName("org.apache.kafka.connect.data.Timestamp");
+		schema.setName(TYPE_NAME_TIMESTAMP);
 		schema.setVersion(1);
 		return schema;
 	}
 
 	public static AvroSchema STRUCT_OPTIONAL() {
-		return new AvroSchema("struct", true);
+		return new AvroSchema(TYPE_STRUCT, true);
 	}
 	public static AvroSchema INT8_OPTIONAL() {
-		return new AvroSchema("int8", true);
+		return new AvroSchema(TYPE_INT8, true);
 	}
 	public static AvroSchema INT16_OPTIONAL() {
-		return new AvroSchema("int16", true);
+		return new AvroSchema(TYPE_INT16, true);
 	}
 	public static AvroSchema INT32_OPTIONAL() {
-		return new AvroSchema("int32", true);
+		return new AvroSchema(TYPE_INT32, true);
 	}
 	public static AvroSchema INT64_OPTIONAL() {
-		return new AvroSchema("int64", true);
+		return new AvroSchema(TYPE_INT64, true);
 	}
 	public static AvroSchema FLOAT32_OPTIONAL() {
-		return new AvroSchema("float32", true);
+		return new AvroSchema(TYPE_FLOAT32, true);
 	}
 	public static AvroSchema FLOAT64_OPTIONAL() {
-		return new AvroSchema("float64", true);
+		return new AvroSchema(TYPE_FLOAT64, true);
 	}
 	public static AvroSchema STRING_OPTIONAL() {
-		return new AvroSchema("string", true);
+		return new AvroSchema(TYPE_STRING, true);
 	}
 	public static AvroSchema BOOLEAN_OPTIONAL() {
-		return new AvroSchema("boolean", true);
+		return new AvroSchema(TYPE_BOOLEAN, true);
 	}
 	public static AvroSchema BYTES_OPTIONAL() {
-		return new AvroSchema("bytes", true);
+		return new AvroSchema(TYPE_BYTES, true);
 	}
 	public static AvroSchema DATE_OPTIONAL() {
 		AvroSchema schema = INT32_OPTIONAL();
-		schema.setName("org.apache.kafka.connect.data.Date");
+		schema.setName(TYPE_NAME_DATE);
 		schema.setVersion(1);
 		return schema;
 	}
 	public static AvroSchema TIMESTAMP_OPTIONAL() {
 		AvroSchema schema = INT64_OPTIONAL();
-		schema.setName("org.apache.kafka.connect.data.Timestamp");
+		schema.setName(TYPE_NAME_TIMESTAMP);
 		schema.setVersion(1);
 		return schema;
 	}
