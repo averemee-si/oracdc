@@ -163,7 +163,7 @@ public class OraCdcProducer {
 
 		// Initialize connection pool
 		try {
-			ConnectionFactory.init(jdbcUrl.trim(), username, password);
+			OraPoolConnectionFactory.init(jdbcUrl.trim(), username, password);
 		} catch (SQLException sqle) {
 			LOGGER.fatal("Unable to initialize database connection.");
 			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
@@ -185,7 +185,7 @@ public class OraCdcProducer {
 		sendMethod.parseSettings(props, argv[0], 1);
 
 		final List<OraTable> oraTables = new ArrayList<>();
-		try (Connection connection = ConnectionFactory.getConnection()) {
+		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			PreparedStatement statement = null;
 			String sqlStatement = null;
 
@@ -221,7 +221,7 @@ public class OraCdcProducer {
 			}
 			CommonJobSingleton.getInstance().setTableCount(tableCount);
 			// Adjust pool size
-			ConnectionFactory.adjustPoolSize(tableCount + 4);
+			OraPoolConnectionFactory.adjustPoolSize(tableCount + 4);
 
 			// Read database information
 			Source.init();

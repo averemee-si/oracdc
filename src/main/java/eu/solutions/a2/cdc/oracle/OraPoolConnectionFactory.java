@@ -19,7 +19,7 @@ import java.sql.SQLException;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
 
-public class ConnectionFactory {
+public class OraPoolConnectionFactory {
 
 	private static final int INITIAL_SIZE = 4;
 

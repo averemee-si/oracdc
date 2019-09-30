@@ -20,7 +20,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import eu.solutions.a2.cdc.oracle.ConnectionFactory;
+import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 
 public class Source implements Serializable {
 
@@ -62,7 +62,7 @@ public class Source implements Serializable {
 	}
 
 	public static void init() throws SQLException {
-		Connection connection = ConnectionFactory.getConnection();
+		Connection connection = OraPoolConnectionFactory.getConnection();
 		PreparedStatement statement = null;
 		ResultSet resultSet = null;
 
