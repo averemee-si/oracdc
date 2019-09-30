@@ -41,6 +41,12 @@
 			<artifactId>amazon-kinesis-producer</artifactId>
 			<version>0.13.1</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.zaxxer/HikariCP/3.4.1 -->
+		<dependency>
+			<groupId>com.zaxxer</groupId>
+			<artifactId>HikariCP</artifactId>
+			<version>3.4.1</version>
+		</dependency>
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
