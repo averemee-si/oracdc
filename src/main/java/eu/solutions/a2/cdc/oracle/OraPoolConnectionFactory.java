@@ -13,42 +13,59 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import oracle.ucp.jdbc.PoolDataSource;
-import oracle.ucp.jdbc.PoolDataSourceFactory;
+import javax.sql.DataSource;
 
 public class OraPoolConnectionFactory {
 
 	private static final int INITIAL_SIZE = 4;
 
-	private static PoolDataSource pds = null;
+	private static DataSource pds = null;
 
-	public static final void init(String url, String user, String password) throws SQLException {
-		pds = PoolDataSourceFactory.getPoolDataSource();
-		pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
-		pds.setConnectionPoolName("oracdc-kafka");
-		pds.setURL(url);
-		pds.setUser(user);
-		pds.setPassword(password);
-		pds.setInitialPoolSize(INITIAL_SIZE);
+	public static final void init(String url, String user, String password) throws
+									SQLException,
+									ClassNotFoundException,
+									NoSuchMethodException,
+									SecurityException,
+									IllegalAccessException,
+									IllegalArgumentException,
+									InvocationTargetException {
+		final Class<?> klazzFactory = Class.forName("oracle.ucp.jdbc.PoolDataSourceFactory");
+		// pds = PoolDataSourceFactory.getPoolDataSource();
+		final Method getPoolDataSource = klazzFactory.getMethod("getPoolDataSource");
+		pds = (DataSource) getPoolDataSource.invoke(null);
+
+		final Class<?> klazzPds = Class.forName("oracle.ucp.jdbc.PoolDataSource");
+		// pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
+		final Method setConnectionFactoryClassName = klazzPds.getMethod(
+				"setConnectionFactoryClassName", String.class);
+		setConnectionFactoryClassName.invoke(pds, "oracle.jdbc.pool.OracleDataSource");
+		// pds.setConnectionPoolName("oracdc-ucp-pool-1");
+		final Method setConnectionPoolName = klazzPds.getMethod(
+				"setConnectionPoolName", String.class);
+		setConnectionPoolName.invoke(pds, "oracdc-ucp-pool-1");
+		// pds.setURL(url);
+		final Method setURL = klazzPds.getMethod("setURL", String.class);
+		setURL.invoke(pds, url);
+		// pds.setUser(user);
+		final Method setUser = klazzPds.getMethod("setUser", String.class);
+		setUser.invoke(pds, user);
+		// pds.setPassword(password);
+		final Method setPassword = klazzPds.getMethod("setPassword", String.class);
+		setPassword.invoke(pds, password);
+		// pds.setInitialPoolSize(INITIAL_SIZE)
+		final Method setInitialPoolSize = klazzPds.getMethod("setInitialPoolSize", int.class);
+		setInitialPoolSize.invoke(pds, INITIAL_SIZE);
 	}
 
 	public static Connection getConnection() throws SQLException {
 		Connection connection = pds.getConnection();
 		connection.setAutoCommit(false);
 		return connection;
-	}
-
-	public static void adjustPoolSize(final int minSize) throws SQLException {
-		if (minSize < INITIAL_SIZE) {
-			pds.setMaxPoolSize(INITIAL_SIZE);
-			pds.setMinPoolSize(INITIAL_SIZE);
-		} else {
-			pds.setMaxPoolSize(minSize);
-			pds.setMinPoolSize(minSize);
-		}
 	}
 
 }

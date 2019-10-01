@@ -15,6 +15,7 @@ package eu.solutions.a2.cdc.oracle;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -164,9 +165,9 @@ public class OraCdcProducer {
 		// Initialize connection pool
 		try {
 			OraPoolConnectionFactory.init(jdbcUrl.trim(), username, password);
-		} catch (SQLException sqle) {
+		} catch (SQLException | ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException pe) {
 			LOGGER.fatal("Unable to initialize database connection.");
-			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(pe));
 			LOGGER.fatal("Exiting!");
 			System.exit(1);
 		}
@@ -220,8 +221,7 @@ public class OraCdcProducer {
 				System.exit(1);
 			}
 			CommonJobSingleton.getInstance().setTableCount(tableCount);
-			// Adjust pool size
-			OraPoolConnectionFactory.adjustPoolSize(tableCount + 4);
+			//TODO Adjust pool size/or max processing threads?
 
 			// Read database information
 			Source.init();
