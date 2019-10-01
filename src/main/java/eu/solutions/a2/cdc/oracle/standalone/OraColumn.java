@@ -13,9 +13,12 @@
 
 package eu.solutions.a2.cdc.oracle.standalone;
 
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.Map;
 
 import eu.solutions.a2.cdc.oracle.standalone.avro.AvroSchema;
 
@@ -23,12 +26,17 @@ public class OraColumn {
 
 	private final String columnName;
 	private final boolean partOfPk;
-	private final String oraType;
 	private final int jdbcType;
 	private final boolean nullable;
 	private final AvroSchema avroSchema;
 	
-
+	/**
+	 * 
+	 * Construct column definition from Resultset (ORA2JSON)
+	 * 
+	 * @param resultSet
+	 * @throws SQLException
+	 */
 	public OraColumn(final ResultSet resultSet) throws SQLException {
 		this.columnName = resultSet.getString("COLUMN_NAME");
 		final String partOfPkString = resultSet.getString("PK");
@@ -37,8 +45,8 @@ public class OraColumn {
 		else
 			this.partOfPk = false;
 		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
-		this.oraType = resultSet.getString("DATA_TYPE");
-		switch (this.oraType) {
+		final String oraType = resultSet.getString("DATA_TYPE");
+		switch (oraType) {
 			case "DATE":
 				jdbcType = Types.DATE;
 				if (this.nullable)
@@ -166,6 +174,56 @@ public class OraColumn {
 		this.avroSchema.setField(columnName);
 	}
 
+	/**
+	 * 
+	 * @param avroSchema
+	 * @param partOfPk
+	 */
+	public OraColumn(final AvroSchema avroSchema, final boolean partOfPk) {
+		this.avroSchema = avroSchema;
+		this.columnName = avroSchema.getField();
+		this.nullable = avroSchema.isOptional();
+		this.partOfPk = partOfPk;
+		switch (avroSchema.getType()) {
+		case AvroSchema.TYPE_INT8:
+			jdbcType = Types.TINYINT;
+			break;
+		case AvroSchema.TYPE_INT16:
+			jdbcType = Types.SMALLINT;
+			break;
+		case AvroSchema.TYPE_INT32:
+			if (avroSchema.getName() != null && AvroSchema.TYPE_NAME_DATE.equals(avroSchema.getName()))
+				jdbcType = Types.DATE;
+			else
+				jdbcType = Types.INTEGER;
+			break;
+		case AvroSchema.TYPE_INT64:
+			if (avroSchema.getName() != null && AvroSchema.TYPE_NAME_TIMESTAMP.equals(avroSchema.getName()))
+				jdbcType = Types.TIMESTAMP;
+			else
+				jdbcType = Types.BIGINT;
+			break;
+		case AvroSchema.TYPE_FLOAT32:
+			jdbcType = Types.FLOAT;
+			break;
+		case AvroSchema.TYPE_FLOAT64:
+			jdbcType = Types.DOUBLE;
+			break;
+		case AvroSchema.TYPE_STRING:
+			jdbcType = Types.VARCHAR;
+			break;
+		case AvroSchema.TYPE_BOOLEAN:
+			jdbcType = Types.BOOLEAN;
+			break;
+		case AvroSchema.TYPE_BYTES:
+			jdbcType = Types.BINARY;
+			break;
+		default:
+			jdbcType = Types.VARCHAR;
+			break;
+		}
+	}
+
 	public String getColumnName() {
 		return columnName;
 	}
@@ -184,6 +242,92 @@ public class OraColumn {
 
 	public AvroSchema getAvroSchema() {
 		return avroSchema;
+	}
+
+	/**
+	 * 
+	 * @param statement
+	 * @param columnNo
+	 * @param data
+	 * @throws SQLException
+	 */
+	public void bindWithPrepStmt(
+			final PreparedStatement statement,
+			final int columnNo,
+			final Map<String, Object> data) throws SQLException  {
+		final Object columnValue = data.get(columnName);
+		switch (jdbcType) {
+		case Types.DATE:
+			//TODO Timezone support!!!!
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.DATE);
+			else
+				statement.setDate(columnNo, new java.sql.Date((Long) data.get(columnName)));
+			break;
+		case Types.TIMESTAMP:
+			//TODO Timezone support!!!!
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.TIMESTAMP);
+			else
+				statement.setTimestamp(columnNo, new Timestamp((Long) data.get(columnName)));
+			break;
+		case Types.BOOLEAN:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.BOOLEAN);
+			else
+				statement.setBoolean(columnNo, (boolean) data.get(columnName));
+			break;
+		case Types.TINYINT:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.TINYINT);
+			else
+				statement.setByte(columnNo, ((Integer) data.get(columnName)).byteValue());
+			break;
+		case Types.SMALLINT:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.SMALLINT);
+			else
+				statement.setShort(columnNo, ((Integer) data.get(columnName)).shortValue());
+			break;
+		case Types.INTEGER:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.INTEGER);
+			else
+				statement.setInt(columnNo, (Integer) data.get(columnName));
+			break;
+		case Types.BIGINT:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.BIGINT);
+			else
+				statement.setLong(columnNo, (Long) data.get(columnName));
+			break;
+		case Types.FLOAT:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.FLOAT);
+			else
+				statement.setFloat(columnNo, (float) data.get(columnName));
+			break;
+		case Types.DOUBLE:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.DOUBLE);
+			else
+				statement.setDouble(columnNo, (double) data.get(columnName));
+			break;
+		case Types.BINARY:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.BINARY);
+			else
+				statement.setBytes(columnNo, (byte[]) data.get(columnName));
+			break;
+		case Types.VARCHAR:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.VARCHAR);
+			else
+				statement.setString(columnNo, (String) data.get(columnName));
+			break;
+		default:
+			throw new SQLException("Unsupported data type!!!");
+		}
 	}
 
 }
