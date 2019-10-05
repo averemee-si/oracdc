@@ -60,10 +60,6 @@ public class OraCdcProducer {
 	private static int targetSystem = TARGET_KAFKA;
 
 
-	public static final String MVIEW_LOG_WHERE = 
-			"where  L.ROWIDS='NO' and L.PRIMARY_KEY='YES' and L.OBJECT_ID='NO' and L.SEQUENCE='YES' and L.COMMIT_SCN_BASED='NO' and L.INCLUDE_NEW_VALUES='NO'\n";
-
-
 	public static void main(String[] argv) {
 		// Configure log4j
 		BasicConfigurator.configure();
