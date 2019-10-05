@@ -191,17 +191,9 @@ public class OraCdcProducer {
 			String sqlStatement = null;
 
 			// Count number of materialized view logs
-			/*
-				select count(*)
-				from   ALL_MVIEW_LOGS L
-				where  L.ROWIDS='NO' and L.PRIMARY_KEY='YES' and L.OBJECT_ID='NO'
-			 		and L.SEQUENCE='YES' and L.COMMIT_SCN_BASED='NO' and L.INCLUDE_NEW_VALUES='NO';
-			 */
 			int tableCount = 0;
-			sqlStatement =
-					"select count(*)\n" +
-					"from   ALL_MVIEW_LOGS L\n" +
-					MVIEW_LOG_WHERE;
+			sqlStatement = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI;
+;
 			if (excludeList != null) {
 				// Add excluded tables
 				sqlStatement += excludeList;
@@ -227,20 +219,7 @@ public class OraCdcProducer {
 			Source.init();
 
 			// Read table information
-			/*
-				select L.LOG_OWNER, L.MASTER, L.LOG_TABLE, C.CONSTRAINT_NAME
-				from   ALL_MVIEW_LOGS L, ALL_CONSTRAINTS C
-				where  L.ROWIDS='NO' and L.PRIMARY_KEY='YES' and L.OBJECT_ID='NO'
-					and L.SEQUENCE='YES' and L.COMMIT_SCN_BASED='NO' and L.INCLUDE_NEW_VALUES='NO'
-  					and  C.CONSTRAINT_TYPE='P' and C.STATUS='ENABLED'
-  					and  L.LOG_OWNER=C.OWNER and L.MASTER=C.TABLE_N	AME;
-			 */
-			sqlStatement = 	
-					"select L.LOG_OWNER, L.MASTER, L.LOG_TABLE, C.CONSTRAINT_NAME\n" +
-					"from   ALL_MVIEW_LOGS L, ALL_CONSTRAINTS C\n" +
-					MVIEW_LOG_WHERE +
-					"  and  C.CONSTRAINT_TYPE='P' and C.STATUS='ENABLED'\n" +
-					"  and  L.LOG_OWNER=C.OWNER and L.MASTER=C.TABLE_NAME"; 
+			sqlStatement = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI; 	
 			if (excludeList != null) {
 				// Add excluded tables
 				sqlStatement += excludeList;
@@ -248,7 +227,8 @@ public class OraCdcProducer {
 			statement = connection.prepareStatement(sqlStatement);
 			ResultSet rs = statement.executeQuery();
 			while (rs.next()) {
-				OraTable oraTable = new OraTable(rs, batchSize, sendMethod);
+				OraTable oraTable = new OraTable(rs.getString("LOG_OWNER"), rs.getString("MASTER"),
+						rs.getString("LOG_TABLE"), batchSize, sendMethod);
 				oraTables.add(oraTable);
 				LOGGER.info("Adding " + oraTable);
 			}

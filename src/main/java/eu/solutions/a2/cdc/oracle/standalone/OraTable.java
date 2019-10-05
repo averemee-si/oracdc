@@ -42,6 +42,7 @@ import java.util.Map.Entry;
 import org.apache.log4j.Logger;
 
 import eu.solutions.a2.cdc.oracle.HikariPoolConnectionFactory;
+import eu.solutions.a2.cdc.oracle.OraDictSqlTexts;
 import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import eu.solutions.a2.cdc.oracle.standalone.avro.AvroSchema;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
@@ -107,118 +108,108 @@ public class OraTable implements Runnable {
 	private PreparedStatement sinkUpdate = null; 
 	private PreparedStatement sinkDelete = null; 
 
-	public OraTable(ResultSet resultSet, final int batchSize, final SendMethodIntf sendMethod) throws SQLException {
+	public OraTable(
+			final String tableOwner, final String masterTable, final String snapshotLog,
+			final int batchSize, final SendMethodIntf sendMethod) throws SQLException {
 		this.batchSize = batchSize;
 		this.sendMethod = sendMethod;
-		this.tableOwner = resultSet.getString("LOG_OWNER");
-
-		this.masterTable = resultSet.getString("MASTER");
-
-		this.snapshotLog = resultSet.getString("LOG_TABLE");
+		this.tableOwner = tableOwner;
+		this.masterTable = masterTable;
+		this.snapshotLog = snapshotLog;
 		final String snapshotFqn = "\"" + this.tableOwner + "\"" + ".\"" + this.snapshotLog + "\"";
 		this.snapshotLogDelSql = "delete from " + snapshotFqn + " where ROWID=?";
 
-		Connection connection = resultSet.getStatement().getConnection();
-		/*
-select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,
- (select 'Y' from ALL_IND_COLUMNS I
-  where I.TABLE_OWNER=C.OWNER and I.TABLE_NAME=C.TABLE_NAME and I.INDEX_NAME='PK_DEPT' and C.COLUMN_NAME=I.COLUMN_NAME) PK
-from   ALL_TAB_COLUMNS C
-where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
-  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB') or C.DATA_TYPE like 'TIMESTAMP%');
-		 */
-		PreparedStatement statement = connection.prepareStatement(
-				"select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,\n" +
-				"(select 'Y' from ALL_IND_COLUMNS I\n" +
-				"  where I.TABLE_OWNER=C.OWNER and I.TABLE_NAME=C.TABLE_NAME and I.INDEX_NAME=? and C.COLUMN_NAME=I.COLUMN_NAME) PK\n" +
-				"from   ALL_TAB_COLUMNS C\n" +
-				"where  C.OWNER=? and C.TABLE_NAME=?\n" +
-				"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB') or C.DATA_TYPE like 'TIMESTAMP%')");
-		statement.setString(1, resultSet.getString("CONSTRAINT_NAME"));
-		statement.setString(2, this.tableOwner);
-		statement.setString(3, this.masterTable);
-		ResultSet rsColumns = statement.executeQuery();
-		StringBuilder masterSelect = new StringBuilder(512);
-		boolean masterFirstColumn = true;
-		masterSelect.append("select ");
-		StringBuilder masterWhere = new StringBuilder(128);
-		StringBuilder mViewSelect = new StringBuilder(128);
-		boolean mViewFirstColumn = true;
-		mViewSelect.append("select ");
-		// Schema
-		final String tableNameWithOwner = this.tableOwner + "." + this.masterTable;
-		final AvroSchema schemaBefore = AvroSchema.STRUCT_OPTIONAL();
-		schemaBefore.setName(tableNameWithOwner + ".PK");
-		schemaBefore.setField("before");
-		schemaBefore.initFields();
-		final AvroSchema schemaAfter = AvroSchema.STRUCT_OPTIONAL();
-		schemaAfter.setName(tableNameWithOwner + ".Data");
-		schemaAfter.setField("after");
-		schemaAfter.initFields();
+		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+			PreparedStatement statement = connection.prepareStatement(OraDictSqlTexts.COLUMN_LIST);
+			statement.setString(1, this.snapshotLog);
+			statement.setString(2, this.tableOwner);
+			statement.setString(3, this.masterTable);
+			ResultSet rsColumns = statement.executeQuery();
+			StringBuilder masterSelect = new StringBuilder(512);
+			boolean masterFirstColumn = true;
+			masterSelect.append("select ");
+			StringBuilder masterWhere = new StringBuilder(128);
+			StringBuilder mViewSelect = new StringBuilder(128);
+			boolean mViewFirstColumn = true;
+			mViewSelect.append("select ");
+			// Schema
+			final String tableNameWithOwner = this.tableOwner + "." + this.masterTable;
+			final AvroSchema schemaBefore = AvroSchema.STRUCT_OPTIONAL();
+			schemaBefore.setName(tableNameWithOwner + ".PK");
+			schemaBefore.setField("before");
+			schemaBefore.initFields();
+			final AvroSchema schemaAfter = AvroSchema.STRUCT_OPTIONAL();
+			schemaAfter.setName(tableNameWithOwner + ".Data");
+			schemaAfter.setField("after");
+			schemaAfter.initFields();
 
-		while (rsColumns .next()) {
-			OraColumn column = new OraColumn(rsColumns);
-			allColumns.add(column);
-			schemaAfter.getFields().add(column.getAvroSchema());
+			while (rsColumns .next()) {
+				OraColumn column = new OraColumn(rsColumns);
+				allColumns.add(column);
+				schemaAfter.getFields().add(column.getAvroSchema());
 
-			if (masterFirstColumn) {
-				masterFirstColumn = false;
-			} else {
-				masterSelect.append(", ");
-			}
-			masterSelect.append("\"");
-			masterSelect.append(column.getColumnName());
-			masterSelect.append("\"");
-
-			if (column.isPartOfPk()) {
-				pkColumns.put(column.getColumnName(), column);
-				schemaBefore.getFields().add(column.getAvroSchema());
-				if (mViewFirstColumn) {
-					mViewFirstColumn = false;
+				if (masterFirstColumn) {
+					masterFirstColumn = false;
 				} else {
-					mViewSelect.append(", ");
-					masterWhere.append(" and ");
+					masterSelect.append(", ");
 				}
-				mViewSelect.append("\"");
-				mViewSelect.append(column.getColumnName());
-				mViewSelect.append("\"");
-				masterWhere.append("\"");
-				masterWhere.append(column.getColumnName());
-				masterWhere.append("\"=?");
+				masterSelect.append("\"");
+				masterSelect.append(column.getColumnName());
+				masterSelect.append("\"");
+
+				if (column.isPartOfPk()) {
+					pkColumns.put(column.getColumnName(), column);
+					schemaBefore.getFields().add(column.getAvroSchema());
+					if (mViewFirstColumn) {
+						mViewFirstColumn = false;
+					} else {
+						mViewSelect.append(", ");
+						masterWhere.append(" and ");
+					}
+					mViewSelect.append("\"");
+					mViewSelect.append(column.getColumnName());
+					mViewSelect.append("\"");
+					masterWhere.append("\"");
+					masterWhere.append(column.getColumnName());
+					masterWhere.append("\"=?");
+				}
 			}
-		}
-		rsColumns.close();
-		rsColumns = null;
-		statement.close();
-		statement = null;
-		// Schema
-		final AvroSchema op = AvroSchema.STRING_MANDATORY();
-		op.setField("op");
-		final AvroSchema ts_ms = AvroSchema.INT64_MANDATORY();
-		ts_ms.setField("ts_ms");
-		schema = AvroSchema.STRUCT_MANDATORY();
-		schema.setName(tableNameWithOwner + ".Envelope");
-		schema.initFields();
-		schema.getFields().add(schemaBefore);
-		schema.getFields().add(schemaAfter);
-		schema.getFields().add(Source.schema());
-		schema.getFields().add(op);
-		schema.getFields().add(ts_ms);
+			rsColumns.close();
+			rsColumns = null;
+			statement.close();
+			statement = null;
+			// Schema
+			final AvroSchema op = AvroSchema.STRING_MANDATORY();
+			op.setField("op");
+			final AvroSchema ts_ms = AvroSchema.INT64_MANDATORY();
+			ts_ms.setField("ts_ms");
+			schema = AvroSchema.STRUCT_MANDATORY();
+			schema.setName(tableNameWithOwner + ".Envelope");
+			schema.initFields();
+			schema.getFields().add(schemaBefore);
+			schema.getFields().add(schemaAfter);
+			schema.getFields().add(Source.schema());
+			schema.getFields().add(op);
+			schema.getFields().add(ts_ms);
 
-		masterSelect.append(", ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$ from ");
-		masterSelect.append("\"");
-		masterSelect.append(this.tableOwner);
-		masterSelect.append("\".\"");
-		masterSelect.append(this.masterTable);
-		masterSelect.append("\" where ");
-		masterSelect.append(masterWhere);
+			masterSelect.append(", ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$ from ");
+			masterSelect.append("\"");
+			masterSelect.append(this.tableOwner);
+			masterSelect.append("\".\"");
+			masterSelect.append(this.masterTable);
+			masterSelect.append("\" where ");
+			masterSelect.append(masterWhere);
 		
-		this.masterTableSelSql = masterSelect.toString();
+			this.masterTableSelSql = masterSelect.toString();
 
-		mViewSelect.append(", SEQUENCE$$, case DMLTYPE$$ when 'I' then 'c' when 'U' then 'u' else 'd' end as OPTYPE$$, ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$, ROWID from ");
-		mViewSelect.append(snapshotFqn);
-		mViewSelect.append(" order by SEQUENCE$$");
-		this.snapshotLogSelSql = mViewSelect.toString();
+			mViewSelect.append(", SEQUENCE$$, case DMLTYPE$$ when 'I' then 'c' when 'U' then 'u' else 'd' end as OPTYPE$$, ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$, ROWID from ");
+			mViewSelect.append(snapshotFqn);
+			mViewSelect.append(" order by SEQUENCE$$");
+			this.snapshotLogSelSql = mViewSelect.toString();
+		} catch (SQLException sqle) {
+			LOGGER.fatal("Unable to get table information.");
+			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
+		}
 	}
 
 	public OraTable(final Source source, final AvroSchema tableSchema, boolean autoCreateTable) {
