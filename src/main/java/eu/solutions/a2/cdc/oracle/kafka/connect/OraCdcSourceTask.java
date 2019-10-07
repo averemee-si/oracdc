@@ -13,6 +13,8 @@
 
 package eu.solutions.a2.cdc.oracle.kafka.connect;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
@@ -20,11 +22,19 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.apache.log4j.Logger;
 
+import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
+import eu.solutions.a2.cdc.oracle.OraTable;
+import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
 public class OraCdcSourceTask extends SourceTask {
 
 	private static final Logger LOGGER = Logger.getLogger(OraCdcSourceTask.class);
+
+	private OraTable oraTable;
+	private int batchSize;
+	private int pollInterval;
+	private int schemaType;
 
 	@Override
 	public String version() {
@@ -33,21 +43,48 @@ public class OraCdcSourceTask extends SourceTask {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc Source Task");
-		// TODO Auto-generated method stub
-		
+		LOGGER.info("Starting oracdc Source Task for " + props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
+
+		batchSize = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM));
+		pollInterval = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.POLL_INTERVAL_MS_PARAM));
+		schemaType = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_SCHEMA_TYPE));
+
+		try {
+			oraTable = new OraTable(
+					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER),
+					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER),
+					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_LOG),
+					batchSize,
+					schemaType);
+			//TODO - topic per table ???
+			oraTable.setKafkaConnectTopic(props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
+		} catch (SQLException sqle) {
+			LOGGER.fatal("Unable to get table information.");
+			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
+		}
 	}
 
 	@Override
 	public List<SourceRecord> poll() throws InterruptedException {
-		// TODO Auto-generated method stub
+		synchronized (this) {
+			this.wait(pollInterval);
+		}
+		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+			final List<SourceRecord> result = oraTable.poll(connection);
+			this.commit();
+			connection.commit();
+			return result;
+		} catch (SQLException sqle) {
+			LOGGER.fatal("Unable to poll data from Oracle RDBMS.");
+			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
+		}
 		return null;
 	}
 
 	@Override
 	public void stop() {
 		// TODO Auto-generated method stub
-		
+
 	}
 
 }

@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.standalone;
+package eu.solutions.a2.cdc.oracle;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -39,11 +39,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.log4j.Logger;
 
-import eu.solutions.a2.cdc.oracle.HikariPoolConnectionFactory;
-import eu.solutions.a2.cdc.oracle.OraDictSqlTexts;
-import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+
+import eu.solutions.a2.cdc.oracle.standalone.SendMethodIntf;
 import eu.solutions.a2.cdc.oracle.standalone.avro.AvroSchema;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Payload;
@@ -86,6 +90,15 @@ public class OraTable implements Runnable {
 			}});
 	private static Map<Integer, String> dataTypes = null;
 
+	private static final ObjectWriter writer = new ObjectMapper()
+//			.enable(SerializationFeature.INDENT_OUTPUT)
+			.writer();
+
+	public static final int SCHEMA_TYPE_STANDALONE = 1;
+	public static final int SCHEMA_TYPE_CONFLUENT_JDBC = 2;
+
+
+
 	private int batchSize;
 	private SendMethodIntf sendMethod;
 	private final String tableOwner;
@@ -101,18 +114,19 @@ public class OraTable implements Runnable {
 	private final SimpleDateFormat iso8601TimestampFmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
 	private boolean ready4Ops = false;
 
-	private String sinkInsertSql = null; 
-	private String sinkUpdateSql = null; 
-	private String sinkDeleteSql = null; 
-	private PreparedStatement sinkInsert = null; 
-	private PreparedStatement sinkUpdate = null; 
-	private PreparedStatement sinkDelete = null; 
+	private String sinkInsertSql = null;
+	private String sinkUpdateSql = null;
+	private String sinkDeleteSql = null;
+	private PreparedStatement sinkInsert = null;
+	private PreparedStatement sinkUpdate = null;
+	private PreparedStatement sinkDelete = null;
+	// Only for Kafka connect mode
+	private String kafkaConnectTopic = null;
 
 	public OraTable(
 			final String tableOwner, final String masterTable, final String snapshotLog,
-			final int batchSize, final SendMethodIntf sendMethod) throws SQLException {
+			final int batchSize, final int schemaType) throws SQLException {
 		this.batchSize = batchSize;
-		this.sendMethod = sendMethod;
 		this.tableOwner = tableOwner;
 		this.masterTable = masterTable;
 		this.snapshotLog = snapshotLog;
@@ -132,21 +146,31 @@ public class OraTable implements Runnable {
 			StringBuilder mViewSelect = new StringBuilder(128);
 			boolean mViewFirstColumn = true;
 			mViewSelect.append("select ");
-			// Schema
 			final String tableNameWithOwner = this.tableOwner + "." + this.masterTable;
-			final AvroSchema schemaBefore = AvroSchema.STRUCT_OPTIONAL();
-			schemaBefore.setName(tableNameWithOwner + ".PK");
-			schemaBefore.setField("before");
-			schemaBefore.initFields();
-			final AvroSchema schemaAfter = AvroSchema.STRUCT_OPTIONAL();
-			schemaAfter.setName(tableNameWithOwner + ".Data");
-			schemaAfter.setField("after");
-			schemaAfter.initFields();
+			// Schema
+			AvroSchema schemaBefore = null;
+			AvroSchema schemaAfter = null;
+			if (schemaType == SCHEMA_TYPE_STANDALONE) {
+				schemaBefore = AvroSchema.STRUCT_OPTIONAL();
+				schemaBefore.setName(tableNameWithOwner + ".PK");
+				schemaBefore.setField("before");
+				schemaBefore.initFields();
+				schemaAfter = AvroSchema.STRUCT_OPTIONAL();
+				schemaAfter.setName(tableNameWithOwner + ".Data");
+				schemaAfter.setField("after");
+				schemaAfter.initFields();
+			} else if (schemaType == SCHEMA_TYPE_CONFLUENT_JDBC) {
+				//TODO
+			}
 
 			while (rsColumns .next()) {
 				OraColumn column = new OraColumn(rsColumns);
 				allColumns.add(column);
-				schemaAfter.getFields().add(column.getAvroSchema());
+				if (schemaType == SCHEMA_TYPE_STANDALONE) {
+					schemaAfter.getFields().add(column.getAvroSchema());
+				} else if (schemaType == SCHEMA_TYPE_CONFLUENT_JDBC) {
+					//TODO
+				}
 
 				if (masterFirstColumn) {
 					masterFirstColumn = false;
@@ -159,7 +183,11 @@ public class OraTable implements Runnable {
 
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
-					schemaBefore.getFields().add(column.getAvroSchema());
+					if (schemaType == SCHEMA_TYPE_STANDALONE) {
+						schemaBefore.getFields().add(column.getAvroSchema());
+					} else if (schemaType == SCHEMA_TYPE_CONFLUENT_JDBC) {
+						//TODO
+					}
 					if (mViewFirstColumn) {
 						mViewFirstColumn = false;
 					} else {
@@ -179,18 +207,22 @@ public class OraTable implements Runnable {
 			statement.close();
 			statement = null;
 			// Schema
-			final AvroSchema op = AvroSchema.STRING_MANDATORY();
-			op.setField("op");
-			final AvroSchema ts_ms = AvroSchema.INT64_MANDATORY();
-			ts_ms.setField("ts_ms");
-			schema = AvroSchema.STRUCT_MANDATORY();
-			schema.setName(tableNameWithOwner + ".Envelope");
-			schema.initFields();
-			schema.getFields().add(schemaBefore);
-			schema.getFields().add(schemaAfter);
-			schema.getFields().add(Source.schema());
-			schema.getFields().add(op);
-			schema.getFields().add(ts_ms);
+			if (schemaType == SCHEMA_TYPE_STANDALONE) {
+				final AvroSchema op = AvroSchema.STRING_MANDATORY();
+				op.setField("op");
+				final AvroSchema ts_ms = AvroSchema.INT64_MANDATORY();
+				ts_ms.setField("ts_ms");
+				schema = AvroSchema.STRUCT_MANDATORY();
+				schema.setName(tableNameWithOwner + ".Envelope");
+				schema.initFields();
+				schema.getFields().add(schemaBefore);
+				schema.getFields().add(schemaAfter);
+				schema.getFields().add(Source.schema());
+				schema.getFields().add(op);
+				schema.getFields().add(ts_ms);
+			} else if (schemaType == SCHEMA_TYPE_CONFLUENT_JDBC) {
+				//TODO
+			}
 
 			masterSelect.append(", ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$ from ");
 			masterSelect.append("\"");
@@ -210,6 +242,24 @@ public class OraTable implements Runnable {
 			LOGGER.fatal("Unable to get table information.");
 			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
+	}
+
+	/**
+	 * 
+	 * This constructor is used only for standalone Kafka/Kinesis producer mode
+	 * 
+	 * @param tableOwner
+	 * @param masterTable
+	 * @param snapshotLog
+	 * @param batchSize
+	 * @param sendMethod
+	 * @throws SQLException
+	 */
+	public OraTable(
+			final String tableOwner, final String masterTable, final String snapshotLog,
+			final int batchSize, final SendMethodIntf sendMethod) throws SQLException {
+		this(tableOwner, masterTable, snapshotLog, batchSize, SCHEMA_TYPE_STANDALONE);
+		this.sendMethod = sendMethod;
 	}
 
 	public OraTable(final Source source, final AvroSchema tableSchema, boolean autoCreateTable) {
@@ -374,86 +424,122 @@ public class OraTable implements Runnable {
 		return sbCreateTable.toString();
 	}
 
+	/**
+	 * Standalone mode run
+	 * 
+	 */
 	public void run() {
 		// Poll data (standalone mode)
-		try (Connection connection = OraPoolConnectionFactory.getConnection();
-				PreparedStatement stmtLog = connection.prepareStatement(snapshotLogSelSql);
-				PreparedStatement stmtMaster = connection.prepareStatement(masterTableSelSql);
-				PreparedStatement stmtDeleteLog = connection.prepareStatement(snapshotLogDelSql)) {
-			final List<RowId> logRows2Delete = new ArrayList<>();
-			//TODO - SEQUENCE$$ for start!!!
-			// Read materialized view log and get PK values
-			ResultSet rsLog = stmtLog.executeQuery();
-			int recordCount = 0;
-			while (rsLog.next() && recordCount < batchSize) {
-				recordCount++;
-				final String opType = rsLog.getString("OPTYPE$$");
-				final Map<String, Object> columnValues = new LinkedHashMap<>();
-				final boolean deleteOp = "d".equals(opType);
-				// process primary key information from materialized view log
-				processPkColumns(deleteOp, rsLog, columnValues, stmtMaster);
-				// Add ROWID to list for delete after sending data to queue
-				logRows2Delete.add(rsLog.getRowId("ROWID"));
+		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+			poll(connection);
+			connection.commit();
+		} catch (SQLException e) {
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+		}
+	}
 
-				boolean success = true;
-				final Envelope envelope = new Envelope(
-						this.getSchema(),
-						new Payload(new Source(tableOwner, masterTable), opType));
+	public List<SourceRecord> poll(final Connection connection) throws SQLException {
+		final PreparedStatement stmtLog = connection.prepareStatement(snapshotLogSelSql);
+		final PreparedStatement stmtMaster = connection.prepareStatement(masterTableSelSql);
+		final PreparedStatement stmtDeleteLog = connection.prepareStatement(snapshotLogDelSql);
 
-				if (deleteOp) {
-					// For DELETE we have only "before" data
-					envelope.getPayload().setBefore(columnValues);
+		final List<RowId> logRows2Delete = new ArrayList<>();
+		final List<SourceRecord> result = new ArrayList<>();
+		//TODO - SEQUENCE$$ for start!!!
+		// Read materialized view log and get PK values
+		ResultSet rsLog = stmtLog.executeQuery();
+		int recordCount = 0;
+		while (rsLog.next() && recordCount < batchSize) {
+			recordCount++;
+			final String opType = rsLog.getString("OPTYPE$$");
+			final Map<String, Object> columnValues = new LinkedHashMap<>();
+			final boolean deleteOp = "d".equals(opType);
+			// process primary key information from materialized view log
+			processPkColumns(deleteOp, rsLog, columnValues, stmtMaster);
+			// Add ROWID to list for delete after sending data to queue
+			logRows2Delete.add(rsLog.getRowId("ROWID"));
+
+			boolean success = true;
+
+			//TODO - different schema type
+			final Envelope envelope = new Envelope(
+					this.getSchema(),
+					new Payload(new Source(tableOwner, masterTable), opType));
+
+			if (deleteOp) {
+				// For DELETE we have only "before" data
+				envelope.getPayload().setBefore(columnValues);
+				// For delete we need to get TS & SCN from snapshot log
+				envelope.getPayload().getSource().setTs_ms(
+						rsLog.getTimestamp("TIMESTAMP$$").getTime());
+				envelope.getPayload().getSource().setScn(
+						rsLog.getBigDecimal("ORA_ROWSCN").toBigInteger());					
+			} else {
+				// Get data from master table
+				ResultSet rsMaster = stmtMaster.executeQuery();
+				// We're working with PK
+				if (rsMaster.next()) {
+					processAllColumns(rsMaster, columnValues);
+					// For INSERT/UPDATE  we have only "after" data 
+					envelope.getPayload().setAfter(columnValues);
 					// For delete we need to get TS & SCN from snapshot log
 					envelope.getPayload().getSource().setTs_ms(
-							rsLog.getTimestamp("TIMESTAMP$$").getTime());
+							rsMaster.getTimestamp("TIMESTAMP$$").getTime());
 					envelope.getPayload().getSource().setScn(
-							rsLog.getBigDecimal("ORA_ROWSCN").toBigInteger());					
+							rsMaster.getBigDecimal("ORA_ROWSCN").toBigInteger());					
 				} else {
-					// Get data from master table
-					ResultSet rsMaster = stmtMaster.executeQuery();
-					// We're working with PK
-					if (rsMaster.next()) {
-						processAllColumns(rsMaster, columnValues);
-						// For INSERT/UPDATE  we have only "after" data 
-						envelope.getPayload().setAfter(columnValues);
-						// For delete we need to get TS & SCN from snapshot log
-						envelope.getPayload().getSource().setTs_ms(
-								rsMaster.getTimestamp("TIMESTAMP$$").getTime());
-						envelope.getPayload().getSource().setScn(
-								rsMaster.getBigDecimal("ORA_ROWSCN").toBigInteger());					
-					} else {
-						success = false;
-						LOGGER.error("Primary key = " + nonExistentPk(rsLog) + " not found in " + tableOwner + "." + masterTable);
-						LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
-					}
-					// Close unneeded ResultSet
-					rsMaster.close();
-					rsMaster = null;
+					success = false;
+					LOGGER.error("Primary key = " + nonExistentPk(rsLog) + " not found in " + tableOwner + "." + masterTable);
+					LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
 				}
-				// Ready to process message
-				if (success) {
+				// Close unneeded ResultSet
+				rsMaster.close();
+				rsMaster = null;
+			}
+			// Ready to process message
+			if (success) {
+				if (sendMethod != null) {
+					//TODO
+					//TODO - batch!!!!
+					//TODO
+					// We're in standalone mode
 					final StringBuilder messageKey = new StringBuilder(64);
 					messageKey.append(tableOwner);
 					messageKey.append(".");
 					messageKey.append(masterTable);
 					messageKey.append("-");
 					messageKey.append(rsLog.getLong("SEQUENCE$$"));
-					sendMethod.sendData(messageKey.toString(), envelope);
+						sendMethod.sendData(messageKey.toString(), envelope);
+				} else {
+					// Pure Kafka connect
+					try {
+						envelope.getPayload().setTs_ms(System.currentTimeMillis());
+						final SourceRecord sourceRecord = new SourceRecord(null, null,
+								kafkaConnectTopic,
+								Schema.STRING_SCHEMA,
+								writer.writeValueAsString(envelope));
+						result.add(sourceRecord);
+					} catch (JsonProcessingException jpe) {
+						LOGGER.error(ExceptionUtils.getExceptionStackTrace(jpe));
+					}
 				}
 			}
-			rsLog.close();
-			rsLog = null;
-			// Perform deletion
-			//TODO - success check of send!!!
-			for (RowId rowId : logRows2Delete) {
-				stmtDeleteLog.setRowId(1, rowId);
-				stmtDeleteLog.executeUpdate();
-			}
-			connection.commit();
-		} catch (SQLException e) {
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+		}
+		rsLog.close();
+		rsLog = null;
+		// Perform deletion
+		//TODO - success check of send (standalone mode)!!!
+		for (RowId rowId : logRows2Delete) {
+			stmtDeleteLog.setRowId(1, rowId);
+			stmtDeleteLog.executeUpdate();
+		}
+		if (sendMethod != null) {
+			return null;
+		} else {
+			return result;
 		}
 	}
+
 
 	public AvroSchema getSchema() {
 		return schema;
@@ -461,6 +547,10 @@ public class OraTable implements Runnable {
 
 	public String getMasterTable() {
 		return masterTable;
+	}
+
+	public void setKafkaConnectTopic(String kafkaConnectTopic) {
+		this.kafkaConnectTopic = kafkaConnectTopic;
 	}
 
 	public void putData(Connection connection, Payload payload) throws SQLException {

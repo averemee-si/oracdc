@@ -31,7 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 
 import eu.solutions.a2.cdc.oracle.HikariPoolConnectionFactory;
-import eu.solutions.a2.cdc.oracle.standalone.OraTable;
+import eu.solutions.a2.cdc.oracle.OraTable;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
