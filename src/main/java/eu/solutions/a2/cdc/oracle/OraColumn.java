@@ -65,8 +65,17 @@ public class OraColumn {
 				final int dataPrecision = resultSet.getInt("DATA_PRECISION"); 
 				final int dataScale = resultSet.getInt("DATA_SCALE");
 				if (dataScale == 0) {
-					// Integer!!!
-					if (dataPrecision < 3) {
+					if (dataPrecision == 0) {
+						// Just NUMBER.....
+						// OEBS and other legacy systems specific
+						// Can be Integer o
+						jdbcType = Types.DOUBLE;
+						if (this.nullable)
+							this.avroSchema = AvroSchema.FLOAT64_OPTIONAL();
+						else
+							this.avroSchema = AvroSchema.FLOAT64_MANDATORY();
+					}
+					else if (dataPrecision < 3) {
 						jdbcType = Types.TINYINT;
 						if (this.nullable)
 							this.avroSchema = AvroSchema.INT8_OPTIONAL();
