@@ -79,7 +79,7 @@ Start **oracdc** with
 
 ```
 $KAFKA_HOME/bin/connect-standalone.sh \
-oracdc-source-connector.properties \
+oracdc-connect-standalone.properties \
 oracdc-source-connector.properties \
 oracdc-sink-connector.properties
 ```
