@@ -57,8 +57,6 @@ tasks.max=1
 # The topics to consume from - required for sink connectors like this one
 topics=oracdc-topic
 
-# Configuration specific to the JDBC sink connector.
-# We want to connect to a SQLite database stored in the file test.db and auto-create tables.
 a2.jdbc.url=jdbc:mysql://polyxena.a2-solutions.eu:3306/EBSDB
 a2.jdbc.username=apps
 a2.jdbc.password=apps
@@ -74,7 +72,7 @@ cp $ORACLE_HOME/ucp/lib/ucp.jar $KAFKA_CONNECT_PLUGIN_PATH
 ```
 or download drivers from [https://www.oracle.com/database/technologies/jdbc-ucp-122-downloads.html](https://www.oracle.com/database/technologies/jdbc-ucp-122-downloads.html)
 
-Also you need to copy required to _KAFKA_CONNECT_PLUGIN_PATH_ required target database JDBC drivers.
+Also you need to copy to _KAFKA_CONNECT_PLUGIN_PATH_ required target database JDBC drivers and HikariCP-3.4.1.jar.
 
 ### Starting
 Start **oracdc** with
