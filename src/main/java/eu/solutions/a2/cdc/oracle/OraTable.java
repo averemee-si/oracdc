@@ -26,6 +26,7 @@ import java.sql.ResultSet;
 import java.sql.RowId;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -340,7 +341,13 @@ public class OraTable implements Runnable {
 		// Check for table existence
 		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
 			DatabaseMetaData metaData = connection.getMetaData();
-			ResultSet resultSet = metaData.getTables(null, null, masterTable, null);
+			String tableName = masterTable;
+			if (HikariPoolConnectionFactory.getDbType() == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL) {
+				// PostgreSQL specific...
+				// Also look at https://stackoverflow.com/questions/43111996/why-postgresql-does-not-like-uppercase-table-names
+				tableName = tableName.toLowerCase();
+			}
+			ResultSet resultSet = metaData.getTables(null, null, tableName, null);
 			if (resultSet.next()) {
 				ready4Ops = true;
 			}
@@ -352,12 +359,16 @@ public class OraTable implements Runnable {
 		}
 		if (!ready4Ops && autoCreateTable) {
 			// Create table in target database
+			String createTableSqlText = createTableSql();
 			try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
 				Statement statement = connection.createStatement();
-				statement.executeUpdate(createTableSql());
+				statement.executeUpdate(createTableSqlText);
+				connection.commit();
 				ready4Ops = true;
 			} catch (SQLException sqle) {
 				ready4Ops = false;
+				LOGGER.error("Create table failed! Failed creation statement:");
+				LOGGER.error(createTableSqlText);
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 			}
 		}
@@ -420,7 +431,6 @@ public class OraTable implements Runnable {
 
 		sbCreateTable.append(sbPrimaryKey);
 		sbCreateTable.append("\n)");
-
 		return sbCreateTable.toString();
 	}
 
@@ -439,9 +449,9 @@ public class OraTable implements Runnable {
 	}
 
 	public List<SourceRecord> poll(final Connection connection) throws SQLException {
-		final PreparedStatement stmtLog = connection.prepareStatement(snapshotLogSelSql);
-		final PreparedStatement stmtMaster = connection.prepareStatement(masterTableSelSql);
-		final PreparedStatement stmtDeleteLog = connection.prepareStatement(snapshotLogDelSql);
+		PreparedStatement stmtLog = connection.prepareStatement(snapshotLogSelSql);
+		PreparedStatement stmtMaster = connection.prepareStatement(masterTableSelSql);
+		PreparedStatement stmtDeleteLog = connection.prepareStatement(snapshotLogDelSql);
 
 		final List<RowId> logRows2Delete = new ArrayList<>();
 		final List<SourceRecord> result = new ArrayList<>();
@@ -533,6 +543,11 @@ public class OraTable implements Runnable {
 			stmtDeleteLog.setRowId(1, rowId);
 			stmtDeleteLog.executeUpdate();
 		}
+
+		stmtLog.close(); stmtLog = null;
+		stmtMaster.close(); stmtMaster = null;
+		stmtDeleteLog.close(); stmtDeleteLog = null;
+
 		if (sendMethod != null) {
 			return null;
 		} else {
@@ -680,11 +695,11 @@ public class OraTable implements Runnable {
 				switch (oraColumn.getJdbcType()) {
 				case Types.DATE:
 					//TODO Timezone support!!!!
-					final long dateColumnValue = rsMaster.getDate(columnName).getTime();
+					Date dateColumnValue = rsMaster.getDate(columnName);
 					if (rsMaster.wasNull())
 						columnValues.put(columnName, null);
 					else
-						columnValues.put(columnName, dateColumnValue);
+						columnValues.put(columnName, dateColumnValue.getTime());
 					break;
 				case Types.TINYINT:
 					final byte byteColumnValue = rsMaster.getByte(columnName);
@@ -739,11 +754,11 @@ public class OraTable implements Runnable {
 					break;
 				case Types.TIMESTAMP:
 					//TODO Timezone support!!!!
-					final long tsColumnValue = rsMaster.getTimestamp(columnName).getTime();
+					Timestamp tsColumnValue = rsMaster.getTimestamp(columnName);
 					if (rsMaster.wasNull())
 						columnValues.put(columnName, null);
 					else
-						columnValues.put(columnName, tsColumnValue);
+						columnValues.put(columnName, tsColumnValue.getTime());
 					break;
 				case Types.FLOAT:
 					final float floatColumnValue = rsMaster.getFloat(columnName); 
