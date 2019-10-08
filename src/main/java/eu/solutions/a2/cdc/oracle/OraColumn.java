@@ -308,7 +308,11 @@ public class OraColumn {
 			if (columnValue == null)
 				statement.setNull(columnNo, Types.BIGINT);
 			else
-				statement.setLong(columnNo, (Long) data.get(columnName));
+				try {
+					statement.setLong(columnNo, (Long) data.get(columnName));
+				} catch (ClassCastException cce) {
+					statement.setLong(columnNo, (Integer) data.get(columnName));
+				}
 			break;
 		case Types.FLOAT:
 			if (columnValue == null)
