@@ -24,6 +24,7 @@ import org.apache.log4j.Logger;
 
 import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import eu.solutions.a2.cdc.oracle.OraTable;
+import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
@@ -34,7 +35,6 @@ public class OraCdcSourceTask extends SourceTask {
 	private OraTable oraTable;
 	private int batchSize;
 	private int pollInterval;
-	private int schemaType;
 
 	@Override
 	public String version() {
@@ -47,17 +47,20 @@ public class OraCdcSourceTask extends SourceTask {
 
 		batchSize = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM));
 		pollInterval = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.POLL_INTERVAL_MS_PARAM));
-		schemaType = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_SCHEMA_TYPE));
 
 		try {
 			oraTable = new OraTable(
 					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER),
 					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER),
 					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_LOG),
-					batchSize,
-					schemaType);
-			//TODO - topic per table ???
-			oraTable.setKafkaConnectTopic(props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
+					batchSize);
+			if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD)
+				oraTable.setKafkaConnectTopic(
+						props.get(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM) + 
+						props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
+			else
+				// Source.SCHEMA_TYPE_STANDALONE
+				oraTable.setKafkaConnectTopic(props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
 		} catch (SQLException sqle) {
 			LOGGER.fatal("Unable to get table information.");
 			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));

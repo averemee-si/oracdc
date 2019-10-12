@@ -211,7 +211,7 @@ public class OraCdcProducer {
 			//TODO Adjust pool size/or max processing threads?
 
 			// Read database information
-			Source.init();
+			Source.init(Source.SCHEMA_TYPE_STANDALONE);
 
 			// Read table information
 			sqlStatement = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI; 	

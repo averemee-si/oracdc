@@ -41,6 +41,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.log4j.Logger;
 
@@ -95,11 +97,6 @@ public class OraTable implements Runnable {
 //			.enable(SerializationFeature.INDENT_OUTPUT)
 			.writer();
 
-	public static final int SCHEMA_TYPE_STANDALONE = 1;
-	public static final int SCHEMA_TYPE_CONFLUENT_JDBC = 2;
-
-
-
 	private int batchSize;
 	private SendMethodIntf sendMethod;
 	private final String tableOwner;
@@ -111,6 +108,9 @@ public class OraTable implements Runnable {
 	private final List<OraColumn> allColumns = new ArrayList<>();
 	private final HashMap<String, OraColumn> pkColumns = new LinkedHashMap<>();
 	private AvroSchema schema;
+	private Schema keySchema;
+	private Schema valueSchema;
+
 	private final SimpleDateFormat iso8601DateFmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
 	private final SimpleDateFormat iso8601TimestampFmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
 	private boolean ready4Ops = false;
@@ -126,7 +126,7 @@ public class OraTable implements Runnable {
 
 	public OraTable(
 			final String tableOwner, final String masterTable, final String snapshotLog,
-			final int batchSize, final int schemaType) throws SQLException {
+			final int batchSize) throws SQLException {
 		this.batchSize = batchSize;
 		this.tableOwner = tableOwner;
 		this.masterTable = masterTable;
@@ -151,7 +151,9 @@ public class OraTable implements Runnable {
 			// Schema
 			AvroSchema schemaBefore = null;
 			AvroSchema schemaAfter = null;
-			if (schemaType == SCHEMA_TYPE_STANDALONE) {
+			SchemaBuilder keySchemaBuilder = null;
+			SchemaBuilder valueSchemaBuilder = null;
+			if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
 				schemaBefore = AvroSchema.STRUCT_OPTIONAL();
 				schemaBefore.setName(tableNameWithOwner + ".PK");
 				schemaBefore.setField("before");
@@ -160,18 +162,28 @@ public class OraTable implements Runnable {
 				schemaAfter.setName(tableNameWithOwner + ".Data");
 				schemaAfter.setField("after");
 				schemaAfter.initFields();
-			} else if (schemaType == SCHEMA_TYPE_CONFLUENT_JDBC) {
-				//TODO
+			} else if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
+				keySchemaBuilder = SchemaBuilder
+						.struct()
+						.required()
+						.name(tableNameWithOwner + ".key")
+						.version(1);
+				valueSchemaBuilder = SchemaBuilder
+						.struct()
+						.required()
+						.name(tableNameWithOwner + ".value")
+						.version(1);
 			}
 
 			while (rsColumns .next()) {
-				OraColumn column = new OraColumn(rsColumns);
-				allColumns.add(column);
-				if (schemaType == SCHEMA_TYPE_STANDALONE) {
+				OraColumn column = null;
+				if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
+					column = new OraColumn(rsColumns);
 					schemaAfter.getFields().add(column.getAvroSchema());
-				} else if (schemaType == SCHEMA_TYPE_CONFLUENT_JDBC) {
-					//TODO
+				} else if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
+					column = new OraColumn(rsColumns, keySchemaBuilder, valueSchemaBuilder);
 				}
+				allColumns.add(column);
 
 				if (masterFirstColumn) {
 					masterFirstColumn = false;
@@ -184,11 +196,10 @@ public class OraTable implements Runnable {
 
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
-					if (schemaType == SCHEMA_TYPE_STANDALONE) {
+					if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
+						// Only for SCHEMA_TYPE_STANDALONE!!!
 						schemaBefore.getFields().add(column.getAvroSchema());
-					} else if (schemaType == SCHEMA_TYPE_CONFLUENT_JDBC) {
-						//TODO
-					}
+					} 
 					if (mViewFirstColumn) {
 						mViewFirstColumn = false;
 					} else {
@@ -208,7 +219,7 @@ public class OraTable implements Runnable {
 			statement.close();
 			statement = null;
 			// Schema
-			if (schemaType == SCHEMA_TYPE_STANDALONE) {
+			if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
 				final AvroSchema op = AvroSchema.STRING_MANDATORY();
 				op.setField("op");
 				final AvroSchema ts_ms = AvroSchema.INT64_MANDATORY();
@@ -221,8 +232,9 @@ public class OraTable implements Runnable {
 				schema.getFields().add(Source.schema());
 				schema.getFields().add(op);
 				schema.getFields().add(ts_ms);
-			} else if (schemaType == SCHEMA_TYPE_CONFLUENT_JDBC) {
-				//TODO
+			} else if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
+				keySchema = keySchemaBuilder.build(); 
+				valueSchema = valueSchemaBuilder.build(); 
 			}
 
 			masterSelect.append(", ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$ from ");
@@ -259,7 +271,7 @@ public class OraTable implements Runnable {
 	public OraTable(
 			final String tableOwner, final String masterTable, final String snapshotLog,
 			final int batchSize, final SendMethodIntf sendMethod) throws SQLException {
-		this(tableOwner, masterTable, snapshotLog, batchSize, SCHEMA_TYPE_STANDALONE);
+		this(tableOwner, masterTable, snapshotLog, batchSize);
 		this.sendMethod = sendMethod;
 	}
 
@@ -462,41 +474,57 @@ public class OraTable implements Runnable {
 		while (rsLog.next() && recordCount < batchSize) {
 			recordCount++;
 			final String opType = rsLog.getString("OPTYPE$$");
-			final Map<String, Object> columnValues = new LinkedHashMap<>();
 			final boolean deleteOp = "d".equals(opType);
-			// process primary key information from materialized view log
-			processPkColumns(deleteOp, rsLog, columnValues, stmtMaster);
+			Map<String, Object> columnValues = null;
+			Envelope envelope = null;
+			Struct keyStruct = null;
+			Struct valueStruct = null;
+			final Source recordSource = new Source(tableOwner, masterTable);
+			if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
+				// process primary key information from materialized view log
+				columnValues = new LinkedHashMap<>();
+				processPkColumns(deleteOp, rsLog, columnValues, stmtMaster);
+				envelope = new Envelope(
+						this.getSchema(),
+						new Payload(recordSource, opType));
+			} else if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
+				
+				keyStruct = new Struct(keySchema);
+				valueStruct = new Struct(valueSchema);
+				processPkColumns(deleteOp, rsLog, keyStruct, stmtMaster);
+			}
 			// Add ROWID to list for delete after sending data to queue
 			logRows2Delete.add(rsLog.getRowId("ROWID"));
 
 			boolean success = true;
 
-			//TODO - different schema type
-			final Envelope envelope = new Envelope(
-					this.getSchema(),
-					new Payload(new Source(tableOwner, masterTable), opType));
-
 			if (deleteOp) {
-				// For DELETE we have only "before" data
-				envelope.getPayload().setBefore(columnValues);
-				// For delete we need to get TS & SCN from snapshot log
-				envelope.getPayload().getSource().setTs_ms(
+				if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
+					// For DELETE we have only "before" data
+					envelope.getPayload().setBefore(columnValues);
+					// For delete we need to get TS & SCN from snapshot log
+					envelope.getPayload().getSource().setTs_ms(
 						rsLog.getTimestamp("TIMESTAMP$$").getTime());
-				envelope.getPayload().getSource().setScn(
-						rsLog.getBigDecimal("ORA_ROWSCN").toBigInteger());					
+					envelope.getPayload().getSource().setScn(
+						rsLog.getBigDecimal("ORA_ROWSCN").toBigInteger());
+				}
 			} else {
 				// Get data from master table
 				ResultSet rsMaster = stmtMaster.executeQuery();
 				// We're working with PK
 				if (rsMaster.next()) {
-					processAllColumns(rsMaster, columnValues);
-					// For INSERT/UPDATE  we have only "after" data 
-					envelope.getPayload().setAfter(columnValues);
-					// For delete we need to get TS & SCN from snapshot log
-					envelope.getPayload().getSource().setTs_ms(
+					if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
+						processAllColumns(rsMaster, columnValues);
+						// For INSERT/UPDATE  we have only "after" data 
+						envelope.getPayload().setAfter(columnValues);
+						// For delete we need to get TS & SCN from snapshot log
+						envelope.getPayload().getSource().setTs_ms(
 							rsMaster.getTimestamp("TIMESTAMP$$").getTime());
-					envelope.getPayload().getSource().setScn(
-							rsMaster.getBigDecimal("ORA_ROWSCN").toBigInteger());					
+						envelope.getPayload().getSource().setScn(
+							rsMaster.getBigDecimal("ORA_ROWSCN").toBigInteger());
+					} else if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
+						processAllColumns(rsMaster, valueStruct);
+					}
 				} else {
 					success = false;
 					LOGGER.error("Primary key = " + nonExistentPk(rsLog) + " not found in " + tableOwner + "." + masterTable);
@@ -521,16 +549,39 @@ public class OraTable implements Runnable {
 					messageKey.append(rsLog.getLong("SEQUENCE$$"));
 						sendMethod.sendData(messageKey.toString(), envelope);
 				} else {
-					// Pure Kafka connect
-					try {
-						envelope.getPayload().setTs_ms(System.currentTimeMillis());
-						final SourceRecord sourceRecord = new SourceRecord(null, null,
+					if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
+						try {
+							envelope.getPayload().setTs_ms(System.currentTimeMillis());
+							final SourceRecord sourceRecord = new SourceRecord(null, null,
 								kafkaConnectTopic,
 								Schema.STRING_SCHEMA,
 								writer.writeValueAsString(envelope));
-						result.add(sourceRecord);
-					} catch (JsonProcessingException jpe) {
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(jpe));
+							result.add(sourceRecord);
+						} catch (JsonProcessingException jpe) {
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(jpe));
+						}
+					} else if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
+						if (deleteOp) {
+							final SourceRecord sourceRecord = new SourceRecord(
+									null,
+									null,
+									kafkaConnectTopic,
+									keySchema,
+									keyStruct,
+									null,
+									null);
+							result.add(sourceRecord);
+						} else {
+							final SourceRecord sourceRecord = new SourceRecord(
+									null,
+									null,
+									kafkaConnectTopic,
+									keySchema,
+									keyStruct,
+									valueSchema,
+									valueStruct);
+							result.add(sourceRecord);
+						}
 					}
 				}
 			}
@@ -685,6 +736,75 @@ public class OraTable implements Runnable {
 		}
 	}
 
+	private void processPkColumns(final boolean deleteOp, ResultSet rsLog,
+			final Struct keyStruct, PreparedStatement stmtMaster) throws SQLException {
+		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+		int bindNo = 1;
+		while (iterator.hasNext()) {
+			final OraColumn oraColumn = iterator.next().getValue();
+			final String columnName = oraColumn.getColumnName();
+			switch (oraColumn.getJdbcType()) {
+			case Types.DATE:
+				//TODO Timezone support!!!!
+				keyStruct.put(columnName, rsLog.getDate(columnName).getTime());
+				if (!deleteOp)
+					stmtMaster.setDate(bindNo, rsLog.getDate(columnName));
+				break;
+			case Types.TINYINT:
+				keyStruct.put(columnName, rsLog.getByte(columnName));
+				if (!deleteOp)
+					stmtMaster.setByte(bindNo, rsLog.getByte(columnName));
+				break;
+			case Types.SMALLINT:
+				keyStruct.put(columnName, rsLog.getShort(columnName));
+				if (!deleteOp)
+					stmtMaster.setShort(bindNo, rsLog.getShort(columnName));
+				break;
+			case Types.INTEGER:
+				keyStruct.put(columnName, rsLog.getInt(columnName));
+				if (!deleteOp)
+					stmtMaster.setInt(bindNo, rsLog.getInt(columnName));
+				break;
+			case Types.BIGINT:
+				keyStruct.put(columnName, rsLog.getLong(columnName));
+				if (!deleteOp)
+					stmtMaster.setLong(bindNo, rsLog.getLong(columnName));
+				break;
+			case Types.BINARY:
+				keyStruct.put(columnName, rsLog.getBytes(columnName));
+				if (!deleteOp)
+					stmtMaster.setBytes(bindNo, rsLog.getBytes(columnName));
+				break;
+			case Types.CHAR:
+			case Types.VARCHAR:
+				keyStruct.put(columnName, rsLog.getString(columnName));
+				if (!deleteOp)
+					stmtMaster.setString(bindNo, rsLog.getString(columnName));
+				break;
+			case Types.NCHAR:
+			case Types.NVARCHAR:
+				keyStruct.put(columnName, rsLog.getNString(columnName));
+				if (!deleteOp)
+					stmtMaster.setNString(bindNo, rsLog.getNString(columnName));
+				break;
+			case Types.TIMESTAMP:
+				//TODO Timezone support!!!!
+				keyStruct.put(columnName, rsLog.getTimestamp(columnName).getTime());
+				if (!deleteOp)
+					stmtMaster.setTimestamp(bindNo, rsLog.getTimestamp(columnName));
+				break;
+			default:
+				// Types.FLOAT, Types.DOUBLE, Types.BLOB, Types.CLOB 
+				// TODO - is it possible?
+				keyStruct.put(columnName, rsLog.getString(columnName));
+				if (!deleteOp)
+					stmtMaster.setString(bindNo, rsLog.getString(columnName));
+				break;
+			}
+			bindNo++;
+		}
+	}
+
 	private void processAllColumns(
 			ResultSet rsMaster, final Map<String, Object> columnValues) throws SQLException {
 		for (int i = 0; i < allColumns.size(); i++) {
@@ -808,6 +928,153 @@ public class OraTable implements Runnable {
 								sbClob.append(data, 0, charsRead);
 							}
 							columnValues.put(columnName, sbClob.toString());
+						} catch (IOException ioe) {
+							LOGGER.error("IO Error while processing CLOB column " + 
+									tableOwner + "." + masterTable + "(" + columnName + ")");
+							LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+						}
+					}
+					break;
+				default:
+					break;
+				}
+			}
+		}
+	}
+
+	private void processAllColumns(
+			ResultSet rsMaster, final Struct valueStruct) throws SQLException {
+		for (int i = 0; i < allColumns.size(); i++) {
+			final OraColumn oraColumn = allColumns.get(i);
+			final String columnName = oraColumn.getColumnName();
+			if (!pkColumns.containsKey(columnName)) {
+				// Don't process PK value again
+				switch (oraColumn.getJdbcType()) {
+				// We do not have dates in this case
+//				case Types.DATE:
+//					//TODO Timezone support!!!!
+//					Date dateColumnValue = rsMaster.getDate(columnName);
+//					if (rsMaster.wasNull())
+//						valueStruct.put(columnName, null);
+//					else
+//						valueStruct.put(columnName, new java.util.Date(dateColumnValue.getTime()));
+//					break;
+				case Types.TINYINT:
+					final byte byteColumnValue = rsMaster.getByte(columnName);
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, byteColumnValue);									
+					break;
+				case Types.SMALLINT:
+					final short shortColumnValue = rsMaster.getShort(columnName); 
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, shortColumnValue);
+					break;
+				case Types.INTEGER:
+					final int intColumnValue = rsMaster.getInt(columnName); 
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, intColumnValue);
+					break;
+				case Types.BIGINT:
+					final long longColumnValue = rsMaster.getLong(columnName); 
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, longColumnValue);
+					break;
+				case Types.BINARY:
+					final byte[] binaryColumnValue = rsMaster.getBytes(columnName);
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, binaryColumnValue);
+					break;
+				case Types.CHAR:
+				case Types.VARCHAR:
+					final String charColumnValue = rsMaster.getString(columnName); 
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, charColumnValue);
+					break;
+				case Types.NCHAR:
+				case Types.NVARCHAR:
+					final String nCharColumnValue = rsMaster.getNString(columnName); 
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, nCharColumnValue);
+					break;
+				case Types.TIMESTAMP:
+					//TODO Timezone support!!!!
+					if (oraColumn.isOracleDate()) {
+						Date dateTsColumnValue = rsMaster.getDate(columnName);
+						if (rsMaster.wasNull())
+							valueStruct.put(columnName, null);
+						else
+							valueStruct.put(columnName, new Timestamp(dateTsColumnValue.getTime()));
+					} else {
+						Timestamp tsColumnValue = rsMaster.getTimestamp(columnName);
+						if (rsMaster.wasNull())
+							valueStruct.put(columnName, null);
+						else
+							valueStruct.put(columnName, tsColumnValue);
+					}
+					break;
+				case Types.FLOAT:
+					final float floatColumnValue = rsMaster.getFloat(columnName); 
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, floatColumnValue);
+					break;
+				case Types.DOUBLE:
+					final double doubleColumnValue = rsMaster.getDouble(columnName); 
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, doubleColumnValue);
+					break;
+				case Types.BLOB:
+					final Blob blobColumnValue = rsMaster.getBlob(columnName);
+					if (rsMaster.wasNull() || blobColumnValue.length() < 1) {
+						valueStruct.put(columnName, null);
+					} else {
+						try (InputStream is = blobColumnValue.getBinaryStream();
+							ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+							final byte[] data = new byte[16384];
+							int bytesRead;
+							while ((bytesRead = is.read(data, 0, data.length)) != -1) {
+								baos.write(data, 0, bytesRead);
+							}
+							valueStruct.put(columnName, baos.toByteArray());
+						} catch (IOException ioe) {
+							LOGGER.error("IO Error while processing BLOB column " + 
+									 tableOwner + "." + masterTable + "(" + columnName + ")");
+							LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+						}
+					}
+					break;
+				case Types.CLOB:
+					final Clob clobColumnValue = rsMaster.getClob(columnName);
+					if (rsMaster.wasNull() || clobColumnValue.length() < 1) {
+						valueStruct.put(columnName, null);
+					} else {
+						try (Reader reader = clobColumnValue.getCharacterStream()) {
+							final char[] data = new char[8192];
+							StringBuilder sbClob = new StringBuilder(8192);
+							int charsRead;
+							while ((charsRead = reader.read(data, 0, data.length)) != -1) {
+								sbClob.append(data, 0, charsRead);
+							}
+							valueStruct.put(columnName, sbClob.toString());
 						} catch (IOException ioe) {
 							LOGGER.error("IO Error while processing CLOB column " + 
 									tableOwner + "." + masterTable + "(" + columnName + ")");

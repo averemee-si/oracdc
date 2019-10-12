@@ -16,9 +16,12 @@ package eu.solutions.a2.cdc.oracle;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Map;
+
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Timestamp;
 
 import eu.solutions.a2.cdc.oracle.standalone.avro.AvroSchema;
 
@@ -28,11 +31,12 @@ public class OraColumn {
 	private final boolean partOfPk;
 	private final int jdbcType;
 	private final boolean nullable;
-	private final AvroSchema avroSchema;
-	
+	private AvroSchema avroSchema;
+	private boolean oracleDate = false;
+
 	/**
 	 * 
-	 * Construct column definition from Resultset (ORA2JSON)
+	 * Construct column definition from Resultset (ORA2JSON) standalone
 	 * 
 	 * @param resultSet
 	 * @throws SQLException
@@ -68,7 +72,7 @@ public class OraColumn {
 					if (dataPrecision == 0) {
 						// Just NUMBER.....
 						// OEBS and other legacy systems specific
-						// Can be Integer o
+						// Can be Integer or decimal or float....
 						jdbcType = Types.DOUBLE;
 						if (this.nullable)
 							this.avroSchema = AvroSchema.FLOAT64_OPTIONAL();
@@ -185,6 +189,214 @@ public class OraColumn {
 
 	/**
 	 * 
+	 * Constructor for pure Kafka connect schema...
+	 * 
+	 * @param resultSet
+	 * @param keySchemaBuilder
+	 * @param valueSchemaBuilder
+	 * @throws SQLException
+	 */
+	public OraColumn(final ResultSet resultSet, final SchemaBuilder keySchema, final SchemaBuilder valueSchema) throws SQLException {
+		this.columnName = resultSet.getString("COLUMN_NAME");
+		final String partOfPkString = resultSet.getString("PK");
+		if (!resultSet.wasNull() && "Y".equals(partOfPkString))
+			this.partOfPk = true;
+		else
+			this.partOfPk = false;
+		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
+		final String oraType = resultSet.getString("DATA_TYPE");
+		switch (oraType) {
+			case "DATE":
+				// Oracle Date holds time too...
+				// So here we use Timestamp
+				oracleDate = true;
+				jdbcType = Types.TIMESTAMP;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Timestamp.builder().optional().build());
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Timestamp.builder().required().build());
+					else
+						valueSchema.field(this.columnName, Timestamp.builder().required().build());
+				break;
+			case "FLOAT":
+				jdbcType = Types.FLOAT;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+				break;
+			case "NUMBER":
+				final int dataPrecision = resultSet.getInt("DATA_PRECISION"); 
+				final int dataScale = resultSet.getInt("DATA_SCALE");
+				if (dataScale == 0) {
+					if (dataPrecision == 0) {
+						// Just NUMBER.....
+						// OEBS and other legacy systems specific
+						// Can be Integer or decimal or float....
+						jdbcType = Types.DOUBLE;
+						if (this.nullable)
+							valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
+						else
+							if (this.partOfPk)
+								keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+							else
+								valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+					}
+					else if (dataPrecision < 3) {
+						jdbcType = Types.TINYINT;
+						if (this.nullable)
+							valueSchema.field(this.columnName, Schema.OPTIONAL_INT8_SCHEMA);
+						else
+							if (this.partOfPk)
+								keySchema.field(this.columnName, Schema.INT8_SCHEMA);
+							else
+								valueSchema.field(this.columnName, Schema.INT8_SCHEMA);
+					}
+					else if (dataPrecision < 5) {
+						jdbcType = Types.SMALLINT;
+						if (this.nullable)
+							valueSchema.field(this.columnName, Schema.OPTIONAL_INT16_SCHEMA);
+						else
+							if (this.partOfPk)
+								keySchema.field(this.columnName, Schema.INT16_SCHEMA);
+							else
+								valueSchema.field(this.columnName, Schema.INT16_SCHEMA);
+					}
+					else if (dataPrecision < 10) {
+						jdbcType = Types.INTEGER;
+						if (this.nullable)
+							valueSchema.field(this.columnName, Schema.OPTIONAL_INT32_SCHEMA);
+						else
+							if (this.partOfPk)
+								keySchema.field(this.columnName, Schema.INT32_SCHEMA);
+							else
+								valueSchema.field(this.columnName, Schema.INT32_SCHEMA);
+					}
+					else {
+						jdbcType = Types.BIGINT;
+						if (this.nullable)
+							valueSchema.field(this.columnName, Schema.OPTIONAL_INT64_SCHEMA);
+						else
+							if (this.partOfPk)
+								keySchema.field(this.columnName, Schema.INT64_SCHEMA);
+							else
+								valueSchema.field(this.columnName, Schema.INT64_SCHEMA);
+					}
+				} else {
+					jdbcType = Types.DOUBLE;
+					if (this.nullable)
+						valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
+					else
+						if (this.partOfPk)
+							keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+						else
+							valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+				}
+				break;
+			case "RAW":
+				jdbcType = Types.BINARY;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_BYTES_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.BYTES_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.BYTES_SCHEMA);
+				break;
+			case "CHAR":
+				jdbcType = Types.CHAR;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.STRING_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
+				break;
+			case "NCHAR":
+				jdbcType = Types.NCHAR;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.STRING_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
+				break;
+			case "VARCHAR2":
+				jdbcType = Types.VARCHAR;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.STRING_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
+				break;
+			case "NVARCHAR2":
+				jdbcType = Types.NVARCHAR;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.STRING_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
+				break;
+			case "BLOB":
+				jdbcType = Types.BLOB;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_BYTES_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.BYTES_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.BYTES_SCHEMA);
+				break;
+			case "CLOB":
+				jdbcType = Types.CLOB;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.STRING_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
+				break;
+			case "TIMESTAMP":
+			case "TIMESTAMP(0)":
+			case "TIMESTAMP(1)":
+			case "TIMESTAMP(3)":
+			case "TIMESTAMP(6)":
+			case "TIMESTAMP(9)":
+				jdbcType = Types.TIMESTAMP;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Timestamp.builder().optional().build());
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Timestamp.builder().required().build());
+					else
+						valueSchema.field(this.columnName, Timestamp.builder().required().build());
+				break;
+			default:
+				jdbcType = Types.VARCHAR;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.STRING_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
+				break;
+		}
+	}
+
+	/**
+	 * 
 	 * @param avroSchema
 	 * @param partOfPk
 	 */
@@ -253,6 +465,10 @@ public class OraColumn {
 		return avroSchema;
 	}
 
+	public boolean isOracleDate() {
+		return oracleDate;
+	}
+
 	/**
 	 * 
 	 * @param statement
@@ -278,7 +494,7 @@ public class OraColumn {
 			if (columnValue == null)
 				statement.setNull(columnNo, Types.TIMESTAMP);
 			else
-				statement.setTimestamp(columnNo, new Timestamp((Long) data.get(columnName)));
+				statement.setTimestamp(columnNo, new java.sql.Timestamp((Long) data.get(columnName)));
 			break;
 		case Types.BOOLEAN:
 			if (columnValue == null)

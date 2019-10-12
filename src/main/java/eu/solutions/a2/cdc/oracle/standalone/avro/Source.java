@@ -19,12 +19,19 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 
 public class Source implements Serializable {
 
 	private static final long serialVersionUID = 2184010528102467656L;
+
+	public static final int SCHEMA_TYPE_STANDALONE = 1;
+	public static final int SCHEMA_TYPE_KAFKA_CONNECT_STD = 2;
+
+	private static int connectorSchemaType = SCHEMA_TYPE_STANDALONE;
 
 	private static BigInteger DBID;
 	private BigInteger dbId;
@@ -46,13 +53,16 @@ public class Source implements Serializable {
 	private BigInteger scn;
 
 	public Source() {
-		dbId = DBID;
-		databaseName = DATABASE_NAME;
-		platformName = PLATFORM_NAME;
-		instanceNumber = INSTANCE_NUMBER;
-		instanceName = INSTANCE_NAME;
-		hostName = HOST_NAME;
-		version = VERSION;
+		if (connectorSchemaType == SCHEMA_TYPE_STANDALONE) {
+			// Only in this case we need to copy static variables...
+			dbId = DBID;
+			databaseName = DATABASE_NAME;
+			platformName = PLATFORM_NAME;
+			instanceNumber = INSTANCE_NUMBER;
+			instanceName = INSTANCE_NAME;
+			hostName = HOST_NAME;
+			version = VERSION;
+		}
 	}
 
 	public Source(final String owner, final String table) {
@@ -61,7 +71,8 @@ public class Source implements Serializable {
 		this.table = table;
 	}
 
-	public static void init() throws SQLException {
+	public static void init(final int typeOfSchema) throws SQLException {
+		connectorSchemaType = typeOfSchema;
 		Connection connection = OraPoolConnectionFactory.getConnection();
 		PreparedStatement statement = null;
 		ResultSet resultSet = null;
@@ -93,6 +104,24 @@ public class Source implements Serializable {
 		statement = null;
 		connection.close();
 		connection = null;
+	}
+
+	/**
+	 * 
+	 * @return source information for future constructing SourceRecord 
+	 */
+	public Map<String, ?> sourcePartition() {
+		Map<String, Object> result = new LinkedHashMap<String, Object>();
+		result.put("dbid", DBID);
+		result.put("database_name", DATABASE_NAME);
+		result.put("owner", this.owner);
+		result.put("table", this.table);
+		result.put("scn", this.scn);
+		return result;
+	}
+
+	public static int schemaType() {
+		return connectorSchemaType;
 	}
 
 	public static AvroSchema schema() {

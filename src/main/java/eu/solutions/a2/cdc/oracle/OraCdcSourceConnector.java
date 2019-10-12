@@ -102,10 +102,12 @@ public class OraCdcSourceConnector extends SourceConnector {
 					throw new RuntimeException(message);
 				}
 
-				//TODO
-				//TODO This depends on schema type...
-				//TODO
-				Source.init();
+				if (OraCdcSourceConnectorConfig.SCHEMA_TYPE_STANDALONE.equals(
+						config.getString(OraCdcSourceConnectorConfig.SCHEMA_TYPE_PARAM)))
+					Source.init(Source.SCHEMA_TYPE_STANDALONE);
+				else
+					// config.getString(OraCdcSourceConnectorConfig.SCHEMA_TYPE_PARAM)
+					Source.init(Source.SCHEMA_TYPE_KAFKA_CONNECT_STD);
 
 			} catch (SQLException sqle) {
 				validConfig = false;
@@ -171,7 +173,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 			for (int i = 0; i < maxTasks; i++) {
 				resultSet.next();
-				final Map<String, String> taskParam = new HashMap<>(7);
+				final Map<String, String> taskParam = new HashMap<>(6);
 
 				taskParam.put(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM,
 						config.getInt(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM).toString());
@@ -183,16 +185,14 @@ public class OraCdcSourceConnector extends SourceConnector {
 						resultSet.getString("LOG_TABLE"));
 				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER,
 						resultSet.getString("LOG_OWNER"));
-				//TODO
-				//TODO Schema type....
-				//TODO
-				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_SCHEMA_TYPE,
-						Integer.toString(OraTable.SCHEMA_TYPE_STANDALONE));
-				//TODO
-				//TODO Separate tables per topic?
-				//TODO
-				taskParam.put(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM,
-						config.getString(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
+
+				if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD)
+					taskParam.put(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM,
+							config.getString(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM));
+				else
+					// Source.SCHEMA_TYPE_STANDALONE
+					taskParam.put(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM,
+							config.getString(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
 
 				configs.add(taskParam);
 			}
