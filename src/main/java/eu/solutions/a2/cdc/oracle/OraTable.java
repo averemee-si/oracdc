@@ -44,7 +44,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -59,7 +60,7 @@ import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 public class OraTable implements Runnable {
 
-	private static final Logger LOGGER = Logger.getLogger(OraTable.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable.class);
 
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> MYSQL_MAPPING =
@@ -252,8 +253,8 @@ public class OraTable implements Runnable {
 			mViewSelect.append(" order by SEQUENCE$$");
 			this.snapshotLogSelSql = mViewSelect.toString();
 		} catch (SQLException sqle) {
-			LOGGER.fatal("Unable to get table information.");
-			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error("Unable to get table information.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
 	}
 
@@ -527,8 +528,8 @@ public class OraTable implements Runnable {
 					}
 				} else {
 					success = false;
-					LOGGER.error("Primary key = " + nonExistentPk(rsLog) + " not found in " + tableOwner + "." + masterTable);
-					LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
+					LOGGER.error("Primary key = {} not found in {}.{}", nonExistentPk(rsLog), tableOwner, masterTable);
+					LOGGER.error("\twhile executing{}\n\t\t", masterTableSelSql);
 				}
 				// Close unneeded ResultSet
 				rsMaster.close();
@@ -908,9 +909,9 @@ public class OraTable implements Runnable {
 							}
 							columnValues.put(columnName, baos.toByteArray());
 						} catch (IOException ioe) {
-							LOGGER.error("IO Error while processing BLOB column " + 
-									 tableOwner + "." + masterTable + "(" + columnName + ")");
-							LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
+							LOGGER.error("IO Error while processing BLOB column {}.{}({})", 
+									 tableOwner, masterTable, columnName);
+							LOGGER.error("\twhile executing\n\t\t{}", masterTableSelSql);
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}
 					}
@@ -929,9 +930,9 @@ public class OraTable implements Runnable {
 							}
 							columnValues.put(columnName, sbClob.toString());
 						} catch (IOException ioe) {
-							LOGGER.error("IO Error while processing CLOB column " + 
-									tableOwner + "." + masterTable + "(" + columnName + ")");
-							LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
+							LOGGER.error("IO Error while processing CLOB column {}.{}({})", 
+									 tableOwner, masterTable, columnName);
+							LOGGER.error("\twhile executing\n\t\t{}", masterTableSelSql);
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}
 					}
@@ -1055,9 +1056,9 @@ public class OraTable implements Runnable {
 							}
 							valueStruct.put(columnName, baos.toByteArray());
 						} catch (IOException ioe) {
-							LOGGER.error("IO Error while processing BLOB column " + 
-									 tableOwner + "." + masterTable + "(" + columnName + ")");
-							LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
+							LOGGER.error("IO Error while processing BLOB column {}.{}({})", 
+									 tableOwner, masterTable, columnName);
+							LOGGER.error("\twhile executing\n\t\t{}", masterTableSelSql);
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}
 					}
@@ -1076,9 +1077,9 @@ public class OraTable implements Runnable {
 							}
 							valueStruct.put(columnName, sbClob.toString());
 						} catch (IOException ioe) {
-							LOGGER.error("IO Error while processing CLOB column " + 
-									tableOwner + "." + masterTable + "(" + columnName + ")");
-							LOGGER.error("\twhile executing\n\t\t" + masterTableSelSql);
+							LOGGER.error("IO Error while processing CLOB column {}.{}({})", 
+									 tableOwner, masterTable, columnName);
+							LOGGER.error("\twhile executing\n\t\t{}", masterTableSelSql);
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}
 					}

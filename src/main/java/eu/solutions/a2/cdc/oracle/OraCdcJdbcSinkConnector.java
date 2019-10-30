@@ -20,7 +20,8 @@ import java.util.Map;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcJdbcSinkConnectorConfig;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcJdbcSinkTask;
@@ -28,7 +29,7 @@ import eu.solutions.a2.cdc.oracle.utils.Version;
 
 public class OraCdcJdbcSinkConnector extends SinkConnector {
 
-	private static final Logger LOGGER = Logger.getLogger(OraCdcJdbcSinkConnector.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkConnector.class);
 
 	private Map<String, String> props;
 

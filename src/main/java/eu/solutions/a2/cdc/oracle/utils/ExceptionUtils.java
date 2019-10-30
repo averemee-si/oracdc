@@ -16,11 +16,12 @@ package eu.solutions.a2.cdc.oracle.utils;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ExceptionUtils {
 
-	private static final Logger LOGGER = Logger.getLogger(ExceptionUtils.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(ExceptionUtils.class);
 
 	/**
 	 * Display the stacktrace contained in an exception.
@@ -36,8 +37,7 @@ public class ExceptionUtils {
 			exception.printStackTrace(pw);
 			result += sw.toString();
 		} catch (Exception e) {
-			LOGGER.error(
-					"Exception while converting exception's stack trace to string!\n" +
+			LOGGER.error("Exception while converting exception's stack trace to string!\n{}",
 					e.getMessage());
 		}
 		return result;

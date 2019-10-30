@@ -32,8 +32,9 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.standalone.CommonJobSingleton;
 import eu.solutions.a2.cdc.oracle.standalone.KafkaSingleton;
@@ -44,7 +45,7 @@ import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 public class OraCdcProducer {
 
-	private static final Logger LOGGER = Logger.getLogger(OraCdcProducer.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcProducer.class);
 
 	/** Default interval in milliseconds between DB query */
 	private static final int POLL_INTERVAL = 1000;
@@ -61,7 +62,6 @@ public class OraCdcProducer {
 
 	public static void main(String[] argv) {
 		// Configure log4j
-		BasicConfigurator.configure();
 		initLog4j(1);
 		if (argv.length == 0) {
 			printUsage(OraCdcProducer.class.getCanonicalName(), 2);
@@ -75,27 +75,27 @@ public class OraCdcProducer {
 		} else if ("kinesis".equalsIgnoreCase(targetBroker)) {
 			targetSystem = TARGET_KINESIS;
 		} else {
-			LOGGER.warn("Wrong target broker type '" + targetBroker + "' specified in configuration file " + argv[0]);
+			LOGGER.warn("Wrong target broker type '{}' specified in configuration file {}", targetBroker, argv[0]);
 			LOGGER.warn("Setting target broker type to kafka");
 		}
 
 		// Read and check JDBC connection properties
 		final String jdbcUrl = props.getProperty("a2.jdbc.url");
 		if (jdbcUrl == null || "".equals(jdbcUrl.trim())) {
-			LOGGER.fatal("a2.jdbc.url not specified in configuration file " + argv[0]);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.jdbc.url not specified in configuration file {}", argv[0]);
+			LOGGER.error("Exiting.");
 			System.exit(1);
 		}
 		final String username = props.getProperty("a2.jdbc.username");
 		if (username == null || "".equals(username.trim())) {
-			LOGGER.fatal("a2.jdbc.username not specified in configuration file " + argv[0]);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.jdbc.username not specified in configuration file {}", argv[0]);
+			LOGGER.error("Exiting.");
 			System.exit(1);
 		}
 		final String password = props.getProperty("a2.jdbc.password");
 		if (password == null || "".equals(password.trim())) {
-			LOGGER.fatal("a2.jdbc.password not specified in configuration file " + argv[0]);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.jdbc.password not specified in configuration file {}", argv[0]);
+			LOGGER.error("Exiting.");
 			System.exit(1);
 		}
 
@@ -105,8 +105,8 @@ public class OraCdcProducer {
 			try {
 				pollInterval = Integer.parseInt(pollIntervalString);
 			} catch (Exception e) {
-				LOGGER.warn("Incorrect value for a2.poll.interval -> " + pollIntervalString);
-				LOGGER.warn("Setting it to " + POLL_INTERVAL);
+				LOGGER.warn("Incorrect value for a2.poll.interval -> {}", pollIntervalString);
+				LOGGER.warn("Setting it to {}", POLL_INTERVAL);
 			}
 		}
 		int batchSize = BATCH_SIZE;
@@ -115,8 +115,8 @@ public class OraCdcProducer {
 			try {
 				batchSize = Integer.parseInt(batchSizeString);
 			} catch (Exception e) {
-				LOGGER.warn("Incorrect value for a2.batch.size -> " + batchSizeString);
-				LOGGER.warn("Setting it to " + BATCH_SIZE);
+				LOGGER.warn("Incorrect value for a2.batch.size -> {}", batchSizeString);
+				LOGGER.warn("Setting it to {}", BATCH_SIZE);
 			}
 		}
 		String excludeList = props.getProperty("a2.exclude");
@@ -148,7 +148,7 @@ public class OraCdcProducer {
 				}
 
 			} catch (Exception e) {
-				LOGGER.error("Unable to parse a2.exclude parameter set to -> " + excludeList);
+				LOGGER.error("Unable to parse a2.exclude parameter set to -> {}", excludeList);
 				LOGGER.error("Ignoring it.....");
 				excludeList = null;
 			}
@@ -161,9 +161,9 @@ public class OraCdcProducer {
 		try {
 			OraPoolConnectionFactory.init(jdbcUrl.trim(), username, password);
 		} catch (SQLException | ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException pe) {
-			LOGGER.fatal("Unable to initialize database connection.");
-			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(pe));
-			LOGGER.fatal("Exiting!");
+			LOGGER.error("Unable to initialize database connection.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(pe));
+			LOGGER.error("Exiting!");
 			System.exit(1);
 		}
 
@@ -188,7 +188,7 @@ public class OraCdcProducer {
 			// Count number of materialized view logs
 			int tableCount = 0;
 			sqlStatement = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI;
-;
+
 			if (excludeList != null) {
 				// Add excluded tables
 				sqlStatement += excludeList;
@@ -203,8 +203,8 @@ public class OraCdcProducer {
 			statement.close();
 			statement = null;
 			if (tableCount < 1) {
-				LOGGER.fatal("Nothing to do with user " + username + ".");
-				LOGGER.fatal("Exiting.");
+				LOGGER.error("Nothing to do with user {}.", username);
+				LOGGER.error("Exiting.");
 				System.exit(1);
 			}
 			CommonJobSingleton.getInstance().setTableCount(tableCount);
@@ -228,9 +228,9 @@ public class OraCdcProducer {
 				LOGGER.info("Adding " + oraTable);
 			}
 		} catch (SQLException e) {
-			LOGGER.fatal("Unable to get table information.");
-			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(e));
-			LOGGER.fatal("Exiting!");
+			LOGGER.error("Unable to get table information.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+			LOGGER.error("Exiting!");
 			System.exit(1);
 		}
 
@@ -254,7 +254,7 @@ public class OraCdcProducer {
 					final int timeoutSeconds = 120;
 					final boolean done = executor.awaitTermination(timeoutSeconds, TimeUnit.SECONDS);
 					if (! done) {
-						LOGGER.error("Incorrect shutdown after " + timeoutSeconds + " seconds wait!");
+						LOGGER.error("Incorrect shutdown after {} seconds wait!", timeoutSeconds);
 					}
 				} catch (InterruptedException e) {
 					LOGGER.error("Problems while shutting down main thread pool!");
@@ -279,16 +279,17 @@ public class OraCdcProducer {
 		while (true) {
 			try {
 				Thread.sleep(60000);
-				LOGGER.info("Total records processed -> " + CommonJobSingleton.getInstance().getProcessedRecordCount());
+				LOGGER.info("Total records processed -> {}", CommonJobSingleton.getInstance().getProcessedRecordCount());
 			} catch (Exception e) {}
 		}
 	}
 
 	private static void initLog4j(int exitCode) {
+		BasicConfigurator.configure();
 		// Check for valid log4j configuration
 		String log4jConfig = System.getProperty("a2.log4j.configuration");
 		if (log4jConfig == null || "".equals(log4jConfig)) {
-			System.err.println("JVM argument -Da2.log4j.configuration must set!");
+			System.err.println("JVM argument -Da2.log4j.configuration must set and point to valid log4j config file!");
 			System.err.println("Exiting.");
 			System.exit(exitCode);
 		}
@@ -306,8 +307,8 @@ public class OraCdcProducer {
 	}
 
 	private static void printUsage(String className, int exitCode) {
-		LOGGER.fatal("Usage:\njava " + className + " <full path to configuration file>");
-		LOGGER.fatal("Exiting.");
+		LOGGER.error("Usage:\njava {} <full path to configuration file>", className);
+		LOGGER.error("Exiting.");
 		System.exit(exitCode);
 	}
 
@@ -315,9 +316,9 @@ public class OraCdcProducer {
 		try {
 			props.load(new FileInputStream(configPath));
 		} catch (IOException eoe) {
-			LOGGER.fatal("Unable to open configuration file " + configPath);
-			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(eoe));
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("Unable to open configuration file {}", configPath);
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(eoe));
+			LOGGER.error("Exiting.");
 			System.exit(exitCode);
 		}
 	}

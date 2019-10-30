@@ -22,11 +22,12 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CommonJobSingleton {
 
-	private static final Logger LOGGER = Logger.getLogger(CommonJobSingleton.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(CommonJobSingleton.class);
 
 	private static CommonJobSingleton instance;
 
@@ -40,20 +41,20 @@ public class CommonJobSingleton {
 			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 			mbs.registerMBean(mbean, name);
 		} catch (MalformedObjectNameException e) {
-			LOGGER.fatal("Unable to register MBean - mailformed object!!!");
-			LOGGER.fatal("Exiting");
+			LOGGER.error("Unable to register MBean - mailformed object!!!");
+			LOGGER.error("Exiting");
 			System.exit(1);
 		} catch (InstanceAlreadyExistsException e) {
-			LOGGER.fatal("Unable to register MBean - instance already exists!!!");
-			LOGGER.fatal("Exiting");
+			LOGGER.error("Unable to register MBean - instance already exists!!!");
+			LOGGER.error("Exiting");
 			System.exit(1);
 		} catch (MBeanRegistrationException e) {
-			LOGGER.fatal("Unable to register MBean - registration exception!!!");
-			LOGGER.fatal("Exiting");
+			LOGGER.error("Unable to register MBean - registration exception!!!");
+			LOGGER.error("Exiting");
 			System.exit(1);
 		} catch (NotCompliantMBeanException e) {
-			LOGGER.fatal("Unable to register MBean - not compliant MBean!!!");
-			LOGGER.fatal("Exiting");
+			LOGGER.error("Unable to register MBean - not compliant MBean!!!");
+			LOGGER.error("Exiting");
 			System.exit(1);
 		}
 	}

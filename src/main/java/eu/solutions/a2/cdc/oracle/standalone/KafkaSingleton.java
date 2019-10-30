@@ -20,7 +20,8 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +32,7 @@ import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 public class KafkaSingleton implements SendMethodIntf {
 
-	private static final Logger LOGGER = Logger.getLogger(KafkaSingleton.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSingleton.class);
 	private static final String SECURITY_SSL = "SSL";
 	private static final String SECURITY_SASL_SSL = "SASL_SSL";
 
@@ -68,8 +69,8 @@ public class KafkaSingleton implements SendMethodIntf {
 						(metadata, exception) -> {
 							if (metadata == null) {
 								// Error occured
-								LOGGER.error("Exception while sending " + messageKey + " to Kafka." );
-								LOGGER.error("Message data are:\n\t" + messageData);
+								LOGGER.error("Exception while sending {} to Kafka.", messageKey);
+								LOGGER.error("Message data are:\n\t{}", messageData);
 								LOGGER.error(ExceptionUtils.getExceptionStackTrace(exception));
 							} else {
 								CommonJobSingleton.getInstance().addRecordData(
@@ -92,7 +93,7 @@ public class KafkaSingleton implements SendMethodIntf {
 			kafkaProducer.flush();
 			kafkaProducer.close();
 		} else {
-			LOGGER.fatal("Attempt to close non-initialized Kafka producer!");
+			LOGGER.error("Attempt to close non-initialized Kafka producer!");
 			System.exit(1);
 		}
 	}
@@ -100,22 +101,22 @@ public class KafkaSingleton implements SendMethodIntf {
 	public void parseSettings(final Properties props, final String configPath, final int exitCode) {
 		kafkaTopic = props.getProperty("a2.kafka.topic");
 		if (kafkaTopic == null || "".equals(kafkaTopic)) {
-			LOGGER.fatal("a2.kafka.topic parameter must set in configuration file " + configPath);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.kafka.topic parameter must set in configuration file {}", configPath);
+			LOGGER.error("Exiting.");
 			System.exit(exitCode);
 		}
 
 		String kafkaServers = props.getProperty("a2.kafka.servers");
 		if (kafkaServers == null || "".equals(kafkaServers)) {
-			LOGGER.fatal("a2.kafka.servers parameter must set in configuration file " + configPath);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.kafka.servers parameter must set in configuration file {}", configPath);
+			LOGGER.error("Exiting.");
 			System.exit(exitCode);
 		}
 
 		String kafkaClientId = props.getProperty("a2.kafka.client.id");
 		if (kafkaClientId == null || "".equals(kafkaClientId)) {
-			LOGGER.fatal("a2.kafka.client.id parameter must set in configuration file " + configPath);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.kafka.client.id parameter must set in configuration file {}", configPath);
+			LOGGER.error("Exiting.");
 			System.exit(exitCode);
 		}
 
@@ -176,6 +177,5 @@ public class KafkaSingleton implements SendMethodIntf {
 		// Initialize connection to Kafka
 		kafkaProducer = new KafkaProducer<>(kafkaProps);
 	}
-
 
 }

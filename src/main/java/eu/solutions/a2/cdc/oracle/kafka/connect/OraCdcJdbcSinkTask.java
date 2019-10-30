@@ -25,7 +25,8 @@ import java.util.Set;
 
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
@@ -38,7 +39,7 @@ import eu.solutions.a2.cdc.oracle.utils.Version;
 
 public class OraCdcJdbcSinkTask extends SinkTask {
 
-	private static final Logger LOGGER = Logger.getLogger(OraCdcJdbcSinkTask.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkTask.class);
 	private static final ObjectReader reader = new ObjectMapper().readerFor(Envelope.class);
 
 	final Map<String, OraTable> tablesInProcessing = new HashMap<>(); 

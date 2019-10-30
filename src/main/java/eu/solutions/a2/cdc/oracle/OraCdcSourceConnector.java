@@ -26,7 +26,8 @@ import java.util.Map;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.source.SourceConnector;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceConnectorConfig;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceTask;
@@ -36,7 +37,7 @@ import eu.solutions.a2.cdc.oracle.utils.Version;
 
 public class OraCdcSourceConnector extends SourceConnector {
 
-	private static final Logger LOGGER = Logger.getLogger(OraCdcSourceConnector.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnector.class);
 
 	private OraCdcSourceConnectorConfig config;
 	boolean validConfig = true;
@@ -60,9 +61,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 					config.getString(OraCdcSourceConnectorConfig.CONNECTION_PASSWORD_PARAM));
 		} catch (SQLException | ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException pe) {
 			validConfig = false;
-			LOGGER.fatal("Unable to initialize database connection.");
-			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(pe));
-			LOGGER.fatal(OraCdcSourceConnector.class.getCanonicalName() + " will not run!");
+			LOGGER.error("Unable to initialize database connection.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(pe));
+			LOGGER.error("{} will not run!", OraCdcSourceConnector.class.getCanonicalName());
 		}
 
 		if (validConfig) {
@@ -98,7 +99,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 							config.getString(OraCdcSourceConnectorConfig.CONNECTION_USER_PARAM) +
 							"."; 
 					LOGGER.error(message);
-					LOGGER.error("Stopping " + OraCdcSourceConnector.class.getName());
+					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
 					throw new RuntimeException(message);
 				}
 
@@ -111,9 +112,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 			} catch (SQLException sqle) {
 				validConfig = false;
-				LOGGER.fatal("Unable to get table information.");
-				LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
-				LOGGER.fatal("Exiting!");
+				LOGGER.error("Unable to get table information.");
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				LOGGER.error("Exiting!");
 			}
 		}
 
@@ -146,7 +147,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 					" parameter tasks.max must set to " +
 					tableCount;
 			LOGGER.error(message);
-			LOGGER.error("Stopping " + OraCdcSourceConnector.class.getName());
+			LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
 			throw new RuntimeException(message);
 		}
 
@@ -198,9 +199,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 			}
 		} catch (SQLException sqle) {
 			validConfig = false;
-			LOGGER.fatal("Unable to get table information.");
-			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
-			LOGGER.fatal("Exiting!");
+			LOGGER.error("Unable to get table information.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error("Exiting!");
 		}
 
 		if (!validConfig) {

@@ -20,7 +20,8 @@ import java.util.Map;
 
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import eu.solutions.a2.cdc.oracle.OraTable;
@@ -30,7 +31,7 @@ import eu.solutions.a2.cdc.oracle.utils.Version;
 
 public class OraCdcSourceTask extends SourceTask {
 
-	private static final Logger LOGGER = Logger.getLogger(OraCdcSourceTask.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceTask.class);
 
 	private OraTable oraTable;
 	private int batchSize;
@@ -43,7 +44,7 @@ public class OraCdcSourceTask extends SourceTask {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc Source Task for " + props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
+		LOGGER.info("Starting oracdc Source Task for {}", props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
 
 		batchSize = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM));
 		pollInterval = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.POLL_INTERVAL_MS_PARAM));
@@ -62,8 +63,8 @@ public class OraCdcSourceTask extends SourceTask {
 				// Source.SCHEMA_TYPE_STANDALONE
 				oraTable.setKafkaConnectTopic(props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
 		} catch (SQLException sqle) {
-			LOGGER.fatal("Unable to get table information.");
-			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error("Unable to get table information.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
 	}
 
@@ -78,8 +79,8 @@ public class OraCdcSourceTask extends SourceTask {
 			connection.commit();
 			return result;
 		} catch (SQLException sqle) {
-			LOGGER.fatal("Unable to poll data from Oracle RDBMS.");
-			LOGGER.fatal(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error("Unable to poll data from Oracle RDBMS.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
 		return null;
 	}

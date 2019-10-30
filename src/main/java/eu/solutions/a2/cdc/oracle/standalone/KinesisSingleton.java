@@ -16,7 +16,8 @@ package eu.solutions.a2.cdc.oracle.standalone;
 import java.nio.ByteBuffer;
 import java.util.Properties;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
@@ -37,7 +38,7 @@ import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
 	
 public class KinesisSingleton implements SendMethodIntf {
 
-	private static final Logger LOGGER = Logger.getLogger(KinesisSingleton.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KinesisSingleton.class);
 
 	private static KinesisSingleton instance;
 
@@ -85,7 +86,7 @@ public class KinesisSingleton implements SendMethodIntf {
 							}
 							@Override
 							public void onFailure(Throwable t) {
-								LOGGER.error("Exception while sending " + messageKey + " to Kinesis." );
+								LOGGER.error("Exception while sending {} to Kinesis.", messageKey);
 								LOGGER.error(ExceptionUtils.getExceptionStackTrace(new Exception(t)));
 							}
 						});
@@ -104,7 +105,7 @@ public class KinesisSingleton implements SendMethodIntf {
 			kinesisProducer.flushSync();
 			kinesisProducer.destroy();
 		} else {
-			LOGGER.fatal("Attempt to close non-initialized Kinesis producer!");
+			LOGGER.error("Attempt to close non-initialized Kinesis producer!");
 			System.exit(1);
 		}
 	}
@@ -112,29 +113,29 @@ public class KinesisSingleton implements SendMethodIntf {
 	public void parseSettings(final Properties props, final String configPath, final int exitCode) {
 		streamName = props.getProperty("a2.kinesis.stream", "");
 		if (streamName == null || "".equals(streamName)) {
-			LOGGER.fatal("a2.kinesis.stream parameter must set in configuration file " + configPath);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.kinesis.stream parameter must set in configuration file {}", configPath);
+			LOGGER.error("Exiting.");
 			System.exit(exitCode);
 		}
 
 		String region = props.getProperty("a2.kinesis.region", "");
 		if (region == null || "".equals(region)) {
-			LOGGER.fatal("a2.kinesis.region parameter must set in configuration file " + configPath);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.kinesis.region parameter must set in configuration file {}", configPath);
+			LOGGER.error("Exiting.");
 			System.exit(exitCode);
 		}
 
 		String accessKey = props.getProperty("a2.kinesis.access.key", "");
 		if (accessKey == null || "".equals(accessKey)) {
-			LOGGER.fatal("a2.kinesis.access.key parameter must set in configuration file " + configPath);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.kinesis.access.key parameter must set in configuration file {}", configPath);
+			LOGGER.error("Exiting.");
 			System.exit(exitCode);
 		}
 
 		String accessSecret = props.getProperty("a2.kinesis.access.secret", "");
 		if (accessSecret == null || "".equals(accessSecret)) {
-			LOGGER.fatal("a2.kinesis.access.secret parameter must set in configuration file " + configPath);
-			LOGGER.fatal("Exiting.");
+			LOGGER.error("a2.kinesis.access.secret parameter must set in configuration file {}", configPath);
+			LOGGER.error("Exiting.");
 			System.exit(exitCode);
 		}
 
@@ -153,7 +154,7 @@ public class KinesisSingleton implements SendMethodIntf {
 			try {
 				maxConnections = Integer.parseInt(maxConnectionsString);
 			} catch (Exception e) {
-				LOGGER.warn("Incorrect value for a2.kinesis.max.connections -> " + maxConnectionsString);
+				LOGGER.warn("Incorrect value for a2.kinesis.max.connections -> {}", maxConnectionsString);
 				LOGGER.warn("Setting it to 1");
 			}
 		}
@@ -166,7 +167,7 @@ public class KinesisSingleton implements SendMethodIntf {
 			try {
 				requestTimeout = Integer.parseInt(requestTimeoutString);
 			} catch (Exception e) {
-				LOGGER.warn("Incorrect value for a2.kinesis.request.timeout -> " + requestTimeoutString);
+				LOGGER.warn("Incorrect value for a2.kinesis.request.timeout -> {}", requestTimeoutString);
 				LOGGER.warn("Setting it to 30000");
 			}
 		}
@@ -179,7 +180,7 @@ public class KinesisSingleton implements SendMethodIntf {
 			try {
 				recordMaxBufferedTime = Integer.parseInt(recordMaxBufferedTimeString);
 			} catch (Exception e) {
-				LOGGER.warn("Incorrect value for a2.kinesis.request.record.max.buffered.time -> " + recordMaxBufferedTimeString);
+				LOGGER.warn("Incorrect value for a2.kinesis.request.record.max.buffered.time -> {}", recordMaxBufferedTimeString);
 				LOGGER.warn("Setting it to 5000");
 			}
 		}
@@ -191,7 +192,7 @@ public class KinesisSingleton implements SendMethodIntf {
 			try {
 				fileSizeThreshold = Integer.parseInt(fileSizeThresholdString);
 			} catch (Exception e) {
-				LOGGER.warn("Incorrect value for a2.kinesis.file.size.threshold -> " + fileSizeThresholdString);
+				LOGGER.warn("Incorrect value for a2.kinesis.file.size.threshold -> {}", fileSizeThresholdString);
 				LOGGER.warn("Setting it to 512");
 			}
 		}
