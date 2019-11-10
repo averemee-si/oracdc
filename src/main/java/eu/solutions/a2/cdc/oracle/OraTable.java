@@ -17,6 +17,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Connection;
@@ -771,6 +772,17 @@ public class OraTable implements Runnable {
 				if (!deleteOp)
 					stmtMaster.setLong(bindNo, rsLog.getLong(columnName));
 				break;
+			case Types.DOUBLE:
+				keyStruct.put(columnName, rsLog.getDouble(columnName));
+				if (!deleteOp)
+					stmtMaster.setDouble(bindNo, rsLog.getDouble(columnName));
+				break;
+			case Types.DECIMAL:
+				BigDecimal bdValue = rsLog.getBigDecimal(columnName).setScale(oraColumn.getDataScale());
+				keyStruct.put(columnName, bdValue);
+				if (!deleteOp)
+					stmtMaster.setBigDecimal(bindNo, bdValue);
+				break;
 			case Types.BINARY:
 				keyStruct.put(columnName, rsLog.getBytes(columnName));
 				if (!deleteOp)
@@ -795,7 +807,7 @@ public class OraTable implements Runnable {
 					stmtMaster.setTimestamp(bindNo, rsLog.getTimestamp(columnName));
 				break;
 			default:
-				// Types.FLOAT, Types.DOUBLE, Types.BLOB, Types.CLOB 
+				// Types.FLOAT, Types.BLOB, Types.CLOB 
 				// TODO - is it possible?
 				keyStruct.put(columnName, rsLog.getString(columnName));
 				if (!deleteOp)
@@ -1042,6 +1054,13 @@ public class OraTable implements Runnable {
 					else
 						valueStruct.put(columnName, doubleColumnValue);
 					break;
+				case Types.DECIMAL:
+					final BigDecimal bdColumnValue = rsMaster.getBigDecimal(columnName); 
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, bdColumnValue.setScale(oraColumn.getDataScale()));
+					break;
 				case Types.BLOB:
 					final Blob blobColumnValue = rsMaster.getBlob(columnName);
 					if (rsMaster.wasNull() || blobColumnValue.length() < 1) {
@@ -1120,6 +1139,9 @@ public class OraTable implements Runnable {
 				break;
 			case Types.BIGINT:
 				sbPrimaryKey.append(rsLog.getLong(columnName));
+				break;
+			case Types.DECIMAL:
+				sbPrimaryKey.append(rsLog.getBigDecimal(columnName));
 				break;
 			case Types.BINARY:
 				// Encode binary to Base64

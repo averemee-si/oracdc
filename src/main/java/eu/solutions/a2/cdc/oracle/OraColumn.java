@@ -13,12 +13,14 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Map;
 
+import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Timestamp;
@@ -33,6 +35,7 @@ public class OraColumn {
 	private final boolean nullable;
 	private AvroSchema avroSchema;
 	private boolean oracleDate = false;
+	private int dataScale = 0;
 
 	/**
 	 * 
@@ -67,7 +70,7 @@ public class OraColumn {
 				break;
 			case "NUMBER":
 				final int dataPrecision = resultSet.getInt("DATA_PRECISION"); 
-				final int dataScale = resultSet.getInt("DATA_SCALE");
+				dataScale = resultSet.getInt("DATA_SCALE");
 				if (dataScale == 0) {
 					if (dataPrecision == 0) {
 						// Just NUMBER.....
@@ -230,23 +233,24 @@ public class OraColumn {
 						valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
 				break;
 			case "NUMBER":
-				final int dataPrecision = resultSet.getInt("DATA_PRECISION"); 
-				final int dataScale = resultSet.getInt("DATA_SCALE");
-				if (dataScale == 0) {
-					if (dataPrecision == 0) {
-						// Just NUMBER.....
-						// OEBS and other legacy systems specific
-						// Can be Integer or decimal or float....
-						jdbcType = Types.DOUBLE;
-						if (this.nullable)
-							valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
+				final int dataPrecision = resultSet.getInt("DATA_PRECISION");
+				final boolean precisionIsNull = resultSet.wasNull();
+				dataScale = resultSet.getInt("DATA_SCALE");
+				final boolean scaleIsNull = resultSet.wasNull();
+				if (precisionIsNull && scaleIsNull) {
+					// NUMBER w/out precision and scale
+					// OEBS and other legacy systems specific
+					// Can be Integer or decimal or float....
+					jdbcType = Types.DOUBLE;
+					if (this.nullable)
+						valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
+					else
+						if (this.partOfPk)
+							keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
 						else
-							if (this.partOfPk)
-								keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
-							else
-								valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
-					}
-					else if (dataPrecision < 3) {
+							valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+				} else if (dataScale == 0) {
+					if (dataPrecision < 3) {
 						jdbcType = Types.TINYINT;
 						if (this.nullable)
 							valueSchema.field(this.columnName, Schema.OPTIONAL_INT8_SCHEMA);
@@ -276,7 +280,7 @@ public class OraColumn {
 							else
 								valueSchema.field(this.columnName, Schema.INT32_SCHEMA);
 					}
-					else {
+					else if (dataPrecision < 19) {
 						jdbcType = Types.BIGINT;
 						if (this.nullable)
 							valueSchema.field(this.columnName, Schema.OPTIONAL_INT64_SCHEMA);
@@ -285,16 +289,26 @@ public class OraColumn {
 								keySchema.field(this.columnName, Schema.INT64_SCHEMA);
 							else
 								valueSchema.field(this.columnName, Schema.INT64_SCHEMA);
+					} else {
+						jdbcType = Types.DECIMAL;
+						if (this.nullable)
+							valueSchema.field(this.columnName, Decimal.builder(0).optional().build());
+						else
+							if (this.partOfPk)
+								keySchema.field(this.columnName, Decimal.builder(0).required().build());
+							else
+								valueSchema.field(this.columnName, Decimal.builder(0).required().build());
 					}
 				} else {
-					jdbcType = Types.DOUBLE;
+					// Decimal values
+					jdbcType = Types.DECIMAL;
 					if (this.nullable)
-						valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
+						valueSchema.field(this.columnName, Decimal.builder(dataScale).optional().build());
 					else
 						if (this.partOfPk)
-							keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+							keySchema.field(this.columnName, Decimal.builder(dataScale).required().build());
 						else
-							valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+							valueSchema.field(this.columnName, Decimal.builder(dataScale).required().build());
 				}
 				break;
 			case "RAW":
@@ -469,6 +483,10 @@ public class OraColumn {
 		return oracleDate;
 	}
 
+	public int getDataScale() {
+		return dataScale;
+	}
+
 	/**
 	 * 
 	 * @param statement
@@ -541,6 +559,12 @@ public class OraColumn {
 				statement.setNull(columnNo, Types.DOUBLE);
 			else
 				statement.setDouble(columnNo, (double) data.get(columnName));
+			break;
+		case Types.DECIMAL:
+			if (columnValue == null)
+				statement.setNull(columnNo, Types.DECIMAL);
+			else
+				statement.setBigDecimal(columnNo, (BigDecimal) data.get(columnName));
 			break;
 		case Types.BINARY:
 			if (columnValue == null)

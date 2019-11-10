@@ -1,6 +1,6 @@
 # oracdc
 
-[Oracle Database](https://www.oracle.com/database/index.html) [CDC](https://en.wikipedia.org/wiki/Change_data_capture) information transfer to [Apache Kafka](http://kafka.apache.org/), or [Amazon Kinesis](https://aws.amazon.com/kinesis/).
+[Oracle Database](https://www.oracle.com/database/index.html) [CDC](https://en.wikipedia.org/wiki/Change_data_capture) information transfer to [Apache Kafka](http://kafka.apache.org/), or [Amazon Kinesis](https://aws.amazon.com/kinesis/). **oracdc** materializes Oracle RDBMS materialized view log at heterogeneous database system.
 Starting from Oracle RDBMS 12c various Oracle tools for [CDC](https://en.wikipedia.org/wiki/Change_data_capture) and/or replication are [depreciated and desupported](https://docs.oracle.com/database/121/UPGRD/deprecated.htm) and replaced by Oracle Golden Gate.
 This project is not intended to be 100% replacement of [expensive](https://www.oracle.com/assets/technology-price-list-070617.pdf) Oracle Golden Gate licenses but may help in many cases when you do not have huge volume of data changes. Project was tested on [Oracle E-Business Suite](https://www.oracle.com/applications/ebusiness/) customer instance for transferring accounting information (mostly GL & XLA tables) to further reporting and analytics in [PostgreSQL](https://www.postgresql.org/) database.
 Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) are used as source for data changes. No materialized view should consume information from materialized view log's which are used by **oracdc**.
@@ -61,29 +61,30 @@ See the [MESSAGE-SAMPLES-DBZM-STYLE.md](docs/MESSAGE-SAMPLES-DBZM-STYLE.md) for 
 
 ### Oracle RDBMS Type mapping
 
-|Oracle RDBMS Type|JSON Type|Comment                                                  |
-|:----------------|:--------|:--------------------------------------------------------|
-|DATE             |int32    |org.apache.kafka.connect.data.Date                       |
-|TIMESTAMP        |int64    |org.apache.kafka.connect.data.Timestamp                  |
-|NUMBER           |int8     |NUMBER(1,0) & NUMBER(2,0)                                |
-|NUMBER           |int16    |NUMBER(3,0) & NUMBER(4,0)                                |
-|NUMBER           |int32    |NUMBER(5,0) & NUMBER(6,0) & NUMBER(7,0) & NUMBER(8,0)    |
-|NUMBER           |int64    |Other Integers greater than billion                      |
-|NUMBER           |float64  |All decimals and floating point numbers                  |
-|FLOAT            |float64  |                                                         |
-|RAW              |bytes    |                                                         |
-|BLOB             |bytes    |                                                         |
-|CHAR             |string   |                                                         |
-|NCHAR            |string   |                                                         |
-|VARCHAR2         |string   |                                                         |
-|NVARCHAR2        |string   |                                                         |
+|Oracle RDBMS Type|JSON Type|Comment                                                       |
+|:----------------|:--------|:-------------------------------------------------------------|
+|DATE             |int32    |org.apache.kafka.connect.data.Date                            |
+|TIMESTAMP        |int64    |org.apache.kafka.connect.data.Timestamp                       |
+|NUMBER           |int8     |NUMBER(1,0) & NUMBER(2,0)                                     |
+|NUMBER           |int16    |NUMBER(3,0) & NUMBER(4,0)                                     |
+|NUMBER           |int32    |NUMBER(5,0) & NUMBER(6,0) & NUMBER(7,0) & NUMBER(8,0)         |
+|NUMBER           |int64    |Other Integers between billion and 1,000,000,000,000,000,000  |
+|NUMBER           |float64  |Oracle NUMBER without specified SCALE and PRECISION           |
+|NUMBER           |bytes    |org.apache.kafka.connect.data.Decimal - all other numerics    |
+|FLOAT            |float64  |                                                              |
+|RAW              |bytes    |                                                              |
+|BLOB             |bytes    |                                                              |
+|CHAR             |string   |                                                              |
+|NCHAR            |string   |                                                              |
+|VARCHAR2         |string   |                                                              |
+|NVARCHAR2        |string   |                                                              |
 
 ## Built With
 
 * [Maven](https://maven.apache.org/) - Dependency Management
 
 ## TODO
-* [Confluent's Kafka Connect JDBC Connector](https://docs.confluent.io/current/connect/kafka-connect-jdbc/index.html) compatibility mode
+* Oracle LOB handler: convert Oracle BLOB/CLOB/BFILE to link on object file system and send ref to instead of large data
 * [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) or [Oracle Flashback](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/adfns/flashback.html) as CDC source
 * [Apache Zookeeper](http://zookeeper.apache.org/) for HA and dynamic configuration
 * AWS Lambda/AWS ECS Consumer
