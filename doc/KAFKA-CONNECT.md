@@ -1,10 +1,16 @@
 ## Configuration
 ### Mandatory parameters
-`a2.jdbc.url` - JDBC connection URL
+`a2.jdbc.url` - JDBC connection URL. Not required when using Oracle Wallet
 
-`a2.jdbc.username` - JDBC connection username
+`a2.jdbc.username` - JDBC connection username. Not required when using Oracle Wallet
 
-`a2.jdbc.password` - JDBC connection password
+`a2.jdbc.password` - JDBC connection password. Not required when using Oracle Wallet
+
+`a2.wallet.location` - Location of Oracle Wallet. Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
+
+`a2.tns.admin` - Location of tnsnames.ora file. Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
+
+`a2.tns.alias` - Connection TNS alias. Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
 
 `a2.schema.type` - _Source Connector_ only: default _kafka_. This parameter tells **oracdc** which schema use, and which key & value converters use.
 When set to _kafka_ **oracdc** must be configured to use  _org.apache.kafka.connect.json.JsonConverter_ and produces pure Kafka Connect schema compatible with [Confluent JDBC Sink Connector](https://docs.confluent.io/3.2.0/connect/connect-jdbc/docs/sink_connector.html).

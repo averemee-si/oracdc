@@ -6,6 +6,12 @@
 
 `a2.jdbc.password` - JDBC connection password
 
+`a2.wallet.location` - Location of Oracle Wallet. Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
+
+`a2.tns.admin` - Location of tnsnames.ora file. Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
+
+`a2.tns.alias` - Connection TNS alias. Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
+
 ### Optional parameters
 `a2.target.broker` - Type of broker/stream used (**kafka**/**kinesis**). Set to **kafka** by default, for Amazon Kinesis must set to **kinesis**
 

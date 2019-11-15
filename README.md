@@ -150,8 +150,10 @@ See the [MESSAGE-SAMPLES-DBZM-STYLE.md](doc/MESSAGE-SAMPLES-DBZM-STYLE.md) for d
 * AWS Lambda/AWS ECS Consumer
 
 ## Version history
-####0.9.0####
+#####0.9.0
 Initial release
+#####0.9.1
+Oracle Wallet support for storing database credentials
 
 
 ## Authors

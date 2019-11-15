@@ -80,22 +80,57 @@ public class OraCdcProducer {
 		}
 
 		// Read and check JDBC connection properties
+
+		boolean useWallet = true;
 		final String jdbcUrl = props.getProperty("a2.jdbc.url");
-		if (jdbcUrl == null || "".equals(jdbcUrl.trim())) {
-			LOGGER.error("a2.jdbc.url not specified in configuration file {}", argv[0]);
-			LOGGER.error("Exiting.");
-			System.exit(1);
-		}
 		final String username = props.getProperty("a2.jdbc.username");
-		if (username == null || "".equals(username.trim())) {
-			LOGGER.error("a2.jdbc.username not specified in configuration file {}", argv[0]);
-			LOGGER.error("Exiting.");
-			System.exit(1);
-		}
 		final String password = props.getProperty("a2.jdbc.password");
-		if (password == null || "".equals(password.trim())) {
-			LOGGER.error("a2.jdbc.password not specified in configuration file {}", argv[0]);
-			LOGGER.error("Exiting.");
+		final String walletLocation = props.getProperty("a2.wallet.location");
+		final String tnsAdmin = props.getProperty("a2.tns.admin");
+		final String alias = props.getProperty("a2.tns.alias");
+		if (jdbcUrl == null || "".equals(jdbcUrl.trim())) {
+			if (walletLocation == null || "".equals(walletLocation)) {
+				LOGGER.error("a2.jdbc.url or a2.wallet.location not specified in configuration file {}", argv[0]);
+				LOGGER.error("Exiting.");
+				System.exit(1);
+			} else {
+				if (tnsAdmin == null || "".equals(tnsAdmin.trim())) {
+					LOGGER.error("a2.tns.admin not specified in configuration file {}", argv[0]);
+					LOGGER.error("Exiting.");
+					System.exit(1);
+				}
+				if (alias == null || "".equals(alias.trim())) {
+					LOGGER.error("a2.tns.alias not specified in configuration file {}", argv[0]);
+					LOGGER.error("Exiting.");
+					System.exit(1);
+				}
+				useWallet = true;
+			}
+		} else {
+			if (username == null || "".equals(username.trim())) {
+				LOGGER.error("a2.jdbc.username not specified in configuration file {}", argv[0]);
+				LOGGER.error("Exiting.");
+				System.exit(1);
+			}
+			if (password == null || "".equals(password.trim())) {
+				LOGGER.error("a2.jdbc.password not specified in configuration file {}", argv[0]);
+				LOGGER.error("Exiting.");
+				System.exit(1);
+			}
+			useWallet = false;
+		}
+
+
+		// Initialize connection pool
+		try {
+			if (useWallet)
+				OraPoolConnectionFactory.init4Wallet(walletLocation, tnsAdmin, alias);
+			else
+				OraPoolConnectionFactory.init(jdbcUrl.trim(), username, password);
+		} catch (SQLException | ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException pe) {
+			LOGGER.error("Unable to initialize database connection.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(pe));
+			LOGGER.error("Exiting!");
 			System.exit(1);
 		}
 
@@ -155,16 +190,6 @@ public class OraCdcProducer {
 		} else {
 			// Explicitly set to null
 			excludeList = null;
-		}
-
-		// Initialize connection pool
-		try {
-			OraPoolConnectionFactory.init(jdbcUrl.trim(), username, password);
-		} catch (SQLException | ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException pe) {
-			LOGGER.error("Unable to initialize database connection.");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(pe));
-			LOGGER.error("Exiting!");
-			System.exit(1);
 		}
 
 		// Init CommonJob MBean

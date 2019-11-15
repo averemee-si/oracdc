@@ -26,7 +26,7 @@ public class OraPoolConnectionFactory {
 
 	private static DataSource pds = null;
 
-	public static final void init(String url, String user, String password) throws
+	public static final void init(final String url, final String user, final String password) throws
 									SQLException,
 									ClassNotFoundException,
 									NoSuchMethodException,
@@ -51,15 +51,31 @@ public class OraPoolConnectionFactory {
 		// pds.setURL(url);
 		final Method setURL = klazzPds.getMethod("setURL", String.class);
 		setURL.invoke(pds, url);
-		// pds.setUser(user);
-		final Method setUser = klazzPds.getMethod("setUser", String.class);
-		setUser.invoke(pds, user);
-		// pds.setPassword(password);
-		final Method setPassword = klazzPds.getMethod("setPassword", String.class);
-		setPassword.invoke(pds, password);
+		if (user != null) {
+			// pds.setUser(user);
+			final Method setUser = klazzPds.getMethod("setUser", String.class);
+			setUser.invoke(pds, user);
+			// pds.setPassword(password);
+			final Method setPassword = klazzPds.getMethod("setPassword", String.class);
+			setPassword.invoke(pds, password);
+		}
 		// pds.setInitialPoolSize(INITIAL_SIZE)
 		final Method setInitialPoolSize = klazzPds.getMethod("setInitialPoolSize", int.class);
 		setInitialPoolSize.invoke(pds, INITIAL_SIZE);
+	}
+
+	public static final void init4Wallet(final String wallet, final String tnsAdmin, final String alias) throws
+									SQLException,
+									ClassNotFoundException,
+									NoSuchMethodException,
+									SecurityException,
+									IllegalAccessException,
+									IllegalArgumentException,
+									InvocationTargetException {
+		System.setProperty("oracle.net.wallet_location", wallet);
+		System.setProperty("oracle.net.tns_admin", tnsAdmin);
+		final String url = "jdbc:oracle:thin:/@" + alias;
+		init(url, null, null);
 	}
 
 	public static Connection getConnection() throws SQLException {
@@ -67,5 +83,6 @@ public class OraPoolConnectionFactory {
 		connection.setAutoCommit(false);
 		return connection;
 	}
+
 
 }

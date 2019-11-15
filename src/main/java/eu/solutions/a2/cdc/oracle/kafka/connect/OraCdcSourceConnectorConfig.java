@@ -23,13 +23,22 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public static final String CONNECTION_URL_PARAM = "a2.jdbc.url";
-	private static final String CONNECTION_URL_DOC = "JDBC connection URL";
+	private static final String CONNECTION_URL_DOC = "JDBC connection URL. Not required when using Oracle Wallet";
 
 	public static final String CONNECTION_USER_PARAM = "a2.jdbc.username";
-	private static final String CONNECTION_USER_DOC = "JDBC connection user";
+	private static final String CONNECTION_USER_DOC = "JDBC connection user. Not required when using Oracle Wallet";
 
 	public static final String CONNECTION_PASSWORD_PARAM = "a2.jdbc.password";
-	private static final String CONNECTION_PASSWORD_DOC = "JDBC connection password";
+	private static final String CONNECTION_PASSWORD_DOC = "JDBC connection password. Not required when using Oracle Wallet";
+
+	public static final String CONNECTION_WALLET_PARAM = "a2.wallet.location";
+	private static final String CONNECTION_WALLET_DOC = "Location of Oracle Wallet. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
+
+	public static final String CONNECTION_TNS_ADMIN_PARAM = "a2.tns.admin";
+	private static final String CONNECTION_TNS_ADMIN_DOC = "Location of tnsnames.ora file. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
+
+	public static final String CONNECTION_TNS_ALIAS_PARAM = "a2.tns.alias";
+	private static final String CONNECTION_TNS_ALIAS_DOC = "Connection TNS alias. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
 
 	public static final String KAFKA_TOPIC_PARAM = "a2.kafka.topic";
 	private static final String KAFKA_TOPIC_PARAM_DOC = "Target topic to send data";
@@ -67,9 +76,12 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public static ConfigDef config() {
 		return new ConfigDef()
-				.define(CONNECTION_URL_PARAM, Type.STRING, Importance.HIGH, CONNECTION_URL_DOC)
-				.define(CONNECTION_USER_PARAM, Type.STRING, Importance.HIGH, CONNECTION_USER_DOC)
-				.define(CONNECTION_PASSWORD_PARAM, Type.STRING, Importance.HIGH, CONNECTION_PASSWORD_DOC)
+				.define(CONNECTION_URL_PARAM, Type.STRING, "", Importance.HIGH, CONNECTION_URL_DOC)
+				.define(CONNECTION_USER_PARAM, Type.STRING, "", Importance.HIGH, CONNECTION_USER_DOC)
+				.define(CONNECTION_PASSWORD_PARAM, Type.STRING, "", Importance.HIGH, CONNECTION_PASSWORD_DOC)
+				.define(CONNECTION_WALLET_PARAM, Type.STRING, "", Importance.HIGH, CONNECTION_WALLET_DOC)
+				.define(CONNECTION_TNS_ADMIN_PARAM, Type.STRING, "", Importance.HIGH, CONNECTION_TNS_ADMIN_DOC)
+				.define(CONNECTION_TNS_ALIAS_PARAM, Type.STRING, "", Importance.HIGH, CONNECTION_TNS_ALIAS_DOC)
 				.define(KAFKA_TOPIC_PARAM, Type.STRING, KAFKA_TOPIC_PARAM_DEFAULT, Importance.HIGH, KAFKA_TOPIC_PARAM_DOC)
 				.define(POLL_INTERVAL_MS_PARAM, Type.INT, POLL_INTERVAL_MS_DEFAULT, Importance.HIGH, POLL_INTERVAL_MS_DOC)
 				.define(BATCH_SIZE_PARAM, Type.INT, BATCH_SIZE_DEFAULT, Importance.HIGH, BATCH_SIZE_DOC)

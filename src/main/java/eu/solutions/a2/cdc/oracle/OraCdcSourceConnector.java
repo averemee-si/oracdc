@@ -55,10 +55,23 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 		// Initialize connection pool
 		try {
-			OraPoolConnectionFactory.init(
+			if (!"".equals(config.getString(OraCdcSourceConnectorConfig.CONNECTION_URL_PARAM))) {
+				OraPoolConnectionFactory.init(
 					config.getString(OraCdcSourceConnectorConfig.CONNECTION_URL_PARAM),
 					config.getString(OraCdcSourceConnectorConfig.CONNECTION_USER_PARAM),
 					config.getString(OraCdcSourceConnectorConfig.CONNECTION_PASSWORD_PARAM));
+			} else if (!"".equals(config.getString(OraCdcSourceConnectorConfig.CONNECTION_WALLET_PARAM))) {
+				OraPoolConnectionFactory.init4Wallet(
+						config.getString(OraCdcSourceConnectorConfig.CONNECTION_WALLET_PARAM),
+						config.getString(OraCdcSourceConnectorConfig.CONNECTION_TNS_ADMIN_PARAM),
+						config.getString(OraCdcSourceConnectorConfig.CONNECTION_TNS_ALIAS_PARAM));
+			} else {
+				validConfig = false;
+				LOGGER.error("Database connection parameters are not properly set\n. Both {}, and {} are not set",
+						OraCdcSourceConnectorConfig.CONNECTION_URL_PARAM,
+						OraCdcSourceConnectorConfig.CONNECTION_WALLET_PARAM);
+				throw new RuntimeException("Database connection parameters are not properly set!");
+			}
 		} catch (SQLException | ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException pe) {
 			validConfig = false;
 			LOGGER.error("Unable to initialize database connection.");
