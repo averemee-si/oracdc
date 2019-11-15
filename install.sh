@@ -11,19 +11,28 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
 # the License for the specific language governing permissions and limitations under the License.
 #
-if [[ `id -u` -ne 0 ]] ; then
-	 echo "Please run as root" ; exit 1 ;
+###if [[ `id -u` -ne 0 ]] ; then
+###	 echo "Please run as root" ; exit 1 ;
+###fi
+
+if [ -z "$1" ]; then
+	echo "Usage: install.sh <PATH2INSTALL>"
+	exit 1
 fi
+A2_CDC_HOME="$1"
 
-ORACDC_HOME=/opt/a2/agents/oracdc
+mkdir -p $A2_CDC_HOME/bin
+mkdir -p $A2_CDC_HOME/conf
+mkdir -p $A2_CDC_HOME/doc
+mkdir -p $A2_CDC_HOME/lib
+mkdir -p $A2_CDC_HOME/log
 
-mkdir -p $ORACDC_HOME/lib
-cp target/lib/*.jar $ORACDC_HOME/lib
+cp target/lib/*.jar $A2_CDC_HOME/lib
+cp target/oracdc-*.jar $A2_CDC_HOME/lib
+cp bin/* $A2_CDC_HOME/bin
+cp conf/* $A2_CDC_HOME/conf
+cp doc/* $A2_CDC_HOME/doc
 
-cp target/oracdc-kafka-0.9.0.jar $ORACDC
-cp oracdc-producer.sh $ORACDC
-cp oracdc-producer.conf $ORACDC
-cp log4j.properties $ORACDC
+chmod +x $A2_CDC_HOME/bin/*.sh
 
-chmod +x $ORACDC_HOME/oracdc-producer.sh
 

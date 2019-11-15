@@ -1,45 +1,3 @@
-## Getting Started
-
-These instructions will get you a copy of the project up and running on any platform with JDK8+ support.
-
-## Prerequisites
-
-Before using **oracdc** please check that required Java8+ is installed with
-
-```
-echo "Checking Java version"
-java -version
-```
-
-## Installing
-
-Build with
-
-```
-mvn install
-```
-### 3rd party JDBC drivers
-Unfortunately due the binary license there is no public repository with the Oracle JDBC Driver and Oracle UCP. You can copy drivers from Oracle RDBMS server and place they to drivers directory
-
-```
-cp $ORACLE_HOME/jdbc/lib/ojdbc8.jar $DRIVERS_PATH 
-cp $ORACLE_HOME/ucp/lib/ucp.jar $DRIVERS_PATH 
-```
-or download drivers from [https://www.oracle.com/database/technologies/jdbc-ucp-122-downloads.html](https://www.oracle.com/database/technologies/jdbc-ucp-122-downloads.html)
-
-Also you need to copy to drivers directory required target database JDBC drivers and HikariCP-3.4.1.jar. 
-
-```
-cp $BUILD_DIR/target/lib/HikariCP-3.4.1.jar $DRIVERS_PATH 
-```
-
-Before starting you need to export CLASSPATH variable to add required libraries
-
-```
-export CLASSPATH=$DRIVERS_PATH/HikariCP-3.4.1.jar:$DRIVERS_PATH/ucp.jar:$DRIVERS_PATH/ojdbc8.jar
-```
- 
-
 ## Configuration
 ### Mandatory parameters
 `a2.jdbc.url` - JDBC connection URL
@@ -174,7 +132,7 @@ a2.autocreate=true
 Start **oracdc** with
 
 ```
-export CLASSPATH=$DRIVERS_PATH/HikariCP-3.4.1.jar:$DRIVERS_PATH/ucp.jar:$DRIVERS_PATH/ojdbc8.jar
+export CLASSPATH=$A2_CDC_HOME/lib/HikariCP-3.4.1.jar:$A2_CDC_HOME/lib/ucp.jar:$A2_CDC_HOME/lib/ojdbc8.jar:$A2_CDC_HOME/lib/oraclepki.jar:$A2_CDC_HOME/lib/osdt_core.jar:$A2_CDC_HOME/lib/osdt_cert.jar
 $KAFKA_HOME/bin/connect-standalone.sh \
 oracdc-connect-standalone.properties \
 oracdc-source-connector.properties \
