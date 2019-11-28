@@ -1041,12 +1041,12 @@ public class OraTable implements Runnable {
 					}
 					break;
 				case Types.FLOAT:
-					final float floatColumnValue = rsMaster.getFloat(columnName); 
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, floatColumnValue);
-					break;
+//					final float floatColumnValue = rsMaster.getFloat(columnName); 
+//					if (rsMaster.wasNull())
+//						valueStruct.put(columnName, null);
+//					else
+//						valueStruct.put(columnName, floatColumnValue);
+//					break;
 				case Types.DOUBLE:
 					final double doubleColumnValue = rsMaster.getDouble(columnName); 
 					if (rsMaster.wasNull())
