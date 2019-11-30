@@ -29,6 +29,8 @@ import eu.solutions.a2.cdc.oracle.standalone.avro.AvroSchema;
 
 public class OraColumn {
 
+	private final static float LOG_2 = 0.30103f; 
+
 	private final String columnName;
 	private final boolean partOfPk;
 	private final int jdbcType;
@@ -223,14 +225,36 @@ public class OraColumn {
 						valueSchema.field(this.columnName, Timestamp.builder().required().build());
 				break;
 			case "FLOAT":
-				jdbcType = Types.FLOAT;
-				if (this.nullable)
-					valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
-				else
-					if (this.partOfPk)
-						keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+				final int floatDataPrecision = resultSet.getInt("DATA_PRECISION");
+				if (resultSet.wasNull() || floatDataPrecision > 22) {
+					jdbcType = Types.DOUBLE;
+					if (this.nullable)
+						valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
 					else
-						valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+						if (this.partOfPk)
+							keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+						else
+							valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+				} else if (floatDataPrecision > 10) {
+					jdbcType = Types.FLOAT;
+					if (this.nullable)
+						valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT32_SCHEMA);
+					else
+						if (this.partOfPk)
+							keySchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
+						else
+							valueSchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
+				} else {
+					dataScale = (int) Math.ceil((float) floatDataPrecision * LOG_2);
+					jdbcType = Types.DECIMAL;
+					if (this.nullable)
+						valueSchema.field(this.columnName, Decimal.builder(dataScale).optional().build());
+					else
+						if (this.partOfPk)
+							keySchema.field(this.columnName, Decimal.builder(dataScale).required().build());
+						else
+							valueSchema.field(this.columnName, Decimal.builder(dataScale).required().build());
+				}
 				break;
 			case "NUMBER":
 				final int dataPrecision = resultSet.getInt("DATA_PRECISION");
