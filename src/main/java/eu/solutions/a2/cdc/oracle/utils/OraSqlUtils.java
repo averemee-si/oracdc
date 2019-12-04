@@ -63,9 +63,4 @@ public class OraSqlUtils {
 		return sb.toString();
 	}
 
-	public static void main(String[] argv) {
-		String[] test = {"GL.GL_CODE_COMBINATIONS", "XLA_AE_LINES", "SCOTT.%"};
-		System.out.println(parseTableSchemaList(true, false, Arrays.asList(test)));
-	}
-
 }
