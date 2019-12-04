@@ -33,6 +33,7 @@ import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceConnectorConfig;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceTask;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
 public class OraCdcSourceConnector extends SourceConnector {
@@ -40,8 +41,10 @@ public class OraCdcSourceConnector extends SourceConnector {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnector.class);
 
 	private OraCdcSourceConnectorConfig config;
-	boolean validConfig = true;
-	int tableCount = 0;
+	private boolean validConfig = true;
+	private int tableCount = 0;
+	private String whereExclude = null;
+	private String whereInclude = null;
 
 	@Override
 	public String version() {
@@ -82,20 +85,15 @@ public class OraCdcSourceConnector extends SourceConnector {
 		if (validConfig) {
 			try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 				String sqlStatementText = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI;
-				List<String> excludeList = config.getList(OraCdcSourceConnectorConfig.TABLE_EXCLUDE_PARAM);
+				final List<String> excludeList = config.getList(OraCdcSourceConnectorConfig.TABLE_EXCLUDE_PARAM);
 				if (excludeList.size() > 0) {
-					final StringBuilder sb = new StringBuilder(128);
-					sb.append(" and L.MASTER not in (");
-					for (int i = 0; i < excludeList.size(); i++) {
-						sb.append("'");
-						sb.append(excludeList.get(i).toUpperCase());
-						sb.append("'");
-						if (i < excludeList.size() - 1) {
-							sb.append(",");
-						}
-					}
-					sb.append(")");
-					sqlStatementText += sb.toString();
+					whereExclude = OraSqlUtils.parseTableSchemaList(true, false, excludeList);
+					sqlStatementText += whereExclude;
+				}
+				final List<String> includeList = config.getList(OraCdcSourceConnectorConfig.TABLE_INCLUDE_PARAM);
+				if (includeList.size() > 0) {
+					whereInclude = OraSqlUtils.parseTableSchemaList(false, false, includeList);
+					sqlStatementText += whereInclude;
 				}
 
 				// Count number of materialized view logs
@@ -167,20 +165,11 @@ public class OraCdcSourceConnector extends SourceConnector {
 		List<Map<String, String>> configs = new ArrayList<>(maxTasks);
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			String sqlStatementText = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI;
-			List<String> excludeList = config.getList(OraCdcSourceConnectorConfig.TABLE_EXCLUDE_PARAM);
-			if (excludeList.size() > 0) {
-				final StringBuilder sb = new StringBuilder(128);
-				sb.append(" and L.MASTER not in (");
-				for (int i = 0; i < excludeList.size(); i++) {
-					sb.append("'");
-					sb.append(excludeList.get(i).toUpperCase());
-					sb.append("'");
-					if (i < excludeList.size() - 1) {
-						sb.append(",");
-					}
-				}
-				sb.append(")");
-				sqlStatementText += sb.toString();
+			if (whereExclude != null) {
+				sqlStatementText += whereExclude;
+			}
+			if (whereInclude != null) {
+				sqlStatementText += whereExclude;
 			}
 			final PreparedStatement statement = connection.prepareStatement(sqlStatementText);
 			final ResultSet resultSet = statement.executeQuery();

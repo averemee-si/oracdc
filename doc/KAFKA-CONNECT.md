@@ -27,7 +27,9 @@ When set to _standalone_  **oracdc** must be configured to use _org.apache.kafka
 
 `a2.poll.interval` - _Source Connector_ only: interval in milliseconds to poll for new data in each materialized view log
 
-`a2.exclude` - _Source Connector_ only: comma separated list of tables to exclude from **oracdc** processing
+`a2.exclude` - _Source Connector_ only: comma separated list of table names or table names with schema name (**<SCHEMA_NAME>.<TABLE_NAME>**) to exclude from **oracdc** processing. To exclude all schema objects from **oracdc** processing use __<SCHEMA_NAME>.*__ or __<SCHEMA_NAME>.%__
+
+`a2.include` - _Source Connector_ only: comma separated list of table names or table names with schema name (**<SCHEMA_NAME>.<TABLE_NAME>**) to include to **oracdc** processing. To include all schema objects to **oracdc** processing use __<SCHEMA_NAME>.*__ or __<SCHEMA_NAME>.%__
 
 `a2.autocreate`- _Sink Connector_ only: default _false_, when set to true **oracdc** creates missing table automatically
 

@@ -19,7 +19,9 @@
 
 `a2.batch.size` - maximum number of rows to include in a single batch when polling for new data
 
-`a2.exclude` - comma separated list of tables to exclude from **oracdc** processing
+`a2.exclude` - comma separated list of table names or table names with schema name (**<SCHEMA_NAME>.<TABLE_NAME>**) to exclude from **oracdc** processing. To exclude all schema objects from **oracdc** processing use __<SCHEMA_NAME>.*__ or __<SCHEMA_NAME>.%__ 
+
+`a2.include` - comma separated list of table names or table names with schema name (**<SCHEMA_NAME>.<TABLE_NAME>**) to include to **oracdc** processing. To include all schema objects to **oracdc** processing use __<SCHEMA_NAME>.*__ or __<SCHEMA_NAME>.%__
 
 ### Apache Kafka specific configuration
 

@@ -24,6 +24,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Executors;
@@ -42,6 +43,7 @@ import eu.solutions.a2.cdc.oracle.standalone.KinesisSingleton;
 import eu.solutions.a2.cdc.oracle.standalone.SendMethodIntf;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
 
 public class OraCdcProducer {
 
@@ -157,27 +159,9 @@ public class OraCdcProducer {
 		String excludeList = props.getProperty("a2.exclude");
 		if (excludeList != null && !"".equals(excludeList)) {
 			try {
-				// Remove all quotes, whitespaces and convert to upper case
-				excludeList = excludeList
-						.replace("\"", "")
-						.replace("'", "")
-						.replace(" ", "")
-						.replace("\t", "")
-						.toUpperCase();
-				String[] nameList = excludeList.split(",");
-				StringBuilder sb = new StringBuilder(128);
-				if (nameList.length > 0) {
-					sb.append(" and L.MASTER not in (");
-					for (int i = 0; i < nameList.length; i++) {
-						sb.append("'");
-						sb.append(nameList[i]);
-						sb.append("'");
-						if (i < nameList.length - 1) {
-							sb.append(",");
-						}
-					}
-					sb.append(")");
-					excludeList = sb.toString();
+				List<String> nameList = Arrays.asList(excludeList.split(","));
+				if (nameList.size() > 0) {
+					excludeList = OraSqlUtils.parseTableSchemaList(true, false, nameList);
 				} else {
 					excludeList = null;
 				}
@@ -190,6 +174,26 @@ public class OraCdcProducer {
 		} else {
 			// Explicitly set to null
 			excludeList = null;
+		}
+
+		String includeList = props.getProperty("a2.include");
+		if (includeList != null && !"".equals(includeList)) {
+			try {
+				List<String> nameList = Arrays.asList(includeList.split(","));
+				if (nameList.size() > 0) {
+					includeList = OraSqlUtils.parseTableSchemaList(false, false, nameList);
+				} else {
+					includeList = null;
+				}
+
+			} catch (Exception e) {
+				LOGGER.error("Unable to parse a2.include parameter set to -> {}", includeList);
+				LOGGER.error("Ignoring it.....");
+				excludeList = null;
+			}
+		} else {
+			// Explicitly set to null
+			includeList = null;
 		}
 
 		// Init CommonJob MBean
@@ -217,6 +221,10 @@ public class OraCdcProducer {
 			if (excludeList != null) {
 				// Add excluded tables
 				sqlStatement += excludeList;
+			}
+			if (includeList != null) {
+				// Add excluded tables
+				sqlStatement += includeList;
 			}
 			statement = connection.prepareStatement(sqlStatement);
 			ResultSet rsCount = statement.executeQuery();
