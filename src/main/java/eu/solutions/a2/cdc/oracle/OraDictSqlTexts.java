@@ -46,4 +46,9 @@ public class OraDictSqlTexts {
 			"where  C.OWNER=? and C.TABLE_NAME=?\n" +
 			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
 
+	/*
+	select CDB from V$DATABASE;
+	 */
+	public static final String CHECK_CDB_PDB =
+			"select CDB from V$DATABASE";
 }
