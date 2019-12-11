@@ -54,6 +54,9 @@ public class OraCdcSourceTask extends SourceTask {
 					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER),
 					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER),
 					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_LOG),
+					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID)),
+					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK)),
+					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE)),
 					batchSize);
 			if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD)
 				oraTable.setKafkaConnectTopic(

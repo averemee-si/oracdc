@@ -73,6 +73,9 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	public static final String TASK_PARAM_MV_LOG = "mv.log";
 	public static final String TASK_PARAM_OWNER = "owner";
 	public static final String TASK_PARAM_SCHEMA_TYPE = "schema.type";
+	public static final String TASK_PARAM_MV_ROWID = "mvlog.rowid";
+	public static final String TASK_PARAM_MV_PK = "mvlog.pk";
+	public static final String TASK_PARAM_MV_SEQUENCE = "mvlog.seq";
 
 	public static ConfigDef config() {
 		return new ConfigDef()

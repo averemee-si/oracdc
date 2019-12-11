@@ -69,7 +69,14 @@ mkstore -wrl $A2_CDC_HOME/wallets/ -createCredential JDK8 SCOTT
 
 ## Running 
 
-Create materialized view log's over replicated tables. These materialized view logs _must_ be created _with_ following options - **with primary key**, **sequence**, **excluding new values** and _without_ **commit scn** option
+Create materialized view log's over replicated tables. These materialized view logs _must_ be created _with_ following options - **with primary key**, _and/or_ **with rowid**, **sequence**, **excluding new values** and _without_ **commit scn** option. You do not need to specify _column list_ while creating materialized view log for using with **oracdc**. **oracdc** reads from materialized view log only primary key value and/or rowid of row in master table.  Table below describes how **oracdc** operates depending on the materialized view log settings
+
+|SNAPSHOT LOG WITH    |Master table access|Key for External system            |
+|:--------------------|:------------------|:----------------------------------|
+|Primary key          |Primary key        |Primary key                        |
+|Primary key and ROWID|ROWID              |Primary key                        |
+|ROWID                |ROWID              |ROWID (String, key name ORA$ROW$ID)|
+
 
 ```
 connect scott/tiger
@@ -150,11 +157,12 @@ See the [MESSAGE-SAMPLES-DBZM-STYLE.md](doc/MESSAGE-SAMPLES-DBZM-STYLE.md) for d
 * AWS Lambda/AWS ECS Consumer
 
 ## Version history
-#####0.9.0
+#####0.9.0 (OCT-2019)
 Initial release
-#####0.9.1
+#####0.9.1 (NOV-2019)
 Oracle Wallet support for storing database credentials
-
+#####0.9.2 (DEC-2019)
+"with ROWID" materialized view log support
 
 ## Authors
 

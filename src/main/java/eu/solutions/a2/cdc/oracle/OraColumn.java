@@ -29,6 +29,9 @@ import eu.solutions.a2.cdc.oracle.standalone.avro.AvroSchema;
 
 public class OraColumn {
 
+	public static final String ROWID_KEY = "ORA$ROW$ID";
+	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";
+
 	private final static float LOG_2 = 0.30103f; 
 
 	private final String columnName;
@@ -434,6 +437,8 @@ public class OraColumn {
 	}
 
 	/**
+	 * Used in standalone sink connector
+	 * 
 	 * 
 	 * @param avroSchema
 	 * @param partOfPk
@@ -483,6 +488,34 @@ public class OraColumn {
 		}
 	}
 
+	/**
+	 * Used internally for ROWID support
+	 * 
+	 * @param columnName
+	 * @param partOfPk
+	 * @param jdbcType
+	 * @param nullable
+	 */
+	private OraColumn(
+			final String columnName,
+			final boolean partOfPk,
+			final int jdbcType,
+			boolean nullable) {
+		this.columnName = columnName;
+		this.partOfPk = partOfPk;
+		this.jdbcType = jdbcType;
+		this.nullable = nullable;
+	}
+
+	public static OraColumn getRowIdKey(final SchemaBuilder keySchema) {
+		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, true, Types.ROWID, false);
+		if (keySchema == null)
+			rowIdColumn.setAvroSchema(AvroSchema.STRING_MANDATORY());
+		else
+			keySchema.field(ROWID_KEY, Schema.STRING_SCHEMA);
+		return rowIdColumn;
+	}
+
 	public String getColumnName() {
 		return columnName;
 	}
@@ -501,6 +534,9 @@ public class OraColumn {
 
 	public AvroSchema getAvroSchema() {
 		return avroSchema;
+	}
+	private void setAvroSchema(AvroSchema avroSchema) {
+		this.avroSchema = avroSchema;
 	}
 
 	public boolean isOracleDate() {

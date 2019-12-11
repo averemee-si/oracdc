@@ -1,7 +1,27 @@
+/**
+ * Copyright (c) 2018-present, http://a2-solutions.eu
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
+ * the License for the specific language governing permissions and limitations under the License.
+ */
+
 package eu.solutions.a2.cdc.oracle.utils;
 
-import java.util.Arrays;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
+import eu.solutions.a2.cdc.oracle.OraDictSqlTexts;
 
 public class OraSqlUtils {
 
@@ -61,6 +81,43 @@ public class OraSqlUtils {
 
 		sb.append(")");
 		return sb.toString();
+	}
+
+	public static Set<String> getPkColumnsFromDict(
+			final Connection connection,
+			final String owner,
+			final String tableName) throws SQLException {
+		Set<String> result = null;
+		PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS);
+		ps.setString(1, owner);
+		ps.setString(2, owner);
+		ResultSet rs = ps.executeQuery();
+		while (rs.next()) {
+			if (result == null)
+				result = new HashSet<>();
+			result.add(rs.getString("COLUMN_NAME"));
+		}
+		rs.close();
+		rs = null;
+		ps.close();
+		ps = null;
+		if (result == null) {
+			// Try to find unique index with non-null columns only
+			ps = connection.prepareStatement(OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS);
+			ps.setString(1, owner);
+			ps.setString(2, owner);
+			rs = ps.executeQuery();
+			while (rs.next()) {
+				if (result == null)
+					result = new HashSet<>();
+				result.add(rs.getString("COLUMN_NAME"));
+			}
+			rs.close();
+			rs = null;
+			ps.close();
+			ps = null;
+		}
+		return result;
 	}
 
 }

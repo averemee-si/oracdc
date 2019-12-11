@@ -255,8 +255,14 @@ public class OraCdcProducer {
 			statement = connection.prepareStatement(sqlStatement);
 			ResultSet rs = statement.executeQuery();
 			while (rs.next()) {
-				OraTable oraTable = new OraTable(rs.getString("LOG_OWNER"), rs.getString("MASTER"),
-						rs.getString("LOG_TABLE"), batchSize, sendMethod);
+				OraTable oraTable = new OraTable(
+						rs.getString("LOG_OWNER"),
+						rs.getString("MASTER"),
+						rs.getString("LOG_TABLE"),
+						"YES".equalsIgnoreCase(rs.getString("ROWIDS")),
+						"YES".equalsIgnoreCase(rs.getString("PRIMARY_KEY")),
+						"YES".equalsIgnoreCase(rs.getString("SEQUENCE")),
+						batchSize, sendMethod);
 				oraTables.add(oraTable);
 				LOGGER.info("Adding " + oraTable);
 			}

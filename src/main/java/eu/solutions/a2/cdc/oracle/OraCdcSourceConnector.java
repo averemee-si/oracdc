@@ -176,7 +176,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 			for (int i = 0; i < maxTasks; i++) {
 				resultSet.next();
-				final Map<String, String> taskParam = new HashMap<>(6);
+				final Map<String, String> taskParam = new HashMap<>(9);
 
 				taskParam.put(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM,
 						config.getInt(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM).toString());
@@ -188,6 +188,12 @@ public class OraCdcSourceConnector extends SourceConnector {
 						resultSet.getString("LOG_TABLE"));
 				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER,
 						resultSet.getString("LOG_OWNER"));
+				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID,
+						resultSet.getString("ROWIDS"));
+				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK,
+						resultSet.getString("PRIMARY_KEY"));
+				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE,
+						resultSet.getString("SEQUENCE"));
 
 				if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD)
 					taskParam.put(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM,

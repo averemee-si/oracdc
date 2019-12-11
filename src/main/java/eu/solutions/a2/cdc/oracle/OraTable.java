@@ -103,6 +103,10 @@ public class OraTable implements Runnable {
 	private SendMethodIntf sendMethod;
 	private final String tableOwner;
 	private final String masterTable;
+	private boolean logWithRowIds = false;
+	private boolean logWithPrimaryKey = false;
+	private boolean logWithSequence = false;
+
 	private String masterTableSelSql;
 	private String snapshotLog;
 	private String snapshotLogSelSql;
@@ -126,9 +130,25 @@ public class OraTable implements Runnable {
 	// Only for Kafka connect mode
 	private String kafkaConnectTopic = null;
 
+	/**
+	 * Connect source constructor
+	 * 
+	 * @param tableOwner
+	 * @param masterTable
+	 * @param snapshotLog
+	 * @param logWithRowIds
+	 * @param logWithPrimaryKey
+	 * @param logWithSequence
+	 * @param batchSize
+	 * @throws SQLException
+	 */
 	public OraTable(
 			final String tableOwner, final String masterTable, final String snapshotLog,
+			final boolean logWithRowIds, final boolean logWithPrimaryKey, final boolean logWithSequence,
 			final int batchSize) throws SQLException {
+		this.logWithRowIds = logWithRowIds;
+		this.logWithPrimaryKey = logWithPrimaryKey;
+		this.logWithSequence = logWithSequence;
 		this.batchSize = batchSize;
 		this.tableOwner = tableOwner;
 		this.masterTable = masterTable;
@@ -142,15 +162,27 @@ public class OraTable implements Runnable {
 			statement.setString(2, this.tableOwner);
 			statement.setString(3, this.masterTable);
 			ResultSet rsColumns = statement.executeQuery();
+			// Init for build SQL for master table select
 			StringBuilder masterSelect = new StringBuilder(512);
 			boolean masterFirstColumn = true;
 			masterSelect.append("select ");
-			StringBuilder masterWhere = new StringBuilder(128);
-			StringBuilder mViewSelect = new StringBuilder(128);
+			StringBuilder masterWhere = new StringBuilder(256);
+			if (this.logWithRowIds)
+				// ROWID access is always faster that any other
+				masterWhere.append("ROWID=?");
+			// Init for build SQL for snapshot log select
+			StringBuilder mViewSelect = new StringBuilder(256);
 			boolean mViewFirstColumn = true;
 			mViewSelect.append("select ");
+			if (this.logWithRowIds) {
+				// Add M_ROW$$ column for snapshot logs with ROWID
+				mViewFirstColumn = false;
+				mViewSelect.append("chartorowid(M_ROW$$) ");
+				mViewSelect.append(OraColumn.ROWID_KEY);
+			}
+
 			final String tableNameWithOwner = this.tableOwner + "." + this.masterTable;
-			// Schema
+			// Schema init
 			AvroSchema schemaBefore = null;
 			AvroSchema schemaAfter = null;
 			SchemaBuilder keySchemaBuilder = null;
@@ -175,6 +207,16 @@ public class OraTable implements Runnable {
 						.required()
 						.name(tableNameWithOwner + ".value")
 						.version(1);
+			}
+			if (!this.logWithPrimaryKey && this.logWithRowIds) {
+				// Add ROWID (ORA$ROWID) - this column is not in dictionary!!!
+				OraColumn rowIdColumn = OraColumn.getRowIdKey(keySchemaBuilder);
+				allColumns.add(rowIdColumn);
+				pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
+				if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
+					schemaAfter.getFields().add(rowIdColumn.getAvroSchema());
+					schemaBefore.getFields().add(rowIdColumn.getAvroSchema());
+				}
 			}
 
 			while (rsColumns .next()) {
@@ -201,19 +243,24 @@ public class OraTable implements Runnable {
 					if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
 						// Only for SCHEMA_TYPE_STANDALONE!!!
 						schemaBefore.getFields().add(column.getAvroSchema());
-					} 
+					}
 					if (mViewFirstColumn) {
 						mViewFirstColumn = false;
 					} else {
 						mViewSelect.append(", ");
-						masterWhere.append(" and ");
+						if (!this.logWithRowIds)
+							// We need this only when snapshot log don't contains M_ROW$$ 
+							masterWhere.append(" and ");
 					}
 					mViewSelect.append("\"");
 					mViewSelect.append(column.getColumnName());
 					mViewSelect.append("\"");
-					masterWhere.append("\"");
-					masterWhere.append(column.getColumnName());
-					masterWhere.append("\"=?");
+					if (!this.logWithRowIds) {
+						// We need this only when snapshot log don't contains M_ROW$$ 
+						masterWhere.append("\"");
+						masterWhere.append(column.getColumnName());
+						masterWhere.append("\"=?");
+					}
 				}
 			}
 			rsColumns.close();
@@ -249,9 +296,16 @@ public class OraTable implements Runnable {
 		
 			this.masterTableSelSql = masterSelect.toString();
 
-			mViewSelect.append(", SEQUENCE$$, case DMLTYPE$$ when 'I' then 'c' when 'U' then 'u' else 'd' end as OPTYPE$$, ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$, ROWID from ");
+			if (this.logWithSequence) {
+				mViewSelect.append(", ");
+				mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
+			}
+			mViewSelect.append(", case DMLTYPE$$ when 'I' then 'c' when 'U' then 'u' else 'd' end as OPTYPE$$, ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$, ROWID from ");
 			mViewSelect.append(snapshotFqn);
-			mViewSelect.append(" order by SEQUENCE$$");
+			if (this.logWithSequence) {
+				mViewSelect.append(" order by ");
+				mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
+			}
 			this.snapshotLogSelSql = mViewSelect.toString();
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
@@ -266,17 +320,29 @@ public class OraTable implements Runnable {
 	 * @param tableOwner
 	 * @param masterTable
 	 * @param snapshotLog
+	 * @param logWithRowIds
+	 * @param logWithPrimaryKey
+	 * @param logWithSequence
 	 * @param batchSize
 	 * @param sendMethod
 	 * @throws SQLException
 	 */
 	public OraTable(
 			final String tableOwner, final String masterTable, final String snapshotLog,
+			final boolean logWithRowIds, final boolean logWithPrimaryKey, final boolean logWithSequence,
 			final int batchSize, final SendMethodIntf sendMethod) throws SQLException {
-		this(tableOwner, masterTable, snapshotLog, batchSize);
+		this(tableOwner, masterTable, snapshotLog, logWithRowIds, logWithPrimaryKey, logWithSequence, batchSize);
 		this.sendMethod = sendMethod;
 	}
 
+	/**
+	 * This constructor is used only for sink connector mode with self-schema
+	 * 
+	 * 
+	 * @param source
+	 * @param tableSchema
+	 * @param autoCreateTable
+	 */
 	public OraTable(final Source source, final AvroSchema tableSchema, boolean autoCreateTable) {
 		this.tableOwner = source.getOwner();
 		this.masterTable = source.getTable();
@@ -453,7 +519,7 @@ public class OraTable implements Runnable {
 	 * 
 	 */
 	public void run() {
-		// Poll data (standalone mode)
+		// Poll data for producer
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			poll(connection);
 			connection.commit();
@@ -469,7 +535,7 @@ public class OraTable implements Runnable {
 
 		final List<RowId> logRows2Delete = new ArrayList<>();
 		final List<SourceRecord> result = new ArrayList<>();
-		//TODO - SEQUENCE$$ for start!!!
+		//TODO - SEQUENCE$$ for start?
 		// Read materialized view log and get PK values
 		ResultSet rsLog = stmtLog.executeQuery();
 		int recordCount = 0;
@@ -548,8 +614,11 @@ public class OraTable implements Runnable {
 					messageKey.append(".");
 					messageKey.append(masterTable);
 					messageKey.append("-");
-					messageKey.append(rsLog.getLong("SEQUENCE$$"));
-						sendMethod.sendData(messageKey.toString(), envelope);
+					if (this.logWithSequence)
+						messageKey.append(rsLog.getLong(OraColumn.MVLOG_SEQUENCE));
+					else
+						messageKey.append(System.currentTimeMillis());
+					sendMethod.sendData(messageKey.toString(), envelope);
 				} else {
 					if (Source.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
 						try {
@@ -672,65 +741,73 @@ public class OraTable implements Runnable {
 	private void processPkColumns(final boolean deleteOp, ResultSet rsLog,
 			final Map<String, Object> columnValues, PreparedStatement stmtMaster) throws SQLException {
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+		if (this.logWithPrimaryKey && this.logWithRowIds && !deleteOp)
+			stmtMaster.setRowId(1, rsLog.getRowId(OraColumn.ROWID_KEY));
 		int bindNo = 1;
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
 			final String columnName = oraColumn.getColumnName();
 			switch (oraColumn.getJdbcType()) {
+			case Types.ROWID:
+				if (!this.logWithPrimaryKey)
+					columnValues.put(columnName, rsLog.getRowId(columnName).toString());
+				if (!deleteOp && this.logWithRowIds)
+					stmtMaster.setRowId(bindNo, rsLog.getRowId(columnName));
+				break;
 			case Types.DATE:
 				//TODO Timezone support!!!!
 				columnValues.put(columnName, rsLog.getDate(columnName).getTime());
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setDate(bindNo, rsLog.getDate(columnName));
 				break;
 			case Types.TINYINT:
 				columnValues.put(columnName, rsLog.getByte(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setByte(bindNo, rsLog.getByte(columnName));
 				break;
 			case Types.SMALLINT:
 				columnValues.put(columnName, rsLog.getShort(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setShort(bindNo, rsLog.getShort(columnName));
 				break;
 			case Types.INTEGER:
 				columnValues.put(columnName, rsLog.getInt(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setInt(bindNo, rsLog.getInt(columnName));
 				break;
 			case Types.BIGINT:
 				columnValues.put(columnName, rsLog.getLong(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setLong(bindNo, rsLog.getLong(columnName));
 				break;
 			case Types.BINARY:
 				columnValues.put(columnName, rsLog.getBytes(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setBytes(bindNo, rsLog.getBytes(columnName));
 				break;
 			case Types.CHAR:
 			case Types.VARCHAR:
 				columnValues.put(columnName, rsLog.getString(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setString(bindNo, rsLog.getString(columnName));
 				break;
 			case Types.NCHAR:
 			case Types.NVARCHAR:
 				columnValues.put(columnName, rsLog.getNString(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setNString(bindNo, rsLog.getNString(columnName));
 				break;
 			case Types.TIMESTAMP:
 				//TODO Timezone support!!!!
 				columnValues.put(columnName, rsLog.getTimestamp(columnName).getTime());
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setTimestamp(bindNo, rsLog.getTimestamp(columnName));
 				break;
 			default:
 				// Types.FLOAT, Types.DOUBLE, Types.BLOB, Types.CLOB 
 				// TODO - is it possible?
 				columnValues.put(columnName, rsLog.getString(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setString(bindNo, rsLog.getString(columnName));
 				break;
 			}
@@ -740,77 +817,86 @@ public class OraTable implements Runnable {
 
 	private void processPkColumns(final boolean deleteOp, ResultSet rsLog,
 			final Struct keyStruct, PreparedStatement stmtMaster) throws SQLException {
+		if (this.logWithPrimaryKey && this.logWithRowIds && !deleteOp)
+			stmtMaster.setRowId(1, rsLog.getRowId(OraColumn.ROWID_KEY));
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
 		int bindNo = 1;
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
 			final String columnName = oraColumn.getColumnName();
 			switch (oraColumn.getJdbcType()) {
+			case Types.ROWID:
+				if (!this.logWithPrimaryKey)
+					keyStruct.put(columnName, rsLog.getRowId(columnName).toString());
+				if (!deleteOp && this.logWithRowIds) {
+					stmtMaster.setRowId(bindNo, rsLog.getRowId(columnName));
+				}
+				break;
 			case Types.DATE:
 				//TODO Timezone support!!!!
 				keyStruct.put(columnName, rsLog.getDate(columnName).getTime());
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setDate(bindNo, rsLog.getDate(columnName));
 				break;
 			case Types.TINYINT:
 				keyStruct.put(columnName, rsLog.getByte(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setByte(bindNo, rsLog.getByte(columnName));
 				break;
 			case Types.SMALLINT:
 				keyStruct.put(columnName, rsLog.getShort(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setShort(bindNo, rsLog.getShort(columnName));
 				break;
 			case Types.INTEGER:
 				keyStruct.put(columnName, rsLog.getInt(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setInt(bindNo, rsLog.getInt(columnName));
 				break;
 			case Types.BIGINT:
 				keyStruct.put(columnName, rsLog.getLong(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setLong(bindNo, rsLog.getLong(columnName));
 				break;
 			case Types.DOUBLE:
 				keyStruct.put(columnName, rsLog.getDouble(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setDouble(bindNo, rsLog.getDouble(columnName));
 				break;
 			case Types.DECIMAL:
 				BigDecimal bdValue = rsLog.getBigDecimal(columnName).setScale(oraColumn.getDataScale());
 				keyStruct.put(columnName, bdValue);
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setBigDecimal(bindNo, bdValue);
 				break;
 			case Types.BINARY:
 				keyStruct.put(columnName, rsLog.getBytes(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setBytes(bindNo, rsLog.getBytes(columnName));
 				break;
 			case Types.CHAR:
 			case Types.VARCHAR:
 				keyStruct.put(columnName, rsLog.getString(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setString(bindNo, rsLog.getString(columnName));
 				break;
 			case Types.NCHAR:
 			case Types.NVARCHAR:
 				keyStruct.put(columnName, rsLog.getNString(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setNString(bindNo, rsLog.getNString(columnName));
 				break;
 			case Types.TIMESTAMP:
 				//TODO Timezone support!!!!
 				keyStruct.put(columnName, rsLog.getTimestamp(columnName).getTime());
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setTimestamp(bindNo, rsLog.getTimestamp(columnName));
 				break;
 			default:
 				// Types.FLOAT, Types.BLOB, Types.CLOB 
 				// TODO - is it possible?
 				keyStruct.put(columnName, rsLog.getString(columnName));
-				if (!deleteOp)
+				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setString(bindNo, rsLog.getString(columnName));
 				break;
 			}
