@@ -29,6 +29,7 @@ import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.kafka.connect.ConnectorConfigConstants;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceConnectorConfig;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceTask;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
@@ -58,11 +59,11 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 		// Initialize connection pool
 		try {
-			if (!"".equals(config.getString(OraCdcSourceConnectorConfig.CONNECTION_URL_PARAM))) {
+			if (!"".equals(config.getString(ConnectorConfigConstants.CONNECTION_URL_PARAM))) {
 				OraPoolConnectionFactory.init(
-					config.getString(OraCdcSourceConnectorConfig.CONNECTION_URL_PARAM),
-					config.getString(OraCdcSourceConnectorConfig.CONNECTION_USER_PARAM),
-					config.getString(OraCdcSourceConnectorConfig.CONNECTION_PASSWORD_PARAM));
+					config.getString(ConnectorConfigConstants.CONNECTION_URL_PARAM),
+					config.getString(ConnectorConfigConstants.CONNECTION_USER_PARAM),
+					config.getString(ConnectorConfigConstants.CONNECTION_PASSWORD_PARAM));
 			} else if (!"".equals(config.getString(OraCdcSourceConnectorConfig.CONNECTION_WALLET_PARAM))) {
 				OraPoolConnectionFactory.init4Wallet(
 						config.getString(OraCdcSourceConnectorConfig.CONNECTION_WALLET_PARAM),
@@ -71,7 +72,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 			} else {
 				validConfig = false;
 				LOGGER.error("Database connection parameters are not properly set\n. Both {}, and {} are not set",
-						OraCdcSourceConnectorConfig.CONNECTION_URL_PARAM,
+						ConnectorConfigConstants.CONNECTION_URL_PARAM,
 						OraCdcSourceConnectorConfig.CONNECTION_WALLET_PARAM);
 				throw new RuntimeException("Database connection parameters are not properly set!");
 			}
@@ -107,15 +108,15 @@ public class OraCdcSourceConnector extends SourceConnector {
 				if (tableCount == 0) {
 					final String message =
 							"Nothing to do with user " + 
-							config.getString(OraCdcSourceConnectorConfig.CONNECTION_USER_PARAM) +
+							config.getString(ConnectorConfigConstants.CONNECTION_USER_PARAM) +
 							"."; 
 					LOGGER.error(message);
 					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
 					throw new RuntimeException(message);
 				}
 
-				if (OraCdcSourceConnectorConfig.SCHEMA_TYPE_STANDALONE.equals(
-						config.getString(OraCdcSourceConnectorConfig.SCHEMA_TYPE_PARAM)))
+				if (ConnectorConfigConstants.SCHEMA_TYPE_STANDALONE.equals(
+						config.getString(ConnectorConfigConstants.SCHEMA_TYPE_PARAM)))
 					Source.init(Source.SCHEMA_TYPE_STANDALONE);
 				else
 					// config.getString(OraCdcSourceConnectorConfig.SCHEMA_TYPE_PARAM)
@@ -152,9 +153,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 					"To run " +
 					OraCdcSourceConnector.class.getName() +
 					" against " +
-					config.getString(OraCdcSourceConnectorConfig.CONNECTION_URL_PARAM) +
+					config.getString(ConnectorConfigConstants.CONNECTION_URL_PARAM) +
 					" with username " +
-					config.getString(OraCdcSourceConnectorConfig.CONNECTION_USER_PARAM) +
+					config.getString(ConnectorConfigConstants.CONNECTION_USER_PARAM) +
 					" parameter tasks.max must set to " +
 					tableCount;
 			LOGGER.error(message);
@@ -178,8 +179,8 @@ public class OraCdcSourceConnector extends SourceConnector {
 				resultSet.next();
 				final Map<String, String> taskParam = new HashMap<>(9);
 
-				taskParam.put(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM,
-						config.getInt(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM).toString());
+				taskParam.put(ConnectorConfigConstants.BATCH_SIZE_PARAM,
+						config.getInt(ConnectorConfigConstants.BATCH_SIZE_PARAM).toString());
 				taskParam.put(OraCdcSourceConnectorConfig.POLL_INTERVAL_MS_PARAM,
 						config.getInt(OraCdcSourceConnectorConfig.POLL_INTERVAL_MS_PARAM).toString());
 				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER,

@@ -22,30 +22,27 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 
 public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 
-	public static final String CONNECTION_URL_PARAM = "a2.jdbc.url";
-	private static final String CONNECTION_URL_DOC = "JDBC connection URL";
-
-	public static final String CONNECTION_USER_PARAM = "a2.jdbc.username";
-	private static final String CONNECTION_USER_DOC = "JDBC connection user";
-
-	public static final String CONNECTION_PASSWORD_PARAM = "a2.jdbc.password";
-	private static final String CONNECTION_PASSWORD_DOC = "JDBC connection password";
-
-	public static final String BATCH_SIZE_PARAM = "a2.batch.size";
-	private static final String BATCH_SIZE_DOC = "Maximum number of statements to include in a single batch when inserting/updating/deleting data";
-	public static final int BATCH_SIZE_DEFAULT = 1000;
-
 	public static final String AUTO_CREATE_PARAM = "a2.autocreate";
 	private static final String AUTO_CREATE_DOC = "Automatically create the destination table if missed";
 	public static final String AUTO_CREATE_DEFAULT = "false";
 
 	public static ConfigDef config() {
 		return new ConfigDef()
-				.define(CONNECTION_URL_PARAM, Type.STRING, Importance.HIGH, CONNECTION_URL_DOC)
-				.define(CONNECTION_USER_PARAM, Type.STRING, Importance.HIGH, CONNECTION_USER_DOC)
-				.define(CONNECTION_PASSWORD_PARAM, Type.STRING, Importance.HIGH, CONNECTION_PASSWORD_DOC)
-				.define(BATCH_SIZE_PARAM, Type.INT, BATCH_SIZE_DEFAULT, Importance.HIGH, BATCH_SIZE_DOC)
-				.define(AUTO_CREATE_PARAM, Type.BOOLEAN, AUTO_CREATE_DEFAULT, Importance.HIGH, AUTO_CREATE_DOC);
+				.define(ConnectorConfigConstants.CONNECTION_URL_PARAM, Type.STRING,
+						Importance.HIGH, ConnectorConfigConstants.CONNECTION_URL_DOC)
+				.define(ConnectorConfigConstants.CONNECTION_USER_PARAM, Type.STRING,
+						Importance.HIGH, ConnectorConfigConstants.CONNECTION_USER_DOC)
+				.define(ConnectorConfigConstants.CONNECTION_PASSWORD_PARAM, Type.STRING,
+						Importance.HIGH, ConnectorConfigConstants.CONNECTION_PASSWORD_DOC)
+				.define(ConnectorConfigConstants.BATCH_SIZE_PARAM, Type.INT,
+						ConnectorConfigConstants.BATCH_SIZE_DEFAULT,
+						Importance.HIGH, ConnectorConfigConstants.BATCH_SIZE_DOC)
+				.define(ConnectorConfigConstants.SCHEMA_TYPE_PARAM, Type.STRING,
+						ConnectorConfigConstants.SCHEMA_TYPE_KAFKA,
+						ConfigDef.ValidString.in(ConnectorConfigConstants.SCHEMA_TYPE_KAFKA, ConnectorConfigConstants.SCHEMA_TYPE_STANDALONE),
+						Importance.HIGH, ConnectorConfigConstants.SCHEMA_TYPE_DOC)
+				.define(AUTO_CREATE_PARAM, Type.BOOLEAN, AUTO_CREATE_DEFAULT,
+						Importance.HIGH, AUTO_CREATE_DOC);
 	}
 
 	public OraCdcJdbcSinkConnectorConfig(Map<?, ?> originals) {

@@ -46,7 +46,7 @@ public class OraCdcSourceTask extends SourceTask {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc Source Task for {}", props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
 
-		batchSize = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.BATCH_SIZE_PARAM));
+		batchSize = Integer.parseInt(props.get(ConnectorConfigConstants.BATCH_SIZE_PARAM));
 		pollInterval = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.POLL_INTERVAL_MS_PARAM));
 
 		try {

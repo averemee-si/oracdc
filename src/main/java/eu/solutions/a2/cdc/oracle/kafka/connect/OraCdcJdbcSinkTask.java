@@ -56,13 +56,13 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc Sink Task");
 		config = new OraCdcJdbcSinkConnectorConfig(props);
-		batchSize = config.getInt(OraCdcJdbcSinkConnectorConfig.BATCH_SIZE_PARAM);
+		batchSize = config.getInt(ConnectorConfigConstants.BATCH_SIZE_PARAM);
 		autoCreateTable = config.getBoolean(OraCdcJdbcSinkConnectorConfig.AUTO_CREATE_PARAM);
 		try {
 			HikariPoolConnectionFactory.init(
-					config.getString(OraCdcJdbcSinkConnectorConfig.CONNECTION_URL_PARAM),
-					config.getString(OraCdcJdbcSinkConnectorConfig.CONNECTION_USER_PARAM),
-					config.getString(OraCdcJdbcSinkConnectorConfig.CONNECTION_PASSWORD_PARAM));
+					config.getString(ConnectorConfigConstants.CONNECTION_URL_PARAM),
+					config.getString(ConnectorConfigConstants.CONNECTION_USER_PARAM),
+					config.getString(ConnectorConfigConstants.CONNECTION_PASSWORD_PARAM));
 		} catch (SQLException sqle) {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
