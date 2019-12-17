@@ -6,7 +6,7 @@ public class OraDictSqlTexts {
 	select count(*)
 	from   ALL_MVIEW_LOGS L
 	where  (L.ROWIDS='YES' or L.PRIMARY_KEY='YES') and L.OBJECT_ID='NO'
-	  and  L.SEQUENCE='YES' and L.COMMIT_SCN_BASED='NO' and L.INCLUDE_NEW_VALUES='NO';
+	  and  L.COMMIT_SCN_BASED='NO' and L.INCLUDE_NEW_VALUES='NO';
 	 */
 	public static final String MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI =
 			"select count(*)\n" +
@@ -18,7 +18,7 @@ public class OraDictSqlTexts {
 	select L.LOG_OWNER, L.MASTER, L.LOG_TABLE, L.ROWIDS, L.PRIMARY_KEY
 	from   ALL_MVIEW_LOGS L
 	where  (L.ROWIDS='YES' or L.PRIMARY_KEY='YES') and L.OBJECT_ID='NO'
-	  and  L.SEQUENCE='YES' and L.COMMIT_SCN_BASED='NO' and L.INCLUDE_NEW_VALUES='NO';
+	  and  L.COMMIT_SCN_BASED='NO' and L.INCLUDE_NEW_VALUES='NO';
 	 */
 	public static final String MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI =
 			"select L.LOG_OWNER, L.MASTER, L.LOG_TABLE, L.ROWIDS, L.PRIMARY_KEY, L.SEQUENCE\n" +

@@ -170,7 +170,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 				sqlStatementText += whereExclude;
 			}
 			if (whereInclude != null) {
-				sqlStatementText += whereExclude;
+				sqlStatementText += whereInclude;
 			}
 			final PreparedStatement statement = connection.prepareStatement(sqlStatementText);
 			final ResultSet resultSet = statement.executeQuery();
