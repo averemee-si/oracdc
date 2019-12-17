@@ -32,8 +32,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 
 import eu.solutions.a2.cdc.oracle.HikariPoolConnectionFactory;
+import eu.solutions.a2.cdc.oracle.OraCdcJdbcSinkConnector;
 import eu.solutions.a2.cdc.oracle.OraTable;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
+import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
@@ -58,14 +60,6 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 		config = new OraCdcJdbcSinkConnectorConfig(props);
 		batchSize = config.getInt(ConnectorConfigConstants.BATCH_SIZE_PARAM);
 		autoCreateTable = config.getBoolean(OraCdcJdbcSinkConnectorConfig.AUTO_CREATE_PARAM);
-		try {
-			HikariPoolConnectionFactory.init(
-					config.getString(ConnectorConfigConstants.CONNECTION_URL_PARAM),
-					config.getString(ConnectorConfigConstants.CONNECTION_USER_PARAM),
-					config.getString(ConnectorConfigConstants.CONNECTION_PASSWORD_PARAM));
-		} catch (SQLException sqle) {
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-		}
 	}
 
 	@Override
@@ -74,23 +68,37 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
 			for (SinkRecord record : records) {
 				LOGGER.debug("Processing key:\t" + record.key());
-				try {
-					final Envelope envelope =  reader.readValue((String)record.value());
-					final String tableName = envelope.getPayload().getSource().getTable();
-					OraTable oraTable = tablesInProcessing.get(tableName);
-					if (oraTable == null) {
-						oraTable = new OraTable(
+				if (OraCdcJdbcSinkConnector.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
+					try {
+						final Envelope envelope =  reader.readValue((String)record.value());
+						final String tableName = envelope.getPayload().getSource().getTable();
+						OraTable oraTable = tablesInProcessing.get(tableName);
+						if (oraTable == null) {
+							oraTable = new OraTable(
 								envelope.getPayload().getSource(),
 								envelope.getSchema(),
 								autoCreateTable);
+							tablesInProcessing.put(tableName, oraTable);
+						}
+						if (!tablesInProcess.contains(oraTable.getMasterTable())) {
+							tablesInProcess.add(oraTable.getMasterTable());
+						}
+						oraTable.putData(connection, envelope.getPayload());
+					} catch (IOException ioe) {
+						LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+					}
+				} else if (OraCdcJdbcSinkConnector.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
+					// Get table name from topic
+					final String tableName = record.topic();
+					OraTable oraTable = tablesInProcessing.get(tableName);
+					if (oraTable == null) {
+						oraTable = new OraTable(tableName, record, autoCreateTable);
 						tablesInProcessing.put(tableName, oraTable);
 					}
 					if (!tablesInProcess.contains(oraTable.getMasterTable())) {
 						tablesInProcess.add(oraTable.getMasterTable());
 					}
-					oraTable.putData(connection, envelope.getPayload());
-				} catch (IOException ioe) {
-					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+					oraTable.putData(connection, record);
 				}
 			}
 			Iterator<String> iterator = tablesInProcess.iterator();

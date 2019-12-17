@@ -13,6 +13,7 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -23,14 +24,18 @@ import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.kafka.connect.ConnectorConfigConstants;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcJdbcSinkConnectorConfig;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcJdbcSinkTask;
+import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
+import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
 public class OraCdcJdbcSinkConnector extends SinkConnector {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkConnector.class);
 
+	private static int connectorSchemaType = Source.SCHEMA_TYPE_STANDALONE;
 	private Map<String, String> props;
 
 	@Override
@@ -42,6 +47,22 @@ public class OraCdcJdbcSinkConnector extends SinkConnector {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc Sink Connector");
 		this.props = props;
+		if (ConnectorConfigConstants.SCHEMA_TYPE_STANDALONE.equals(
+				props.get(ConnectorConfigConstants.SCHEMA_TYPE_PARAM)))
+			connectorSchemaType = Source.SCHEMA_TYPE_STANDALONE;
+		else
+			// props.get(OraCdcSourceConnectorConfig.SCHEMA_TYPE_PARAM)
+			connectorSchemaType = Source.SCHEMA_TYPE_KAFKA_CONNECT_STD;
+
+		try {
+			HikariPoolConnectionFactory.init(
+					props.get(ConnectorConfigConstants.CONNECTION_URL_PARAM),
+					props.get(ConnectorConfigConstants.CONNECTION_USER_PARAM),
+					props.get(ConnectorConfigConstants.CONNECTION_PASSWORD_PARAM));
+		} catch (SQLException sqle) {
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			throw new RuntimeException("Unable to start oracdc Sink Connector.");
+		}
 	}
 
 	@Override
@@ -65,6 +86,10 @@ public class OraCdcJdbcSinkConnector extends SinkConnector {
 	@Override
 	public ConfigDef config() {
 		return OraCdcJdbcSinkConnectorConfig.config();
+	}
+
+	public static int schemaType() {
+		return connectorSchemaType;
 	}
 
 }

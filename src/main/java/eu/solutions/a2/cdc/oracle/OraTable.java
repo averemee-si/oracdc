@@ -32,7 +32,6 @@ import java.sql.Types;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -41,9 +40,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.header.Header;
+import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,42 +60,11 @@ import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Payload;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 public class OraTable implements Runnable {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable.class);
-
-	@SuppressWarnings("serial")
-	private static final Map<Integer, String> MYSQL_MAPPING =
-			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
-				put(Types.BOOLEAN, "tinyint");
-				put(Types.TINYINT, "tinyint");
-				put(Types.SMALLINT, "smallint");
-				put(Types.INTEGER, "int");
-				put(Types.BIGINT, "bigint");
-				put(Types.FLOAT, "float");
-				put(Types.DOUBLE, "double");
-				put(Types.DATE, "datetime");
-				put(Types.TIMESTAMP, "timestamp");
-				put(Types.VARCHAR, "varchar(4002)");
-				put(Types.BINARY, "varbinary(8002)");
-			}});
-	@SuppressWarnings("serial")
-	private static final Map<Integer, String> POSTGRESQL_MAPPING =
-			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
-				put(Types.BOOLEAN, "boolean");
-				put(Types.TINYINT, "smallint");
-				put(Types.SMALLINT, "smallint");
-				put(Types.INTEGER, "integer");
-				put(Types.BIGINT, "bigint");
-				put(Types.FLOAT, "real");
-				put(Types.DOUBLE, "double precision");
-				put(Types.DATE, "timestamp");
-				put(Types.TIMESTAMP, "timestamp");
-				put(Types.VARCHAR, "text");
-				put(Types.BINARY, "bytea");
-			}});
-	private static Map<Integer, String> dataTypes = null;
 
 	private static final ObjectWriter writer = new ObjectMapper()
 //			.enable(SerializationFeature.INDENT_OUTPUT)
@@ -359,6 +330,38 @@ public class OraTable implements Runnable {
 				allColumns.add(column);
 			}
 		}
+		prepareSql(pkColCount, autoCreateTable);
+	}
+
+	/**
+	 * This constructor is used only for sink connector mode with Kafka Connect
+	 * 
+	 * 
+	 * @param tableName
+	 * @param record
+	 * @param autoCreateTable
+	 */
+	public OraTable(final String tableName, final SinkRecord record, final boolean autoCreateTable) {
+		// Not exist in Kafka Connect schema - setting it to dummy value
+		this.tableOwner = "oracdc";
+		this.masterTable = tableName;
+		int pkColCount = 0;
+		for (Field field : record.keySchema().fields()) {
+			final OraColumn column = new OraColumn(field, true);
+			pkColumns.put(column.getColumnName(), column);
+			pkColCount++;
+		}
+		// Only non PK columns!!!
+		for (Field field : record.valueSchema().fields()) {
+			if (!pkColumns.containsKey(field.name())) {
+				final OraColumn column = new OraColumn(field, false);
+				allColumns.add(column);
+			}
+		}
+		prepareSql(pkColCount, autoCreateTable);
+	}
+
+	private void prepareSql(final int pkColCount, final boolean autoCreateTable) {
 		// Prepare UPDATE/INSERT/DELETE statements...
 		final StringBuilder sbDelUpdWhere = new StringBuilder(128);
 		sbDelUpdWhere.append(" where ");
@@ -439,7 +442,9 @@ public class OraTable implements Runnable {
 		}
 		if (!ready4Ops && autoCreateTable) {
 			// Create table in target database
-			String createTableSqlText = createTableSql();
+			String createTableSqlText = TargetDbSqlUtils.createTableSql(
+					this.masterTable, this.pkColumns, this.allColumns);
+			LOGGER.debug("Create table with:\n{}", createTableSqlText);
 			try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
 				Statement statement = connection.createStatement();
 				statement.executeUpdate(createTableSqlText);
@@ -456,62 +461,6 @@ public class OraTable implements Runnable {
 		sinkInsertSql = sbInsSql.toString(); 
 		sinkUpdateSql = sbUpdSql.toString(); 
 		sinkDeleteSql = sbDelSql.toString(); 
-	}
-
-	private String createTableSql() {
-		final StringBuilder sbCreateTable = new StringBuilder(256);
-		final StringBuilder sbPrimaryKey = new StringBuilder(64);
-
-		if (dataTypes == null) {
-			if (HikariPoolConnectionFactory.getDbType() == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL) {
-				dataTypes = POSTGRESQL_MAPPING;
-			} else {
-				//TODO - more types required
-				dataTypes = MYSQL_MAPPING;
-			}
-		}
-
-		sbCreateTable.append("create table ");
-		sbCreateTable.append(this.masterTable);
-		sbCreateTable.append("(\n");
-
-		sbPrimaryKey.append(",\nconstraint ");
-		sbPrimaryKey.append(this.masterTable);
-		sbPrimaryKey.append("_PK primary key(");
-		
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
-		while (iterator.hasNext()) {
-			OraColumn column = iterator.next().getValue();
-			sbCreateTable.append("  ");
-			sbCreateTable.append(column.getColumnName());
-			sbCreateTable.append(" ");
-			sbCreateTable.append(dataTypes.get(column.getJdbcType()));
-			sbCreateTable.append(" not null");
-
-			sbPrimaryKey.append(column.getColumnName());
-
-			if (iterator.hasNext()) {
-				sbCreateTable.append(",\n");
-				sbPrimaryKey.append(",");
-			}
-		}
-		sbPrimaryKey.append(")");
-
-		final int nonPkColumnCount = allColumns.size();
-		for (int i = 0; i < nonPkColumnCount; i++) {
-			OraColumn column = allColumns.get(i);
-			sbCreateTable.append(",\n  ");
-			sbCreateTable.append(column.getColumnName());
-			sbCreateTable.append(" ");
-			sbCreateTable.append(dataTypes.get(column.getJdbcType()));
-			if (!column.isNullable()) {
-				sbCreateTable.append(" not null");
-			}
-		}
-
-		sbCreateTable.append(sbPrimaryKey);
-		sbCreateTable.append("\n)");
-		return sbCreateTable.toString();
 	}
 
 	/**
@@ -556,7 +505,6 @@ public class OraTable implements Runnable {
 						this.getSchema(),
 						new Payload(recordSource, opType));
 			} else if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
-				
 				keyStruct = new Struct(keySchema);
 				valueStruct = new Struct(valueSchema);
 				processPkColumns(deleteOp, rsLog, keyStruct, stmtMaster);
@@ -632,27 +580,16 @@ public class OraTable implements Runnable {
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(jpe));
 						}
 					} else if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
-						if (deleteOp) {
-							final SourceRecord sourceRecord = new SourceRecord(
-									null,
-									null,
-									kafkaConnectTopic,
-									keySchema,
-									keyStruct,
-									null,
-									null);
-							result.add(sourceRecord);
-						} else {
-							final SourceRecord sourceRecord = new SourceRecord(
-									null,
-									null,
-									kafkaConnectTopic,
-									keySchema,
-									keyStruct,
-									valueSchema,
-									valueStruct);
-							result.add(sourceRecord);
-						}
+						final SourceRecord sourceRecord = new SourceRecord(
+								null,
+								null,
+								kafkaConnectTopic,
+								keySchema,
+								keyStruct,
+								deleteOp ? null : valueSchema,
+								deleteOp ? null : valueStruct);
+						sourceRecord.headers().addString("op", opType);
+						result.add(sourceRecord);
 					}
 				}
 			}
@@ -690,7 +627,7 @@ public class OraTable implements Runnable {
 		this.kafkaConnectTopic = kafkaConnectTopic;
 	}
 
-	public void putData(Connection connection, Payload payload) throws SQLException {
+	public void putData(final Connection connection, final Payload payload) throws SQLException {
 		switch (payload.getOp()) {
 		case "c":
 			processInsert(connection, payload.getAfter());
@@ -704,6 +641,34 @@ public class OraTable implements Runnable {
 		}
 	}
 
+	public void putData(final Connection connection, final SinkRecord record) throws SQLException {
+		String opType = "";
+		Iterator<Header> iterator = record.headers().iterator();
+		while (iterator.hasNext()) {
+			Header header = iterator.next();
+			if ("op".equals(header.key())) {
+				opType = (String) header.value();
+				break;
+			}
+		}
+		switch (opType) {
+		case "c":
+			processInsert(connection, record);
+			break;
+		case "u":
+			processUpdate(connection, record);
+			break;
+		case "d":
+			processDelete(connection, record);
+			break;
+		default:
+			LOGGER.error("Uncnown or null value for operation type '{}' received in header!", opType);
+			if (record.value() == null)
+				processDelete(connection, record);
+			else
+				processUpdate(connection, record);
+		}
+	}
 
 	public void closeCursors() throws SQLException {
 		if (sinkInsert != null) {
@@ -1276,12 +1241,34 @@ public class OraTable implements Runnable {
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkInsert, columnNo, data);
+			oraColumn.bindWithPrepStmt(sinkInsert, columnNo, data.get(oraColumn.getColumnName()));
 			columnNo++;
 		}
 		for (int i = 0; i < allColumns.size(); i++) {
 			final OraColumn oraColumn = allColumns.get(i);
-			oraColumn.bindWithPrepStmt(sinkInsert, columnNo, data);
+			oraColumn.bindWithPrepStmt(sinkInsert, columnNo, data.get(oraColumn.getColumnName()));
+			columnNo++;
+		}
+		sinkInsert.executeUpdate();
+	}
+
+	private void processInsert(
+			final Connection connection, final SinkRecord record) throws SQLException {
+		if (sinkInsert == null) {
+			sinkInsert = connection.prepareStatement(sinkInsertSql);
+		}
+		int columnNo = 1;
+		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+		final Struct keyStruct = (Struct) record.key();
+		final Struct valueStruct = (Struct) record.value();
+		while (iterator.hasNext()) {
+			final OraColumn oraColumn = iterator.next().getValue();
+			oraColumn.bindWithPrepStmt(sinkInsert, columnNo, keyStruct.get(oraColumn.getColumnName()));
+			columnNo++;
+		}
+		for (int i = 0; i < allColumns.size(); i++) {
+			final OraColumn oraColumn = allColumns.get(i);
+			oraColumn.bindWithPrepStmt(sinkInsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
 			columnNo++;
 		}
 		sinkInsert.executeUpdate();
@@ -1295,19 +1282,45 @@ public class OraTable implements Runnable {
 		int columnNo = 1;
 		for (int i = 0; i < allColumns.size(); i++) {
 			final OraColumn oraColumn = allColumns.get(i);
-			oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, data);
+			oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, data.get(oraColumn.getColumnName()));
 			columnNo++;
 		}
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, data);
+			oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, data.get(oraColumn.getColumnName()));
 			columnNo++;
 		}
 		final int recordCount = sinkUpdate.executeUpdate();
 		if (recordCount == 0) {
 			LOGGER.warn("Primary key not found, executing insert");
 			processInsert(connection, data);
+		}
+	}
+
+	private void processUpdate(
+			final Connection connection, final SinkRecord record) throws SQLException {
+		if (sinkUpdate == null) {
+			sinkUpdate = connection.prepareStatement(sinkUpdateSql);
+		}
+		int columnNo = 1;
+		final Struct keyStruct = (Struct) record.key();
+		final Struct valueStruct = (Struct) record.value();
+		for (int i = 0; i < allColumns.size(); i++) {
+			final OraColumn oraColumn = allColumns.get(i);
+			oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, valueStruct.get(oraColumn.getColumnName()));
+			columnNo++;
+		}
+		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+		while (iterator.hasNext()) {
+			final OraColumn oraColumn = iterator.next().getValue();
+			oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, keyStruct.get(oraColumn.getColumnName()));
+			columnNo++;
+		}
+		final int recordCount = sinkUpdate.executeUpdate();
+		if (recordCount == 0) {
+			LOGGER.warn("Primary key not found, executing insert");
+			processInsert(connection, record);
 		}
 	}
 
@@ -1320,7 +1333,23 @@ public class OraTable implements Runnable {
 		int columnNo = 1;
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkDelete, columnNo, data);
+			oraColumn.bindWithPrepStmt(sinkDelete, columnNo, data.get(oraColumn.getColumnName()));
+			columnNo++;
+		}
+		sinkDelete.executeUpdate();
+	}
+
+	private void processDelete(
+			final Connection connection, final SinkRecord record) throws SQLException {
+		if (sinkDelete == null) {
+			sinkDelete = connection.prepareStatement(sinkDeleteSql);
+		}
+		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+		int columnNo = 1;
+		final Struct keyStruct = (Struct) record.key();
+		while (iterator.hasNext()) {
+			final OraColumn oraColumn = iterator.next().getValue();
+			oraColumn.bindWithPrepStmt(sinkDelete, columnNo, keyStruct.get(oraColumn.getColumnName()));
 			columnNo++;
 		}
 		sinkDelete.executeUpdate();

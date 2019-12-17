@@ -25,6 +25,7 @@ public class HikariPoolConnectionFactory {
 
 	public static final int DB_TYPE_MYSQL = 1;
 	public static final int DB_TYPE_POSTGRESQL = 2;
+	public static final int DB_TYPE_ORACLE = 3;
 
 	private static int dbType = DB_TYPE_MYSQL;
 
@@ -56,8 +57,11 @@ public class HikariPoolConnectionFactory {
 			dbType = DB_TYPE_MYSQL;
 		} else if ("PostgreSQL".equalsIgnoreCase(databaseProductName)) {
 			dbType = DB_TYPE_POSTGRESQL;
+		} else if ("Oracle".equalsIgnoreCase(databaseProductName)) {
+			dbType = DB_TYPE_ORACLE;
 		} else {
-			//TODO
+			//TODO "Microsoft SQL Server"
+			//TODO - more?
 		}
 	}
 
