@@ -13,28 +13,28 @@
 
 package eu.solutions.a2.cdc.oracle.standalone;
 
-import java.nio.ByteBuffer;
+import java.io.IOException;
+import java.time.Duration;
 import java.util.Properties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.kinesis.producer.KinesisProducer;
-import com.amazonaws.services.kinesis.producer.KinesisProducerConfiguration;
-import com.amazonaws.services.kinesis.producer.UserRecordResult;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.kinesis.KinesisAsyncClient;
+import software.amazon.awssdk.services.kinesis.model.PutRecordRequest;
 	
 public class KinesisSingleton implements SendMethodIntf {
 
@@ -44,10 +44,13 @@ public class KinesisSingleton implements SendMethodIntf {
 
 	/** Kinesis stream name */
 	private String streamName = null;
-	/**  Kinesis sync client */
-	private KinesisProducer kinesisProducer;
+	/**  Kinesis Async client */
+	private KinesisAsyncClient kinesisClient;
 	/** a2.kinesis.file.size.threshold */
 	private int fileSizeThreshold = 512;
+
+	private static final int KINESIS_BATCH_SIZE = 500;
+	private static final int KINESIS_BATCH_MAX_BYTES = 4_500_000;
 
 	private static final ObjectWriter writer = new ObjectMapper()
 //			.enable(SerializationFeature.INDENT_OUTPUT)
@@ -72,26 +75,24 @@ public class KinesisSingleton implements SendMethodIntf {
 					messageData = GzipUtil.compress(writer.writeValueAsString(envelope));
 				}
 				final int messageLength = messageData.length;
-				ListenableFuture<UserRecordResult> futureResult =
-						kinesisProducer.addUserRecord(
-								streamName, messageKey, ByteBuffer.wrap(messageData));
-				Futures.addCallback(
-						futureResult,
-						new FutureCallback<UserRecordResult>() {
-							@Override
-							public void onSuccess(UserRecordResult result) {
-								CommonJobSingleton.getInstance().addRecordData(
-										messageLength,
-										System.currentTimeMillis() - startTime);
-							}
-							@Override
-							public void onFailure(Throwable t) {
-								LOGGER.error("Exception while sending {} to Kinesis.", messageKey);
-								LOGGER.error(ExceptionUtils.getExceptionStackTrace(new Exception(t)));
-							}
-						});
-			} catch (JsonProcessingException jpe) {
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(jpe));
+				PutRecordRequest putRecordRequest  = PutRecordRequest.builder()
+						.streamName(streamName)
+						.partitionKey(messageKey)
+						.data(SdkBytes.fromByteArray(messageData))
+						.build();
+				kinesisClient.putRecord(putRecordRequest)
+					.whenComplete((resp, err) -> {
+						if (resp != null) {
+							CommonJobSingleton.getInstance().addRecordData(
+									messageLength,
+									System.currentTimeMillis() - startTime);
+						} else {
+							LOGGER.error("Exception while sending {} to Kinesis.", messageKey);
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(new Exception(err)));
+						}
+				});
+			} catch (IOException ioe) {
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 			}
 		};
 		Thread thread = new Thread(task);
@@ -101,11 +102,10 @@ public class KinesisSingleton implements SendMethodIntf {
 	}
 
 	public void shutdown() {
-		if (kinesisProducer != null) {
-			kinesisProducer.flushSync();
-			kinesisProducer.destroy();
+		if (kinesisClient != null) {
+			kinesisClient.close();
 		} else {
-			LOGGER.error("Attempt to close non-initialized Kinesis producer!");
+			LOGGER.error("Attempt to close non-initialized Kinesis client!");
 			System.exit(1);
 		}
 	}
@@ -139,26 +139,18 @@ public class KinesisSingleton implements SendMethodIntf {
 			System.exit(exitCode);
 		}
 
-		BasicAWSCredentials awsCreds = new BasicAWSCredentials(accessKey, accessSecret);
-		AWSCredentialsProvider credentialsProvider = new AWSStaticCredentialsProvider(awsCreds);
-
-		KinesisProducerConfiguration config = new KinesisProducerConfiguration();
-		config.setRegion(region);
-		config.setCredentialsProvider(credentialsProvider);
-
 		// The maxConnections parameter can be used to control the degree of
         // parallelism when making HTTP requests.
-		int maxConnections = 1;
+		int maxConnections = 50;
 		String maxConnectionsString = props.getProperty("a2.kinesis.max.connections", "");
 		if (maxConnectionsString != null && !"".equals(maxConnectionsString)) {
 			try {
 				maxConnections = Integer.parseInt(maxConnectionsString);
 			} catch (Exception e) {
 				LOGGER.warn("Incorrect value for a2.kinesis.max.connections -> {}", maxConnectionsString);
-				LOGGER.warn("Setting it to 1");
+				LOGGER.warn("Setting it to 50");
 			}
 		}
-		config.setMaxConnections(maxConnections);
 
 		// Request timeout milliseconds
 		long requestTimeout = 30000;
@@ -171,20 +163,19 @@ public class KinesisSingleton implements SendMethodIntf {
 				LOGGER.warn("Setting it to 30000");
 			}
 		}
-		config.setRequestTimeout(requestTimeout);
 
-		// RecordMaxBufferedTime
-		long recordMaxBufferedTime = 5000;
-		String recordMaxBufferedTimeString = props.getProperty("a2.kinesis.request.record.max.buffered.time", "");
-		if (recordMaxBufferedTimeString != null && !"".equals(recordMaxBufferedTimeString)) {
-			try {
-				recordMaxBufferedTime = Integer.parseInt(recordMaxBufferedTimeString);
-			} catch (Exception e) {
-				LOGGER.warn("Incorrect value for a2.kinesis.request.record.max.buffered.time -> {}", recordMaxBufferedTimeString);
-				LOGGER.warn("Setting it to 5000");
-			}
-		}
-		config.setRecordMaxBufferedTime(recordMaxBufferedTime);
+		AwsCredentials awsCreds = AwsBasicCredentials.create(accessKey, accessSecret);
+		AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(awsCreds);
+
+		kinesisClient = KinesisAsyncClient.builder()
+				.credentialsProvider(credentialsProvider)
+				.region(Region.of(region))
+				.httpClientBuilder(NettyNioAsyncHttpClient.builder()
+						.maxConcurrency(maxConnections)
+						.maxPendingConnectionAcquires(10_000)
+						.writeTimeout(Duration.ofMillis(requestTimeout))
+						.readTimeout(Duration.ofMillis(requestTimeout)))
+				.build();
 
 		// fileSizeThreshold
 		String fileSizeThresholdString = props.getProperty("a2.kinesis.file.size.threshold", "");
@@ -196,9 +187,6 @@ public class KinesisSingleton implements SendMethodIntf {
 				LOGGER.warn("Setting it to 512");
 			}
 		}
-
-		// Initialize connection to Kinesis
-		kinesisProducer = new KinesisProducer(config);
 	}
 
 }

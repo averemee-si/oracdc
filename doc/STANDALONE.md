@@ -110,11 +110,9 @@ Don't forget about correct sizing of stream for heavy load.
 
 #### Optional parameters for Amazon Kinesis
 
-`a2.kinesis.max.connections` - can be used to control the degree of parallelism when making HTTP requests. Using a high number will cause a bunch of broken pipe errors to show up in the logs. This is due to idle connections being closed by the server. Setting this value too large may also cause request timeouts if you do not have enough bandwidth. **1** is default value
+`a2.kinesis.max.connections` - can be used to control the degree of parallelism when making HTTP requests. Using a high number will cause a bunch of broken pipe errors to show up in the logs. This is due to idle connections being closed by the server. Setting this value too large may also cause request timeouts if you do not have enough bandwidth. **50** is default value
 
 `a2.kinesis.request.timeout` - Request timeout milliseconds. **30000** is default value
-
-`a2.kinesis.request.record.max.buffered.time` - controls how long records are allowed to wait  in the Kinesis Producer's buffers before being sent. Larger values increase aggregation and reduces the number of Kinesis records put, which can be helpful if you're getting throttled because of the records per second limit on a shard.. **5000** is default value
 
 `a2.kinesis.file.size.threshold` - Maximum size of audit file transferred without compression. **512** is default value
 
