@@ -1,5 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+~ Copyright (c) 2018-present, A2 Rešitve d.o.o.
+~
+~ Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+~ compliance with the License. You may obtain a copy of the License at
+~
+~ http://www.apache.org/licenses/LICENSE-2.0
+~
+~ Unless required by applicable law or agreed to in writing, software distributed under the License is
+~ distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
+~ the License for the specific language governing permissions and limitations under the License.
+  -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.solutions.a2.oracle.cdc</groupId>
 	<artifactId>oracdc-kafka</artifactId>
@@ -7,12 +20,33 @@
 	<packaging>jar</packaging>
 
 	<name>oracdc-kafka</name>
-	<url>http://maven.apache.org</url>
+	<url>http://a2-solutions.eu/#oracdc</url>
+	<description>
+		Oracle CDC Source Connector for Kafka Connect / Oracle CDC Producer for Amazon Kinesis
+	</description>
+	<organization>
+		<name>A2 Rešitve, d.o.o.</name>
+		<url>http://a2-solutions.eu/</url>
+	</organization>
+
+	<licenses>
+		<license>
+			<name>Apache License</name>
+			<url>http://a2-solutions.eu/licenses/apache/LICENSE.txt</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
+		<junit.version>4.12</junit.version>
+		<kafka.version>2.3.1</kafka.version>
+		<kinesis.client.version>2.2.7</kinesis.client.version>
+		<HikariCP.version>3.4.1</HikariCP.version>
+		<slf4j.version>1.7.28</slf4j.version>
+		<kafka.connect.maven.plugin.version>0.11.1</kafka.connect.maven.plugin.version>
 	</properties>
 
 	<dependencies>
@@ -20,44 +54,44 @@
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
-			<version>4.12</version>
+			<version>${junit.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/2.3.1 -->
+		<!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/ -->
  		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>kafka-clients</artifactId>
-			<version>2.3.1</version>
+			<version>${kafka.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api/2.3.1 -->
+		<!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api/ -->
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>connect-api</artifactId>
-			<version>2.3.1</version>
+			<version>${kafka.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/software.amazon.kinesis/amazon-kinesis-client/2.2.7 -->
+		<!-- https://mvnrepository.com/artifact/software.amazon.kinesis/amazon-kinesis-client/ -->
 		<dependency>
 			<groupId>software.amazon.kinesis</groupId>
 			<artifactId>amazon-kinesis-client</artifactId>
-			<version>2.2.7</version>
+			<version>${kinesis.client.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.zaxxer/HikariCP/3.4.1 -->
+		<!-- https://mvnrepository.com/artifact/com.zaxxer/HikariCP/ -->
 		<dependency>
 			<groupId>com.zaxxer</groupId>
 			<artifactId>HikariCP</artifactId>
-			<version>3.4.1</version>
+			<version>${HikariCP.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api/1.7.28 -->
+		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api/ -->
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
-			<version>1.7.28</version>
+			<version>${slf4j.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-log4j12/1.7.28 -->
+		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-log4j12/ -->
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-log4j12</artifactId>
-			<version>1.7.28</version>
+			<version>${slf4j.version}</version>
 		</dependency>
 	</dependencies>
 
@@ -89,6 +123,76 @@
 						</goals>
 						<configuration>
 							<outputDirectory>${project.build.directory}</outputDirectory>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>io.confluent</groupId>
+				<version>${kafka.connect.maven.plugin.version}</version>
+				<artifactId>kafka-connect-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<goals>
+							<goal>kafka-connect</goal>
+						</goals>
+						<configuration>
+							<title>Kafka Connect Oracle CDC</title>
+							<documentationUrl>https://github.com/averemee-si/oracdc</documentationUrl>
+							<description>
+								Connector for capturing Oracle Database changes. Oracle RDBMS materialized view log's are used as source for data changes, oracdc materializes Oracle RDBMS materialized view log at heterogeneous database system or data lake.
+								No additional licensing of Oracle Database required.
+								JDBC sink connector optimized to work with PostgreSQL provided too.
+							</description>
+							<logo>logos/a2-oracdc.png</logo>
+
+							<supportProviderName>A2 Rešitve, d.o.o.</supportProviderName>
+							<supportSummary>Includes installation, and configuration assistance</supportSummary>
+							<supportUrl>http://a2-solutions.eu/</supportUrl>
+							<supportLogo>logos/a2-solutions.png</supportLogo>
+
+							<ownerUsername>a2-solutions_eu</ownerUsername>
+							<ownerType>organization</ownerType>
+							<ownerName>A2 Rešitve, d.o.o.</ownerName>
+							<ownerUrl>http://a2-solutions.eu/</ownerUrl>
+							<ownerLogo>logos/a2-solutions.png</ownerLogo>
+
+							<dockerNamespace></dockerNamespace>
+							<dockerName></dockerName>
+							<dockerTag></dockerTag>
+
+							<componentTypes>
+								<componentType>source</componentType>
+								<componentType>sink</componentType>
+							</componentTypes>
+
+							<tags>
+								<tag>Oracle</tag>
+								<tag>database</tag>
+								<tag>RDBMS</tag>
+								<tag>CDC</tag>
+								<tag>PostgreSQL</tag>
+								<tag>ingest</tag>
+								<tag>capture</tag>
+								<tag>collect</tag>
+								<tag>Hadoop</tag>
+								<tag>data lake</tag>
+								<tag>JDBC</tag>
+							</tags>
+
+							<requirements>
+								<requirement>Oracle 9i</requirement>
+								<requirement>Oracle 10g</requirement>
+								<requirement>Oracle 11g</requirement>
+								<requirement>Oracle 12c</requirement>
+								<requirement>Oracle 18c</requirement>
+								<requirement>Oracle 19c</requirement>
+							</requirements>
+
+							<deliveryGuarantee>
+								<deliveryGuarantee>exactlyOnce</deliveryGuarantee>
+							</deliveryGuarantee>
+
 						</configuration>
 					</execution>
 				</executions>
