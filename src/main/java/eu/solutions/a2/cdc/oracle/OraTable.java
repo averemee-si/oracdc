@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -128,7 +128,9 @@ public class OraTable implements Runnable {
 		this.snapshotLogDelSql = "delete from " + snapshotFqn + " where ROWID=?";
 
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
-			PreparedStatement statement = connection.prepareStatement(OraDictSqlTexts.COLUMN_LIST);
+			PreparedStatement statement = connection.prepareStatement(OraDictSqlTexts.COLUMN_LIST,
+					ResultSet.TYPE_FORWARD_ONLY,
+					ResultSet.CONCUR_READ_ONLY);
 			statement.setString(1, this.snapshotLog);
 			statement.setString(2, this.tableOwner);
 			statement.setString(3, this.masterTable);
@@ -478,8 +480,10 @@ public class OraTable implements Runnable {
 	}
 
 	public List<SourceRecord> poll(final Connection connection) throws SQLException {
-		PreparedStatement stmtLog = connection.prepareStatement(snapshotLogSelSql);
-		PreparedStatement stmtMaster = connection.prepareStatement(masterTableSelSql);
+		PreparedStatement stmtLog = connection.prepareStatement(snapshotLogSelSql,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		PreparedStatement stmtMaster = connection.prepareStatement(masterTableSelSql,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		PreparedStatement stmtDeleteLog = connection.prepareStatement(snapshotLogDelSql);
 
 		final List<RowId> logRows2Delete = new ArrayList<>();
@@ -764,7 +768,7 @@ public class OraTable implements Runnable {
 				break;
 			case Types.TIMESTAMP:
 				//TODO Timezone support!!!!
-				columnValues.put(columnName, rsLog.getTimestamp(columnName).getTime());
+				columnValues.put(columnName, rsLog.getTimestamp(columnName));
 				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setTimestamp(bindNo, rsLog.getTimestamp(columnName));
 				break;
@@ -853,7 +857,7 @@ public class OraTable implements Runnable {
 				break;
 			case Types.TIMESTAMP:
 				//TODO Timezone support!!!!
-				keyStruct.put(columnName, rsLog.getTimestamp(columnName).getTime());
+				keyStruct.put(columnName, rsLog.getTimestamp(columnName));
 				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setTimestamp(bindNo, rsLog.getTimestamp(columnName));
 				break;
