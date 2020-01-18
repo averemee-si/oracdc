@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -696,7 +696,11 @@ public class OraColumn {
 			if (columnValue == null)
 				statement.setNull(columnNo, Types.VARCHAR);
 			else
-				statement.setString(columnNo, (String) columnValue);
+				// 0x00 PostgreSQL problem
+				if (HikariPoolConnectionFactory.getDbType() == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL)
+					statement.setString(columnNo, ((String) columnValue).replace("\0", ""));
+				else
+					statement.setString(columnNo, (String) columnValue);
 			break;
 		default:
 			throw new SQLException("Unsupported data type!!!");
