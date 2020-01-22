@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -29,7 +29,6 @@ import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.kafka.connect.ConnectorConfigConstants;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceConnectorConfig;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceTask;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
@@ -43,6 +42,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 	private OraCdcSourceConnectorConfig config;
 	private boolean validConfig = true;
+	private boolean useLogMiner = false;
+	private boolean isCdb = false;
+	private boolean mvLogPre11gR2 = false;
 	private int tableCount = 0;
 	private String whereExclude = null;
 	private String whereInclude = null;
@@ -59,21 +61,21 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 		// Initialize connection pool
 		try {
-			if (!"".equals(config.getString(ConnectorConfigConstants.CONNECTION_URL_PARAM))) {
+			if (!"".equals(config.getString(ParamConstants.CONNECTION_URL_PARAM))) {
 				OraPoolConnectionFactory.init(
-					config.getString(ConnectorConfigConstants.CONNECTION_URL_PARAM),
-					config.getString(ConnectorConfigConstants.CONNECTION_USER_PARAM),
-					config.getString(ConnectorConfigConstants.CONNECTION_PASSWORD_PARAM));
-			} else if (!"".equals(config.getString(OraCdcSourceConnectorConfig.CONNECTION_WALLET_PARAM))) {
+					config.getString(ParamConstants.CONNECTION_URL_PARAM),
+					config.getString(ParamConstants.CONNECTION_USER_PARAM),
+					config.getString(ParamConstants.CONNECTION_PASSWORD_PARAM));
+			} else if (!"".equals(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
 				OraPoolConnectionFactory.init4Wallet(
-						config.getString(OraCdcSourceConnectorConfig.CONNECTION_WALLET_PARAM),
-						config.getString(OraCdcSourceConnectorConfig.CONNECTION_TNS_ADMIN_PARAM),
-						config.getString(OraCdcSourceConnectorConfig.CONNECTION_TNS_ALIAS_PARAM));
+						config.getString(ParamConstants.CONNECTION_WALLET_PARAM),
+						config.getString(ParamConstants.CONNECTION_TNS_ADMIN_PARAM),
+						config.getString(ParamConstants.CONNECTION_TNS_ALIAS_PARAM));
 			} else {
 				validConfig = false;
 				LOGGER.error("Database connection parameters are not properly set\n. Both {}, and {} are not set",
-						ConnectorConfigConstants.CONNECTION_URL_PARAM,
-						OraCdcSourceConnectorConfig.CONNECTION_WALLET_PARAM);
+						ParamConstants.CONNECTION_URL_PARAM,
+						ParamConstants.CONNECTION_WALLET_PARAM);
 				throw new RuntimeException("Database connection parameters are not properly set!");
 			}
 		} catch (SQLException | ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException pe) {
@@ -85,19 +87,45 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 		if (validConfig) {
 			try (Connection connection = OraPoolConnectionFactory.getConnection()) {
-				String sqlStatementText = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI;
-				final List<String> excludeList = config.getList(OraCdcSourceConnectorConfig.TABLE_EXCLUDE_PARAM);
+				String sqlStatementText = null;
+				int modeWhere = OraSqlUtils.MODE_WHERE_ALL_MVIEW_LOGS;
+				// Detect CDC source
+				OraRdbmsInfo rdbmsInfo = new OraRdbmsInfo(connection);
+				if (ParamConstants.ORACDC_MODE_LOGMINER.equalsIgnoreCase(config.getString(ParamConstants.ORACDC_MODE_PARAM))) {
+					if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot()) {
+						validConfig = false;
+						throw new SQLException("Must connected to CDB$ROOT while using oracdc for mining data using LogMiner!!!");
+					} else {
+						useLogMiner = true;
+						isCdb = rdbmsInfo.isCdb();
+						modeWhere = OraSqlUtils.MODE_WHERE_ALL_TABLES;
+						if (isCdb) {
+							sqlStatementText = OraDictSqlTexts.TABLE_COUNT_CDB;
+						} else {
+							sqlStatementText = OraDictSqlTexts.TABLE_COUNT_PLAIN;
+						}
+					}
+				} else {
+					if (rdbmsInfo.getVersionMajor() < 11)
+						mvLogPre11gR2 = true;
+					if (mvLogPre11gR2)
+						sqlStatementText = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI_PRE11G;
+					else
+						sqlStatementText = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI;
+				}
+
+				final List<String> excludeList = config.getList(ParamConstants.TABLE_EXCLUDE_PARAM);
 				if (excludeList.size() > 0) {
-					whereExclude = OraSqlUtils.parseTableSchemaList(true, false, excludeList);
+					whereExclude = OraSqlUtils.parseTableSchemaList(true, modeWhere, excludeList);
 					sqlStatementText += whereExclude;
 				}
-				final List<String> includeList = config.getList(OraCdcSourceConnectorConfig.TABLE_INCLUDE_PARAM);
+				final List<String> includeList = config.getList(ParamConstants.TABLE_INCLUDE_PARAM);
 				if (includeList.size() > 0) {
-					whereInclude = OraSqlUtils.parseTableSchemaList(false, false, includeList);
+					whereInclude = OraSqlUtils.parseTableSchemaList(false, modeWhere, includeList);
 					sqlStatementText += whereInclude;
 				}
 
-				// Count number of materialized view logs
+				// Count number of materialized view logs/available tables for mining
 				final PreparedStatement statement = connection.prepareStatement(sqlStatementText);
 				final ResultSet rsCount = statement.executeQuery();
 				if (rsCount.next())
@@ -108,15 +136,29 @@ public class OraCdcSourceConnector extends SourceConnector {
 				if (tableCount == 0) {
 					final String message =
 							"Nothing to do with user " + 
-							config.getString(ConnectorConfigConstants.CONNECTION_USER_PARAM) +
+							connection.getMetaData().getUserName() +
 							"."; 
 					LOGGER.error(message);
 					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
 					throw new RuntimeException(message);
 				}
+				//TODO
+				//TODO
+				//TODO
+				if (useLogMiner && tableCount > 150) {
+					final String message =
+							"Too much tables with user " + 
+							connection.getMetaData().getUserName() +
+							".\nReduce table count from " +
+							tableCount +
+							" and try again."; 
+					LOGGER.error(message);
+					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
+					throw new RuntimeException(message);
+				}
 
-				if (ConnectorConfigConstants.SCHEMA_TYPE_STANDALONE.equals(
-						config.getString(ConnectorConfigConstants.SCHEMA_TYPE_PARAM)))
+				if (ParamConstants.SCHEMA_TYPE_STANDALONE.equals(
+						config.getString(ParamConstants.SCHEMA_TYPE_PARAM)))
 					Source.init(Source.SCHEMA_TYPE_STANDALONE);
 				else
 					// config.getString(OraCdcSourceConnectorConfig.SCHEMA_TYPE_PARAM)
@@ -152,10 +194,15 @@ public class OraCdcSourceConnector extends SourceConnector {
 			final String message = 
 					"To run " +
 					OraCdcSourceConnector.class.getName() +
-					" against " +
-					config.getString(ConnectorConfigConstants.CONNECTION_URL_PARAM) +
-					" with username " +
-					config.getString(ConnectorConfigConstants.CONNECTION_USER_PARAM) +
+					" against " + (
+					"".equals(config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) ?
+								config.getString(ParamConstants.CONNECTION_URL_PARAM) +
+								" with username " +
+								config.getString(ParamConstants.CONNECTION_USER_PARAM)
+							:
+								config.getString(ParamConstants.CONNECTION_TNS_ALIAS_PARAM) +
+								" using wallet " +
+								config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) +
 					" parameter tasks.max must set to " +
 					tableCount;
 			LOGGER.error(message);
@@ -165,7 +212,18 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 		List<Map<String, String>> configs = new ArrayList<>(maxTasks);
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
-			String sqlStatementText = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI;
+			String sqlStatementText = null;
+			if (useLogMiner)
+				if (isCdb)
+					sqlStatementText = OraDictSqlTexts.TABLE_LIST_CDB;
+				else
+					sqlStatementText = OraDictSqlTexts.TABLE_LIST_PLAIN;
+			else
+				if (mvLogPre11gR2)
+					sqlStatementText = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI_PRE11G;
+				else
+					sqlStatementText = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI;
+
 			if (whereExclude != null) {
 				sqlStatementText += whereExclude;
 			}
@@ -179,10 +237,10 @@ public class OraCdcSourceConnector extends SourceConnector {
 				resultSet.next();
 				final Map<String, String> taskParam = new HashMap<>(9);
 
-				taskParam.put(ConnectorConfigConstants.BATCH_SIZE_PARAM,
-						config.getInt(ConnectorConfigConstants.BATCH_SIZE_PARAM).toString());
-				taskParam.put(OraCdcSourceConnectorConfig.POLL_INTERVAL_MS_PARAM,
-						config.getInt(OraCdcSourceConnectorConfig.POLL_INTERVAL_MS_PARAM).toString());
+				taskParam.put(ParamConstants.BATCH_SIZE_PARAM,
+						config.getInt(ParamConstants.BATCH_SIZE_PARAM).toString());
+				taskParam.put(ParamConstants.POLL_INTERVAL_MS_PARAM,
+						config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM).toString());
 				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER,
 						resultSet.getString("MASTER"));
 				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_LOG,

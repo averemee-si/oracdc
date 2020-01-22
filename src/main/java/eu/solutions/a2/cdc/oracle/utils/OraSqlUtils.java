@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -27,10 +27,17 @@ public class OraSqlUtils {
 
 	private static final String SQL_AND = " and ";
 
-	public static String parseTableSchemaList(final boolean exclude, final boolean logMiner, final List<String> listSchemaObj) {
+	public static final int MODE_WHERE_ALL_MVIEW_LOGS = 1;
+	public static final int MODE_WHERE_ALL_TABLES = 2;
+	public static final int MODE_WHERE_LOGMNR_CONTENTS = 3;
+
+	public static String parseTableSchemaList(final boolean exclude, final int mode, final List<String> listSchemaObj) {
 		String schemaNameField = "L.LOG_OWNER";
 		String objNameField = "L.MASTER";
-		if (logMiner) {
+		if (mode == MODE_WHERE_ALL_TABLES) {
+			schemaNameField = "T.OWNER";
+			objNameField = "T.TABLE_NAME";
+		} else if (mode == MODE_WHERE_ALL_TABLES) {
 			schemaNameField = "M.SEG_OWNER";
 			objNameField = "M.SEG_NAME";
 		}
@@ -88,7 +95,8 @@ public class OraSqlUtils {
 			final String owner,
 			final String tableName) throws SQLException {
 		Set<String> result = null;
-		PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS);
+		PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ps.setString(1, owner);
 		ps.setString(2, owner);
 		ResultSet rs = ps.executeQuery();

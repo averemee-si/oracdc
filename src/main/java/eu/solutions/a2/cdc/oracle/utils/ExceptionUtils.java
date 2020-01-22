@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -30,17 +30,17 @@ public class ExceptionUtils {
 	 * @see Exception.printStackTrace()
 	 **/
 	public static String getExceptionStackTrace(Exception exception) {
-		String result = exception.getMessage();
-		try (
-				StringWriter sw = new StringWriter();
-				PrintWriter pw = new PrintWriter(sw)) {
+		final StringBuilder sb = new StringBuilder(1024);
+		sb.append(exception.getMessage());
+		sb.append("\n");
+		try (StringWriter sw = new StringWriter(); PrintWriter pw = new PrintWriter(sw)) {
 			exception.printStackTrace(pw);
-			result += sw.toString();
+			sb.append(sw.toString());
 		} catch (Exception e) {
 			LOGGER.error("Exception while converting exception's stack trace to string!\n{}",
 					e.getMessage());
 		}
-		return result;
+		return sb.toString();
 	}
 
 }

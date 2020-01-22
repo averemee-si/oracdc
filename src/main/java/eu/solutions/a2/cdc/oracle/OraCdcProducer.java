@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -49,11 +49,6 @@ public class OraCdcProducer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcProducer.class);
 
-	/** Default interval in milliseconds between DB query */
-	private static final int POLL_INTERVAL = 1000;
-	/** Default number of records to read from table */
-	private static final int BATCH_SIZE = 100;
-
 	private static final Properties props = new Properties();
 	/** Supported target systems */
 	private static final int TARGET_KAFKA = 0;
@@ -82,27 +77,33 @@ public class OraCdcProducer {
 		}
 
 		// Read and check JDBC connection properties
-
 		boolean useWallet = true;
-		final String jdbcUrl = props.getProperty("a2.jdbc.url");
-		final String username = props.getProperty("a2.jdbc.username");
-		final String password = props.getProperty("a2.jdbc.password");
-		final String walletLocation = props.getProperty("a2.wallet.location");
-		final String tnsAdmin = props.getProperty("a2.tns.admin");
-		final String alias = props.getProperty("a2.tns.alias");
+		final String jdbcUrl = props.getProperty(ParamConstants.CONNECTION_URL_PARAM);
+		final String username = props.getProperty(ParamConstants.CONNECTION_USER_PARAM);
+		final String password = props.getProperty(ParamConstants.CONNECTION_PASSWORD_PARAM);
+		final String walletLocation = props.getProperty(ParamConstants.CONNECTION_WALLET_PARAM);
+		final String tnsAdmin = props.getProperty(ParamConstants.CONNECTION_TNS_ADMIN_PARAM);
+		final String alias = props.getProperty(ParamConstants.CONNECTION_TNS_ALIAS_PARAM);
 		if (jdbcUrl == null || "".equals(jdbcUrl.trim())) {
 			if (walletLocation == null || "".equals(walletLocation)) {
-				LOGGER.error("a2.jdbc.url or a2.wallet.location not specified in configuration file {}", argv[0]);
+				LOGGER.error("{} or {} not specified in configuration file {}",
+						ParamConstants.CONNECTION_URL_PARAM,
+						ParamConstants.CONNECTION_WALLET_PARAM,
+						argv[0]);
 				LOGGER.error("Exiting.");
 				System.exit(1);
 			} else {
 				if (tnsAdmin == null || "".equals(tnsAdmin.trim())) {
-					LOGGER.error("a2.tns.admin not specified in configuration file {}", argv[0]);
+					LOGGER.error("{} not specified in configuration file {}",
+							ParamConstants.CONNECTION_TNS_ADMIN_PARAM,
+							argv[0]);
 					LOGGER.error("Exiting.");
 					System.exit(1);
 				}
 				if (alias == null || "".equals(alias.trim())) {
-					LOGGER.error("a2.tns.alias not specified in configuration file {}", argv[0]);
+					LOGGER.error("{} not specified in configuration file {}",
+							ParamConstants.CONNECTION_TNS_ALIAS_PARAM,
+							argv[0]);
 					LOGGER.error("Exiting.");
 					System.exit(1);
 				}
@@ -110,12 +111,14 @@ public class OraCdcProducer {
 			}
 		} else {
 			if (username == null || "".equals(username.trim())) {
-				LOGGER.error("a2.jdbc.username not specified in configuration file {}", argv[0]);
+				LOGGER.error("{} not specified in configuration file {}",
+						ParamConstants.CONNECTION_USER_PARAM, argv[0]);
 				LOGGER.error("Exiting.");
 				System.exit(1);
 			}
 			if (password == null || "".equals(password.trim())) {
-				LOGGER.error("a2.jdbc.password not specified in configuration file {}", argv[0]);
+				LOGGER.error("{} not specified in configuration file {}",
+						ParamConstants.CONNECTION_PASSWORD_PARAM, argv[0]);
 				LOGGER.error("Exiting.");
 				System.exit(1);
 			}
@@ -136,38 +139,40 @@ public class OraCdcProducer {
 			System.exit(1);
 		}
 
-		int pollInterval = POLL_INTERVAL;
-		final String pollIntervalString = props.getProperty("a2.poll.interval");
+		int pollInterval = ParamConstants.POLL_INTERVAL_MS_DEFAULT;
+		final String pollIntervalString = props.getProperty(ParamConstants.POLL_INTERVAL_MS_PARAM);
 		if (pollIntervalString != null && !"".equals(pollIntervalString)) {
 			try {
 				pollInterval = Integer.parseInt(pollIntervalString);
 			} catch (Exception e) {
-				LOGGER.warn("Incorrect value for a2.poll.interval -> {}", pollIntervalString);
-				LOGGER.warn("Setting it to {}", POLL_INTERVAL);
+				LOGGER.warn("Incorrect value for {} -> {}", ParamConstants.POLL_INTERVAL_MS_PARAM, pollIntervalString);
+				LOGGER.warn("Setting it to {}", ParamConstants.POLL_INTERVAL_MS_DEFAULT);
 			}
 		}
-		int batchSize = BATCH_SIZE;
-		final String batchSizeString = props.getProperty("a2.batch.size");
+		int batchSize = ParamConstants.BATCH_SIZE_DEFAULT;
+		final String batchSizeString = props.getProperty(ParamConstants.BATCH_SIZE_PARAM);
 		if (batchSizeString != null && !"".equals(batchSizeString)) {
 			try {
 				batchSize = Integer.parseInt(batchSizeString);
 			} catch (Exception e) {
-				LOGGER.warn("Incorrect value for a2.batch.size -> {}", batchSizeString);
-				LOGGER.warn("Setting it to {}", BATCH_SIZE);
+				LOGGER.warn("Incorrect value for {} -> {}", ParamConstants.BATCH_SIZE_PARAM, batchSizeString);
+				LOGGER.warn("Setting it to {}", ParamConstants.BATCH_SIZE_DEFAULT);
 			}
 		}
-		String excludeList = props.getProperty("a2.exclude");
+		String excludeList = props.getProperty(ParamConstants.TABLE_EXCLUDE_PARAM);
 		if (excludeList != null && !"".equals(excludeList)) {
 			try {
 				List<String> nameList = Arrays.asList(excludeList.split(","));
 				if (nameList.size() > 0) {
-					excludeList = OraSqlUtils.parseTableSchemaList(true, false, nameList);
+					excludeList = OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_MVIEW_LOGS, nameList);
 				} else {
 					excludeList = null;
 				}
 
 			} catch (Exception e) {
-				LOGGER.error("Unable to parse a2.exclude parameter set to -> {}", excludeList);
+				LOGGER.error("Unable to parse {} parameter set to -> {}",
+						ParamConstants.TABLE_EXCLUDE_PARAM,
+						excludeList);
 				LOGGER.error("Ignoring it.....");
 				excludeList = null;
 			}
@@ -176,18 +181,20 @@ public class OraCdcProducer {
 			excludeList = null;
 		}
 
-		String includeList = props.getProperty("a2.include");
+		String includeList = props.getProperty(ParamConstants.TABLE_INCLUDE_PARAM);
 		if (includeList != null && !"".equals(includeList)) {
 			try {
 				List<String> nameList = Arrays.asList(includeList.split(","));
 				if (nameList.size() > 0) {
-					includeList = OraSqlUtils.parseTableSchemaList(false, false, nameList);
+					includeList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_MVIEW_LOGS, nameList);
 				} else {
 					includeList = null;
 				}
 
 			} catch (Exception e) {
-				LOGGER.error("Unable to parse a2.include parameter set to -> {}", includeList);
+				LOGGER.error("Unable to parse {} parameter set to -> {}",
+						ParamConstants.TABLE_INCLUDE_PARAM,
+						includeList);
 				LOGGER.error("Ignoring it.....");
 				excludeList = null;
 			}

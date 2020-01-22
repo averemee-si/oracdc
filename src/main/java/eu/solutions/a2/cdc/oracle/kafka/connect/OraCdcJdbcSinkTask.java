@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -34,6 +34,7 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import eu.solutions.a2.cdc.oracle.HikariPoolConnectionFactory;
 import eu.solutions.a2.cdc.oracle.OraCdcJdbcSinkConnector;
 import eu.solutions.a2.cdc.oracle.OraTable;
+import eu.solutions.a2.cdc.oracle.ParamConstants;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
@@ -58,7 +59,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc Sink Task");
 		config = new OraCdcJdbcSinkConnectorConfig(props);
-		batchSize = config.getInt(ConnectorConfigConstants.BATCH_SIZE_PARAM);
+		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
 		autoCreateTable = config.getBoolean(OraCdcJdbcSinkConnectorConfig.AUTO_CREATE_PARAM);
 	}
 

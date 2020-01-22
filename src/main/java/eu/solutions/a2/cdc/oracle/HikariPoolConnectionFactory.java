@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -38,13 +38,18 @@ public class HikariPoolConnectionFactory {
 		dataSource.setPoolName("oracdc-hikari-pool-1");
 		//TODO - ???
 		dataSource.setMaximumPoolSize(INITIAL_SIZE);
-		if (url.startsWith("jdbc:mariadb://") || url.startsWith("jdbc:mysql://")) {
+		if (url.startsWith("jdbc:mariadb:") || url.startsWith("jdbc:mysql:")) {
 			dataSource.addDataSourceProperty("cachePrepStmts", "true");
 			dataSource.addDataSourceProperty("prepStmtCacheSize", "256");
 			dataSource.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
 			dataSource.addDataSourceProperty("useServerPrepStmts", "true");
 			dataSource.addDataSourceProperty("tcpKeepAlive", "true");
 			dataSource.addDataSourceProperty("maintainTimeStats", "false");
+		} else if (url.startsWith("jdbc:postgresql:")) {
+			dataSource.addDataSourceProperty("prepareThreshold", "1");
+			dataSource.addDataSourceProperty("preparedStatementCacheSizeMiB", "16");
+			dataSource.addDataSourceProperty("tcpKeepAlive", "true");
+			dataSource.addDataSourceProperty("ApplicationName", "oracdc");
 		}
 
 		// Detect database type

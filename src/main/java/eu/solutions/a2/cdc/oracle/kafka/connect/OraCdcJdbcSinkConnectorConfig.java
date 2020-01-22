@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -20,6 +20,8 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 
+import eu.solutions.a2.cdc.oracle.ParamConstants;
+
 public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 
 	public static final String AUTO_CREATE_PARAM = "a2.autocreate";
@@ -28,19 +30,19 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 
 	public static ConfigDef config() {
 		return new ConfigDef()
-				.define(ConnectorConfigConstants.CONNECTION_URL_PARAM, Type.STRING,
-						Importance.HIGH, ConnectorConfigConstants.CONNECTION_URL_DOC)
-				.define(ConnectorConfigConstants.CONNECTION_USER_PARAM, Type.STRING,
-						Importance.HIGH, ConnectorConfigConstants.CONNECTION_USER_DOC)
-				.define(ConnectorConfigConstants.CONNECTION_PASSWORD_PARAM, Type.STRING,
-						Importance.HIGH, ConnectorConfigConstants.CONNECTION_PASSWORD_DOC)
-				.define(ConnectorConfigConstants.BATCH_SIZE_PARAM, Type.INT,
-						ConnectorConfigConstants.BATCH_SIZE_DEFAULT,
-						Importance.HIGH, ConnectorConfigConstants.BATCH_SIZE_DOC)
-				.define(ConnectorConfigConstants.SCHEMA_TYPE_PARAM, Type.STRING,
-						ConnectorConfigConstants.SCHEMA_TYPE_KAFKA,
-						ConfigDef.ValidString.in(ConnectorConfigConstants.SCHEMA_TYPE_KAFKA, ConnectorConfigConstants.SCHEMA_TYPE_STANDALONE),
-						Importance.HIGH, ConnectorConfigConstants.SCHEMA_TYPE_DOC)
+				.define(ParamConstants.CONNECTION_URL_PARAM, Type.STRING,
+						Importance.HIGH, ParamConstants.CONNECTION_URL_DOC)
+				.define(ParamConstants.CONNECTION_USER_PARAM, Type.STRING,
+						Importance.HIGH, ParamConstants.CONNECTION_USER_DOC)
+				.define(ParamConstants.CONNECTION_PASSWORD_PARAM, Type.STRING,
+						Importance.HIGH, ParamConstants.CONNECTION_PASSWORD_DOC)
+				.define(ParamConstants.BATCH_SIZE_PARAM, Type.INT,
+						ParamConstants.BATCH_SIZE_DEFAULT,
+						Importance.HIGH, ParamConstants.BATCH_SIZE_DOC)
+				.define(ParamConstants.SCHEMA_TYPE_PARAM, Type.STRING,
+						ParamConstants.SCHEMA_TYPE_KAFKA,
+						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA, ParamConstants.SCHEMA_TYPE_STANDALONE),
+						Importance.HIGH, ParamConstants.SCHEMA_TYPE_DOC)
 				.define(AUTO_CREATE_PARAM, Type.BOOLEAN, AUTO_CREATE_DEFAULT,
 						Importance.HIGH, AUTO_CREATE_DOC);
 	}

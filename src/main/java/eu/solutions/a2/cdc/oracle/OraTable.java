@@ -803,7 +803,7 @@ public class OraTable implements Runnable {
 				break;
 			case Types.DATE:
 				//TODO Timezone support!!!!
-				keyStruct.put(columnName, rsLog.getDate(columnName).getTime());
+				keyStruct.put(columnName, rsLog.getDate(columnName));
 				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setDate(bindNo, rsLog.getDate(columnName));
 				break;

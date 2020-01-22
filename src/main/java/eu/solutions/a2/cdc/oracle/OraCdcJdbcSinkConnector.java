@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -24,7 +24,6 @@ import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.kafka.connect.ConnectorConfigConstants;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcJdbcSinkConnectorConfig;
 import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcJdbcSinkTask;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
@@ -47,8 +46,8 @@ public class OraCdcJdbcSinkConnector extends SinkConnector {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc Sink Connector");
 		this.props = props;
-		if (ConnectorConfigConstants.SCHEMA_TYPE_STANDALONE.equals(
-				props.get(ConnectorConfigConstants.SCHEMA_TYPE_PARAM)))
+		if (ParamConstants.SCHEMA_TYPE_STANDALONE.equals(
+				props.get(ParamConstants.SCHEMA_TYPE_PARAM)))
 			connectorSchemaType = Source.SCHEMA_TYPE_STANDALONE;
 		else
 			// props.get(OraCdcSourceConnectorConfig.SCHEMA_TYPE_PARAM)
@@ -56,9 +55,9 @@ public class OraCdcJdbcSinkConnector extends SinkConnector {
 
 		try {
 			HikariPoolConnectionFactory.init(
-					props.get(ConnectorConfigConstants.CONNECTION_URL_PARAM),
-					props.get(ConnectorConfigConstants.CONNECTION_USER_PARAM),
-					props.get(ConnectorConfigConstants.CONNECTION_PASSWORD_PARAM));
+					props.get(ParamConstants.CONNECTION_URL_PARAM),
+					props.get(ParamConstants.CONNECTION_USER_PARAM),
+					props.get(ParamConstants.CONNECTION_PASSWORD_PARAM));
 		} catch (SQLException sqle) {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 			throw new RuntimeException("Unable to start oracdc Sink Connector.");

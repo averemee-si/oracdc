@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -15,6 +15,7 @@ package eu.solutions.a2.cdc.oracle.kafka.connect;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import eu.solutions.a2.cdc.oracle.OraTable;
+import eu.solutions.a2.cdc.oracle.ParamConstants;
 import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
@@ -46,8 +48,8 @@ public class OraCdcSourceTask extends SourceTask {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc Source Task for {}", props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
 
-		batchSize = Integer.parseInt(props.get(ConnectorConfigConstants.BATCH_SIZE_PARAM));
-		pollInterval = Integer.parseInt(props.get(OraCdcSourceConnectorConfig.POLL_INTERVAL_MS_PARAM));
+		batchSize = Integer.parseInt(props.get(ParamConstants.BATCH_SIZE_PARAM));
+		pollInterval = Integer.parseInt(props.get(ParamConstants.POLL_INTERVAL_MS_PARAM));
 
 		try {
 			oraTable = new OraTable(
@@ -82,16 +84,27 @@ public class OraCdcSourceTask extends SourceTask {
 			connection.commit();
 			return result;
 		} catch (SQLException sqle) {
-			LOGGER.error("Unable to poll data from Oracle RDBMS.");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error("Unable to poll data from Oracle RDBMS. Oracle error code: {}.\n", sqle.getErrorCode());
+			LOGGER.error("Oracle error message: {}.\n", sqle.getMessage());
+			if (sqle.getSQLState() != null)
+				LOGGER.error("Oracle SQL State: {}\n", sqle.getSQLState());
+			if (sqle instanceof SQLRecoverableException) {
+				// Recoverable... Just wait and do it again...
+				//TODO - separate timeout???
+				synchronized (this) {
+					this.wait(pollInterval);
+				}
+			} else {
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			}
 		}
 		return null;
 	}
 
 	@Override
 	public void stop() {
+		LOGGER.info("Stopping task.");
 		// TODO Auto-generated method stub
-
 	}
 
 }
