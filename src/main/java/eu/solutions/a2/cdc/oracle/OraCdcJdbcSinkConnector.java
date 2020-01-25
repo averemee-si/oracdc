@@ -20,6 +20,7 @@ import java.util.Map;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +61,7 @@ public class OraCdcJdbcSinkConnector extends SinkConnector {
 					props.get(ParamConstants.CONNECTION_PASSWORD_PARAM));
 		} catch (SQLException sqle) {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-			throw new RuntimeException("Unable to start oracdc Sink Connector.");
+			throw new ConnectException("Unable to start oracdc Sink Connector.");
 		}
 	}
 

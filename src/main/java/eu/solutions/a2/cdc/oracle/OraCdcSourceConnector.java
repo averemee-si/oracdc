@@ -25,6 +25,7 @@ import java.util.Map;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +77,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 				LOGGER.error("Database connection parameters are not properly set\n. Both {}, and {} are not set",
 						ParamConstants.CONNECTION_URL_PARAM,
 						ParamConstants.CONNECTION_WALLET_PARAM);
-				throw new RuntimeException("Database connection parameters are not properly set!");
+				throw new ConnectException("Database connection parameters are not properly set!");
 			}
 		} catch (SQLException | ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException pe) {
 			validConfig = false;
@@ -140,7 +141,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 							"."; 
 					LOGGER.error(message);
 					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
-					throw new RuntimeException(message);
+					throw new ConnectException(message);
 				}
 				//TODO
 				//TODO
@@ -154,7 +155,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 							" and try again."; 
 					LOGGER.error(message);
 					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
-					throw new RuntimeException(message);
+					throw new ConnectException(message);
 				}
 
 				if (ParamConstants.SCHEMA_TYPE_STANDALONE.equals(
@@ -173,7 +174,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 		}
 
 		if (!validConfig) {
-			throw new RuntimeException("Unable to validate configuration.");
+			throw new ConnectException("Unable to validate configuration.");
 		}
 
 	}
@@ -207,7 +208,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 					tableCount;
 			LOGGER.error(message);
 			LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
-			throw new RuntimeException(message);
+			throw new ConnectException(message);
 		}
 
 		List<Map<String, String>> configs = new ArrayList<>(maxTasks);
@@ -272,7 +273,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 		}
 
 		if (!validConfig) {
-			throw new RuntimeException("Unable to validate configuration.");
+			throw new ConnectException("Unable to validate configuration.");
 		}
 
 		return configs;
