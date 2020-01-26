@@ -127,7 +127,17 @@ public class OraTable implements Runnable {
 		final String snapshotFqn = "\"" + this.tableOwner + "\"" + ".\"" + this.snapshotLog + "\"";
 		this.snapshotLogDelSql = "delete from " + snapshotFqn + " where ROWID=?";
 
+		LOGGER.trace("Creating OraTable object...");
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Table owner -> {}, master table -> {}", this.tableOwner, this.masterTable);
+			LOGGER.debug("\tMaterialized view log name -> {}", this.snapshotLog);
+			LOGGER.debug("\t\tMView log with ROWID's -> {}, Primary Key -> {}, Sequence -> {}.",
+					this.logWithRowIds, this.logWithPrimaryKey, this.logWithSequence);
+			LOGGER.debug("batchSize -> {}", this.batchSize);
+		}
+
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+			LOGGER.trace("Preparing column list and SQL statements for table {}.{}", this.tableOwner, this.masterTable);
 			PreparedStatement statement = connection.prepareStatement(OraDictSqlTexts.COLUMN_LIST,
 					ResultSet.TYPE_FORWARD_ONLY,
 					ResultSet.CONCUR_READ_ONLY);
@@ -280,6 +290,12 @@ public class OraTable implements Runnable {
 				mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
 			}
 			this.snapshotLogSelSql = mViewSelect.toString();
+			LOGGER.trace("End of column list and SQL statements preparation for table {}.{}", this.tableOwner, this.masterTable);
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Table {}.{} -> MView select statement\n{}", this.tableOwner, this.masterTable, this.snapshotLogSelSql);
+				LOGGER.debug("Table {}.{} -> MView delete statement\n{}", this.tableOwner, this.masterTable, this.snapshotLogDelSql);
+				LOGGER.debug("Table {}.{} -> Master table select statement\n{}", this.tableOwner, this.masterTable, this.masterTableSelSql);
+			}
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
@@ -319,6 +335,10 @@ public class OraTable implements Runnable {
 	public OraTable(final Source source, final AvroSchema tableSchema, boolean autoCreateTable) {
 		this.tableOwner = source.getOwner();
 		this.masterTable = source.getTable();
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("tableOwner = {}.", this.tableOwner);
+			LOGGER.debug("masterTable = {}.", this.masterTable);
+		}
 		int pkColCount = 0;
 		for (AvroSchema columnSchema : tableSchema.getFields().get(0).getFields()) {
 			final OraColumn column = new OraColumn(columnSchema, true);
@@ -347,6 +367,10 @@ public class OraTable implements Runnable {
 		// Not exist in Kafka Connect schema - setting it to dummy value
 		this.tableOwner = "oracdc";
 		this.masterTable = tableName;
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("tableOwner = {}.", this.tableOwner);
+			LOGGER.debug("masterTable = {}.", this.masterTable);
+		}
 		int pkColCount = 0;
 		for (Field field : record.keySchema().fields()) {
 			final OraColumn column = new OraColumn(field, true);
@@ -365,6 +389,7 @@ public class OraTable implements Runnable {
 
 	private void prepareSql(final int pkColCount, final boolean autoCreateTable) {
 		// Prepare UPDATE/INSERT/DELETE statements...
+		LOGGER.trace("Prepare UPDATE/INSERT/DELETE statements for table {}", this.masterTable);
 		final StringBuilder sbDelUpdWhere = new StringBuilder(128);
 		sbDelUpdWhere.append(" where ");
 
@@ -423,17 +448,26 @@ public class OraTable implements Runnable {
 
 		sbUpdSql.append(sbDelUpdWhere);
 
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Table name -> {}, INSERT statement ->\n{}", this.masterTable, sbInsSql.toString());
+			LOGGER.debug("Table name -> {}, UPDATE statement ->\n{}", this.masterTable, sbUpdSql.toString());
+			LOGGER.debug("Table name -> {}, DELETE statement ->\n{}", this.masterTable, sbDelSql.toString());
+		}
+
 		// Check for table existence
 		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
+			LOGGER.trace("Check for table {} in database", this.masterTable);
 			DatabaseMetaData metaData = connection.getMetaData();
 			String tableName = masterTable;
 			if (HikariPoolConnectionFactory.getDbType() == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL) {
+				LOGGER.trace("Working with PostgreSQL specific lower case only names");
 				// PostgreSQL specific...
 				// Also look at https://stackoverflow.com/questions/43111996/why-postgresql-does-not-like-uppercase-table-names
 				tableName = tableName.toLowerCase();
 			}
 			ResultSet resultSet = metaData.getTables(null, null, tableName, null);
 			if (resultSet.next()) {
+				LOGGER.trace("Table {} already exist.", tableName);
 				ready4Ops = true;
 			}
 			resultSet.close();
@@ -444,6 +478,7 @@ public class OraTable implements Runnable {
 		}
 		if (!ready4Ops && autoCreateTable) {
 			// Create table in target database
+			LOGGER.trace("Prepare to create table {}", this.masterTable);
 			String createTableSqlText = TargetDbSqlUtils.createTableSql(
 					this.masterTable, this.pkColumns, this.allColumns);
 			LOGGER.debug("Create table with:\n{}", createTableSqlText);
@@ -460,9 +495,10 @@ public class OraTable implements Runnable {
 			}
 		}
 
-		sinkInsertSql = sbInsSql.toString(); 
-		sinkUpdateSql = sbUpdSql.toString(); 
-		sinkDeleteSql = sbDelSql.toString(); 
+		sinkInsertSql = sbInsSql.toString();
+		sinkUpdateSql = sbUpdSql.toString();
+		sinkDeleteSql = sbDelSql.toString();
+		LOGGER.trace("End of SQL and DB preparation for table {}.", this.masterTable);
 	}
 
 	/**

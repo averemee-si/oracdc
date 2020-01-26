@@ -60,7 +60,9 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 		LOGGER.info("Starting oracdc Sink Task");
 		config = new OraCdcJdbcSinkConnectorConfig(props);
 		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
+		LOGGER.debug("batchSize = {} records.", batchSize);
 		autoCreateTable = config.getBoolean(OraCdcJdbcSinkConnectorConfig.AUTO_CREATE_PARAM);
+		LOGGER.debug("autoCreateTable set to {}.", autoCreateTable);
 	}
 
 	@Override
@@ -79,6 +81,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 								envelope.getPayload().getSource(),
 								envelope.getSchema(),
 								autoCreateTable);
+							LOGGER.debug("Add table {} to processing map.", tableName);
 							tablesInProcessing.put(tableName, oraTable);
 						}
 						if (!tablesInProcess.contains(oraTable.getMasterTable())) {
@@ -94,6 +97,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 					OraTable oraTable = tablesInProcessing.get(tableName);
 					if (oraTable == null) {
 						oraTable = new OraTable(tableName, record, autoCreateTable);
+						LOGGER.debug("Add table {} to processing map.", tableName);
 						tablesInProcessing.put(tableName, oraTable);
 					}
 					if (!tablesInProcess.contains(oraTable.getMasterTable())) {

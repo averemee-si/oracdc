@@ -49,7 +49,9 @@ public class OraCdcSourceTask extends SourceTask {
 		LOGGER.info("Starting oracdc Source Task for {}", props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
 
 		batchSize = Integer.parseInt(props.get(ParamConstants.BATCH_SIZE_PARAM));
+		LOGGER.debug("batchSize = {} records.", batchSize);
 		pollInterval = Integer.parseInt(props.get(ParamConstants.POLL_INTERVAL_MS_PARAM));
+		LOGGER.debug("pollInterval = {} ms.", pollInterval);
 
 		try {
 			oraTable = new OraTable(
@@ -76,12 +78,16 @@ public class OraCdcSourceTask extends SourceTask {
 	@Override
 	public List<SourceRecord> poll() throws InterruptedException {
 		synchronized (this) {
+			LOGGER.trace("Waiting {} ms", pollInterval);
 			this.wait(pollInterval);
 		}
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			final List<SourceRecord> result = oraTable.poll(connection);
+			LOGGER.trace("Before commit at Kafka side.");
 			this.commit();
+			LOGGER.trace("After commit at Kafka side & before commit at RDBMS side.");
 			connection.commit();
+			LOGGER.trace("After commit at RDBMS side.");
 			return result;
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to poll data from Oracle RDBMS. Oracle error code: {}.\n", sqle.getErrorCode());
@@ -91,6 +97,8 @@ public class OraCdcSourceTask extends SourceTask {
 			if (sqle instanceof SQLRecoverableException) {
 				// Recoverable... Just wait and do it again...
 				//TODO - separate timeout???
+				LOGGER.trace("Recoverable RDBMS exception, waiting {} ms to retry.", pollInterval);
+				LOGGER.debug(ExceptionUtils.getExceptionStackTrace(sqle));
 				synchronized (this) {
 					this.wait(pollInterval);
 				}

@@ -40,6 +40,7 @@ import eu.solutions.a2.cdc.oracle.utils.Version;
 public class OraCdcSourceConnector extends SourceConnector {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnector.class);
+	private static final int MAX_TABLES = 256;
 
 	private OraCdcSourceConnectorConfig config;
 	private boolean validConfig = true;
@@ -63,11 +64,13 @@ public class OraCdcSourceConnector extends SourceConnector {
 		// Initialize connection pool
 		try {
 			if (!"".equals(config.getString(ParamConstants.CONNECTION_URL_PARAM))) {
+				LOGGER.trace("Connecting to Oracle RDBMS using JDBC URL, username, and password.");
 				OraPoolConnectionFactory.init(
 					config.getString(ParamConstants.CONNECTION_URL_PARAM),
 					config.getString(ParamConstants.CONNECTION_USER_PARAM),
 					config.getString(ParamConstants.CONNECTION_PASSWORD_PARAM));
 			} else if (!"".equals(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
+				LOGGER.trace("Connecting to Oracle RDBMS using Oracle Wallet");
 				OraPoolConnectionFactory.init4Wallet(
 						config.getString(ParamConstants.CONNECTION_WALLET_PARAM),
 						config.getString(ParamConstants.CONNECTION_TNS_ADMIN_PARAM),
@@ -93,10 +96,12 @@ public class OraCdcSourceConnector extends SourceConnector {
 				// Detect CDC source
 				OraRdbmsInfo rdbmsInfo = new OraRdbmsInfo(connection);
 				if (ParamConstants.ORACDC_MODE_LOGMINER.equalsIgnoreCase(config.getString(ParamConstants.ORACDC_MODE_PARAM))) {
+					LOGGER.trace("Oracle LogMiner mode set.");
 					if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot()) {
 						validConfig = false;
 						throw new SQLException("Must connected to CDB$ROOT while using oracdc for mining data using LogMiner!!!");
 					} else {
+						LOGGER.trace("Connected CDB$ROOT, Oracle RDBMS version {}.", rdbmsInfo.getVersionString());
 						useLogMiner = true;
 						isCdb = rdbmsInfo.isCdb();
 						modeWhere = OraSqlUtils.MODE_WHERE_ALL_TABLES;
@@ -125,6 +130,8 @@ public class OraCdcSourceConnector extends SourceConnector {
 					whereInclude = OraSqlUtils.parseTableSchemaList(false, modeWhere, includeList);
 					sqlStatementText += whereInclude;
 				}
+				//TODO - do not need for serial mode
+				LOGGER.debug("Will use\n{}\nfor counting number of tables to process.", sqlStatementText);
 
 				// Count number of materialized view logs/available tables for mining
 				final PreparedStatement statement = connection.prepareStatement(sqlStatementText);
@@ -134,6 +141,8 @@ public class OraCdcSourceConnector extends SourceConnector {
 				rsCount.close();
 				statement.close();
 
+				//TODO - do not need for serial mode
+				LOGGER.debug("Will work with {} tables.", tableCount);
 				if (tableCount == 0) {
 					final String message =
 							"Nothing to do with user " + 
@@ -143,10 +152,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
 					throw new ConnectException(message);
 				}
-				//TODO
-				//TODO
-				//TODO
-				if (useLogMiner && tableCount > 150) {
+
+				//TODO - do not need for serial mode
+				if (useLogMiner && tableCount > MAX_TABLES) {
 					final String message =
 							"Too much tables with user " + 
 							connection.getMetaData().getUserName() +
@@ -191,6 +199,11 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 	@Override
 	public List<Map<String, String>> taskConfigs(int maxTasks) {
+		LOGGER.trace("Entered {}.taskConfigs(int maxTasks)", OraCdcSourceConnector.class.getName());
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("maxTasks set to -> {}.", maxTasks);
+			LOGGER.debug("tableCount set to -> {}.", tableCount);
+		}
 		if (maxTasks != tableCount) {
 			final String message = 
 					"To run " +
@@ -231,6 +244,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 			if (whereInclude != null) {
 				sqlStatementText += whereInclude;
 			}
+			//TODO - do not need for serial mode
+			LOGGER.debug("Will use\n{}\nto collect table information.", sqlStatementText);
+
 			final PreparedStatement statement = connection.prepareStatement(sqlStatementText);
 			final ResultSet resultSet = statement.executeQuery();
 

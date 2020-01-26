@@ -16,9 +16,14 @@ package eu.solutions.a2.cdc.oracle;
 import java.sql.Connection;
 import java.sql.SQLException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.zaxxer.hikari.HikariDataSource;
 
 public class HikariPoolConnectionFactory {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(HikariPoolConnectionFactory.class);
 
 	private static final int INITIAL_SIZE = 4;
 	private static HikariDataSource dataSource = null;
@@ -30,6 +35,11 @@ public class HikariPoolConnectionFactory {
 	private static int dbType = DB_TYPE_MYSQL;
 
 	public static final void init(String url, String user, String password) throws SQLException {
+		LOGGER.trace("Entered {}.init", HikariPoolConnectionFactory.class.getName());
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("JDBC Url = {}", url);
+			LOGGER.debug("Initial pool size = {}", INITIAL_SIZE);
+		}
 		dataSource = new HikariDataSource();
 		dataSource.setJdbcUrl(url);
 		dataSource.setUsername(user);
@@ -55,6 +65,7 @@ public class HikariPoolConnectionFactory {
 		// Detect database type
 		Connection connection = getConnection();
 		final String databaseProductName = connection.getMetaData().getDatabaseProductName();
+		LOGGER.debug("connection.getMetaData().getDatabaseProductName() returns {}", databaseProductName);
 		connection.close();
 
 		if ("MariaDB".equalsIgnoreCase(databaseProductName) ||
