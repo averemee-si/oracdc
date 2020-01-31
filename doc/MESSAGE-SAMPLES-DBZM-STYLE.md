@@ -4,23 +4,27 @@
 {
   "schema" : {
     "type" : "struct",
-    "optional" : false,
-    "name" : "SCOTT.DEPT.Envelope",
     "fields" : [ {
-      "type" : "struct",
+      "type" : "string",
+      "optional" : false,
+      "field" : "op"
+    }, {
+      "type" : "int8",
       "optional" : true,
-      "field" : "before",
-      "name" : "SCOTT.DEPT.PK",
+      "field" : "ts_ms"
+    }, {
+      "type" : "struct",
       "fields" : [ {
         "type" : "int8",
         "optional" : false,
         "field" : "DEPTNO"
-      } ]
+      } ],
+      "optional" : false,
+      "name" : "SCOTT.DEPT.Key",
+      "version" : 1,
+      "field" : "before"
     }, {
       "type" : "struct",
-      "optional" : true,
-      "field" : "after",
-      "name" : "SCOTT.DEPT.Data",
       "fields" : [ {
         "type" : "int8",
         "optional" : false,
@@ -33,14 +37,31 @@
         "type" : "string",
         "optional" : true,
         "field" : "LOC"
-      } ]
+      } ],
+      "optional" : true,
+      "name" : "SCOTT.DEPT.Value",
+      "version" : 1,
+      "field" : "after"
     }, {
       "type" : "struct",
-      "optional" : false,
-      "field" : "source",
-      "name" : "eu.solutions.a2.cdc.oracle",
       "fields" : [ {
-        "type" : "int64",
+        "type" : "int8",
+        "optional" : false,
+        "field" : "instance_number"
+      }, {
+        "type" : "string",
+        "optional" : false,
+        "field" : "version"
+      }, {
+        "type" : "string",
+        "optional" : false,
+        "field" : "instance_name"
+      }, {
+        "type" : "string",
+        "optional" : false,
+        "field" : "host_name"
+      }, {
+        "type" : "int8",
         "optional" : false,
         "field" : "dbid"
       }, {
@@ -52,70 +73,63 @@
         "optional" : false,
         "field" : "platform_name"
       }, {
-        "type" : "int16",
-        "optional" : false,
-        "field" : "instance_number"
+        "type" : "string",
+        "optional" : true,
+        "field" : "query"
       }, {
         "type" : "string",
-        "optional" : false,
-        "field" : "instance_name"
+        "optional" : true,
+        "field" : "pdb_name"
       }, {
         "type" : "string",
-        "optional" : false,
-        "field" : "host_name"
-      }, {
-        "type" : "string",
-        "optional" : false,
-        "field" : "version"
-      }, {
-        "type" : "int64",
-        "optional" : false,
-        "field" : "ts_ms"
-      }, {
-        "type" : "string",
-        "optional" : false,
+        "optional" : true,
         "field" : "owner"
       }, {
         "type" : "string",
-        "optional" : false,
+        "optional" : true,
         "field" : "table"
       }, {
-        "type" : "int64",
+        "type" : "int8",
         "optional" : false,
         "field" : "scn"
-      } ]
-    }, {
-      "type" : "string",
+      }, {
+        "type" : "int8",
+        "optional" : false,
+        "field" : "ts_ms"
+      } ],
       "optional" : false,
-      "field" : "op"
-    }, {
-      "type" : "int64",
-      "optional" : false,
-      "field" : "ts_ms"
-    } ]
+      "name" : "eu.solutions.a2.cdc.oracle.Source",
+      "field" : "source"
+    } ],
+    "optional" : false,
+    "name" : "SCOTT.DEPT.Envelope"
   },
   "payload" : {
-    "before" : null,
+    "op" : "c",
+    "ts_ms" : 1580465954805,
+    "before" : {
+      "DEPTNO" : 50
+    },
     "after" : {
-      "DEPTNO" : 10,
-      "DNAME" : "ACCOUNTING",
-      "LOC" : "NEW YORK"
+      "DEPTNO" : 50,
+      "DNAME" : "MARKETING",
+      "LOC" : "MIAMI"
     },
     "source" : {
-      "ts_ms" : 1569178592502,
+      "instance_number" : 1,
+      "version" : "12.1.0.2.0",
+      "instance_name" : "EBSDB",
+      "host_name" : "apps.example.com",
+      "dbid" : 710804450,
+      "database_name" : "EBSDB",
+      "platform_name" : "Linux x86 64-bit",
+      "query" : null,
+      "pdb_name" : null,
       "owner" : "SCOTT",
       "table" : "DEPT",
-      "scn" : 2288632,
-      "dbid" : 3346093197,
-      "database_name" : "JDK8",
-      "platform_name" : "Linux x86 64-bit",
-      "instance_number" : 1,
-      "instance_name" : "JDK8",
-      "host_name" : "kafka.wine-gu.ru",
-      "version" : "12.2.0.1.0"
-    },
-    "op" : "c",
-    "ts_ms" : 1569178592503
+      "scn" : 12204753723754,
+      "ts_ms" : 1580464499942
+    }
   }
 }
 ```
@@ -125,23 +139,27 @@
 {
   "schema" : {
     "type" : "struct",
-    "optional" : false,
-    "name" : "SCOTT.DEPT.Envelope",
     "fields" : [ {
-      "type" : "struct",
+      "type" : "string",
+      "optional" : false,
+      "field" : "op"
+    }, {
+      "type" : "int8",
       "optional" : true,
-      "field" : "before",
-      "name" : "SCOTT.DEPT.PK",
+      "field" : "ts_ms"
+    }, {
+      "type" : "struct",
       "fields" : [ {
         "type" : "int8",
         "optional" : false,
         "field" : "DEPTNO"
-      } ]
+      } ],
+      "optional" : false,
+      "name" : "SCOTT.DEPT.Key",
+      "version" : 1,
+      "field" : "before"
     }, {
       "type" : "struct",
-      "optional" : true,
-      "field" : "after",
-      "name" : "SCOTT.DEPT.Data",
       "fields" : [ {
         "type" : "int8",
         "optional" : false,
@@ -154,14 +172,31 @@
         "type" : "string",
         "optional" : true,
         "field" : "LOC"
-      } ]
+      } ],
+      "optional" : true,
+      "name" : "SCOTT.DEPT.Value",
+      "version" : 1,
+      "field" : "after"
     }, {
       "type" : "struct",
-      "optional" : false,
-      "field" : "source",
-      "name" : "eu.solutions.a2.cdc.oracle",
       "fields" : [ {
-        "type" : "int64",
+        "type" : "int8",
+        "optional" : false,
+        "field" : "instance_number"
+      }, {
+        "type" : "string",
+        "optional" : false,
+        "field" : "version"
+      }, {
+        "type" : "string",
+        "optional" : false,
+        "field" : "instance_name"
+      }, {
+        "type" : "string",
+        "optional" : false,
+        "field" : "host_name"
+      }, {
+        "type" : "int8",
         "optional" : false,
         "field" : "dbid"
       }, {
@@ -173,70 +208,63 @@
         "optional" : false,
         "field" : "platform_name"
       }, {
-        "type" : "int16",
-        "optional" : false,
-        "field" : "instance_number"
+        "type" : "string",
+        "optional" : true,
+        "field" : "query"
       }, {
         "type" : "string",
-        "optional" : false,
-        "field" : "instance_name"
+        "optional" : true,
+        "field" : "pdb_name"
       }, {
         "type" : "string",
-        "optional" : false,
-        "field" : "host_name"
-      }, {
-        "type" : "string",
-        "optional" : false,
-        "field" : "version"
-      }, {
-        "type" : "int64",
-        "optional" : false,
-        "field" : "ts_ms"
-      }, {
-        "type" : "string",
-        "optional" : false,
+        "optional" : true,
         "field" : "owner"
       }, {
         "type" : "string",
-        "optional" : false,
+        "optional" : true,
         "field" : "table"
       }, {
-        "type" : "int64",
+        "type" : "int8",
         "optional" : false,
         "field" : "scn"
-      } ]
-    }, {
-      "type" : "string",
+      }, {
+        "type" : "int8",
+        "optional" : false,
+        "field" : "ts_ms"
+      } ],
       "optional" : false,
-      "field" : "op"
-    }, {
-      "type" : "int64",
-      "optional" : false,
-      "field" : "ts_ms"
-    } ]
+      "name" : "eu.solutions.a2.cdc.oracle.Source",
+      "field" : "source"
+    } ],
+    "optional" : false,
+    "name" : "SCOTT.DEPT.Envelope"
   },
   "payload" : {
-    "before" : null,
+    "op" : "u",
+    "ts_ms" : 1580465954791,
+    "before" : {
+      "DEPTNO" : 10
+    },
     "after" : {
-      "DEPTNO" : 20,
-      "DNAME" : "RESEARCH",
-      "LOC" : "DALLAS"
+      "DEPTNO" : 10,
+      "DNAME" : "ACCOUNTING",
+      "LOC" : "NEW YORK"
     },
     "source" : {
-      "ts_ms" : 1569178592721,
+      "instance_number" : 1,
+      "version" : "12.1.0.2.0",
+      "instance_name" : "EBSDB",
+      "host_name" : "apps.example.com",
+      "dbid" : 710804450,
+      "database_name" : "EBSDB",
+      "platform_name" : "Linux x86 64-bit",
+      "query" : null,
+      "pdb_name" : null,
       "owner" : "SCOTT",
       "table" : "DEPT",
-      "scn" : 2288632,
-      "dbid" : 3346093197,
-      "database_name" : "JDK8",
-      "platform_name" : "Linux x86 64-bit",
-      "instance_number" : 1,
-      "instance_name" : "JDK8",
-      "host_name" : "kafka.wine-gu.ru",
-      "version" : "12.2.0.1.0"
-    },
-    "op" : "u",
-    "ts_ms" : 1569178592722
+      "scn" : 12204753723754,
+      "ts_ms" : 1580464499942
+    }
   }
 }
 ```
@@ -246,23 +274,27 @@
 {
   "schema" : {
     "type" : "struct",
-    "optional" : false,
-    "name" : "SCOTT.DEPT.Envelope",
     "fields" : [ {
-      "type" : "struct",
+      "type" : "string",
+      "optional" : false,
+      "field" : "op"
+    }, {
+      "type" : "int8",
       "optional" : true,
-      "field" : "before",
-      "name" : "SCOTT.DEPT.PK",
+      "field" : "ts_ms"
+    }, {
+      "type" : "struct",
       "fields" : [ {
         "type" : "int8",
         "optional" : false,
         "field" : "DEPTNO"
-      } ]
+      } ],
+      "optional" : false,
+      "name" : "SCOTT.DEPT.Key",
+      "version" : 1,
+      "field" : "before"
     }, {
       "type" : "struct",
-      "optional" : true,
-      "field" : "after",
-      "name" : "SCOTT.DEPT.Data",
       "fields" : [ {
         "type" : "int8",
         "optional" : false,
@@ -275,14 +307,31 @@
         "type" : "string",
         "optional" : true,
         "field" : "LOC"
-      } ]
+      } ],
+      "optional" : true,
+      "name" : "SCOTT.DEPT.Value",
+      "version" : 1,
+      "field" : "after"
     }, {
       "type" : "struct",
-      "optional" : false,
-      "field" : "source",
-      "name" : "eu.solutions.a2.cdc.oracle",
       "fields" : [ {
-        "type" : "int64",
+        "type" : "int8",
+        "optional" : false,
+        "field" : "instance_number"
+      }, {
+        "type" : "string",
+        "optional" : false,
+        "field" : "version"
+      }, {
+        "type" : "string",
+        "optional" : false,
+        "field" : "instance_name"
+      }, {
+        "type" : "string",
+        "optional" : false,
+        "field" : "host_name"
+      }, {
+        "type" : "int8",
         "optional" : false,
         "field" : "dbid"
       }, {
@@ -294,68 +343,59 @@
         "optional" : false,
         "field" : "platform_name"
       }, {
-        "type" : "int16",
-        "optional" : false,
-        "field" : "instance_number"
+        "type" : "string",
+        "optional" : true,
+        "field" : "query"
       }, {
         "type" : "string",
-        "optional" : false,
-        "field" : "instance_name"
+        "optional" : true,
+        "field" : "pdb_name"
       }, {
         "type" : "string",
-        "optional" : false,
-        "field" : "host_name"
-      }, {
-        "type" : "string",
-        "optional" : false,
-        "field" : "version"
-      }, {
-        "type" : "int64",
-        "optional" : false,
-        "field" : "ts_ms"
-      }, {
-        "type" : "string",
-        "optional" : false,
+        "optional" : true,
         "field" : "owner"
       }, {
         "type" : "string",
-        "optional" : false,
+        "optional" : true,
         "field" : "table"
       }, {
-        "type" : "int64",
+        "type" : "int8",
         "optional" : false,
         "field" : "scn"
-      } ]
-    }, {
-      "type" : "string",
+      }, {
+        "type" : "int8",
+        "optional" : false,
+        "field" : "ts_ms"
+      } ],
       "optional" : false,
-      "field" : "op"
-    }, {
-      "type" : "int64",
-      "optional" : false,
-      "field" : "ts_ms"
-    } ]
+      "name" : "eu.solutions.a2.cdc.oracle.Source",
+      "field" : "source"
+    } ],
+    "optional" : false,
+    "name" : "SCOTT.DEPT.Envelope"
   },
   "payload" : {
+    "op" : "d",
+    "ts_ms" : 1580465954794,
     "before" : {
-      "DEPTNO" : 30
+      "DEPTNO" : 50
     },
     "after" : null,
     "source" : {
-      "ts_ms" : 1569178592500,
+      "instance_number" : 1,
+      "version" : "12.1.0.2.0",
+      "instance_name" : "EBSDB",
+      "host_name" : "apps.example.com",
+      "dbid" : 710804450,
+      "database_name" : "EBSDB",
+      "platform_name" : "Linux x86 64-bit",
+      "query" : null,
+      "pdb_name" : null,
       "owner" : "SCOTT",
       "table" : "DEPT",
-      "scn" : 2991403,
-      "dbid" : 3346093197,
-      "database_name" : "JDK8",
-      "platform_name" : "Linux x86 64-bit",
-      "instance_number" : 1,
-      "instance_name" : "JDK8",
-      "host_name" : "kafka.wine-gu.ru",
-      "version" : "12.2.0.1.0"
-    },
-    "op" : "d",
-    "ts_ms" : 1569178592730
+      "scn" : 12204753723754,
+      "ts_ms" : 1580464499942
+    }
   }
 }
 ```
