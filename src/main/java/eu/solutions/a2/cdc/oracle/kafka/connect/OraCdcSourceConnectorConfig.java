@@ -66,7 +66,7 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.HIGH, ParamConstants.BATCH_SIZE_DOC)
 				.define(ParamConstants.SCHEMA_TYPE_PARAM, Type.STRING,
 						ParamConstants.SCHEMA_TYPE_KAFKA,
-						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA, ParamConstants.SCHEMA_TYPE_STANDALONE),
+						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA, ParamConstants.SCHEMA_TYPE_DEBEZIUM),
 						Importance.HIGH, ParamConstants.SCHEMA_TYPE_DOC)
 				.define(TOPIC_PREFIX_PARAM, Type.STRING, "",
 						Importance.MEDIUM, TOPIC_PREFIX_DOC)

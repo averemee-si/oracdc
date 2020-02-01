@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -23,11 +23,6 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
-
-import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 public class KafkaSingleton implements SendMethodIntf {
@@ -43,10 +38,6 @@ public class KafkaSingleton implements SendMethodIntf {
 	/**  Kafka producer */
 	private Producer<String, String> kafkaProducer;
 
-	private static final ObjectWriter writer = new ObjectMapper()
-//			.enable(SerializationFeature.INDENT_OUTPUT)
-			.writer();
-
 	private KafkaSingleton() {}
 
 	public static KafkaSingleton getInstance() {
@@ -56,15 +47,12 @@ public class KafkaSingleton implements SendMethodIntf {
 		return instance;
 	}
 
-	public void sendData(final String messageKey, final Envelope envelope) {
+	public void sendData(final String messageKey, final String messageData) {
 		final long startTime = System.currentTimeMillis();
 		Runnable task = () -> {
-			envelope.getPayload().setTs_ms(startTime);
-			try {
-				final String messageData = writer.writeValueAsString(envelope);
-				ProducerRecord<String, String> record = 
+			ProducerRecord<String, String> record = 
 						new ProducerRecord<>(kafkaTopic, messageKey, messageData);
-				kafkaProducer.send(
+			kafkaProducer.send(
 						record,
 						(metadata, exception) -> {
 							if (metadata == null) {
@@ -77,10 +65,7 @@ public class KafkaSingleton implements SendMethodIntf {
 										messageData.getBytes().length,
 										System.currentTimeMillis() - startTime);
 							}
-						});
-			} catch (JsonProcessingException jpe) {
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(jpe));
-			}
+				});
 		};
 		Thread thread = new Thread(task);
 		thread.setName(messageKey);

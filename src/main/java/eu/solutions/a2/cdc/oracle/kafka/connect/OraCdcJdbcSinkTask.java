@@ -13,7 +13,6 @@
 
 package eu.solutions.a2.cdc.oracle.kafka.connect;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collection;
@@ -23,32 +22,27 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectReader;
-
 import eu.solutions.a2.cdc.oracle.HikariPoolConnectionFactory;
-import eu.solutions.a2.cdc.oracle.OraCdcJdbcSinkConnector;
 import eu.solutions.a2.cdc.oracle.OraTable;
 import eu.solutions.a2.cdc.oracle.ParamConstants;
-import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
-import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
 public class OraCdcJdbcSinkTask extends SinkTask {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkTask.class);
-	private static final ObjectReader reader = new ObjectMapper().readerFor(Envelope.class);
 
-	final Map<String, OraTable> tablesInProcessing = new HashMap<>(); 
-	OraCdcJdbcSinkConnectorConfig config;
+	private final Map<String, OraTable> tablesInProcessing = new HashMap<>(); 
+	private OraCdcJdbcSinkConnectorConfig config;
 	int batchSize = 1000;
 	boolean autoCreateTable = false;
+	private int schemaType;
 
 	@Override
 	public String version() {
@@ -63,49 +57,43 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 		LOGGER.debug("batchSize = {} records.", batchSize);
 		autoCreateTable = config.getBoolean(OraCdcJdbcSinkConnectorConfig.AUTO_CREATE_PARAM);
 		LOGGER.debug("autoCreateTable set to {}.", autoCreateTable);
+		final String schemaTypeString = props.get(ParamConstants.SCHEMA_TYPE_PARAM);
+		LOGGER.debug("a2.schema.type set to {}.", schemaTypeString);
+		if (ParamConstants.SCHEMA_TYPE_DEBEZIUM.equals(schemaTypeString))
+			schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
+		else
+			schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
 	}
 
 	@Override
 	public void put(Collection<SinkRecord> records) {
+		LOGGER.trace("BEGIN: put()");
 		final Set<String> tablesInProcess = new HashSet<>();
 		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
 			for (SinkRecord record : records) {
 				LOGGER.debug("Processing key:\t" + record.key());
-				if (OraCdcJdbcSinkConnector.schemaType() == Source.SCHEMA_TYPE_STANDALONE) {
-					try {
-						final Envelope envelope =  reader.readValue((String)record.value());
-						final String tableName = envelope.getPayload().getSource().getTable();
-						OraTable oraTable = tablesInProcessing.get(tableName);
-						if (oraTable == null) {
-							oraTable = new OraTable(
-								envelope.getPayload().getSource(),
-								envelope.getSchema(),
-								autoCreateTable);
-							LOGGER.debug("Add table {} to processing map.", tableName);
-							tablesInProcessing.put(tableName, oraTable);
-						}
-						if (!tablesInProcess.contains(oraTable.getMasterTable())) {
-							tablesInProcess.add(oraTable.getMasterTable());
-						}
-						oraTable.putData(connection, envelope.getPayload());
-					} catch (IOException ioe) {
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-					}
-				} else if (OraCdcJdbcSinkConnector.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD) {
-					// Get table name from topic
-					final String tableName = record.topic();
-					OraTable oraTable = tablesInProcessing.get(tableName);
-					if (oraTable == null) {
-						oraTable = new OraTable(tableName, record, autoCreateTable);
-						LOGGER.debug("Add table {} to processing map.", tableName);
-						tablesInProcessing.put(tableName, oraTable);
-					}
-					if (!tablesInProcess.contains(oraTable.getMasterTable())) {
-						tablesInProcess.add(oraTable.getMasterTable());
-					}
-					oraTable.putData(connection, record);
+				final String tableName;
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+					tableName = record.topic();
+					LOGGER.debug("Table name from Kafka topic = {}.", tableName);
+				} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+					tableName = ((Struct) record.value()).getStruct("source").getString("table");
+					LOGGER.debug("Table name from 'source' field = {}.", tableName);
 				}
+				OraTable oraTable = tablesInProcessing.get(tableName);
+				if (oraTable == null) {
+					LOGGER.trace("Create new table definition for {} and add it to processing map,", tableName);
+					oraTable = new OraTable(
+							tableName, record, autoCreateTable, schemaType);
+					tablesInProcessing.put(tableName, oraTable);
+				}
+				if (!tablesInProcess.contains(oraTable.getMasterTable())) {
+					LOGGER.debug("Adding {} to current batch set.", tableName);
+					tablesInProcess.add(oraTable.getMasterTable());
+				}
+				oraTable.putData(connection, record);
 			}
+			LOGGER.trace("Close cursors");
 			Iterator<String> iterator = tablesInProcess.iterator();
 			while (iterator.hasNext()) {
 				final String tableName = iterator.next();
@@ -115,6 +103,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 		} catch (SQLException sqle) {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
+		LOGGER.trace("BEGIN: put()");
 	}
 
 	@Override

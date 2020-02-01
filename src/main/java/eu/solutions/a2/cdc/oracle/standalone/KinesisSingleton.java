@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -23,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 
-import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -65,14 +64,13 @@ public class KinesisSingleton implements SendMethodIntf {
 		return instance;
 	}
 
-	public void sendData(final String messageKey, final Envelope envelope) {
+	public void sendData(final String messageKey, final String message) {
 		long startTime = System.currentTimeMillis();
 		Runnable task = () -> {
-			envelope.getPayload().setTs_ms(startTime);
 			try {
-				byte[] messageData = writer.writeValueAsBytes(envelope);
+				byte[] messageData = writer.writeValueAsBytes(message);
 				if (messageData.length > fileSizeThreshold) {
-					messageData = GzipUtil.compress(writer.writeValueAsString(envelope));
+					messageData = GzipUtil.compress(writer.writeValueAsString(message));
 				}
 				final int messageLength = messageData.length;
 				PutRecordRequest putRecordRequest  = PutRecordRequest.builder()

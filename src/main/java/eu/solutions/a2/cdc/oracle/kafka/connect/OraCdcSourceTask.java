@@ -16,6 +16,7 @@ package eu.solutions.a2.cdc.oracle.kafka.connect;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -24,10 +25,11 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.OraColumn;
 import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
+import eu.solutions.a2.cdc.oracle.OraRdbmsInfo;
 import eu.solutions.a2.cdc.oracle.OraTable;
 import eu.solutions.a2.cdc.oracle.ParamConstants;
-import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
@@ -38,6 +40,8 @@ public class OraCdcSourceTask extends SourceTask {
 	private OraTable oraTable;
 	private int batchSize;
 	private int pollInterval;
+	private int schemaType;
+	private String topic;
 
 	@Override
 	public String version() {
@@ -52,23 +56,42 @@ public class OraCdcSourceTask extends SourceTask {
 		LOGGER.debug("batchSize = {} records.", batchSize);
 		pollInterval = Integer.parseInt(props.get(ParamConstants.POLL_INTERVAL_MS_PARAM));
 		LOGGER.debug("pollInterval = {} ms.", pollInterval);
+		schemaType = Integer.parseInt(props.get(ParamConstants.SCHEMA_TYPE_PARAM));
+		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
+		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD)
+			topic = props.get(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM) + 
+					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
+		else // ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+			topic = props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
+		LOGGER.debug("topic set to {}.", topic);
 
 		try {
+			LOGGER.trace("Checking for stored offset...");
+			final String tableName = props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
+			final String tableOwner = props.get(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER); 
+			OraRdbmsInfo rdbmsInfo = OraRdbmsInfo.getInstance();
+			LOGGER.trace("Setting source partition name for processing snapshot log");
+			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName() + ":" +
+						tableName + "." + tableOwner;
+			LOGGER.debug("Source Partition {} set to {}.", ParamConstants.ORACDC_MODE_MVLOG,  sourcePartitionName);
+			final Map<String, String> partition = Collections.singletonMap(ParamConstants.ORACDC_MODE_MVLOG, sourcePartitionName);
+			Map<String, Object> offset = context.offsetStorageReader().offset(partition);
+			if (offset != null && LOGGER.isDebugEnabled()) {
+				if (offset.get(OraColumn.ORA_ROWSCN) != null)
+					LOGGER.debug("Last record SCN(from {} pseudocolumn) for {} in offset file = {}.",
+							OraColumn.ORA_ROWSCN, sourcePartitionName, (long) offset.get(OraColumn.ORA_ROWSCN));
+				if (offset.get(OraColumn.MVLOG_SEQUENCE) != null)
+					LOGGER.debug("Last processed {} for {} in offset file = {}.",
+							OraColumn.MVLOG_SEQUENCE, sourcePartitionName, (long) offset.get(OraColumn.MVLOG_SEQUENCE));
+			}
+
 			oraTable = new OraTable(
-					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER),
-					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER),
+					tableOwner, tableName,
 					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_LOG),
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID)),
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK)),
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE)),
-					batchSize);
-			if (Source.schemaType() == Source.SCHEMA_TYPE_KAFKA_CONNECT_STD)
-				oraTable.setKafkaConnectTopic(
-						props.get(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM) + 
-						props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
-			else
-				// Source.SCHEMA_TYPE_STANDALONE
-				oraTable.setKafkaConnectTopic(props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
+					batchSize, schemaType, partition, offset);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
@@ -77,17 +100,18 @@ public class OraCdcSourceTask extends SourceTask {
 
 	@Override
 	public List<SourceRecord> poll() throws InterruptedException {
+		LOGGER.trace("BEGIN: poll()");
 		synchronized (this) {
 			LOGGER.trace("Waiting {} ms", pollInterval);
 			this.wait(pollInterval);
 		}
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
-			final List<SourceRecord> result = oraTable.poll(connection);
+			final List<SourceRecord> result = oraTable.pollMVLog(connection, topic);
 			LOGGER.trace("Before commit at Kafka side.");
 			this.commit();
 			LOGGER.trace("After commit at Kafka side & before commit at RDBMS side.");
 			connection.commit();
-			LOGGER.trace("After commit at RDBMS side.");
+			LOGGER.trace("END: poll()");
 			return result;
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to poll data from Oracle RDBMS. Oracle error code: {}.\n", sqle.getErrorCode());
@@ -112,7 +136,6 @@ public class OraCdcSourceTask extends SourceTask {
 	@Override
 	public void stop() {
 		LOGGER.info("Stopping task.");
-		// TODO Auto-generated method stub
 	}
 
 }

@@ -15,6 +15,9 @@ package eu.solutions.a2.cdc.oracle;
 
 public class ParamConstants {
 
+	public static final int SCHEMA_TYPE_INT_DEBEZIUM = 1;
+	public static final int SCHEMA_TYPE_INT_KAFKA_STD = 2;
+
 	public static final String ORACDC_MODE_PARAM = "a2.cdc.mode";
 	public static final String ORACDC_MODE_DOC = "Operational mode. When set to mvlog (default) materialized view logs are used as source, when set to logminer - archived redo logs are used as source.";
 	public static final String ORACDC_MODE_MVLOG = "mvlog";
@@ -47,9 +50,9 @@ public class ParamConstants {
 	public static final int BATCH_SIZE_DEFAULT = 1000;
 
 	public static final String SCHEMA_TYPE_PARAM = "a2.schema.type";
-	public static final String SCHEMA_TYPE_DOC = "Type of schema used by oracdc: Kafka Connect (default) or standalone";
+	public static final String SCHEMA_TYPE_DOC = "Type of schema used by oracdc: Kafka Connect JDBC compatible (default) or Debezium";
 	public static final String SCHEMA_TYPE_KAFKA = "kafka";
-	public static final String SCHEMA_TYPE_STANDALONE = "standalone";
+	public static final String SCHEMA_TYPE_DEBEZIUM = "debezium";
 
 	public static final String TABLE_EXCLUDE_PARAM = "a2.exclude";
 	public static final String TABLE_EXCLUDE_DOC = "List of tables to exclude from processing";

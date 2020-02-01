@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2018-present, http://a2-solutions.eu
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
  * compliance with the License. You may obtain a copy of the License at
@@ -15,10 +15,8 @@ package eu.solutions.a2.cdc.oracle.standalone;
 
 import java.util.Properties;
 
-import eu.solutions.a2.cdc.oracle.standalone.avro.Envelope;
-
 public interface SendMethodIntf {
 	public void parseSettings(final Properties props, final String configPath, final int exitCode);
-	public void sendData(final String messageKey, final Envelope envelope);
+	public void sendData(final String messageKey, final String messageData);
 	public void shutdown();
 }

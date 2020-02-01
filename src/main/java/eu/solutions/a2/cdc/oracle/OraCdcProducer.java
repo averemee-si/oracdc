@@ -23,6 +23,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,6 +33,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
@@ -41,8 +45,9 @@ import eu.solutions.a2.cdc.oracle.standalone.CommonJobSingleton;
 import eu.solutions.a2.cdc.oracle.standalone.KafkaSingleton;
 import eu.solutions.a2.cdc.oracle.standalone.KinesisSingleton;
 import eu.solutions.a2.cdc.oracle.standalone.SendMethodIntf;
-import eu.solutions.a2.cdc.oracle.standalone.avro.Source;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.JsonConverterException;
+import eu.solutions.a2.cdc.oracle.utils.JsonOraCdcConverter;
 import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
 
 public class OraCdcProducer {
@@ -55,7 +60,6 @@ public class OraCdcProducer {
 	private static final int TARGET_KINESIS = 1;
 	/** Set default target system to Apache Kafka */
 	private static int targetSystem = TARGET_KAFKA;
-
 
 	public static void main(String[] argv) {
 		// Configure log4j
@@ -216,7 +220,7 @@ public class OraCdcProducer {
 		}
 		sendMethod.parseSettings(props, argv[0], 1);
 
-		final List<OraTable> oraTables = new ArrayList<>();
+		final List<OraTableTask> oraTableTasks = new ArrayList<>();
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			PreparedStatement statement = null;
 			String sqlStatement = null;
@@ -250,9 +254,6 @@ public class OraCdcProducer {
 			CommonJobSingleton.getInstance().setTableCount(tableCount);
 			//TODO Adjust pool size/or max processing threads?
 
-			// Read database information
-			Source.init(Source.SCHEMA_TYPE_STANDALONE);
-
 			// Read table information
 			sqlStatement = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI; 	
 			if (excludeList != null) {
@@ -269,8 +270,8 @@ public class OraCdcProducer {
 						"YES".equalsIgnoreCase(rs.getString("ROWIDS")),
 						"YES".equalsIgnoreCase(rs.getString("PRIMARY_KEY")),
 						"YES".equalsIgnoreCase(rs.getString("SEQUENCE")),
-						batchSize, sendMethod);
-				oraTables.add(oraTable);
+						batchSize, ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM, null, null);
+				oraTableTasks.add(new OraTableTask(oraTable, pollInterval, sendMethod));
 				LOGGER.info("Adding " + oraTable);
 			}
 		} catch (SQLException e) {
@@ -281,7 +282,7 @@ public class OraCdcProducer {
 		}
 
 		ScheduledExecutorService executor = Executors.newScheduledThreadPool(
-				oraTables.size(),
+				oraTableTasks.size(),
 				new ThreadFactory() {
 					public Thread newThread(Runnable r) {
 						Thread t = Executors.defaultThreadFactory().newThread(r);
@@ -317,9 +318,9 @@ public class OraCdcProducer {
 			}
 		});
 
-		for (OraTable oraTable : oraTables) {
+		for (OraTableTask tableTask : oraTableTasks) {
 			//TODO poll time
-			executor.scheduleWithFixedDelay(oraTable, 0, pollInterval, TimeUnit.MILLISECONDS);
+			executor.scheduleWithFixedDelay(tableTask, 0, pollInterval, TimeUnit.MILLISECONDS);
 		}
 
 		while (true) {
@@ -328,6 +329,65 @@ public class OraCdcProducer {
 				LOGGER.info("Total records processed -> {}", CommonJobSingleton.getInstance().getProcessedRecordCount());
 			} catch (Exception e) {}
 		}
+	}
+
+	private static class OraTableTask implements Runnable {
+		private final OraTable oraTable;
+		private final int pollInterval;
+		private final SendMethodIntf sendMethod;
+
+		OraTableTask(final OraTable oraTable, final int pollInterval, final SendMethodIntf sendMethod) {
+			this.oraTable = oraTable;
+			this.pollInterval = pollInterval;
+			this.sendMethod = sendMethod;
+		}
+
+		@Override
+		public void run() {
+			try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+				final List<SourceRecord> dbData = oraTable.pollMVLog(connection, null);
+				for (SourceRecord record : dbData) {
+					Schema schema = record.valueSchema();
+					Struct struct = (Struct) record.value();
+					try {
+						String messagedata = new String(JsonOraCdcConverter.fromConnectData(schema, struct));
+						final StringBuilder messageKey = new StringBuilder(64);
+						messageKey.append(oraTable.getMasterTable());
+						messageKey.append("-");
+						messageKey.append(System.currentTimeMillis());
+						//TODO
+						//TODO Kinesis batching!!!
+						//TODO
+						sendMethod.sendData(messageKey.toString(), messagedata);
+					} catch (JsonConverterException e) {
+						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+					}
+				}
+				//TODO
+				//TODO commit!!!
+				//TODO
+				connection.commit();
+			} catch (SQLException sqle) {
+				LOGGER.error("Unable to poll data from Oracle RDBMS. Oracle error code: {}.\n", sqle.getErrorCode());
+				LOGGER.error("Oracle error message: {}.\n", sqle.getMessage());
+				if (sqle.getSQLState() != null)
+					LOGGER.error("Oracle SQL State: {}\n", sqle.getSQLState());
+				if (sqle instanceof SQLRecoverableException) {
+					// Recoverable... Just wait and do it again...
+					//TODO - separate timeout???
+					LOGGER.trace("Recoverable RDBMS exception, waiting {} ms to retry.", pollInterval);
+					LOGGER.debug(ExceptionUtils.getExceptionStackTrace(sqle));
+					synchronized (this) {
+						try {
+							this.wait(pollInterval);
+						} catch (InterruptedException e) {}
+					}
+				} else {
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				}
+			}
+		}
+
 	}
 
 	private static void initLog4j(int exitCode) {

@@ -41,7 +41,7 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 						Importance.HIGH, ParamConstants.BATCH_SIZE_DOC)
 				.define(ParamConstants.SCHEMA_TYPE_PARAM, Type.STRING,
 						ParamConstants.SCHEMA_TYPE_KAFKA,
-						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA, ParamConstants.SCHEMA_TYPE_STANDALONE),
+						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA, ParamConstants.SCHEMA_TYPE_DEBEZIUM),
 						Importance.HIGH, ParamConstants.SCHEMA_TYPE_DOC)
 				.define(AUTO_CREATE_PARAM, Type.BOOLEAN, AUTO_CREATE_DEFAULT,
 						Importance.HIGH, AUTO_CREATE_DOC);

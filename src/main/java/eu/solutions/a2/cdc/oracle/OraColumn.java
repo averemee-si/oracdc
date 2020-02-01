@@ -28,7 +28,6 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.standalone.avro.AvroSchema;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 public class OraColumn {
@@ -38,178 +37,28 @@ public class OraColumn {
 
 	public static final String ROWID_KEY = "ORA$ROW$ID";
 	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";
+	public static final String ORA_ROWSCN = "ORA_ROWSCN";
 
 	private final String columnName;
 	private final boolean partOfPk;
 	private final int jdbcType;
 	private final boolean nullable;
-	private AvroSchema avroSchema;
 	private boolean oracleDate = false;
 	private int dataScale = 0;
 
-	/**
-	 * 
-	 * Construct column definition from Resultset (ORA2JSON) standalone
-	 * 
-	 * @param resultSet
-	 * @throws SQLException
-	 */
-	public OraColumn(final ResultSet resultSet) throws SQLException {
-		this.columnName = resultSet.getString("COLUMN_NAME");
-		final String partOfPkString = resultSet.getString("PK");
-		if (!resultSet.wasNull() && "Y".equals(partOfPkString))
-			this.partOfPk = true;
-		else
-			this.partOfPk = false;
-		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
-		final String oraType = resultSet.getString("DATA_TYPE");
-		switch (oraType) {
-			case "DATE":
-				jdbcType = Types.DATE;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.DATE_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.DATE_MANDATORY();
-				break;
-			case "FLOAT":
-				jdbcType = Types.FLOAT;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.FLOAT64_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.FLOAT64_MANDATORY();
-				break;
-			case "NUMBER":
-				final int dataPrecision = resultSet.getInt("DATA_PRECISION"); 
-				dataScale = resultSet.getInt("DATA_SCALE");
-				if (dataScale == 0) {
-					if (dataPrecision == 0) {
-						// Just NUMBER.....
-						// OEBS and other legacy systems specific
-						// Can be Integer or decimal or float....
-						jdbcType = Types.DOUBLE;
-						if (this.nullable)
-							this.avroSchema = AvroSchema.FLOAT64_OPTIONAL();
-						else
-							this.avroSchema = AvroSchema.FLOAT64_MANDATORY();
-					}
-					else if (dataPrecision < 3) {
-						jdbcType = Types.TINYINT;
-						if (this.nullable)
-							this.avroSchema = AvroSchema.INT8_OPTIONAL();
-						else
-							this.avroSchema = AvroSchema.INT8_MANDATORY();
-					}
-					else if (dataPrecision < 5) {
-						jdbcType = Types.SMALLINT;
-						if (this.nullable)
-							this.avroSchema = AvroSchema.INT16_OPTIONAL();
-						else
-							this.avroSchema = AvroSchema.INT16_MANDATORY();
-					}
-					else if (dataPrecision < 10) {
-						jdbcType = Types.INTEGER;
-						if (this.nullable)
-							this.avroSchema = AvroSchema.INT32_OPTIONAL();
-						else
-							this.avroSchema = AvroSchema.INT32_MANDATORY();
-					}
-					else {
-						jdbcType = Types.BIGINT;
-						if (this.nullable)
-							this.avroSchema = AvroSchema.INT64_OPTIONAL();
-						else
-							this.avroSchema = AvroSchema.INT64_MANDATORY();
-					}
-				} else {
-					jdbcType = Types.DOUBLE;
-					if (this.nullable)
-						this.avroSchema = AvroSchema.FLOAT64_OPTIONAL();
-					else
-						this.avroSchema = AvroSchema.FLOAT64_MANDATORY();
-				}
-				break;
-			case "RAW":
-				jdbcType = Types.BINARY;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.BYTES_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.BYTES_MANDATORY();
-				break;
-			case "CHAR":
-				jdbcType = Types.CHAR;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
-				break;
-			case "NCHAR":
-				jdbcType = Types.NCHAR;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
-				break;
-			case "VARCHAR2":
-				jdbcType = Types.VARCHAR;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
-				break;
-			case "NVARCHAR2":
-				jdbcType = Types.NVARCHAR;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
-				break;
-			case "BLOB":
-				jdbcType = Types.BLOB;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.BYTES_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.BYTES_MANDATORY();
-				break;
-			case "CLOB":
-				jdbcType = Types.CLOB;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
-				break;
-			case "TIMESTAMP":
-			case "TIMESTAMP(0)":
-			case "TIMESTAMP(1)":
-			case "TIMESTAMP(3)":
-			case "TIMESTAMP(6)":
-			case "TIMESTAMP(9)":
-				if (this.nullable)
-					this.avroSchema = AvroSchema.TIMESTAMP_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.TIMESTAMP_MANDATORY();
-				jdbcType = Types.TIMESTAMP;
-				break;
-			default:
-				jdbcType = Types.VARCHAR;
-				if (this.nullable)
-					this.avroSchema = AvroSchema.STRING_OPTIONAL();
-				else
-					this.avroSchema = AvroSchema.STRING_MANDATORY();
-				break;
-		}
-		this.avroSchema.setField(columnName);
-	}
 
 	/**
 	 * 
-	 * Constructor for pure Kafka connect schema...
+	 * Used in Source Connector
 	 * 
 	 * @param resultSet
 	 * @param keySchemaBuilder
 	 * @param valueSchemaBuilder
+	 * @param schemaType
 	 * @throws SQLException
 	 */
-	public OraColumn(final ResultSet resultSet, final SchemaBuilder keySchema, final SchemaBuilder valueSchema) throws SQLException {
+	public OraColumn(final ResultSet resultSet,
+			final SchemaBuilder keySchema, final SchemaBuilder valueSchema, final int schemaType) throws SQLException {
 		this.columnName = resultSet.getString("COLUMN_NAME");
 		final String partOfPkString = resultSet.getString("PK");
 		if (!resultSet.wasNull() && "Y".equals(partOfPkString))
@@ -439,63 +288,14 @@ public class OraColumn {
 						valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
 				break;
 		}
-	}
-
-	/**
-	 * Used in standalone sink connector
-	 * 
-	 * 
-	 * @param avroSchema
-	 * @param partOfPk
-	 */
-	public OraColumn(final AvroSchema avroSchema, final boolean partOfPk) {
-		this.avroSchema = avroSchema;
-		this.columnName = avroSchema.getField();
-		this.nullable = avroSchema.isOptional();
-		this.partOfPk = partOfPk;
-		switch (avroSchema.getType()) {
-		case AvroSchema.TYPE_INT8:
-			jdbcType = Types.TINYINT;
-			break;
-		case AvroSchema.TYPE_INT16:
-			jdbcType = Types.SMALLINT;
-			break;
-		case AvroSchema.TYPE_INT32:
-			if (avroSchema.getName() != null && AvroSchema.TYPE_NAME_DATE.equals(avroSchema.getName()))
-				jdbcType = Types.DATE;
-			else
-				jdbcType = Types.INTEGER;
-			break;
-		case AvroSchema.TYPE_INT64:
-			if (avroSchema.getName() != null && AvroSchema.TYPE_NAME_TIMESTAMP.equals(avroSchema.getName()))
-				jdbcType = Types.TIMESTAMP;
-			else
-				jdbcType = Types.BIGINT;
-			break;
-		case AvroSchema.TYPE_FLOAT32:
-			jdbcType = Types.FLOAT;
-			break;
-		case AvroSchema.TYPE_FLOAT64:
-			jdbcType = Types.DOUBLE;
-			break;
-		case AvroSchema.TYPE_STRING:
-			jdbcType = Types.VARCHAR;
-			break;
-		case AvroSchema.TYPE_BOOLEAN:
-			jdbcType = Types.BOOLEAN;
-			break;
-		case AvroSchema.TYPE_BYTES:
-			jdbcType = Types.BINARY;
-			break;
-		default:
-			jdbcType = Types.VARCHAR;
-			break;
+		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && this.partOfPk) {
+			valueSchema.field(this.columnName,
+					keySchema.build().field(this.columnName).schema());
 		}
 	}
 
 	/**
-	 * Used in pure Kafka Connect sink connector
-	 * 
+	 * Used in Sink connector
 	 * 
 	 * @param avroSchema
 	 * @param partOfPk
@@ -567,12 +367,11 @@ public class OraColumn {
 		this.nullable = nullable;
 	}
 
-	public static OraColumn getRowIdKey(final SchemaBuilder keySchema) {
+	/*
+	 * New Style call... ... ...
+	 */
+	public static OraColumn getRowIdKey() {
 		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, true, Types.ROWID, false);
-		if (keySchema == null)
-			rowIdColumn.setAvroSchema(AvroSchema.STRING_MANDATORY());
-		else
-			keySchema.field(ROWID_KEY, Schema.STRING_SCHEMA);
 		return rowIdColumn;
 	}
 
@@ -590,13 +389,6 @@ public class OraColumn {
 
 	public boolean isNullable() {
 		return nullable;
-	}
-
-	public AvroSchema getAvroSchema() {
-		return avroSchema;
-	}
-	private void setAvroSchema(AvroSchema avroSchema) {
-		this.avroSchema = avroSchema;
 	}
 
 	public boolean isOracleDate() {
