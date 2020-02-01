@@ -18,7 +18,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -46,7 +45,7 @@ public class JsonOraCdcConverter {
 	private static final int CACHE_SIZE = 512;
 
 	private static final ObjectWriter writer = new ObjectMapper()
-			.enable(SerializationFeature.INDENT_OUTPUT)
+//			.enable(SerializationFeature.INDENT_OUTPUT)
 			.writer();
 	private static final ObjectReader reader = new ObjectMapper()
 			.reader();
