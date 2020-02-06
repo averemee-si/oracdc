@@ -31,8 +31,9 @@ import java.util.Hashtable;
  *	   https://gotodba.com/2015/03/24/how-are-numbers-saved-in-oracle/
  *	   https://www.orafaq.com/wiki/Number
  *     https://support.oracle.com/rs?type=doc&id=1031902.6
- *       (How Does Oracle Store Internal Numeric Data? (Doc ID 1031902.6))
- * * 
+ *       How Does Oracle Store Internal Numeric Data? (Doc ID 1031902.6)
+ *     https://docs.oracle.com/en/database/oracle/oracle-database/12.2/jajdb/index.html?oracle/sql/NUMBER.html
+ *
  * @author averemee
  *
  */
@@ -162,8 +163,9 @@ public class OraDumpDecoder {
 	 * Convert Oracle Type 12 dump to LocalDateTime
 	 * 
 	 * Based on:
-	 *    How does Oracle store the DATE datatype internally? (Doc ID 69028.1)
+	 *    https://docs.oracle.com/en/database/oracle/oracle-database/12.2/jajdb/index.html?oracle/sql/TIMESTAMPTZ.html
 	 *    https://support.oracle.com/rs?type=doc&id=69028.1
+	 *      How does Oracle store the DATE datatype internally? (Doc ID 69028.1)
 	 * 
 	 * @param hex - Oracle Type 12 DATE
 	 *              Oracle Type 180 TIMESTAMP
@@ -193,17 +195,17 @@ public class OraDumpDecoder {
 				calendar.add(Calendar.HOUR, data[11] - TS_OFFSET_HOUR);
 				calendar.add(Calendar.MINUTE, data[12] - TS_OFFSET_MINUTE);
 			} else {
+				//TODO
+				//TODO
+				//TODO Need to handle this & DST!!!
+				//TODO
+				//TODO
 				throw new SQLException("TIMESTAMP WITH TIME ZONE with TZ name currently unsupported!!!");
 			}
 			Timestamp ts = new Timestamp(calendar.getTime().getTime());
 			ts.setNanos(getOraTsNanos(data));
 			return ts;
 		} else {
-			//TODO
-			//TODO
-			//TODO Need to handle this & DST!!!
-			//TODO
-			//TODO
 			throw new SQLException("Invalid Oracle HEX value DATE/TIMESTAMP - " + hex + "!");
 		}
 	}
