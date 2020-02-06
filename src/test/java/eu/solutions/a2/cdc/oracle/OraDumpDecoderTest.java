@@ -28,12 +28,15 @@ public class OraDumpDecoderTest {
 		String sDatTsTyp180 = "787802040e3c18";
 		
 		try {
-			OraDumpDecoder odd = new OraDumpDecoder("AL32UTF8", "AL16UTF16");
-			System.out.println(odd.fromVarchar2(sUsAscii));
-			System.out.println(odd.fromVarchar2(sTrChinese));
-			System.out.println(odd.fromVarchar2(sGreek));
-			System.out.println(odd.fromVarchar2(sCyrillic));
-			System.out.println(odd.toTimestamp(sDatTsTyp180));
+			if (false) {
+				// Must have Oracle JDBC drivers in CLASSPATH!!!
+				OraDumpDecoder odd = new OraDumpDecoder("AL32UTF8", "AL16UTF16");
+				System.out.println(odd.fromVarchar2(sUsAscii));
+				System.out.println(odd.fromVarchar2(sTrChinese));
+				System.out.println(odd.fromVarchar2(sGreek));
+				System.out.println(odd.fromVarchar2(sCyrillic));
+				System.out.println(odd.toTimestamp(sDatTsTyp180));
+			}
 		} catch (ClassNotFoundException | NoSuchMethodException | SecurityException | SQLException e) {
 			e.printStackTrace();
 			fail("Exception " + e.getMessage());
