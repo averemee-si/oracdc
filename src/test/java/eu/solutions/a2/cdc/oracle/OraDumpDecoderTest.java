@@ -6,6 +6,8 @@ import java.sql.SQLException;
 
 import org.junit.Test;
 
+import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+
 public class OraDumpDecoderTest {
 
 	@Test
@@ -26,20 +28,30 @@ public class OraDumpDecoderTest {
 		// 2020-02-04T13:59:23,000000000
 		// Typ=180 Len=7: Typ=180 Len=7: 78,78,02,04,0e,3c,18
 		String sDatTsTyp180 = "787802040e3c18";
-		
+
+		OraDumpDecoder odd = null;
+		boolean runTest = false;
 		try {
-			if (false) {
-				// Must have Oracle JDBC drivers in CLASSPATH!!!
-				OraDumpDecoder odd = new OraDumpDecoder("AL32UTF8", "AL16UTF16");
+			// 
+			odd = new OraDumpDecoder("AL32UTF8", "AL16UTF16");
+			runTest = true;
+		} catch (ClassNotFoundException | NoSuchMethodException | SecurityException  e) {
+			System.out.println(ExceptionUtils.getExceptionStackTrace(e));
+			System.out.println("+++++++++++++++++++++++++++++++++++++++++++");
+			System.out.println("Oracle JDBC drivers must be in CLASSPATH!!!");
+			System.out.println("+++++++++++++++++++++++++++++++++++++++++++");
+		}
+		if (runTest) {
+			try {
 				System.out.println(odd.fromVarchar2(sUsAscii));
 				System.out.println(odd.fromVarchar2(sTrChinese));
 				System.out.println(odd.fromVarchar2(sGreek));
 				System.out.println(odd.fromVarchar2(sCyrillic));
 				System.out.println(odd.toTimestamp(sDatTsTyp180));
+			} catch (SecurityException | SQLException e) {
+				e.printStackTrace();
+				fail("Exception " + e.getMessage());
 			}
-		} catch (ClassNotFoundException | NoSuchMethodException | SecurityException | SQLException e) {
-			e.printStackTrace();
-			fail("Exception " + e.getMessage());
 		}
 	}
 }
