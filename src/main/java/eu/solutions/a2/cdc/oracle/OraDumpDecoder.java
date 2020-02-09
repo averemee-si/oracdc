@@ -210,6 +210,10 @@ public class OraDumpDecoder {
 		}
 	}
 
+	public byte[] toByteArray(String hex) {
+		return hexStringToByteArray(hex);
+	}
+
 	private static byte[] hexStringToByteArray(String hex) {
 		int len = hex.length();
 		byte[] data = new byte[len / 2];
