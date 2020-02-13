@@ -63,7 +63,7 @@ public class OraDumpDecoder {
 	 * @throws NoSuchMethodException
 	 * @throws SecurityException
 	 */
-	OraDumpDecoder(final String nlsCharacterSet, final String nlsNcharCharacterSet)
+	public OraDumpDecoder(final String nlsCharacterSet, final String nlsNcharCharacterSet)
 			throws ClassNotFoundException, NoSuchMethodException, SecurityException {
 		this.nlsCharacterSet = charsetMap.get(nlsCharacterSet);
 		this.nlsNcharCharacterSet = charsetMap.get(nlsNcharCharacterSet);
