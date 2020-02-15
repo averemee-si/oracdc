@@ -85,7 +85,7 @@ public class OraPoolConnectionFactory {
 	}
 
 	//TODO
-	//TODO
+	//TODO Will be different soon...
 	//TODO
 	public static Connection getLogMinerConnection() throws SQLException {
 		return getConnection();
