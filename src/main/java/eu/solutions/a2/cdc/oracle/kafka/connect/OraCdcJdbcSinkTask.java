@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -102,6 +103,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 			connection.commit();
 		} catch (SQLException sqle) {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			throw new ConnectException(sqle);
 		}
 		LOGGER.trace("BEGIN: put()");
 	}
