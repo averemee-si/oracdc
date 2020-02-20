@@ -30,6 +30,11 @@ import org.slf4j.LoggerFactory;
 import eu.solutions.a2.cdc.oracle.OraRdbmsInfo;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraCdcLogMinerMBeanServer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMBeanServer.class);

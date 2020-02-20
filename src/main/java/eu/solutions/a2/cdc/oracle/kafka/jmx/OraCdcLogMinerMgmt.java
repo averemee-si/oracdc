@@ -21,6 +21,11 @@ import java.util.List;
 
 import eu.solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 
 
@@ -35,7 +40,13 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	private long startTimeMillis;
 	private LocalDateTime startTime;
 	private long startScn;
-	private long recordCount = 0;
+	private long totalRecordsCount = 0;
+	private long recordsRolledBackCount = 0;
+	private int transactionsRolledBackCount = 0;
+	private long recordsCommittedCount = 0;
+	private int transactionsCommittedCount = 0;
+	private long recordsSentCount = 0;
+	private int batchesSentCount = 0;
 
 	public void start(long startScn) {
 		this.startTimeMillis = System.currentTimeMillis();
@@ -110,12 +121,51 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		return processedArchivedRedoSize;
 	}
 
-	public void addRecordCount(int count) {
-		recordCount += count;
+	public void addRecord() {
+		totalRecordsCount++;
 	}
 	@Override
-	public long getRecordCount() {
-		return recordCount;
+	public long getTotalRecordsCount() {
+		return totalRecordsCount;
+	}
+
+	public void addCommittedRecords(int committedRecords) {
+		recordsCommittedCount += committedRecords;
+		transactionsCommittedCount++;
+	}
+	@Override
+	public long getCommittedRecordsCount() {
+		return recordsCommittedCount;
+	}
+	@Override
+	public int getCommittedTransactionsCount() {
+		return transactionsCommittedCount;
+	}
+
+	public void addRolledBackRecords(int rolledBackRecords) {
+		recordsRolledBackCount += rolledBackRecords;
+		transactionsRolledBackCount++;
+	}
+	@Override
+	public long getRolledBackRecordsCount() {
+		return recordsRolledBackCount;
+	}
+	@Override
+	public int getRolledBackTransactionsCount() {
+		return transactionsRolledBackCount;
+	}
+
+	public void addSentRecords(int sentRecords) {
+		recordsSentCount += sentRecords;
+		batchesSentCount++;
+	}
+	@Override
+	public long getSentRecordsCount() {
+		return recordsSentCount;
+	}
+	@Override
+	public int getSentBatchesCount() {
+		return batchesSentCount;
 	}
 
 	@Override

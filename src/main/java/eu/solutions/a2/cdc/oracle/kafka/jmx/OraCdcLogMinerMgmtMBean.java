@@ -13,6 +13,11 @@
 
 package eu.solutions.a2.cdc.oracle.kafka.jmx;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public interface OraCdcLogMinerMgmtMBean {
 	public int getTablesInProcessingCount();
 	public String[] getTablesInProcessing();
@@ -27,5 +32,11 @@ public interface OraCdcLogMinerMgmtMBean {
 	public long getStartScn();
 	public long getElapsedTimeMillis();
 	public String getElapsedTime();
-	public long getRecordCount();
+	public long getTotalRecordsCount();
+	public long getRolledBackRecordsCount();
+	public int getRolledBackTransactionsCount();
+	public long getCommittedRecordsCount();
+	public int getCommittedTransactionsCount();
+	public long getSentRecordsCount();
+	public int getSentBatchesCount();
 }
