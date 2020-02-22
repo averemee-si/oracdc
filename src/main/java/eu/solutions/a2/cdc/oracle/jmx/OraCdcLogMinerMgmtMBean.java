@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.kafka.jmx;
+package eu.solutions.a2.cdc.oracle.jmx;
 
 /**
  * 
@@ -39,4 +39,8 @@ public interface OraCdcLogMinerMgmtMBean {
 	public int getCommittedTransactionsCount();
 	public long getSentRecordsCount();
 	public int getSentBatchesCount();
+	public long getParseElapsedMillis();
+	public String getParseElapsed();
+	public long getRedoReadElapsedMillis();
+	public String getRedoReadElapsed();
 }

@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.kafka.jmx;
+package eu.solutions.a2.cdc.oracle.jmx;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -28,6 +28,7 @@ import eu.solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
  */
 public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 
+	private static final String DURATION_FMT = "%sdays %shrs %smin %ssec.\n";
 
 	private List<String> tablesInProcessing = new ArrayList<>();
 	private int tableOutOfScopeCount = 0;
@@ -47,6 +48,8 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	private int transactionsCommittedCount = 0;
 	private long recordsSentCount = 0;
 	private int batchesSentCount = 0;
+	private long parseTimeElapsed = 0;
+	private long redoReadTimeElapsed = 0;
 
 	public void start(long startScn) {
 		this.startTimeMillis = System.currentTimeMillis();
@@ -155,9 +158,10 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		return transactionsRolledBackCount;
 	}
 
-	public void addSentRecords(int sentRecords) {
+	public void addSentRecords(int sentRecords, int parseTime) {
 		recordsSentCount += sentRecords;
 		batchesSentCount++;
+		parseTimeElapsed += parseTime;
 	}
 	@Override
 	public long getSentRecordsCount() {
@@ -167,21 +171,44 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	public int getSentBatchesCount() {
 		return batchesSentCount;
 	}
+	@Override
+	public long getParseElapsedMillis() {
+		return parseTimeElapsed;
+	}
+	@Override
+	public String getParseElapsed() {
+		Duration duration = Duration.ofMillis(parseTimeElapsed);
+		return formatDuration(duration);
+	}
+
+	public void addRedoReadMillis(long redoReadMillis) {
+		redoReadTimeElapsed += redoReadMillis;
+	}
+	@Override
+	public long getRedoReadElapsedMillis() {
+		return redoReadTimeElapsed;
+	}
+	@Override
+	public String getRedoReadElapsed() {
+		Duration duration = Duration.ofMillis(redoReadTimeElapsed);
+		return formatDuration(duration);
+	}
 
 	@Override
 	public long getElapsedTimeMillis() {
 		return System.currentTimeMillis() - startTimeMillis;
 	}
-
 	@Override
 	public String getElapsedTime() {
 		Duration duration = Duration.ofMillis(System.currentTimeMillis() - startTimeMillis);
-		return String.format("%sdays %shrs %smin %ssec.\n",
+		return formatDuration(duration);
+	}
+
+	private static String formatDuration(Duration duration) {
+		return String.format(DURATION_FMT,
 				duration.toDays(),
 				duration.toHours() % 24,
 				duration.toMinutes() % 60,
-				duration.getSeconds() % 60);
-	}
-
+				duration.getSeconds() % 60);	}
 
 }

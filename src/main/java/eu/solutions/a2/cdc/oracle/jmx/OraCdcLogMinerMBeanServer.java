@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.kafka.jmx;
+package eu.solutions.a2.cdc.oracle.jmx;
 
 import java.lang.management.ManagementFactory;
 import java.sql.SQLException;
