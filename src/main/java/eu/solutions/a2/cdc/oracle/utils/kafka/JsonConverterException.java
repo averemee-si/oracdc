@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.kafka.utils;
+package eu.solutions.a2.cdc.oracle.utils.kafka;
 
 public class JsonConverterException extends Exception {
 
