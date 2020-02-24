@@ -169,6 +169,10 @@
 								<componentType>sink</componentType>
 							</componentTypes>
 
+							<confluentControlCenterIntegration>
+								true
+							</confluentControlCenterIntegration>
+
 							<tags>
 								<tag>Oracle</tag>
 								<tag>database</tag>
