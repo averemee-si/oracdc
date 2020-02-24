@@ -230,12 +230,16 @@ When using mayrialized view log as CDC source *scn* field for **INSERT** and **U
 * Oracle LOB handler: convert Oracle BLOB/CLOB/BFILE to link on object file system and send ref to instead of large data
 
 ## Version history
+
 #####0.9.0 (OCT-2019)
 Initial release
+
 #####0.9.1 (NOV-2019)
 Oracle Wallet support for storing database credentials
+
 #####0.9.2 (DEC-2019)
 "with ROWID" materialized view log support
+
 #####0.9.3 (FEB-2020)
 [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) as CDC source
 Removed AWS Kinesis support
