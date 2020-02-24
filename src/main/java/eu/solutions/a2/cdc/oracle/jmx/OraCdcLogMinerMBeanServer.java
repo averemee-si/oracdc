@@ -53,6 +53,8 @@ public class OraCdcLogMinerMBeanServer {
 			sb.append(rdbmsInfo.getInstanceName());
 			sb.append("_");
 			sb.append(rdbmsInfo.getHostName());
+			sb.append("-");
+			sb.append(System.currentTimeMillis());
 			ObjectName name = new ObjectName(sb.toString());
 			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 			mbs.registerMBean(mbean, name);
