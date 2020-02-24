@@ -25,8 +25,6 @@ import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcJdbcSinkConnectorConfig;
-import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcJdbcSinkTask;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 

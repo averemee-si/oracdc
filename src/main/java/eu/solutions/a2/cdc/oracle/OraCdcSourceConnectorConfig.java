@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.kafka.connect;
+package eu.solutions.a2.cdc.oracle;
 
 import java.util.Map;
 
@@ -20,8 +20,11 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 
-import eu.solutions.a2.cdc.oracle.ParamConstants;
-
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public static final String KAFKA_TOPIC_PARAM = "a2.kafka.topic";
@@ -41,10 +44,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public static ConfigDef config() {
 		return new ConfigDef()
-				.define(ParamConstants.ORACDC_MODE_PARAM, Type.STRING,
-						ParamConstants.ORACDC_MODE_MVLOG,
-						ConfigDef.ValidString.in(ParamConstants.ORACDC_MODE_MVLOG, ParamConstants.ORACDC_MODE_LOGMINER),
-						Importance.HIGH, ParamConstants.ORACDC_MODE_DOC)
 				.define(ParamConstants.CONNECTION_URL_PARAM, Type.STRING, "",
 						Importance.HIGH, ParamConstants.CONNECTION_URL_DOC)
 				.define(ParamConstants.CONNECTION_USER_PARAM, Type.STRING, "",
@@ -73,7 +72,15 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				.define(ParamConstants.TABLE_EXCLUDE_PARAM, Type.LIST, "",
 						Importance.MEDIUM, ParamConstants.TABLE_EXCLUDE_DOC)
 				.define(ParamConstants.TABLE_INCLUDE_PARAM, Type.LIST, "",
-						Importance.MEDIUM, ParamConstants.TABLE_INCLUDE_DOC);
+						Importance.MEDIUM, ParamConstants.TABLE_INCLUDE_DOC)
+				.define(ParamConstants.REDO_FILES_COUNT_PARAM, Type.SHORT, (short) 1,
+						Importance.HIGH, ParamConstants.REDO_FILES_COUNT_DOC)
+				.define(ParamConstants.REDO_FILES_SIZE_PARAM, Type.LONG, 0,
+						Importance.HIGH, ParamConstants.REDO_FILES_SIZE_DOC)
+				.define(ParamConstants.LGMNR_START_SCN_PARAM, Type.LONG, 0,
+						Importance.HIGH, ParamConstants.LGMNR_START_SCN_DOC)
+				.define(ParamConstants.TEMP_DIR_PARAM, Type.STRING, "",
+						Importance.HIGH, ParamConstants.TEMP_DIR_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {

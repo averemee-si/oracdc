@@ -30,12 +30,15 @@ import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceConnectorConfig;
-import eu.solutions.a2.cdc.oracle.kafka.connect.OraCdcSourceTask;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraCdcSourceConnector extends SourceConnector {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnector.class);
@@ -43,9 +46,6 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 	private OraCdcSourceConnectorConfig config;
 	private boolean validConfig = true;
-	private boolean useLogMiner = false;
-	private boolean logMinerSingleThread = true;
-	private boolean isCdb = false;
 	private boolean mvLogPre11gR2 = false;
 	private int tableCount = 0;
 	private String whereExclude = null;
@@ -59,7 +59,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc Source Connector");
+		LOGGER.info("Starting oracdc materialized view log source connector");
 		config = new OraCdcSourceConnectorConfig(props);
 
 		// Initialize connection pool
@@ -93,86 +93,60 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 		if (validConfig) {
 			try (Connection connection = OraPoolConnectionFactory.getConnection()) {
-				String sqlStatementText = null;
-				int modeWhere = OraSqlUtils.MODE_WHERE_ALL_MVIEW_LOGS;
-				// Detect CDC source
 				OraRdbmsInfo rdbmsInfo = new OraRdbmsInfo(connection);
 				LOGGER.info("Connected to $ORACLE_SID={}, version={}, running on {}, OS {}.",
 						rdbmsInfo.getInstanceName(), rdbmsInfo.getVersionString(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
-				if (ParamConstants.ORACDC_MODE_LOGMINER.equalsIgnoreCase(config.getString(ParamConstants.ORACDC_MODE_PARAM))) {
-					LOGGER.trace("oracdc logminer mode set.");
-					if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot()) {
-						validConfig = false;
-						throw new SQLException("Must connected to CDB$ROOT while using oracdc for mining data using LogMiner!!!");
-					} else {
-						LOGGER.trace("Connected CDB$ROOT, Oracle RDBMS version {}.", rdbmsInfo.getVersionString());
-						useLogMiner = true;
-						isCdb = rdbmsInfo.isCdb();
-						modeWhere = OraSqlUtils.MODE_WHERE_ALL_TABLES;
-						if (isCdb) {
-							sqlStatementText = OraDictSqlTexts.TABLE_COUNT_CDB;
-						} else {
-							sqlStatementText = OraDictSqlTexts.TABLE_COUNT_PLAIN;
-						}
-					}
+
+				String sqlStatementText = null;
+				if (rdbmsInfo.getVersionMajor() < 11) {
+					mvLogPre11gR2 = true;
+					sqlStatementText = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI_PRE11G;
 				} else {
-					LOGGER.trace("oracdc mvlog mode set.");
-					if (rdbmsInfo.getVersionMajor() < 11)
-						mvLogPre11gR2 = true;
-					if (mvLogPre11gR2)
-						sqlStatementText = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI_PRE11G;
-					else
-						sqlStatementText = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI;
+					sqlStatementText = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI;
 				}
 
 				final List<String> excludeList = config.getList(ParamConstants.TABLE_EXCLUDE_PARAM);
 				if (excludeList.size() > 0) {
 					LOGGER.trace("Exclude table list set.");
-					whereExclude = OraSqlUtils.parseTableSchemaList(true, modeWhere, excludeList);
+					whereExclude = OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_MVIEW_LOGS, excludeList);
 					LOGGER.debug("Excluded table list where clause:\n{}", whereExclude);
 					sqlStatementText += whereExclude;
 				}
 				final List<String> includeList = config.getList(ParamConstants.TABLE_INCLUDE_PARAM);
 				if (includeList.size() > 0) {
 					LOGGER.trace("Include table list set.");
-					whereInclude = OraSqlUtils.parseTableSchemaList(false, modeWhere, includeList);
+					whereInclude = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_MVIEW_LOGS, includeList);
 					LOGGER.debug("Included table list where clause:\n{}", whereInclude);
 					sqlStatementText += whereInclude;
 				}
 
-				if (!useLogMiner || (useLogMiner && !logMinerSingleThread)) {
-					LOGGER.trace("Multithreading will be used.");
-					LOGGER.debug("Will use\n{}\nfor counting number of tables to process.", sqlStatementText);
-					// Count number of materialized view logs/available tables for mining
-					final PreparedStatement statement = connection.prepareStatement(sqlStatementText);
-					final ResultSet rsCount = statement.executeQuery();
-					if (rsCount.next())
-						tableCount = rsCount.getInt(1);
-					rsCount.close();
-					statement.close();
+				LOGGER.trace("Multithreading will be used.");
+				LOGGER.debug("Will use\n{}\nfor counting number of tables to process.", sqlStatementText);
+				// Count number of materialized view logs/available tables for mining
+				final PreparedStatement statement = connection.prepareStatement(sqlStatementText);
+				final ResultSet rsCount = statement.executeQuery();
+				if (rsCount.next()) {
+					tableCount = rsCount.getInt(1);
+				}
+				rsCount.close();
+				statement.close();
 
-					LOGGER.debug("Will work with {} tables.", tableCount);
-					if (tableCount == 0) {
-						final String message =
-								"Nothing to do with user " + 
-								connection.getMetaData().getUserName() +
-								"."; 
-						LOGGER.error(message);
-						LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
-						throw new ConnectException(message);
-					}
+				LOGGER.debug("Will work with {} tables.", tableCount);
+				if (tableCount == 0) {
+					final String message = "Nothing to do with user " + 
+								connection.getMetaData().getUserName() + "."; 
+					LOGGER.error(message);
+					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
+					throw new ConnectException(message);
+				}
 
-					if (tableCount > MAX_TABLES) {
-						final String message =
-								"Too much tables with user " + 
+				if (tableCount > MAX_TABLES) {
+					final String message = "Too much tables with user " + 
 								connection.getMetaData().getUserName() +
-								".\nReduce table count from " +
-								tableCount +
-								" and try again."; 
-						LOGGER.error(message);
-						LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
-						throw new ConnectException(message);
-					}
+								".\nReduce table count from " + tableCount + " and try again."; 
+					LOGGER.error(message);
+					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
+					throw new ConnectException(message);
 				}
 
 				final String schemaTypeString = config.getString(ParamConstants.SCHEMA_TYPE_PARAM);
@@ -209,15 +183,13 @@ public class OraCdcSourceConnector extends SourceConnector {
 	@Override
 	public List<Map<String, String>> taskConfigs(int maxTasks) {
 		LOGGER.trace("BEGIN: taskConfigs(int maxTasks)");
-		if (!useLogMiner || (useLogMiner && !logMinerSingleThread)) {
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("maxTasks set to -> {}.", maxTasks);
-				LOGGER.debug("tableCount set to -> {}.", tableCount);
-			}
-			if (maxTasks != tableCount) {
-				final String message = 
-					"To run " +
-					OraCdcSourceConnector.class.getName() +
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("maxTasks set to -> {}.", maxTasks);
+			LOGGER.debug("tableCount set to -> {}.", tableCount);
+		}
+		if (maxTasks != tableCount) {
+			final String message = 
+					"To run " + OraCdcSourceConnector.class.getName() +
 					" against " + (
 					"".equals(config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) ?
 								config.getString(ParamConstants.CONNECTION_URL_PARAM) +
@@ -227,87 +199,75 @@ public class OraCdcSourceConnector extends SourceConnector {
 								config.getString(ParamConstants.CONNECTION_TNS_ALIAS_PARAM) +
 								" using wallet " +
 								config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) +
-					" parameter tasks.max must set to " +
-					tableCount;
-				LOGGER.error(message);
-				LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
-				throw new ConnectException(message);
-			}
-
-			List<Map<String, String>> configs = new ArrayList<>(maxTasks);
-			try (Connection connection = OraPoolConnectionFactory.getConnection()) {
-				String sqlStatementText = null;
-				if (useLogMiner)
-					if (isCdb)
-						sqlStatementText = OraDictSqlTexts.TABLE_LIST_CDB;
-					else
-						sqlStatementText = OraDictSqlTexts.TABLE_LIST_PLAIN;
-				else
-					if (mvLogPre11gR2)
-						sqlStatementText = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI_PRE11G;
-					else
-						sqlStatementText = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI;
-
-				if (whereExclude != null) {
-					sqlStatementText += whereExclude;
-				}
-				if (whereInclude != null) {
-					sqlStatementText += whereInclude;
-				}
-				LOGGER.debug("Will use\n{}\nto collect table information.", sqlStatementText);
-
-				final PreparedStatement statement = connection.prepareStatement(sqlStatementText);
-				final ResultSet resultSet = statement.executeQuery();
-
-				for (int i = 0; i < maxTasks; i++) {
-					resultSet.next();
-					final Map<String, String> taskParam = new HashMap<>(10);
-
-					taskParam.put(ParamConstants.BATCH_SIZE_PARAM,
-						config.getInt(ParamConstants.BATCH_SIZE_PARAM).toString());
-					taskParam.put(ParamConstants.POLL_INTERVAL_MS_PARAM,
-						config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM).toString());
-					taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER,
-						resultSet.getString("MASTER"));
-					taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_LOG,
-						resultSet.getString("LOG_TABLE"));
-					taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER,
-						resultSet.getString("LOG_OWNER"));
-					taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID,
-						resultSet.getString("ROWIDS"));
-					taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK,
-						resultSet.getString("PRIMARY_KEY"));
-					taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE,
-						resultSet.getString("SEQUENCE"));
-					taskParam.put(ParamConstants.SCHEMA_TYPE_PARAM,
-						Integer.toString(schemaType));
-
-					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD)
-						taskParam.put(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM,
-							config.getString(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM));
-					else
-						// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-						taskParam.put(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM,
-							config.getString(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
-
-					configs.add(taskParam);
-				}
-			} catch (SQLException sqle) {
-				validConfig = false;
-				LOGGER.error("Unable to get table information.");
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-				LOGGER.error("Exiting!");
-			}
-
-			if (!validConfig) {
-				throw new ConnectException("Unable to validate configuration.");
-			}
-
-			return configs;
-		} else {
-			LOGGER.trace("logminer serial mode");
-			throw new ConnectException("Not implemented yet.");
+					" parameter tasks.max must set to " + tableCount;
+			LOGGER.error(message);
+			LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
+			throw new ConnectException(message);
 		}
+
+		final List<Map<String, String>> configs = new ArrayList<>(maxTasks);
+		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+			String sqlStatementText = null;
+			if (mvLogPre11gR2) {
+				sqlStatementText = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI_PRE11G;
+			} else {
+				sqlStatementText = OraDictSqlTexts.MVIEW_LIST_PK_SEQ_NOSCN_NONV_NOOI;
+			}
+
+			if (whereExclude != null) {
+				sqlStatementText += whereExclude;
+			}
+			if (whereInclude != null) {
+				sqlStatementText += whereInclude;
+			}
+			LOGGER.debug("Will use\n{}\nto collect table information.", sqlStatementText);
+
+			final PreparedStatement statement = connection.prepareStatement(sqlStatementText);
+			final ResultSet resultSet = statement.executeQuery();
+
+			for (int i = 0; i < maxTasks; i++) {
+				resultSet.next();
+				final Map<String, String> taskParam = new HashMap<>();
+
+				taskParam.put(ParamConstants.BATCH_SIZE_PARAM,
+					config.getInt(ParamConstants.BATCH_SIZE_PARAM).toString());
+				taskParam.put(ParamConstants.POLL_INTERVAL_MS_PARAM,
+					config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM).toString());
+				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER,
+					resultSet.getString("MASTER"));
+				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_LOG,
+					resultSet.getString("LOG_TABLE"));
+				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER,
+					resultSet.getString("LOG_OWNER"));
+				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID,
+					resultSet.getString("ROWIDS"));
+				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK,
+					resultSet.getString("PRIMARY_KEY"));
+				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE,
+					resultSet.getString("SEQUENCE"));
+				taskParam.put(ParamConstants.SCHEMA_TYPE_PARAM,
+					Integer.toString(schemaType));
+
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+					taskParam.put(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM,
+							config.getString(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM));
+				} else {
+					// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+					taskParam.put(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM,
+							config.getString(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
+				}
+
+				configs.add(taskParam);
+			}
+			return configs;
+		} catch (SQLException sqle) {
+			validConfig = false;
+			LOGGER.error("Unable to get table information.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error("Exiting!");
+			throw new ConnectException("Unable to validate configuration.");
+		}
+
 	}
 
 	@Override

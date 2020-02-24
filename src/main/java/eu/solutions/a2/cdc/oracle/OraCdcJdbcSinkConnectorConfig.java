@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.kafka.connect;
+package eu.solutions.a2.cdc.oracle;
 
 import java.util.Map;
 
@@ -19,9 +19,11 @@ import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
-
-import eu.solutions.a2.cdc.oracle.ParamConstants;
-
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 
 	public static final String AUTO_CREATE_PARAM = "a2.autocreate";

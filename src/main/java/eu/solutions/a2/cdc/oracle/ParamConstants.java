@@ -13,15 +13,15 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class ParamConstants {
 
 	public static final int SCHEMA_TYPE_INT_DEBEZIUM = 1;
 	public static final int SCHEMA_TYPE_INT_KAFKA_STD = 2;
-
-	public static final String ORACDC_MODE_PARAM = "a2.cdc.mode";
-	public static final String ORACDC_MODE_DOC = "Operational mode. When set to mvlog (default) materialized view logs are used as source, when set to logminer - archived redo logs are used as source.";
-	public static final String ORACDC_MODE_MVLOG = "mvlog";
-	public static final String ORACDC_MODE_LOGMINER = "logminer";
 
 	public static final String CONNECTION_URL_PARAM = "a2.jdbc.url";
 	public static final String CONNECTION_URL_DOC = "JDBC connection URL";
@@ -59,5 +59,17 @@ public class ParamConstants {
 
 	public static final String TABLE_INCLUDE_PARAM = "a2.include";
 	public static final String TABLE_INCLUDE_DOC = "List of table names to include in processing";
+
+	public static final String REDO_FILES_COUNT_PARAM = "a2.redo.count";
+	public static final String REDO_FILES_COUNT_DOC = "Quantity of archived logs to process during each DBMS_LOGMNR.START_LOGMNR call";
+
+	public static final String REDO_FILES_SIZE_PARAM = "a2.redo.size";
+	public static final String REDO_FILES_SIZE_DOC = "Minimal size of archived logs to process during each DBMS_LOGMNR.START_LOGMNR call";
+
+	public static final String LGMNR_START_SCN_PARAM = "a2.first.change";
+	public static final String LGMNR_START_SCN_DOC = "When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set min(FIRST_CHANGE#) from V$ARCHIVED_LOG will used. Overrides SCN value  stored in offset file";
+
+	public static final String TEMP_DIR_PARAM = "a2.tmpdir";
+	public static final String TEMP_DIR_DOC = "Temporary directory for non-heap storage. When not set, OS temp directory used"; 
 
 }

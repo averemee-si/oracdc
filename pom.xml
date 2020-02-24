@@ -16,13 +16,13 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.solutions.a2.oracle.cdc</groupId>
 	<artifactId>oracdc-kafka</artifactId>
-	<version>0.9.2</version>
+	<version>0.9.3</version>
 	<packaging>jar</packaging>
 
 	<name>oracdc-kafka</name>
 	<url>http://a2-solutions.eu/#oracdc</url>
 	<description>
-		Oracle CDC Source Connector for Kafka Connect / Oracle CDC Producer for Amazon Kinesis
+		Oracle CDC Source Connectors (LogMiner and Snapshot Logs as source) for Kafka Connect
 	</description>
 	<organization>
 		<name>A2 Rešitve, d.o.o.</name>
@@ -43,7 +43,8 @@
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<junit.version>4.12</junit.version>
 		<kafka.version>2.3.1</kafka.version>
-		<kinesis.client.version>2.2.7</kinesis.client.version>
+		<commons.lang3.version>3.8.1</commons.lang3.version>
+		<chronicle.queue.version>5.17.43</chronicle.queue.version>
 		<HikariCP.version>3.4.1</HikariCP.version>
 		<slf4j.version>1.7.28</slf4j.version>
 		<kafka.connect.maven.plugin.version>0.11.1</kafka.connect.maven.plugin.version>
@@ -57,23 +58,23 @@
 			<version>${junit.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.apache.kafka/kafka-clients/ -->
- 		<dependency>
-			<groupId>org.apache.kafka</groupId>
-			<artifactId>kafka-clients</artifactId>
-			<version>${kafka.version}</version>
-		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api/ -->
 		<dependency>
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>connect-api</artifactId>
 			<version>${kafka.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/software.amazon.kinesis/amazon-kinesis-client/ -->
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3/ -->
 		<dependency>
-			<groupId>software.amazon.kinesis</groupId>
-			<artifactId>amazon-kinesis-client</artifactId>
-			<version>${kinesis.client.version}</version>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>${commons.lang3.version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/net.openhft/chronicle-queue/ -->
+		<dependency>
+			<groupId>net.openhft</groupId>
+			<artifactId>chronicle-queue</artifactId>
+			<version>${chronicle.queue.version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.zaxxer/HikariCP/ -->
 		<dependency>
@@ -140,7 +141,9 @@
 							<title>Kafka Connect Oracle CDC</title>
 							<documentationUrl>https://github.com/averemee-si/oracdc</documentationUrl>
 							<description>
-								Connector for capturing Oracle Database changes. Oracle RDBMS materialized view log's are used as source for data changes, oracdc materializes Oracle RDBMS materialized view log at heterogeneous database system or data lake.
+								Changed data capture (CDC) for Oracle Database. Operates in two modes:
+								1) Oracle LogMiner is used as source for data changes.
+								2) Oracle RDBMS materialized view log's are used as source for data changes, oracdc materializes Oracle RDBMS materialized view log at heterogeneous database system or data lake.
 								No additional licensing of Oracle Database required.
 								JDBC sink connector optimized to work with PostgreSQL provided too.
 							</description>
@@ -151,7 +154,7 @@
 							<supportUrl>http://a2-solutions.eu/</supportUrl>
 							<supportLogo>logos/a2-solutions.png</supportLogo>
 
-							<ownerUsername>a2-solutions_eu</ownerUsername>
+							<ownerUsername>a2solutions</ownerUsername>
 							<ownerType>organization</ownerType>
 							<ownerName>A2 Rešitve, d.o.o.</ownerName>
 							<ownerUrl>http://a2-solutions.eu/</ownerUrl>

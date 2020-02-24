@@ -20,6 +20,11 @@ import java.sql.SQLException;
 
 import javax.sql.DataSource;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraPoolConnectionFactory {
 
 	private static final int INITIAL_SIZE = 4;

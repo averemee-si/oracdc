@@ -1,0 +1,45 @@
+/**
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
+ * the License for the specific language governing permissions and limitations under the License.
+ */
+
+package eu.solutions.a2.cdc.oracle;
+
+import static org.junit.Assert.assertEquals;
+
+import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+
+import org.junit.Test;
+
+public class OraCdcChronicleQueueTest {
+
+	@Test
+	public void test() throws IOException {
+		final String tmpDir = System.getProperty("java.io.tmpdir");
+		final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
+		final OraCdcLogMinerStatement updIn =  new  OraCdcLogMinerStatement(
+				74590, (short)3, "update DEPT set DNAME='SALES' where DEPTNO=10",
+				System.currentTimeMillis(),275168436063l," 0x000098.000001b5.0010 ",
+				0, "AAAWbzAAEAAAB6FAAA");
+		String xid = "0000270016000000";
+		OraCdcTransaction transaction = new OraCdcTransaction(queuesRoot, xid, updIn);
+		OraCdcLogMinerStatement updOut = new OraCdcLogMinerStatement();
+		transaction.getStatement(updOut);
+		transaction.close();
+
+		assertEquals("Not same strings!", updIn.getRsId(), updOut.getRsId());
+		assertEquals("Not same strings!", updIn.getSqlRedo(), updOut.getSqlRedo());
+		assertEquals("Not same longs!", updIn.getScn(), updOut.getScn());
+		assertEquals("Not same longs!", updIn.getTs(), updOut.getTs());
+	}
+}

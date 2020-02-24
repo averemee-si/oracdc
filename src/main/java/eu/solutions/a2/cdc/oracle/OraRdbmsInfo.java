@@ -17,11 +17,18 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraRdbmsInfo {
 
 	private final String versionString;
@@ -35,6 +42,9 @@ public class OraRdbmsInfo {
 	private final boolean cdb;
 	private final boolean cdbRoot;
 	private final Schema schema;
+	private final String dbCharset;
+	private final String dbNCharCharset;
+	private final String dbUniqueName;
 
 	private final static int CDB_INTRODUCED = 12;
 
@@ -53,8 +63,9 @@ public class OraRdbmsInfo {
 			instanceNumber = rs.getShort("INSTANCE_NUMBER");
 			instanceName = rs.getString("INSTANCE_NAME");
 			hostName = rs.getString("HOST_NAME");
-		} else
+		} else {
 			throw new SQLException("Unable to detect RDBMS version!");
+		}
 		rs.close();
 		rs = null;
 		ps.close();
@@ -69,8 +80,9 @@ public class OraRdbmsInfo {
 			ps = connection.prepareStatement(OraDictSqlTexts.DB_INFO_PRE12C,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			rs = ps.executeQuery();
-			if (!rs.next())
+			if (!rs.next()) {
 				throw new SQLException("Unable to detect database information!");
+			}
 		} else {
 			ps = connection.prepareStatement(OraDictSqlTexts.DB_CDB_PDB_INFO,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -92,7 +104,10 @@ public class OraRdbmsInfo {
 
 		dbId = rs.getLong("DBID");
 		databaseName = rs.getString("NAME");
+		dbUniqueName = rs.getString("DB_UNIQUE_NAME");
 		platformName = rs.getString("PLATFORM_NAME");
+		dbCharset = rs.getString("NLS_CHARACTERSET");
+		dbNCharCharset = rs.getString("NLS_NCHAR_CHARACTERSET");
 		rs.close();
 		rs = null;
 		ps.close();
@@ -158,6 +173,139 @@ public class OraRdbmsInfo {
 		return struct;
 	}
 
+	/**
+	 * Returns set of column names for primary key or it equivalent (unique with all non-null)
+	 * 
+	 * @param connection - Connection to data dictionary (db in 'OPEN' state)
+	 * @param conId      - CON_ID, if null we working with non CDB or pre-12c Oracle Database
+	 * @param owner      - Table owner
+	 * @param tableName  - Table name
+	 * @return           - Set with names of primary key columns. null if nothing found
+	 * @throws SQLException
+	 */
+	public static Set<String> getPkColumnsFromDict(
+			final Connection connection,
+			final Short conId,
+			final String owner,
+			final String tableName) throws SQLException {
+		Set<String> result = null;
+		PreparedStatement ps = connection.prepareStatement(
+				(conId == null) ?
+						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_NON_CDB :
+						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_CDB,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		ps.setString(1, owner);
+		ps.setString(2, tableName);
+		if (conId != null) {
+			ps.setShort(3, conId);			
+		}
+
+		ResultSet rs = ps.executeQuery();
+		while (rs.next()) {
+			if (result == null)
+				result = new HashSet<>();
+			result.add(rs.getString("COLUMN_NAME"));
+		}
+		rs.close(); rs = null;
+		ps.close(); ps = null;
+		if (result == null) {
+			// Try to find unique index with non-null columns only
+			ps = connection.prepareStatement(
+					(conId == null) ?
+							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_NON_CDB :
+							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_CDB,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			ps.setString(1, owner);
+			ps.setString(2, tableName);
+			if (conId != null) {
+				ps.setShort(3, conId);			
+			}
+			rs = ps.executeQuery();
+			while (rs.next()) {
+				if (result == null)
+					result = new HashSet<>();
+				result.add(rs.getString("COLUMN_NAME"));
+			}
+			rs.close(); rs = null;
+			ps.close(); ps = null;
+		}
+		return result;
+	}
+
+	/**
+	 * Returns first available SCN from V$ARCHIVED_LOG
+	 * 
+	 * @param connection - Connection to mining database
+	 * @return           - first available SCN
+	 * @throws SQLException
+	 */
+	public static long firstScnFromArchivedLogs(final Connection connection) throws SQLException {
+		PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.FIRST_AVAILABLE_SCN_IN_ARCHIVE,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		long firstScn = -1;
+		ResultSet rs = ps.executeQuery();
+		if (rs.next())
+			firstScn = rs.getLong(1);
+		else
+			throw new SQLException("Something wrong with access to V$ARCHIVED_LOG or no archived log exists!");
+		rs.close(); rs = null;
+		ps.close(); ps = null;
+		return firstScn;
+	}
+
+	/**
+	 * Returns part of WHERE with OBJECT_ID's to exclude or include
+	 * 
+	 * @param connection - Connection to dictionary database
+	 * @param exclude
+	 * @param where
+	 * @return
+	 * @throws SQLException
+	 */
+	public static String getMineObjectsIds(final Connection connection, final boolean exclude, final String where) throws SQLException {
+		final StringBuilder sb = new StringBuilder(32768);
+		if (exclude) {
+			sb.append(" and DATA_OBJ# not in (");
+		} else {
+			sb.append(" and DATA_OBJ# in (");
+		}
+		PreparedStatement ps = connection.prepareStatement(
+				"select OBJECT_ID\n" + 
+				"from   DBA_OBJECTS\n" + 
+				"where  DATA_OBJECT_ID is not null\n" +
+				"  and  OBJECT_TYPE like 'TABLE%'\n" +
+				"  and  TEMPORARY='N'\n" +
+				where,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		ResultSet rs = ps.executeQuery();
+		boolean firstValue = true;
+		int recordCount = 0;
+		while (rs.next()) {
+			if (firstValue) {
+				firstValue = false;
+			} else {
+				sb.append(",");
+			}
+			sb.append(rs.getInt(1));
+			recordCount++;
+			if (recordCount > 999) {
+				// ORA-01795
+				sb.append(")");
+				if (exclude) {
+					sb.append(" and DATA_OBJ# not in (");
+				} else {
+					sb.append(" and DATA_OBJ# in (");
+				}
+				firstValue = true;
+				recordCount = 0;
+			}
+		}
+		sb.append(")");
+		rs.close(); rs = null;
+		ps.close(); ps = null;
+		return sb.toString();
+	}
+
 	public String getVersionString() {
 		return versionString;
 	}
@@ -200,6 +348,18 @@ public class OraRdbmsInfo {
 
 	public Schema getSchema() {
 		return schema;
+	}
+
+	public String getDbCharset() {
+		return dbCharset;
+	}
+
+	public String getDbNCharCharset() {
+		return dbNCharCharset;
+	}
+
+	public String getDbUniqueName() {
+		return dbUniqueName;
 	}
 
 }

@@ -1,6 +1,6 @@
 ## Configuration
+Please see the **etc** directory for sample configuration files
 ### Mandatory parameters
-`a2.cdc.mode` - When set to _mvlog_ (default) materialized view log's are used as source for data changes. When set to _logminer_ Oracle LogMiner is used as source for data changes.
 
 `a2.jdbc.url` - JDBC connection URL. Not required when using Oracle Wallet
 
@@ -35,117 +35,11 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.autocreate`- _Sink Connector_ only: default _false_, when set to true **oracdc** creates missing table automatically
 
+### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector specific parameters
+`a2.redo.count` - Quantity of archived logs to process during each DBMS_LOGMNR.START_LOGMNR call, default _1_
 
-### Configuration example (a2.schema.type=kafka)
+`a2.redo.size` - Minimal size of archived logs to process during each DBMS_LOGMNR.START_LOGMNR call. When set value of `a2.redo.count` is ignored
 
-Create **oracdc-connect-standalone.properties** file to configure a standalone worker
+`a2.first.change` - When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set **min(FIRST_CHANGE#) from V$ARCHIVED_LOG** will used. Overrides SCN value  stored in offset file.
 
-```
-bootstrap.servers=<KAFKA BROKER HOST>:9092
-key.converter=org.apache.kafka.connect.json.JsonConverter
-value.converter=org.apache.kafka.connect.json.JsonConverter
-key.converter.schemas.enable=true
-value.converter.schemas.enable=true
-
-offset.storage.file.filename=/<KAFKA DATA PATH>/oracdc.connect.offsets
-offset.flush.interval.ms=10000
-
-plugin.path=<PATH TO ORACDC jar file>
-```
-Create **oracdc-source-connector.properties** to configure Oracle RDBMS source
-
-```
-name=oracdc-oebs-source
-connector.class=eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
-tasks.max=3
-
-a2.kafka.topic=oracdc-topic
-a2.jdbc.url=jdbc:oracle:thin:@//ebsdb.a2-solutions.eu:1521/EBSDB
-a2.jdbc.username=apps
-a2.jdbc.password=apps
-
-```
-**N.B.** **tasks.max** _must_ be set to number of materialized view logs for processing with **oracdc**
-
-Create **jdbc-sink-connector.properties** to configure target database (currently tested with MySQL/MariaDB, Oracle, & PostgreSQL)
-
-```
-name=jdbc-oebs-sink
-connector.class=eu.solutions.a2.cdc.oracle.OraCdcJdbcSinkConnector
-tasks.max=1
-
-# The topics to consume from - required for sink connectors like this one
-topics=GL_CODE_COMBINATIONS,XLA_AE_LINES,XLA_AE_HEADERS
-
-a2.jdbc.url=jdbc:mysql://polyxena.a2-solutions.eu:3306/EBSDB
-a2.jdbc.username=apps
-a2.jdbc.password=apps
-
-a2.autocreate=true
-
-```
-
-### Configuration example (a2.schema.type=debezium)
-
-Create **oracdc-connect-standalone.properties** file to configure a standalone worker
-
-```
-bootstrap.servers=<KAFKA BROKER HOST>:9092
-key.converter=org.apache.kafka.connect.json.JsonConverter
-value.converter=org.apache.kafka.connect.json.JsonConverter
-key.converter.schemas.enable=true
-value.converter.schemas.enable=true
-
-offset.storage.file.filename=/<KAFKA DATA PATH>/oracdc.connect.offsets
-offset.flush.interval.ms=10000
-
-plugin.path=<PATH TO ORACDC jar file>
-```
-Create **oracdc-source-connector.properties** to configure Oracle RDBMS source
-
-```
-name=oracdc-oebs-source
-connector.class=eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
-tasks.max=3
-
-a2.schema.type=debezium
-
-a2.kafka.topic=oracdc-topic
-a2.jdbc.url=jdbc:oracle:thin:@//ebsdb.a2-solutions.eu:1521/EBSDB
-a2.jdbc.username=apps
-a2.jdbc.password=apps
-
-```
-**N.B.** **tasks.max** _must_ be set to number of materialized view logs for processing with **oracdc**
-
-Create **oracdc-sink-connector.properties** to configure target database (currently tested with MySQL/MariaDB & PostgreSQL)
-
-```
-name=oracdc-oebs-sink
-connector.class=eu.solutions.a2.cdc.oracle.OraCdcJdbcSinkConnector
-tasks.max=1
-
-# The topics to consume from - required for sink connectors like this one
-topics=oracdc-topic
-
-a2.schema.type=debezium
-
-a2.jdbc.url=jdbc:mysql://polyxena.a2-solutions.eu:3306/EBSDB
-a2.jdbc.username=apps
-a2.jdbc.password=apps
-a2.autocreate=true
-
-```
-
-### Starting
-Start **oracdc** with
-
-```
-export CLASSPATH=$A2_CDC_HOME/lib/HikariCP-3.4.1.jar:$A2_CDC_HOME/lib/ucp.jar:$A2_CDC_HOME/lib/ojdbc8.jar:$A2_CDC_HOME/lib/oraclepki.jar:$A2_CDC_HOME/lib/osdt_core.jar:$A2_CDC_HOME/lib/osdt_cert.jar
-$KAFKA_HOME/bin/connect-standalone.sh \
-oracdc-connect-standalone.properties \
-oracdc-source-connector.properties \
-oracdc-sink-connector.properties
-```
-
-
+`a2.tmpdir` - Temporary directory for off-heap storage. Default - value of _java.io.tmpdir_ JVM property

@@ -24,6 +24,11 @@ import java.util.Map.Entry;
 import eu.solutions.a2.cdc.oracle.HikariPoolConnectionFactory;
 import eu.solutions.a2.cdc.oracle.OraColumn;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class TargetDbSqlUtils {
 
 	@SuppressWarnings("serial")
@@ -78,7 +83,7 @@ public class TargetDbSqlUtils {
 
 	public static String createTableSql(
 			final String tableName,
-			final HashMap<String, OraColumn> pkColumns,
+			final Map<String, OraColumn> pkColumns,
 			final List<OraColumn> allColumns) {
 		final StringBuilder sbCreateTable = new StringBuilder(256);
 		final StringBuilder sbPrimaryKey = new StringBuilder(64);

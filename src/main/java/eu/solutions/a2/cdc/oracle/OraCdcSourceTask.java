@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.kafka.connect;
+package eu.solutions.a2.cdc.oracle;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -20,22 +20,24 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.OraColumn;
-import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
-import eu.solutions.a2.cdc.oracle.OraRdbmsInfo;
-import eu.solutions.a2.cdc.oracle.OraTable;
-import eu.solutions.a2.cdc.oracle.ParamConstants;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraCdcSourceTask extends SourceTask {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceTask.class);
+	private static final String PARTITION_FIELD = "mvlog";
 
 	private OraTable oraTable;
 	private int batchSize;
@@ -50,6 +52,7 @@ public class OraCdcSourceTask extends SourceTask {
 
 	@Override
 	public void start(Map<String, String> props) {
+
 		LOGGER.info("Starting oracdc Source Task for {}", props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
 
 		batchSize = Integer.parseInt(props.get(ParamConstants.BATCH_SIZE_PARAM));
@@ -58,11 +61,13 @@ public class OraCdcSourceTask extends SourceTask {
 		LOGGER.debug("pollInterval = {} ms.", pollInterval);
 		schemaType = Integer.parseInt(props.get(ParamConstants.SCHEMA_TYPE_PARAM));
 		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD)
+		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
 			topic = props.get(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM) + 
 					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
-		else // ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+		} else {
+			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
 			topic = props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
+		}
 		LOGGER.debug("topic set to {}.", topic);
 
 		try {
@@ -73,8 +78,8 @@ public class OraCdcSourceTask extends SourceTask {
 			LOGGER.trace("Setting source partition name for processing snapshot log");
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName() + ":" +
 						tableName + "." + tableOwner;
-			LOGGER.debug("Source Partition {} set to {}.", ParamConstants.ORACDC_MODE_MVLOG,  sourcePartitionName);
-			final Map<String, String> partition = Collections.singletonMap(ParamConstants.ORACDC_MODE_MVLOG, sourcePartitionName);
+			LOGGER.debug("Source Partition {} set to {}.", PARTITION_FIELD,  sourcePartitionName);
+			final Map<String, String> partition = Collections.singletonMap(PARTITION_FIELD, sourcePartitionName);
 			Map<String, Object> offset = context.offsetStorageReader().offset(partition);
 			if (offset != null && LOGGER.isDebugEnabled()) {
 				if (offset.get(OraColumn.ORA_ROWSCN) != null)
@@ -95,6 +100,7 @@ public class OraCdcSourceTask extends SourceTask {
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			throw new ConnectException(sqle);
 		}
 	}
 
@@ -128,6 +134,7 @@ public class OraCdcSourceTask extends SourceTask {
 				}
 			} else {
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				throw new ConnectException(sqle);
 			}
 		}
 		return null;

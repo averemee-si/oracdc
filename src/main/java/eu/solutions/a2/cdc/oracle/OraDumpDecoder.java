@@ -172,7 +172,7 @@ public class OraDumpDecoder {
 	 *              Oracle Type 181 TIMESTAMP WITH TIME ZONE
 	 * @return
 	 */
-	public Timestamp toTimestamp(String hex) throws SQLException {
+	public static Timestamp toTimestamp(String hex) throws SQLException {
 		int[] data = hexStringToIntArray(hex);
 		int year = (data[0] - 100) *100 +			// 1st byte century - 100
 				(data[1] - 100);					// 2nd byte year - 100
@@ -210,7 +210,7 @@ public class OraDumpDecoder {
 		}
 	}
 
-	public byte[] toByteArray(String hex) {
+	public static byte[] toByteArray(String hex) {
 		return hexStringToByteArray(hex);
 	}
 

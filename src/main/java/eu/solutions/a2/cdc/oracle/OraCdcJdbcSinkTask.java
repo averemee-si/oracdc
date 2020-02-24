@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.kafka.connect;
+package eu.solutions.a2.cdc.oracle;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -29,12 +29,14 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.HikariPoolConnectionFactory;
-import eu.solutions.a2.cdc.oracle.OraTable;
-import eu.solutions.a2.cdc.oracle.ParamConstants;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraCdcJdbcSinkTask extends SinkTask {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkTask.class);

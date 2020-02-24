@@ -18,6 +18,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Set;
 
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
@@ -30,16 +31,22 @@ import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
+/**
+ * 
+ * @author averemee
+ *
+ */
 public class OraColumn {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraColumn.class);
 	private final static float LOG_2 = 0.30103f; 
 
-	public static final String ROWID_KEY = "ORA$ROW$ID";
+	public static final String ROWID_KEY = "ORA_ROW_ID";
 	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";
 	public static final String ORA_ROWSCN = "ORA_ROWSCN";
 
 	private final String columnName;
+	private final String nameFromId;
 	private final boolean partOfPk;
 	private final int jdbcType;
 	private final boolean nullable;
@@ -55,17 +62,31 @@ public class OraColumn {
 	 * @param keySchemaBuilder
 	 * @param valueSchemaBuilder
 	 * @param schemaType
+	 * @param pkColsSet
 	 * @throws SQLException
 	 */
-	public OraColumn(final ResultSet resultSet,
-			final SchemaBuilder keySchema, final SchemaBuilder valueSchema, final int schemaType) throws SQLException {
+	public OraColumn(final boolean mviewSource, final ResultSet resultSet,
+			final SchemaBuilder keySchema, final SchemaBuilder valueSchema, final int schemaType,
+			final Set<String> pkColsSet) throws SQLException {
 		this.columnName = resultSet.getString("COLUMN_NAME");
-		final String partOfPkString = resultSet.getString("PK");
-		if (!resultSet.wasNull() && "Y".equals(partOfPkString))
-			this.partOfPk = true;
-		else
-			this.partOfPk = false;
 		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
+		this.nameFromId = "\"COL " + resultSet.getInt("COLUMN_ID") + "\"";
+
+		if (mviewSource) {
+			final String partOfPkString = resultSet.getString("PK");
+			if (!resultSet.wasNull() && "Y".equals(partOfPkString)) {
+				this.partOfPk = true;
+			} else {
+				this.partOfPk = false;
+			}
+		} else {
+			if (pkColsSet != null && pkColsSet.contains(this.columnName)) {
+				this.partOfPk = true;
+			} else {
+				this.partOfPk = false;
+			}
+		}
+		
 		final String oraType = resultSet.getString("DATA_TYPE");
 		switch (oraType) {
 			case "DATE":
@@ -304,6 +325,7 @@ public class OraColumn {
 		this.columnName = field.name();
 		this.partOfPk = partOfPk;
 		this.nullable = field.schema().isOptional();
+		this.nameFromId = null;
 		switch (field.schema().type().getName().toUpperCase()) {
 		case "INT8":
 			jdbcType = Types.TINYINT;
@@ -365,6 +387,7 @@ public class OraColumn {
 		this.partOfPk = partOfPk;
 		this.jdbcType = jdbcType;
 		this.nullable = nullable;
+		this.nameFromId = null;
 	}
 
 	/*
@@ -377,6 +400,10 @@ public class OraColumn {
 
 	public String getColumnName() {
 		return columnName;
+	}
+
+	public String getNameFromId() {
+		return nameFromId;
 	}
 
 	public boolean isPartOfPk() {
