@@ -25,10 +25,7 @@ public class OraCdcTransaction {
 
 	private final String xid;
 	private final long firstChange;
-	// Do we need this for pure transaction approach?
-	private final String firstRsId;
-	// Do we need this for pure transaction approach?
-	private final long firstSsn;
+	private long nextChange;
 	private long commitScn;
 	private final Path queueDirectory;
 	private ChronicleQueue statements;
@@ -40,8 +37,7 @@ public class OraCdcTransaction {
 			final Path rootDir, final String xid, final OraCdcLogMinerStatement firstStatement) throws IOException {
 		this.xid = xid;
 		firstChange = firstStatement.getScn();
-		firstRsId = firstStatement.getRsId();
-		firstSsn = firstStatement.getScn();
+		nextChange = firstChange;
 
 		queueDirectory = Files.createTempDirectory(rootDir, xid + ".");
 		if (LOGGER.isDebugEnabled()) {
@@ -65,6 +61,7 @@ public class OraCdcTransaction {
 
 	public void addStatement(final OraCdcLogMinerStatement oraSql) {
 		appender.writeDocument(oraSql);
+		nextChange = oraSql.getScn();
 		queueSize++;
 	}
 
@@ -98,12 +95,8 @@ public class OraCdcTransaction {
 		return firstChange;
 	}
 
-	public String getFirstRsId() {
-		return firstRsId;
-	}
-
-	public long getFirstSsn() {
-		return firstSsn;
+	public long getNextChange() {
+		return nextChange;
 	}
 
 	public long getCommitScn() {
