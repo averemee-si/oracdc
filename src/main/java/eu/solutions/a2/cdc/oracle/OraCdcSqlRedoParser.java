@@ -265,25 +265,25 @@ public class OraCdcSqlRedoParser {
 				columnValue = OraDumpDecoder.toTimestamp(hex);
 				break;
 			case Types.TINYINT:
-				columnValue = odd.toByte(hex);
+				columnValue = OraDumpDecoder.toByte(hex);
 				break;
 			case Types.SMALLINT:
-				columnValue = odd.toShort(hex);
+				columnValue = OraDumpDecoder.toShort(hex);
 				break;
 			case Types.INTEGER:
-				columnValue = odd.toInt(hex);
+				columnValue = OraDumpDecoder.toInt(hex);
 				break;
 			case Types.BIGINT:
-				columnValue = odd.toLong(hex);
+				columnValue = OraDumpDecoder.toLong(hex);
 				break;
 			case Types.FLOAT:
-				columnValue = odd.toFloat(hex);
+				columnValue = OraDumpDecoder.toFloat(hex);
 				break;
 			case Types.DOUBLE:
-				columnValue = odd.toDouble(hex);
+				columnValue = OraDumpDecoder.toDouble(hex);
 				break;
 			case Types.DECIMAL:
-				columnValue = odd.toBigDecimal(hex).setScale(oraColumn.getDataScale());
+				columnValue = OraDumpDecoder.toBigDecimal(hex).setScale(oraColumn.getDataScale());
 				break;
 			case Types.BINARY:
 				columnValue = OraDumpDecoder.toByteArray(hex);

@@ -14,14 +14,14 @@
 package eu.solutions.a2.cdc.oracle;
 
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Hashtable;
+
+import oracle.sql.NUMBER;
 
 
 /**
@@ -41,15 +41,6 @@ public class OraDumpDecoder {
 
 	private final String nlsCharacterSet;
 	private final String nlsNcharCharacterSet;
-	private final Class<?> klazzNUMBER;
-	private final Method methodNUMBERtoByte;
-	private final Method methodNUMBERtoShort;
-	private final Method methodNUMBERtoInt;
-	private final Method methodNUMBERtoLong;
-	private final Method methodNUMBERtoBigInteger;
-	private final Method methodNUMBERtoFloat;
-	private final Method methodNUMBERtoDouble;
-	private final Method methodNUMBERtoBigDecimal;
 
 	private final static Hashtable<String, String> charsetMap = new Hashtable<>(131);
 	private final static int TS_OFFSET_HOUR = 20;
@@ -63,81 +54,71 @@ public class OraDumpDecoder {
 	 * @throws NoSuchMethodException
 	 * @throws SecurityException
 	 */
-	public OraDumpDecoder(final String nlsCharacterSet, final String nlsNcharCharacterSet)
-			throws ClassNotFoundException, NoSuchMethodException, SecurityException {
+	public OraDumpDecoder(final String nlsCharacterSet, final String nlsNcharCharacterSet) {
 		this.nlsCharacterSet = charsetMap.get(nlsCharacterSet);
 		this.nlsNcharCharacterSet = charsetMap.get(nlsNcharCharacterSet);
-		klazzNUMBER = Class.forName("oracle.sql.NUMBER");
-		methodNUMBERtoByte = klazzNUMBER.getMethod("toByte", byte[].class);
-		methodNUMBERtoShort = klazzNUMBER.getMethod("toShort", byte[].class);
-		methodNUMBERtoInt = klazzNUMBER.getMethod("toInt", byte[].class);
-		methodNUMBERtoLong = klazzNUMBER.getMethod("toLong", byte[].class);
-		methodNUMBERtoBigInteger = klazzNUMBER.getMethod("toBigInteger", byte[].class);
-		methodNUMBERtoFloat = klazzNUMBER.getMethod("toFloat", byte[].class);
-		methodNUMBERtoDouble = klazzNUMBER.getMethod("toDouble", byte[].class);
-		methodNUMBERtoBigDecimal = klazzNUMBER.getMethod("toBigDecimal", byte[].class);
 	}
 
-	public byte toByte(String hex) throws SQLException {
+	public static byte toByte(String hex) throws SQLException {
 		try {
-			return (byte) methodNUMBERtoByte.invoke(null, hexStringToByteArray(hex));
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			return NUMBER.toByte(hexStringToByteArray(hex));
+		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public short toShort(String hex) throws SQLException {
+	public static short toShort(String hex) throws SQLException {
 		try {
-			return (short) methodNUMBERtoShort.invoke(null, hexStringToByteArray(hex));
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			return NUMBER.toShort(hexStringToByteArray(hex));
+		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public int toInt(String hex) throws SQLException {
+	public static int toInt(String hex) throws SQLException {
 		try {
-			return (int) methodNUMBERtoInt.invoke(null, hexStringToByteArray(hex));
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			return NUMBER.toInt(hexStringToByteArray(hex));
+		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public long toLong(String hex) throws SQLException {
+	public static long toLong(String hex) throws SQLException {
 		try {
-			return (long) methodNUMBERtoLong.invoke(null, hexStringToByteArray(hex));
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			return NUMBER.toLong(hexStringToByteArray(hex));
+		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public BigInteger toBigInteger(String hex) throws SQLException {
+	public static BigInteger toBigInteger(String hex) throws SQLException {
 		try {
-			return (BigInteger) methodNUMBERtoBigInteger.invoke(null, hexStringToByteArray(hex));
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			return NUMBER.toBigInteger(hexStringToByteArray(hex));
+		} catch (Exception  e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public float toFloat(String hex) throws SQLException {
+	public static float toFloat(String hex) throws SQLException {
 		try {
-			return (float) methodNUMBERtoFloat.invoke(null, hexStringToByteArray(hex));
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			return NUMBER.toFloat(hexStringToByteArray(hex));
+		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public double toDouble(String hex) throws SQLException {
+	public static double toDouble(String hex) throws SQLException {
 		try {
-			return (double) methodNUMBERtoDouble.invoke(null, hexStringToByteArray(hex));
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			return NUMBER.toDouble(hexStringToByteArray(hex));
+		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public BigDecimal toBigDecimal(String hex) throws SQLException {
+	public static BigDecimal toBigDecimal(String hex) throws SQLException {
 		try {
-			return (BigDecimal) methodNUMBERtoBigDecimal.invoke(null, hexStringToByteArray(hex));
-		} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+			return NUMBER.toBigDecimal(hexStringToByteArray(hex));
+		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}

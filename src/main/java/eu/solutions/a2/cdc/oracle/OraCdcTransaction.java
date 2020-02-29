@@ -85,7 +85,9 @@ public class OraCdcTransaction {
 
 	public void close() {
 		LOGGER.trace("Closing Cronicle Queue and deleting files.");
-		statements.close();
+		if (statements != null) {
+			statements.close();
+		}
 		statements = null;
 		try {
 			Files.walk(queueDirectory)

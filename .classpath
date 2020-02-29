@@ -19,11 +19,5 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8"/>
-	<classpathentry kind="lib" path="/Users/alessio/polyxena/workspace.oxygen/oracdc-kafka/lib/postgresql-42.2.8.jar"/>
-	<classpathentry kind="lib" path="/Users/alessio/polyxena/workspace.oxygen/oracdc-kafka/lib/ojdbc8.jar"/>
-	<classpathentry kind="lib" path="/Users/alessio/polyxena/workspace.oxygen/oracdc-kafka/lib/ucp.jar"/>
-	<classpathentry kind="lib" path="/Users/alessio/polyxena/workspace.oxygen/oracdc-kafka/lib/oraclepki.jar"/>
-	<classpathentry kind="lib" path="/Users/alessio/polyxena/workspace.oxygen/oracdc-kafka/lib/osdt_core.jar"/>
-	<classpathentry kind="lib" path="/Users/alessio/polyxena/workspace.oxygen/oracdc-kafka/lib/osdt_cert.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

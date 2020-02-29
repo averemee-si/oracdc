@@ -52,24 +52,20 @@ mvn install
 ```
 
 ### Oracle JDBC drivers
-Unfortunately due the binary license there is no public repository with the Oracle JDBC Driver and Oracle UCP. You can copy drivers from Oracle RDBMS server
+
+**oracdc** is shipped with Oracle JDBC 19.3.0, or you can copy drivers from Oracle RDBMS server
 
 ```
 cp $ORACLE_HOME/jdbc/lib/ojdbc8.jar <JDBC directory> 
 cp $ORACLE_HOME/ucp/lib/ucp.jar <JDBC directory> 
-```
-or download drivers `ojdbc[JAVA-VERSION].jar` and `ucp.jar` from [JDBC and UCP Downloads page](https://www.oracle.com/database/technologies/appdev/jdbc-downloads.html)
-
-### Oracle Wallet
-If you will use	Oracle Wallet for storing Oracle Database credentials you need three more jar files: `oraclepki.jar`, `osdt_core.jar`, and `osdt_cert.jar`
-
-```
 cp $ORACLE_HOME/jlib/oraclepki.jar <JDBC directory>
 cp $ORACLE_HOME/jlib/osdt_core.jar <JDBC directory>
 cp $ORACLE_HOME/jlib/osdt_cert.jar <JDBC directory>
 ```
+or download drivers `ojdbc[JAVA-VERSION].jar`, `ucp.jar`, `oraclepki.jar`, `osdt_core.jar`, and `osdt_cert.jar` from [JDBC and UCP Downloads page](https://www.oracle.com/database/technologies/appdev/jdbc-downloads.html)
 
-or download them from [JDBC and UCP Downloads page](https://www.oracle.com/database/technologies/appdev/jdbc-downloads.html)
+### Oracle Wallet
+
 Please refer to [Oracle Database documentation](https://docs.oracle.com/en/database/) for instructions how to create and manage the Oracle Wallet and tnsnames.ora file. Oracle recommends that you create and manage the Wallet in a database environment using `mkstore` command
 
 ```
@@ -244,6 +240,9 @@ Oracle Wallet support for storing database credentials
 [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) as CDC source
 Removed AWS Kinesis support
 New class hierarchy
+
+######0.9.3.1 (FEB-2020)
+Removing dynamic invocation of Oracle JDBC. Ref.: [Oracle Database client libraries for Java now on Maven Central](https://blogs.oracle.com/developers/oracle-database-client-libraries-for-java-now-on-maven-central)
 
 ## Authors
 

@@ -134,7 +134,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					queuesRoot,
 					committedTransactions);
 
-		} catch (SQLException | ClassNotFoundException | SecurityException | NoSuchMethodException e) {
+		} catch (SQLException | SecurityException e) {
 			LOGGER.error("Unable to start oracdc logminer task!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
@@ -153,12 +153,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 			if (lastStatementInTransaction) {
 				// End of transaction, need to poll new
 				transaction = committedTransactions.poll();
-				transaction.createTailer();
 			}
 			if (transaction == null) {
 				// No more records produced by LogMiner worker
 				break;
 			} else {
+				transaction.createTailer();
 				// Prepare records...
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",

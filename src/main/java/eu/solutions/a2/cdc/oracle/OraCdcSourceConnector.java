@@ -13,7 +13,6 @@
 
 package eu.solutions.a2.cdc.oracle;
 
-import java.lang.reflect.InvocationTargetException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -84,10 +83,10 @@ public class OraCdcSourceConnector extends SourceConnector {
 				throw new ConnectException("Database connection parameters are not properly set!");
 			}
 			LOGGER.trace("Oracle UCP successfully created.");
-		} catch (SQLException | ClassNotFoundException | NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException pe) {
+		} catch (SQLException e) {
 			validConfig = false;
 			LOGGER.error("Unable to initialize database connection.");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(pe));
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			LOGGER.error("{} will not run!", OraCdcSourceConnector.class.getCanonicalName());
 		}
 
