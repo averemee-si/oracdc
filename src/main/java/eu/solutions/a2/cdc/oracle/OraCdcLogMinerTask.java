@@ -153,6 +153,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			if (lastStatementInTransaction) {
 				// End of transaction, need to poll new
 				transaction = committedTransactions.poll();
+				transaction.createTailer();
 			}
 			if (transaction == null) {
 				// No more records produced by LogMiner worker

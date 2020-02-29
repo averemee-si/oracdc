@@ -24,7 +24,7 @@ public class OraCdcTransaction {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransaction.class);
 
 	private final String xid;
-	private final long firstChange;
+	private long firstChange;
 	private long nextChange;
 	private long commitScn;
 	private final Path queueDirectory;
@@ -33,6 +33,15 @@ public class OraCdcTransaction {
 	private ExcerptTailer tailer;
 	private int queueSize = 0;
 
+	/**
+	 * 
+	 * Creates OraCdcTransaction for new transaction
+	 * 
+	 * @param rootDir
+	 * @param xid
+	 * @param firstStatement
+	 * @throws IOException
+	 */
 	public OraCdcTransaction(
 			final Path rootDir, final String xid, final OraCdcLogMinerStatement firstStatement) throws IOException {
 		this.xid = xid;
@@ -51,12 +60,15 @@ public class OraCdcTransaction {
 			appender = this.statements.acquireAppender();
 			appender.writeDocument(firstStatement);
 			queueSize = 1;
-			tailer = this.statements.createTailer();
 		} catch (Exception e) {
 			LOGGER.error("Unable to create Chronicle Queue!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new IOException(e);
 		}
+	}
+
+	public void createTailer() {
+		tailer = statements.createTailer();
 	}
 
 	public void addStatement(final OraCdcLogMinerStatement oraSql) {
@@ -66,12 +78,15 @@ public class OraCdcTransaction {
 	}
 
 	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
-		return tailer.readDocument(oraSql);
+		final boolean result = tailer.readDocument(oraSql);
+		firstChange = oraSql.getScn();
+		return result;
 	}
 
 	public void close() {
 		LOGGER.trace("Closing Cronicle Queue and deleting files.");
 		statements.close();
+		statements = null;
 		try {
 			Files.walk(queueDirectory)
 				.sorted(Comparator.reverseOrder())
