@@ -22,6 +22,9 @@ public interface OraCdcLogMinerMgmtMBean {
 	public int getTablesInProcessingCount();
 	public String[] getTablesInProcessing();
 	public String[] getLast100ProcessedArchivelogs();
+	public String getLastProcessedArchivelog();
+	public long getLastProcessedScn();
+	public String getLastProcessedArchivelogTime();
 	public int getTableOutOfScopeCount();
 	public String[] getNowProcessedArchivelogs();
 	public long getCurrentFirstScn();
@@ -41,6 +44,8 @@ public interface OraCdcLogMinerMgmtMBean {
 	public int getSentBatchesCount();
 	public long getParseElapsedMillis();
 	public String getParseElapsed();
+	public int getParsePerSecond();
 	public long getRedoReadElapsedMillis();
 	public String getRedoReadElapsed();
+	public float getRedoReadMbPerSecond();
 }

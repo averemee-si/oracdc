@@ -4,4 +4,6 @@ LIB_HOME=$CONNECT_HOME/lib
 # Add Oracle jar's
 CLASSPATH=$LIB_HOME/ojdbc8.jar:$LIB_HOME/ucp.jar:$LIB_HOME/oraclepki.jar:$LIB_HOME/osdt_core.jar:$LIB_HOME/osdt_cert.jar:${CLASSPATH}
 export CLASSPATH
+# Add misc jar's
+CLASSPATH=$LIB_HOME/commons-math3-3.6.1.jar:${CLASSPATH}
 connect-standalone -daemon /kafka/config/connect-avro-standalone.properties $CONNECT_HOME/config/mviewlog-source-testapps.properties

@@ -7,6 +7,9 @@
 |TablesInProcessingCount     |int      |Number of tables in processing                                                              |
 |TablesInProcessing          |String[] |Names of tables in processing                                                               |
 |Last100ProcessedArchivelogs |String[] |Last 100 processed archivelogs                                                              |
+|LastProcessedArchivelog     |String   |Last processed archivelog                                                                   |
+|LastProcessedScn            |long     |Last processed SCN                                                                          |
+|LastProcessedArchivelogTime |String   |Time when the last archivelog was processed                                                 |
 |TableOutOfScopeCount        |int      |The number of tables from the journal that do not meet the a2.include criteria              |
 |NowProcessedArchivelogs     |String[] |Archivelogs currently being processed                                                       |
 |CurrentFirstScn             |long     |min(FIRST_CHANGE#) for archivelogs currently being processed                                |
@@ -26,5 +29,7 @@
 |SentBatchesCount            |int      |The number of Connector poll() call                                                         |
 |ParseElapsedMillis          |long     |Time spent for parsing V$LOGMNR_CONTENTS.SQL_REDO column, milliseconds                      |
 |ParseElapsed                |String   |Time spent for parsing V$LOGMNR_CONTENTS.SQL_REDO column, Days/Hours/Minutes/Seconds        |
+|ParsePerSecond              |int      |Average number of records parsed per second                                                 |
 |RedoReadElapsedMillis       |long     |Time spent for reading archivelogs (querying V$LOGMNR_CONTENTS), milliseconds               |
 |RedoReadElapsed             |String   |Time spent for reading archivelogs (querying V$LOGMNR_CONTENTS), Days/Hours/Minutes/Seconds |
+|RedoReadMbPerSecond         |float    |Average MB per second of archivelog reading                                                 |

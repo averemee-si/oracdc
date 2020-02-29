@@ -19,6 +19,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.math3.util.Precision;
+
 import eu.solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
 
 /**
@@ -49,7 +51,12 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	private long recordsSentCount = 0;
 	private int batchesSentCount = 0;
 	private long parseTimeElapsed = 0;
+	private int parsePerSecond = 0;
 	private long redoReadTimeElapsed = 0;
+	private float redoReadMbPerSec = 0;
+	private String lastRedoLog;
+	private LocalDateTime lastRedoLogTime;
+	private long lastScn = 0;
 
 	public void start(long startScn) {
 		this.startTimeMillis = System.currentTimeMillis();
@@ -105,11 +112,20 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	}
 
 	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size) {
-		for (int i = 0; i < lastProcessed.size(); i++) {
+		final int listSize = lastProcessed.size();
+		for (int i = 0; i < listSize; i++) {
 			lastHundredProcessed.add(lastProcessed.get(i));
 		}
 		processedArchivedRedoCount += count;
 		processedArchivedRedoSize += size;
+		lastRedoLog = lastProcessed.get(listSize - 1);
+		lastRedoLogTime = LocalDateTime.now();
+		lastScn = currentNextScn;
+		currentFirstScn = 0;
+		currentNextScn = 0;
+		if (redoReadTimeElapsed != 0) {
+			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / (redoReadTimeElapsed / 1000), 3);
+		}
 	}
 	@Override
 	public String[] getLast100ProcessedArchivelogs() {
@@ -122,6 +138,22 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	@Override
 	public long getProcessedArchivelogsSize() {
 		return processedArchivedRedoSize;
+	}
+	@Override
+	public String getLastProcessedArchivelog() {
+		return lastRedoLog;
+	}
+	@Override
+	public long getLastProcessedScn() {
+		return lastScn;
+	}
+	@Override
+	public String getLastProcessedArchivelogTime() {
+		if (lastRedoLogTime != null) {
+			return lastRedoLogTime.format(DateTimeFormatter.ISO_DATE_TIME);
+		} else {
+			return null;
+		}
 	}
 
 	public void addRecord() {
@@ -162,6 +194,11 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		recordsSentCount += sentRecords;
 		batchesSentCount++;
 		parseTimeElapsed += parseTime;
+		if (parseTimeElapsed != 0) {
+			parsePerSecond = (int) Math.ceil(((double) recordsSentCount)/((double) (parseTimeElapsed / 1000)));
+		} else {
+			parsePerSecond = 0;
+		}
 	}
 	@Override
 	public long getSentRecordsCount() {
@@ -180,6 +217,10 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		Duration duration = Duration.ofMillis(parseTimeElapsed);
 		return formatDuration(duration);
 	}
+	@Override
+	public int getParsePerSecond() {
+		return parsePerSecond;
+	}
 
 	public void addRedoReadMillis(long redoReadMillis) {
 		redoReadTimeElapsed += redoReadMillis;
@@ -193,6 +234,11 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		Duration duration = Duration.ofMillis(redoReadTimeElapsed);
 		return formatDuration(duration);
 	}
+	@Override
+	public float getRedoReadMbPerSecond() {
+		return redoReadMbPerSec;
+	}
+	
 
 	@Override
 	public long getElapsedTimeMillis() {
@@ -209,6 +255,7 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 				duration.toDays(),
 				duration.toHours() % 24,
 				duration.toMinutes() % 60,
-				duration.getSeconds() % 60);	}
+				duration.getSeconds() % 60);
+	}
 
 }
