@@ -57,6 +57,7 @@ public class OraCdcTransaction {
 			statements = ChronicleQueue
 				.singleBuilder(queueDirectory)
 				.build();
+			tailer = this.statements.createTailer();
 			appender = this.statements.acquireAppender();
 			appender.writeDocument(firstStatement);
 			queueSize = 1;
@@ -65,10 +66,6 @@ public class OraCdcTransaction {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new IOException(e);
 		}
-	}
-
-	public void createTailer() {
-		tailer = statements.createTailer();
 	}
 
 	public void addStatement(final OraCdcLogMinerStatement oraSql) {

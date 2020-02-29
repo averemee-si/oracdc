@@ -34,7 +34,6 @@ public class OraCdcChronicleQueueTest {
 		String xid = "0000270016000000";
 		OraCdcTransaction transaction = new OraCdcTransaction(queuesRoot, xid, updIn);
 		OraCdcLogMinerStatement updOut = new OraCdcLogMinerStatement();
-		transaction.createTailer();
 		transaction.getStatement(updOut);
 		transaction.close();
 

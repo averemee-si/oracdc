@@ -158,7 +158,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 				// No more records produced by LogMiner worker
 				break;
 			} else {
-				transaction.createTailer();
 				// Prepare records...
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",
