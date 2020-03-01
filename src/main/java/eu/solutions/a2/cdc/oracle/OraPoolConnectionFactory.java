@@ -15,7 +15,9 @@ package eu.solutions.a2.cdc.oracle;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Properties;
 
+import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
 
@@ -29,6 +31,8 @@ public class OraPoolConnectionFactory {
 	private static final int INITIAL_SIZE = 4;
 
 	private static PoolDataSource pds = null;
+	private static boolean activateStandby = false;
+	private static Connection connection2Standby = null;
 
 	public static final void init(final String url, final String user, final String password) throws
 									SQLException {
@@ -57,11 +61,27 @@ public class OraPoolConnectionFactory {
 		return connection;
 	}
 
-	//TODO
-	//TODO Will be different soon...
-	//TODO
+	public static final void init4Standby(final String wallet, final String tnsAdmin, final String alias) throws
+									SQLException {
+		System.setProperty("oracle.net.wallet_location", wallet);
+		System.setProperty("oracle.net.tns_admin", tnsAdmin);
+		final String url = "jdbc:oracle:thin:/@" + alias;
+		Properties props = new Properties();
+		props.setProperty("internal_logon", "sysdba");
+		final OracleDataSource ods = new OracleDataSource();
+		ods.setConnectionProperties(props);
+		ods.setURL(url);
+		connection2Standby = ods.getConnection();
+		connection2Standby.setAutoCommit(false);
+		activateStandby = true;
+}
+
 	public static Connection getLogMinerConnection() throws SQLException {
-		return getConnection();
+		if (activateStandby) {
+			return connection2Standby;
+		} else {
+			return getConnection();
+		}
 	}
 
 }

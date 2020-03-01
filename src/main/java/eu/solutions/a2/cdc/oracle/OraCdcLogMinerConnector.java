@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -98,9 +99,30 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					LOGGER.trace("Connected CDB$ROOT, Oracle RDBMS version {}.", rdbmsInfo.getVersionString());
 				}
 
+				if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
+					if (StringUtils.isAllBlank(ParamConstants.STANDBY_WALLET_PARAM)) {
+						validConfig = false;
+						throw new SQLException("Parameter " + ParamConstants.STANDBY_WALLET_PARAM + " not set!!!");
+					}
+					if (StringUtils.isAllBlank(ParamConstants.STANDBY_TNS_ADMIN_PARAM)) {
+						validConfig = false;
+						throw new SQLException("Parameter " + ParamConstants.STANDBY_TNS_ADMIN_PARAM + " not set!!!");
+					}
+					if (StringUtils.isAllBlank(ParamConstants.STANDBY_TNS_ALIAS_PARAM)) {
+						validConfig = false;
+						throw new SQLException("Parameter " + ParamConstants.STANDBY_TNS_ALIAS_PARAM + " not set!!!");
+					}
+					if (validConfig) {
+						OraPoolConnectionFactory.init4Standby(
+							config.getString(ParamConstants.STANDBY_WALLET_PARAM),
+							config.getString(ParamConstants.STANDBY_TNS_ADMIN_PARAM),
+							config.getString(ParamConstants.STANDBY_TNS_ALIAS_PARAM));
+						LOGGER.info("Connection to PHYSICAL STANDBY will be used for LogMiner calls");
+					}
+				}
 			} catch (SQLException sqle) {
 				validConfig = false;
-				LOGGER.error("Unable to get table information.");
+				LOGGER.error("Unable to validate connection information.");
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 				LOGGER.error("Exiting!");
 			}

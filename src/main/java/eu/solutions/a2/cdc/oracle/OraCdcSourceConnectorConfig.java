@@ -80,7 +80,15 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				.define(ParamConstants.LGMNR_START_SCN_PARAM, Type.LONG, 0,
 						Importance.HIGH, ParamConstants.LGMNR_START_SCN_DOC)
 				.define(ParamConstants.TEMP_DIR_PARAM, Type.STRING, "",
-						Importance.HIGH, ParamConstants.TEMP_DIR_DOC);
+						Importance.HIGH, ParamConstants.TEMP_DIR_DOC)
+				.define(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM, Type.BOOLEAN, false,
+						Importance.HIGH, ParamConstants.MAKE_STANDBY_ACTIVE_DOC)
+				.define(ParamConstants.STANDBY_WALLET_PARAM, Type.STRING, "",
+						Importance.HIGH, ParamConstants.STANDBY_WALLET_DOC)
+				.define(ParamConstants.STANDBY_TNS_ADMIN_PARAM, Type.STRING, "",
+						Importance.HIGH, ParamConstants.STANDBY_TNS_ADMIN_DOC)
+				.define(ParamConstants.STANDBY_TNS_ALIAS_PARAM, Type.STRING, "",
+						Importance.HIGH, ParamConstants.STANDBY_TNS_ALIAS_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {

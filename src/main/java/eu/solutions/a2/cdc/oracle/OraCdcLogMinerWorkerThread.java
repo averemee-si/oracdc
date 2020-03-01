@@ -139,15 +139,15 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			if (logMiner.getDbId() == rdbmsInfo.getDbId()) {
 				LOGGER.debug("Database Id for dictionary and mining connections: {}", logMiner.getDbId());
 				if (logMiner.isDictionaryAvailable()) {
-					LOGGER.trace("Mining database {} is in OPEN mode", logMiner.getDbUniqueName());
+					LOGGER.info("Mining database {} is in OPEN mode", logMiner.getDbUniqueName());
 					if (logMiner.getDbUniqueName().equals(rdbmsInfo.getDbUniqueName())) {
-						LOGGER.trace("Same database will be used for dictionary query and mining");
+						LOGGER.info("Same database will be used for dictionary query and mining");
 					} else {
-						LOGGER.trace("Active DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
+						LOGGER.info("Active DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
 					}
 				} else {
-					LOGGER.trace("Mining database {} is in MOUNT mode", logMiner.getDbUniqueName());
-					LOGGER.trace("DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
+					LOGGER.info("Mining database {} is in MOUNT mode", logMiner.getDbUniqueName());
+					LOGGER.info("DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
 				}
 			} else {
 				throw new ConnectException("Unable to mine data from databases with different DBID!!!");

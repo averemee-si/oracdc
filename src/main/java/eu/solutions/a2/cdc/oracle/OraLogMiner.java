@@ -136,22 +136,24 @@ public class OraLogMiner {
 		fileNames = new ArrayList<>();
 		while (rs.next()) {
 			final long sequence = rs.getLong("SEQUENCE#");
+			nextChange = rs.getLong("NEXT_CHANGE#");
 			if (sequence > lastSequence) {
-				lastSequence = sequence;
-				fileNames.add(archLogsAvailable, rs.getString("NAME"));
-				nextChange = rs.getLong("NEXT_CHANGE#");
-				LOGGER.info("Adding archived log {} thread# {} sequence# {} first change number {} next log first change {}",
-					rs.getString("NAME"), rs.getShort("THREAD#"), lastSequence,
-					rs.getLong("FIRST_CHANGE#"), nextChange);
-				archLogsAvailable++;
-				archLogsSize += rs.getLong("BYTES"); 
-				if (useNumOfArchLogs) {
-					if (archLogsAvailable >= numArchLogs) {
-						break;
-					}
-				} else {
-					if (archLogsSize >= sizeOfArchLogs) {
-						break;
+				if (firstChange < nextChange) {
+					lastSequence = sequence;
+					fileNames.add(archLogsAvailable, rs.getString("NAME"));
+					LOGGER.info("Adding archived log {} thread# {} sequence# {} first change number {} next log first change {}",
+							rs.getString("NAME"), rs.getShort("THREAD#"), lastSequence,
+							rs.getLong("FIRST_CHANGE#"), nextChange);
+					archLogsAvailable++;
+					archLogsSize += rs.getLong("BYTES"); 
+					if (useNumOfArchLogs) {
+						if (archLogsAvailable >= numArchLogs) {
+							break;
+						}
+					} else {
+						if (archLogsSize >= sizeOfArchLogs) {
+							break;
+						}
 					}
 				}
 			}
@@ -178,12 +180,12 @@ public class OraLogMiner {
 			csAddArchivedLogs.executeBatch();
 			csAddArchivedLogs.clearBatch();
 
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Attempting to start LogMiner for SCN range from {} to {}.", firstChange, nextChange);
+			}
 			csStartLogMiner.setLong(1, firstChange); 
 			csStartLogMiner.setLong(2, nextChange); 
 			csStartLogMiner.execute();
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("LogMiner started for SCN range from {} to {}.", firstChange, nextChange);
-			}
 			csStartLogMiner.clearParameters();
 			firstChange = nextChange;
 			LOGGER.trace("END: next() return true");

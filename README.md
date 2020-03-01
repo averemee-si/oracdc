@@ -9,7 +9,7 @@ This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database
 **oracdc**'s _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ connects to the following configurations of Oracle RDBMS:
 1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. **V$DATABASE.OPEN_MODE = READ WRITE** 
 2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = READ ONLY**
-3. Physical Standby Database of Oracle **DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = MOUNTED**. This option is being tested now (planned for release APR-2020) and if you want to participate in the testing please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+3. Physical Standby Database of Oracle **DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = MOUNTED**. In this mode, a physical standby database is used to retrieve data using LogMiner and connection to primary database is used to perform strictly limited number of queries to data dictionary (ALL|CDB_OBJECTS, ALL|CDB_TABLES, and ALL|CDB_TAB_COLUMNS). This option allows you to promote physical standby database to source of replication, eliminates LogMiner overhead from primary database, and  decreases TCO of Oracle Database.
 
 ### Monitoring
 _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
@@ -70,7 +70,7 @@ Please refer to [Oracle Database documentation](https://docs.oracle.com/en/datab
 
 ```
 mkstore -wrl $A2_CDC_HOME/wallets/ -create
-mkstore -wrl $A2_CDC_HOME/wallets/ -createCredential JDK8 SCOTT
+mkstore -wrl $A2_CDC_HOME/wallets/ -createCredential R1229 SCOTT
 ```
 
 # Running 
@@ -108,7 +108,7 @@ alter database add supplemental log data (ALL) columns;
 Alternatively, to enable only for selected tables (recommended):
 
 ```
-alter table <OWNER>.<TABLE_NAME> alter database add supplemental log data (ALL) columns; 
+alter table <OWNER>.<TABLE_NAME> add supplemental log data (ALL) columns; 
 ```
 If using Amazon RDS for Oracle please see [AWS Amazon Relational Database Service User Guide](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Appendix.Oracle.CommonDBATasks.Log.html#Appendix.Oracle.CommonDBATasks.AddingSupplementalLogging) about **rdsadmin.rdsadmin_util.alter_supplemental_logging** procedure.
 
@@ -141,6 +141,23 @@ For Oracle RDBMS versions 12c+ additional privilege required:
 grant LOGMINING to REPLICATOR;
 ```
 Assign **REPLICATOR** role to the Oracle RDBMS user.
+
+### Additional configuration for physical standby database (V$DATABASE.OPEN_MODE = MOUNTED)
+
+Connection to physical standby database when database is opened in **MOUNTED** mode is possible only for users for SYSDBA privilege. To check for correct user settings log in to SQL*Plus as SYSDBA and connect to physical standby database. To verify that you connected to physical standby database enter
+
+```
+select OPEN_MODE, DATABASE_ROLE, DB_UNIQUE_NAME from V$DATABASE;
+```
+it should return **MOUNTED** **PHYSICAL STANDBY** **<UNIQUE DATABASE NAME>**
+Then enter:
+
+```
+select USERNAME from V$PWFILE_USERS where SYSDBA = 'TRUE';
+```
+For the user who will be used to connect to physical standby database create a Oracle Wallet. Please refer to section **Oracle Wallet** above.
+To run **oracdc** in this mode parameter `a2.standby.activate` must set to `true`.
+
 
 ## Materialized View logs as CDC source (eu.solutions.a2.cdc.oracle.OraCdcSourceConnector)
 
@@ -228,21 +245,31 @@ When using mayrialized view log as CDC source *scn* field for **INSERT** and **U
 ## Version history
 
 #####0.9.0 (OCT-2019)
+
 Initial release
 
 #####0.9.1 (NOV-2019)
+
 Oracle Wallet support for storing database credentials
 
 #####0.9.2 (DEC-2019)
+
 "with ROWID" materialized view log support
 
 #####0.9.3 (FEB-2020)
+
 [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) as CDC source
 Removed AWS Kinesis support
 New class hierarchy
 
 ######0.9.3.1 (FEB-2020)
+
 Removing dynamic invocation of Oracle JDBC. Ref.: [Oracle Database client libraries for Java now on Maven Central](https://blogs.oracle.com/developers/oracle-database-client-libraries-for-java-now-on-maven-central)
+
+
+#####0.9.4 (MAR-2020)
+
+Ability to run [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) on the physical database when V$DATABASE.OPEN_MODE = MOUNTED to reduce TCO
 
 ## Authors
 

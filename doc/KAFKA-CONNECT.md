@@ -43,3 +43,13 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 `a2.first.change` - When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set **min(FIRST_CHANGE#) from V$ARCHIVED_LOG** will used. Overrides SCN value  stored in offset file.
 
 `a2.tmpdir` - Temporary directory for off-heap storage. Default - value of _java.io.tmpdir_ JVM property
+
+#### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
+
+`a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
+
+`a2.standby.wallet.location` - Location of Oracle Wallet for connecting to physical standby database with V$DATABASE.OPEN_MODE = MOUNTED
+
+`a2.standby.tns.admin` - Location of tnsnames.ora file for connecting to physical standby database with V$DATABASE.OPEN_MODE = MOUNTED
+
+`a2.standby.tns.alias` - Connection TNS alias for connecting to physical standby database with V$DATABASE.OPEN_MODE = MOUNTED
