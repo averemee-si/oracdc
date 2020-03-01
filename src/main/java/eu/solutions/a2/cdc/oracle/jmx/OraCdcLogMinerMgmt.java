@@ -124,7 +124,8 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		currentFirstScn = 0;
 		currentNextScn = 0;
 		if (redoReadTimeElapsed != 0) {
-			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / (redoReadTimeElapsed / 1000), 3);
+			float seconds = redoReadTimeElapsed / 1000;
+			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
 		}
 	}
 	@Override
