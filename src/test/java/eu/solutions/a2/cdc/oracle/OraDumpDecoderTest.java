@@ -40,6 +40,34 @@ public class OraDumpDecoderTest {
 		// Typ=180 Len=7: Typ=180 Len=7: 78,78,02,04,0e,3c,18
 		String sDatTsTyp180 = "787802040e3c18";
 
+		/*
+			create table NUMBER_TEST(ID NUMBER, BF BINARY_FLOAT, BD BINARY_DOUBLE, NN117 NUMBER(11,7));
+			insert into NUMBER_TEST values(-.1828, SQRT(3),SQRT(3),SQRT(3));
+			SQL> select dump(ID, 16) from NUMBER_TEST;
+			DUMP(ID,16)
+			--------------------------------------------------------------------------------
+			Typ=2 Len=4: 3f,53,49,66
+
+			SQL> select dump(BF, 16) from NUMBER_TEST;
+			DUMP(BF,16)
+			--------------------------------------------------------------------------------
+			Typ=100 Len=4: bf,dd,b3,d7
+
+			SQL> select dump(BD, 16) from NUMBER_TEST;
+			DUMP(BD,16)
+			--------------------------------------------------------------------------------
+			Typ=101 Len=8: bf,fb,b6,7a,e8,58,4c,aa
+
+			SQL> select dump(NN117, 16) from NUMBER_TEST;
+			DUMP(NN117,16)
+			--------------------------------------------------------------------------------
+			Typ=2 Len=6: c1,2,4a,15,33,51
+		 */
+		String bdNegative = "3f534966";
+		String binaryFloatSqrt3 = "bfddb3d7";
+		String binaryDoubleSqrt3 = "bffbb67ae8584caa";
+		String number_11_7_Sqrt3 = "c1024a153351";
+
 		OraDumpDecoder odd = null;
 		odd = new OraDumpDecoder("AL32UTF8", "AL16UTF16");
 		try {
@@ -47,7 +75,19 @@ public class OraDumpDecoderTest {
 			System.out.println(odd.fromVarchar2(sTrChinese));
 			System.out.println(odd.fromVarchar2(sGreek));
 			System.out.println(odd.fromVarchar2(sCyrillic));
+
 			System.out.println(OraDumpDecoder.toTimestamp(sDatTsTyp180));
+
+			System.out.println(OraDumpDecoder.toBigDecimal(bdNegative));
+			System.out.println(OraDumpDecoder.toFloat(bdNegative));
+			System.out.println(OraDumpDecoder.toDouble(bdNegative));
+
+			System.out.println(OraDumpDecoder.fromBinaryFloat(binaryFloatSqrt3));
+			System.out.println(OraDumpDecoder.fromBinaryDouble(binaryDoubleSqrt3));
+
+			System.out.println(OraDumpDecoder.toBigDecimal(number_11_7_Sqrt3));
+			System.out.println(OraDumpDecoder.toFloat(number_11_7_Sqrt3));
+			System.out.println(OraDumpDecoder.toDouble(number_11_7_Sqrt3));
 		} catch (SQLException e) {
 			e.printStackTrace();
 			fail("Exception " + e.getMessage());

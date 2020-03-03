@@ -21,6 +21,8 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Hashtable;
 
+import oracle.sql.BINARY_DOUBLE;
+import oracle.sql.BINARY_FLOAT;
 import oracle.sql.NUMBER;
 
 
@@ -107,9 +109,27 @@ public class OraDumpDecoder {
 		}
 	}
 
+	public static float fromBinaryFloat(String hex) throws SQLException {
+		try {
+			BINARY_FLOAT bf = new BINARY_FLOAT(hexStringToByteArray(hex));
+			return bf.floatValue();
+		} catch (Exception e) {
+			throw new SQLException("Invalid Oracle NUMBER", e);
+		}
+	}
+
 	public static double toDouble(String hex) throws SQLException {
 		try {
 			return NUMBER.toDouble(hexStringToByteArray(hex));
+		} catch (Exception e) {
+			throw new SQLException("Invalid Oracle NUMBER", e);
+		}
+	}
+
+	public static double fromBinaryDouble(String hex) throws SQLException {
+		try {
+			BINARY_DOUBLE bd = new BINARY_DOUBLE(hexStringToByteArray(hex));
+			return bd.doubleValue();
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
