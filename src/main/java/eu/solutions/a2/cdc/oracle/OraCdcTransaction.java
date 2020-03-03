@@ -26,12 +26,13 @@ public class OraCdcTransaction {
 	private final String xid;
 	private long firstChange;
 	private long nextChange;
-	private long commitScn;
+	private Long commitScn;
 	private final Path queueDirectory;
 	private ChronicleQueue statements;
 	private ExcerptAppender appender;
 	private ExcerptTailer tailer;
-	private int queueSize = 0;
+	private int queueSize;
+	private int tailerOffset;
 
 	/**
 	 * 
@@ -44,6 +45,7 @@ public class OraCdcTransaction {
 	 */
 	public OraCdcTransaction(
 			final Path rootDir, final String xid, final OraCdcLogMinerStatement firstStatement) throws IOException {
+		LOGGER.trace("BEGIN: create OraCdcTransaction for new transaction");
 		this.xid = xid;
 		firstChange = firstStatement.getScn();
 		nextChange = firstChange;
@@ -61,11 +63,63 @@ public class OraCdcTransaction {
 			appender = this.statements.acquireAppender();
 			appender.writeDocument(firstStatement);
 			queueSize = 1;
+			tailerOffset = 0;
 		} catch (Exception e) {
 			LOGGER.error("Unable to create Chronicle Queue!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new IOException(e);
 		}
+		LOGGER.trace("END: create OraCdcTransaction for new transaction");
+	}
+
+	/**
+	 * 
+	 * Restores OraCdcTransaction from previously creates Chronicle queue file
+	 * 
+	 * @param queueDirectory
+	 * @param xid
+	 * @param firstChange
+	 * @param nextChange
+	 * @param commitScn
+	 * @param queueSize
+	 * @param savedTailerOffset
+	 */
+	public OraCdcTransaction(
+			final Path queueDirectory, final String xid,
+			final long firstChange, final long nextChange, final Long commitScn,
+			final int queueSize, final Integer savedTailerOffset) throws IOException {
+		LOGGER.trace("BEGIN: restore OraCdcTransaction from filesystem");
+		this.queueDirectory = queueDirectory;
+		this.xid = xid;
+		this.queueSize = queueSize;
+		try {
+			statements = ChronicleQueue
+				.singleBuilder(queueDirectory)
+				.build();
+			tailer = this.statements.createTailer();
+			appender = this.statements.acquireAppender();
+		} catch (Exception e) {
+			LOGGER.error("Unable to create Chronicle Queue!");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+			throw new IOException(e);
+		}
+		this.firstChange = firstChange;
+		this.nextChange = nextChange;
+		this.commitScn = commitScn;
+		this.tailerOffset = 0;
+		while (this.tailerOffset < savedTailerOffset) {
+			LOGGER.trace("rewind to stored offset");
+			OraCdcLogMinerStatement oraSql = new OraCdcLogMinerStatement();
+			final boolean result = this.getStatement(oraSql);
+			if (!result) {
+				throw new IOException("Chronicle Queue corruption!!!");
+			}
+		}
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Chronicle Queue Successfully restored in directory {} for transaction XID {} with {} records.",
+					queueDirectory.toString(), xid, queueSize);
+		}
+		LOGGER.trace("END: restore OraCdcTransaction from filesystem");
 	}
 
 	public void addStatement(final OraCdcLogMinerStatement oraSql) {
@@ -77,6 +131,7 @@ public class OraCdcTransaction {
 	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
 		final boolean result = tailer.readDocument(oraSql);
 		firstChange = oraSql.getScn();
+		tailerOffset++;
 		return result;
 	}
 
@@ -101,6 +156,10 @@ public class OraCdcTransaction {
 		return queueSize;
 	}
 
+	public int offset() {
+		return tailerOffset;
+	}
+
 	public String getXid() {
 		return xid;
 	}
@@ -113,12 +172,16 @@ public class OraCdcTransaction {
 		return nextChange;
 	}
 
-	public long getCommitScn() {
+	public Long getCommitScn() {
 		return commitScn;
 	}
 
-	public void setCommitScn(long commitScn) {
+	public void setCommitScn(Long commitScn) {
 		this.commitScn = commitScn;
+	}
+
+	public Path getPath() {
+		return queueDirectory;
 	}
 
 }
