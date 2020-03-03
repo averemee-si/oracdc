@@ -50,7 +50,6 @@ public class OraColumn {
 	private final boolean partOfPk;
 	private final int jdbcType;
 	private final boolean nullable;
-	private boolean oracleDate = false;
 	private int dataScale = 0;
 
 
@@ -92,7 +91,6 @@ public class OraColumn {
 			case "DATE":
 				// Oracle Date holds time too...
 				// So here we use Timestamp
-				oracleDate = true;
 				jdbcType = Types.TIMESTAMP;
 				if (this.nullable)
 					valueSchema.field(this.columnName, Timestamp.builder().optional().build());
@@ -416,10 +414,6 @@ public class OraColumn {
 
 	public boolean isNullable() {
 		return nullable;
-	}
-
-	public boolean isOracleDate() {
-		return oracleDate;
 	}
 
 	public int getDataScale() {

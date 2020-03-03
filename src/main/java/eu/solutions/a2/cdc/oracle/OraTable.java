@@ -873,19 +873,11 @@ public class OraTable {
 					break;
 				case Types.TIMESTAMP:
 					//TODO Timezone support!!!!
-					if (oraColumn.isOracleDate()) {
-						Date dateTsColumnValue = rsMaster.getDate(columnName);
-						if (rsMaster.wasNull())
-							valueStruct.put(columnName, null);
-						else
-							valueStruct.put(columnName, new Timestamp(dateTsColumnValue.getTime()));
-					} else {
-						Timestamp tsColumnValue = rsMaster.getTimestamp(columnName);
-						if (rsMaster.wasNull())
-							valueStruct.put(columnName, null);
-						else
-							valueStruct.put(columnName, tsColumnValue);
-					}
+					final Timestamp tsColumnValue = rsMaster.getTimestamp(columnName);
+					if (rsMaster.wasNull())
+						valueStruct.put(columnName, null);
+					else
+						valueStruct.put(columnName, tsColumnValue);
 					break;
 				case Types.FLOAT:
 					final float floatColumnValue = rsMaster.getFloat(columnName); 
