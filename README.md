@@ -17,7 +17,7 @@ _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metri
 ### Known issues
 1. We use V$LOGMNR_CONTENTS.SCN and tuple (V$LOGMNR_CONTENTS.RS_ID, V$LOGMNR_CONTENTS.SSN) as stored Kafka Connect offset. Due to transaction tracking on the Kafka Connect side there may be a situation when last recorded SCN in offset file is behind of SCN's of uncommitted rows. When the connector stops, we track this and print a message in the connector's log file. There are two workarounds at moment: or stop **oracdc** only afyter stopping Oracle RDBMS, or record unprocessed SCN value from connector's log file and set value of `a2.first.change` accordingly to override stored offset. We're working on this issue. 
 2. Persistance of [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) objects between Kafka Connect restarts. We're working on this issue.
-3. Only "classical" Oracle data types are supported. We are working on adding support for **BINARY_FLOAT/BINARY_DOUBLE/INTERVAL** data types
+3. Only "classical" Oracle data types are supported. We are working on adding support for **INTERVAL** data types
 4. Initial data load - we're strongly recommend usage of bulk load methods.
 
 ### Performance tips
@@ -212,7 +212,7 @@ See the [MESSAGE-SAMPLES-DBZM-STYLE.md](doc/MESSAGE-SAMPLES-DBZM-STYLE.md) for d
 
 ## Oracle RDBMS specific information
 *source* structure of payload contains various information about Oracle RDBMS instance from V$INSTANCE and V$DATABASE views.
-When using mayrialized view log as CDC source *scn* field for **INSERT** and **UPDATE** operations contains actual *ORA_ROWSCN* pseudocolumn value for given row in master table, for **DELETE** operation -  *ORA_ROWSCN* pseudocolumn value for given row in materialized view log.
+When using materialized view log as CDC source *scn* field for **INSERT** and **UPDATE** operations contains actual *ORA_ROWSCN* pseudocolumn value for given row in master table, for **DELETE** operation -  *ORA_ROWSCN* pseudocolumn value for given row in materialized view log.
 
 ### Oracle RDBMS Type mapping
 
@@ -227,6 +227,8 @@ When using mayrialized view log as CDC source *scn* field for **INSERT** and **U
 |NUMBER           |float64  |Oracle NUMBER without specified SCALE and PRECISION           |
 |NUMBER           |bytes    |org.apache.kafka.connect.data.Decimal - all other numerics    |
 |FLOAT            |float64  |                                                              |
+|BINARY_FLOAT     |float32  |                                                              |
+|BINARY_DOUBLE    |float64  |                                                              |
 |RAW              |bytes    |                                                              |
 |BLOB             |bytes    |                                                              |
 |CHAR             |string   |                                                              |

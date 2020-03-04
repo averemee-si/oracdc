@@ -51,6 +51,7 @@ public class OraColumn {
 	private final int jdbcType;
 	private final boolean nullable;
 	private int dataScale = 0;
+	private boolean binaryFloatDouble = false;
 
 
 	/**
@@ -210,6 +211,28 @@ public class OraColumn {
 						else
 							valueSchema.field(this.columnName, Decimal.builder(dataScale).required().build());
 				}
+				break;
+			case "BINARY_FLOAT":
+				jdbcType = Types.FLOAT;
+				binaryFloatDouble = true;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT32_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
+				break;
+			case "BINARY_DOUBLE":
+				jdbcType = Types.DOUBLE;
+				binaryFloatDouble = true;
+				if (this.nullable)
+					valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
+				else
+					if (this.partOfPk)
+						keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+					else
+						valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
 				break;
 			case "RAW":
 				jdbcType = Types.BINARY;
@@ -420,6 +443,9 @@ public class OraColumn {
 		return dataScale;
 	}
 
+	public boolean isBinaryFloatDouble() {
+		return binaryFloatDouble;
+	}
 
 	/**
 	 * 

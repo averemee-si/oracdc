@@ -277,10 +277,18 @@ public class OraCdcSqlRedoParser {
 				columnValue = OraDumpDecoder.toLong(hex);
 				break;
 			case Types.FLOAT:
-				columnValue = OraDumpDecoder.toFloat(hex);
+				if (oraColumn.isBinaryFloatDouble()) {
+					columnValue = OraDumpDecoder.fromBinaryFloat(hex);
+				} else {
+					columnValue = OraDumpDecoder.toFloat(hex);
+				}
 				break;
 			case Types.DOUBLE:
-				columnValue = OraDumpDecoder.toDouble(hex);
+				if (oraColumn.isBinaryFloatDouble()) {
+					columnValue = OraDumpDecoder.fromBinaryDouble(hex);
+				} else {
+					columnValue = OraDumpDecoder.toDouble(hex);
+				}
 				break;
 			case Types.DECIMAL:
 				columnValue = OraDumpDecoder.toBigDecimal(hex).setScale(oraColumn.getDataScale());
