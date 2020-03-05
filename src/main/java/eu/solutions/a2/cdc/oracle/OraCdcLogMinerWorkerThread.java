@@ -234,7 +234,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	@Override
 	public void run()  {
-		LOGGER.trace("BEGIN: run()");
+		LOGGER.info("BEGIN: OraCdcLogMinerWorkerThread.run()");
 		while (runLatch.getCount() > 0) {
 			try {
 			if (logMinerReady) {
@@ -389,6 +389,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				throw new ConnectException(e);
 			}
 		}
+		LOGGER.info("END: OraCdcLogMinerWorkerThread.run()");
 	}
 
 	public void shutdown() {
