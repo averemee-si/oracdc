@@ -52,9 +52,6 @@ public class OraDumpDecoder {
 	 * 
 	 * @param nlsCharacterSet        - Oracle RDBMS NLS_CHARACTERSET
 	 * @param nlsNcharCharacterSet   - Oracle RDBMS NLS_NCHAR_CHARACTERSET
-	 * @throws ClassNotFoundException
-	 * @throws NoSuchMethodException
-	 * @throws SecurityException
 	 */
 	public OraDumpDecoder(final String nlsCharacterSet, final String nlsNcharCharacterSet) {
 		this.nlsCharacterSet = charsetMap.get(nlsCharacterSet);
