@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +22,14 @@ import net.openhft.chronicle.queue.ExcerptTailer;
  *
  */
 public class OraCdcTransaction {
+
+	public static final String QUEUE_DIR = "queueDirectory";
+	public static final String TRANS_XID = "xid";
+	public static final String TRANS_FIRST_CHANGE = "firstChange";
+	public static final String TRANS_NEXT_CHANGE = "nextChange";
+	public static final String QUEUE_SIZE = "queueSize";
+	public static final String QUEUE_OFFSET = "tailerOffset";
+	public static final String TRANS_COMMIT_SCN = "commitScn";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransaction.class);
 
@@ -158,6 +168,20 @@ public class OraCdcTransaction {
 
 	public int offset() {
 		return tailerOffset;
+	}
+
+	public Map<String, Object> attrsAsMap() {
+		final Map<String, Object> transAsMap = new LinkedHashMap<>();
+		transAsMap.put(QUEUE_DIR, queueDirectory.toString());
+		transAsMap.put(TRANS_XID, xid);
+		transAsMap.put(TRANS_FIRST_CHANGE, firstChange);
+		transAsMap.put(TRANS_NEXT_CHANGE, nextChange);
+		transAsMap.put(QUEUE_SIZE, queueSize);
+		transAsMap.put(QUEUE_OFFSET, tailerOffset);
+		if (commitScn != null) {
+			transAsMap.put(TRANS_COMMIT_SCN, commitScn);
+		}
+		return transAsMap;
 	}
 
 	public String getXid() {
