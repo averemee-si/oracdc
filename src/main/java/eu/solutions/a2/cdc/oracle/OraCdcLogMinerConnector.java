@@ -13,6 +13,7 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
@@ -46,6 +47,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 	private boolean validConfig = true;
 	private int schemaType;
 	private String tmpdir;
+	private String stateFileName;
 
 	@Override
 	public String version() {
@@ -128,7 +130,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			}
 
 			final String schemaTypeString = config.getString(ParamConstants.SCHEMA_TYPE_PARAM);
-			LOGGER.debug("a2.schema.type set to {}.", schemaTypeString);
+			LOGGER.debug("{} set to {}.", ParamConstants.SCHEMA_TYPE_PARAM, schemaTypeString);
 			if (ParamConstants.SCHEMA_TYPE_DEBEZIUM.equals(schemaTypeString)) {
 				schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
 			} else {
@@ -153,6 +155,18 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 						ParamConstants.TEMP_DIR_PARAM, tmpdir);
 				validConfig = false;
 			}
+
+			stateFileName = config.getString(ParamConstants.PERSISTENT_STATE_FILE_PARAM);
+			if ("".equals(stateFileName) || stateFileName == null) {
+				final String tmpDir = System.getProperty("java.io.tmpdir");
+				stateFileName = tmpDir +  
+						(StringUtils.endsWith(tmpDir, File.separator) ? "" : File.separator) +
+						"oracdc.state";				
+			}
+			LOGGER.debug("{} set to {}.", ParamConstants.PERSISTENT_STATE_FILE_PARAM, stateFileName);
+			//TODO
+			//TODO Perform more file checks and related... ... ...
+			//TODO
 
 		}
 
@@ -218,6 +232,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			taskParam.put(ParamConstants.LGMNR_START_SCN_PARAM, Long.toString(firstScn));
 		}
 		taskParam.put(ParamConstants.TEMP_DIR_PARAM, tmpdir);
+		taskParam.put(ParamConstants.PERSISTENT_STATE_FILE_PARAM, stateFileName);
 
 		final List<Map<String, String>> configs = new ArrayList<>(1);
 		configs.add(taskParam);
