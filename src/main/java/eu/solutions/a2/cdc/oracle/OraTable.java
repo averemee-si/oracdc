@@ -205,7 +205,20 @@ public class OraTable {
 		prepareSql(pkColCount, autoCreateTable);
 	}
 
-
+	/**
+	 * 
+	 * This constructor is used in LogMiner worker thread
+	 * 
+	 * @param pdbName
+	 * @param conId
+	 * @param tableOwner
+	 * @param tableName
+	 * @param schemaType
+	 * @param isCdb
+	 * @param odd
+	 * @param sourcePartition
+	 * @param kafkaTopic
+	 */
 	public OraTable(
 			final String pdbName, final Short conId, final String tableOwner,
 			final String tableName, final int schemaType, final boolean isCdb,
