@@ -103,6 +103,7 @@ public class OraLogMiner {
 				LOGGER.trace("LogMiner connection database is in {} state, dictionary is available.", openMode);
 				dictionaryAvailable = true;
 			}
+			LOGGER.info("LogMiner will start from SCN {}", firstChange);
 			dbId = rsOpenMode.getLong(2);
 			dbUniqueName = rsOpenMode.getString(3);
 		} else {
