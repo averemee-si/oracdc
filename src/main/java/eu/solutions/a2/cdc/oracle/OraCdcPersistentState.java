@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle.persistence;
+package eu.solutions.a2.cdc.oracle;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -51,7 +51,8 @@ public class OraCdcPersistentState implements Serializable {
 	private Map<String, Object> currentTransaction;
 	private List<Map<String, Object>> committedTransactions;
 	private List<Map<String, Object>> inProgressTransactions;
-
+	private List<Long> processedTablesIds;
+	private List<Long> outOfScopeTablesIds;
 
 	public OraCdcPersistentState() {
 	}
@@ -154,6 +155,22 @@ public class OraCdcPersistentState implements Serializable {
 
 	public void setInProgressTransactions(List<Map<String, Object>> inProgressTransactions) {
 		this.inProgressTransactions = inProgressTransactions;
+	}
+
+	public List<Long> getProcessedTablesIds() {
+		return processedTablesIds;
+	}
+
+	public void setProcessedTablesIds(List<Long> processedTablesIds) {
+		this.processedTablesIds = processedTablesIds;
+	}
+
+	public List<Long> getOutOfScopeTablesIds() {
+		return outOfScopeTablesIds;
+	}
+
+	public void setOutOfScopeTablesIds(List<Long> outOfScopeTablesIds) {
+		this.outOfScopeTablesIds = outOfScopeTablesIds;
 	}
 
 	@Override

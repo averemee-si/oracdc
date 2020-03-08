@@ -19,17 +19,15 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.source.SourceTaskContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,8 +51,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final CountDownLatch runLatch;
 	private boolean logMinerReady = false;
 	private final Map<String, String> partition;
-	private final Map<Integer, OraTable> tablesInProcessing;
-	private final Set<Integer> tablesOutOfScope;
+	private final Map<Long, OraTable> tablesInProcessing;
+	private final Set<Long> tablesOutOfScope;
 	private final int schemaType;
 	private final String topic;
 	private final OraDumpDecoder odd;
@@ -67,69 +65,49 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
+	private long lastScn;
+	private String lastRsId;
+	private int lastSsn;
+	private final AtomicBoolean running;
+	private boolean isCdb;
 
 	public OraCdcLogMinerWorkerThread(
 			final int pollInterval,
 			final Map<String, String> partition,
-			final SourceTaskContext taskContext,
+			final long firstScn,
 			final List<String> includeList,
 			final List<String> excludeList,
 			final Long redoSizeThreshold,
 			final Integer redoFilesCount,
-			final Map<Integer, OraTable> tablesInProcessing,
+			final Map<Long, OraTable> tablesInProcessing,
+			final Set<Long> tablesOutOfScope,
 			final int schemaType,
 			final String topic,
 			final OraDumpDecoder odd,
 			final Path queuesRoot,
-			final BlockingQueue<OraCdcTransaction> committedTransactions) {
+			final Map<String, OraCdcTransaction> activeTransactions,
+			final BlockingQueue<OraCdcTransaction> committedTransactions) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.pollInterval = pollInterval;
 		this.partition = partition;
 		this.tablesInProcessing = tablesInProcessing;
+		this.tablesOutOfScope = tablesOutOfScope;
 		this.queuesRoot = queuesRoot;
 		this.odd = odd;
 		this.schemaType = schemaType;
 		this.topic = topic;
+		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
 		runLatch = new CountDownLatch(1);
-		tablesOutOfScope = new HashSet<>();
-		activeTransactions = new HashMap<>();
+		running = new AtomicBoolean(false);
 		try {
 			connLogMiner = OraPoolConnectionFactory.getLogMinerConnection();
 			connDictionary = OraPoolConnectionFactory.getConnection();
 
 			rdbmsInfo = OraRdbmsInfo.getInstance();
+			isCdb = rdbmsInfo.isCdb();
 			metrics = OraCdcLogMinerMBeanServer.getInstance().getMbean();
-
-			LOGGER.trace("Checking for stored offset...");
-			final Map<String, Object> offset = taskContext.offsetStorageReader().offset(partition);
-			final Map<String, String> props = taskContext.configs();
-			/*final*/ long firstScn;
-			boolean rewind = false;
-			String rsId = null;
-			long ssn = -1;
-			if (offset != null) {
-				if (props.containsKey(ParamConstants.LGMNR_START_SCN_PARAM)) {
-					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
-					LOGGER.info("Ignoring SCN value from offset file and setting it to {} from connector properties", firstScn);
-				} else {
-					rewind = true;
-					firstScn = (long) offset.get("SCN");
-					rsId = (String) offset.get("RS_ID");
-					ssn = (long) offset.get("SSN");
-					LOGGER.info("Using values from offset file: SCN = {}, RS_ID = '{}', SSN = {} .",
-							firstScn, rsId, ssn);
-				}
-			} else {
-				if (props.containsKey(ParamConstants.LGMNR_START_SCN_PARAM)) {
-					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
-					LOGGER.info("Using first SCN value {} from connector properties.", firstScn);
-				} else {
-					firstScn = OraRdbmsInfo.firstScnFromArchivedLogs(connLogMiner);
-					LOGGER.info("Using min(FIRST_CHANGE#) from V$ARCHIVED_LOG = {} as first SCN value.", firstScn);
-				}
-			}
 
 			if (redoSizeThreshold != null) {
 				logMiner = new OraLogMiner(connLogMiner, metrics, firstScn, redoSizeThreshold);
@@ -150,12 +128,12 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					LOGGER.info("DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
 				}
 			} else {
-				throw new ConnectException("Unable to mine data from databases with different DBID!!!");
+				throw new SQLException("Unable to mine data from databases with different DBID!!!");
 			}
 
 			String mineDataSql = null;
 			String checkTableSql = null;
-			if (rdbmsInfo.isCdb()) {
+			if (isCdb) {
 				mineDataSql = OraDictSqlTexts.MINE_DATA_CDB;
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB;
 			} else {
@@ -196,248 +174,256 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			psCheckTable = connDictionary.prepareStatement(
 					checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			logMinerReady = logMiner.next();
-			if (rewind) {
-				if (logMinerReady) {
-					LOGGER.info("Rewinding LogMiner ResultSet to first position after CSN = {}, RS_ID = '{}', SSN = {}.",
-							firstScn, rsId, ssn);
-					rsLogMiner = psLogMiner.executeQuery();
-					int recordCount = 0;
-					long rewindElapsed = System.currentTimeMillis();
-					while (rewind) {
-						if (rsLogMiner.next()) {
-							recordCount++;
-							if (firstScn == rsLogMiner.getLong("SCN") &&
-									rsId.equals(rsLogMiner.getString("RS_ID")) &&
-									ssn == rsLogMiner.getLong("SSN") &&
-									!rsLogMiner.getBoolean("CSF")) {
-								rewind = false;
-							}
-						} else {
-							LOGGER.error("Incorrect rewind to CSN = {}, RS_ID = '{}', SSN = {}",
-									firstScn, rsId, ssn);
-							throw new ConnectException("Incorrect rewind operation!!!");
-						}
-					}
-					rewindElapsed = System.currentTimeMillis() - rewindElapsed;
-					LOGGER.info("Total records scipped while rewinding: {}, elapsed time ms: {}", recordCount, rewindElapsed);
-				} else {
-					LOGGER.info("Values from offset (CSN = {}, RS_ID = '{}', SSN = {}) ignored, waiting for new archived log.",
-							firstScn, rsId, ssn);
-				}
-			}
-		} catch (SQLException | SecurityException e) {
+
+		} catch (SQLException e) {
 			LOGGER.error("Unable to start logminer archivelog worker thread!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-			throw new ConnectException(e);
+			throw new SQLException(e);
+		}
+	}
+
+	public void rewind(final long firstScn, final String firstRsId, final int firstSsn) throws SQLException {
+		if (logMinerReady) {
+			LOGGER.info("Rewinding LogMiner ResultSet to first position after SCN = {}, RS_ID = '{}', SSN = {}.",
+					firstScn, firstRsId, firstSsn);
+			rsLogMiner = psLogMiner.executeQuery();
+			int recordCount = 0;
+			long rewindElapsed = System.currentTimeMillis();
+			boolean rewindNeeded = true;
+			while (rewindNeeded) {
+				if (rsLogMiner.next()) {
+					final long scn = rsLogMiner.getLong("SCN");
+					if (recordCount == 0 && scn > firstScn) {
+						// Hit this with 10.2.0.5
+						rewindNeeded = false;
+						// Need to reopen cursor
+						rsLogMiner.close();
+						rsLogMiner = psLogMiner.executeQuery();
+					} else {
+						recordCount++;
+						if (firstScn == scn &&
+							firstRsId.equals(rsLogMiner.getString("RS_ID")) &&
+							firstSsn == rsLogMiner.getInt("SSN") &&
+							!rsLogMiner.getBoolean("CSF")) {
+							rewindNeeded = false;
+						}
+					}
+				} else {
+					LOGGER.error("Incorrect rewind to SCN = {}, RS_ID = '{}', SSN = {}",
+							firstScn, firstRsId, firstSsn);
+					throw new SQLException("Incorrect rewind operation!!!");
+				}
+			}
+			rewindElapsed = System.currentTimeMillis() - rewindElapsed;
+			LOGGER.info("Total records scipped while rewinding: {}, elapsed time ms: {}", recordCount, rewindElapsed);
+		} else {
+			LOGGER.info("Values from offset (SCN = {}, RS_ID = '{}', SSN = {}) ignored, waiting for new archived log.",
+					firstScn, firstRsId, firstSsn);
 		}
 	}
 
 	@Override
 	public void run()  {
 		LOGGER.info("BEGIN: OraCdcLogMinerWorkerThread.run()");
+		running.set(true);
 		while (runLatch.getCount() > 0) {
 			try {
-			if (logMinerReady) {
-				if (rsLogMiner == null) {
-					rsLogMiner = psLogMiner.executeQuery();
-				}
-				final long readStartMillis = System.currentTimeMillis(); 
-				while (rsLogMiner.next()) {
-					final short operation = rsLogMiner.getShort("OPERATION_CODE");
-					final String xid = rsLogMiner.getString("XID");
-					OraCdcTransaction transaction = activeTransactions.get(xid);
-					if (operation == OraLogMiner.V$LOGMNR_CONTENTS_COMMIT) {
-						if (transaction != null) {
-							transaction.setCommitScn(rsLogMiner.getLong("COMMIT_SCN"));
-							committedTransactions.add(transaction);
-							activeTransactions.remove(xid);
-							metrics.addCommittedRecords(transaction.length());
-						} else {
-							if (LOGGER.isDebugEnabled()) {
-								LOGGER.debug("Skipping commit with transaction XID {}", xid);
-							}
-						}
-					} else if (operation == OraLogMiner.V$LOGMNR_CONTENTS_ROLLBACK) {
-						if (transaction != null) {
-							if (LOGGER.isDebugEnabled()) {
-								LOGGER.debug("Rolling back transaction {} with {} records.", xid, transaction.length());
-							}
-							metrics.addRolledBackRecords(transaction.length());
-							transaction.close();
-							activeTransactions.remove(xid);
-						}
-					} else {
-						final int dataObjectId = rsLogMiner.getInt("DATA_OBJ#");
-						OraTable oraTable = tablesInProcessing.get(dataObjectId);
-						if (oraTable == null && !tablesOutOfScope.contains(dataObjectId)) {
-							psCheckTable.setInt(1, dataObjectId);
-							if (rdbmsInfo.isCdb()) {
-								psCheckTable.setShort(2, rsLogMiner.getShort("CON_ID"));
-							}
-							ResultSet rsCheckTable = psCheckTable.executeQuery();
-							if (rsCheckTable.next()) {
-								final String tableName = rsCheckTable.getString("TABLE_NAME");
-								final String tableOwner = rsCheckTable.getString("OWNER");
-								final String tableFqn = tableOwner + "." + tableName;
-								final String tableTopic;
-								if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-									if (topic == null || "".equals(topic)) {
-										tableTopic = tableName;
-									} else {
-										tableTopic = topic + "_" + tableName;
-									}
-								} else {
-									// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-									tableTopic = topic;
-								}
-								if (rdbmsInfo.isCdb()) {
-									final String pdbName = rsCheckTable.getString("PDB_NAME");
-									oraTable = new OraTable(
-											pdbName, rsLogMiner.getShort("CON_ID"),
-											tableOwner, tableName,
-											schemaType, rdbmsInfo.isCdb(), odd, partition, tableTopic);
-										tablesInProcessing.put(dataObjectId, oraTable);
-										metrics.addTableInProcessing(pdbName + ":" + tableFqn);
-								} else {
-									oraTable = new OraTable(
-										null, null,
-										tableOwner, tableName,
-										schemaType, rdbmsInfo.isCdb(), odd, partition, tableTopic);
-									tablesInProcessing.put(dataObjectId, oraTable);
-									metrics.addTableInProcessing(tableFqn);
-								}
+				if (logMinerReady) {
+					if (rsLogMiner == null) {
+						rsLogMiner = psLogMiner.executeQuery();
+					}
+					final long readStartMillis = System.currentTimeMillis(); 
+					while (rsLogMiner.next()) {
+						final short operation = rsLogMiner.getShort("OPERATION_CODE");
+						final String xid = rsLogMiner.getString("XID");
+						lastScn = rsLogMiner.getLong("SCN");
+						lastRsId = rsLogMiner.getString("RS_ID");
+						lastSsn = rsLogMiner.getInt("SSN");
+						OraCdcTransaction transaction = activeTransactions.get(xid);
+						if (operation == OraLogMiner.V$LOGMNR_CONTENTS_COMMIT) {
+							if (transaction != null) {
+								transaction.setCommitScn(rsLogMiner.getLong("COMMIT_SCN"));
+								committedTransactions.add(transaction);
+								activeTransactions.remove(xid);
+								metrics.addCommittedRecords(transaction.length());
 							} else {
-								tablesOutOfScope.add(dataObjectId);
-								metrics.addTableOutOfScope();
-							}
-							rsCheckTable.close();
-							rsCheckTable = null;
-							psCheckTable.clearParameters();
-						}
-
-						if (oraTable != null) {
-							final boolean multiLineSql = rsLogMiner.getBoolean("CSF");
-							final long scn = rsLogMiner.getLong("SCN");
-							final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
-							final String rsId = rsLogMiner.getString("RS_ID");
-							final int ssn = rsLogMiner.getInt("SSN");
-							final String rowId = rsLogMiner.getString("ROW_ID");
-							String sqlRedo;
-							if (multiLineSql) {
-								StringBuilder sb = new StringBuilder(16000);
-								boolean moreRedoLines = multiLineSql;
-								while (moreRedoLines) {
-									sb.append(rsLogMiner.getString("SQL_REDO"));
-									moreRedoLines = rsLogMiner.getBoolean("CSF");
-									if (moreRedoLines) { 
-										rsLogMiner.next();
-									}
-								}
-								sqlRedo = sb.toString();
-								sb = null;
-							} else {
-								sqlRedo = rsLogMiner.getString("SQL_REDO");
-							}
-							// squeeze it!
-							sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
-							if (operation == OraLogMiner.V$LOGMNR_CONTENTS_INSERT) {
-								sqlRedo = StringUtils.replace(sqlRedo, "')", "'");
-							} else {
-								sqlRedo = StringUtils.replace(sqlRedo, ")", "");
-							}
-							final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
-									dataObjectId, operation, sqlRedo, timestamp, scn, rsId, ssn, rowId);
-
-							if (transaction == null) {
 								if (LOGGER.isDebugEnabled()) {
-									LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
-											xid, timestamp, scn);
+									LOGGER.debug("Skipping commit with transaction XID {}", xid);
 								}
-								transaction = new OraCdcTransaction(queuesRoot, xid, lmStmt);
-								activeTransactions.put(xid, transaction);
-							} else {
-								transaction.addStatement(lmStmt);
 							}
-							metrics.addRecord();
-						}
-					}
+						} else if (operation == OraLogMiner.V$LOGMNR_CONTENTS_ROLLBACK) {
+							if (transaction != null) {
+								if (LOGGER.isDebugEnabled()) {
+									LOGGER.debug("Rolling back transaction {} with {} records.", xid, transaction.length());
+								}
+								metrics.addRolledBackRecords(transaction.length());
+								transaction.close();
+								activeTransactions.remove(xid);
+							} else {
+								if (LOGGER.isDebugEnabled()) {
+									LOGGER.debug("Skipping rollback with transaction XID {}", xid);
+								}
+							}
+						} else {
+							// Read as long to speed up shift
+							final long dataObjectId = rsLogMiner.getLong("DATA_OBJ#");
+							final long combinedDataObjectId;
+							final long conId;
+							if (isCdb) {
+								conId = rsLogMiner.getInt("CON_ID");
+								combinedDataObjectId = (conId << 32) | (dataObjectId & 0xFFFFFFFFL); 
+							} else {
+								conId = 0;
+								combinedDataObjectId = dataObjectId;
+							}
+							OraTable oraTable = tablesInProcessing.get(combinedDataObjectId);
+							if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
+								psCheckTable.setLong(1, dataObjectId);
+								if (isCdb) {
+									psCheckTable.setLong(2, conId);
+								}
+								ResultSet rsCheckTable = psCheckTable.executeQuery();
+								if (rsCheckTable.next()) {
+									final String tableName = rsCheckTable.getString("TABLE_NAME");
+									final String tableOwner = rsCheckTable.getString("OWNER");
+									final String tableFqn = tableOwner + "." + tableName;
+									final String tableTopic;
+									if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+										if (topic == null || "".equals(topic)) {
+											tableTopic = tableName;
+										} else {
+											tableTopic = topic + "_" + tableName;
+										}
+									} else {
+										// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+										tableTopic = topic;
+									}
+									if (isCdb) {
+										final String pdbName = rsCheckTable.getString("PDB_NAME");
+										oraTable = new OraTable(
+												pdbName, rsLogMiner.getShort("CON_ID"),
+												tableOwner, tableName,
+												schemaType, rdbmsInfo.isCdb(), odd, partition, tableTopic);
+										tablesInProcessing.put(combinedDataObjectId, oraTable);
+										metrics.addTableInProcessing(pdbName + ":" + tableFqn);
+									} else {
+										oraTable = new OraTable(
+												null, null,
+												tableOwner, tableName,
+												schemaType, isCdb, odd, partition, tableTopic);
+										tablesInProcessing.put(combinedDataObjectId, oraTable);
+										metrics.addTableInProcessing(tableFqn);
+									}
+								} else {
+									tablesOutOfScope.add(combinedDataObjectId);
+									metrics.addTableOutOfScope();
+								}
+								rsCheckTable.close();
+								rsCheckTable = null;
+								psCheckTable.clearParameters();
+							}
 
-				}
-				logMiner.stop();
-				rsLogMiner.close();
-				rsLogMiner = null;
-				// Count archived redo log(s) read time
-				metrics.addRedoReadMillis(System.currentTimeMillis() - readStartMillis);
-				logMinerReady = logMiner.next();
-			} else {
-				while (!logMinerReady) {
-					synchronized (this) {
-						LOGGER.trace("Waiting {} ms", pollInterval);
-						try {
-							this.wait(pollInterval);
-						} catch (InterruptedException ie) {
-							LOGGER.error(ie.getMessage());
-							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
+							if (oraTable != null) {
+								final boolean multiLineSql = rsLogMiner.getBoolean("CSF");
+								final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
+								final String rowId = rsLogMiner.getString("ROW_ID");
+								String sqlRedo;
+								if (multiLineSql) {
+									StringBuilder sb = new StringBuilder(16000);
+									boolean moreRedoLines = multiLineSql;
+									while (moreRedoLines) {
+										sb.append(rsLogMiner.getString("SQL_REDO"));
+										moreRedoLines = rsLogMiner.getBoolean("CSF");
+										if (moreRedoLines) { 
+											rsLogMiner.next();
+										}
+									}
+									sqlRedo = sb.toString();
+									sb = null;
+								} else {
+									sqlRedo = rsLogMiner.getString("SQL_REDO");
+								}
+								// squeeze it!
+								sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
+								if (operation == OraLogMiner.V$LOGMNR_CONTENTS_INSERT) {
+									sqlRedo = StringUtils.replace(sqlRedo, "')", "'");
+								} else {
+									sqlRedo = StringUtils.replace(sqlRedo, ")", "");
+								}
+								final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
+										combinedDataObjectId, operation, sqlRedo, timestamp, lastScn, lastRsId, lastSsn, rowId);
+
+								if (transaction == null) {
+									if (LOGGER.isDebugEnabled()) {
+										LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
+												xid, timestamp, lastScn);
+									}
+									transaction = new OraCdcTransaction(queuesRoot, xid, lmStmt);
+									activeTransactions.put(xid, transaction);
+								} else {
+									transaction.addStatement(lmStmt);
+								}
+								metrics.addRecord();
+							}
 						}
+					}
+					logMiner.stop();
+					rsLogMiner.close();
+					rsLogMiner = null;
+					// Count archived redo log(s) read time
+					metrics.addRedoReadMillis(System.currentTimeMillis() - readStartMillis);
+					if (runLatch.getCount() > 0) {
 						logMinerReady = logMiner.next();
+					} else {
+						LOGGER.debug("Preparing to end LogMiner loop...");
+						logMinerReady = false;
+						break;
+					}
+				} else {
+					while (!logMinerReady && runLatch.getCount() > 0) {
+						synchronized (this) {
+							LOGGER.debug("Waiting {} ms", pollInterval);
+							try {
+								this.wait(pollInterval);
+							} catch (InterruptedException ie) {
+								LOGGER.error(ie.getMessage());
+								LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
+							}
+							logMinerReady = logMiner.next();
+						}
 					}
 				}
-			}
 			} catch (SQLException | IOException e) {
 				LOGGER.error(e.getMessage());
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 				throw new ConnectException(e);
 			}
 		}
+		LOGGER.debug("End of LogMiner loop...");
+		running.set(false);
 		LOGGER.info("END: OraCdcLogMinerWorkerThread.run()");
 	}
 
+	public long getLastScn() {
+		return lastScn;
+	}
+
+	public String getLastRsId() {
+		return lastRsId;
+	}
+
+	public int getLastSsn() {
+		return lastSsn;
+	}
+
+	public boolean isRunning() {
+		return running.get();
+	}
+
 	public void shutdown() {
-		LOGGER.info("Stopping oracdc logminer archivelog worker thread.");
+		LOGGER.info("Stopping oracdc logminer archivelog worker thread...");
 		runLatch.countDown();
-		boolean throwError = false;
-		if (committedTransactions.size() > 0) {
-			LOGGER.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			LOGGER.error("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-			LOGGER.error("Unprocessed committed transactions for processing!!!");
-			LOGGER.error("Please check information below and set a2.first.change to appropriate value!!!");
-			LOGGER.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			OraCdcTransaction transaction = null;
-			do {
-				transaction = committedTransactions.poll();
-				if (transaction != null) {
-					LOGGER.error("\tUnprocessed committed transaction XID {}, first change {}, commit SCN {}, number of rows {}.",
-							transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn(), transaction.length());
-					//TODO
-					//TODO persistence???
-					//TODO
-					transaction.close();
-				}
-			} while (transaction != null);
-			LOGGER.error("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-			throwError = true;
-		}
-		if (!activeTransactions.isEmpty()) {
-			LOGGER.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			LOGGER.error("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-			LOGGER.error("Unprocessed transactions found!!!");
-			LOGGER.error("Please check information below and set a2.first.change to appropriate value!!!");
-			LOGGER.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			activeTransactions.forEach((xid, transaction) -> {
-				LOGGER.error("\tIn process transaction XID {}, first change {}, current number of rows {}.",
-						transaction.getXid(), transaction.getFirstChange(), transaction.length());
-				//TODO
-				//TODO persistence???
-				//TODO
-				transaction.close();
-			});
-			LOGGER.error("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-			throwError = true;
-		}
-		if (throwError) {
-			throw new ConnectException("Unprocessed transactions left!!!\n" + 
-										"Please check connector log files!!!");
-		}
+		LOGGER.debug("call to shutdown() completed");
 	}
 
 }

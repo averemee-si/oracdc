@@ -28,8 +28,6 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 
-import eu.solutions.a2.cdc.oracle.persistence.OraCdcPersistentState;
-
 public class OraCdcPersistenceTest {
 
 	private final static String xid1 = "0000270016000000";

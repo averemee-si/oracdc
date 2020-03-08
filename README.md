@@ -5,7 +5,7 @@ Starting from Oracle RDBMS 12c various Oracle tools for [CDC](https://en.wikiped
 **oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, and 19c. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 
 ## eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector
-This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed.
+This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. When restarting, all in progress transactions, records, and objects are saved, their status is written to the file defined by parameter `a2.persistent.state.file` . An example `oracdc.state` file is located in `etc` directory.
 **oracdc**'s _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ connects to the following configurations of Oracle RDBMS:
 1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. **V$DATABASE.OPEN_MODE = READ WRITE** 
 2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = READ ONLY**
@@ -15,10 +15,8 @@ This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database
 _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
 
 ### Known issues
-1. We use V$LOGMNR_CONTENTS.SCN and tuple (V$LOGMNR_CONTENTS.RS_ID, V$LOGMNR_CONTENTS.SSN) as stored Kafka Connect offset. Due to transaction tracking on the Kafka Connect side there may be a situation when last recorded SCN in offset file is behind of SCN's of uncommitted rows. When the connector stops, we track this and print a message in the connector's log file. There are two workarounds at moment: or stop **oracdc** only afyter stopping Oracle RDBMS, or record unprocessed SCN value from connector's log file and set value of `a2.first.change` accordingly to override stored offset. We're working on this issue. 
-2. Persistance of [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) objects between Kafka Connect restarts. We're working on this issue.
-3. Only "classical" Oracle data types are supported. We are working on adding support for **INTERVAL** data types
-4. Initial data load - we're strongly recommend usage of bulk load methods.
+1. **INTERVAL** data types family not supported yet
+2. Initial data load - we're strongly recommend usage of bulk load methods.
 
 ### Performance tips
 1. If you do not use archivelogs as a source of database user activity audit information, consider setting Oracle RDBMS hidden parameter **_transaction_auditing** to **false** after consulting a [Oracle Support Services](https://www.oracle.com/support/)
@@ -246,32 +244,38 @@ When using materialized view log as CDC source *scn* field for **INSERT** and **
 
 ## Version history
 
-#####0.9.0 (OCT-2019)
+####0.9.0 (OCT-2019)
 
 Initial release
 
-#####0.9.1 (NOV-2019)
+####0.9.1 (NOV-2019)
 
 Oracle Wallet support for storing database credentials
 
-#####0.9.2 (DEC-2019)
+####0.9.2 (DEC-2019)
 
 "with ROWID" materialized view log support
 
-#####0.9.3 (FEB-2020)
+####0.9.3 (FEB-2020)
 
 [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) as CDC source
 Removed AWS Kinesis support
 New class hierarchy
 
-######0.9.3.1 (FEB-2020)
+#####0.9.3.1 (FEB-2020)
 
 Removing dynamic invocation of Oracle JDBC. Ref.: [Oracle Database client libraries for Java now on Maven Central](https://blogs.oracle.com/developers/oracle-database-client-libraries-for-java-now-on-maven-central)
 
 
-#####0.9.4 (MAR-2020)
+####0.9.4 (MAR-2020)
 
 Ability to run [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) on the physical database when V$DATABASE.OPEN_MODE = MOUNTED to reduce TCO
+
+#####0.9.4.1 (MAR-2020)
+
+Persistence across restarts
+CDB fixes/20c readiness
+
 
 ## Authors
 

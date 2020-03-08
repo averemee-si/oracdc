@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -23,15 +24,14 @@ import net.openhft.chronicle.queue.ExcerptTailer;
  */
 public class OraCdcTransaction {
 
-	public static final String QUEUE_DIR = "queueDirectory";
-	public static final String TRANS_XID = "xid";
-	public static final String TRANS_FIRST_CHANGE = "firstChange";
-	public static final String TRANS_NEXT_CHANGE = "nextChange";
-	public static final String QUEUE_SIZE = "queueSize";
-	public static final String QUEUE_OFFSET = "tailerOffset";
-	public static final String TRANS_COMMIT_SCN = "commitScn";
-
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransaction.class);
+	private static final String QUEUE_DIR = "queueDirectory";
+	private static final String TRANS_XID = "xid";
+	private static final String TRANS_FIRST_CHANGE = "firstChange";
+	private static final String TRANS_NEXT_CHANGE = "nextChange";
+	private static final String QUEUE_SIZE = "queueSize";
+	private static final String QUEUE_OFFSET = "tailerOffset";
+	private static final String TRANS_COMMIT_SCN = "commitScn";
 
 	private final String xid;
 	private long firstChange;
@@ -97,7 +97,7 @@ public class OraCdcTransaction {
 	public OraCdcTransaction(
 			final Path queueDirectory, final String xid,
 			final long firstChange, final long nextChange, final Long commitScn,
-			final int queueSize, final Integer savedTailerOffset) throws IOException {
+			final int queueSize, final int savedTailerOffset) throws IOException {
 		LOGGER.trace("BEGIN: restore OraCdcTransaction from filesystem");
 		this.queueDirectory = queueDirectory;
 		this.xid = xid;
@@ -182,6 +182,56 @@ public class OraCdcTransaction {
 			transAsMap.put(TRANS_COMMIT_SCN, commitScn);
 		}
 		return transAsMap;
+	}
+
+	@Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder(128);
+		sb.append("oracdc Transaction: ");
+		sb.append(TRANS_XID);
+		sb.append(" = ");
+		sb.append(xid);
+		sb.append(" located in the '");
+		sb.append(queueDirectory.toString());
+		sb.append("', ");
+		sb.append(QUEUE_SIZE);
+		sb.append(" = ");
+		sb.append(queueSize);
+		sb.append(", ");
+		sb.append(TRANS_FIRST_CHANGE);
+		sb.append(" = ");
+		sb.append(firstChange);
+		sb.append(", ");
+		sb.append(TRANS_NEXT_CHANGE);
+		sb.append(" = ");
+		sb.append(nextChange);
+		if (commitScn != null) {
+			sb.append(", ");
+			sb.append(TRANS_COMMIT_SCN);
+			sb.append(" = ");
+			sb.append(commitScn);
+		}
+		if (tailerOffset > 0) {
+			sb.append(", ");
+			sb.append(QUEUE_OFFSET);
+			sb.append(" = ");
+			sb.append(tailerOffset);
+		}
+		sb.append(".");
+
+		return sb.toString();
+	}
+
+	public static OraCdcTransaction restoreFromMap(Map<String, Object> attrs) throws IOException {
+		final Path transDir = Paths.get((String) attrs.get(QUEUE_DIR));
+		final String transXid = (String) attrs.get(TRANS_XID);
+		final long transFirstChange = (long) attrs.get(TRANS_FIRST_CHANGE);
+		final long transNextChange = (long) attrs.get(TRANS_NEXT_CHANGE);
+		final int transQueueSize = (int) attrs.get(QUEUE_SIZE);
+		final int transOffset = (int) attrs.get(QUEUE_OFFSET);
+		final Long transCommitScn = (Long) attrs.get(TRANS_COMMIT_SCN);
+		return new OraCdcTransaction(transDir, transXid,
+				transFirstChange, transNextChange, transCommitScn, transQueueSize, transOffset);
 	}
 
 	public String getXid() {

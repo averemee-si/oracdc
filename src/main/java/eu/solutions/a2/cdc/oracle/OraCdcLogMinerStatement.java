@@ -27,8 +27,8 @@ import net.openhft.chronicle.wire.WriteMarshallable;
  */
 public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshallable {
 
-	/** V$LOGMNR_CONTENTS.DATA_OBJ# */
-	private int tableId;
+	/** (((long)V$LOGMNR_CONTENTS.CON_ID) << 32) | (V$LOGMNR_CONTENTS.DATA_OBJ# & 0xFFFFFFFFL) */
+	private long tableId;
 	/** V$LOGMNR_CONTENTS.OPERATION_CODE */
 	private short operation;
 	/** V$LOGMNR_CONTENTS.SQL_REDO (concatenated!) */
@@ -54,7 +54,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 
 	/**
 	 * 
-	 * @param tableId     V$LOGMNR_CONTENTS.DATA_OBJ#
+	 * @param tableId     (((long)V$LOGMNR_CONTENTS.CON_ID) << 32) | (V$LOGMNR_CONTENTS.DATA_OBJ# & 0xFFFFFFFFL)
 	 * @param operation   V$LOGMNR_CONTENTS.OPERATION_CODE
 	 * @param sqlRedo     V$LOGMNR_CONTENTS.SQL_REDO (concatenated!)
 	 * @param ts          V$LOGMNR_CONTENTS.TIMESTAMP (in millis)
@@ -64,7 +64,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	 * @param rowId       V$LOGMNR_CONTENTS.ROW_ID
 	 */
 	public OraCdcLogMinerStatement(
-			int tableId, short operation, String sqlRedo, long ts, long scn, String rsId, int ssn, String rowId) {
+			long tableId, short operation, String sqlRedo, long ts, long scn, String rsId, int ssn, String rowId) {
 		super();
 		this.tableId = tableId;
 		this.operation = operation;
@@ -76,11 +76,11 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		this.rowId = rowId;
 	}
 
-	public int getTableId() {
+	public long getTableId() {
 		return tableId;
 	}
 
-	public void setTableId(int tableId) {
+	public void setTableId(long tableId) {
 		this.tableId = tableId;
 	}
 
@@ -142,14 +142,37 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 
 	@Override
 	public String toString() {
-		return "OraCdcLogMinerStatement [tableId=" + tableId + ", operation=" + operation + ", sqlRedo=" + sqlRedo
-				+ ", ts=" + ts + ", scn=" + scn + ", rsId=" + rsId + ", ssn=" + ssn + ", rowId=" + rowId + "]";
+		final StringBuilder sb = new StringBuilder(1024);
+		final int origTableId = (int) tableId;
+		final int conId = (int) (tableId >> 32);
+		sb.append("OraCdcLogMinerStatement [");
+		sb.append("CON_ID=");
+		sb.append(conId);
+		sb.append(", DATA_OBJ#=");
+		sb.append(origTableId);
+		sb.append(", OPERATION_CODE=");
+		sb.append(operation);
+		sb.append(", SQL_REDO=");
+		sb.append(sqlRedo);
+		sb.append(", TIMESTAMP=");
+		sb.append(ts);
+		sb.append(", SCN=");
+		sb.append(scn);
+		sb.append(", RS_ID=");
+		sb.append(rsId);
+		sb.append(", SSN=");
+		sb.append(ssn);
+		sb.append(", ROW_ID=");
+		sb.append(rowId);
+		sb.append("]");
+
+		return sb.toString();
 	}
 
 	@Override
 	public void writeMarshallable(WireOut wire) {
 		wire.bytes()
-			.writeInt(tableId)
+			.writeLong(tableId)
 			.writeShort(operation)
 			.write8bit(sqlRedo)
 			.writeLong(ts)
@@ -163,7 +186,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	@Override
 	public void readMarshallable(WireIn wire) throws IORuntimeException {
 		Bytes<?> raw = wire.bytes();
-		tableId = raw.readInt();
+		tableId = raw.readLong();
 		operation = raw.readShort();
 		sqlRedo = raw.read8bit();
 		ts = raw.readLong();

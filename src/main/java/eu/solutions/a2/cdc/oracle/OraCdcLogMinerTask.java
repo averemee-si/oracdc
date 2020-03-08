@@ -13,14 +13,29 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+import java.io.IOException;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -44,19 +59,25 @@ import eu.solutions.a2.cdc.oracle.utils.Version;
 public class OraCdcLogMinerTask extends SourceTask {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerTask.class);
+	private static final int WAIT_FOR_WORKER_MILLIS = 50;
 
 	private int batchSize;
 	private int pollInterval;
+	private Map<String, String> partition;
 	private int schemaType;
 	private String topic;
+	private String stateFileName;
 	private OraRdbmsInfo rdbmsInfo;
 	private OraCdcLogMinerMgmt metrics;
 	private OraDumpDecoder odd;
-	private Map<Integer, OraTable> tablesInProcessing;
+	private Map<Long, OraTable> tablesInProcessing;
+	private Set<Long> tablesOutOfScope;
+	private Map<String, OraCdcTransaction> activeTransactions;
 	private BlockingQueue<OraCdcTransaction> committedTransactions;
 	private OraCdcLogMinerWorkerThread worker;
 	private OraCdcTransaction transaction;
 	private boolean lastStatementInTransaction = true;
+	private boolean needToStoreState = false;
 
 	@Override
 	public String version() {
@@ -89,7 +110,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName();
 			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, rdbmsInfo.getDbId());
-			final Map<String, String> partition = Collections.singletonMap(sourcePartitionName, ((Long)rdbmsInfo.getDbId()).toString());
+			partition = Collections.singletonMap(sourcePartitionName, ((Long)rdbmsInfo.getDbId()).toString());
 
 			final Long redoSizeThreshold;
 			final Integer redoFilesCount;
@@ -115,32 +136,122 @@ public class OraCdcLogMinerTask extends SourceTask {
 			final Path queuesRoot = FileSystems.getDefault().getPath(
 					props.get(ParamConstants.TEMP_DIR_PARAM));
 
-			//TODO - sizing of HashMap!!!
-			tablesInProcessing = new ConcurrentHashMap<>(64);
+			tablesInProcessing = new ConcurrentHashMap<>();
+			tablesOutOfScope = new HashSet<>();
+			activeTransactions = new HashMap<>();
 			committedTransactions = new LinkedBlockingQueue<>();
+
+			boolean rewind = false;
+			final long firstScn;
+			String firstRsId = null;
+			int firstSsn = 0;
+			final boolean startScnFromProps = props.containsKey(ParamConstants.LGMNR_START_SCN_PARAM);
+			stateFileName = props.get(ParamConstants.PERSISTENT_STATE_FILE_PARAM);
+			final Path stateFilePath = Paths.get(stateFileName);
+			if (stateFilePath.toFile().exists()) {
+				// File with stored state exists
+				if (startScnFromProps) {
+					// a2.first.change set in parameters, ignore stored state, rename file
+					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
+					LOGGER.info("Ignoring last processed SCN value from stored state file {} and setting it to {} from connector properties",
+							stateFileName, firstScn);
+				} else {
+					final long restoreStarted = System.currentTimeMillis();
+					OraCdcPersistentState persistentState = OraCdcPersistentState.fromFile(stateFileName);
+					LOGGER.info("Will start processing using stored persistent state file {} dated {}.",
+							stateFileName,
+							LocalDateTime.ofInstant(
+									Instant.ofEpochMilli(persistentState.getLastOpTsMillis()), ZoneId.systemDefault()
+								).format(DateTimeFormatter.ISO_DATE_TIME));
+					if (rdbmsInfo.getDbId() != persistentState.getDbId()) {
+						LOGGER.error("DBID from stored state file {} and from connection {} are different!",
+								persistentState.getDbId(), rdbmsInfo.getDbId());
+						LOGGER.error("Exiting.");
+						throw new ConnectException("Unable to use stored file for database with different DBID!!!");
+					}
+					LOGGER.debug(persistentState.toString());
+					firstScn = persistentState.getLastScn();
+					firstRsId = persistentState.getLastRsId();
+					firstSsn = persistentState.getLastSsn();
+					if (persistentState.getCurrentTransaction() != null) {
+						transaction = OraCdcTransaction.restoreFromMap(persistentState.getCurrentTransaction());
+						// To prevent committedTransactions.poll() in this.poll()
+						lastStatementInTransaction = false;
+						LOGGER.debug("Restored current transaction {}", transaction.toString());
+					}
+					if (persistentState.getCommittedTransactions() != null) {
+						for (int i = 0; i < persistentState.getCommittedTransactions().size(); i++) {
+							final OraCdcTransaction oct = OraCdcTransaction.restoreFromMap(
+									persistentState.getCommittedTransactions().get(i));
+							committedTransactions.add(oct);
+							LOGGER.debug("Restored committed transaction {}", oct.toString());
+						}
+					}
+					if (persistentState.getInProgressTransactions() != null) {
+						for (int i = 0; i < persistentState.getInProgressTransactions().size(); i++) {
+							final OraCdcTransaction oct = OraCdcTransaction.restoreFromMap(
+									persistentState.getInProgressTransactions().get(i));
+							activeTransactions.put(oct.getXid(), oct);
+							LOGGER.debug("Restored in progress transaction {}", oct.toString());
+						}
+					}
+					if (persistentState.getProcessedTablesIds() != null) {
+						restoreTableInfoFromDictionary(persistentState.getProcessedTablesIds());
+					}
+					if (persistentState.getOutOfScopeTablesIds() != null) {
+						persistentState.getOutOfScopeTablesIds().forEach(combinedId -> {
+							tablesOutOfScope.add(combinedId);
+							if (LOGGER.isDebugEnabled()) {
+								final int tableId = (int) ((long) combinedId);
+								final int conId = (int) (combinedId >> 32);
+								LOGGER.debug("Restored out of scope table OBJECT_ID {} from CON_ID {}", tableId, conId);
+							}
+						});
+					}
+					LOGGER.info("Restore persistent state {} ms", (System.currentTimeMillis() - restoreStarted));
+					rewind = true;
+				}
+				final String savedStateFile = stateFileName + "." + System.currentTimeMillis(); 
+				Files.copy(stateFilePath, Paths.get(savedStateFile), StandardCopyOption.REPLACE_EXISTING);
+				LOGGER.info("Stored state file {} copied to {}", stateFileName, savedStateFile);
+			} else {
+				if (startScnFromProps) {
+					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
+					LOGGER.info("Using first SCN value {} from connector properties.", firstScn);
+				} else {
+					firstScn = OraRdbmsInfo.firstScnFromArchivedLogs(OraPoolConnectionFactory.getLogMinerConnection());
+					LOGGER.info("Using min(FIRST_CHANGE#) from V$ARCHIVED_LOG = {} as first SCN value.", firstScn);
+				}
+			}
 
 			worker = new OraCdcLogMinerWorkerThread(
 					pollInterval,
 					partition,
-					this.context,
+					firstScn,
 					includeList,
 					excludeList,
 					redoSizeThreshold,
 					redoFilesCount,
 					tablesInProcessing,
+					tablesOutOfScope,
 					schemaType,
 					topic,
 					odd,
 					queuesRoot,
+					activeTransactions,
 					committedTransactions);
+			if (rewind) {
+				worker.rewind(firstScn, firstRsId, firstSsn);
+			}
 
-		} catch (SQLException | SecurityException e) {
+		} catch (SQLException | InvalidPathException | IOException e) {
 			LOGGER.error("Unable to start oracdc logminer task!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
 		}
 		LOGGER.trace("Starting worker thread.");
 		worker.start();
+		needToStoreState = true;
 	}
 
 	@Override
@@ -204,7 +315,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		}
 		if (recordCount == 0) {
 			synchronized (this) {
-				LOGGER.trace("Waiting {} ms", pollInterval);
+				LOGGER.debug("Waiting {} ms", pollInterval);
 				this.wait(pollInterval);
 			}
 		} else {
@@ -218,21 +329,155 @@ public class OraCdcLogMinerTask extends SourceTask {
 	public void stop() {
 		LOGGER.info("Stopping oracdc logminer source task.");
 		worker.shutdown();
-		if (transaction != null) {
-			LOGGER.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			LOGGER.error("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-			LOGGER.error("Unprocessed committed transaction XID={} for processing!!!", transaction.getXid());
-			LOGGER.error("\tUnprocessed committed transaction XID {}, first change {}, commit SCN {}, number of rows {}.",
-					transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn(), transaction.length());
-			LOGGER.error("Please check information below and set a2.first.change to appropriate value!!!");
-			LOGGER.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-			//TODO
-			//TODO persistence???
-			//TODO
-			transaction.close();
-			throw new ConnectException("Unprocessed transactions left!!!\n" + 
-					"Please check connector log files!!!");
+		while (worker.isRunning()) {
+			try {
+				LOGGER.debug("Waiting {} ms for worker thread to stop...", WAIT_FOR_WORKER_MILLIS);
+				Thread.sleep(WAIT_FOR_WORKER_MILLIS);
+			} catch (InterruptedException e) {
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+			}
 		}
+		if (needToStoreState) {
+			final long saveStarted = System.currentTimeMillis();
+			LOGGER.info("Saving oracdc state to {} file...", stateFileName);
+			OraCdcPersistentState ops = new OraCdcPersistentState();
+			ops.setDbId(rdbmsInfo.getDbId());
+			ops.setInstanceName(rdbmsInfo.getInstanceName());
+			ops.setHostName(rdbmsInfo.getHostName());
+			ops.setLastOpTsMillis(System.currentTimeMillis());
+			ops.setLastScn(worker.getLastScn());
+			ops.setLastRsId(worker.getLastRsId());
+			ops.setLastSsn(worker.getLastSsn());
+			if (transaction != null) {
+				ops.setCurrentTransaction(transaction.attrsAsMap());
+				LOGGER.debug("Added to state file transaction {}", transaction.toString());
+			}
+			if (!committedTransactions.isEmpty()) {
+				final List<Map<String, Object>> committed = new ArrayList<>();
+				committedTransactions.stream().forEach(trans -> {
+					committed.add(trans.attrsAsMap());
+					LOGGER.debug("Added to state file committed transaction {}", trans.toString());
+				});
+				ops.setCommittedTransactions(committed);
+			}
+			if (!activeTransactions.isEmpty()) {
+				final List<Map<String, Object>> wip = new ArrayList<>();
+				activeTransactions.forEach((xid, trans) -> {
+					wip.add(trans.attrsAsMap());
+					LOGGER.debug("Added to state file in progress transaction {}", trans.toString());
+				});
+				ops.setInProgressTransactions(wip);
+			}
+			if (!tablesInProcessing.isEmpty()) {
+				final List<Long> wipTables = new ArrayList<>();
+				tablesInProcessing.forEach((combinedId, table) -> {
+					wipTables.add(combinedId);
+					if (LOGGER.isDebugEnabled()) {
+						final int tableId = (int) ((long) combinedId);
+						final int conId = (int) (combinedId >> 32);
+						LOGGER.debug("Added to state file in process table OBJECT_ID {} from CON_ID {}", tableId, conId);
+					}
+				});
+				ops.setProcessedTablesIds(wipTables);
+			}
+			if (!tablesOutOfScope.isEmpty()) {
+				final List<Long> oosTables = new ArrayList<>();
+				tablesOutOfScope.forEach(combinedId -> {
+					oosTables.add(combinedId);
+					metrics.addTableOutOfScope();
+					if (LOGGER.isDebugEnabled()) {
+						final int tableId = (int) ((long) combinedId);
+						final int conId = (int) (combinedId >> 32);
+						LOGGER.debug("Added to state file in out of scope table OBJECT_ID {} from CON_ID {}", tableId, conId);
+					}
+				});
+				ops.setOutOfScopeTablesIds(oosTables);
+			}
+			try {
+				ops.toFile(stateFileName);
+			} catch(IOException ioe) {
+				LOGGER.error("Unable to save state to file " + stateFileName + "!");
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+				LOGGER.error("State file contents:\n{}", ops.toString());
+				throw new ConnectException("Unable to save state to file " + stateFileName + "!");
+			}
+			LOGGER.info("oracdc state saved to {} file, elapsed {} ms",
+					stateFileName, (System.currentTimeMillis() - saveStarted));
+			LOGGER.debug("State file contents:\n{}", ops.toString());
+		} else {
+			LOGGER.info("Do not need to run store state procedures.");
+			LOGGER.info("Check Connect log files for errors.");
+		}
+	}
+
+	private void restoreTableInfoFromDictionary(List<Long> processedTablesIds) throws SQLException {
+		//TODO
+		//TODO What about storing structure in JSON ???
+		//TODO Same code as in WorkerThread - require serious improvement!!!
+		//TODO
+		final Connection connection = OraPoolConnectionFactory.getConnection();
+		final PreparedStatement psCheckTable;
+		final boolean isCdb = rdbmsInfo.isCdb();
+		if (isCdb) {
+			psCheckTable = connection.prepareStatement(OraDictSqlTexts.CHECK_TABLE_CDB,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		} else {
+			psCheckTable = connection.prepareStatement(OraDictSqlTexts.CHECK_TABLE_NON_CDB,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		}
+		for (long combinedDataObjectId : processedTablesIds) {
+			final int tableId = (int) combinedDataObjectId;
+			final int conId = (int) (combinedDataObjectId >> 32);
+			psCheckTable.setInt(1, tableId);
+			if (isCdb) {
+				psCheckTable.setInt(2, conId);
+			}
+			LOGGER.debug("Adding from database dictionary for internal id {}: OBJECT_ID = {}, CON_ID = {}",
+					combinedDataObjectId, tableId, conId);
+			final ResultSet rsCheckTable = psCheckTable.executeQuery();
+			if (rsCheckTable.next()) {
+				final String tableName = rsCheckTable.getString("TABLE_NAME");
+				final String tableOwner = rsCheckTable.getString("OWNER");
+				final String tableFqn = tableOwner + "." + tableName;
+				final String tableTopic;
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+					if (topic == null || "".equals(topic)) {
+						tableTopic = tableName;
+					} else {
+						tableTopic = topic + "_" + tableName;
+					}
+				} else {
+					// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+					tableTopic = topic;
+				}
+				if (isCdb) {
+					final String pdbName = rsCheckTable.getString("PDB_NAME");
+					OraTable oraTable = new OraTable(
+							pdbName, (short) conId,
+							tableOwner, tableName,
+							schemaType, rdbmsInfo.isCdb(), odd, partition, tableTopic);
+						tablesInProcessing.put(combinedDataObjectId, oraTable);
+						metrics.addTableInProcessing(pdbName + ":" + tableFqn);
+				} else {
+					OraTable oraTable = new OraTable(
+						null, null,
+						tableOwner, tableName,
+						schemaType, isCdb, odd, partition, tableTopic);
+					tablesInProcessing.put(combinedDataObjectId, oraTable);
+					metrics.addTableInProcessing(tableFqn);
+				}
+				LOGGER.debug("Restored metadata for table {}, OBJECT_ID={}, CON_ID={}",
+						tableFqn, tableId, conId);
+			} else {
+				throw new SQLException("Data corruption detected!\n" +
+						"OBJECT_ID=" + tableId + ", CON_ID=" + conId + 
+						" exist in stored state but not in database!!!");
+			}
+			rsCheckTable.close();
+			psCheckTable.clearParameters();
+			
+		}
+		psCheckTable.close();
 	}
 
 }

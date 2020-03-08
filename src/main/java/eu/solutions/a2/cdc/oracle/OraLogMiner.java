@@ -130,6 +130,16 @@ public class OraLogMiner {
 		archLogsAvailable = 0;
 		archLogsSize = 0;
 
+		if (firstChange == 0) {
+			// oracdc started without archived logs....
+			LOGGER.debug("Requerying V$ARCHIVED_LOG for FIRST_CHANGE# ...");
+			firstChange = OraRdbmsInfo.firstScnFromArchivedLogs(OraPoolConnectionFactory.getLogMinerConnection());
+			if (firstChange == 0) {
+				LOGGER.debug("Nothing found in V$ARCHIVED_LOG... Will retry");
+				return false;
+			}
+		}
+
 		psGetArchivedLogs.setLong(1,  firstChange);
 		psGetArchivedLogs.setLong(2,  firstChange);
 		psGetArchivedLogs.setLong(3,  firstChange);
