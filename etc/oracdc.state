@@ -1,0 +1,43 @@
+{
+  "instanceName" : "TESTAPPS",
+  "hostName" : "dl580a",
+  "dbId" : 797462449,
+  "lastScn" : 275169294198,
+  "lastRsId" : " 0x00050c.00037bc6.0098 ",
+  "lastSsn" : 0,
+  "lastOpTsMillis" : 1583618079434,
+  "currentTransaction" : {
+    "queueDirectory" : "/db/tmpdir/0A0026005C861C00.6006859197133908973",
+    "xid" : "0A0026005C861C00",
+    "firstChange" : 275168454600,
+    "nextChange" : 275168884051,
+    "queueSize" : 1685154,
+    "tailerOffset" : 70000,
+    "commitScn" : 275168884442
+  },
+  "committedTransactions" : [ {
+    "queueDirectory" : "/db/tmpdir/08000A00D6551C00.15138805355255761582",
+    "xid" : "08000A00D6551C00",
+    "firstChange" : 275168886329,
+    "nextChange" : 275168886329,
+    "queueSize" : 1,
+    "tailerOffset" : 0,
+    "commitScn" : 275168886330
+  } ],
+  "inProgressTransactions" : [ {
+    "queueDirectory" : "/db/tmpdir/0A001A00FFFFFFFF.5194807847475547036",
+    "xid" : "0A001A00FFFFFFFF",
+    "firstChange" : 275168432891,
+    "nextChange" : 275168436090,
+    "queueSize" : 870113,
+    "tailerOffset" : 0
+  }, {
+    "queueDirectory" : "/db/tmpdir/0A00100093861C00.2268751415488402447",
+    "xid" : "0A00100093861C00",
+    "firstChange" : 275168886497,
+    "nextChange" : 275169294190,
+    "queueSize" : 44892,
+    "tailerOffset" : 0
+  } ],
+  "processedTablesIds" : [ 74590, 1804903 ]
+}
