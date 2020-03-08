@@ -241,10 +241,10 @@ select OPEN_MODE, DBID from V$DATABASE;
 			"select OPEN_MODE, DBID, DB_UNIQUE_NAME from V$DATABASE";
 
 	/*
-select min(FIRST_CHANGE#) from V$ARCHIVED_LOG;
+select min(FIRST_CHANGE#) from V$ARCHIVED_LOG where ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO';
 	 */
 	public static final String FIRST_AVAILABLE_SCN_IN_ARCHIVE =
-			"select min(FIRST_CHANGE#) from V$ARCHIVED_LOG";
+			"select min(FIRST_CHANGE#) from V$ARCHIVED_LOG where ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'";
 	
 	/*
 select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS*BLOCK_SIZE BYTES
@@ -259,7 +259,7 @@ order by SEQUENCE#;
 	public static final String ARCHIVED_LOGS =
 			"select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS*BLOCK_SIZE BYTES\n" + 
 			"from     V$ARCHIVED_LOG\n" + 
-			"where    ARCHIVED='YES' and STANDBY_DEST='NO' and (? >= FIRST_CHANGE# or ? <= NEXT_CHANGE#)\n" + 
+			"where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and (? >= FIRST_CHANGE# or ? <= NEXT_CHANGE#)\n" + 
 			"  and    SEQUENCE# >= \n" + 
 			"          (select min(SEQUENCE#)\n" + 
 			"           from   V$ARCHIVED_LOG\n" + 
