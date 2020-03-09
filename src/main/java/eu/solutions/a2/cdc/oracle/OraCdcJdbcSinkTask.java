@@ -41,7 +41,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkTask.class);
 
-	private final Map<String, OraTable> tablesInProcessing = new HashMap<>(); 
+	private final Map<String, OraTable4SinkConnector> tablesInProcessing = new HashMap<>(); 
 	private OraCdcJdbcSinkConnectorConfig config;
 	int batchSize = 1000;
 	boolean autoCreateTable = false;
@@ -83,16 +83,16 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 					tableName = ((Struct) record.value()).getStruct("source").getString("table");
 					LOGGER.debug("Table name from 'source' field = {}.", tableName);
 				}
-				OraTable oraTable = tablesInProcessing.get(tableName);
+				OraTable4SinkConnector oraTable = tablesInProcessing.get(tableName);
 				if (oraTable == null) {
 					LOGGER.trace("Create new table definition for {} and add it to processing map,", tableName);
-					oraTable = new OraTable(
+					oraTable = new OraTable4SinkConnector(
 							tableName, record, autoCreateTable, schemaType);
 					tablesInProcessing.put(tableName, oraTable);
 				}
-				if (!tablesInProcess.contains(oraTable.getMasterTable())) {
+				if (!tablesInProcess.contains(oraTable.getTableFqn())) {
 					LOGGER.debug("Adding {} to current batch set.", tableName);
-					tablesInProcess.add(oraTable.getMasterTable());
+					tablesInProcess.add(oraTable.getTableFqn());
 				}
 				oraTable.putData(connection, record);
 			}

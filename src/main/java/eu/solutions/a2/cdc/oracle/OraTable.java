@@ -21,12 +21,10 @@ import java.math.BigDecimal;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.RowId;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.text.SimpleDateFormat;
@@ -35,37 +33,30 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.header.Header;
-import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
-import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 /**
  * 
  * @author averemee
  *
  */
-public class OraTable {
+public class OraTable extends OraTableDefinition {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable.class);
 
 	private int batchSize;
-	private final String tableOwner;
-	private final String masterTable;
 	private boolean logWithRowIds = false;
 	private boolean logWithPrimaryKey = false;
 	private boolean logWithSequence = false;
@@ -75,27 +66,16 @@ public class OraTable {
 	private String snapshotLogSelSql;
 	private String snapshotLogDelSql;
 	private Map<String, String> sourcePartition;
-	private final List<OraColumn> allColumns = new ArrayList<>();
-	private final Map<String, OraColumn> pkColumns = new LinkedHashMap<>();
 
 	private Map<String, OraColumn> idToNameMap;
 	private OraCdcSqlRedoParser parser;
 
-	private final int schemaType;
 	private Schema schema;
 	private Schema keySchema;
 	private Schema valueSchema;
 
 	private final SimpleDateFormat iso8601DateFmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
 	private final SimpleDateFormat iso8601TimestampFmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
-	private boolean ready4Ops = false;
-
-	private String sinkInsertSql = null;
-	private String sinkUpdateSql = null;
-	private String sinkDeleteSql = null;
-	private PreparedStatement sinkInsert = null;
-	private PreparedStatement sinkUpdate = null;
-	private PreparedStatement sinkDelete = null;
 
 	/**
 	 * Constructor for OraTable object based on snapshot log and master table
@@ -115,19 +95,17 @@ public class OraTable {
 			final boolean logWithRowIds, final boolean logWithPrimaryKey, final boolean logWithSequence,
 			final int batchSize, final int schemaType,
 			final Map<String, String> sourcePartition, Map<String, Object> sourceOffset) throws SQLException {
+		super(tableOwner, masterTable, schemaType);
 		LOGGER.trace("Creating OraTable object for materialized view log...");
 		this.logWithRowIds = logWithRowIds;
 		this.logWithPrimaryKey = logWithPrimaryKey;
 		this.logWithSequence = logWithSequence;
 		this.batchSize = batchSize;
-		this.tableOwner = tableOwner;
-		this.masterTable = masterTable;
 		this.snapshotLog = snapshotLog;
-		this.schemaType = schemaType;
 		this.sourcePartition = sourcePartition;
 
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Table owner -> {}, master table -> {}", this.tableOwner, this.masterTable);
+			LOGGER.debug("Table owner -> {}, master table -> {}", this.tableOwner, this.tableName);
 			LOGGER.debug("\tMaterialized view log name -> {}", this.snapshotLog);
 			LOGGER.debug("\t\tMView log with ROWID's -> {}, Primary Key -> {}, Sequence -> {}.",
 					this.logWithRowIds, this.logWithPrimaryKey, this.logWithSequence);
@@ -135,13 +113,13 @@ public class OraTable {
 		}
 
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
-			LOGGER.trace("Preparing column list and SQL statements for table {}.{}", this.tableOwner, this.masterTable);
+			LOGGER.trace("Preparing column list and SQL statements for table {}.{}", this.tableOwner, this.tableName);
 			PreparedStatement statement = connection.prepareStatement(OraDictSqlTexts.COLUMN_LIST_MVIEW,
 					ResultSet.TYPE_FORWARD_ONLY,
 					ResultSet.CONCUR_READ_ONLY);
 			statement.setString(1, this.snapshotLog);
 			statement.setString(2, this.tableOwner);
-			statement.setString(3, this.masterTable);
+			statement.setString(3, this.tableName);
 
 			ResultSet rsColumns = statement.executeQuery();
 			buildColumnList(true, null, rsColumns, sourceOffset, null);
@@ -151,58 +129,6 @@ public class OraTable {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
-	}
-
-	/**
-	 * This constructor is used only for Sink connector
-	 * 
-	 * @param tableName
-	 * @param record
-	 * @param autoCreateTable
-	 * @param schemaType
-	 */
-	public OraTable(
-			final String tableName, final SinkRecord record, final boolean autoCreateTable, final int schemaType) {
-		LOGGER.trace("Creating OraTable object from Kafka connect SinkRecord...");
-		this.schemaType = schemaType;
-		final List<Field> keyFields;
-		final List<Field> valueFields;
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			LOGGER.debug("Schema type set to Kafka Connect.");
-			// Not exist in Kafka Connect schema - setting it to dummy value
-			this.tableOwner = "oracdc";
-			this.masterTable = tableName;
-			keyFields = record.keySchema().fields();
-			valueFields = record.valueSchema().fields();
-		} else {	// if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
-			LOGGER.debug("Schema type set to Dbezium style.");
-			Struct source = (Struct)((Struct) record.value()).get("source");
-			this.tableOwner = source.getString("owner");
-			if (tableName == null)
-				this.masterTable = source.getString("table");
-			else
-				this.masterTable = tableName;
-			keyFields = record.valueSchema().field("before").schema().fields();
-			valueFields = record.valueSchema().field("after").schema().fields();
-		}
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("tableOwner = {}.", this.tableOwner);
-			LOGGER.debug("masterTable = {}.", this.masterTable);
-		}
-		int pkColCount = 0;
-		for (Field field : keyFields) {
-			final OraColumn column = new OraColumn(field, true);
-			pkColumns.put(column.getColumnName(), column);
-			pkColCount++;
-		}
-		// Only non PK columns!!!
-		for (Field field : valueFields) {
-			if (!pkColumns.containsKey(field.name())) {
-				final OraColumn column = new OraColumn(field, false);
-				allColumns.add(column);
-			}
-		}
-		prepareSql(pkColCount, autoCreateTable);
 	}
 
 	/**
@@ -224,14 +150,11 @@ public class OraTable {
 			final String tableName, final int schemaType, final boolean isCdb,
 			final OraDumpDecoder odd, final Map<String, String> sourcePartition,
 			final String kafkaTopic) {
+		super(tableOwner, tableName, schemaType);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
-
-		this.tableOwner = tableOwner;
-		this.masterTable = tableName;
-		this.schemaType = schemaType;
 		this.sourcePartition = sourcePartition;
 		final String tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
-				this.tableOwner + "." + this.masterTable;
+				this.tableOwner + "." + this.tableName;
 		boolean tableWithPk = true;
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			if (LOGGER.isTraceEnabled()) {
@@ -239,7 +162,7 @@ public class OraTable {
 			}
 			// Detect PK column list...
 			Set<String> pkColumns = OraRdbmsInfo.getPkColumnsFromDict(connection,
-					isCdb ? conId : null, this.tableOwner, this.masterTable);
+					isCdb ? conId : null, this.tableOwner, this.tableName);
 			if (pkColumns == null) {
 				tableWithPk = false;
 			}
@@ -247,7 +170,7 @@ public class OraTable {
 					isCdb ? OraDictSqlTexts.COLUMN_LIST_CDB : OraDictSqlTexts.COLUMN_LIST_PLAIN,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			statement.setString(1, this.tableOwner);
-			statement.setString(2, this.masterTable);
+			statement.setString(2, this.tableName);
 			if (isCdb) {
 				statement.setShort(3, conId);
 			}
@@ -261,7 +184,7 @@ public class OraTable {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
 		parser = new OraCdcSqlRedoParser(
-				pdbName, this.tableOwner, this.masterTable, tableWithPk,
+				pdbName, this.tableOwner, this.tableName, tableWithPk,
 				schemaType, schema, keySchema, valueSchema,
 				odd, pkColumns, idToNameMap,
 				kafkaTopic, sourcePartition);
@@ -305,7 +228,7 @@ public class OraTable {
 		}
 
 		final String tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
-				this.tableOwner + "." + this.masterTable;
+				this.tableOwner + "." + this.tableName;
 		// Schema init
 		final SchemaBuilder keySchemaBuilder = SchemaBuilder
 					.struct()
@@ -390,7 +313,7 @@ public class OraTable {
 			masterSelect.append(" from \"");
 			masterSelect.append(this.tableOwner);
 			masterSelect.append("\".\"");
-			masterSelect.append(this.masterTable);
+			masterSelect.append(this.tableName);
 			masterSelect.append("\" where ");
 			masterSelect.append(masterWhere);
 			this.masterTableSelSql = masterSelect.toString();
@@ -418,127 +341,13 @@ public class OraTable {
 				LOGGER.trace("END: mvlog with sequence specific.");
 			}
 			this.snapshotLogSelSql = mViewSelect.toString();
-			LOGGER.trace("End of column list and SQL statements preparation for table {}.{}", this.tableOwner, this.masterTable);
+			LOGGER.trace("End of column list and SQL statements preparation for table {}.{}", this.tableOwner, this.tableName);
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Table {} -> MView select statement\n{}", tableFqn, this.snapshotLogSelSql);
-				LOGGER.debug("Table {} -> MView delete statement\n{}", tableFqn, this.masterTable, this.snapshotLogDelSql);
+				LOGGER.debug("Table {} -> MView delete statement\n{}", tableFqn, this.tableName, this.snapshotLogDelSql);
 				LOGGER.debug("Table {} -> Master table select statement\n{}", tableFqn, this.masterTableSelSql);
 			}
 		}
-	}
-
-	private void prepareSql(final int pkColCount, final boolean autoCreateTable) {
-		// Prepare UPDATE/INSERT/DELETE statements...
-		LOGGER.trace("Prepare UPDATE/INSERT/DELETE statements for table {}", this.masterTable);
-		final StringBuilder sbDelUpdWhere = new StringBuilder(128);
-		sbDelUpdWhere.append(" where ");
-
-		final StringBuilder sbInsSql = new StringBuilder(256);
-		sbInsSql.append("insert into ");
-		sbInsSql.append(this.masterTable);
-		sbInsSql.append("(");
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
-		int pkColumnNo = 0;
-		while (iterator.hasNext()) {
-			final String columnName = iterator.next().getValue().getColumnName();
-
-			if (pkColumnNo > 0) {
-				sbDelUpdWhere.append(" and ");
-			}
-			sbDelUpdWhere.append(columnName);
-			sbDelUpdWhere.append("=?");
-
-			sbInsSql.append(columnName);
-			if (pkColumnNo < pkColCount - 1) {
-				sbInsSql.append(",");
-			}
-			pkColumnNo++;
-		}
-
-		final StringBuilder sbUpdSql = new StringBuilder(256);
-		sbUpdSql.append("update ");
-		sbUpdSql.append(this.masterTable);
-		sbUpdSql.append(" set ");
-		final int nonPkColumnCount = allColumns.size();
-		for (int i = 0; i < nonPkColumnCount; i++) {
-			sbInsSql.append(",");
-			sbInsSql.append(allColumns.get(i).getColumnName());
-
-			sbUpdSql.append(allColumns.get(i).getColumnName());
-			if (i < nonPkColumnCount - 1) {
-				sbUpdSql.append("=?,");
-			} else {
-				sbUpdSql.append("=?");
-			}
-		}
-		sbInsSql.append(") values(");
-		final int totalColumns = nonPkColumnCount + pkColCount;
-		for (int i = 0; i < totalColumns; i++) {
-			if (i < totalColumns - 1) {
-				sbInsSql.append("?,");
-			} else {
-				sbInsSql.append("?)");
-			}
-		}
-
-		final StringBuilder sbDelSql = new StringBuilder(128);
-		sbDelSql.append("delete from ");
-		sbDelSql.append(this.masterTable);
-		sbDelSql.append(sbDelUpdWhere);
-
-		sbUpdSql.append(sbDelUpdWhere);
-
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Table name -> {}, INSERT statement ->\n{}", this.masterTable, sbInsSql.toString());
-			LOGGER.debug("Table name -> {}, UPDATE statement ->\n{}", this.masterTable, sbUpdSql.toString());
-			LOGGER.debug("Table name -> {}, DELETE statement ->\n{}", this.masterTable, sbDelSql.toString());
-		}
-
-		// Check for table existence
-		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
-			LOGGER.trace("Check for table {} in database", this.masterTable);
-			DatabaseMetaData metaData = connection.getMetaData();
-			String tableName = masterTable;
-			if (HikariPoolConnectionFactory.getDbType() == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL) {
-				LOGGER.trace("Working with PostgreSQL specific lower case only names");
-				// PostgreSQL specific...
-				// Also look at https://stackoverflow.com/questions/43111996/why-postgresql-does-not-like-uppercase-table-names
-				tableName = tableName.toLowerCase();
-			}
-			ResultSet resultSet = metaData.getTables(null, null, tableName, null);
-			if (resultSet.next()) {
-				LOGGER.trace("Table {} already exist.", tableName);
-				ready4Ops = true;
-			}
-			resultSet.close();
-			resultSet = null;
-		} catch (SQLException sqle) {
-			ready4Ops = false;
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-		}
-		if (!ready4Ops && autoCreateTable) {
-			// Create table in target database
-			LOGGER.trace("Prepare to create table {}", this.masterTable);
-			String createTableSqlText = TargetDbSqlUtils.createTableSql(
-					this.masterTable, this.pkColumns, this.allColumns);
-			LOGGER.debug("Create table with:\n{}", createTableSqlText);
-			try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
-				Statement statement = connection.createStatement();
-				statement.executeUpdate(createTableSqlText);
-				connection.commit();
-				ready4Ops = true;
-			} catch (SQLException sqle) {
-				ready4Ops = false;
-				LOGGER.error("Create table failed! Failed creation statement:");
-				LOGGER.error(createTableSqlText);
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-			}
-		}
-
-		sinkInsertSql = sbInsSql.toString();
-		sinkUpdateSql = sbUpdSql.toString();
-		sinkDeleteSql = sbDelSql.toString();
-		LOGGER.trace("End of SQL and DB preparation for table {}.", this.masterTable);
 	}
 
 	public List<SourceRecord> pollMVLog(final Connection connection, final String kafkaConnectTopic) throws SQLException {
@@ -571,7 +380,7 @@ public class OraTable {
 					processAllColumns(rsMaster, valueStruct);
 				} else {
 					success = false;
-					LOGGER.error("Primary key = {} not found in {}.{}", nonExistentPk(rsLog), tableOwner, masterTable);
+					LOGGER.error("Primary key = {} not found in {}.{}", nonExistentPk(rsLog), tableOwner, tableName);
 					LOGGER.error("\twhile executing{}\n\t\t", masterTableSelSql);
 				}
 				// Close unneeded ResultSet
@@ -587,12 +396,12 @@ public class OraTable {
 					offset = new HashMap<>(2);
 					offset.put(OraColumn.ORA_ROWSCN, lastProcessedScn);
 					LOGGER.debug("Owner -> {}, table -> {}, last processed {} is {}.",
-							tableOwner, masterTable, OraColumn.ORA_ROWSCN, lastProcessedScn);
+							tableOwner, tableName, OraColumn.ORA_ROWSCN, lastProcessedScn);
 					if (this.logWithSequence) {
 						final long lastProcessedSequence = rsLog.getLong(OraColumn.MVLOG_SEQUENCE);
 						offset.put(OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
 						LOGGER.debug("Owner -> {}, table -> {}, last processed {} is {}.",
-								tableOwner, masterTable, OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
+								tableOwner, tableName, OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
 					}
 					LOGGER.trace("END: Prepare Kafka Connect offset");
 				}
@@ -603,7 +412,7 @@ public class OraTable {
 							null,
 							null,
 							tableOwner,
-							masterTable,
+							tableName,
 							lastProcessedScn,
 							rsLog.getTimestamp("TIMESTAMP$$").getTime());
 					struct.put("source", source);
@@ -651,64 +460,6 @@ public class OraTable {
 	}
 
 
-	public String getMasterTable() {
-		return masterTable;
-	}
-
-	public void putData(final Connection connection, final SinkRecord record) throws SQLException {
-		LOGGER.trace("BEGIN: putData");
-		String opType = "";
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			Iterator<Header> iterator = record.headers().iterator();
-			while (iterator.hasNext()) {
-				Header header = iterator.next();
-				if ("op".equals(header.key())) {
-					opType = (String) header.value();
-					break;
-				}
-			}
-			LOGGER.debug("Operation type set from headers to {}.", opType);
-		} else { // if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
-			opType = ((Struct) record.value()).getString("op");
-			LOGGER.debug("Operation type set payload to {}.", opType);
-		}
-		switch (opType) {
-		case "c":
-			processInsert(connection, record);
-			break;
-		case "u":
-			processUpdate(connection, record);
-			break;
-		case "d":
-			processDelete(connection, record);
-			break;
-		default:
-			LOGGER.error("Uncnown or null value for operation type '{}' received in header!", opType);
-			if (record.value() == null)
-				processDelete(connection, record);
-			else
-				processUpdate(connection, record);
-		}
-		LOGGER.trace("END: putData");
-	}
-
-	public void closeCursors() throws SQLException {
-		LOGGER.trace("BEGIN: closeCursors()");
-		if (sinkInsert != null) {
-			sinkInsert.close();
-			sinkInsert = null;
-		}
-		if (sinkUpdate != null) {
-			sinkUpdate.close();
-			sinkUpdate = null;
-		}
-		if (sinkDelete != null) {
-			sinkDelete.close();
-			sinkDelete = null;
-		}
-		LOGGER.trace("END: closeCursors()");
-	}
-
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder(128);
@@ -722,7 +473,7 @@ public class OraTable {
 		sb.append("\"");
 		sb.append(this.tableOwner);
 		sb.append("\".\"");
-		sb.append(this.masterTable);
+		sb.append(this.tableName);
 		sb.append("\"");
 		return sb.toString();
 	}
@@ -928,7 +679,7 @@ public class OraTable {
 							valueStruct.put(columnName, baos.toByteArray());
 						} catch (IOException ioe) {
 							LOGGER.error("IO Error while processing BLOB column {}.{}({})", 
-									 tableOwner, masterTable, columnName);
+									 tableOwner, tableName, columnName);
 							LOGGER.error("\twhile executing\n\t\t{}", masterTableSelSql);
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}
@@ -949,7 +700,7 @@ public class OraTable {
 							valueStruct.put(columnName, sbClob.toString());
 						} catch (IOException ioe) {
 							LOGGER.error("IO Error while processing CLOB column {}.{}({})", 
-									 tableOwner, masterTable, columnName);
+									 tableOwner, tableName, columnName);
 							LOGGER.error("\twhile executing\n\t\t{}", masterTableSelSql);
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}
@@ -1036,101 +787,6 @@ public class OraTable {
 			i++;
 		}
 		return sbPrimaryKey.toString();
-	}
-
-	private void processInsert(
-			final Connection connection, final SinkRecord record) throws SQLException {
-		LOGGER.trace("BEGIN: processInsert()");
-		final Struct keyStruct;
-		final Struct valueStruct;
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			keyStruct = (Struct) record.key();
-			valueStruct = (Struct) record.value();
-		} else { // if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
-			keyStruct = ((Struct) record.value()).getStruct("before");
-			valueStruct = ((Struct) record.value()).getStruct("after");
-		}
-		if (sinkInsert == null) {
-			sinkInsert = connection.prepareStatement(sinkInsertSql);
-		}
-		int columnNo = 1;
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
-		while (iterator.hasNext()) {
-			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkInsert, columnNo, keyStruct.get(oraColumn.getColumnName()));
-			columnNo++;
-		}
-		for (int i = 0; i < allColumns.size(); i++) {
-			final OraColumn oraColumn = allColumns.get(i);
-			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
-					(schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
-				oraColumn.bindWithPrepStmt(sinkInsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
-				columnNo++;
-			}
-		}
-		sinkInsert.executeUpdate();
-		LOGGER.trace("END: processInsert()");
-	}
-
-	private void processUpdate(
-			final Connection connection, final SinkRecord record) throws SQLException {
-		LOGGER.trace("BEGIN: processUpdate()");
-		final Struct keyStruct;
-		final Struct valueStruct;
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			keyStruct = (Struct) record.key();
-			valueStruct = (Struct) record.value();
-		} else { // if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
-			keyStruct = ((Struct) record.value()).getStruct("before");
-			valueStruct = ((Struct) record.value()).getStruct("after");
-		}
-		if (sinkUpdate == null) {
-			sinkUpdate = connection.prepareStatement(sinkUpdateSql);
-		}
-		int columnNo = 1;
-		for (int i = 0; i < allColumns.size(); i++) {
-			final OraColumn oraColumn = allColumns.get(i);
-			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
-					(schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
-				oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, valueStruct.get(oraColumn.getColumnName()));
-				columnNo++;
-			}
-		}
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
-		while (iterator.hasNext()) {
-			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, keyStruct.get(oraColumn.getColumnName()));
-			columnNo++;
-		}
-		final int recordCount = sinkUpdate.executeUpdate();
-		if (recordCount == 0) {
-			LOGGER.warn("Primary key not found, executing insert");
-			processInsert(connection, record);
-		}
-		LOGGER.trace("END: processUpdate()");
-	}
-
-	private void processDelete(
-			final Connection connection, final SinkRecord record) throws SQLException {
-		LOGGER.trace("BEGIN: processDelete()");
-		final Struct keyStruct;
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			keyStruct = (Struct) record.key();
-		} else { // if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
-			keyStruct = ((Struct) record.value()).getStruct("before");
-		}
-		if (sinkDelete == null) {
-			sinkDelete = connection.prepareStatement(sinkDeleteSql);
-		}
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
-		int columnNo = 1;
-		while (iterator.hasNext()) {
-			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkDelete, columnNo, keyStruct.get(oraColumn.getColumnName()));
-			columnNo++;
-		}
-		sinkDelete.executeUpdate();
-		LOGGER.trace("END: processDelete()");
 	}
 
 	public SourceRecord parseRedoRecord(OraCdcLogMinerStatement stmt) throws SQLException {
