@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Set;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
@@ -537,7 +538,7 @@ public class OraColumn {
 			else
 				// 0x00 PostgreSQL problem
 				if (HikariPoolConnectionFactory.getDbType() == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL)
-					statement.setString(columnNo, ((String) columnValue).replace("\0", ""));
+					statement.setString(columnNo, StringUtils.replace((String) columnValue, "\0", StringUtils.EMPTY));
 				else
 					statement.setString(columnNo, (String) columnValue);
 			break;
