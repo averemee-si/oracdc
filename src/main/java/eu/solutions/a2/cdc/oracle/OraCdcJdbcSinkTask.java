@@ -90,9 +90,9 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 							tableName, record, autoCreateTable, schemaType);
 					tablesInProcessing.put(tableName, oraTable);
 				}
-				if (!tablesInProcess.contains(oraTable.getTableFqn())) {
+				if (!tablesInProcess.contains(tableName)) {
 					LOGGER.debug("Adding {} to current batch set.", tableName);
-					tablesInProcess.add(oraTable.getTableFqn());
+					tablesInProcess.add(tableName);
 				}
 				oraTable.putData(connection, record);
 			}
