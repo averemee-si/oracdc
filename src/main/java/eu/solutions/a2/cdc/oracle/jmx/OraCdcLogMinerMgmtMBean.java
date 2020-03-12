@@ -48,4 +48,7 @@ public interface OraCdcLogMinerMgmtMBean {
 	public long getRedoReadElapsedMillis();
 	public String getRedoReadElapsed();
 	public float getRedoReadMbPerSecond();
+
+	public void saveCurrentState();
+
 }

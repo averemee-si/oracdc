@@ -13,6 +13,7 @@
 
 package eu.solutions.a2.cdc.oracle.jmx;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -20,7 +21,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.math3.util.Precision;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.OraCdcLogMinerTask;
+import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
 
 /**
@@ -30,6 +35,7 @@ import eu.solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
  */
 public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMgmt.class);
 	private static final String DURATION_FMT = "%sdays %shrs %smin %ssec.\n";
 
 	private List<String> tablesInProcessing = new ArrayList<>();
@@ -57,6 +63,12 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	private String lastRedoLog;
 	private LocalDateTime lastRedoLogTime;
 	private long lastScn = 0;
+
+	private OraCdcLogMinerTask task;
+
+	public void setTask(OraCdcLogMinerTask task) {
+		this.task = task;
+	}
 
 	public void start(long startScn) {
 		this.startTimeMillis = System.currentTimeMillis();
@@ -249,6 +261,17 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	public String getElapsedTime() {
 		Duration duration = Duration.ofMillis(System.currentTimeMillis() - startTimeMillis);
 		return formatDuration(duration);
+	}
+
+	public void saveCurrentState() {
+		if (task != null) {
+			try {
+				task.saveState(false);
+			} catch (IOException ioe) {
+				LOGGER.error("Unable to save state to file from JMX subsys!");
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+			}
+		}
 	}
 
 	private static String formatDuration(Duration duration) {
