@@ -19,6 +19,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,6 +45,7 @@ import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
 public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
+	private static final int ORA_17410 = 17410;
 
 	private final int pollInterval;
 	private final OraRdbmsInfo rdbmsInfo;
@@ -57,9 +59,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final String topic;
 	private final OraDumpDecoder odd;
 	private final OraLogMiner logMiner;
-	private final Connection connLogMiner;
-	private final PreparedStatement psLogMiner;
+	private Connection connLogMiner;
+	private PreparedStatement psLogMiner;
 	private ResultSet rsLogMiner;
+	private String mineDataSql;
 	private final Connection connDictionary;
 	private final PreparedStatement psCheckTable;
 	private final Path queuesRoot;
@@ -131,7 +134,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				throw new SQLException("Unable to mine data from databases with different DBID!!!");
 			}
 
-			String mineDataSql = null;
 			String checkTableSql = null;
 			if (isCdb) {
 				mineDataSql = OraDictSqlTexts.MINE_DATA_CDB;
@@ -373,7 +375,15 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					// Count archived redo log(s) read time
 					metrics.addRedoReadMillis(System.currentTimeMillis() - readStartMillis);
 					if (runLatch.getCount() > 0) {
-						logMinerReady = logMiner.next();
+						try {
+							logMinerReady = logMiner.next();
+						} catch (SQLException sqle) {
+							if (sqle instanceof SQLRecoverableException) {
+								restoreOraConnection(sqle);
+							} else {
+								throw new SQLException(sqle);
+							}
+						}
 					} else {
 						LOGGER.debug("Preparing to end LogMiner loop...");
 						logMinerReady = false;
@@ -389,12 +399,25 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								LOGGER.error(ie.getMessage());
 								LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
 							}
-							logMinerReady = logMiner.next();
+							try {
+								logMinerReady = logMiner.next();
+							} catch (SQLException sqle) {
+								if (sqle instanceof SQLRecoverableException) {
+									restoreOraConnection(sqle);
+								} else {
+									throw new SQLException(sqle);
+								}
+							}
 						}
 					}
 				}
 			} catch (SQLException | IOException e) {
 				LOGGER.error(e.getMessage());
+				if (e instanceof SQLException) {
+					SQLException sqle = (SQLException) e;
+					LOGGER.error("SQL errorCode = {}, SQL state = '{}'",
+							sqle.getErrorCode(), sqle.getSQLState());
+				}
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 				throw new ConnectException(e);
 			}
@@ -424,6 +447,35 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		LOGGER.info("Stopping oracdc logminer archivelog worker thread...");
 		runLatch.countDown();
 		LOGGER.debug("call to shutdown() completed");
+	}
+
+	private void restoreOraConnection(SQLException sqle) {
+		LOGGER.error("Error '{}' when waiting for next archived log.", sqle.getMessage());
+		LOGGER.error("SQL errorCode = {}, SQL state = '{}'",
+				sqle.getErrorCode(), sqle.getSQLState());
+		if (sqle.getErrorCode() == ORA_17410) {
+			LOGGER.error("ORA-17410: No more data to read from socket");
+			boolean ready = false;
+			while (runLatch.getCount() > 0 && !ready) {
+				LOGGER.debug("Waiting {} ms for RDBMS connection restore...", pollInterval);
+				try {
+					this.wait(pollInterval);
+				} catch (InterruptedException ie) {
+					LOGGER.error(ie.getMessage());
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
+				}
+				try {
+					connLogMiner = OraPoolConnectionFactory.getLogMinerConnection();
+					psLogMiner = connLogMiner.prepareStatement(
+							mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+					logMiner.createStatements(connLogMiner);
+					ready = true;
+				} catch (SQLException getConnException) {
+					LOGGER.error("Error '{}' when restoring connection, SQL errorCode = {}, SQL state = '{}'",
+							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+				}
+			}
+		}
 	}
 
 }

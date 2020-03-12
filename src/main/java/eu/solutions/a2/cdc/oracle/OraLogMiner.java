@@ -47,6 +47,7 @@ public class OraLogMiner {
 	private final long dbId;
 	private final String dbUniqueName;
 	private final OraCdcLogMinerMgmt metrics;
+//	private Connection connection;
 	private PreparedStatement psGetArchivedLogs;
 	private CallableStatement csAddArchivedLogs;
 	private CallableStatement csStartLogMiner;
@@ -86,11 +87,7 @@ public class OraLogMiner {
 			this.numArchLogs = numArchLogs;
 		}
 		this.firstChange = firstChange;
-		psGetArchivedLogs = connection.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
-				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		csAddArchivedLogs = connection.prepareCall(OraDictSqlTexts.ADD_ARCHIVED_LOG);
-		csStartLogMiner = connection.prepareCall(OraDictSqlTexts.START_LOGMINER);
-		csStopLogMiner = connection.prepareCall(OraDictSqlTexts.STOP_LOGMINER);
+		createStatements(connection);
 		PreparedStatement psOpenMode = connection.prepareStatement(OraDictSqlTexts.RDBMS_OPEN_MODE,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ResultSet rsOpenMode = psOpenMode.executeQuery();
@@ -116,6 +113,14 @@ public class OraLogMiner {
 		// It's time to init JMS metrics...
 		this.metrics.start(this.firstChange);
 		LOGGER.trace("END: OraLogMiner Constructor");
+	}
+
+	protected void createStatements(final Connection connection) throws SQLException {
+		psGetArchivedLogs = connection.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		csAddArchivedLogs = connection.prepareCall(OraDictSqlTexts.ADD_ARCHIVED_LOG);
+		csStartLogMiner = connection.prepareCall(OraDictSqlTexts.START_LOGMINER);
+		csStopLogMiner = connection.prepareCall(OraDictSqlTexts.STOP_LOGMINER);
 	}
 
 	/**
