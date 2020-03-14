@@ -38,7 +38,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -78,6 +80,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private OraCdcTransaction transaction;
 	private boolean lastStatementInTransaction = true;
 	private boolean needToStoreState = false;
+	private CountDownLatch runLatch;
+	private AtomicBoolean isPollRunning;
 
 	@Override
 	public String version() {
@@ -226,6 +230,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 
 			worker = new OraCdcLogMinerWorkerThread(
+					this,
 					pollInterval,
 					partition,
 					firstScn,
@@ -253,14 +258,22 @@ public class OraCdcLogMinerTask extends SourceTask {
 		LOGGER.trace("Starting worker thread.");
 		worker.start();
 		needToStoreState = true;
+		runLatch = new CountDownLatch(1);
+		isPollRunning = new AtomicBoolean(false);
 	}
 
 	@Override
 	public List<SourceRecord> poll() throws InterruptedException {
 		LOGGER.trace("BEGIN: poll()");
+		isPollRunning.set(true);
 		int recordCount = 0;
 		int parseTime = 0;
 		List<SourceRecord> result = new ArrayList<>();
+		if (runLatch.getCount() < 1) {
+			LOGGER.trace("Returning from poll() -> processing stopped");
+			isPollRunning.set(false);
+			return result;
+		}
 		while (recordCount < batchSize) {
 			if (lastStatementInTransaction) {
 				// End of transaction, need to poll new
@@ -286,6 +299,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 						final OraTable oraTable = tablesInProcessing.get(stmt.getTableId());
 						if (oraTable == null) {
 							LOGGER.error("Strange consistency issue for DATA_OBJ# {}. Exiting.", stmt.getTableId());
+							isPollRunning.set(false);
 							throw new ConnectException("Strange consistency issue!!!");
 						} else {
 							try {
@@ -298,6 +312,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							} catch (SQLException e) {
 								LOGGER.error(e.getMessage());
 								LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+								isPollRunning.set(false);
 								throw new ConnectException(e);
 							}
 						}
@@ -322,20 +337,37 @@ public class OraCdcLogMinerTask extends SourceTask {
 		} else {
 			metrics.addSentRecords(result.size(), parseTime);
 		}
+		isPollRunning.set(false);
 		LOGGER.trace("END: poll()");
 		return result;
 	}
 
 	@Override
 	public void stop() {
+		stop(true);
+	}
+
+	public void stop(boolean stopWorker) {
 		LOGGER.info("Stopping oracdc logminer source task.");
-		worker.shutdown();
-		while (worker.isRunning()) {
-			try {
-				LOGGER.debug("Waiting {} ms for worker thread to stop...", WAIT_FOR_WORKER_MILLIS);
-				Thread.sleep(WAIT_FOR_WORKER_MILLIS);
-			} catch (InterruptedException e) {
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+		runLatch.countDown();
+		if (stopWorker) {
+			worker.shutdown();
+			while (worker.isRunning()) {
+				try {
+					LOGGER.debug("Waiting {} ms for worker thread to stop...", WAIT_FOR_WORKER_MILLIS);
+					Thread.sleep(WAIT_FOR_WORKER_MILLIS);
+				} catch (InterruptedException e) {
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+				}
+			}
+		} else {
+			while (isPollRunning.get()) {
+				try {
+					LOGGER.debug("Waiting {} ms for connector task to stop...", WAIT_FOR_WORKER_MILLIS);
+					Thread.sleep(WAIT_FOR_WORKER_MILLIS);
+				} catch (InterruptedException e) {
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+				}
 			}
 		}
 		if (needToStoreState) {

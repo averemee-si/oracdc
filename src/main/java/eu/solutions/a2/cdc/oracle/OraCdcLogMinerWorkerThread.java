@@ -47,6 +47,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
 	private static final int ORA_17410 = 17410;
 
+	private final OraCdcLogMinerTask task;
 	private final int pollInterval;
 	private final OraRdbmsInfo rdbmsInfo;
 	private final OraCdcLogMinerMgmt metrics;
@@ -75,6 +76,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private boolean isCdb;
 
 	public OraCdcLogMinerWorkerThread(
+			final OraCdcLogMinerTask task,
 			final int pollInterval,
 			final Map<String, String> partition,
 			final long firstScn,
@@ -92,6 +94,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final BlockingQueue<OraCdcTransaction> committedTransactions) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
+		this.task = task;
 		this.pollInterval = pollInterval;
 		this.partition = partition;
 		this.tablesInProcessing = tablesInProcessing;
@@ -229,6 +232,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		LOGGER.info("BEGIN: OraCdcLogMinerWorkerThread.run()");
 		running.set(true);
 		while (runLatch.getCount() > 0) {
+			long lastGuaranteedScn = 0;
+			String lastGuaranteedRsId = null;
+			int lastGuaranteedSsn = 0;
 			try {
 				if (logMinerReady) {
 					if (rsLogMiner == null) {
@@ -368,6 +374,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								metrics.addRecord();
 							}
 						}
+						// Copy again, to protect from exception...
+						lastGuaranteedScn = lastScn;
+						lastGuaranteedRsId = lastRsId;
+						lastGuaranteedSsn = lastSsn;
 					}
 					logMiner.stop();
 					rsLogMiner.close();
@@ -419,6 +429,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							sqle.getErrorCode(), sqle.getSQLState());
 				}
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+				lastScn = lastGuaranteedScn;
+				lastRsId = lastGuaranteedRsId;
+				lastSsn = lastGuaranteedSsn;
+				running.set(false);
+				task.stop(false);
 				throw new ConnectException(e);
 			}
 		}
@@ -454,6 +469,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		LOGGER.error("SQL errorCode = {}, SQL state = '{}'",
 				sqle.getErrorCode(), sqle.getSQLState());
 		if (sqle.getErrorCode() == ORA_17410) {
+			// SQLSTATE = '08000'
 			LOGGER.error("ORA-17410: No more data to read from socket");
 			boolean ready = false;
 			while (runLatch.getCount() > 0 && !ready) {
