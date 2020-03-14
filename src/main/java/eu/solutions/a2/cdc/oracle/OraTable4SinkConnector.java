@@ -43,8 +43,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4SinkConnector.class);
 
+	private final int dbType;
 	private boolean ready4Ops = false;
-
 	private String sinkInsertSql = null;
 	private String sinkUpdateSql = null;
 	private String sinkDeleteSql = null;
@@ -60,10 +60,12 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	 * @param record
 	 * @param autoCreateTable
 	 * @param schemaType
+	 * @throws SQLException 
 	 */
 	public OraTable4SinkConnector(
-			final String tableName, final SinkRecord record, final boolean autoCreateTable, final int schemaType) {
+			final String tableName, final SinkRecord record, final boolean autoCreateTable, final int schemaType) throws SQLException {
 		super(schemaType);
+		dbType = HikariPoolConnectionFactory.getDbType();
 		LOGGER.trace("Creating OraTable object from Kafka connect SinkRecord...");
 		final List<Field> keyFields;
 		final List<Field> valueFields;
@@ -89,11 +91,9 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			LOGGER.debug("tableOwner = {}.", this.tableOwner);
 			LOGGER.debug("tableName = {}.", this.tableName);
 		}
-		int pkColCount = 0;
 		for (Field field : keyFields) {
 			final OraColumn column = new OraColumn(field, true);
 			pkColumns.put(column.getColumnName(), column);
-			pkColCount++;
 		}
 		// Only non PK columns!!!
 		for (Field field : valueFields) {
@@ -102,75 +102,22 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				allColumns.add(column);
 			}
 		}
-		prepareSql(pkColCount, autoCreateTable);
+		prepareSql(autoCreateTable);
 	}
 
 
-	private void prepareSql(final int pkColCount, final boolean autoCreateTable) {
+	private void prepareSql(final boolean autoCreateTable) throws SQLException {
 		// Prepare UPDATE/INSERT/DELETE statements...
 		LOGGER.trace("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
-		final StringBuilder sbDelUpdWhere = new StringBuilder(128);
-		sbDelUpdWhere.append(" where ");
-
-		final StringBuilder sbInsSql = new StringBuilder(256);
-		sbInsSql.append("insert into ");
-		sbInsSql.append(this.tableName);
-		sbInsSql.append("(");
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
-		int pkColumnNo = 0;
-		while (iterator.hasNext()) {
-			final String columnName = iterator.next().getValue().getColumnName();
-
-			if (pkColumnNo > 0) {
-				sbDelUpdWhere.append(" and ");
-			}
-			sbDelUpdWhere.append(columnName);
-			sbDelUpdWhere.append("=?");
-
-			sbInsSql.append(columnName);
-			if (pkColumnNo < pkColCount - 1) {
-				sbInsSql.append(",");
-			}
-			pkColumnNo++;
-		}
-
-		final StringBuilder sbUpdSql = new StringBuilder(256);
-		sbUpdSql.append("update ");
-		sbUpdSql.append(this.tableName);
-		sbUpdSql.append(" set ");
-		final int nonPkColumnCount = allColumns.size();
-		for (int i = 0; i < nonPkColumnCount; i++) {
-			sbInsSql.append(",");
-			sbInsSql.append(allColumns.get(i).getColumnName());
-
-			sbUpdSql.append(allColumns.get(i).getColumnName());
-			if (i < nonPkColumnCount - 1) {
-				sbUpdSql.append("=?,");
-			} else {
-				sbUpdSql.append("=?");
-			}
-		}
-		sbInsSql.append(") values(");
-		final int totalColumns = nonPkColumnCount + pkColCount;
-		for (int i = 0; i < totalColumns; i++) {
-			if (i < totalColumns - 1) {
-				sbInsSql.append("?,");
-			} else {
-				sbInsSql.append("?)");
-			}
-		}
-
-		final StringBuilder sbDelSql = new StringBuilder(128);
-		sbDelSql.append("delete from ");
-		sbDelSql.append(this.tableName);
-		sbDelSql.append(sbDelUpdWhere);
-
-		sbUpdSql.append(sbDelUpdWhere);
-
+		final List<String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
+				this.tableName, this.dbType, this.pkColumns, this.allColumns);
+		sinkInsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
+		sinkUpdateSql = sqlTexts.get(TargetDbSqlUtils.UPDATE);
+		sinkDeleteSql = sqlTexts.get(TargetDbSqlUtils.DELETE);
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Table name -> {}, INSERT statement ->\n{}", this.tableName, sbInsSql.toString());
-			LOGGER.debug("Table name -> {}, UPDATE statement ->\n{}", this.tableName, sbUpdSql.toString());
-			LOGGER.debug("Table name -> {}, DELETE statement ->\n{}", this.tableName, sbDelSql.toString());
+			LOGGER.debug("Table name -> {}, INSERT statement ->\n{}", this.tableName, sinkInsertSql);
+			LOGGER.debug("Table name -> {}, UPDATE statement ->\n{}", this.tableName, sinkUpdateSql);
+			LOGGER.debug("Table name -> {}, DELETE statement ->\n{}", this.tableName, sinkDeleteSql);
 		}
 
 		// Check for table existence
@@ -178,7 +125,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			LOGGER.trace("Check for table {} in database", this.tableName);
 			DatabaseMetaData metaData = connection.getMetaData();
 			String tableNameCaseConv = tableName;
-			if (HikariPoolConnectionFactory.getDbType() == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL) {
+			if (dbType == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL) {
 				LOGGER.trace("Working with PostgreSQL specific lower case only names");
 				// PostgreSQL specific...
 				// Also look at https://stackoverflow.com/questions/43111996/why-postgresql-does-not-like-uppercase-table-names
@@ -199,7 +146,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			// Create table in target database
 			LOGGER.trace("Prepare to create table {}", this.tableName);
 			String createTableSqlText = TargetDbSqlUtils.createTableSql(
-					this.tableName, this.pkColumns, this.allColumns);
+					this.tableName, this.dbType, this.pkColumns, this.allColumns);
 			LOGGER.debug("Create table with:\n{}", createTableSqlText);
 			try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
 				Statement statement = connection.createStatement();
@@ -211,12 +158,9 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				LOGGER.error("Create table failed! Failed creation statement:");
 				LOGGER.error(createTableSqlText);
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				throw new SQLException(sqle);
 			}
 		}
-
-		sinkInsertSql = sbInsSql.toString();
-		sinkUpdateSql = sbUpdSql.toString();
-		sinkDeleteSql = sbDelSql.toString();
 		LOGGER.trace("End of SQL and DB preparation for table {}.", this.tableName);
 	}
 

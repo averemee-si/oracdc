@@ -104,6 +104,8 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 			}
 			connection.commit();
 		} catch (SQLException sqle) {
+			LOGGER.error("Error '{}' when put to target system, SQL errorCode = {}, SQL state = '{}'",
+					sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 			throw new ConnectException(sqle);
 		}
