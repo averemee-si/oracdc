@@ -91,20 +91,20 @@ public class OraCdcSqlRedoParser {
 		offset.put("RS_ID", stmt.getRsId());
 		offset.put("SSN", stmt.getSsn());
 
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Parsing REDO record for {}.{}", owner, tableName);
-			LOGGER.debug("Redo record information:");
-			LOGGER.debug("\tSCN = {}", stmt.getScn());
-			LOGGER.debug("\tTIMESTAMP = {}", stmt.getTs());
-			LOGGER.debug("\tRS_ID = {}", stmt.getRsId());
-			LOGGER.debug("\tSSN = {}", stmt.getSsn());
-			LOGGER.debug("\tROW_ID = {}", stmt.getRowId());
-			LOGGER.debug("\tOPERATION_CODE = {}", stmt.getOperation());
-			LOGGER.debug("\tSQL_REDO = {}", stmt.getSqlRedo());
+		if (LOGGER.isTraceEnabled()) {
+			LOGGER.trace("Parsing REDO record for {}.{}", owner, tableName);
+			LOGGER.trace("Redo record information:");
+			LOGGER.trace("\tSCN = {}", stmt.getScn());
+			LOGGER.trace("\tTIMESTAMP = {}", stmt.getTs());
+			LOGGER.trace("\tRS_ID = {}", stmt.getRsId());
+			LOGGER.trace("\tSSN = {}", stmt.getSsn());
+			LOGGER.trace("\tROW_ID = {}", stmt.getRowId());
+			LOGGER.trace("\tOPERATION_CODE = {}", stmt.getOperation());
+			LOGGER.trace("\tSQL_REDO = {}", stmt.getSqlRedo());
 		}
 		if (!tableWithPk) {
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("Do primary key substitution for table {}.{}", owner, tableName);
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace("Do primary key substitution for table {}.{}", owner, tableName);
 			}
 			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
