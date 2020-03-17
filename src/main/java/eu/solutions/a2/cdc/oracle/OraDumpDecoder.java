@@ -47,6 +47,8 @@ public class OraDumpDecoder {
 	private final static Hashtable<String, String> charsetMap = new Hashtable<>(131);
 	private final static int TS_OFFSET_HOUR = 20;
 	private final static int TS_OFFSET_MINUTE = 60;
+	private static final char[] HEX_CHARS_UPPER = new char[]
+			{0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46};
 
 	/**
 	 * 
@@ -60,7 +62,7 @@ public class OraDumpDecoder {
 
 	public static byte toByte(String hex) throws SQLException {
 		try {
-			return NUMBER.toByte(hexStringToByteArray(hex));
+			return NUMBER.toByte(toByteArray(hex));
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
@@ -68,7 +70,7 @@ public class OraDumpDecoder {
 
 	public static short toShort(String hex) throws SQLException {
 		try {
-			return NUMBER.toShort(hexStringToByteArray(hex));
+			return NUMBER.toShort(toByteArray(hex));
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
@@ -76,7 +78,7 @@ public class OraDumpDecoder {
 
 	public static int toInt(String hex) throws SQLException {
 		try {
-			return NUMBER.toInt(hexStringToByteArray(hex));
+			return NUMBER.toInt(toByteArray(hex));
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
@@ -84,7 +86,7 @@ public class OraDumpDecoder {
 
 	public static long toLong(String hex) throws SQLException {
 		try {
-			return NUMBER.toLong(hexStringToByteArray(hex));
+			return NUMBER.toLong(toByteArray(hex));
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
@@ -92,7 +94,7 @@ public class OraDumpDecoder {
 
 	public static BigInteger toBigInteger(String hex) throws SQLException {
 		try {
-			return NUMBER.toBigInteger(hexStringToByteArray(hex));
+			return NUMBER.toBigInteger(toByteArray(hex));
 		} catch (Exception  e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
@@ -100,7 +102,7 @@ public class OraDumpDecoder {
 
 	public static float toFloat(String hex) throws SQLException {
 		try {
-			return NUMBER.toFloat(hexStringToByteArray(hex));
+			return NUMBER.toFloat(toByteArray(hex));
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
@@ -108,7 +110,7 @@ public class OraDumpDecoder {
 
 	public static float fromBinaryFloat(String hex) throws SQLException {
 		try {
-			BINARY_FLOAT bf = new BINARY_FLOAT(hexStringToByteArray(hex));
+			BINARY_FLOAT bf = new BINARY_FLOAT(toByteArray(hex));
 			return bf.floatValue();
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
@@ -117,7 +119,7 @@ public class OraDumpDecoder {
 
 	public static double toDouble(String hex) throws SQLException {
 		try {
-			return NUMBER.toDouble(hexStringToByteArray(hex));
+			return NUMBER.toDouble(toByteArray(hex));
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
@@ -125,7 +127,7 @@ public class OraDumpDecoder {
 
 	public static double fromBinaryDouble(String hex) throws SQLException {
 		try {
-			BINARY_DOUBLE bd = new BINARY_DOUBLE(hexStringToByteArray(hex));
+			BINARY_DOUBLE bd = new BINARY_DOUBLE(toByteArray(hex));
 			return bd.doubleValue();
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
@@ -134,7 +136,7 @@ public class OraDumpDecoder {
 
 	public static BigDecimal toBigDecimal(String hex) throws SQLException {
 		try {
-			return NUMBER.toBigDecimal(hexStringToByteArray(hex));
+			return NUMBER.toBigDecimal(toByteArray(hex));
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
@@ -142,7 +144,7 @@ public class OraDumpDecoder {
 
 	public String fromVarchar2(String hex) throws SQLException {
 		try {
-			return new String(hexStringToByteArray(hex), nlsCharacterSet);
+			return new String(toByteArray(hex), nlsCharacterSet);
 		} catch (UnsupportedEncodingException e) {
 			throw new SQLException("Invalid encoding " + nlsCharacterSet + " for HEXTORAW " + hex +  ".", e);
 		}
@@ -150,7 +152,7 @@ public class OraDumpDecoder {
 
 	public String fromNvarchar2(String hex) throws SQLException {
 		try {
-			return new String(hexStringToByteArray(hex), nlsNcharCharacterSet);
+			return new String(toByteArray(hex), nlsNcharCharacterSet);
 		} catch (UnsupportedEncodingException e) {
 			throw new SQLException("Invalid encoding " + nlsNcharCharacterSet + " for HEXTORAW " + hex +  ".", e);
 		}
@@ -209,10 +211,6 @@ public class OraDumpDecoder {
 	}
 
 	public static byte[] toByteArray(String hex) {
-		return hexStringToByteArray(hex);
-	}
-
-	private static byte[] hexStringToByteArray(String hex) {
 		int len = hex.length();
 		byte[] data = new byte[len / 2];
 		for (int i = 0; i < len; i += 2) {
@@ -220,6 +218,15 @@ public class OraDumpDecoder {
 									Character.digit(hex.charAt(i+1), 16));
 		}
 		return data;
+	}
+
+	public static String toHexString(byte[] hex) {
+		final char[] data = new char[hex.length * 2];
+		for (int i = 0; i < hex.length; i++) {
+			data[i << 1] = HEX_CHARS_UPPER[(hex[i] >> 4) & 0xF];
+			data[(i << 1) + 1] = HEX_CHARS_UPPER[(hex[i] & 0xF)];
+		}
+		return new String(data);
 	}
 
 	private static int[] hexStringToIntArray(String hex) {
@@ -370,4 +377,5 @@ public class OraDumpDecoder {
 		charsetMap.put("ZHT16MSWIN950", "MS950");
 		charsetMap.put("ZHT32EUC", "EUC-TW");
 	}
+
 }
