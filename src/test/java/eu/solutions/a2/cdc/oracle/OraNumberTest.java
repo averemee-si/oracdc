@@ -62,16 +62,18 @@ public class OraNumberTest {
 				OraNumber.builder().build());
 		Schema schema = schemaBuilder.build();
 		Struct struct = new Struct(schema);
-		struct.put("NUMBER01", OraNumber.fromLogical(
-				OraNumber.builder().optional().build(), OraDumpDecoder.toByteArray("3f534966")));
-		struct.put("NUMBER02", OraNumber.fromLogical(
-				OraDumpDecoder.toByteArray("c1024a153351")));
+		struct.put("NUMBER01", OraDumpDecoder.toByteArray("3f534966"));
+		struct.put("NUMBER02", OraDumpDecoder.toByteArray("c1024a153351"));
+
+		System.out.println(struct.schema().field("NUMBER01").schema().name());
+		assertTrue(struct.schema().field("NUMBER01").schema().name().equals(OraNumber.LOGICAL_NAME));
+		assertTrue(struct.schema().field("NUMBER02").schema().name().equals(OraNumber.LOGICAL_NAME));
 
 		final BigDecimal bdRef1 = new BigDecimal("-0.1828");
 		final BigDecimal bdRef2 = new BigDecimal("1.7320508");
 		
-		final BigDecimal bd1 = OraNumber.toLogical(struct.getStruct("NUMBER01"));
-		final BigDecimal bd2 = OraNumber.toLogical(struct.getStruct("NUMBER02"));
+		final BigDecimal bd1 = OraNumber.toLogical(struct.getBytes("NUMBER01"));
+		final BigDecimal bd2 = OraNumber.toLogical(struct.getBytes("NUMBER02"));
 
 		assertTrue(bd1.equals(bdRef1));
 		assertTrue(bd2.equals(bdRef2));

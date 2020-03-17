@@ -18,7 +18,6 @@ import java.sql.SQLException;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 
 import oracle.sql.NUMBER;
@@ -40,41 +39,28 @@ import oracle.sql.NUMBER;
 public class OraNumber {
 
 	public static final String LOGICAL_NAME = "eu.solutions.a2.cdc.oracle.data.OraNumber";
-	public static final String VALUE_FIELD = "DUMP";
 
 	public static SchemaBuilder builder() {
-		return SchemaBuilder.struct()
+		return SchemaBuilder.bytes()
 				.name(LOGICAL_NAME)
-				.version(1)
-				.field(VALUE_FIELD, Schema.BYTES_SCHEMA);
+				.version(1);
 	}
 
 	public static Schema schema() {
 		return builder().build();
 	}
 
-	public static Struct fromLogical(final Schema schema, final byte[] dumpValue) {
+	public static byte[] fromLogical(final Schema schema, final byte[] dumpValue) {
 		if (dumpValue == null) {
 			throw new DataException("oracle.sql.NUMBER representation is null!");
 		}
-		final Struct result = new Struct(schema);
-		result.put(VALUE_FIELD, dumpValue);
-		return result;
+		return dumpValue;
 	}
 
-	public static Struct fromLogical(final byte[] dumpValue) {
-		if (dumpValue == null) {
-			throw new DataException("oracle.sql.NUMBER representation is null!");
-		}
-		final Struct result = new Struct(builder().build());
-		result.put(VALUE_FIELD, dumpValue);
-		return result;
-	}
-
-	public static BigDecimal toLogical(final Struct struct) {
+	public static BigDecimal toLogical(final byte[] dumpValue) {
 		final BigDecimal bd;
 		try {
-			bd = new NUMBER(struct.getBytes(VALUE_FIELD)).bigDecimalValue();
+			bd = new NUMBER(dumpValue).bigDecimalValue();
 		} catch (SQLException  sqle) {
 			throw new DataException(sqle);
 		}
