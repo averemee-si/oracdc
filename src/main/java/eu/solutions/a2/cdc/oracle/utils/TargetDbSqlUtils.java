@@ -47,8 +47,10 @@ public class TargetDbSqlUtils {
 				put(Types.FLOAT, "float");
 				put(Types.DOUBLE, "double");
 				put(Types.DECIMAL, "decimal");
+				put(Types.NUMERIC, "decimal(38,9)");
 				put(Types.DATE, "datetime");
 				put(Types.TIMESTAMP, "timestamp");
+				put(Types.TIMESTAMP_WITH_TIMEZONE, "varchar(127)");
 				put(Types.VARCHAR, "varchar(255)");
 				put(Types.BINARY, "varbinary(1000)");
 			}});
@@ -63,8 +65,10 @@ public class TargetDbSqlUtils {
 				put(Types.FLOAT, "real");
 				put(Types.DOUBLE, "double precision");
 				put(Types.DECIMAL, "numeric");
+				put(Types.NUMERIC, "numeric");
 				put(Types.DATE, "timestamp");
 				put(Types.TIMESTAMP, "timestamp");
+				put(Types.TIMESTAMP_WITH_TIMEZONE, "timestamp with time zone");
 				put(Types.VARCHAR, "text");
 				put(Types.BINARY, "bytea");
 			}});
@@ -79,8 +83,10 @@ public class TargetDbSqlUtils {
 				put(Types.FLOAT, "BINARY_FLOAT");
 				put(Types.DOUBLE, "BINARY_DOUBLE");
 				put(Types.DECIMAL, "NUMBER");
+				put(Types.NUMERIC, "NUMBER");
 				put(Types.DATE, "DATE");
 				put(Types.TIMESTAMP, "TIMESTAMP");
+				put(Types.TIMESTAMP_WITH_TIMEZONE, "TIMESTAMP(9) WITH TIME ZONE");
 				put(Types.VARCHAR, "VARCHAR2(4000)");
 				put(Types.BINARY, "RAW(2000)");
 			}});

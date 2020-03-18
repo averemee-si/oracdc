@@ -122,7 +122,7 @@ public class OraTable extends OraTableDefinition {
 			statement.setString(3, this.tableName);
 
 			ResultSet rsColumns = statement.executeQuery();
-			buildColumnList(true, null, rsColumns, sourceOffset, null);
+			buildColumnList(true, false, null, rsColumns, sourceOffset, null);
 			rsColumns.close(); rsColumns = null;
 			statement.close(); statement = null;
 		} catch (SQLException sqle) {
@@ -140,6 +140,7 @@ public class OraTable extends OraTableDefinition {
 	 * @param tableOwner
 	 * @param tableName
 	 * @param schemaType
+	 * @param useOracdcSchemas
 	 * @param isCdb
 	 * @param odd
 	 * @param sourcePartition
@@ -147,9 +148,9 @@ public class OraTable extends OraTableDefinition {
 	 */
 	public OraTable(
 			final String pdbName, final Short conId, final String tableOwner,
-			final String tableName, final int schemaType, final boolean isCdb,
-			final OraDumpDecoder odd, final Map<String, String> sourcePartition,
-			final String kafkaTopic) {
+			final String tableName, final int schemaType, final boolean useOracdcSchemas,
+			final boolean isCdb, final OraDumpDecoder odd,
+			final Map<String, String> sourcePartition, final String kafkaTopic) {
 		super(tableOwner, tableName, schemaType);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		this.sourcePartition = sourcePartition;
@@ -176,7 +177,7 @@ public class OraTable extends OraTableDefinition {
 			}
 
 			ResultSet rsColumns = statement.executeQuery();
-			buildColumnList(false, pdbName, rsColumns, null, pkColumns);
+			buildColumnList(false, useOracdcSchemas, pdbName, rsColumns, null, pkColumns);
 			rsColumns.close(); rsColumns = null;
 			statement.close(); statement = null;
 		} catch (SQLException sqle) {
@@ -191,7 +192,7 @@ public class OraTable extends OraTableDefinition {
 		LOGGER.trace("END: Creating OraTable object from LogMiner data...");
 	}
 
-	private void buildColumnList(final boolean mviewSource, final String pdbName, final ResultSet rsColumns, 
+	private void buildColumnList(final boolean mviewSource, final boolean useOracdcSchemas, final String pdbName, final ResultSet rsColumns, 
 			final Map<String, Object> sourceOffset, final Set<String> pkColsSet) throws SQLException {
 		final String snapshotFqn;
 		final StringBuilder mViewSelect;
@@ -255,7 +256,8 @@ public class OraTable extends OraTableDefinition {
 
 		while (rsColumns .next()) {
 			final OraColumn column = new OraColumn(
-					mviewSource, rsColumns, keySchemaBuilder, valueSchemaBuilder, schemaType, pkColsSet);
+					mviewSource, useOracdcSchemas,
+					rsColumns, keySchemaBuilder, valueSchemaBuilder, schemaType, pkColsSet);
 			allColumns.add(column);
 			LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);
 			if (mviewSource) {

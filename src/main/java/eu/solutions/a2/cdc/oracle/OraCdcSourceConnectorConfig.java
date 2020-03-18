@@ -90,7 +90,9 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				.define(ParamConstants.STANDBY_TNS_ALIAS_PARAM, Type.STRING, "",
 						Importance.LOW, ParamConstants.STANDBY_TNS_ALIAS_DOC)
 				.define(ParamConstants.PERSISTENT_STATE_FILE_PARAM, Type.STRING, "",
-						Importance.MEDIUM, ParamConstants.PERSISTENT_STATE_FILE_DOC);
+						Importance.MEDIUM, ParamConstants.PERSISTENT_STATE_FILE_DOC)
+				.define(ParamConstants.ORACDC_SCHEMAS_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, ParamConstants.ORACDC_SCHEMAS_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {

@@ -80,6 +80,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private OraCdcTransaction transaction;
 	private boolean lastStatementInTransaction = true;
 	private boolean needToStoreState = false;
+	private boolean useOracdcSchemas = false;
 	private CountDownLatch runLatch;
 	private AtomicBoolean isPollRunning;
 
@@ -105,7 +106,10 @@ public class OraCdcLogMinerTask extends SourceTask {
 			topic = props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
 		}
 		LOGGER.debug("topic set to {}.", topic);
-		
+		useOracdcSchemas = Boolean.parseBoolean(props.get(ParamConstants.ORACDC_SCHEMAS_PARAM));
+		if (useOracdcSchemas) {
+			LOGGER.debug("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
+		}
 
 		try {
 			rdbmsInfo = OraRdbmsInfo.getInstance();
@@ -241,6 +245,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					tablesInProcessing,
 					tablesOutOfScope,
 					schemaType,
+					useOracdcSchemas,
 					topic,
 					odd,
 					queuesRoot,
@@ -505,16 +510,14 @@ public class OraCdcLogMinerTask extends SourceTask {
 				if (isCdb) {
 					final String pdbName = rsCheckTable.getString("PDB_NAME");
 					OraTable oraTable = new OraTable(
-							pdbName, (short) conId,
-							tableOwner, tableName,
-							schemaType, rdbmsInfo.isCdb(), odd, partition, tableTopic);
+							pdbName, (short) conId, tableOwner, tableName,
+							schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
 						tablesInProcessing.put(combinedDataObjectId, oraTable);
 						metrics.addTableInProcessing(pdbName + ":" + tableFqn);
 				} else {
 					OraTable oraTable = new OraTable(
-						null, null,
-						tableOwner, tableName,
-						schemaType, isCdb, odd, partition, tableTopic);
+						null, null, tableOwner, tableName,
+						schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(tableFqn);
 				}

@@ -15,6 +15,7 @@ package eu.solutions.a2.cdc.oracle;
 
 import static org.junit.Assert.assertTrue;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -45,14 +46,22 @@ public class OraCdcSinkSqlInsertTest {
 		final Map<String, OraColumn> pkColumns = new HashMap<>();
 
 		for (Field field : keyFields) {
-			final OraColumn column = new OraColumn(field, true);
-			pkColumns.put(column.getColumnName(), column);
+			try {
+				final OraColumn column = new OraColumn(field, true);
+				pkColumns.put(column.getColumnName(), column);
+			} catch (SQLException sqle) {
+				sqle.printStackTrace();
+			}
 		}
 		// Only non PK columns!!!
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
-				final OraColumn column = new OraColumn(field, false);
-				allColumns.add(column);
+				try {
+					final OraColumn column = new OraColumn(field, false);
+					allColumns.add(column);
+				} catch (SQLException sqle) {
+					sqle.printStackTrace();
+				}
 			}
 		}
 

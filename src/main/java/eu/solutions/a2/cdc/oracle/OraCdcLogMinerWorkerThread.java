@@ -69,6 +69,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
+	private final boolean useOracdcSchemas;
 	private long lastScn;
 	private String lastRsId;
 	private int lastSsn;
@@ -87,6 +88,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final Map<Long, OraTable> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final int schemaType,
+			final boolean useOracdcSchemas,
 			final String topic,
 			final OraDumpDecoder odd,
 			final Path queuesRoot,
@@ -102,6 +104,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.queuesRoot = queuesRoot;
 		this.odd = odd;
 		this.schemaType = schemaType;
+		this.useOracdcSchemas = useOracdcSchemas;
 		this.topic = topic;
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
@@ -311,14 +314,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 										oraTable = new OraTable(
 												pdbName, rsLogMiner.getShort("CON_ID"),
 												tableOwner, tableName,
-												schemaType, rdbmsInfo.isCdb(), odd, partition, tableTopic);
+												schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
 										tablesInProcessing.put(combinedDataObjectId, oraTable);
 										metrics.addTableInProcessing(pdbName + ":" + tableFqn);
 									} else {
 										oraTable = new OraTable(
 												null, null,
 												tableOwner, tableName,
-												schemaType, isCdb, odd, partition, tableTopic);
+												schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
 										tablesInProcessing.put(combinedDataObjectId, oraTable);
 										metrics.addTableInProcessing(tableFqn);
 									}

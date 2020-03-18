@@ -27,6 +27,8 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
+
 /**
  * 
  * Parser for V$LOGMNR_CONTENTS.SQL_REDO column
@@ -264,6 +266,10 @@ public class OraCdcSqlRedoParser {
 			case Types.TIMESTAMP:
 				columnValue = OraDumpDecoder.toTimestamp(hex);
 				break;
+			case Types.TIMESTAMP_WITH_TIMEZONE:
+				columnValue = OraTimestamp.fromLogical(
+						OraDumpDecoder.toByteArray(hex), oraColumn.isLocalTimeZone());
+				break;
 			case Types.TINYINT:
 				columnValue = OraDumpDecoder.toByte(hex);
 				break;
@@ -293,6 +299,10 @@ public class OraCdcSqlRedoParser {
 			case Types.DECIMAL:
 				columnValue = OraDumpDecoder.toBigDecimal(hex).setScale(oraColumn.getDataScale());
 				break;
+			case Types.NUMERIC:
+				// do not need to call OraNumber.fromLogical()
+				columnValue = OraDumpDecoder.toByteArray(hex);
+				break;
 			case Types.BINARY:
 				columnValue = OraDumpDecoder.toByteArray(hex);
 				break;
@@ -305,7 +315,7 @@ public class OraCdcSqlRedoParser {
 				columnValue = odd.fromNvarchar2(hex);
 				break;
 			default:
-				columnValue = "JDBC Type Code " + oraColumn.getJdbcType() + " support not implemented!";
+				columnValue = "JDBC Type Code " + oraColumn.getJdbcType() + " support not yet implemented!";
 				break;
 		}
 		if (pkColumns.containsKey(columnName)) {

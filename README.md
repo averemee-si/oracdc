@@ -124,6 +124,12 @@ from DBA_LOG_GROUPS;
 ```
 
 ### Creating Oracle ROLE with LogMiner privileges
+
+For Oracle RDBMS versions 12c+ before creation role without `c##` prefix additional session parameter required to prevent ORA-65096 error (Ref.: [ZDLRA - Container Database - Redo_Transport_User - How to create common user on CDB and Recovery Catalog (Doc ID 2148774.1)](https://support.oracle.com/rs?type=doc&id=2148774.1)):
+
+```
+alter session set "_oracle_script"=true;
+```
 Log in as sysdba and enter the following commands to create a role with the privileges required for running **oracdc** with LogMiner as CDC source:
 
 ```
@@ -214,10 +220,12 @@ When using materialized view log as CDC source *scn* field for **INSERT** and **
 
 ### Oracle RDBMS Type mapping
 
+
+By default (when `a2.oracdc.schemas` set to false) **oracdc** Source connector's is compatible with [Confluent JDBC Sink connector](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/index.html) and uses datatype mapping below
 |Oracle RDBMS Type|JSON Type|Comment                                                       |
 |:----------------|:--------|:-------------------------------------------------------------|
 |DATE             |int32    |org.apache.kafka.connect.data.Date                            |
-|TIMESTAMP        |int64    |org.apache.kafka.connect.data.Timestamp                       |
+|TIMESTAMP%       |int64    |org.apache.kafka.connect.data.Timestamp                       |
 |NUMBER           |int8     |NUMBER(1,0) & NUMBER(2,0)                                     |
 |NUMBER           |int16    |NUMBER(3,0) & NUMBER(4,0)                                     |
 |NUMBER           |int32    |NUMBER(5,0) & NUMBER(6,0) & NUMBER(7,0) & NUMBER(8,0)         |
@@ -233,6 +241,8 @@ When using materialized view log as CDC source *scn* field for **INSERT** and **
 |NCHAR            |string   |                                                              |
 |VARCHAR2         |string   |                                                              |
 |NVARCHAR2        |string   |                                                              |
+
+When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Oracle **NUMBER** (**eu.solutions.a2.cdc.oracle.data.OraNumber**) and  **TIMESTAMP WITH [LOCAL] TIMEZONE** (**eu.solutions.a2.cdc.oracle.data.OraTimestamp**) datatypes.
 
 ## Built With
 
