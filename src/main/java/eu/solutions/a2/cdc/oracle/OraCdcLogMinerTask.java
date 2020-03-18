@@ -399,7 +399,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	public void saveState(boolean saveFinalState) throws IOException {
 		final long saveStarted = System.currentTimeMillis();
 		final String fileName = saveFinalState ?
-				stateFileName : (stateFileName + "-jmx" + System.currentTimeMillis());
+				stateFileName : (stateFileName + "-jmx-" + System.currentTimeMillis());
 		LOGGER.info("Saving oracdc state to {} file...", fileName);
 		OraCdcPersistentState ops = new OraCdcPersistentState();
 		ops.setDbId(rdbmsInfo.getDbId());
