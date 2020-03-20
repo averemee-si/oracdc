@@ -30,6 +30,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.jmx.OraCdcSinkTableInfo;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
@@ -44,12 +45,11 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4SinkConnector.class);
 
 	private final int dbType;
+	private final OraCdcSinkTableInfo metrics;
 	private boolean ready4Ops = false;
-	private String sinkInsertSql = null;
-	private String sinkUpdateSql = null;
+	private String sinkUpsertSql = null;
 	private String sinkDeleteSql = null;
-	private PreparedStatement sinkInsert = null;
-	private PreparedStatement sinkUpdate = null;
+	private PreparedStatement sinkUpsert = null;
 	private PreparedStatement sinkDelete = null;
 
 
@@ -87,10 +87,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			keyFields = record.valueSchema().field("before").schema().fields();
 			valueFields = record.valueSchema().field("after").schema().fields();
 		}
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("tableOwner = {}.", this.tableOwner);
-			LOGGER.debug("tableName = {}.", this.tableName);
-		}
+		LOGGER.debug("tableOwner = {}, tableName = {}.", this.tableOwner, this.tableName);
 		for (Field field : keyFields) {
 			final OraColumn column = new OraColumn(field, true);
 			pkColumns.put(column.getColumnName(), column);
@@ -102,6 +99,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				allColumns.add(column);
 			}
 		}
+		LOGGER.debug("Create JMX objects...");
+		metrics = new OraCdcSinkTableInfo(this.tableName);
 		prepareSql(autoCreateTable);
 	}
 
@@ -111,12 +110,10 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		LOGGER.trace("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
 		final List<String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
 				this.tableName, this.dbType, this.pkColumns, this.allColumns);
-		sinkInsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
-		sinkUpdateSql = sqlTexts.get(TargetDbSqlUtils.UPDATE);
+		sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
 		sinkDeleteSql = sqlTexts.get(TargetDbSqlUtils.DELETE);
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Table name -> {}, INSERT statement ->\n{}", this.tableName, sinkInsertSql);
-			LOGGER.debug("Table name -> {}, UPDATE statement ->\n{}", this.tableName, sinkUpdateSql);
+			LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
 			LOGGER.debug("Table name -> {}, DELETE statement ->\n{}", this.tableName, sinkDeleteSql);
 		}
 
@@ -185,39 +182,31 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			opType = ((Struct) record.value()).getString("op");
 			LOGGER.debug("Operation type set payload to {}.", opType);
 		}
-		switch (opType) {
-		case "c":
-			processInsert(connection, record);
-			break;
-		case "u":
-			processUpdate(connection, record);
-			break;
-		case "d":
-			processDelete(connection, record);
-			break;
-		default:
-			LOGGER.error("Uncnown or null value for operation type '{}' received in header!", opType);
-			if (record.value() == null)
-				processDelete(connection, record);
-			else
-				processUpdate(connection, record);
+		final long nanosStart = System.nanoTime();
+		if ("d".equals(opType)) {
+			processDelete(connection, record);			
+			metrics.addDelete(System.nanoTime() - nanosStart);
+		} else {
+			processUpsert(connection, record);
+			metrics.addUpsert(System.nanoTime() - nanosStart);
 		}
 		LOGGER.trace("END: putData");
 	}
 
-	public void closeCursors() throws SQLException {
+	public void execAndCloseCursors() throws SQLException {
 		LOGGER.trace("BEGIN: closeCursors()");
-		if (sinkInsert != null) {
-			sinkInsert.close();
-			sinkInsert = null;
-		}
-		if (sinkUpdate != null) {
-			sinkUpdate.close();
-			sinkUpdate = null;
+		final long nanosStart = System.nanoTime();
+		if (sinkUpsert != null) {
+			sinkUpsert.executeBatch();
+			sinkUpsert.close();
+			sinkUpsert = null;
+			metrics.addUpsertExec(System.nanoTime() - nanosStart);
 		}
 		if (sinkDelete != null) {
+			sinkDelete.executeBatch();
 			sinkDelete.close();
 			sinkDelete = null;
+			metrics.addDeleteExec(System.nanoTime() - nanosStart);
 		}
 		LOGGER.trace("END: closeCursors()");
 	}
@@ -233,9 +222,9 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		return sb.toString();
 	}
 
-	private void processInsert(
+	private void processUpsert(
 			final Connection connection, final SinkRecord record) throws SQLException {
-		LOGGER.trace("BEGIN: processInsert()");
+		LOGGER.trace("BEGIN: processUpsert()");
 		final Struct keyStruct;
 		final Struct valueStruct;
 		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
@@ -245,64 +234,26 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			keyStruct = ((Struct) record.value()).getStruct("before");
 			valueStruct = ((Struct) record.value()).getStruct("after");
 		}
-		if (sinkInsert == null) {
-			sinkInsert = connection.prepareStatement(sinkInsertSql);
+		if (sinkUpsert == null) {
+			sinkUpsert = connection.prepareStatement(sinkUpsertSql);
 		}
 		int columnNo = 1;
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkInsert, columnNo, keyStruct.get(oraColumn.getColumnName()));
+			oraColumn.bindWithPrepStmt(sinkUpsert, columnNo, keyStruct.get(oraColumn.getColumnName()));
 			columnNo++;
 		}
 		for (int i = 0; i < allColumns.size(); i++) {
 			final OraColumn oraColumn = allColumns.get(i);
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
 					(schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
-				oraColumn.bindWithPrepStmt(sinkInsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
+				oraColumn.bindWithPrepStmt(sinkUpsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
 				columnNo++;
 			}
 		}
-		sinkInsert.executeUpdate();
-		LOGGER.trace("END: processInsert()");
-	}
-
-	private void processUpdate(
-			final Connection connection, final SinkRecord record) throws SQLException {
-		LOGGER.trace("BEGIN: processUpdate()");
-		final Struct keyStruct;
-		final Struct valueStruct;
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			keyStruct = (Struct) record.key();
-			valueStruct = (Struct) record.value();
-		} else { // if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
-			keyStruct = ((Struct) record.value()).getStruct("before");
-			valueStruct = ((Struct) record.value()).getStruct("after");
-		}
-		if (sinkUpdate == null) {
-			sinkUpdate = connection.prepareStatement(sinkUpdateSql);
-		}
-		int columnNo = 1;
-		for (int i = 0; i < allColumns.size(); i++) {
-			final OraColumn oraColumn = allColumns.get(i);
-			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
-					(schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
-				oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, valueStruct.get(oraColumn.getColumnName()));
-				columnNo++;
-			}
-		}
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
-		while (iterator.hasNext()) {
-			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkUpdate, columnNo, keyStruct.get(oraColumn.getColumnName()));
-			columnNo++;
-		}
-		final int recordCount = sinkUpdate.executeUpdate();
-		if (recordCount == 0) {
-			LOGGER.warn("Primary key not found, executing insert");
-			processInsert(connection, record);
-		}
-		LOGGER.trace("END: processUpdate()");
+		sinkUpsert.addBatch();
+		LOGGER.trace("END: processUpsert()");
 	}
 
 	private void processDelete(
@@ -324,7 +275,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			oraColumn.bindWithPrepStmt(sinkDelete, columnNo, keyStruct.get(oraColumn.getColumnName()));
 			columnNo++;
 		}
-		sinkDelete.executeUpdate();
+		sinkDelete.addBatch();
 		LOGGER.trace("END: processDelete()");
 	}
 

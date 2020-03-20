@@ -96,11 +96,11 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 				}
 				oraTable.putData(connection, record);
 			}
-			LOGGER.trace("Close cursors");
+			LOGGER.trace("Execute and close cursors");
 			Iterator<String> iterator = tablesInProcess.iterator();
 			while (iterator.hasNext()) {
 				final String tableName = iterator.next();
-				tablesInProcessing.get(tableName).closeCursors();
+				tablesInProcessing.get(tableName).execAndCloseCursors();
 			}
 			connection.commit();
 		} catch (SQLException sqle) {
