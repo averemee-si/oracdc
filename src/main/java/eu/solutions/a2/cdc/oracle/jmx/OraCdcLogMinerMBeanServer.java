@@ -14,7 +14,6 @@
 package eu.solutions.a2.cdc.oracle.jmx;
 
 import java.lang.management.ManagementFactory;
-import java.sql.SQLException;
 
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.MBeanRegistrationException;
@@ -39,37 +38,26 @@ public class OraCdcLogMinerMBeanServer {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMBeanServer.class);
 
-	private static OraCdcLogMinerMBeanServer instance;
-
 	private final OraCdcLogMinerMgmt mbean;
 
-	private OraCdcLogMinerMBeanServer() {
+	public OraCdcLogMinerMBeanServer(final OraRdbmsInfo rdbmsInfo, final String connectorName) {
 		mbean = new OraCdcLogMinerMgmt();
 		try {
-			OraRdbmsInfo rdbmsInfo = OraRdbmsInfo.getInstance();
 			final StringBuilder sb = new StringBuilder(96);
-			sb.append("eu.solutions.a2.oracdc:type=LogMiner-connector-metrics");
+			sb.append("eu.solutions.a2.oracdc:type=LogMiner-metrics,name=");
+			sb.append(connectorName);
 			sb.append(",database=");
 			sb.append(rdbmsInfo.getInstanceName());
 			sb.append("_");
 			sb.append(rdbmsInfo.getHostName());
-			sb.append("-");
-			sb.append(System.currentTimeMillis());
 			ObjectName name = new ObjectName(sb.toString());
 			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 			mbs.registerMBean(mbean, name);
-		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException | SQLException e) {
+		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
 			LOGGER.error("Unable to register MBean - " + e.getMessage() + " !!!!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
 		}
-	}
-
-	public static OraCdcLogMinerMBeanServer getInstance() {
-		if (instance == null) {
-			instance = new OraCdcLogMinerMBeanServer();
-		}
-		return instance;
 	}
 
 	public OraCdcLogMinerMgmt getMbean() {

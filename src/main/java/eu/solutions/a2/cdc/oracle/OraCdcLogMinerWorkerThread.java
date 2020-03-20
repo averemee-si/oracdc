@@ -32,7 +32,6 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMBeanServer;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
@@ -93,7 +92,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final OraDumpDecoder odd,
 			final Path queuesRoot,
 			final Map<String, OraCdcTransaction> activeTransactions,
-			final BlockingQueue<OraCdcTransaction> committedTransactions) throws SQLException {
+			final BlockingQueue<OraCdcTransaction> committedTransactions,
+			final OraCdcLogMinerMgmt metrics) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -108,6 +108,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.topic = topic;
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
+		this.metrics = metrics;
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
 		try {
@@ -116,7 +117,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 			rdbmsInfo = OraRdbmsInfo.getInstance();
 			isCdb = rdbmsInfo.isCdb();
-			metrics = OraCdcLogMinerMBeanServer.getInstance().getMbean();
 
 			if (redoSizeThreshold != null) {
 				logMiner = new OraLogMiner(connLogMiner, metrics, firstScn, redoSizeThreshold);

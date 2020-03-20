@@ -114,7 +114,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 		try {
 			rdbmsInfo = OraRdbmsInfo.getInstance();
 			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
-			metrics = OraCdcLogMinerMBeanServer.getInstance().getMbean();
+			final OraCdcLogMinerMBeanServer mbeanSrv = new OraCdcLogMinerMBeanServer(
+												rdbmsInfo, props.get("name"));
+			metrics = mbeanSrv.getMbean();
 			metrics.setTask(this);
 
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName();
@@ -250,7 +252,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 					odd,
 					queuesRoot,
 					activeTransactions,
-					committedTransactions);
+					committedTransactions,
+					metrics);
 			if (rewind) {
 				worker.rewind(firstScn, firstRsId, firstSsn);
 			}

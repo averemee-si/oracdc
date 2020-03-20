@@ -48,6 +48,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 	private int schemaType;
 	private String tmpdir;
 	private String stateFileName;
+	private String connectorName;
 
 	@Override
 	public String version() {
@@ -56,7 +57,8 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc logminer source connector");
+		connectorName = props.get("name");
+		LOGGER.info("Starting oracdc '{}' logminer source connector", connectorName);
 		config = new OraCdcSourceConnectorConfig(props);
 
 		// Initialize connection pool
@@ -189,6 +191,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 	public List<Map<String, String>> taskConfigs(int maxTasks) {
 		LOGGER.trace("BEGIN: taskConfigs(int maxTasks)");
 		final Map<String, String> taskParam = new HashMap<>();
+		taskParam.put("name", connectorName);
 		taskParam.put(ParamConstants.ORACDC_SCHEMAS_PARAM,
 				config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM).toString());
 		taskParam.put(ParamConstants.BATCH_SIZE_PARAM,
