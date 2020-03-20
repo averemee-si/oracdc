@@ -36,7 +36,6 @@ import eu.solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
 public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMgmt.class);
-	private static final String DURATION_FMT = "%sdays %shrs %smin %ssec.\n";
 
 	private List<String> tablesInProcessing = new ArrayList<>();
 	private int tableOutOfScopeCount = 0;
@@ -228,7 +227,7 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	@Override
 	public String getParseElapsed() {
 		Duration duration = Duration.ofMillis(parseTimeElapsed);
-		return formatDuration(duration);
+		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
 	public int getParsePerSecond() {
@@ -245,7 +244,7 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	@Override
 	public String getRedoReadElapsed() {
 		Duration duration = Duration.ofMillis(redoReadTimeElapsed);
-		return formatDuration(duration);
+		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
 	public float getRedoReadMbPerSecond() {
@@ -260,7 +259,7 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	@Override
 	public String getElapsedTime() {
 		Duration duration = Duration.ofMillis(System.currentTimeMillis() - startTimeMillis);
-		return formatDuration(duration);
+		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 
 	public void saveCurrentState() {
@@ -272,14 +271,6 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 			}
 		}
-	}
-
-	private static String formatDuration(Duration duration) {
-		return String.format(DURATION_FMT,
-				duration.toDays(),
-				duration.toHours() % 24,
-				duration.toMinutes() % 60,
-				duration.getSeconds() % 60);
 	}
 
 }
