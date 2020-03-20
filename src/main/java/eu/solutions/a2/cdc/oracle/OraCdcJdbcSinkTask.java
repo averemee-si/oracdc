@@ -54,7 +54,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc Sink Task");
+		LOGGER.info("Starting oracdc '{}' Sink Task", props.get("name"));
 		config = new OraCdcJdbcSinkConnectorConfig(props);
 		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
 		LOGGER.debug("batchSize = {} records.", batchSize);

@@ -41,9 +41,8 @@ public class OraCdcJdbcSinkConnector extends SinkConnector {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc Sink Connector");
+		LOGGER.info("Starting oracdc '{}' Sink Connector", props.get("name"));
 		this.props = props;
-
 
 		try {
 			LOGGER.trace("BEGIN: Hikari Connection Pool init.");
