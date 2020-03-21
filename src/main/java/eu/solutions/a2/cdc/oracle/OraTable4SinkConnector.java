@@ -51,6 +51,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	private String sinkDeleteSql = null;
 	private PreparedStatement sinkUpsert = null;
 	private PreparedStatement sinkDelete = null;
+	private int upsertCount;
+	private int deleteCount;
 
 
 	/**
@@ -102,6 +104,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		LOGGER.debug("Create JMX objects...");
 		metrics = new OraCdcSinkTableInfo(this.tableName);
 		prepareSql(autoCreateTable);
+		upsertCount = 0;
+		deleteCount = 0;
 	}
 
 
@@ -193,33 +197,46 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		LOGGER.trace("END: putData");
 	}
 
+	public void exec() throws SQLException {
+		LOGGER.trace("BEGIN: exec()");
+		final long nanosStart = System.nanoTime();
+		if (sinkUpsert != null && upsertCount > 0) {
+			sinkUpsert.executeBatch();
+			sinkUpsert.clearBatch();
+			upsertCount = 0;
+			metrics.addUpsertExec(System.nanoTime() - nanosStart);
+		}
+		if (sinkDelete != null && deleteCount > 0) {
+			sinkDelete.executeBatch();
+			sinkDelete.clearBatch();
+			deleteCount = 0;
+			metrics.addDeleteExec(System.nanoTime() - nanosStart);
+		}
+		LOGGER.trace("END: exec()");
+	}
+
 	public void execAndCloseCursors() throws SQLException {
 		LOGGER.trace("BEGIN: closeCursors()");
 		final long nanosStart = System.nanoTime();
 		if (sinkUpsert != null) {
-			sinkUpsert.executeBatch();
+			if (upsertCount > 0) {
+				sinkUpsert.executeBatch();
+				upsertCount = 0;
+			}
 			sinkUpsert.close();
 			sinkUpsert = null;
 			metrics.addUpsertExec(System.nanoTime() - nanosStart);
 		}
 		if (sinkDelete != null) {
-			sinkDelete.executeBatch();
+			if (deleteCount > 0) {
+				sinkDelete.executeBatch();
+				deleteCount = 0;
+			}
 			sinkDelete.close();
 			sinkDelete = null;
 			metrics.addDeleteExec(System.nanoTime() - nanosStart);
 		}
 		LOGGER.trace("END: closeCursors()");
-	}
-
-	@Override
-	public String toString() {
-		final StringBuilder sb = new StringBuilder(128);
-		sb.append("\"");
-		sb.append(this.tableOwner);
-		sb.append("\".\"");
-		sb.append(this.tableName);
-		sb.append("\"");
-		return sb.toString();
 	}
 
 	private void processUpsert(
@@ -253,6 +270,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			}
 		}
 		sinkUpsert.addBatch();
+		upsertCount++;
 		LOGGER.trace("END: processUpsert()");
 	}
 
@@ -276,7 +294,19 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			columnNo++;
 		}
 		sinkDelete.addBatch();
+		deleteCount++;
 		LOGGER.trace("END: processDelete()");
+	}
+
+	@Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder(128);
+		sb.append("\"");
+		sb.append(this.tableOwner);
+		sb.append("\".\"");
+		sb.append(this.tableName);
+		sb.append("\"");
+		return sb.toString();
 	}
 
 }

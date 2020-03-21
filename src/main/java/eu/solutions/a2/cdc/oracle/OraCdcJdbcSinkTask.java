@@ -73,30 +73,40 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 		LOGGER.trace("BEGIN: put()");
 		final Set<String> tablesInProcess = new HashSet<>();
 		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
+			int remaining = records.size(); 
 			for (SinkRecord record : records) {
 				LOGGER.debug("Processing key:\t" + record.key());
-				final String tableName;
-				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-					tableName = record.topic();
-					LOGGER.debug("Table name from Kafka topic = {}.", tableName);
-				} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-					tableName = ((Struct) record.value()).getStruct("source").getString("table");
-					LOGGER.debug("Table name from 'source' field = {}.", tableName);
+				int recordCount = 0;
+				while (recordCount < batchSize && recordCount < remaining) {
+					recordCount++;
+					remaining--;
+					final String tableName;
+					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+						tableName = record.topic();
+						LOGGER.debug("Table name from Kafka topic = {}.", tableName);
+					} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+						tableName = ((Struct) record.value()).getStruct("source").getString("table");
+						LOGGER.debug("Table name from 'source' field = {}.", tableName);
+					}
+					OraTable4SinkConnector oraTable = tablesInProcessing.get(tableName);
+					if (oraTable == null) {
+						LOGGER.trace("Create new table definition for {} and add it to processing map,", tableName);
+						oraTable = new OraTable4SinkConnector(
+								tableName, record, autoCreateTable, schemaType);
+						tablesInProcessing.put(tableName, oraTable);
+					}
+					if (!tablesInProcess.contains(tableName)) {
+						LOGGER.debug("Adding {} to current batch set.", tableName);
+						tablesInProcess.add(tableName);
+					}
+					oraTable.putData(connection, record);
 				}
-				OraTable4SinkConnector oraTable = tablesInProcessing.get(tableName);
-				if (oraTable == null) {
-					LOGGER.trace("Create new table definition for {} and add it to processing map,", tableName);
-					oraTable = new OraTable4SinkConnector(
-							tableName, record, autoCreateTable, schemaType);
-					tablesInProcessing.put(tableName, oraTable);
+				for (String tableName : tablesInProcess) {
+					tablesInProcessing.get(tableName).exec();
 				}
-				if (!tablesInProcess.contains(tableName)) {
-					LOGGER.debug("Adding {} to current batch set.", tableName);
-					tablesInProcess.add(tableName);
-				}
-				oraTable.putData(connection, record);
+				recordCount = 0;
 			}
-			LOGGER.trace("Execute and close cursors");
+			LOGGER.debug("Execute and close cursors");
 			Iterator<String> iterator = tablesInProcess.iterator();
 			while (iterator.hasNext()) {
 				final String tableName = iterator.next();
