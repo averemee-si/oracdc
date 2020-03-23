@@ -62,6 +62,7 @@ public class OraCdcSinkTableInfo implements OraCdcSinkTableInfoMBean {
 			ObjectName name = new ObjectName(sb.toString());
 			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 			mbs.registerMBean(this, name);
+			LOGGER.debug("MBean {} registered.", sb.toString());
 		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
 			LOGGER.error("Unable to register MBean - " + e.getMessage() + " !!!!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
@@ -97,11 +98,8 @@ public class OraCdcSinkTableInfo implements OraCdcSinkTableInfoMBean {
 		return (upsertRecordsCount + deleteRecordsCount);
 	}
 
-	public void addUpsert(long opNanos) {
-		upsertRecordsCount++;
-		elapsedUpsertNanos += opNanos;
-	}
-	public void addUpsertExec(long opNanos) {
+	public void addUpsert(int processed, long opNanos) {
+		upsertRecordsCount += processed;
 		elapsedUpsertNanos += opNanos;
 	}
 	@Override
@@ -119,18 +117,15 @@ public class OraCdcSinkTableInfo implements OraCdcSinkTableInfoMBean {
 	}
 	@Override
 	public double getUpsertsPerSecond() {
-		if (upsertRecordsCount == 0) {
+		if (upsertRecordsCount == 0 || elapsedUpsertNanos == 0) {
 			return 0;
 		} else {
 			return Precision.round(((double)(upsertRecordsCount * 1_000_000_000)) / ((double) elapsedUpsertNanos), 2);
 		}
 	}
 
-	public void addDelete(long opNanos) {
-		deleteRecordsCount++;
-		elapsedDeleteNanos += opNanos;
-	}
-	public void addDeleteExec(long opNanos) {
+	public void addDelete(int processed, long opNanos) {
+		deleteRecordsCount += processed;
 		elapsedDeleteNanos += opNanos;
 	}
 	@Override
@@ -148,7 +143,7 @@ public class OraCdcSinkTableInfo implements OraCdcSinkTableInfoMBean {
 	}
 	@Override
 	public double getDeletesPerSecond() {
-		if (deleteRecordsCount == 0) {
+		if (deleteRecordsCount == 0 || elapsedDeleteNanos == 0) {
 			return 0;
 		} else {
 			return Precision.round(((double)(deleteRecordsCount * 1_000_000_000)) / ((double) elapsedDeleteNanos), 2);

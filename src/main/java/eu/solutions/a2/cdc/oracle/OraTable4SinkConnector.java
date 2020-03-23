@@ -53,6 +53,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	private PreparedStatement sinkDelete = null;
 	private int upsertCount;
 	private int deleteCount;
+	private long upsertTime;
+	private long deleteTime;
 
 
 	/**
@@ -101,17 +103,18 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				allColumns.add(column);
 			}
 		}
-		LOGGER.debug("Create JMX objects...");
 		metrics = new OraCdcSinkTableInfo(this.tableName);
 		prepareSql(autoCreateTable);
 		upsertCount = 0;
 		deleteCount = 0;
+		upsertTime = 0;
+		deleteTime = 0;
 	}
 
 
 	private void prepareSql(final boolean autoCreateTable) throws SQLException {
 		// Prepare UPDATE/INSERT/DELETE statements...
-		LOGGER.trace("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
+		LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
 		final List<String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
 				this.tableName, this.dbType, this.pkColumns, this.allColumns);
 		sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
@@ -123,18 +126,18 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 
 		// Check for table existence
 		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
-			LOGGER.trace("Check for table {} in database", this.tableName);
+			LOGGER.debug("Check for table {} in database", this.tableName);
 			DatabaseMetaData metaData = connection.getMetaData();
 			String tableNameCaseConv = tableName;
 			if (dbType == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL) {
-				LOGGER.trace("Working with PostgreSQL specific lower case only names");
+				LOGGER.debug("Working with PostgreSQL specific lower case only names");
 				// PostgreSQL specific...
 				// Also look at https://stackoverflow.com/questions/43111996/why-postgresql-does-not-like-uppercase-table-names
 				tableNameCaseConv = tableName.toLowerCase();
 			}
 			ResultSet resultSet = metaData.getTables(null, null, tableNameCaseConv, null);
 			if (resultSet.next()) {
-				LOGGER.trace("Table {} already exist.", tableNameCaseConv);
+				LOGGER.debug("Table {} already exist.", tableNameCaseConv);
 				ready4Ops = true;
 			}
 			resultSet.close();
@@ -145,7 +148,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		}
 		if (!ready4Ops && autoCreateTable) {
 			// Create table in target database
-			LOGGER.trace("Prepare to create table {}", this.tableName);
+			LOGGER.debug("Prepare to create table {}", this.tableName);
 			String createTableSqlText = TargetDbSqlUtils.createTableSql(
 					this.tableName, this.dbType, this.pkColumns, this.allColumns);
 			LOGGER.debug("Create table with:\n{}", createTableSqlText);
@@ -188,11 +191,11 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		}
 		final long nanosStart = System.nanoTime();
 		if ("d".equals(opType)) {
-			processDelete(connection, record);			
-			metrics.addDelete(System.nanoTime() - nanosStart);
+			processDelete(connection, record);
+			deleteTime += System.nanoTime() - nanosStart;
 		} else {
 			processUpsert(connection, record);
-			metrics.addUpsert(System.nanoTime() - nanosStart);
+			upsertTime += System.nanoTime() - nanosStart;
 		}
 		LOGGER.trace("END: putData");
 	}
@@ -200,17 +203,21 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	public void exec() throws SQLException {
 		LOGGER.trace("BEGIN: exec()");
 		final long nanosStart = System.nanoTime();
-		if (sinkUpsert != null && upsertCount > 0) {
+		if ((sinkUpsert != null) && (upsertCount > 0)) {
 			sinkUpsert.executeBatch();
 			sinkUpsert.clearBatch();
+			upsertTime += System.nanoTime() - nanosStart;
+			metrics.addUpsert(upsertCount, upsertTime);
 			upsertCount = 0;
-			metrics.addUpsertExec(System.nanoTime() - nanosStart);
+			upsertTime = 0;
 		}
-		if (sinkDelete != null && deleteCount > 0) {
+		if ((sinkDelete != null) && (deleteCount > 0)) {
 			sinkDelete.executeBatch();
 			sinkDelete.clearBatch();
+			deleteTime += System.nanoTime() - nanosStart;
+			metrics.addDelete(deleteCount, deleteTime);
 			deleteCount = 0;
-			metrics.addDeleteExec(System.nanoTime() - nanosStart);
+			deleteTime = 0;
 		}
 		LOGGER.trace("END: exec()");
 	}
@@ -221,20 +228,24 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		if (sinkUpsert != null) {
 			if (upsertCount > 0) {
 				sinkUpsert.executeBatch();
-				upsertCount = 0;
+				upsertTime += System.nanoTime() - nanosStart;
+				metrics.addUpsert(upsertCount, upsertTime);
 			}
 			sinkUpsert.close();
 			sinkUpsert = null;
-			metrics.addUpsertExec(System.nanoTime() - nanosStart);
+			upsertCount = 0;
+			upsertTime = 0;
 		}
 		if (sinkDelete != null) {
 			if (deleteCount > 0) {
 				sinkDelete.executeBatch();
-				deleteCount = 0;
+				deleteTime += System.nanoTime() - nanosStart;
+				metrics.addDelete(deleteCount, deleteTime);
 			}
 			sinkDelete.close();
 			sinkDelete = null;
-			metrics.addDeleteExec(System.nanoTime() - nanosStart);
+			deleteCount = 0;
+			deleteTime = 0;
 		}
 		LOGGER.trace("END: closeCursors()");
 	}
@@ -253,6 +264,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		}
 		if (sinkUpsert == null) {
 			sinkUpsert = connection.prepareStatement(sinkUpsertSql);
+			upsertCount = 0;
+			upsertTime = 0;
 		}
 		int columnNo = 1;
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
@@ -285,6 +298,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		}
 		if (sinkDelete == null) {
 			sinkDelete = connection.prepareStatement(sinkDeleteSql);
+			deleteCount = 0;
+			deleteTime = 0;
 		}
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
 		int columnNo = 1;

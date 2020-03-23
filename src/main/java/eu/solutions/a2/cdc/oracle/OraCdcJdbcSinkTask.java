@@ -18,7 +18,6 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -73,44 +72,41 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 		LOGGER.trace("BEGIN: put()");
 		final Set<String> tablesInProcess = new HashSet<>();
 		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
-			int remaining = records.size(); 
+			int recordCount = 0;
 			for (SinkRecord record : records) {
-				LOGGER.debug("Processing key:\t" + record.key());
-				int recordCount = 0;
-				while (recordCount < batchSize && recordCount < remaining) {
-					recordCount++;
-					remaining--;
-					final String tableName;
-					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-						tableName = record.topic();
-						LOGGER.debug("Table name from Kafka topic = {}.", tableName);
-					} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-						tableName = ((Struct) record.value()).getStruct("source").getString("table");
-						LOGGER.debug("Table name from 'source' field = {}.", tableName);
-					}
-					OraTable4SinkConnector oraTable = tablesInProcessing.get(tableName);
-					if (oraTable == null) {
-						LOGGER.trace("Create new table definition for {} and add it to processing map,", tableName);
-						oraTable = new OraTable4SinkConnector(
+				final String tableName;
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+					tableName = record.topic();
+					LOGGER.debug("Table name from Kafka topic = {}.", tableName);
+				} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+					tableName = ((Struct) record.value()).getStruct("source").getString("table");
+					LOGGER.debug("Table name from 'source' field = {}.", tableName);
+				}
+				OraTable4SinkConnector oraTable = tablesInProcessing.get(tableName);
+				if (oraTable == null) {
+					LOGGER.debug("Create new table definition for {} and add it to processing map,", tableName);
+					oraTable = new OraTable4SinkConnector(
 								tableName, record, autoCreateTable, schemaType);
-						tablesInProcessing.put(tableName, oraTable);
-					}
-					if (!tablesInProcess.contains(tableName)) {
-						LOGGER.debug("Adding {} to current batch set.", tableName);
-						tablesInProcess.add(tableName);
-					}
-					oraTable.putData(connection, record);
+					tablesInProcessing.put(tableName, oraTable);
 				}
-				for (String tableName : tablesInProcess) {
-					tablesInProcessing.get(tableName).exec();
+				if (!tablesInProcess.contains(tableName)) {
+					LOGGER.debug("Adding {} to current batch set.", tableName);
+					tablesInProcess.add(tableName);
 				}
-				recordCount = 0;
+				oraTable.putData(connection, record);
+				recordCount++;
+				if (recordCount == batchSize) {
+					for (String tableInProgress : tablesInProcess) {
+						LOGGER.debug("Executing batch for table {}.", tableInProgress);
+						tablesInProcessing.get(tableInProgress).exec();
+					}
+					recordCount = 0;
+				}
 			}
 			LOGGER.debug("Execute and close cursors");
-			Iterator<String> iterator = tablesInProcess.iterator();
-			while (iterator.hasNext()) {
-				final String tableName = iterator.next();
-				tablesInProcessing.get(tableName).execAndCloseCursors();
+			for (String tableInProgress : tablesInProcess) {
+				LOGGER.debug("Last batch execution and statements closing for table {}.", tableInProgress);
+				tablesInProcessing.get(tableInProgress).execAndCloseCursors();
 			}
 			connection.commit();
 		} catch (SQLException sqle) {
