@@ -53,7 +53,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final CountDownLatch runLatch;
 	private boolean logMinerReady = false;
 	private final Map<String, String> partition;
-	private final Map<Long, OraTable> tablesInProcessing;
+	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
 	private final Set<Long> tablesOutOfScope;
 	private final int schemaType;
 	private final String topic;
@@ -84,7 +84,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final List<String> excludeList,
 			final Long redoSizeThreshold,
 			final Integer redoFilesCount,
-			final Map<Long, OraTable> tablesInProcessing,
+			final Map<Long, OraTable4LogMiner> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final int schemaType,
 			final boolean useOracdcSchemas,
@@ -198,6 +198,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			int recordCount = 0;
 			long rewindElapsed = System.currentTimeMillis();
 			boolean rewindNeeded = true;
+			lastScn = firstScn;
+			lastRsId = firstRsId;
+			lastSsn = firstSsn;
 			while (rewindNeeded) {
 				if (rsLogMiner.next()) {
 					final long scn = rsLogMiner.getLong("SCN");
@@ -287,7 +290,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								conId = 0;
 								combinedDataObjectId = dataObjectId;
 							}
-							OraTable oraTable = tablesInProcessing.get(combinedDataObjectId);
+							OraTable4LogMiner oraTable = tablesInProcessing.get(combinedDataObjectId);
 							if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
 								psCheckTable.setLong(1, dataObjectId);
 								if (isCdb) {
@@ -311,14 +314,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									}
 									if (isCdb) {
 										final String pdbName = rsCheckTable.getString("PDB_NAME");
-										oraTable = new OraTable(
+										oraTable = new OraTable4LogMiner(
 												pdbName, rsLogMiner.getShort("CON_ID"),
 												tableOwner, tableName,
 												schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
 										tablesInProcessing.put(combinedDataObjectId, oraTable);
 										metrics.addTableInProcessing(pdbName + ":" + tableFqn);
 									} else {
-										oraTable = new OraTable(
+										oraTable = new OraTable4LogMiner(
 												null, null,
 												tableOwner, tableName,
 												schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);

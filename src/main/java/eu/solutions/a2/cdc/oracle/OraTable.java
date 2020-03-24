@@ -36,10 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
@@ -52,7 +49,7 @@ import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
  * @author averemee
  *
  */
-public class OraTable extends OraTableDefinition {
+public class OraTable extends OraTable4SourceConnector {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable.class);
 
@@ -66,13 +63,6 @@ public class OraTable extends OraTableDefinition {
 	private String snapshotLogSelSql;
 	private String snapshotLogDelSql;
 	private Map<String, String> sourcePartition;
-
-	private Map<String, OraColumn> idToNameMap;
-	private OraCdcSqlRedoParser parser;
-
-	private Schema schema;
-	private Schema keySchema;
-	private Schema valueSchema;
 
 	private final SimpleDateFormat iso8601DateFmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
 	private final SimpleDateFormat iso8601TimestampFmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
@@ -122,233 +112,31 @@ public class OraTable extends OraTableDefinition {
 			statement.setString(3, this.tableName);
 
 			ResultSet rsColumns = statement.executeQuery();
-			buildColumnList(true, false, null, rsColumns, sourceOffset, null);
-			rsColumns.close(); rsColumns = null;
-			statement.close(); statement = null;
-		} catch (SQLException sqle) {
-			LOGGER.error("Unable to get table information.");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-		}
-	}
 
-	/**
-	 * 
-	 * This constructor is used in LogMiner worker thread
-	 * 
-	 * @param pdbName
-	 * @param conId
-	 * @param tableOwner
-	 * @param tableName
-	 * @param schemaType
-	 * @param useOracdcSchemas
-	 * @param isCdb
-	 * @param odd
-	 * @param sourcePartition
-	 * @param kafkaTopic
-	 */
-	public OraTable(
-			final String pdbName, final Short conId, final String tableOwner,
-			final String tableName, final int schemaType, final boolean useOracdcSchemas,
-			final boolean isCdb, final OraDumpDecoder odd,
-			final Map<String, String> sourcePartition, final String kafkaTopic) {
-		super(tableOwner, tableName, schemaType);
-		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
-		this.sourcePartition = sourcePartition;
-		final String tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
-				this.tableOwner + "." + this.tableName;
-		boolean tableWithPk = true;
-		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
-			}
-			// Detect PK column list...
-			Set<String> pkColumns = OraRdbmsInfo.getPkColumnsFromDict(connection,
-					isCdb ? conId : null, this.tableOwner, this.tableName);
-			if (pkColumns == null) {
-				tableWithPk = false;
-			}
-			PreparedStatement statement = connection.prepareStatement(
-					isCdb ? OraDictSqlTexts.COLUMN_LIST_CDB : OraDictSqlTexts.COLUMN_LIST_PLAIN,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			statement.setString(1, this.tableOwner);
-			statement.setString(2, this.tableName);
-			if (isCdb) {
-				statement.setShort(3, conId);
-			}
+			final StringBuilder mViewSelect = new StringBuilder(256);
+			final StringBuilder masterSelect = new StringBuilder(512);
+			final StringBuilder snapshotDelete = new StringBuilder(128);
+			buildColumnList(true, false, null, rsColumns, sourceOffset, null, null,
+					snapshotLog, mViewSelect, masterSelect, snapshotDelete,
+					logWithRowIds, logWithPrimaryKey, logWithSequence);
 
-			ResultSet rsColumns = statement.executeQuery();
-			buildColumnList(false, useOracdcSchemas, pdbName, rsColumns, null, pkColumns);
-			rsColumns.close(); rsColumns = null;
-			statement.close(); statement = null;
-		} catch (SQLException sqle) {
-			LOGGER.error("Unable to get table information.");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-		}
-		parser = new OraCdcSqlRedoParser(
-				pdbName, this.tableOwner, this.tableName, tableWithPk,
-				schemaType, schema, keySchema, valueSchema,
-				odd, pkColumns, idToNameMap,
-				kafkaTopic, sourcePartition);
-		LOGGER.trace("END: Creating OraTable object from LogMiner data...");
-	}
+			rsColumns.close();
+			rsColumns = null;
+			statement.close();
+			statement = null;
 
-	private void buildColumnList(final boolean mviewSource, final boolean useOracdcSchemas, final String pdbName, final ResultSet rsColumns, 
-			final Map<String, Object> sourceOffset, final Set<String> pkColsSet) throws SQLException {
-		final String snapshotFqn;
-		final StringBuilder mViewSelect;
-		final StringBuilder masterSelect;
-		final StringBuilder masterWhere;
-		boolean mViewFirstColumn = true;
-		boolean masterFirstColumn = true;
-
-		if (mviewSource) {
-			snapshotFqn = "\"" + this.tableOwner + "\"" + ".\"" + this.snapshotLog + "\"";
-			this.snapshotLogDelSql = "delete from " + snapshotFqn + " where ROWID=?";
-			// Init for build SQL for master table select
-			masterSelect = new StringBuilder(512);
-			masterSelect.append("select ");
-			masterWhere = new StringBuilder(256);
-			// Init for build SQL for snapshot log select
-			mViewSelect = new StringBuilder(256);
-			mViewSelect.append("select ");
-			if (this.logWithRowIds) {
-				// ROWID access is always faster that any other
-				masterWhere.append("ROWID=?");
-				// Add M_ROW$$ column for snapshot logs with ROWID
-				LOGGER.trace("Adding {} to column list.", OraColumn.ROWID_KEY);
-				mViewFirstColumn = false;
-				mViewSelect.append("chartorowid(M_ROW$$) ");
-				mViewSelect.append(OraColumn.ROWID_KEY);
-			}
-		} else {
-			mViewSelect = null;
-			masterSelect = null;
-			masterWhere = null;
-			snapshotFqn = null;
-			idToNameMap = new HashMap<>();
-		}
-
-		final String tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
-				this.tableOwner + "." + this.tableName;
-		// Schema init
-		final SchemaBuilder keySchemaBuilder = SchemaBuilder
-					.struct()
-					.required()
-					.name(tableFqn + ".Key")
-					.version(1);
-		final SchemaBuilder valueSchemaBuilder = SchemaBuilder
-					.struct()
-					.optional()
-					.name(tableFqn + ".Value")
-					.version(1);
-		// Substitute missing primary key with ROWID value
-		if ((mviewSource && (!this.logWithPrimaryKey && this.logWithRowIds)) ||
-				(!mviewSource && pkColsSet == null)) {
-			// Add ROWID (ORA$ROWID) - this column is not in dictionary!!!
-			OraColumn rowIdColumn = OraColumn.getRowIdKey();
-			allColumns.add(rowIdColumn);
-			pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
-			keySchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
-			if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-				valueSchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
-			}
-		}
-
-		while (rsColumns .next()) {
-			final OraColumn column = new OraColumn(
-					mviewSource, useOracdcSchemas,
-					rsColumns, keySchemaBuilder, valueSchemaBuilder, schemaType, pkColsSet);
-			allColumns.add(column);
-			LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);
-			if (mviewSource) {
-				if (masterFirstColumn) {
-					masterFirstColumn = false;
-				} else {
-					masterSelect.append(", ");
-				}
-				masterSelect.append("\"");
-				masterSelect.append(column.getColumnName());
-				masterSelect.append("\"");
-			} else {
-				idToNameMap.put(column.getNameFromId(), column);
-			}
-
-			if (column.isPartOfPk()) {
-				pkColumns.put(column.getColumnName(), column);
-				if (mviewSource) {
-					if (mViewFirstColumn) {
-						mViewFirstColumn = false;
-					} else {
-						mViewSelect.append(", ");
-						if (!this.logWithRowIds)
-							// We need this only when snapshot log don't contains M_ROW$$ 
-							masterWhere.append(" and ");
-					}
-					mViewSelect.append("\"");
-					mViewSelect.append(column.getColumnName());
-					mViewSelect.append("\"");
-					if (!this.logWithRowIds) {
-						// We need this only when snapshot log don't contains M_ROW$$ 
-						masterWhere.append("\"");
-						masterWhere.append(column.getColumnName());
-						masterWhere.append("\"=?");
-					}
-				}
-			}
-		}
-		// Schema
-		keySchema = keySchemaBuilder.build(); 
-		valueSchema = valueSchemaBuilder.build(); 
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-			SchemaBuilder schemaBuilder = SchemaBuilder
-					.struct()
-					.name(tableFqn + ".Envelope");
-			schemaBuilder.field("op", Schema.STRING_SCHEMA);
-			schemaBuilder.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA);
-			schemaBuilder.field("before", keySchema);
-			schemaBuilder.field("after", valueSchema);
-			schemaBuilder.field("source", OraRdbmsInfo.getInstance().getSchema());
-			schema = schemaBuilder.build();
-		}
-
-		if (mviewSource) {
-			masterSelect.append(" from \"");
-			masterSelect.append(this.tableOwner);
-			masterSelect.append("\".\"");
-			masterSelect.append(this.tableName);
-			masterSelect.append("\" where ");
-			masterSelect.append(masterWhere);
 			this.masterTableSelSql = masterSelect.toString();
-
-			if (this.logWithSequence) {
-				mViewSelect.append(", ");
-				mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
-			}
-			mViewSelect.append(", case DMLTYPE$$ when 'I' then 'c' when 'U' then 'u' else 'd' end as OPTYPE$$, ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$, ROWID from ");
-			mViewSelect.append(snapshotFqn);
-			if (this.logWithSequence) {
-				LOGGER.trace("BEGIN: mvlog with sequence specific.");
-				if (sourceOffset != null && sourceOffset.get(OraColumn.MVLOG_SEQUENCE) != null) {
-					long lastProcessedSequence = (long) sourceOffset.get(OraColumn.MVLOG_SEQUENCE);
-					mViewSelect.append("\nwhere ");
-					mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
-					mViewSelect.append(" > ");
-					mViewSelect.append(lastProcessedSequence);
-					mViewSelect.append("\n");
-					LOGGER.debug("Will read mvlog with {} greater than {}.",
-							OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
-				}
-				mViewSelect.append(" order by ");
-				mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
-				LOGGER.trace("END: mvlog with sequence specific.");
-			}
 			this.snapshotLogSelSql = mViewSelect.toString();
-			LOGGER.trace("End of column list and SQL statements preparation for table {}.{}", this.tableOwner, this.tableName);
+			this.snapshotLogDelSql = snapshotDelete.toString();
 			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("Table {} -> MView select statement\n{}", tableFqn, this.snapshotLogSelSql);
-				LOGGER.debug("Table {} -> MView delete statement\n{}", tableFqn, this.tableName, this.snapshotLogDelSql);
-				LOGGER.debug("Table {} -> Master table select statement\n{}", tableFqn, this.masterTableSelSql);
+				LOGGER.debug("Table {} -> MView select statement\n{}", tableName, this.snapshotLogSelSql);
+				LOGGER.debug("Table {} -> MView delete statement\n{}", tableName, this.tableName, this.snapshotLogDelSql);
+				LOGGER.debug("Table {} -> Master table select statement\n{}", tableName, this.masterTableSelSql);
 			}
+
+		} catch (SQLException sqle) {
+			LOGGER.error("Unable to get table information.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
 	}
 
@@ -789,10 +577,6 @@ public class OraTable extends OraTableDefinition {
 			i++;
 		}
 		return sbPrimaryKey.toString();
-	}
-
-	public SourceRecord parseRedoRecord(OraCdcLogMinerStatement stmt) throws SQLException {
-		return parser.parseRedoRecord(stmt);
 	}
 
 }

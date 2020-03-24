@@ -72,7 +72,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private OraRdbmsInfo rdbmsInfo;
 	private OraCdcLogMinerMgmt metrics;
 	private OraDumpDecoder odd;
-	private Map<Long, OraTable> tablesInProcessing;
+	private Map<Long, OraTable4LogMiner> tablesInProcessing;
 	private Set<Long> tablesOutOfScope;
 	private Map<String, OraCdcTransaction> activeTransactions;
 	private BlockingQueue<OraCdcTransaction> committedTransactions;
@@ -304,7 +304,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					lastStatementInTransaction = !processTransaction;
 
 					if (processTransaction) {
-						final OraTable oraTable = tablesInProcessing.get(stmt.getTableId());
+						final OraTable4LogMiner oraTable = tablesInProcessing.get(stmt.getTableId());
 						if (oraTable == null) {
 							LOGGER.error("Strange consistency issue for DATA_OBJ# {}. Exiting.", stmt.getTableId());
 							isPollRunning.set(false);
@@ -512,13 +512,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 				}
 				if (isCdb) {
 					final String pdbName = rsCheckTable.getString("PDB_NAME");
-					OraTable oraTable = new OraTable(
+					OraTable4LogMiner oraTable = new OraTable4LogMiner(
 							pdbName, (short) conId, tableOwner, tableName,
 							schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
 						tablesInProcessing.put(combinedDataObjectId, oraTable);
 						metrics.addTableInProcessing(pdbName + ":" + tableFqn);
 				} else {
-					OraTable oraTable = new OraTable(
+					OraTable4LogMiner oraTable = new OraTable4LogMiner(
 						null, null, tableOwner, tableName,
 						schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
