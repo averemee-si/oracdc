@@ -148,8 +148,8 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		return processedArchivedRedoCount;
 	}
 	@Override
-	public long getProcessedArchivelogsSize() {
-		return processedArchivedRedoSize;
+	public float getProcessedArchivelogsSizeGb() {
+		return Precision.round((float)((float)processedArchivedRedoSize / (float)(1024*1024*1024)), 3);
 	}
 	@Override
 	public String getLastProcessedArchivelog() {

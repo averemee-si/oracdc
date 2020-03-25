@@ -30,7 +30,7 @@ public interface OraCdcLogMinerMgmtMBean {
 	public long getCurrentFirstScn();
 	public long getCurrentNextScn();
 	public int getProcessedArchivelogsCount();
-	public long getProcessedArchivelogsSize();
+	public float getProcessedArchivelogsSizeGb();
 	public String getStartTime();
 	public long getStartScn();
 	public long getElapsedTimeMillis();
