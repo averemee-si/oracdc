@@ -21,6 +21,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -72,7 +74,8 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 		LOGGER.trace("BEGIN: put()");
 		final Set<String> tablesInProcess = new HashSet<>();
 		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
-			int recordCount = 0;
+			int processedRecords = 0;
+			final Map<TopicPartition, OffsetAndMetadata> currentOffsets = new HashMap<>();
 			for (SinkRecord record : records) {
 				final String tableName;
 				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
@@ -94,13 +97,19 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 					tablesInProcess.add(tableName);
 				}
 				oraTable.putData(connection, record);
-				recordCount++;
-				if (recordCount == batchSize) {
+				currentOffsets.put(
+						new TopicPartition(record.topic(), record.kafkaPartition()),
+						new OffsetAndMetadata(record.kafkaOffset()));
+				processedRecords++;
+				if (processedRecords == batchSize) {
 					for (String tableInProgress : tablesInProcess) {
 						LOGGER.debug("Executing batch for table {}.", tableInProgress);
 						tablesInProcessing.get(tableInProgress).exec();
 					}
-					recordCount = 0;
+					this.flush(currentOffsets);
+					connection.commit();
+					currentOffsets.clear();
+					processedRecords = 0;
 				}
 			}
 			LOGGER.debug("Execute and close cursors");
