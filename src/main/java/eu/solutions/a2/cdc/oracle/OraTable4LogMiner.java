@@ -48,7 +48,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private static final String SQL_REDO_VALUES = " values ";
 
 	private final Map<String, OraColumn> idToNameMap;
-	private final String pdbName;
+	private String pdbName;
 	private final String kafkaTopic;
 	private final OraDumpDecoder odd;
 	private boolean tableWithPk;
@@ -376,6 +376,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		sb.append(this.tableName);
 		sb.append("\"");
 		return sb.toString();
+	}
+
+	public String getPdbName() {
+		return pdbName;
+	}
+
+	public void setPdbName(String pdbName) {
+		this.pdbName = pdbName;
 	}
 
 

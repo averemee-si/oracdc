@@ -18,6 +18,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 
 /**
  * 
@@ -28,15 +30,20 @@ public abstract class OraTableDefinition {
 
 	protected String tableOwner;
 	protected String tableName;
-	protected final int schemaType;
+	protected int schemaType;
 
-	protected final List<OraColumn> allColumns;
+	@JsonProperty("columns")
+	protected List<OraColumn> allColumns;
 	protected final Map<String, OraColumn> pkColumns;
 
+	protected OraTableDefinition() {
+		this.pkColumns = new LinkedHashMap<>();
+	}
+
 	protected OraTableDefinition(final int schemaType) {
+		this();
 		this.schemaType = schemaType;
 		this.allColumns = new ArrayList<>();
-		this.pkColumns = new LinkedHashMap<>();
 	}
 
 	protected OraTableDefinition(final String tableOwner, final String tableName, final int schemaType) {
@@ -45,5 +52,28 @@ public abstract class OraTableDefinition {
 		this.tableName = tableName;
 	}
 
+	public String getTableOwner() {
+		return tableOwner;
+	}
+
+	public void setTableOwner(String tableOwner) {
+		this.tableOwner = tableOwner;
+	}
+
+	public String getTableName() {
+		return tableName;
+	}
+
+	public void setTableName(String tableName) {
+		this.tableName = tableName;
+	}
+
+	public List<OraColumn> getAllColumns() {
+		return allColumns;
+	}
+
+	public void setAllColumns(List<OraColumn> allColumns) {
+		this.allColumns = allColumns;
+	}
 
 }

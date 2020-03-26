@@ -50,5 +50,6 @@ public interface OraCdcLogMinerMgmtMBean {
 	public float getRedoReadMbPerSecond();
 
 	public void saveCurrentState();
+	public void saveCurrentTablesSchema();
 
 }

@@ -31,6 +31,9 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
 import eu.solutions.a2.cdc.oracle.data.OraNumber;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
@@ -40,6 +43,7 @@ import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
  * @author averemee
  *
  */
+@JsonInclude(Include.NON_EMPTY)
 public class OraColumn {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraColumn.class);
@@ -48,15 +52,22 @@ public class OraColumn {
 	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";
 	public static final String ORA_ROWSCN = "ORA_ROWSCN";
 
-	private final String columnName;
-	private final String nameFromId;
-	private final boolean partOfPk;
-	private final int jdbcType;
-	private final boolean nullable;
-	private int dataScale = 0;
-	private boolean binaryFloatDouble = false;
-	private boolean localTimeZone = false;
+	private String columnName;
+	private String nameFromId;
+	private boolean partOfPk;
+	private int jdbcType;
+	private boolean nullable;
+	private Integer dataScale;
+	private Boolean binaryFloatDouble;
+	private Boolean localTimeZone;
 
+	/**
+	 * 
+	 * Required for Jackson deserialization
+	 * 
+	 */
+	public OraColumn() {
+	}
 
 	/**
 	 * 
@@ -98,6 +109,9 @@ public class OraColumn {
 		if ("DATE".equals(oraType) || StringUtils.startsWith(oraType, "TIMESTAMP")) {
 			if (useOracdcSchemas) {
 				dataScale = resultSet.getInt("DATA_SCALE");
+				if (resultSet.wasNull()) {
+					dataScale = null;
+				}
 				if (StringUtils.endsWith(oraType, "WITH LOCAL TIME ZONE")) {
 					// 231:
 					// TIMESTAMP [(fractional_seconds)] WITH LOCAL TIME ZONE
@@ -106,6 +120,7 @@ public class OraColumn {
 					oraTimestampField(keySchema, valueSchema);
 				} else if (StringUtils.endsWith(oraType, "WITH TIME ZONE")) {
 					// 181: TIMESTAMP [(fractional_seconds)] WITH TIME ZONE
+					localTimeZone = false;
 					jdbcType = Types.TIMESTAMP_WITH_TIMEZONE;
 					oraTimestampField(keySchema, valueSchema);
 				} else {
@@ -128,6 +143,7 @@ public class OraColumn {
 						jdbcType = Types.NUMERIC;
 						oraNumberField(keySchema, valueSchema);
 					} else {
+						binaryFloatDouble = false;
 						jdbcType = Types.DOUBLE;
 						doubleField(keySchema, valueSchema);
 					}
@@ -137,6 +153,9 @@ public class OraColumn {
 					final boolean precisionIsNull = resultSet.wasNull();
 					dataScale = resultSet.getInt("DATA_SCALE");
 					final boolean scaleIsNull = resultSet.wasNull();
+					if (scaleIsNull) {
+						dataScale = null;
+					}
 					if (precisionIsNull && scaleIsNull) {
 						// NUMBER w/out precision and scale
 						// OEBS and other legacy systems specific
@@ -145,10 +164,11 @@ public class OraColumn {
 							jdbcType = Types.NUMERIC;
 							oraNumberField(keySchema, valueSchema);
 						} else {
+							binaryFloatDouble = false;
 							jdbcType = Types.DOUBLE;
 							doubleField(keySchema, valueSchema);
 						}
-					} else if (dataScale == 0) {
+					} else if (dataScale == null || dataScale == 0) {
 						// Integer 
 						if (dataPrecision < 3) {
 							jdbcType = Types.TINYINT;
@@ -377,32 +397,64 @@ public class OraColumn {
 		return columnName;
 	}
 
+	public void setColumnName(String columnName) {
+		this.columnName = columnName;
+	}
+
 	public String getNameFromId() {
 		return nameFromId;
+	}
+
+	public void setNameFromId(String nameFromId) {
+		this.nameFromId = nameFromId;
 	}
 
 	public boolean isPartOfPk() {
 		return partOfPk;
 	}
 
+	public void setPartOfPk(boolean partOfPk) {
+		this.partOfPk = partOfPk;
+	}
+
 	public int getJdbcType() {
 		return jdbcType;
+	}
+
+	public void setJdbcType(int jdbcType) {
+		this.jdbcType = jdbcType;
 	}
 
 	public boolean isNullable() {
 		return nullable;
 	}
 
-	public int getDataScale() {
+	public void setNullable(boolean nullable) {
+		this.nullable = nullable;
+	}
+
+	public Integer getDataScale() {
 		return dataScale;
 	}
 
-	public boolean isBinaryFloatDouble() {
+	public void setDataScale(Integer dataScale) {
+		this.dataScale = dataScale;
+	}
+
+	public Boolean isBinaryFloatDouble() {
 		return binaryFloatDouble;
 	}
 
-	public boolean isLocalTimeZone() {
+	public void setBinaryFloatDouble(Boolean binaryFloatDouble) {
+		this.binaryFloatDouble = binaryFloatDouble;
+	}
+
+	public Boolean isLocalTimeZone() {
 		return localTimeZone;
+	}
+
+	public void setLocalTimeZone(Boolean localTimeZone) {
+		this.localTimeZone = localTimeZone;
 	}
 
 	/**

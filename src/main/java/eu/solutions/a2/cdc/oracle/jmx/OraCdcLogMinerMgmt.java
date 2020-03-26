@@ -14,17 +14,27 @@
 package eu.solutions.a2.cdc.oracle.jmx;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
+import javax.management.ObjectName;
+
 import org.apache.commons.math3.util.Precision;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.OraCdcLogMinerTask;
+import eu.solutions.a2.cdc.oracle.OraRdbmsInfo;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
 
@@ -63,10 +73,27 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	private LocalDateTime lastRedoLogTime;
 	private long lastScn = 0;
 
-	private OraCdcLogMinerTask task;
+	private final OraCdcLogMinerTask task;
 
-	public void setTask(OraCdcLogMinerTask task) {
+	public OraCdcLogMinerMgmt(
+			final OraRdbmsInfo rdbmsInfo, final String connectorName, final OraCdcLogMinerTask task) {
 		this.task = task;
+		try {
+			final StringBuilder sb = new StringBuilder(96);
+			sb.append("eu.solutions.a2.oracdc:type=LogMiner-metrics,name=");
+			sb.append(connectorName);
+			sb.append(",database=");
+			sb.append(rdbmsInfo.getInstanceName());
+			sb.append("_");
+			sb.append(rdbmsInfo.getHostName());
+			ObjectName name = new ObjectName(sb.toString());
+			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+			mbs.registerMBean(this, name);
+		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
+			LOGGER.error("Unable to register MBean - " + e.getMessage() + " !!!!");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+			throw new ConnectException(e);
+		}
 	}
 
 	public void start(long startScn) {
@@ -268,6 +295,17 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 				task.saveState(false);
 			} catch (IOException ioe) {
 				LOGGER.error("Unable to save state to file from JMX subsys!");
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+			}
+		}
+	}
+
+	public void saveCurrentTablesSchema() {
+		if (task != null) {
+			try {
+				task.saveTablesSchema();
+			} catch (IOException ioe) {
+				LOGGER.error("Unable to schemas to file from JMX subsys!");
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 			}
 		}

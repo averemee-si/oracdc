@@ -13,7 +13,10 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -48,7 +51,10 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMBeanServer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
@@ -114,10 +120,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		try {
 			rdbmsInfo = OraRdbmsInfo.getInstance();
 			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
-			final OraCdcLogMinerMBeanServer mbeanSrv = new OraCdcLogMinerMBeanServer(
-												rdbmsInfo, props.get("name"));
-			metrics = mbeanSrv.getMbean();
-			metrics.setTask(this);
+			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, props.get("name"), this);
 
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName();
 			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, rdbmsInfo.getDbId());
@@ -470,6 +473,26 @@ public class OraCdcLogMinerTask extends SourceTask {
 		LOGGER.debug("State file contents:\n{}", ops.toString());
 	}
 
+	public void saveTablesSchema() throws IOException {
+		String schemaFileName = null;
+		try {
+			schemaFileName = stateFileName.substring(0, stateFileName.lastIndexOf(File.separator));
+		} catch (Exception e) {
+			LOGGER.error("Unable to detect parent directory for {} using {} separator.",
+					stateFileName, File.separator);
+			schemaFileName = System.getProperty("java.io.tmpdir");
+		}
+		schemaFileName += File.separator + "oracdc.schemas-" + System.currentTimeMillis();
+
+		final ObjectWriter writer = new ObjectMapper()
+				.enable(SerializationFeature.INDENT_OUTPUT)
+				.writer();
+		OutputStream os = new FileOutputStream(schemaFileName);
+		writer.writeValue(os, tablesInProcessing);
+		os.flush();
+		os.close();
+	}
+
 	private void restoreTableInfoFromDictionary(List<Long> processedTablesIds) throws SQLException {
 		//TODO
 		//TODO What about storing structure in JSON ???
@@ -486,6 +509,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		}
 		for (long combinedDataObjectId : processedTablesIds) {
+			//TODO
+			//TODO Copy all data from JSON to map, then adjust schema.....
+			//TODO
 			final int tableId = (int) combinedDataObjectId;
 			final int conId = (int) (combinedDataObjectId >> 32);
 			psCheckTable.setInt(1, tableId);
