@@ -192,8 +192,12 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		LOGGER.trace("BEGIN: taskConfigs(int maxTasks)");
 		final Map<String, String> taskParam = new HashMap<>();
 		taskParam.put("name", connectorName);
-		taskParam.put(ParamConstants.ORACDC_SCHEMAS_PARAM,
-				config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM).toString());
+		Boolean oracdcSchemas = config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM);
+		taskParam.put(ParamConstants.ORACDC_SCHEMAS_PARAM, oracdcSchemas.toString());
+		if (oracdcSchemas) {
+			taskParam.put(ParamConstants.DICTIONARY_FILE_PARAM,
+					config.getString(ParamConstants.DICTIONARY_FILE_PARAM));
+		}
 		taskParam.put(ParamConstants.BATCH_SIZE_PARAM,
 				config.getInt(ParamConstants.BATCH_SIZE_PARAM).toString());
 		taskParam.put(ParamConstants.POLL_INTERVAL_MS_PARAM,

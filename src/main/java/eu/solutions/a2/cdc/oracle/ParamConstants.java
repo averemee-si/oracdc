@@ -90,5 +90,7 @@ public class ParamConstants {
 	public static final String ORACDC_SCHEMAS_PARAM = "a2.oracdc.schemas";
 	public static final String ORACDC_SCHEMAS_DOC = "Use oracdc extensions for Oracle datatypes. Default false";
 
+	public static final String DICTIONARY_FILE_PARAM = "a2.dictionary.file";
+	public static final String DICTIONARY_FILE_DOC = "Experimental support, for details contact us at oracle@a2-solutions.eu";
 
 }
