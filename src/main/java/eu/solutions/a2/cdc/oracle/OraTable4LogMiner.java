@@ -18,8 +18,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,6 +31,9 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
@@ -37,6 +42,7 @@ import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
  * @author averemee
  *
  */
+@JsonInclude(Include.NON_EMPTY)
 public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4LogMiner.class);
@@ -49,8 +55,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private final Map<String, OraColumn> idToNameMap;
 	private String pdbName;
-	private final String kafkaTopic;
-	private final OraDumpDecoder odd;
+	private String kafkaTopic;
+	private OraDumpDecoder odd;
 	private boolean tableWithPk;
 
 	/**
@@ -114,6 +120,39 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
 		LOGGER.trace("END: Creating OraTable object from LogMiner data...");
+	}
+
+	/**
+	 * 
+	 * Restore OraTable from JSON
+	 * 
+	 * @param tableData
+	 */
+	public OraTable4LogMiner(Map<String, Object> tableData) {
+		super();
+		idToNameMap = new HashMap<>();
+		tableName = (String) tableData.get("tableName");
+		tableOwner = (String) tableData.get("tableOwner");
+		pdbName = (String) tableData.get("pdbName");
+		if (LOGGER.isDebugEnabled()) {
+			if (pdbName == null) {
+				LOGGER.debug("Deserializing {}.{} from JSON", tableOwner, tableName);
+			} else {
+				LOGGER.debug("Deserializing {}:{}.{} from JSON", pdbName, tableOwner, tableName);
+			}
+		}
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> colDataList = (List<Map<String, Object>>) tableData.get("columns");
+		allColumns = new ArrayList<>();
+		for (Map<String, Object> colData : colDataList) {
+			final OraColumn column = new OraColumn(colData);
+			allColumns.add(column);
+			idToNameMap.put(column.getNameFromId(), column);
+			if (column.isPartOfPk()) {
+				pkColumns.put(column.getColumnName(), column);
+			}
+			LOGGER.debug("\t Adding {} column.", column.getColumnName());
+		}
 	}
 
 	public SourceRecord parseRedoRecord(OraCdcLogMinerStatement stmt) throws SQLException {
@@ -386,5 +425,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.pdbName = pdbName;
 	}
 
+	public void setTopicDecoder(final String kafkaTopic, final OraDumpDecoder odd) {
+		this.kafkaTopic = kafkaTopic;
+		this.odd = odd;
+	}
 
 }

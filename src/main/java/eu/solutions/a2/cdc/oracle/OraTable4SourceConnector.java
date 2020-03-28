@@ -38,6 +38,10 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	protected Schema keySchema;
 	protected Schema valueSchema;
 
+	protected OraTable4SourceConnector() {
+		super();
+	}
+
 	protected OraTable4SourceConnector(int schemaType) {
 		super(schemaType);
 	}

@@ -19,6 +19,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -61,13 +62,6 @@ public class OraColumn {
 	private Boolean binaryFloatDouble;
 	private Boolean localTimeZone;
 
-	/**
-	 * 
-	 * Required for Jackson deserialization
-	 * 
-	 */
-	public OraColumn() {
-	}
 
 	/**
 	 * 
@@ -363,6 +357,23 @@ public class OraColumn {
 		default:
 			throw new SQLException("Not supported type '" + typeFromSchema + "'!");
 		}
+	}
+
+	/**
+	 * 
+	 * Deserialize OraColumn
+	 * 
+	 * @param columnData
+	 */
+	public OraColumn(Map<String, Object> columnData) {
+		columnName = (String) columnData.get("columnName");
+		nameFromId = (String) columnData.get("nameFromId");
+		partOfPk = (boolean) columnData.get("partOfPk");
+		jdbcType = (int) columnData.get("jdbcType");
+		nullable = (boolean) columnData.get("nullable");
+		dataScale = (Integer) columnData.get("dataScale");
+		binaryFloatDouble = (Boolean) columnData.get("binaryFloatDouble");
+		localTimeZone = (Boolean) columnData.get("localTimeZone");
 	}
 
 	/**
