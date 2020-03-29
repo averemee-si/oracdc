@@ -15,7 +15,7 @@
 |CurrentFirstScn             |long     |min(FIRST_CHANGE#) for archivelogs currently being processed                                |
 |CurrentNextScn              |long     |max(NEXT_CHANGE#) for archivelogs currently being processed                                 |
 |ProcessedArchivelogsCount   |int      |The number of processed archivelogs                                                         |
-|ProcessedArchivelogsSize    |long     |Size in bytes of processed archivelogs                                                      |
+|ProcessedArchivelogsSizeGb  |float    |Size (gigabyte) of processed archivelogs                                                    |
 |StartTime                   |String   |Connector start date and time (ISO format)                                                  |
 |StartScn                    |long     |Connector start SCN                                                                         |
 |ElapsedTimeMillis           |long     |Elapsed time, milliseconds                                                                  |
