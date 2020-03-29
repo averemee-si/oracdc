@@ -166,87 +166,31 @@ public class OraColumn {
 						// Integer 
 						if (dataPrecision < 3) {
 							jdbcType = Types.TINYINT;
-							if (this.nullable) {
-								valueSchema.field(this.columnName, Schema.OPTIONAL_INT8_SCHEMA);
-							} else {
-								if (this.partOfPk) {
-									keySchema.field(this.columnName, Schema.INT8_SCHEMA);
-								} else {
-									valueSchema.field(this.columnName, Schema.INT8_SCHEMA);
-								}
-							}
+							byteField(keySchema, valueSchema);
 						} else if (dataPrecision < 5) {
 							jdbcType = Types.SMALLINT;
-							if (this.nullable) {
-								valueSchema.field(this.columnName, Schema.OPTIONAL_INT16_SCHEMA);
-							} else {
-								if (this.partOfPk) {
-									keySchema.field(this.columnName, Schema.INT16_SCHEMA);
-								} else {
-									valueSchema.field(this.columnName, Schema.INT16_SCHEMA);
-								}
-							}
+							shortField(keySchema, valueSchema);
 						} else if (dataPrecision < 10) {
 							jdbcType = Types.INTEGER;
-							if (this.nullable) {
-								valueSchema.field(this.columnName, Schema.OPTIONAL_INT32_SCHEMA);
-							} else {
-								if (this.partOfPk) {
-									keySchema.field(this.columnName, Schema.INT32_SCHEMA);
-								} else {
-									valueSchema.field(this.columnName, Schema.INT32_SCHEMA);
-								}
-							}
+							intField(keySchema, valueSchema);
 						} else if (dataPrecision < 19) {
 							jdbcType = Types.BIGINT;
-							if (this.nullable) {
-								valueSchema.field(this.columnName, Schema.OPTIONAL_INT64_SCHEMA);
-							} else {
-								if (this.partOfPk) {
-									keySchema.field(this.columnName, Schema.INT64_SCHEMA);
-								} else {
-									valueSchema.field(this.columnName, Schema.INT64_SCHEMA);
-								}
-							}
+							longField(keySchema, valueSchema);
 						} else {
 							// Too big for BIGINT...
 							jdbcType = Types.DECIMAL;
-							if (this.nullable) {
-								valueSchema.field(this.columnName, Decimal.builder(0).optional().build());
-							} else {
-								if (this.partOfPk) {
-									keySchema.field(this.columnName, Decimal.builder(0).required().build());
-								} else {
-									valueSchema.field(this.columnName, Decimal.builder(0).required().build());
-								}
-							}
+							decimalField(0, keySchema, valueSchema);
 						}
 					} else {
 						// Decimal values
 						jdbcType = Types.DECIMAL;
-						if (this.nullable) {
-							valueSchema.field(this.columnName, Decimal.builder(dataScale).optional().build());
-						} else {
-							if (this.partOfPk) {
-								keySchema.field(this.columnName, Decimal.builder(dataScale).required().build());
-							} else {
-								valueSchema.field(this.columnName, Decimal.builder(dataScale).required().build());
-							}
-						}
+						decimalField(dataScale, keySchema, valueSchema);
 					}
 					break;
 				case "BINARY_FLOAT":
 					jdbcType = Types.FLOAT;
 					binaryFloatDouble = true;
-					if (this.nullable) {
-						valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT32_SCHEMA);
-					} else {
-						if (this.partOfPk) {
-							keySchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
-						} else {
-							valueSchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
-						}
-					}
+					floatField(keySchema, valueSchema);
 					break;
 				case "BINARY_DOUBLE":
 					jdbcType = Types.DOUBLE;
@@ -287,10 +231,7 @@ public class OraColumn {
 					break;
 			}
 		}
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && this.partOfPk) {
-			valueSchema.field(this.columnName,
-					keySchema.build().field(this.columnName).schema());
-		}
+		schemaEpilogue(keySchema, valueSchema, schemaType);
 	}
 
 	/**
@@ -364,8 +305,14 @@ public class OraColumn {
 	 * Deserialize OraColumn
 	 * 
 	 * @param columnData
+	 * @param keySchema
+	 * @param valueSchema
+	 * @param schemaType
+	 * @throws SQLException 
 	 */
-	public OraColumn(Map<String, Object> columnData) {
+	public OraColumn(Map<String, Object> columnData,
+			final SchemaBuilder keySchema, final SchemaBuilder valueSchema,
+			final int schemaType) throws SQLException {
 		columnName = (String) columnData.get("columnName");
 		nameFromId = (String) columnData.get("nameFromId");
 		partOfPk = (boolean) columnData.get("partOfPk");
@@ -374,7 +321,81 @@ public class OraColumn {
 		dataScale = (Integer) columnData.get("dataScale");
 		binaryFloatDouble = (Boolean) columnData.get("binaryFloatDouble");
 		localTimeZone = (Boolean) columnData.get("localTimeZone");
+		
+		switch (jdbcType) {
+		case Types.DATE:
+		case Types.TIMESTAMP:
+			timestampField(keySchema, valueSchema);
+			break;
+		case Types.TIMESTAMP_WITH_TIMEZONE:
+			if (localTimeZone == null) {
+				localTimeZone = false;
+			}
+			// This is only for oracdc extended types!!!
+			oraTimestampField(keySchema, valueSchema);
+		case Types.TINYINT:
+			byteField(keySchema, valueSchema);
+			break;
+		case Types.SMALLINT:
+			shortField(keySchema, valueSchema);
+			break;
+		case Types.INTEGER:
+			intField(keySchema, valueSchema);
+			break;
+		case Types.BIGINT:
+			longField(keySchema, valueSchema);
+			break;
+		case Types.DECIMAL:
+			if (dataScale == null) {
+				dataScale = 0;
+			}
+			decimalField(dataScale, keySchema, valueSchema);
+			break;
+		case Types.NUMERIC:
+			// This is only for oracdc extended types!!!
+			oraNumberField(keySchema, valueSchema);
+			break;
+		case Types.FLOAT:
+			if (binaryFloatDouble == null) {
+				binaryFloatDouble = false;
+			}
+			floatField(keySchema, valueSchema);
+			break;
+		case Types.DOUBLE:
+			if (binaryFloatDouble == null) {
+				binaryFloatDouble = false;
+			}
+			doubleField(keySchema, valueSchema);
+			break;
+		case Types.BINARY:
+		case Types.BLOB:
+			bytesField(keySchema, valueSchema);
+			break;
+		case Types.CHAR:
+		case Types.VARCHAR:
+		case Types.NCHAR:
+		case Types.NVARCHAR:
+		case Types.CLOB:
+		case Types.ROWID:
+			stringField(keySchema, valueSchema);
+			break;
+		default:
+			throw new SQLException("Unsupported JDBC type " +
+					jdbcType + " for column " +
+					columnName + ".");
+		}
+		schemaEpilogue(keySchema, valueSchema, schemaType);
 	}
+
+	private void schemaEpilogue(
+			final SchemaBuilder keySchema, final SchemaBuilder valueSchema,
+			final int schemaType) {
+		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && this.partOfPk) {
+			valueSchema.field(this.columnName,
+					keySchema.build().field(this.columnName).schema());
+		}
+	}
+	
 
 	/**
 	 * Used internally for ROWID support
@@ -564,6 +585,66 @@ public class OraColumn {
 		}
 	}
 
+	private void byteField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
+		if (this.nullable) {
+			valueSchema.field(this.columnName, Schema.OPTIONAL_INT8_SCHEMA);
+		} else {
+			if (this.partOfPk) {
+				keySchema.field(this.columnName, Schema.INT8_SCHEMA);
+			} else {
+				valueSchema.field(this.columnName, Schema.INT8_SCHEMA);
+			}
+		}
+	}
+
+	private void shortField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
+		if (this.nullable) {
+			valueSchema.field(this.columnName, Schema.OPTIONAL_INT16_SCHEMA);
+		} else {
+			if (this.partOfPk) {
+				keySchema.field(this.columnName, Schema.INT16_SCHEMA);
+			} else {
+				valueSchema.field(this.columnName, Schema.INT16_SCHEMA);
+			}
+		}
+	}
+
+	private void intField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
+		if (this.nullable) {
+			valueSchema.field(this.columnName, Schema.OPTIONAL_INT32_SCHEMA);
+		} else {
+			if (this.partOfPk) {
+				keySchema.field(this.columnName, Schema.INT32_SCHEMA);
+			} else {
+				valueSchema.field(this.columnName, Schema.INT32_SCHEMA);
+			}
+		}
+	}
+
+	private void longField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
+		if (this.nullable) {
+			valueSchema.field(this.columnName, Schema.OPTIONAL_INT64_SCHEMA);
+		} else {
+			if (this.partOfPk) {
+				keySchema.field(this.columnName, Schema.INT64_SCHEMA);
+			} else {
+				valueSchema.field(this.columnName, Schema.INT64_SCHEMA);
+			}
+		}
+	}
+
+	private void decimalField(final int scale, final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
+		if (this.nullable) {
+			valueSchema.field(this.columnName, Decimal.builder(scale).optional().build());
+		} else {
+			if (this.partOfPk) {
+				keySchema.field(this.columnName, Decimal.builder(scale).required().build());
+			} else {
+				valueSchema.field(this.columnName, Decimal.builder(scale).required().build());
+			}
+		}
+	}
+
 	private void doubleField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.nullable) {
 			valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
@@ -572,6 +653,18 @@ public class OraColumn {
 				keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+			}
+		}
+	}
+
+	private void floatField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
+		if (this.nullable) {
+			valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT32_SCHEMA);
+		} else {
+			if (this.partOfPk) {
+				keySchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
+			} else {
+				valueSchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
 			}
 		}
 	}

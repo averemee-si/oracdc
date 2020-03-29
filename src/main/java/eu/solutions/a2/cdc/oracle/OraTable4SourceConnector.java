@@ -38,14 +38,6 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	protected Schema keySchema;
 	protected Schema valueSchema;
 
-	protected OraTable4SourceConnector() {
-		super();
-	}
-
-	protected OraTable4SourceConnector(int schemaType) {
-		super(schemaType);
-	}
-
 	protected OraTable4SourceConnector(String tableOwner, String tableName, int schemaType) {
 		super(tableOwner, tableName, schemaType);
 	}
@@ -163,19 +155,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			}
 		}
 		// Schema
-		keySchema = keySchemaBuilder.build(); 
-		valueSchema = valueSchemaBuilder.build(); 
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-			SchemaBuilder schemaBuilder = SchemaBuilder
-					.struct()
-					.name(tableFqn + ".Envelope");
-			schemaBuilder.field("op", Schema.STRING_SCHEMA);
-			schemaBuilder.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA);
-			schemaBuilder.field("before", keySchema);
-			schemaBuilder.field("after", valueSchema);
-			schemaBuilder.field("source", OraRdbmsInfo.getInstance().getSchema());
-			schema = schemaBuilder.build();
-		}
+		schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
 
 		if (mviewSource) {
 			masterSelect.append(" from \"");
@@ -211,4 +191,20 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 		}
 	}
 
+	protected void schemaEiplogue(final String tableFqn,
+			final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) throws SQLException {
+		keySchema = keySchemaBuilder.build(); 
+		valueSchema = valueSchemaBuilder.build(); 
+		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+			final SchemaBuilder schemaBuilder = SchemaBuilder
+					.struct()
+					.name(tableFqn + ".Envelope");
+			schemaBuilder.field("op", Schema.STRING_SCHEMA);
+			schemaBuilder.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA);
+			schemaBuilder.field("before", keySchema);
+			schemaBuilder.field("after", valueSchema);
+			schemaBuilder.field("source", OraRdbmsInfo.getInstance().getSchema());
+			schema = schemaBuilder.build();
+		}
+	}
 }

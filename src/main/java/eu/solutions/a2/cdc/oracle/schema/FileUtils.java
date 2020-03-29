@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import eu.solutions.a2.cdc.oracle.OraTable4LogMiner;
+import eu.solutions.a2.cdc.oracle.ParamConstants;
 
 /**
  * 
@@ -37,7 +38,7 @@ import eu.solutions.a2.cdc.oracle.OraTable4LogMiner;
 public class FileUtils {
 
 	public static Map<Long, OraTable4LogMiner> readDictionaryFile(
-			final String fileName) throws IOException {
+			final String fileName, Integer schemaType) throws IOException {
 		Map<String, Map<String, Object>> fileData = new HashMap<>();
 		final ObjectReader reader = new ObjectMapper()
 				.readerFor(fileData.getClass());
@@ -46,7 +47,8 @@ public class FileUtils {
 		is.close();
 		final Map<Long, OraTable4LogMiner> schemas = new ConcurrentHashMap<>();
 		fileData.forEach((k, v) -> {
-			schemas.put(Long.parseLong(k), new OraTable4LogMiner(v));
+			schemas.put(Long.parseLong(k), new OraTable4LogMiner(v, 
+					(schemaType == null) ? ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD : schemaType));
 		});
 		fileData = null;
 		return schemas;

@@ -43,6 +43,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
@@ -145,7 +146,28 @@ public class OraCdcLogMinerTask extends SourceTask {
 			final Path queuesRoot = FileSystems.getDefault().getPath(
 					props.get(ParamConstants.TEMP_DIR_PARAM));
 
-			tablesInProcessing = new ConcurrentHashMap<>();
+			if (useOracdcSchemas) {
+				// Use stored schema only in this mode
+				final String schemaFileName = props.get(ParamConstants.DICTIONARY_FILE_PARAM);
+				if (!StringUtils.isEmpty(schemaFileName)) {
+					try {
+						LOGGER.info("Loading stored schema definitions from file {}.", schemaFileName);
+						tablesInProcessing = FileUtils.readDictionaryFile(schemaFileName, schemaType);
+						LOGGER.info("{} table schema definitions loaded from file {}.",
+								tablesInProcessing.size(), schemaFileName);
+						tablesInProcessing.forEach((key, table) -> {
+							table.setSchemaTypeTopicDecoderPartition(
+									topic, odd, partition);
+						});
+					} catch (IOException ioe) {
+						LOGGER.warn("Unable to read stored definition from {}.", schemaFileName);
+						LOGGER.warn(ExceptionUtils.getExceptionStackTrace(ioe));
+					}
+				}
+			}
+			if (tablesInProcessing == null) {
+				tablesInProcessing = new ConcurrentHashMap<>();
+			}
 			tablesOutOfScope = new HashSet<>();
 			activeTransactions = new HashMap<>();
 			committedTransactions = new LinkedBlockingQueue<>();
@@ -484,7 +506,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 	private void restoreTableInfoFromDictionary(List<Long> processedTablesIds) throws SQLException {
 		//TODO
-		//TODO What about storing structure in JSON ???
 		//TODO Same code as in WorkerThread - require serious improvement!!!
 		//TODO
 		final Connection connection = OraPoolConnectionFactory.getConnection();
@@ -498,57 +519,55 @@ public class OraCdcLogMinerTask extends SourceTask {
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		}
 		for (long combinedDataObjectId : processedTablesIds) {
-			//TODO
-			//TODO Copy all data from JSON to map, then adjust schema.....
-			//TODO
-			final int tableId = (int) combinedDataObjectId;
-			final int conId = (int) (combinedDataObjectId >> 32);
-			psCheckTable.setInt(1, tableId);
-			if (isCdb) {
-				psCheckTable.setInt(2, conId);
-			}
-			LOGGER.debug("Adding from database dictionary for internal id {}: OBJECT_ID = {}, CON_ID = {}",
-					combinedDataObjectId, tableId, conId);
-			final ResultSet rsCheckTable = psCheckTable.executeQuery();
-			if (rsCheckTable.next()) {
-				final String tableName = rsCheckTable.getString("TABLE_NAME");
-				final String tableOwner = rsCheckTable.getString("OWNER");
-				final String tableFqn = tableOwner + "." + tableName;
-				final String tableTopic;
-				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-					if (topic == null || "".equals(topic)) {
-						tableTopic = tableName;
-					} else {
-						tableTopic = topic + "_" + tableName;
-					}
-				} else {
-					// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-					tableTopic = topic;
-				}
+			if (!tablesInProcessing.containsKey(combinedDataObjectId)) {
+				final int tableId = (int) combinedDataObjectId;
+				final int conId = (int) (combinedDataObjectId >> 32);
+				psCheckTable.setInt(1, tableId);
 				if (isCdb) {
-					final String pdbName = rsCheckTable.getString("PDB_NAME");
-					OraTable4LogMiner oraTable = new OraTable4LogMiner(
-							pdbName, (short) conId, tableOwner, tableName,
+					psCheckTable.setInt(2, conId);
+				}
+				LOGGER.debug("Adding from database dictionary for internal id {}: OBJECT_ID = {}, CON_ID = {}",
+						combinedDataObjectId, tableId, conId);
+				final ResultSet rsCheckTable = psCheckTable.executeQuery();
+				if (rsCheckTable.next()) {
+					final String tableName = rsCheckTable.getString("TABLE_NAME");
+					final String tableOwner = rsCheckTable.getString("OWNER");
+					final String tableFqn = tableOwner + "." + tableName;
+					final String tableTopic;
+					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+						if (topic == null || "".equals(topic)) {
+							tableTopic = tableName;
+						} else {
+							tableTopic = topic + "_" + tableName;
+						}
+					} else {
+						// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+						tableTopic = topic;
+					}
+					if (isCdb) {
+						final String pdbName = rsCheckTable.getString("PDB_NAME");
+						OraTable4LogMiner oraTable = new OraTable4LogMiner(
+								pdbName, (short) conId, tableOwner, tableName,
+								schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
+							tablesInProcessing.put(combinedDataObjectId, oraTable);
+							metrics.addTableInProcessing(pdbName + ":" + tableFqn);
+					} else {
+						OraTable4LogMiner oraTable = new OraTable4LogMiner(
+							null, null, tableOwner, tableName,
 							schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
 						tablesInProcessing.put(combinedDataObjectId, oraTable);
-						metrics.addTableInProcessing(pdbName + ":" + tableFqn);
+						metrics.addTableInProcessing(tableFqn);
+					}
+					LOGGER.debug("Restored metadata for table {}, OBJECT_ID={}, CON_ID={}",
+							tableFqn, tableId, conId);
 				} else {
-					OraTable4LogMiner oraTable = new OraTable4LogMiner(
-						null, null, tableOwner, tableName,
-						schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
-					tablesInProcessing.put(combinedDataObjectId, oraTable);
-					metrics.addTableInProcessing(tableFqn);
+					throw new SQLException("Data corruption detected!\n" +
+							"OBJECT_ID=" + tableId + ", CON_ID=" + conId + 
+							" exist in stored state but not in database!!!");
 				}
-				LOGGER.debug("Restored metadata for table {}, OBJECT_ID={}, CON_ID={}",
-						tableFqn, tableId, conId);
-			} else {
-				throw new SQLException("Data corruption detected!\n" +
-						"OBJECT_ID=" + tableId + ", CON_ID=" + conId + 
-						" exist in stored state but not in database!!!");
+				rsCheckTable.close();
+				psCheckTable.clearParameters();
 			}
-			rsCheckTable.close();
-			psCheckTable.clearParameters();
-			
 		}
 		psCheckTable.close();
 	}

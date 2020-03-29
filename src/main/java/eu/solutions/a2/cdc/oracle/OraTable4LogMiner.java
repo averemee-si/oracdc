@@ -26,7 +26,9 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,11 +115,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			buildColumnList(
 					false, useOracdcSchemas, pdbName, rsColumns, null, pkColumns, idToNameMap,
 					null, null, null, null, false, false, false);
-			rsColumns.close(); rsColumns = null;
-			statement.close(); statement = null;
+			rsColumns.close();
+			rsColumns = null;
+			statement.close();
+			statement = null;
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			throw new ConnectException(sqle);
 		}
 		LOGGER.trace("END: Creating OraTable object from LogMiner data...");
 	}
@@ -128,11 +133,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * 
 	 * @param tableData
 	 */
-	public OraTable4LogMiner(Map<String, Object> tableData) {
-		super();
+	public OraTable4LogMiner(Map<String, Object> tableData, final int schemaType) {
+		super((String) tableData.get("tableOwner"), (String) tableData.get("tableName"), schemaType);
+		tableWithPk = (boolean) tableData.get("tableWithPk");
 		idToNameMap = new HashMap<>();
-		tableName = (String) tableData.get("tableName");
-		tableOwner = (String) tableData.get("tableOwner");
 		pdbName = (String) tableData.get("pdbName");
 		if (LOGGER.isDebugEnabled()) {
 			if (pdbName == null) {
@@ -141,17 +145,38 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				LOGGER.debug("Deserializing {}:{}.{} from JSON", pdbName, tableOwner, tableName);
 			}
 		}
-		@SuppressWarnings("unchecked")
-		List<Map<String, Object>> colDataList = (List<Map<String, Object>>) tableData.get("columns");
-		allColumns = new ArrayList<>();
-		for (Map<String, Object> colData : colDataList) {
-			final OraColumn column = new OraColumn(colData);
-			allColumns.add(column);
-			idToNameMap.put(column.getNameFromId(), column);
-			if (column.isPartOfPk()) {
-				pkColumns.put(column.getColumnName(), column);
+
+		final String tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
+				this.tableOwner + "." + this.tableName;
+		// Schema init
+		final SchemaBuilder keySchemaBuilder = SchemaBuilder
+					.struct()
+					.required()
+					.name(tableFqn + ".Key")
+					.version(1);
+		final SchemaBuilder valueSchemaBuilder = SchemaBuilder
+					.struct()
+					.optional()
+					.name(tableFqn + ".Value")
+					.version(1);
+
+		try {
+			@SuppressWarnings("unchecked")
+			List<Map<String, Object>> colDataList = (List<Map<String, Object>>) tableData.get("columns");
+			allColumns = new ArrayList<>();
+			for (Map<String, Object> colData : colDataList) {
+				final OraColumn column = new OraColumn(colData, keySchemaBuilder, valueSchemaBuilder, schemaType);
+				allColumns.add(column);
+				idToNameMap.put(column.getNameFromId(), column);
+				if (column.isPartOfPk()) {
+					final String pkColumnName = column.getColumnName();
+					pkColumns.put(pkColumnName, column);
+				}
+				LOGGER.debug("\t Adding {} column.", column.getColumnName());
 			}
-			LOGGER.debug("\t Adding {} column.", column.getColumnName());
+			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
+		} catch (SQLException sqle) {
+			throw new ConnectException(sqle);
 		}
 	}
 
@@ -202,10 +227,13 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final String columnName = StringUtils.trim(columnsList[i]);
 				final String columnValue = StringUtils.trim(valuesList[i]);
 				final OraColumn oraColumn = idToNameMap.get(columnName);
-				if (StringUtils.startsWith(columnValue, "N")) {
-					valueStruct.put(oraColumn.getColumnName(), null);
-				} else {
-					parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
+				if (oraColumn != null) {
+					// Column can be excluded
+					if (StringUtils.startsWith(columnValue, "N")) {
+						valueStruct.put(oraColumn.getColumnName(), null);
+					} else {
+						parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
+					}
 				}
 			}
 		} else if (stmt.getOperation() == OraLogMiner.V$LOGMNR_CONTENTS_DELETE) {
@@ -248,12 +276,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
 				setColumns.add(columnName);
 				final OraColumn oraColumn = idToNameMap.get(columnName);
-				if (StringUtils.endsWith(currentExpr, "L")) {
-					valueStruct.put(oraColumn.getColumnName(), null);
-				} else {
-					parseRedoRecordValues(oraColumn,
-							StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
-							keyStruct, valueStruct);
+				if (oraColumn != null) {
+					// Column can be excluded
+					if (StringUtils.endsWith(currentExpr, "L")) {
+						valueStruct.put(oraColumn.getColumnName(), null);
+					} else {
+						parseRedoRecordValues(oraColumn,
+								StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
+								keyStruct, valueStruct);
+					}
 				}
 			}
 			String[] whereClause = StringUtils.splitByWholeSeparator(
@@ -265,15 +296,22 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					columnName = StringUtils.substringBefore(currentExpr, SQL_REDO_IS);
 					if (!setColumns.contains(columnName)) {
 						final OraColumn oraColumn = idToNameMap.get(columnName);
-						valueStruct.put(oraColumn.getColumnName(), null);
+						if (oraColumn != null) {
+							// Column can be excluded
+							valueStruct.put(oraColumn.getColumnName(), null);
+						}
 					}
 				} else {
 					columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
 					if (!setColumns.contains(columnName)) {
-						parseRedoRecordValues(
-							idToNameMap.get(columnName),
-							StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
-							keyStruct, valueStruct);
+						final OraColumn oraColumn = idToNameMap.get(columnName);
+						if (oraColumn != null) {
+							// Column can be excluded
+							parseRedoRecordValues(
+									oraColumn,
+									StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
+									keyStruct, valueStruct);
+						}
 					}
 				}
 			}
@@ -425,9 +463,33 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.pdbName = pdbName;
 	}
 
-	public void setTopicDecoder(final String kafkaTopic, final OraDumpDecoder odd) {
-		this.kafkaTopic = kafkaTopic;
+	public boolean isTableWithPk() {
+		return tableWithPk;
+	}
+
+	public void setTableWithPk(boolean tableWithPk) {
+		this.tableWithPk = tableWithPk;
+	}
+
+	public void setSchemaTypeTopicDecoderPartition(final String topic,
+			final OraDumpDecoder odd, final Map<String, String> sourcePartition) {
+		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+			if (StringUtils.isEmpty(topic)) {
+				this.kafkaTopic = this.tableName;
+			} else {
+				this.kafkaTopic = topic + "_" + this.tableName;
+			}
+		} else {
+			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+			kafkaTopic = topic;
+		}
 		this.odd = odd;
+		this.sourcePartition = sourcePartition;
+
+	}
+
+	public Map<String, OraColumn> idMap() {
+		return idToNameMap;
 	}
 
 }
