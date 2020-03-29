@@ -158,6 +158,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 						tablesInProcessing.forEach((key, table) -> {
 							table.setSchemaTypeTopicDecoderPartition(
 									topic, odd, partition);
+							metrics.addTableInProcessing(
+									((table.getPdbName() == null) ? "" : (table.getPdbName() + ":")) +
+									table.getTableOwner() + "." + table.getTableName());
 						});
 					} catch (IOException ioe) {
 						LOGGER.warn("Unable to read stored definition from {}.", schemaFileName);
