@@ -14,9 +14,7 @@
 package eu.solutions.a2.cdc.oracle;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -51,11 +49,8 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.databind.SerializationFeature;
-
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
+import eu.solutions.a2.cdc.oracle.schema.FileUtils;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
@@ -484,13 +479,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		}
 		schemaFileName += File.separator + "oracdc.schemas-" + System.currentTimeMillis();
 
-		final ObjectWriter writer = new ObjectMapper()
-				.enable(SerializationFeature.INDENT_OUTPUT)
-				.writer();
-		OutputStream os = new FileOutputStream(schemaFileName);
-		writer.writeValue(os, tablesInProcessing);
-		os.flush();
-		os.close();
+		FileUtils.writeDictionaryFile(tablesInProcessing, schemaFileName);
 	}
 
 	private void restoreTableInfoFromDictionary(List<Long> processedTablesIds) throws SQLException {

@@ -14,14 +14,18 @@
 package eu.solutions.a2.cdc.oracle.schema;
 
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
+import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import eu.solutions.a2.cdc.oracle.OraTable4LogMiner;
 
@@ -32,7 +36,8 @@ import eu.solutions.a2.cdc.oracle.OraTable4LogMiner;
  */
 public class FileUtils {
 
-	public static Map<Long, OraTable4LogMiner> readDictionaryFile(final String fileName) throws IOException {
+	public static Map<Long, OraTable4LogMiner> readDictionaryFile(
+			final String fileName) throws IOException {
 		Map<String, Map<String, Object>> fileData = new HashMap<>();
 		final ObjectReader reader = new ObjectMapper()
 				.readerFor(fileData.getClass());
@@ -45,6 +50,18 @@ public class FileUtils {
 		});
 		fileData = null;
 		return schemas;
+	}
+
+	public static void writeDictionaryFile(
+			final Map<Long, OraTable4LogMiner> fileData,
+			final String fileName) throws IOException {
+		final ObjectWriter writer = new ObjectMapper()
+				.enable(SerializationFeature.INDENT_OUTPUT)
+				.writer();
+		OutputStream os = new FileOutputStream(fileName);
+		writer.writeValue(os, fileData);
+		os.flush();
+		os.close();
 	}
 
 }
