@@ -1,0 +1,4980 @@
+{
+  "74624" : {
+    "tableOwner" : "INV",
+    "tableName" : "MTL_TRANSACTION_LOT_NUMBERS",
+    "tableWithPk" : false,
+    "columns" : [ {
+      "columnName" : "ORA_ROW_ID",
+      "partOfPk" : true,
+      "jdbcType" : -8,
+      "nullable" : false
+    }, {
+      "columnName" : "ORGANIZATION_ID",
+      "nameFromId" : "\"COL 8\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "TRANSACTION_DATE",
+      "nameFromId" : "\"COL 9\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "TRANSACTION_SOURCE_ID",
+      "nameFromId" : "\"COL 10\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_SOURCE_TYPE_ID",
+      "nameFromId" : "\"COL 11\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_SOURCE_NAME",
+      "nameFromId" : "\"COL 12\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_QUANTITY",
+      "nameFromId" : "\"COL 13\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : false
+    }, {
+      "columnName" : "PRIMARY_QUANTITY",
+      "nameFromId" : "\"COL 14\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : false
+    }, {
+      "columnName" : "LOT_NUMBER",
+      "nameFromId" : "\"COL 15\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "SERIAL_TRANSACTION_ID",
+      "nameFromId" : "\"COL 16\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "DESCRIPTION",
+      "nameFromId" : "\"COL 17\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "VENDOR_ID",
+      "nameFromId" : "\"COL 18\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SUPPLIER_LOT_NUMBER",
+      "nameFromId" : "\"COL 19\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TERRITORY_CODE",
+      "nameFromId" : "\"COL 20\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIGINATION_DATE",
+      "nameFromId" : "\"COL 21\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "DATE_CODE",
+      "nameFromId" : "\"COL 22\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GRADE_CODE",
+      "nameFromId" : "\"COL 23\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CHANGE_DATE",
+      "nameFromId" : "\"COL 24\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "MATURITY_DATE",
+      "nameFromId" : "\"COL 25\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "STATUS_ID",
+      "nameFromId" : "\"COL 26\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "RETEST_DATE",
+      "nameFromId" : "\"COL 27\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "AGE",
+      "nameFromId" : "\"COL 28\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ITEM_SIZE",
+      "nameFromId" : "\"COL 29\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "COLOR",
+      "nameFromId" : "\"COL 30\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "VOLUME",
+      "nameFromId" : "\"COL 31\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "VOLUME_UOM",
+      "nameFromId" : "\"COL 32\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PLACE_OF_ORIGIN",
+      "nameFromId" : "\"COL 33\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "BEST_BY_DATE",
+      "nameFromId" : "\"COL 34\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "LENGTH",
+      "nameFromId" : "\"COL 35\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "LENGTH_UOM",
+      "nameFromId" : "\"COL 36\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "WIDTH",
+      "nameFromId" : "\"COL 37\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "WIDTH_UOM",
+      "nameFromId" : "\"COL 38\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RECYCLED_CONTENT",
+      "nameFromId" : "\"COL 39\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "THICKNESS",
+      "nameFromId" : "\"COL 40\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "THICKNESS_UOM",
+      "nameFromId" : "\"COL 41\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CURL_WRINKLE_FOLD",
+      "nameFromId" : "\"COL 42\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "LOT_ATTRIBUTE_CATEGORY",
+      "nameFromId" : "\"COL 43\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE1",
+      "nameFromId" : "\"COL 44\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE2",
+      "nameFromId" : "\"COL 45\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE3",
+      "nameFromId" : "\"COL 46\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE4",
+      "nameFromId" : "\"COL 47\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE5",
+      "nameFromId" : "\"COL 48\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE6",
+      "nameFromId" : "\"COL 49\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE7",
+      "nameFromId" : "\"COL 50\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE8",
+      "nameFromId" : "\"COL 51\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE9",
+      "nameFromId" : "\"COL 52\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE10",
+      "nameFromId" : "\"COL 53\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE11",
+      "nameFromId" : "\"COL 54\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE12",
+      "nameFromId" : "\"COL 55\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE13",
+      "nameFromId" : "\"COL 56\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE14",
+      "nameFromId" : "\"COL 57\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE15",
+      "nameFromId" : "\"COL 58\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE16",
+      "nameFromId" : "\"COL 59\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE17",
+      "nameFromId" : "\"COL 60\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE18",
+      "nameFromId" : "\"COL 61\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE19",
+      "nameFromId" : "\"COL 62\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "C_ATTRIBUTE20",
+      "nameFromId" : "\"COL 63\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE1",
+      "nameFromId" : "\"COL 64\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE2",
+      "nameFromId" : "\"COL 65\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE3",
+      "nameFromId" : "\"COL 66\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE4",
+      "nameFromId" : "\"COL 67\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE5",
+      "nameFromId" : "\"COL 68\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE6",
+      "nameFromId" : "\"COL 69\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE7",
+      "nameFromId" : "\"COL 70\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE8",
+      "nameFromId" : "\"COL 71\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE9",
+      "nameFromId" : "\"COL 72\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "D_ATTRIBUTE10",
+      "nameFromId" : "\"COL 73\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE1",
+      "nameFromId" : "\"COL 74\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE2",
+      "nameFromId" : "\"COL 75\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE3",
+      "nameFromId" : "\"COL 76\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE4",
+      "nameFromId" : "\"COL 77\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE5",
+      "nameFromId" : "\"COL 78\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE6",
+      "nameFromId" : "\"COL 79\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE7",
+      "nameFromId" : "\"COL 80\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE8",
+      "nameFromId" : "\"COL 81\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE9",
+      "nameFromId" : "\"COL 82\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "N_ATTRIBUTE10",
+      "nameFromId" : "\"COL 83\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "VENDOR_NAME",
+      "nameFromId" : "\"COL 84\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRODUCT_CODE",
+      "nameFromId" : "\"COL 85\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRODUCT_TRANSACTION_ID",
+      "nameFromId" : "\"COL 86\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE_CATEGORY",
+      "nameFromId" : "\"COL 87\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE1",
+      "nameFromId" : "\"COL 88\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE2",
+      "nameFromId" : "\"COL 89\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE3",
+      "nameFromId" : "\"COL 90\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE4",
+      "nameFromId" : "\"COL 91\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE5",
+      "nameFromId" : "\"COL 92\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE6",
+      "nameFromId" : "\"COL 93\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE7",
+      "nameFromId" : "\"COL 94\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE8",
+      "nameFromId" : "\"COL 95\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE9",
+      "nameFromId" : "\"COL 96\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE10",
+      "nameFromId" : "\"COL 97\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE11",
+      "nameFromId" : "\"COL 98\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE12",
+      "nameFromId" : "\"COL 99\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE13",
+      "nameFromId" : "\"COL 100\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE14",
+      "nameFromId" : "\"COL 101\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE15",
+      "nameFromId" : "\"COL 102\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_ID",
+      "nameFromId" : "\"COL 1\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "LAST_UPDATE_DATE",
+      "nameFromId" : "\"COL 2\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATED_BY",
+      "nameFromId" : "\"COL 3\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false
+    }, {
+      "columnName" : "CREATION_DATE",
+      "nameFromId" : "\"COL 4\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "CREATED_BY",
+      "nameFromId" : "\"COL 5\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATE_LOGIN",
+      "nameFromId" : "\"COL 6\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INVENTORY_ITEM_ID",
+      "nameFromId" : "\"COL 7\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    } ]
+  },
+  "77221" : {
+    "tableOwner" : "ONT",
+    "tableName" : "OE_ORDER_HEADERS_ALL",
+    "tableWithPk" : true,
+    "columns" : [ {
+      "columnName" : "GLOBAL_ATTRIBUTE19",
+      "nameFromId" : "\"COL 91\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE20",
+      "nameFromId" : "\"COL 92\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CANCELLED_FLAG",
+      "nameFromId" : "\"COL 93\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "OPEN_FLAG",
+      "nameFromId" : "\"COL 94\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "BOOKED_FLAG",
+      "nameFromId" : "\"COL 95\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "SALESREP_ID",
+      "nameFromId" : "\"COL 96\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "RETURN_REASON_CODE",
+      "nameFromId" : "\"COL 97\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDER_DATE_TYPE_CODE",
+      "nameFromId" : "\"COL 98\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "EARLIEST_SCHEDULE_LIMIT",
+      "nameFromId" : "\"COL 99\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "LATEST_SCHEDULE_LIMIT",
+      "nameFromId" : "\"COL 100\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PAYMENT_TYPE_CODE",
+      "nameFromId" : "\"COL 101\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PAYMENT_AMOUNT",
+      "nameFromId" : "\"COL 102\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "CHECK_NUMBER",
+      "nameFromId" : "\"COL 103\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CREDIT_CARD_CODE",
+      "nameFromId" : "\"COL 104\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CREDIT_CARD_HOLDER_NAME",
+      "nameFromId" : "\"COL 105\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CREDIT_CARD_NUMBER",
+      "nameFromId" : "\"COL 106\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CREDIT_CARD_EXPIRATION_DATE",
+      "nameFromId" : "\"COL 107\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "CREDIT_CARD_APPROVAL_CODE",
+      "nameFromId" : "\"COL 108\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SALES_CHANNEL_CODE",
+      "nameFromId" : "\"COL 109\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FIRST_ACK_CODE",
+      "nameFromId" : "\"COL 110\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FIRST_ACK_DATE",
+      "nameFromId" : "\"COL 111\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "LAST_ACK_CODE",
+      "nameFromId" : "\"COL 112\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "LAST_ACK_DATE",
+      "nameFromId" : "\"COL 113\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDER_CATEGORY_CODE",
+      "nameFromId" : "\"COL 114\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "CHANGE_SEQUENCE",
+      "nameFromId" : "\"COL 115\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "DROP_SHIP_FLAG",
+      "nameFromId" : "\"COL 116\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_PAYMENT_TERM_ID",
+      "nameFromId" : "\"COL 117\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPING_INSTRUCTIONS",
+      "nameFromId" : "\"COL 118\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PACKING_INSTRUCTIONS",
+      "nameFromId" : "\"COL 119\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_CONTEXT",
+      "nameFromId" : "\"COL 120\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE1",
+      "nameFromId" : "\"COL 121\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE2",
+      "nameFromId" : "\"COL 122\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE3",
+      "nameFromId" : "\"COL 123\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE4",
+      "nameFromId" : "\"COL 124\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE5",
+      "nameFromId" : "\"COL 125\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE6",
+      "nameFromId" : "\"COL 126\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE7",
+      "nameFromId" : "\"COL 127\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE8",
+      "nameFromId" : "\"COL 128\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE9",
+      "nameFromId" : "\"COL 129\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE10",
+      "nameFromId" : "\"COL 130\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE11",
+      "nameFromId" : "\"COL 131\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE12",
+      "nameFromId" : "\"COL 132\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE13",
+      "nameFromId" : "\"COL 133\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE14",
+      "nameFromId" : "\"COL 134\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE15",
+      "nameFromId" : "\"COL 135\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FLOW_STATUS_CODE",
+      "nameFromId" : "\"COL 136\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "MARKETING_SOURCE_CODE_ID",
+      "nameFromId" : "\"COL 137\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "CREDIT_CARD_APPROVAL_DATE",
+      "nameFromId" : "\"COL 138\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "UPGRADED_FLAG",
+      "nameFromId" : "\"COL 139\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_PREFERENCE_SET_CODE",
+      "nameFromId" : "\"COL 140\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "BOOKED_DATE",
+      "nameFromId" : "\"COL 141\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "LOCK_CONTROL",
+      "nameFromId" : "\"COL 142\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICE_REQUEST_CODE",
+      "nameFromId" : "\"COL 143\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "BATCH_ID",
+      "nameFromId" : "\"COL 144\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "XML_MESSAGE_ID",
+      "nameFromId" : "\"COL 145\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ACCOUNTING_RULE_DURATION",
+      "nameFromId" : "\"COL 146\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "ATTRIBUTE16",
+      "nameFromId" : "\"COL 147\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE17",
+      "nameFromId" : "\"COL 148\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE18",
+      "nameFromId" : "\"COL 149\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE19",
+      "nameFromId" : "\"COL 150\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE20",
+      "nameFromId" : "\"COL 151\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "BLANKET_NUMBER",
+      "nameFromId" : "\"COL 152\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SALES_DOCUMENT_TYPE_CODE",
+      "nameFromId" : "\"COL 153\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SOLD_TO_PHONE_ID",
+      "nameFromId" : "\"COL 154\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "FULFILLMENT_SET_NAME",
+      "nameFromId" : "\"COL 155\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "LINE_SET_NAME",
+      "nameFromId" : "\"COL 156\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "DEFAULT_FULFILLMENT_SET",
+      "nameFromId" : "\"COL 157\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_PHASE_CODE",
+      "nameFromId" : "\"COL 158\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SALES_DOCUMENT_NAME",
+      "nameFromId" : "\"COL 159\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "QUOTE_NUMBER",
+      "nameFromId" : "\"COL 160\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "QUOTE_DATE",
+      "nameFromId" : "\"COL 161\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "USER_STATUS_CODE",
+      "nameFromId" : "\"COL 162\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "DRAFT_SUBMITTED_FLAG",
+      "nameFromId" : "\"COL 163\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_DOCUMENT_VERSION_NUMBER",
+      "nameFromId" : "\"COL 164\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SOLD_TO_SITE_USE_ID",
+      "nameFromId" : "\"COL 165\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SUPPLIER_SIGNATURE",
+      "nameFromId" : "\"COL 166\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SUPPLIER_SIGNATURE_DATE",
+      "nameFromId" : "\"COL 167\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_SIGNATURE",
+      "nameFromId" : "\"COL 168\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_SIGNATURE_DATE",
+      "nameFromId" : "\"COL 169\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "MINISITE_ID",
+      "nameFromId" : "\"COL 170\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "END_CUSTOMER_ID",
+      "nameFromId" : "\"COL 171\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "END_CUSTOMER_CONTACT_ID",
+      "nameFromId" : "\"COL 172\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "END_CUSTOMER_SITE_USE_ID",
+      "nameFromId" : "\"COL 173\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "IB_OWNER",
+      "nameFromId" : "\"COL 174\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "IB_CURRENT_LOCATION",
+      "nameFromId" : "\"COL 175\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "IB_INSTALLED_AT_LOCATION",
+      "nameFromId" : "\"COL 176\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDER_FIRMED_DATE",
+      "nameFromId" : "\"COL 177\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "HEADER_ID",
+      "nameFromId" : "\"COL 1\"",
+      "partOfPk" : true,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "ORG_ID",
+      "nameFromId" : "\"COL 2\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDER_TYPE_ID",
+      "nameFromId" : "\"COL 3\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "ORDER_NUMBER",
+      "nameFromId" : "\"COL 4\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : false
+    }, {
+      "columnName" : "VERSION_NUMBER",
+      "nameFromId" : "\"COL 5\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : false
+    }, {
+      "columnName" : "EXPIRATION_DATE",
+      "nameFromId" : "\"COL 6\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDER_SOURCE_ID",
+      "nameFromId" : "\"COL 7\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_DOCUMENT_TYPE_ID",
+      "nameFromId" : "\"COL 8\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIG_SYS_DOCUMENT_REF",
+      "nameFromId" : "\"COL 9\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_DOCUMENT_ID",
+      "nameFromId" : "\"COL 10\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDERED_DATE",
+      "nameFromId" : "\"COL 11\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "REQUEST_DATE",
+      "nameFromId" : "\"COL 12\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_DATE",
+      "nameFromId" : "\"COL 13\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPMENT_PRIORITY_CODE",
+      "nameFromId" : "\"COL 14\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "DEMAND_CLASS_CODE",
+      "nameFromId" : "\"COL 15\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICE_LIST_ID",
+      "nameFromId" : "\"COL 16\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_EXEMPT_FLAG",
+      "nameFromId" : "\"COL 17\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_EXEMPT_NUMBER",
+      "nameFromId" : "\"COL 18\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_EXEMPT_REASON_CODE",
+      "nameFromId" : "\"COL 19\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CONVERSION_RATE",
+      "nameFromId" : "\"COL 20\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "CONVERSION_TYPE_CODE",
+      "nameFromId" : "\"COL 21\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CONVERSION_RATE_DATE",
+      "nameFromId" : "\"COL 22\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "PARTIAL_SHIPMENTS_ALLOWED",
+      "nameFromId" : "\"COL 23\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_TOLERANCE_ABOVE",
+      "nameFromId" : "\"COL 24\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_TOLERANCE_BELOW",
+      "nameFromId" : "\"COL 25\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTIONAL_CURR_CODE",
+      "nameFromId" : "\"COL 26\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "AGREEMENT_ID",
+      "nameFromId" : "\"COL 27\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_POINT_CODE",
+      "nameFromId" : "\"COL 28\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUST_PO_NUMBER",
+      "nameFromId" : "\"COL 29\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INVOICING_RULE_ID",
+      "nameFromId" : "\"COL 30\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "ACCOUNTING_RULE_ID",
+      "nameFromId" : "\"COL 31\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "PAYMENT_TERM_ID",
+      "nameFromId" : "\"COL 32\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "SHIPPING_METHOD_CODE",
+      "nameFromId" : "\"COL 33\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FREIGHT_CARRIER_CODE",
+      "nameFromId" : "\"COL 34\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FOB_POINT_CODE",
+      "nameFromId" : "\"COL 35\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FREIGHT_TERMS_CODE",
+      "nameFromId" : "\"COL 36\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SOLD_FROM_ORG_ID",
+      "nameFromId" : "\"COL 37\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SOLD_TO_ORG_ID",
+      "nameFromId" : "\"COL 38\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_FROM_ORG_ID",
+      "nameFromId" : "\"COL 39\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_TO_ORG_ID",
+      "nameFromId" : "\"COL 40\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INVOICE_TO_ORG_ID",
+      "nameFromId" : "\"COL 41\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "DELIVER_TO_ORG_ID",
+      "nameFromId" : "\"COL 42\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SOLD_TO_CONTACT_ID",
+      "nameFromId" : "\"COL 43\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_TO_CONTACT_ID",
+      "nameFromId" : "\"COL 44\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INVOICE_TO_CONTACT_ID",
+      "nameFromId" : "\"COL 45\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "DELIVER_TO_CONTACT_ID",
+      "nameFromId" : "\"COL 46\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "CREATION_DATE",
+      "nameFromId" : "\"COL 47\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "CREATED_BY",
+      "nameFromId" : "\"COL 48\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATED_BY",
+      "nameFromId" : "\"COL 49\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATE_DATE",
+      "nameFromId" : "\"COL 50\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATE_LOGIN",
+      "nameFromId" : "\"COL 51\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PROGRAM_APPLICATION_ID",
+      "nameFromId" : "\"COL 52\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : true
+    }, {
+      "columnName" : "PROGRAM_ID",
+      "nameFromId" : "\"COL 53\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : true
+    }, {
+      "columnName" : "PROGRAM_UPDATE_DATE",
+      "nameFromId" : "\"COL 54\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "REQUEST_ID",
+      "nameFromId" : "\"COL 55\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "CONTEXT",
+      "nameFromId" : "\"COL 56\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE1",
+      "nameFromId" : "\"COL 57\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE2",
+      "nameFromId" : "\"COL 58\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE3",
+      "nameFromId" : "\"COL 59\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE4",
+      "nameFromId" : "\"COL 60\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE5",
+      "nameFromId" : "\"COL 61\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE6",
+      "nameFromId" : "\"COL 62\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE7",
+      "nameFromId" : "\"COL 63\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE8",
+      "nameFromId" : "\"COL 64\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE9",
+      "nameFromId" : "\"COL 65\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE10",
+      "nameFromId" : "\"COL 66\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE11",
+      "nameFromId" : "\"COL 67\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE12",
+      "nameFromId" : "\"COL 68\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE13",
+      "nameFromId" : "\"COL 69\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE14",
+      "nameFromId" : "\"COL 70\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE15",
+      "nameFromId" : "\"COL 71\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE_CATEGORY",
+      "nameFromId" : "\"COL 72\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE1",
+      "nameFromId" : "\"COL 73\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE2",
+      "nameFromId" : "\"COL 74\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE3",
+      "nameFromId" : "\"COL 75\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE4",
+      "nameFromId" : "\"COL 76\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE5",
+      "nameFromId" : "\"COL 77\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE6",
+      "nameFromId" : "\"COL 78\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE7",
+      "nameFromId" : "\"COL 79\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE8",
+      "nameFromId" : "\"COL 80\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE9",
+      "nameFromId" : "\"COL 81\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE10",
+      "nameFromId" : "\"COL 82\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE11",
+      "nameFromId" : "\"COL 83\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE12",
+      "nameFromId" : "\"COL 84\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE13",
+      "nameFromId" : "\"COL 85\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE14",
+      "nameFromId" : "\"COL 86\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE15",
+      "nameFromId" : "\"COL 87\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE16",
+      "nameFromId" : "\"COL 88\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE17",
+      "nameFromId" : "\"COL 89\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE18",
+      "nameFromId" : "\"COL 90\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    } ]
+  },
+  "77252" : {
+    "tableOwner" : "ONT",
+    "tableName" : "OE_ORDER_LINES_ALL",
+    "tableWithPk" : true,
+    "columns" : [ {
+      "columnName" : "LINE_ID",
+      "nameFromId" : "\"COL 1\"",
+      "partOfPk" : true,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "ORG_ID",
+      "nameFromId" : "\"COL 2\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "HEADER_ID",
+      "nameFromId" : "\"COL 3\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "LINE_TYPE_ID",
+      "nameFromId" : "\"COL 4\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "LINE_NUMBER",
+      "nameFromId" : "\"COL 5\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : false
+    }, {
+      "columnName" : "ORDERED_ITEM",
+      "nameFromId" : "\"COL 6\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "REQUEST_DATE",
+      "nameFromId" : "\"COL 7\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "PROMISE_DATE",
+      "nameFromId" : "\"COL 8\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "SCHEDULE_SHIP_DATE",
+      "nameFromId" : "\"COL 9\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDER_QUANTITY_UOM",
+      "nameFromId" : "\"COL 10\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_QUANTITY",
+      "nameFromId" : "\"COL 11\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_QUANTITY_UOM",
+      "nameFromId" : "\"COL 12\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CANCELLED_QUANTITY",
+      "nameFromId" : "\"COL 13\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPED_QUANTITY",
+      "nameFromId" : "\"COL 14\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDERED_QUANTITY",
+      "nameFromId" : "\"COL 15\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "FULFILLED_QUANTITY",
+      "nameFromId" : "\"COL 16\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPING_QUANTITY",
+      "nameFromId" : "\"COL 17\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPING_QUANTITY_UOM",
+      "nameFromId" : "\"COL 18\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "DELIVERY_LEAD_TIME",
+      "nameFromId" : "\"COL 19\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_EXEMPT_FLAG",
+      "nameFromId" : "\"COL 20\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_EXEMPT_NUMBER",
+      "nameFromId" : "\"COL 21\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_EXEMPT_REASON_CODE",
+      "nameFromId" : "\"COL 22\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_FROM_ORG_ID",
+      "nameFromId" : "\"COL 23\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE10",
+      "nameFromId" : "\"COL 135\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE11",
+      "nameFromId" : "\"COL 136\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE13",
+      "nameFromId" : "\"COL 137\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE12",
+      "nameFromId" : "\"COL 138\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE14",
+      "nameFromId" : "\"COL 139\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE15",
+      "nameFromId" : "\"COL 140\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE16",
+      "nameFromId" : "\"COL 141\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE17",
+      "nameFromId" : "\"COL 142\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE18",
+      "nameFromId" : "\"COL 143\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE19",
+      "nameFromId" : "\"COL 144\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE20",
+      "nameFromId" : "\"COL 145\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE21",
+      "nameFromId" : "\"COL 146\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE22",
+      "nameFromId" : "\"COL 147\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE23",
+      "nameFromId" : "\"COL 148\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE24",
+      "nameFromId" : "\"COL 149\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE25",
+      "nameFromId" : "\"COL 150\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE26",
+      "nameFromId" : "\"COL 151\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE27",
+      "nameFromId" : "\"COL 152\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE28",
+      "nameFromId" : "\"COL 153\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE29",
+      "nameFromId" : "\"COL 154\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE30",
+      "nameFromId" : "\"COL 155\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CREATION_DATE",
+      "nameFromId" : "\"COL 156\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "CREATED_BY",
+      "nameFromId" : "\"COL 157\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATE_DATE",
+      "nameFromId" : "\"COL 158\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATED_BY",
+      "nameFromId" : "\"COL 159\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATE_LOGIN",
+      "nameFromId" : "\"COL 160\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PROGRAM_APPLICATION_ID",
+      "nameFromId" : "\"COL 161\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : true
+    }, {
+      "columnName" : "PROGRAM_ID",
+      "nameFromId" : "\"COL 162\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : true
+    }, {
+      "columnName" : "PROGRAM_UPDATE_DATE",
+      "nameFromId" : "\"COL 163\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "REQUEST_ID",
+      "nameFromId" : "\"COL 164\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TOP_MODEL_LINE_ID",
+      "nameFromId" : "\"COL 165\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "LINK_TO_LINE_ID",
+      "nameFromId" : "\"COL 166\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "COMPONENT_SEQUENCE_ID",
+      "nameFromId" : "\"COL 167\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "COMPONENT_CODE",
+      "nameFromId" : "\"COL 168\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CONFIG_DISPLAY_SEQUENCE",
+      "nameFromId" : "\"COL 169\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SORT_ORDER",
+      "nameFromId" : "\"COL 170\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ITEM_TYPE_CODE",
+      "nameFromId" : "\"COL 171\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "OPTION_NUMBER",
+      "nameFromId" : "\"COL 172\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "OPTION_FLAG",
+      "nameFromId" : "\"COL 173\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "DEP_PLAN_REQUIRED_FLAG",
+      "nameFromId" : "\"COL 174\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "VISIBLE_DEMAND_FLAG",
+      "nameFromId" : "\"COL 175\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "LINE_CATEGORY_CODE",
+      "nameFromId" : "\"COL 176\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "ACTUAL_SHIPMENT_DATE",
+      "nameFromId" : "\"COL 177\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_TRX_LINE_ID",
+      "nameFromId" : "\"COL 178\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_CONTEXT",
+      "nameFromId" : "\"COL 179\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE1",
+      "nameFromId" : "\"COL 180\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE2",
+      "nameFromId" : "\"COL 181\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE3",
+      "nameFromId" : "\"COL 182\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE4",
+      "nameFromId" : "\"COL 183\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE5",
+      "nameFromId" : "\"COL 184\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE6",
+      "nameFromId" : "\"COL 185\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE7",
+      "nameFromId" : "\"COL 186\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE8",
+      "nameFromId" : "\"COL 187\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE9",
+      "nameFromId" : "\"COL 188\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE10",
+      "nameFromId" : "\"COL 189\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE11",
+      "nameFromId" : "\"COL 190\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE12",
+      "nameFromId" : "\"COL 191\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE13",
+      "nameFromId" : "\"COL 192\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE14",
+      "nameFromId" : "\"COL 193\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETURN_ATTRIBUTE15",
+      "nameFromId" : "\"COL 194\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ACTUAL_ARRIVAL_DATE",
+      "nameFromId" : "\"COL 195\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "ATO_LINE_ID",
+      "nameFromId" : "\"COL 196\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "AUTO_SELECTED_QUANTITY",
+      "nameFromId" : "\"COL 197\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "COMPONENT_NUMBER",
+      "nameFromId" : "\"COL 198\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "EARLIEST_ACCEPTABLE_DATE",
+      "nameFromId" : "\"COL 199\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "EXPLOSION_DATE",
+      "nameFromId" : "\"COL 200\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "LATEST_ACCEPTABLE_DATE",
+      "nameFromId" : "\"COL 201\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "MODEL_GROUP_NUMBER",
+      "nameFromId" : "\"COL 202\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SCHEDULE_ARRIVAL_DATE",
+      "nameFromId" : "\"COL 203\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_MODEL_COMPLETE_FLAG",
+      "nameFromId" : "\"COL 204\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SCHEDULE_STATUS_CODE",
+      "nameFromId" : "\"COL 205\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_TYPE_CODE",
+      "nameFromId" : "\"COL 206\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CANCELLED_FLAG",
+      "nameFromId" : "\"COL 207\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "OPEN_FLAG",
+      "nameFromId" : "\"COL 208\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "BOOKED_FLAG",
+      "nameFromId" : "\"COL 209\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "SALESREP_ID",
+      "nameFromId" : "\"COL 210\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "RETURN_REASON_CODE",
+      "nameFromId" : "\"COL 211\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ARRIVAL_SET_ID",
+      "nameFromId" : "\"COL 212\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_SET_ID",
+      "nameFromId" : "\"COL 213\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SPLIT_FROM_LINE_ID",
+      "nameFromId" : "\"COL 214\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "CUST_PRODUCTION_SEQ_NUM",
+      "nameFromId" : "\"COL 215\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "AUTHORIZED_TO_SHIP_FLAG",
+      "nameFromId" : "\"COL 216\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "OVER_SHIP_REASON_CODE",
+      "nameFromId" : "\"COL 217\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "OVER_SHIP_RESOLVED_FLAG",
+      "nameFromId" : "\"COL 218\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDERED_ITEM_ID",
+      "nameFromId" : "\"COL 219\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ITEM_IDENTIFIER_TYPE",
+      "nameFromId" : "\"COL 220\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CONFIGURATION_ID",
+      "nameFromId" : "\"COL 221\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "COMMITMENT_ID",
+      "nameFromId" : "\"COL 222\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPING_INTERFACED_FLAG",
+      "nameFromId" : "\"COL 223\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CREDIT_INVOICE_LINE_ID",
+      "nameFromId" : "\"COL 224\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "FIRST_ACK_CODE",
+      "nameFromId" : "\"COL 225\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FIRST_ACK_DATE",
+      "nameFromId" : "\"COL 226\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "LAST_ACK_CODE",
+      "nameFromId" : "\"COL 227\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "LAST_ACK_DATE",
+      "nameFromId" : "\"COL 228\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "PLANNING_PRIORITY",
+      "nameFromId" : "\"COL 229\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDER_SOURCE_ID",
+      "nameFromId" : "\"COL 230\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIG_SYS_SHIPMENT_REF",
+      "nameFromId" : "\"COL 231\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CHANGE_SEQUENCE",
+      "nameFromId" : "\"COL 232\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "DROP_SHIP_FLAG",
+      "nameFromId" : "\"COL 233\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_LINE_NUMBER",
+      "nameFromId" : "\"COL 234\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_SHIPMENT_NUMBER",
+      "nameFromId" : "\"COL 235\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_ITEM_NET_PRICE",
+      "nameFromId" : "\"COL 236\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_PAYMENT_TERM_ID",
+      "nameFromId" : "\"COL 237\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "FULFILLED_FLAG",
+      "nameFromId" : "\"COL 238\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "END_ITEM_UNIT_NUMBER",
+      "nameFromId" : "\"COL 239\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CONFIG_HEADER_ID",
+      "nameFromId" : "\"COL 240\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "CONFIG_REV_NBR",
+      "nameFromId" : "\"COL 241\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "MFG_COMPONENT_SEQUENCE_ID",
+      "nameFromId" : "\"COL 242\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PACKING_INSTRUCTIONS",
+      "nameFromId" : "\"COL 244\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INVOICED_QUANTITY",
+      "nameFromId" : "\"COL 245\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "REFERENCE_CUSTOMER_TRX_LINE_ID",
+      "nameFromId" : "\"COL 246\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SPLIT_BY",
+      "nameFromId" : "\"COL 247\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "LINE_SET_ID",
+      "nameFromId" : "\"COL 248\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_TXN_REASON_CODE",
+      "nameFromId" : "\"COL 249\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_TXN_COMMENTS",
+      "nameFromId" : "\"COL 250\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_DURATION",
+      "nameFromId" : "\"COL 251\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_START_DATE",
+      "nameFromId" : "\"COL 252\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_END_DATE",
+      "nameFromId" : "\"COL 253\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_COTERMINATE_FLAG",
+      "nameFromId" : "\"COL 254\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "UNIT_LIST_PERCENT",
+      "nameFromId" : "\"COL 255\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "UNIT_SELLING_PERCENT",
+      "nameFromId" : "\"COL 256\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "UNIT_PERCENT_BASE_PRICE",
+      "nameFromId" : "\"COL 257\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_NUMBER",
+      "nameFromId" : "\"COL 258\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_PERIOD",
+      "nameFromId" : "\"COL 259\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPABLE_FLAG",
+      "nameFromId" : "\"COL 260\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "MODEL_REMNANT_FLAG",
+      "nameFromId" : "\"COL 261\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RE_SOURCE_FLAG",
+      "nameFromId" : "\"COL 262\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FLOW_STATUS_CODE",
+      "nameFromId" : "\"COL 263\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_CONTEXT",
+      "nameFromId" : "\"COL 264\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE1",
+      "nameFromId" : "\"COL 265\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE2",
+      "nameFromId" : "\"COL 266\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE3",
+      "nameFromId" : "\"COL 267\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE4",
+      "nameFromId" : "\"COL 268\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE5",
+      "nameFromId" : "\"COL 269\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE6",
+      "nameFromId" : "\"COL 270\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE7",
+      "nameFromId" : "\"COL 271\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE8",
+      "nameFromId" : "\"COL 272\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE9",
+      "nameFromId" : "\"COL 273\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE10",
+      "nameFromId" : "\"COL 274\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE11",
+      "nameFromId" : "\"COL 275\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE12",
+      "nameFromId" : "\"COL 276\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE13",
+      "nameFromId" : "\"COL 277\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE14",
+      "nameFromId" : "\"COL 278\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TP_ATTRIBUTE15",
+      "nameFromId" : "\"COL 279\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FULFILLMENT_METHOD_CODE",
+      "nameFromId" : "\"COL 280\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "MARKETING_SOURCE_CODE_ID",
+      "nameFromId" : "\"COL 281\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_REFERENCE_TYPE_CODE",
+      "nameFromId" : "\"COL 282\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_REFERENCE_LINE_ID",
+      "nameFromId" : "\"COL 283\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_REFERENCE_SYSTEM_ID",
+      "nameFromId" : "\"COL 284\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "CALCULATE_PRICE_FLAG",
+      "nameFromId" : "\"COL 285\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "UPGRADED_FLAG",
+      "nameFromId" : "\"COL 286\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "REVENUE_AMOUNT",
+      "nameFromId" : "\"COL 287\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "FULFILLMENT_DATE",
+      "nameFromId" : "\"COL 288\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "PREFERRED_GRADE",
+      "nameFromId" : "\"COL 289\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDERED_QUANTITY2",
+      "nameFromId" : "\"COL 290\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDERED_QUANTITY_UOM2",
+      "nameFromId" : "\"COL 291\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPING_QUANTITY2",
+      "nameFromId" : "\"COL 292\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "CANCELLED_QUANTITY2",
+      "nameFromId" : "\"COL 293\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPED_QUANTITY2",
+      "nameFromId" : "\"COL 294\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPING_QUANTITY_UOM2",
+      "nameFromId" : "\"COL 295\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FULFILLED_QUANTITY2",
+      "nameFromId" : "\"COL 296\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "MFG_LEAD_TIME",
+      "nameFromId" : "\"COL 297\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "LOCK_CONTROL",
+      "nameFromId" : "\"COL 298\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SUBINVENTORY",
+      "nameFromId" : "\"COL 299\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "UNIT_LIST_PRICE_PER_PQTY",
+      "nameFromId" : "\"COL 300\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "UNIT_SELLING_PRICE_PER_PQTY",
+      "nameFromId" : "\"COL 301\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICE_REQUEST_CODE",
+      "nameFromId" : "\"COL 302\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIGINAL_INVENTORY_ITEM_ID",
+      "nameFromId" : "\"COL 303\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIGINAL_ORDERED_ITEM_ID",
+      "nameFromId" : "\"COL 304\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIGINAL_ORDERED_ITEM",
+      "nameFromId" : "\"COL 305\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIGINAL_ITEM_IDENTIFIER_TYPE",
+      "nameFromId" : "\"COL 306\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ITEM_SUBSTITUTION_TYPE_CODE",
+      "nameFromId" : "\"COL 307\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "OVERRIDE_ATP_DATE_CODE",
+      "nameFromId" : "\"COL 308\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "LATE_DEMAND_PENALTY_FACTOR",
+      "nameFromId" : "\"COL 309\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ACCOUNTING_RULE_DURATION",
+      "nameFromId" : "\"COL 310\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "USER_ITEM_DESCRIPTION",
+      "nameFromId" : "\"COL 311\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "UNIT_COST",
+      "nameFromId" : "\"COL 312\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE16",
+      "nameFromId" : "\"COL 313\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE17",
+      "nameFromId" : "\"COL 314\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE18",
+      "nameFromId" : "\"COL 315\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE19",
+      "nameFromId" : "\"COL 316\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE20",
+      "nameFromId" : "\"COL 317\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ITEM_RELATIONSHIP_TYPE",
+      "nameFromId" : "\"COL 318\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "BLANKET_LINE_NUMBER",
+      "nameFromId" : "\"COL 319\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "BLANKET_NUMBER",
+      "nameFromId" : "\"COL 320\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "BLANKET_VERSION_NUMBER",
+      "nameFromId" : "\"COL 321\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SALES_DOCUMENT_TYPE_CODE",
+      "nameFromId" : "\"COL 322\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FIRM_DEMAND_FLAG",
+      "nameFromId" : "\"COL 323\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "EARLIEST_SHIP_DATE",
+      "nameFromId" : "\"COL 324\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_PHASE_CODE",
+      "nameFromId" : "\"COL 325\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_DOCUMENT_VERSION_NUMBER",
+      "nameFromId" : "\"COL 326\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PAYMENT_TYPE_CODE",
+      "nameFromId" : "\"COL 327\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "MINISITE_ID",
+      "nameFromId" : "\"COL 328\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "END_CUSTOMER_ID",
+      "nameFromId" : "\"COL 329\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "END_CUSTOMER_CONTACT_ID",
+      "nameFromId" : "\"COL 330\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "END_CUSTOMER_SITE_USE_ID",
+      "nameFromId" : "\"COL 331\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "IB_OWNER",
+      "nameFromId" : "\"COL 332\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "IB_CURRENT_LOCATION",
+      "nameFromId" : "\"COL 333\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "IB_INSTALLED_AT_LOCATION",
+      "nameFromId" : "\"COL 334\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RETROBILL_REQUEST_ID",
+      "nameFromId" : "\"COL 335\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIGINAL_LIST_PRICE",
+      "nameFromId" : "\"COL 336\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SERVICE_CREDIT_ELIGIBLE_CODE",
+      "nameFromId" : "\"COL 337\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORDER_FIRMED_DATE",
+      "nameFromId" : "\"COL 338\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "ACTUAL_FULFILLMENT_DATE",
+      "nameFromId" : "\"COL 339\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "CHARGE_PERIODICITY_CODE",
+      "nameFromId" : "\"COL 340\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_TO_ORG_ID",
+      "nameFromId" : "\"COL 24\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INVOICE_TO_ORG_ID",
+      "nameFromId" : "\"COL 25\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "DELIVER_TO_ORG_ID",
+      "nameFromId" : "\"COL 26\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_TO_CONTACT_ID",
+      "nameFromId" : "\"COL 27\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "DELIVER_TO_CONTACT_ID",
+      "nameFromId" : "\"COL 28\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INVOICE_TO_CONTACT_ID",
+      "nameFromId" : "\"COL 29\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INTMED_SHIP_TO_ORG_ID",
+      "nameFromId" : "\"COL 30\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INTMED_SHIP_TO_CONTACT_ID",
+      "nameFromId" : "\"COL 31\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SOLD_FROM_ORG_ID",
+      "nameFromId" : "\"COL 32\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SOLD_TO_ORG_ID",
+      "nameFromId" : "\"COL 33\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "CUST_PO_NUMBER",
+      "nameFromId" : "\"COL 34\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_TOLERANCE_ABOVE",
+      "nameFromId" : "\"COL 35\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_TOLERANCE_BELOW",
+      "nameFromId" : "\"COL 36\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "DEMAND_BUCKET_TYPE_CODE",
+      "nameFromId" : "\"COL 37\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "VEH_CUS_ITEM_CUM_KEY_ID",
+      "nameFromId" : "\"COL 38\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "RLA_SCHEDULE_TYPE_CODE",
+      "nameFromId" : "\"COL 39\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_DOCK_CODE",
+      "nameFromId" : "\"COL 40\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_JOB",
+      "nameFromId" : "\"COL 41\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUSTOMER_PRODUCTION_LINE",
+      "nameFromId" : "\"COL 42\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CUST_MODEL_SERIAL_NUMBER",
+      "nameFromId" : "\"COL 43\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PROJECT_ID",
+      "nameFromId" : "\"COL 44\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TASK_ID",
+      "nameFromId" : "\"COL 45\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INVENTORY_ITEM_ID",
+      "nameFromId" : "\"COL 46\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "TAX_DATE",
+      "nameFromId" : "\"COL 47\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_CODE",
+      "nameFromId" : "\"COL 48\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_RATE",
+      "nameFromId" : "\"COL 49\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "INVOICE_INTERFACE_STATUS_CODE",
+      "nameFromId" : "\"COL 50\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "DEMAND_CLASS_CODE",
+      "nameFromId" : "\"COL 51\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICE_LIST_ID",
+      "nameFromId" : "\"COL 52\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_DATE",
+      "nameFromId" : "\"COL 53\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPMENT_NUMBER",
+      "nameFromId" : "\"COL 54\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : false
+    }, {
+      "columnName" : "AGREEMENT_ID",
+      "nameFromId" : "\"COL 55\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPMENT_PRIORITY_CODE",
+      "nameFromId" : "\"COL 56\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPING_METHOD_CODE",
+      "nameFromId" : "\"COL 57\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FREIGHT_CARRIER_CODE",
+      "nameFromId" : "\"COL 58\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FREIGHT_TERMS_CODE",
+      "nameFromId" : "\"COL 59\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FOB_POINT_CODE",
+      "nameFromId" : "\"COL 60\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_POINT_CODE",
+      "nameFromId" : "\"COL 61\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PAYMENT_TERM_ID",
+      "nameFromId" : "\"COL 62\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "INVOICING_RULE_ID",
+      "nameFromId" : "\"COL 63\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "ACCOUNTING_RULE_ID",
+      "nameFromId" : "\"COL 64\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "SOURCE_DOCUMENT_TYPE_ID",
+      "nameFromId" : "\"COL 65\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIG_SYS_DOCUMENT_REF",
+      "nameFromId" : "\"COL 66\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_DOCUMENT_ID",
+      "nameFromId" : "\"COL 67\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIG_SYS_LINE_REF",
+      "nameFromId" : "\"COL 68\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_DOCUMENT_LINE_ID",
+      "nameFromId" : "\"COL 69\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "REFERENCE_LINE_ID",
+      "nameFromId" : "\"COL 70\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "REFERENCE_TYPE",
+      "nameFromId" : "\"COL 71\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "REFERENCE_HEADER_ID",
+      "nameFromId" : "\"COL 72\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ITEM_REVISION",
+      "nameFromId" : "\"COL 73\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "UNIT_SELLING_PRICE",
+      "nameFromId" : "\"COL 74\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "UNIT_LIST_PRICE",
+      "nameFromId" : "\"COL 75\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TAX_VALUE",
+      "nameFromId" : "\"COL 76\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "CONTEXT",
+      "nameFromId" : "\"COL 77\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE1",
+      "nameFromId" : "\"COL 78\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE2",
+      "nameFromId" : "\"COL 79\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE3",
+      "nameFromId" : "\"COL 80\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE4",
+      "nameFromId" : "\"COL 81\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE5",
+      "nameFromId" : "\"COL 82\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE6",
+      "nameFromId" : "\"COL 83\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE7",
+      "nameFromId" : "\"COL 84\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE8",
+      "nameFromId" : "\"COL 85\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE9",
+      "nameFromId" : "\"COL 86\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE10",
+      "nameFromId" : "\"COL 87\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE11",
+      "nameFromId" : "\"COL 88\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE12",
+      "nameFromId" : "\"COL 89\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE13",
+      "nameFromId" : "\"COL 90\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE14",
+      "nameFromId" : "\"COL 91\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE15",
+      "nameFromId" : "\"COL 92\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE_CATEGORY",
+      "nameFromId" : "\"COL 93\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE1",
+      "nameFromId" : "\"COL 94\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE2",
+      "nameFromId" : "\"COL 95\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE3",
+      "nameFromId" : "\"COL 96\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE4",
+      "nameFromId" : "\"COL 97\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE5",
+      "nameFromId" : "\"COL 98\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE6",
+      "nameFromId" : "\"COL 99\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE7",
+      "nameFromId" : "\"COL 100\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE8",
+      "nameFromId" : "\"COL 101\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE9",
+      "nameFromId" : "\"COL 102\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE10",
+      "nameFromId" : "\"COL 103\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE11",
+      "nameFromId" : "\"COL 104\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE12",
+      "nameFromId" : "\"COL 105\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE13",
+      "nameFromId" : "\"COL 106\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE14",
+      "nameFromId" : "\"COL 107\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE15",
+      "nameFromId" : "\"COL 108\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE16",
+      "nameFromId" : "\"COL 109\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE17",
+      "nameFromId" : "\"COL 110\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE18",
+      "nameFromId" : "\"COL 111\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE19",
+      "nameFromId" : "\"COL 112\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "GLOBAL_ATTRIBUTE20",
+      "nameFromId" : "\"COL 113\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_CONTEXT",
+      "nameFromId" : "\"COL 114\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE1",
+      "nameFromId" : "\"COL 115\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE2",
+      "nameFromId" : "\"COL 116\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE3",
+      "nameFromId" : "\"COL 117\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE4",
+      "nameFromId" : "\"COL 118\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE5",
+      "nameFromId" : "\"COL 119\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE6",
+      "nameFromId" : "\"COL 120\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE7",
+      "nameFromId" : "\"COL 121\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE8",
+      "nameFromId" : "\"COL 122\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE9",
+      "nameFromId" : "\"COL 123\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRICING_ATTRIBUTE10",
+      "nameFromId" : "\"COL 124\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_CONTEXT",
+      "nameFromId" : "\"COL 125\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE1",
+      "nameFromId" : "\"COL 126\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE2",
+      "nameFromId" : "\"COL 127\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE3",
+      "nameFromId" : "\"COL 128\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE4",
+      "nameFromId" : "\"COL 129\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE5",
+      "nameFromId" : "\"COL 130\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE6",
+      "nameFromId" : "\"COL 131\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE7",
+      "nameFromId" : "\"COL 132\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE8",
+      "nameFromId" : "\"COL 133\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "INDUSTRY_ATTRIBUTE9",
+      "nameFromId" : "\"COL 134\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPPING_INSTRUCTIONS",
+      "nameFromId" : "\"COL 243\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    } ]
+  },
+  "72717" : {
+    "tableOwner" : "GL",
+    "tableName" : "GL_DAILY_RATES",
+    "tableWithPk" : true,
+    "columns" : [ {
+      "columnName" : "FROM_CURRENCY",
+      "nameFromId" : "\"COL 1\"",
+      "partOfPk" : true,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "TO_CURRENCY",
+      "nameFromId" : "\"COL 2\"",
+      "partOfPk" : true,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "CONVERSION_DATE",
+      "nameFromId" : "\"COL 3\"",
+      "partOfPk" : true,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "CONVERSION_TYPE",
+      "nameFromId" : "\"COL 4\"",
+      "partOfPk" : true,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "CONVERSION_RATE",
+      "nameFromId" : "\"COL 5\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : false
+    }, {
+      "columnName" : "STATUS_CODE",
+      "nameFromId" : "\"COL 6\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "CREATION_DATE",
+      "nameFromId" : "\"COL 7\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "CREATED_BY",
+      "nameFromId" : "\"COL 8\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false,
+      "dataScale" : 0
+    }, {
+      "columnName" : "LAST_UPDATE_DATE",
+      "nameFromId" : "\"COL 9\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATED_BY",
+      "nameFromId" : "\"COL 10\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false,
+      "dataScale" : 0
+    }, {
+      "columnName" : "LAST_UPDATE_LOGIN",
+      "nameFromId" : "\"COL 11\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false,
+      "dataScale" : 0
+    }, {
+      "columnName" : "CONTEXT",
+      "nameFromId" : "\"COL 12\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE1",
+      "nameFromId" : "\"COL 13\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE2",
+      "nameFromId" : "\"COL 14\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE3",
+      "nameFromId" : "\"COL 15\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE4",
+      "nameFromId" : "\"COL 16\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE5",
+      "nameFromId" : "\"COL 17\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE6",
+      "nameFromId" : "\"COL 18\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE7",
+      "nameFromId" : "\"COL 19\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE8",
+      "nameFromId" : "\"COL 20\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE9",
+      "nameFromId" : "\"COL 21\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE10",
+      "nameFromId" : "\"COL 22\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE11",
+      "nameFromId" : "\"COL 23\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE12",
+      "nameFromId" : "\"COL 24\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE13",
+      "nameFromId" : "\"COL 25\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE14",
+      "nameFromId" : "\"COL 26\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE15",
+      "nameFromId" : "\"COL 27\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RATE_SOURCE_CODE",
+      "nameFromId" : "\"COL 28\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    } ]
+  },
+  "74590" : {
+    "tableOwner" : "INV",
+    "tableName" : "MTL_MATERIAL_TRANSACTIONS",
+    "tableWithPk" : true,
+    "columns" : [ {
+      "columnName" : "TRANSACTION_ID",
+      "nameFromId" : "\"COL 1\"",
+      "partOfPk" : true,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATE_DATE",
+      "nameFromId" : "\"COL 2\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATED_BY",
+      "nameFromId" : "\"COL 3\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false
+    }, {
+      "columnName" : "CREATION_DATE",
+      "nameFromId" : "\"COL 4\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "CREATED_BY",
+      "nameFromId" : "\"COL 5\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : false
+    }, {
+      "columnName" : "LAST_UPDATE_LOGIN",
+      "nameFromId" : "\"COL 6\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "REQUEST_ID",
+      "nameFromId" : "\"COL 7\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PROGRAM_APPLICATION_ID",
+      "nameFromId" : "\"COL 8\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : true
+    }, {
+      "columnName" : "PROGRAM_ID",
+      "nameFromId" : "\"COL 9\"",
+      "partOfPk" : false,
+      "jdbcType" : 4,
+      "nullable" : true
+    }, {
+      "columnName" : "PROGRAM_UPDATE_DATE",
+      "nameFromId" : "\"COL 10\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "INVENTORY_ITEM_ID",
+      "nameFromId" : "\"COL 11\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "REVISION",
+      "nameFromId" : "\"COL 12\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORGANIZATION_ID",
+      "nameFromId" : "\"COL 13\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "SUBINVENTORY_CODE",
+      "nameFromId" : "\"COL 14\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "LOCATOR_ID",
+      "nameFromId" : "\"COL 15\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_TYPE_ID",
+      "nameFromId" : "\"COL 16\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "TRANSACTION_ACTION_ID",
+      "nameFromId" : "\"COL 17\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "TRANSACTION_SOURCE_TYPE_ID",
+      "nameFromId" : "\"COL 18\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : false
+    }, {
+      "columnName" : "PICK_SLIP_NUMBER",
+      "nameFromId" : "\"COL 134\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "LPN_ID",
+      "nameFromId" : "\"COL 135\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_LPN_ID",
+      "nameFromId" : "\"COL 136\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PICK_STRATEGY_ID",
+      "nameFromId" : "\"COL 137\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PICK_RULE_ID",
+      "nameFromId" : "\"COL 138\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PUT_AWAY_STRATEGY_ID",
+      "nameFromId" : "\"COL 139\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PUT_AWAY_RULE_ID",
+      "nameFromId" : "\"COL 140\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "CONTENT_LPN_ID",
+      "nameFromId" : "\"COL 141\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PICK_SLIP_DATE",
+      "nameFromId" : "\"COL 142\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "COST_CATEGORY_ID",
+      "nameFromId" : "\"COL 143\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ORGANIZATION_TYPE",
+      "nameFromId" : "\"COL 144\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_ORGANIZATION_TYPE",
+      "nameFromId" : "\"COL 145\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "OWNING_ORGANIZATION_ID",
+      "nameFromId" : "\"COL 146\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "OWNING_TP_TYPE",
+      "nameFromId" : "\"COL 147\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "XFR_OWNING_ORGANIZATION_ID",
+      "nameFromId" : "\"COL 148\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_OWNING_TP_TYPE",
+      "nameFromId" : "\"COL 149\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PLANNING_ORGANIZATION_ID",
+      "nameFromId" : "\"COL 150\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PLANNING_TP_TYPE",
+      "nameFromId" : "\"COL 151\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "XFR_PLANNING_ORGANIZATION_ID",
+      "nameFromId" : "\"COL 152\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_PLANNING_TP_TYPE",
+      "nameFromId" : "\"COL 153\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SECONDARY_UOM_CODE",
+      "nameFromId" : "\"COL 154\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SECONDARY_TRANSACTION_QUANTITY",
+      "nameFromId" : "\"COL 155\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_GROUP_SEQ",
+      "nameFromId" : "\"COL 156\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIP_TO_LOCATION_ID",
+      "nameFromId" : "\"COL 157\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "RESERVATION_ID",
+      "nameFromId" : "\"COL 158\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_MODE",
+      "nameFromId" : "\"COL 159\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_BATCH_ID",
+      "nameFromId" : "\"COL 160\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_BATCH_SEQ",
+      "nameFromId" : "\"COL 161\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "INTRANSIT_ACCOUNT",
+      "nameFromId" : "\"COL 162\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "FOB_POINT",
+      "nameFromId" : "\"COL 163\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PARENT_TRANSACTION_ID",
+      "nameFromId" : "\"COL 164\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "LOGICAL_TRX_TYPE_CODE",
+      "nameFromId" : "\"COL 165\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRX_FLOW_HEADER_ID",
+      "nameFromId" : "\"COL 166\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "LOGICAL_TRANSACTIONS_CREATED",
+      "nameFromId" : "\"COL 167\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "LOGICAL_TRANSACTION",
+      "nameFromId" : "\"COL 168\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "INTERCOMPANY_COST",
+      "nameFromId" : "\"COL 169\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "INTERCOMPANY_PRICING_OPTION",
+      "nameFromId" : "\"COL 170\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "INTERCOMPANY_CURRENCY_CODE",
+      "nameFromId" : "\"COL 171\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ORIGINAL_TRANSACTION_TEMP_ID",
+      "nameFromId" : "\"COL 172\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_PRICE",
+      "nameFromId" : "\"COL 173\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "EXPENSE_ACCOUNT_ID",
+      "nameFromId" : "\"COL 174\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_SOURCE_ID",
+      "nameFromId" : "\"COL 19\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_SOURCE_NAME",
+      "nameFromId" : "\"COL 20\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_QUANTITY",
+      "nameFromId" : "\"COL 21\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : false
+    }, {
+      "columnName" : "TRANSACTION_UOM",
+      "nameFromId" : "\"COL 22\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : false
+    }, {
+      "columnName" : "PRIMARY_QUANTITY",
+      "nameFromId" : "\"COL 23\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : false
+    }, {
+      "columnName" : "TRANSACTION_DATE",
+      "nameFromId" : "\"COL 24\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : false
+    }, {
+      "columnName" : "VARIANCE_AMOUNT",
+      "nameFromId" : "\"COL 25\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ACCT_PERIOD_ID",
+      "nameFromId" : "\"COL 26\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_REFERENCE",
+      "nameFromId" : "\"COL 27\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "REASON_ID",
+      "nameFromId" : "\"COL 28\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "DISTRIBUTION_ACCOUNT_ID",
+      "nameFromId" : "\"COL 29\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ENCUMBRANCE_ACCOUNT",
+      "nameFromId" : "\"COL 30\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ENCUMBRANCE_AMOUNT",
+      "nameFromId" : "\"COL 31\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "COST_UPDATE_ID",
+      "nameFromId" : "\"COL 32\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "COSTED_FLAG",
+      "nameFromId" : "\"COL 33\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_GROUP_ID",
+      "nameFromId" : "\"COL 34\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "INVOICED_FLAG",
+      "nameFromId" : "\"COL 35\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ACTUAL_COST",
+      "nameFromId" : "\"COL 36\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_COST",
+      "nameFromId" : "\"COL 37\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PRIOR_COST",
+      "nameFromId" : "\"COL 38\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "NEW_COST",
+      "nameFromId" : "\"COL 39\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "CURRENCY_CODE",
+      "nameFromId" : "\"COL 40\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CURRENCY_CONVERSION_RATE",
+      "nameFromId" : "\"COL 41\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "CURRENCY_CONVERSION_TYPE",
+      "nameFromId" : "\"COL 42\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "CURRENCY_CONVERSION_DATE",
+      "nameFromId" : "\"COL 43\"",
+      "partOfPk" : false,
+      "jdbcType" : 93,
+      "nullable" : true
+    }, {
+      "columnName" : "USSGL_TRANSACTION_CODE",
+      "nameFromId" : "\"COL 44\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "QUANTITY_ADJUSTED",
+      "nameFromId" : "\"COL 45\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "EMPLOYEE_CODE",
+      "nameFromId" : "\"COL 46\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "DEPARTMENT_ID",
+      "nameFromId" : "\"COL 47\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "OPERATION_SEQ_NUM",
+      "nameFromId" : "\"COL 48\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "MASTER_SCHEDULE_UPDATE_CODE",
+      "nameFromId" : "\"COL 49\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "RECEIVING_DOCUMENT",
+      "nameFromId" : "\"COL 50\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PICKING_LINE_ID",
+      "nameFromId" : "\"COL 51\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRX_SOURCE_LINE_ID",
+      "nameFromId" : "\"COL 52\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRX_SOURCE_DELIVERY_ID",
+      "nameFromId" : "\"COL 53\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "REPETITIVE_LINE_ID",
+      "nameFromId" : "\"COL 54\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PHYSICAL_ADJUSTMENT_ID",
+      "nameFromId" : "\"COL 55\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "CYCLE_COUNT_ID",
+      "nameFromId" : "\"COL 56\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "RMA_LINE_ID",
+      "nameFromId" : "\"COL 57\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_TRANSACTION_ID",
+      "nameFromId" : "\"COL 58\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSACTION_SET_ID",
+      "nameFromId" : "\"COL 59\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "RCV_TRANSACTION_ID",
+      "nameFromId" : "\"COL 60\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "MOVE_TRANSACTION_ID",
+      "nameFromId" : "\"COL 61\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "COMPLETION_TRANSACTION_ID",
+      "nameFromId" : "\"COL 62\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SHORTAGE_PROCESS_CODE",
+      "nameFromId" : "\"COL 63\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_CODE",
+      "nameFromId" : "\"COL 64\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_LINE_ID",
+      "nameFromId" : "\"COL 65\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "VENDOR_LOT_NUMBER",
+      "nameFromId" : "\"COL 66\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_ORGANIZATION_ID",
+      "nameFromId" : "\"COL 67\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_SUBINVENTORY",
+      "nameFromId" : "\"COL 68\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_LOCATOR_ID",
+      "nameFromId" : "\"COL 69\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPMENT_NUMBER",
+      "nameFromId" : "\"COL 70\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_COST",
+      "nameFromId" : "\"COL 71\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSPORTATION_DIST_ACCOUNT",
+      "nameFromId" : "\"COL 72\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSPORTATION_COST",
+      "nameFromId" : "\"COL 73\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_COST_DIST_ACCOUNT",
+      "nameFromId" : "\"COL 74\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "WAYBILL_AIRBILL",
+      "nameFromId" : "\"COL 75\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "FREIGHT_CODE",
+      "nameFromId" : "\"COL 76\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "NUMBER_OF_CONTAINERS",
+      "nameFromId" : "\"COL 77\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "VALUE_CHANGE",
+      "nameFromId" : "\"COL 78\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "PERCENTAGE_CHANGE",
+      "nameFromId" : "\"COL 79\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE_CATEGORY",
+      "nameFromId" : "\"COL 80\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE1",
+      "nameFromId" : "\"COL 81\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE2",
+      "nameFromId" : "\"COL 82\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE3",
+      "nameFromId" : "\"COL 83\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE4",
+      "nameFromId" : "\"COL 84\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE5",
+      "nameFromId" : "\"COL 85\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE6",
+      "nameFromId" : "\"COL 86\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE7",
+      "nameFromId" : "\"COL 87\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE8",
+      "nameFromId" : "\"COL 88\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE9",
+      "nameFromId" : "\"COL 89\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE10",
+      "nameFromId" : "\"COL 90\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE11",
+      "nameFromId" : "\"COL 91\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE12",
+      "nameFromId" : "\"COL 92\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE13",
+      "nameFromId" : "\"COL 93\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE14",
+      "nameFromId" : "\"COL 94\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ATTRIBUTE15",
+      "nameFromId" : "\"COL 95\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "MOVEMENT_ID",
+      "nameFromId" : "\"COL 96\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TASK_ID",
+      "nameFromId" : "\"COL 97\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "TO_TASK_ID",
+      "nameFromId" : "\"COL 98\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "PROJECT_ID",
+      "nameFromId" : "\"COL 99\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "TO_PROJECT_ID",
+      "nameFromId" : "\"COL 100\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true,
+      "dataScale" : 0
+    }, {
+      "columnName" : "SOURCE_PROJECT_ID",
+      "nameFromId" : "\"COL 101\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PA_EXPENDITURE_ORG_ID",
+      "nameFromId" : "\"COL 102\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SOURCE_TASK_ID",
+      "nameFromId" : "\"COL 103\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "EXPENDITURE_TYPE",
+      "nameFromId" : "\"COL 104\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ERROR_CODE",
+      "nameFromId" : "\"COL 105\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "ERROR_EXPLANATION",
+      "nameFromId" : "\"COL 106\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PRIOR_COSTED_QUANTITY",
+      "nameFromId" : "\"COL 107\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_PRIOR_COSTED_QUANTITY",
+      "nameFromId" : "\"COL 108\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "FINAL_COMPLETION_FLAG",
+      "nameFromId" : "\"COL 109\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PM_COST_COLLECTED",
+      "nameFromId" : "\"COL 110\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "PM_COST_COLLECTOR_GROUP_ID",
+      "nameFromId" : "\"COL 111\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "SHIPMENT_COSTED",
+      "nameFromId" : "\"COL 112\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_PERCENTAGE",
+      "nameFromId" : "\"COL 113\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "MATERIAL_ACCOUNT",
+      "nameFromId" : "\"COL 114\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "MATERIAL_OVERHEAD_ACCOUNT",
+      "nameFromId" : "\"COL 115\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "RESOURCE_ACCOUNT",
+      "nameFromId" : "\"COL 116\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "OUTSIDE_PROCESSING_ACCOUNT",
+      "nameFromId" : "\"COL 117\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "OVERHEAD_ACCOUNT",
+      "nameFromId" : "\"COL 118\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "COST_GROUP_ID",
+      "nameFromId" : "\"COL 119\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TRANSFER_COST_GROUP_ID",
+      "nameFromId" : "\"COL 120\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "FLOW_SCHEDULE",
+      "nameFromId" : "\"COL 121\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "QA_COLLECTION_ID",
+      "nameFromId" : "\"COL 122\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "OVERCOMPLETION_TRANSACTION_QTY",
+      "nameFromId" : "\"COL 123\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "OVERCOMPLETION_PRIMARY_QTY",
+      "nameFromId" : "\"COL 124\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "OVERCOMPLETION_TRANSACTION_ID",
+      "nameFromId" : "\"COL 125\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "MVT_STAT_STATUS",
+      "nameFromId" : "\"COL 126\"",
+      "partOfPk" : false,
+      "jdbcType" : 12,
+      "nullable" : true
+    }, {
+      "columnName" : "COMMON_BOM_SEQ_ID",
+      "nameFromId" : "\"COL 127\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "COMMON_ROUTING_SEQ_ID",
+      "nameFromId" : "\"COL 128\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "ORG_COST_GROUP_ID",
+      "nameFromId" : "\"COL 129\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "COST_TYPE_ID",
+      "nameFromId" : "\"COL 130\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "PERIODIC_PRIMARY_QUANTITY",
+      "nameFromId" : "\"COL 131\"",
+      "partOfPk" : false,
+      "jdbcType" : 2,
+      "nullable" : true
+    }, {
+      "columnName" : "MOVE_ORDER_LINE_ID",
+      "nameFromId" : "\"COL 132\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    }, {
+      "columnName" : "TASK_GROUP_ID",
+      "nameFromId" : "\"COL 133\"",
+      "partOfPk" : false,
+      "jdbcType" : -5,
+      "nullable" : true
+    } ]
+  }
+}
