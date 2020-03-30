@@ -488,8 +488,4 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	}
 
-	public Map<String, OraColumn> idMap() {
-		return idToNameMap;
-	}
-
 }
