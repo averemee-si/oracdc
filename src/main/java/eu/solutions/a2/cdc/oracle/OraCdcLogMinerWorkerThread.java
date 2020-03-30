@@ -300,34 +300,13 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								if (rsCheckTable.next()) {
 									final String tableName = rsCheckTable.getString("TABLE_NAME");
 									final String tableOwner = rsCheckTable.getString("OWNER");
-									final String tableFqn = tableOwner + "." + tableName;
-									final String tableTopic;
-									if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-										if (topic == null || "".equals(topic)) {
-											tableTopic = tableName;
-										} else {
-											tableTopic = topic + "_" + tableName;
-										}
-									} else {
-										// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-										tableTopic = topic;
-									}
-									if (isCdb) {
-										final String pdbName = rsCheckTable.getString("PDB_NAME");
-										oraTable = new OraTable4LogMiner(
-												pdbName, rsLogMiner.getShort("CON_ID"),
-												tableOwner, tableName,
-												schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
-										tablesInProcessing.put(combinedDataObjectId, oraTable);
-										metrics.addTableInProcessing(pdbName + ":" + tableFqn);
-									} else {
-										oraTable = new OraTable4LogMiner(
-												null, null,
-												tableOwner, tableName,
-												schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
-										tablesInProcessing.put(combinedDataObjectId, oraTable);
-										metrics.addTableInProcessing(tableFqn);
-									}
+									oraTable = new OraTable4LogMiner(
+											isCdb ? rsCheckTable.getString("PDB_NAME") : null,
+											isCdb ? (short) conId : null,
+											tableOwner, tableName,
+											schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
+									tablesInProcessing.put(combinedDataObjectId, oraTable);
+									metrics.addTableInProcessing(oraTable.fqn());									
 								} else {
 									tablesOutOfScope.add(combinedDataObjectId);
 									metrics.addTableOutOfScope();

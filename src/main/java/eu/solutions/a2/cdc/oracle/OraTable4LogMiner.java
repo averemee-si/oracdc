@@ -60,6 +60,23 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private String kafkaTopic;
 	private OraDumpDecoder odd;
 	private boolean tableWithPk;
+	private final String tableFqn;
+
+	/**
+	 * 
+	 * @param pdbName      PDB name
+	 * @param tableOwner   owner
+	 * @param tableName    name
+	 * @param schemaType   type of schema
+	 */
+	private OraTable4LogMiner(
+			final String pdbName, final String tableOwner, final String tableName, final int schemaType) {
+		super(tableOwner, tableName, schemaType);
+		this.idToNameMap = new HashMap<>();
+		this.pdbName = pdbName;
+		this.tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
+				this.tableOwner + "." + this.tableName;
+	}
 
 	/**
 	 * 
@@ -74,22 +91,16 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param isCdb
 	 * @param odd
 	 * @param sourcePartition
-	 * @param kafkaTopic
+	 * @param topicParam
 	 */
 	public OraTable4LogMiner(
 			final String pdbName, final Short conId, final String tableOwner,
 			final String tableName, final int schemaType, final boolean useOracdcSchemas,
 			final boolean isCdb, final OraDumpDecoder odd,
-			final Map<String, String> sourcePartition, final String kafkaTopic) {
-		super(tableOwner, tableName, schemaType);
+			final Map<String, String> sourcePartition, final String topicParam) {
+		this(pdbName, tableOwner, tableName, schemaType);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
-		this.sourcePartition = sourcePartition;
-		this.idToNameMap = new HashMap<>();
-		this.pdbName = pdbName;
-		this.kafkaTopic = kafkaTopic;
-		this.odd = odd;
-		final String tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
-				this.tableOwner + "." + this.tableName;
+		setTopicDecoderPartition(topicParam, odd, sourcePartition);
 		tableWithPk = true;
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			if (LOGGER.isTraceEnabled()) {
@@ -134,10 +145,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param tableData
 	 */
 	public OraTable4LogMiner(Map<String, Object> tableData, final int schemaType) {
-		super((String) tableData.get("tableOwner"), (String) tableData.get("tableName"), schemaType);
+		this((String) tableData.get("pdbName"),
+				(String) tableData.get("tableOwner"),
+				(String) tableData.get("tableName"),
+				schemaType);
 		tableWithPk = (boolean) tableData.get("tableWithPk");
-		idToNameMap = new HashMap<>();
-		pdbName = (String) tableData.get("pdbName");
 		if (LOGGER.isDebugEnabled()) {
 			if (pdbName == null) {
 				LOGGER.debug("Deserializing {}.{} from JSON", tableOwner, tableName);
@@ -146,8 +158,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 		}
 
-		final String tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
-				this.tableOwner + "." + this.tableName;
 		// Schema init
 		final SchemaBuilder keySchemaBuilder = SchemaBuilder
 					.struct()
@@ -193,7 +203,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		offset.put("SSN", stmt.getSsn());
 
 		if (LOGGER.isTraceEnabled()) {
-			LOGGER.trace("Parsing REDO record for {}.{}", tableOwner, tableName);
+			LOGGER.trace("Parsing REDO record for {}", tableFqn);
 			LOGGER.trace("Redo record information:");
 			LOGGER.trace("\tSCN = {}", stmt.getScn());
 			LOGGER.trace("\tTIMESTAMP = {}", stmt.getTs());
@@ -205,7 +215,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 		if (!tableWithPk) {
 			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("Do primary key substitution for table {}.{}", tableOwner, tableName);
+				LOGGER.trace("Do primary key substitution for table {}", tableFqn);
 			}
 			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
@@ -441,18 +451,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	@Override
 	public String toString() {
-		final StringBuilder sb = new StringBuilder(128);
-		if (this.pdbName != null) {
-			sb.append("\"");
-			sb.append(this.pdbName);
-			sb.append("\":");
-		}
-		sb.append("\"");
-		sb.append(this.tableOwner);
-		sb.append("\".\"");
-		sb.append(this.tableName);
-		sb.append("\"");
-		return sb.toString();
+		return tableFqn;
 	}
 
 	public String getPdbName() {
@@ -471,21 +470,25 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.tableWithPk = tableWithPk;
 	}
 
-	public void setSchemaTypeTopicDecoderPartition(final String topic,
+	public void setTopicDecoderPartition(final String topicParam,
 			final OraDumpDecoder odd, final Map<String, String> sourcePartition) {
 		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			if (StringUtils.isEmpty(topic)) {
+			if (StringUtils.isEmpty(topicParam)) {
 				this.kafkaTopic = this.tableName;
 			} else {
-				this.kafkaTopic = topic + "_" + this.tableName;
+				this.kafkaTopic = topicParam + "_" + this.tableName;
 			}
 		} else {
 			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-			kafkaTopic = topic;
+			kafkaTopic = topicParam;
 		}
 		this.odd = odd;
 		this.sourcePartition = sourcePartition;
 
+	}
+
+	public String fqn() {
+		return tableFqn;
 	}
 
 }

@@ -156,11 +156,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 						LOGGER.info("{} table schema definitions loaded from file {}.",
 								tablesInProcessing.size(), schemaFileName);
 						tablesInProcessing.forEach((key, table) -> {
-							table.setSchemaTypeTopicDecoderPartition(
+							table.setTopicDecoderPartition(
 									topic, odd, partition);
-							metrics.addTableInProcessing(
-									((table.getPdbName() == null) ? "" : (table.getPdbName() + ":")) +
-									table.getTableOwner() + "." + table.getTableName());
+							metrics.addTableInProcessing(table.fqn());
 						});
 					} catch (IOException ioe) {
 						LOGGER.warn("Unable to read stored definition from {}.", schemaFileName);
@@ -535,34 +533,15 @@ public class OraCdcLogMinerTask extends SourceTask {
 				if (rsCheckTable.next()) {
 					final String tableName = rsCheckTable.getString("TABLE_NAME");
 					final String tableOwner = rsCheckTable.getString("OWNER");
-					final String tableFqn = tableOwner + "." + tableName;
-					final String tableTopic;
-					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-						if (topic == null || "".equals(topic)) {
-							tableTopic = tableName;
-						} else {
-							tableTopic = topic + "_" + tableName;
-						}
-					} else {
-						// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-						tableTopic = topic;
-					}
-					if (isCdb) {
-						final String pdbName = rsCheckTable.getString("PDB_NAME");
-						OraTable4LogMiner oraTable = new OraTable4LogMiner(
-								pdbName, (short) conId, tableOwner, tableName,
-								schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
-							tablesInProcessing.put(combinedDataObjectId, oraTable);
-							metrics.addTableInProcessing(pdbName + ":" + tableFqn);
-					} else {
-						OraTable4LogMiner oraTable = new OraTable4LogMiner(
-							null, null, tableOwner, tableName,
-							schemaType, useOracdcSchemas, isCdb, odd, partition, tableTopic);
-						tablesInProcessing.put(combinedDataObjectId, oraTable);
-						metrics.addTableInProcessing(tableFqn);
-					}
+					OraTable4LogMiner oraTable = new OraTable4LogMiner(
+							isCdb ? rsCheckTable.getString("PDB_NAME") : null,
+							isCdb ? (short) conId : null,
+							tableOwner, tableName,
+							schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
+					tablesInProcessing.put(combinedDataObjectId, oraTable);
+					metrics.addTableInProcessing(oraTable.fqn());
 					LOGGER.debug("Restored metadata for table {}, OBJECT_ID={}, CON_ID={}",
-							tableFqn, tableId, conId);
+							oraTable.fqn(), tableId, conId);
 				} else {
 					throw new SQLException("Data corruption detected!\n" +
 							"OBJECT_ID=" + tableId + ", CON_ID=" + conId + 
