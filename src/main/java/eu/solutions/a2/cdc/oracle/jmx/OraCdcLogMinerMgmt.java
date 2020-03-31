@@ -161,10 +161,6 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		lastScn = currentNextScn;
 		currentFirstScn = 0;
 		currentNextScn = 0;
-		if (redoReadTimeElapsed != 0) {
-			float seconds = redoReadTimeElapsed / 1000;
-			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
-		}
 	}
 	@Override
 	public String[] getLast100ProcessedArchivelogs() {
@@ -263,6 +259,10 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 
 	public void addRedoReadMillis(long redoReadMillis) {
 		redoReadTimeElapsed += redoReadMillis;
+		if (redoReadTimeElapsed != 0) {
+			float seconds = redoReadTimeElapsed / 1000;
+			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
+		}
 	}
 	@Override
 	public long getRedoReadElapsedMillis() {
