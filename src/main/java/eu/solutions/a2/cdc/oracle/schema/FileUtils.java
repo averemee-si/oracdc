@@ -13,6 +13,7 @@
 
 package eu.solutions.a2.cdc.oracle.schema;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -39,17 +40,35 @@ public class FileUtils {
 
 	public static Map<Long, OraTable4LogMiner> readDictionaryFile(
 			final String fileName, Integer schemaType) throws IOException {
+		InputStream is = new FileInputStream(fileName);
+		Map<Long, OraTable4LogMiner> schemas = readDictionaryFile(is, schemaType);
+		is.close();
+		return schemas;
+	}
+
+	public static Map<Long, OraTable4LogMiner> readDictionaryFile(
+			final File file, Integer schemaType) throws IOException {
+		InputStream is = new FileInputStream(file);
+		Map<Long, OraTable4LogMiner> schemas = readDictionaryFile(is, schemaType);
+		is.close();
+		return schemas;
+	}
+
+	private static Map<Long, OraTable4LogMiner> readDictionaryFile(
+			final InputStream is, Integer schemaType) throws IOException {
 		Map<String, Map<String, Object>> fileData = new HashMap<>();
 		final ObjectReader reader = new ObjectMapper()
 				.readerFor(fileData.getClass());
-		InputStream is = new FileInputStream(fileName);
 		fileData = reader.readValue(is);
-		is.close();
 		final Map<Long, OraTable4LogMiner> schemas = new ConcurrentHashMap<>();
-		fileData.forEach((k, v) -> {
-			schemas.put(Long.parseLong(k), new OraTable4LogMiner(v, 
+		try {
+			fileData.forEach((k, v) -> {
+				schemas.put(Long.parseLong(k), new OraTable4LogMiner(v, 
 					(schemaType == null) ? ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD : schemaType));
-		});
+			});
+		} catch (Exception e) {
+			throw new IOException(e);
+		}
 		fileData = null;
 		return schemas;
 	}
