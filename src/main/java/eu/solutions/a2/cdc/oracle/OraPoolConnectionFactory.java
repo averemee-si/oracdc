@@ -18,6 +18,9 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import oracle.jdbc.pool.OracleDataSource;
+import oracle.ucp.UniversalConnectionPoolException;
+import oracle.ucp.admin.UniversalConnectionPoolManager;
+import oracle.ucp.admin.UniversalConnectionPoolManagerImpl;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
 
@@ -29,16 +32,27 @@ import oracle.ucp.jdbc.PoolDataSourceFactory;
 public class OraPoolConnectionFactory {
 
 	private static final int INITIAL_SIZE = 4;
+	private static final String ORACDC_POOL_NAME = "oracdc-ucp-pool-1";
+
+	private static UniversalConnectionPoolManager mgr = null;
 
 	private static PoolDataSource pds = null;
 	private static boolean activateStandby = false;
 	private static Connection connection2Standby = null;
 
+
 	public static final void init(final String url, final String user, final String password) throws
 									SQLException {
+		if (mgr == null) {
+			try {
+				mgr = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
+			} catch (UniversalConnectionPoolException ucpe) {
+				throw new SQLException(ucpe);
+			}
+		}
 		pds = PoolDataSourceFactory.getPoolDataSource();
 		pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
-		pds.setConnectionPoolName("oracdc-ucp-pool-1");
+		pds.setConnectionPoolName(ORACDC_POOL_NAME);
 		pds.setURL(url);
 		if (user != null) {
 			pds.setUser(user);
@@ -81,6 +95,15 @@ public class OraPoolConnectionFactory {
 			return connection2Standby;
 		} else {
 			return getConnection();
+		}
+	}
+
+	public static void stopPool() throws SQLException {
+		try {
+			mgr.destroyConnectionPool(ORACDC_POOL_NAME);
+			pds = null;
+		} catch (UniversalConnectionPoolException ucpe) {
+			throw new SQLException(ucpe);
 		}
 	}
 
