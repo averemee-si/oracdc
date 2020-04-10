@@ -437,7 +437,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				columnValue = odd.fromNvarchar2(hex);
 				break;
 			default:
-				columnValue = "JDBC Type Code " + oraColumn.getJdbcType() + " support not yet implemented!";
+				columnValue = oraColumn.unsupportedTypeValue();
 				break;
 		}
 		if (pkColumns.containsKey(columnName)) {
@@ -484,7 +484,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 		this.odd = odd;
 		this.sourcePartition = sourcePartition;
-
 	}
 
 	public String fqn() {

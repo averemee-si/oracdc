@@ -561,6 +561,16 @@ public class OraColumn {
 		}
 	}
 
+	public String unsupportedTypeValue() {
+		final StringBuilder sb = new StringBuilder(128);
+		sb.append("Column: ");
+		sb.append(columnName);
+		sb.append(", JDBC Type Code ");
+		sb.append(jdbcType);
+		sb.append(" support not yet implemented!");
+		return sb.toString();
+	}
+
 	private void stringField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.nullable) {
 			valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);

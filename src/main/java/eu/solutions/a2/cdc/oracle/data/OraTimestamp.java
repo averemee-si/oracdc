@@ -38,7 +38,7 @@ import oracle.sql.TIMESTAMPTZ;
 public class OraTimestamp {
 
 	public static final String LOGICAL_NAME = "eu.solutions.a2.cdc.oracle.data.OraTimestamp";
-	private static final DateTimeFormatter ISO_8601_FMT = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+	public static final DateTimeFormatter ISO_8601_FMT = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
 	// Unfortunately we need this....
 	private static Connection oraDbConnection;

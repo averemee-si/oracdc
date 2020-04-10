@@ -13,15 +13,33 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.RowId;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
+import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import oracle.jdbc.OracleResultSet;
+import oracle.sql.NUMBER;
+import oracle.sql.TIMESTAMPLTZ;
+import oracle.sql.TIMESTAMPTZ;
 
 
 /**
@@ -207,4 +225,132 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			schema = schemaBuilder.build();
 		}
 	}
+
+	protected void processAllColumns(
+			OracleResultSet rsMaster, final Struct keyStruct, final Struct valueStruct) throws SQLException {
+		for (int i = 0; i < allColumns.size(); i++) {
+			final OraColumn oraColumn = allColumns.get(i);
+			final String columnName = oraColumn.getColumnName();
+			Object columnValue = null; 
+			switch (oraColumn.getJdbcType()) {
+				case Types.DATE:
+				case Types.TIMESTAMP:
+					columnValue = rsMaster.getTimestamp(columnName);
+					break;
+				case Types.TIMESTAMP_WITH_TIMEZONE:
+					final Connection connection = rsMaster.getStatement().getConnection();
+					if (oraColumn.isLocalTimeZone()) {
+						TIMESTAMPLTZ ltz = rsMaster.getTIMESTAMPLTZ(columnName);
+						columnValue = rsMaster.wasNull() ?
+							null :
+							OraTimestamp.ISO_8601_FMT.format(ltz.offsetDateTimeValue(connection));
+					} else {
+						TIMESTAMPTZ tz = rsMaster.getTIMESTAMPTZ(columnName);
+						columnValue = rsMaster.wasNull() ?
+							null :
+							OraTimestamp.ISO_8601_FMT.format(tz.offsetDateTimeValue(connection));
+					}
+					break;
+				case Types.TINYINT:
+					final byte byteColumnValue = rsMaster.getByte(columnName);
+					columnValue = rsMaster.wasNull() ?  null : byteColumnValue;
+					break;
+				case Types.SMALLINT:
+					final short shortColumnValue = rsMaster.getShort(columnName); 
+					columnValue = rsMaster.wasNull() ?  null : shortColumnValue;
+					break;
+				case Types.INTEGER:
+					final int intColumnValue = rsMaster.getInt(columnName);
+					columnValue = rsMaster.wasNull() ?  null : intColumnValue;
+					break;
+				case Types.BIGINT:
+					final long longColumnValue = rsMaster.getLong(columnName);
+					columnValue = rsMaster.wasNull() ?  null : longColumnValue;
+					break;
+				case Types.DECIMAL:
+					final BigDecimal bdColumnValue = rsMaster.getBigDecimal(columnName);
+					columnValue = rsMaster.wasNull() ?  null : bdColumnValue.setScale(oraColumn.getDataScale());
+					break;
+				case Types.NUMERIC:
+					final NUMBER numberValue = rsMaster.getNUMBER(columnName);
+					columnValue = rsMaster.wasNull() ?  null : numberValue.getBytes();
+					break;
+				case Types.FLOAT:
+					final float floatColumnValue = rsMaster.getFloat(columnName); 
+					columnValue = rsMaster.wasNull() ?  null : floatColumnValue;
+					break;
+				case Types.DOUBLE:
+					final double doubleColumnValue = rsMaster.getDouble(columnName); 
+					columnValue = rsMaster.wasNull() ?  null : doubleColumnValue;
+					break;
+				case Types.BINARY:
+					columnValue = rsMaster.getBytes(columnName);
+					break;
+				case Types.CHAR:
+				case Types.VARCHAR:
+					columnValue = rsMaster.getString(columnName);
+					break;
+				case Types.NCHAR:
+				case Types.NVARCHAR:
+					columnValue = rsMaster.getNString(columnName);
+					break;
+				case Types.ROWID:
+					final RowId rowIdColumnValue = rsMaster.getRowId(columnName);
+					columnValue = rsMaster.wasNull() ?  null : rowIdColumnValue.toString();
+					break;
+				case Types.BLOB:
+					final Blob blobColumnValue = rsMaster.getBlob(columnName);
+					if (rsMaster.wasNull() || blobColumnValue.length() < 1) {
+						columnValue = null;
+					} else {
+						try (InputStream is = blobColumnValue.getBinaryStream();
+								ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+							final byte[] data = new byte[16384];
+							int bytesRead;
+							while ((bytesRead = is.read(data, 0, data.length)) != -1) {
+								baos.write(data, 0, bytesRead);
+							}
+							columnValue = baos.toByteArray();
+						} catch (IOException ioe) {
+							LOGGER.error("IO Error while processing BLOB column {}.{}({})", 
+									tableOwner, tableName, columnName);
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+						}
+					}
+					break;
+				case Types.CLOB:
+					final Clob clobColumnValue = rsMaster.getClob(columnName);
+					if (rsMaster.wasNull() || clobColumnValue.length() < 1) {
+						columnValue = null;
+					} else {
+					try (Reader reader = clobColumnValue.getCharacterStream()) {
+						final char[] data = new char[8192];
+						final StringBuilder sbClob = new StringBuilder(8192);
+						int charsRead;
+						while ((charsRead = reader.read(data, 0, data.length)) != -1) {
+							sbClob.append(data, 0, charsRead);
+						}
+						columnValue = sbClob.toString();
+						} catch (IOException ioe) {
+							LOGGER.error("IO Error while processing CLOB column {}.{}({})", 
+								tableOwner, tableName, columnName);
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+						}
+					}
+					break;
+				default:
+					columnValue = oraColumn.unsupportedTypeValue();
+					break;
+			}
+			if (keyStruct != null && pkColumns.containsKey(columnName)) {
+				keyStruct.put(columnName, columnValue);
+			}
+			// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
+			if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
+					schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+				valueStruct.put(columnName, columnValue);
+			}
+		}
+	}
+
 }

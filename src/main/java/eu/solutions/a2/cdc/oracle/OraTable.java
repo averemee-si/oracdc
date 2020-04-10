@@ -13,19 +13,12 @@
 
 package eu.solutions.a2.cdc.oracle;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
 import java.math.BigDecimal;
-import java.sql.Blob;
-import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.RowId;
 import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.sql.Types;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -43,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import oracle.jdbc.OracleResultSet;
 
 /**
  * 
@@ -164,10 +158,10 @@ public class OraTable extends OraTable4SourceConnector {
 			boolean success = true;
 			if (!deleteOp) {
 				// Get data from master table
-				ResultSet rsMaster = stmtMaster.executeQuery();
+				OracleResultSet rsMaster = (OracleResultSet) stmtMaster.executeQuery();
 				// We're working with PK
 				if (rsMaster.next()) {
-					processAllColumns(rsMaster, valueStruct);
+					processAllColumns(rsMaster, null, valueStruct);
 				} else {
 					success = false;
 					LOGGER.error("Primary key = {} not found in {}.{}", nonExistentPk(rsLog), tableOwner, tableName);
@@ -360,146 +354,6 @@ public class OraTable extends OraTable4SourceConnector {
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
 				valueStruct.put(columnName, keyStruct.get(columnName));
 			bindNo++;
-		}
-	}
-
-	private void processAllColumns(
-			ResultSet rsMaster, final Struct valueStruct) throws SQLException {
-		for (int i = 0; i < allColumns.size(); i++) {
-			final OraColumn oraColumn = allColumns.get(i);
-			final String columnName = oraColumn.getColumnName();
-			// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
-			if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
-					schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-				switch (oraColumn.getJdbcType()) {
-				//case Types.DATE:
-				//We always use Timestamps
-				case Types.TINYINT:
-					final byte byteColumnValue = rsMaster.getByte(columnName);
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, byteColumnValue);									
-					break;
-				case Types.SMALLINT:
-					final short shortColumnValue = rsMaster.getShort(columnName); 
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, shortColumnValue);
-					break;
-				case Types.INTEGER:
-					final int intColumnValue = rsMaster.getInt(columnName); 
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, intColumnValue);
-					break;
-				case Types.BIGINT:
-					final long longColumnValue = rsMaster.getLong(columnName); 
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, longColumnValue);
-					break;
-				case Types.BINARY:
-					final byte[] binaryColumnValue = rsMaster.getBytes(columnName);
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, binaryColumnValue);
-					break;
-				case Types.CHAR:
-				case Types.VARCHAR:
-					final String charColumnValue = rsMaster.getString(columnName); 
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, charColumnValue);
-					break;
-				case Types.NCHAR:
-				case Types.NVARCHAR:
-					final String nCharColumnValue = rsMaster.getNString(columnName); 
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, nCharColumnValue);
-					break;
-				case Types.TIMESTAMP:
-					//TODO Timezone support!!!!
-					final Timestamp tsColumnValue = rsMaster.getTimestamp(columnName);
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, tsColumnValue);
-					break;
-				case Types.FLOAT:
-					final float floatColumnValue = rsMaster.getFloat(columnName); 
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, floatColumnValue);
-					break;
-				case Types.DOUBLE:
-					final double doubleColumnValue = rsMaster.getDouble(columnName); 
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, doubleColumnValue);
-					break;
-				case Types.DECIMAL:
-					final BigDecimal bdColumnValue = rsMaster.getBigDecimal(columnName); 
-					if (rsMaster.wasNull())
-						valueStruct.put(columnName, null);
-					else
-						valueStruct.put(columnName, bdColumnValue.setScale(oraColumn.getDataScale()));
-					break;
-				case Types.BLOB:
-					final Blob blobColumnValue = rsMaster.getBlob(columnName);
-					if (rsMaster.wasNull() || blobColumnValue.length() < 1) {
-						valueStruct.put(columnName, null);
-					} else {
-						try (InputStream is = blobColumnValue.getBinaryStream();
-							ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-							final byte[] data = new byte[16384];
-							int bytesRead;
-							while ((bytesRead = is.read(data, 0, data.length)) != -1) {
-								baos.write(data, 0, bytesRead);
-							}
-							valueStruct.put(columnName, baos.toByteArray());
-						} catch (IOException ioe) {
-							LOGGER.error("IO Error while processing BLOB column {}.{}({})", 
-									 tableOwner, tableName, columnName);
-							LOGGER.error("\twhile executing\n\t\t{}", masterTableSelSql);
-							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-						}
-					}
-					break;
-				case Types.CLOB:
-					final Clob clobColumnValue = rsMaster.getClob(columnName);
-					if (rsMaster.wasNull() || clobColumnValue.length() < 1) {
-						valueStruct.put(columnName, null);
-					} else {
-						try (Reader reader = clobColumnValue.getCharacterStream()) {
-							final char[] data = new char[8192];
-							StringBuilder sbClob = new StringBuilder(8192);
-							int charsRead;
-							while ((charsRead = reader.read(data, 0, data.length)) != -1) {
-								sbClob.append(data, 0, charsRead);
-							}
-							valueStruct.put(columnName, sbClob.toString());
-						} catch (IOException ioe) {
-							LOGGER.error("IO Error while processing CLOB column {}.{}({})", 
-									 tableOwner, tableName, columnName);
-							LOGGER.error("\twhile executing\n\t\t{}", masterTableSelSql);
-							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-						}
-					}
-					break;
-				default:
-					break;
-				}
-			}
 		}
 	}
 
