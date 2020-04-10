@@ -90,10 +90,11 @@ public class OraRdbmsInfo {
 			if (rs.next()) {
 				if ("YES".equalsIgnoreCase(rs.getString("CDB"))) {
 					cdb = true;
-					if ("CDB$ROOT".equalsIgnoreCase(rs.getString("CON_NAME")))
+					if ("CDB$ROOT".equalsIgnoreCase(rs.getString("CON_NAME"))) {
 						cdbRoot = true;
-					else
+					} else {
 						cdbRoot = false;
+					}
 				} else {
 					cdb = false;
 					cdbRoot = false;
@@ -256,25 +257,33 @@ public class OraRdbmsInfo {
 	/**
 	 * Returns part of WHERE with OBJECT_ID's to exclude or include
 	 * 
+	 * @param isCdb
 	 * @param connection - Connection to dictionary database
 	 * @param exclude
 	 * @param where
 	 * @return
 	 * @throws SQLException
 	 */
-	public static String getMineObjectsIds(final Connection connection, final boolean exclude, final String where) throws SQLException {
+	public String getMineObjectsIds(final Connection connection,
+			final boolean exclude, final String where) throws SQLException {
 		final StringBuilder sb = new StringBuilder(32768);
 		if (exclude) {
 			sb.append(" and DATA_OBJ# not in (");
 		} else {
 			sb.append(" and DATA_OBJ# in (");
 		}
+		//TODO
+		//TODO For CDB - pair required!!!
+		//TODO OBJECT_ID is not unique!!!
+		//TODO Will work well obly with 
+		//TODO
 		PreparedStatement ps = connection.prepareStatement(
-				"select OBJECT_ID\n" + 
-				"from   DBA_OBJECTS\n" + 
+				"select OBJECT_ID\n" +
+				(this.cdb ? "from   CDB_OBJECTS\n" : "from   DBA_OBJECTS\n") +
 				"where  DATA_OBJECT_ID is not null\n" +
 				"  and  OBJECT_TYPE like 'TABLE%'\n" +
 				"  and  TEMPORARY='N'\n" +
+				(this.cdb ? "  and  CON_ID > 2\n" : "") +
 				where,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ResultSet rs = ps.executeQuery();
@@ -304,6 +313,34 @@ public class OraRdbmsInfo {
 		rs.close(); rs = null;
 		ps.close(); ps = null;
 		return sb.toString();
+	}
+
+	public String getConUidsList(final Connection connection) throws SQLException {
+		if (cdb) {
+			final StringBuilder sb = new StringBuilder(256);
+			sb.append(" and SRC_CON_UID in (");
+			// We do not need CDB$ROOT and PDB$SEED
+			PreparedStatement statement = connection.prepareStatement(
+					"select CON_UID from V$CONTAINERS where CON_ID > 2");
+			ResultSet rs = statement.executeQuery();
+			boolean first = true;
+			while (rs.next()) {
+				if (first) {
+					first = false;
+				} else {
+					sb.append(",");
+				}
+				sb.append(rs.getLong(1));
+			}
+			sb.append("");
+			if (first) {
+				return "";
+			} else {
+				return sb.toString() + ")";
+			}
+		} else {
+			return null;
+		}
 	}
 
 	public String getVersionString() {

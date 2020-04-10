@@ -149,8 +149,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB;
 			}
 			if (includeList != null) {
-				mineDataSql += "where (OPERATION_CODE in (1,2,3) " + 
-						OraRdbmsInfo.getMineObjectsIds(connDictionary, false,
+				mineDataSql += "where ((OPERATION_CODE in (1,2,3) " + 
+						rdbmsInfo.getMineObjectsIds(connDictionary, false,
 								OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList)) +
 						")";
 				checkTableSql += OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
@@ -161,8 +161,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				} else {
 					mineDataSql += " where ";
 				}
-				mineDataSql += "(OPERATION_CODE in (1,2,3) " +
-						OraRdbmsInfo.getMineObjectsIds(connDictionary, true,
+				mineDataSql += "((OPERATION_CODE in (1,2,3) " +
+						rdbmsInfo.getMineObjectsIds(connDictionary, true,
 								OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList)) +
 						")";
 				checkTableSql += OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList);
@@ -172,7 +172,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				mineDataSql += "where (OPERATION_CODE in (1,2,3) ";
 			}
 			// Finally - COMMIT and ROLLBACK
-			mineDataSql += " or OPERATION_CODE in (7,36)";
+			mineDataSql += " or OPERATION_CODE in (7,36))";
+			if (isCdb) {
+				// Do not process objects from CDB$ROOT and PDB$SEED
+				mineDataSql += rdbmsInfo.getConUidsList(connLogMiner);
+			}
 			LOGGER.debug("Mining SQL = {}", mineDataSql);
 			LOGGER.debug("Dictionary check SQL = {}", checkTableSql);
 
@@ -256,7 +260,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						OraCdcTransaction transaction = activeTransactions.get(xid);
 						if (operation == OraLogMiner.V$LOGMNR_CONTENTS_COMMIT) {
 							if (transaction != null) {
-								transaction.setCommitScn(rsLogMiner.getLong("COMMIT_SCN"));
+								// SCN of commit
+								transaction.setCommitScn(lastScn);
 								committedTransactions.add(transaction);
 								activeTransactions.remove(xid);
 								metrics.addCommittedRecords(transaction.length());
