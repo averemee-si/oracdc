@@ -36,6 +36,7 @@ public class OraRdbmsInfo {
 	private final short instanceNumber;
 	private final String instanceName;
 	private final String hostName;
+	private final int cpuCoreCount;
 	private final long dbId;
 	private final String databaseName;
 	private final String platformName;
@@ -63,6 +64,7 @@ public class OraRdbmsInfo {
 			instanceNumber = rs.getShort("INSTANCE_NUMBER");
 			instanceName = rs.getString("INSTANCE_NAME");
 			hostName = rs.getString("HOST_NAME");
+			cpuCoreCount = rs.getInt("CPU_CORE_COUNT_CURRENT");
 		} else {
 			throw new SQLException("Unable to detect RDBMS version!");
 		}
@@ -361,6 +363,10 @@ public class OraRdbmsInfo {
 
 	public String getHostName() {
 		return hostName;
+	}
+
+	public int getCpuCoreCount() {
+		return cpuCoreCount;
 	}
 
 	public long getDbId() {
