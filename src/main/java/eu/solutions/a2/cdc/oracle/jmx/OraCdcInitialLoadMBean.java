@@ -24,11 +24,18 @@ public interface OraCdcInitialLoadMBean {
 	public String getElapsedTime();
 	public long getProcessingTimeMillis();
 	public String getProcessingTime();
+	public long getSqlSelectTimeMillis();
+	public String getSqlSelectTime();
+	public long getSendTimeMillis();
+	public String getSendTime();
+	public long getSelectedRowsCount();
+	public long getSelectedRowsColumnsCount();
 	public long getProcessedRowsCount();
 	public long getProcessedRowsColumnsCount();
 	public double getRowsPerSecond();
 	public double getRowsColumnsPerSecond();
-	public String getCurrentTable();
+	public String[] getCurrentSelectTableList();
+	public String[] getCurrentSendTableList();
 	public int getProcessedTableCount();
 	public String[] getLast500ProcessedTables();
 }
