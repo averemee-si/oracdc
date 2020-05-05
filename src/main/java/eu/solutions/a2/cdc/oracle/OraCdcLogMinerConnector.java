@@ -242,6 +242,8 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		}
 		taskParam.put(ParamConstants.TEMP_DIR_PARAM, tmpdir);
 		taskParam.put(ParamConstants.PERSISTENT_STATE_FILE_PARAM, stateFileName);
+		// Just pass value of INITIAL_LOAD_PARAM
+		taskParam.put(ParamConstants.INITIAL_LOAD_PARAM, config.getString(ParamConstants.INITIAL_LOAD_PARAM));
 
 		final List<Map<String, String>> configs = new ArrayList<>(1);
 		configs.add(taskParam);

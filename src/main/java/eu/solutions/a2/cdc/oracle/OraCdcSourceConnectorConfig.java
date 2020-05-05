@@ -94,7 +94,11 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				.define(ParamConstants.ORACDC_SCHEMAS_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.ORACDC_SCHEMAS_DOC)
 				.define(ParamConstants.DICTIONARY_FILE_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.DICTIONARY_FILE_DOC);
+						Importance.LOW, ParamConstants.DICTIONARY_FILE_DOC)
+				.define(ParamConstants.INITIAL_LOAD_PARAM, Type.STRING,
+						ParamConstants.INITIAL_LOAD_IGNORE,
+						ConfigDef.ValidString.in(ParamConstants.INITIAL_LOAD_IGNORE, ParamConstants.INITIAL_LOAD_EXECUTE),
+						Importance.LOW, ParamConstants.INITIAL_LOAD_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {
