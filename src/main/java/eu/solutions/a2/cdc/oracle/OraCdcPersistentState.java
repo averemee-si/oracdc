@@ -47,6 +47,7 @@ public class OraCdcPersistentState implements Serializable {
 	private String lastRsId;
 	private Integer lastSsn;
 	private Long lastOpTsMillis;
+	private String initialLoad;
 
 	private Map<String, Object> currentTransaction;
 	private List<Map<String, Object>> committedTransactions;
@@ -131,6 +132,14 @@ public class OraCdcPersistentState implements Serializable {
 
 	public void setLastOpTsMillis(Long lastOpTsMillis) {
 		this.lastOpTsMillis = lastOpTsMillis;
+	}
+
+	public String getInitialLoad() {
+		return initialLoad;
+	}
+
+	public void setInitialLoad(String initialLoad) {
+		this.initialLoad = initialLoad;
 	}
 
 	public Map<String, Object> getCurrentTransaction() {
