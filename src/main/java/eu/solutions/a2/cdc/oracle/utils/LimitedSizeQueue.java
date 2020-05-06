@@ -33,9 +33,14 @@ public class LimitedSizeQueue<T> extends ArrayList<T> {
 
 	@Override
 	public boolean add(T listMember) {
-		final boolean result = super.add(listMember);
+		boolean result = false;
+		synchronized (this) {
+			result = super.add(listMember);
+		}
 		if (this.size() > maxSize) {
-			this.removeRange(0, size() - maxSize);
+			synchronized (this) {
+				this.removeRange(0, size() - maxSize);
+			}
 		}
 		return result;
 	}
