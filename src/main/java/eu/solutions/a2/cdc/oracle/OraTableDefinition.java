@@ -63,6 +63,10 @@ public abstract class OraTableDefinition {
 		return tableName;
 	}
 
+	public int getSchemaType() {
+		return schemaType;
+	}
+
 	public void setTableName(String tableName) {
 		this.tableName = tableName;
 	}
