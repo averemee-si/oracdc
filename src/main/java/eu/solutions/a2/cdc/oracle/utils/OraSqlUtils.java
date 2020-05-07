@@ -57,7 +57,7 @@ public class OraSqlUtils {
 					// Process pair... ... ...
 					sb.append("(");
 					sb.append(schemaNameField);
-					sb.append(exclude ? "!='" : "='");
+					sb.append("='");
 					sb.append(pairSchemaObj[0]);
 					sb.append("'");
 					sb.append(SQL_AND);
