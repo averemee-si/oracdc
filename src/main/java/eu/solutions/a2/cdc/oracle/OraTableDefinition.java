@@ -79,4 +79,8 @@ public abstract class OraTableDefinition {
 		this.allColumns = allColumns;
 	}
 
+	public Map<String, OraColumn> getPkColumns() {
+		return pkColumns;
+	}
+
 }
