@@ -37,7 +37,7 @@ public abstract class OraTableDefinition {
 
 	@JsonProperty("columns")
 	protected List<OraColumn> allColumns;
-	protected final Map<String, OraColumn> pkColumns;
+	protected Map<String, OraColumn> pkColumns;
 
 	protected OraTableDefinition(final int schemaType) {
 		this.pkColumns = new LinkedHashMap<>();
