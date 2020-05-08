@@ -481,4 +481,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		return tableFqn;
 	}
 
+	public String getKafkaTopic() {
+		return kafkaTopic;
+	}
+
 }
