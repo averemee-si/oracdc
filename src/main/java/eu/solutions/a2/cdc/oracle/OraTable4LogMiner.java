@@ -472,16 +472,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	public void setTopicDecoderPartition(final String topicParam,
 			final OraDumpDecoder odd, final Map<String, String> sourcePartition) {
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			if (StringUtils.isEmpty(topicParam)) {
-				this.kafkaTopic = this.tableName;
-			} else {
-				this.kafkaTopic = topicParam + "_" + this.tableName;
-			}
-		} else {
-			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-			kafkaTopic = topicParam;
-		}
+		this.kafkaTopic = this.getKafkaTopic(topicParam);
 		this.odd = odd;
 		this.sourcePartition = sourcePartition;
 	}
