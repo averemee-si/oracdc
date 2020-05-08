@@ -19,6 +19,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.management.InstanceAlreadyExistsException;
 import javax.management.MBeanRegistrationException;
@@ -50,12 +51,12 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	private HashSet<String> tablesSend;
 	private int processedTableCount;
 	private LimitedSizeQueue<String> lastProcessedTables;
-	private long sqlSelectNanos;
-	private long sqlSelectRows;
-	private long sqlSelectRowsColumns;
-	private long sendNanos;
-	private long sendRows;
-	private long sendRowsColumns;
+	private final AtomicLong sqlSelectNanos;
+	private final AtomicLong sqlSelectRows;
+	private final AtomicLong sqlSelectRowsColumns;
+	private final AtomicLong sendNanos;
+	private final AtomicLong sendRows;
+	private final AtomicLong sendRowsColumns;
 
 	public OraCdcInitialLoad() {
 		this.startTimeMillis = System.currentTimeMillis();
@@ -64,12 +65,12 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 		this.tablesSend  = new LinkedHashSet<>();
 		this.processedTableCount = 0;
 		this.lastProcessedTables = new LimitedSizeQueue<>(500);
-		this.sqlSelectNanos = 0;
-		this.sqlSelectRows = 0;
-		this.sqlSelectRowsColumns = 0;
-		this.sendNanos = 0;
-		this.sendRows = 0;
-		this.sendRowsColumns = 0;
+		this.sqlSelectNanos = new AtomicLong(0);
+		this.sqlSelectRows = new AtomicLong(0);
+		this.sqlSelectRowsColumns = new AtomicLong(0);
+		this.sendNanos = new AtomicLong(0);
+		this.sendRows = new AtomicLong(0);
+		this.sendRowsColumns = new AtomicLong(0);
 		try {
 			final String jmxName = "eu.solutions.a2.oracdc:type=Initial-Load";
 			ObjectName name = new ObjectName(jmxName);
@@ -98,27 +99,34 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	}
 	@Override
 	public long getProcessingTimeMillis() {
-		return ((sqlSelectNanos + sendNanos) / 1_000_000);
+		return ((sqlSelectNanos.get() + sendNanos.get()) / 1_000_000);
 	}
 	@Override
 	public String getProcessingTime() {
-		Duration duration = Duration.ofNanos(sqlSelectNanos + sendNanos);
+		Duration duration = Duration.ofNanos(sqlSelectNanos.get() + sendNanos.get());
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
 	public long getProcessedRowsCount() {
-		return sendRows;
+		return sendRows.get();
 	}
 	@Override
 	public long getProcessedRowsColumnsCount() {
-		return sendRowsColumns;
+		return sendRowsColumns.get();
 	}
 
 	public void startSelectTable(String fqn) {
-		tablesSelect.add(fqn);
+		synchronized (tablesSelect) {
+			tablesSelect.add(fqn);
+		}
 	}
-	public void finishSelectTable(String fqn) {
-		tablesSelect.remove(fqn);
+	public void finishSelectTable(String fqn, long numRows, long numRowsColumns, long nanos) {
+		synchronized (tablesSelect) {
+			tablesSelect.remove(fqn);
+		}
+		sqlSelectNanos.addAndGet(nanos);
+		sqlSelectRows.addAndGet(numRows);
+		sqlSelectRowsColumns.addAndGet(numRowsColumns);
 	}
 	@Override
 	public String[] getCurrentSelectTableList() {
@@ -126,10 +134,14 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	}
 
 	public void startSendTable(String fqn) {
-		tablesSend.add(fqn);
+		synchronized (tablesSend) {
+			tablesSend.add(fqn);
+		}
 	}
 	public void finishSendTable(String fqn) {
-		tablesSend.remove(fqn);
+		synchronized (tablesSend) {
+			tablesSend.remove(fqn);
+		}
 		// This is also end of processing for table...
 		processedTableCount += 1;
 		lastProcessedTables.add(fqn);
@@ -147,58 +159,53 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 		return lastProcessedTables.toArray(new String[0]);
 	}
 
-	public void addSelectInfo(long numRows, long numRowsColumns, long nanos) {
-		sqlSelectNanos += nanos;
-		sqlSelectRows += numRows;
-		sqlSelectRowsColumns += numRowsColumns;
-	}
 	@Override
 	public long getSqlSelectTimeMillis() {
-		return sqlSelectNanos / 1_000_000;
+		return sqlSelectNanos.get() / 1_000_000;
 	}
 	@Override
 	public String getSqlSelectTime() {
-		Duration duration = Duration.ofMillis(sqlSelectNanos);
+		Duration duration = Duration.ofMillis(sqlSelectNanos.get());
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
 	public long getSelectedRowsCount() {
-		return sqlSelectRows;
+		return sqlSelectRows.get();
 	}
 	@Override
 	public long getSelectedRowsColumnsCount() {
-		return sqlSelectRowsColumns;
+		return sqlSelectRowsColumns.get();
 	}
 
-	public void addSendInfo(long numRows, long numRowsColumns, long nanos) {
-		sendNanos += nanos;
-		sendRows += numRows;
-		sendRowsColumns += numRowsColumns;
+	public void addSendInfo(long numRowsColumns, long nanos) {
+		sendNanos.addAndGet(nanos);
+		sendRows.addAndGet(1);
+		sendRowsColumns.addAndGet(numRowsColumns);
 	}
 	@Override
 	public long getSendTimeMillis() {
-		return sendNanos / 1_000_000;
+		return sendNanos.get() / 1_000_000;
 	}
 	@Override
 	public String getSendTime() {
-		Duration duration = Duration.ofMillis(sendNanos);
+		Duration duration = Duration.ofMillis(sendNanos.get());
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 
 	@Override
 	public double getRowsPerSecond() {
-		if (sendRows == 0 || sendNanos == 0) {
+		if (sendRows.get() == 0 || sendNanos.get() == 0) {
 			return 0;
 		} else {
-			return Precision.round(((double)(sendRows * 1_000_000_000)) / ((double) (sqlSelectNanos + sendNanos)), 2);
+			return Precision.round(((double)(sendRows.get() * 1_000_000_000)) / ((double) (sqlSelectNanos.get() + sendNanos.get())), 2);
 		}
 	}
 	@Override
 	public double getRowsColumnsPerSecond() {
-		if (sendRowsColumns == 0 || sendNanos == 0) {
+		if (sendRowsColumns.get() == 0 || sendNanos.get() == 0) {
 			return 0;
 		} else {
-			return Precision.round(((double)(sendRowsColumns * 1_000_000_000)) / ((double) (sqlSelectNanos + sendNanos)), 2);
+			return Precision.round(((double)(sendRowsColumns.get() * 1_000_000_000)) / ((double) (sqlSelectNanos.get() + sendNanos.get())), 2);
 		}
 	}
 
