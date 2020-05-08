@@ -28,6 +28,7 @@ import java.sql.Types;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -224,6 +225,21 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			schemaBuilder.field("source", OraRdbmsInfo.getInstance().getSchema());
 			schema = schemaBuilder.build();
 		}
+	}
+
+	protected String getKafkaTopic(final String topicParam) {
+		final String targetKafkaTopic;
+		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+			if (StringUtils.isEmpty(topicParam)) {
+				targetKafkaTopic = StringUtils.replace(this.tableName, "$", "_4_");
+			} else {
+				targetKafkaTopic = topicParam + "_" + StringUtils.replace(this.tableName, "$", "_4_");
+			}
+		} else {
+			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+			targetKafkaTopic = topicParam;
+		}
+		return targetKafkaTopic;
 	}
 
 	protected void processAllColumns(
