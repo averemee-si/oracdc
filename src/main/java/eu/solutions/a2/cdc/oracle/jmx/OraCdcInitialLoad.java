@@ -33,6 +33,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.OraRdbmsInfo;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
 
@@ -58,7 +59,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	private final AtomicLong sendRows;
 	private final AtomicLong sendRowsColumns;
 
-	public OraCdcInitialLoad() {
+	public OraCdcInitialLoad(final OraRdbmsInfo rdbmsInfo, final String connectorName) {
 		this.startTimeMillis = System.currentTimeMillis();
 		this.startTime = LocalDateTime.now();
 		this.tablesSelect = new LinkedHashSet<>();
@@ -72,11 +73,17 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 		this.sendRows = new AtomicLong(0);
 		this.sendRowsColumns = new AtomicLong(0);
 		try {
-			final String jmxName = "eu.solutions.a2.oracdc:type=Initial-Load";
-			ObjectName name = new ObjectName(jmxName);
+			final StringBuilder sb = new StringBuilder(96);
+			sb.append("eu.solutions.a2.oracdc:type=Initial-Load-metrics,name=");
+			sb.append(connectorName);
+			sb.append(",database=");
+			sb.append(rdbmsInfo.getInstanceName());
+			sb.append("_");
+			sb.append(rdbmsInfo.getHostName());
+			ObjectName name = new ObjectName(sb.toString());
 			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 			mbs.registerMBean(this, name);
-			LOGGER.debug("MBean {} registered.", jmxName);
+			LOGGER.debug("MBean {} registered.", sb.toString());
 		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
 			LOGGER.error("Unable to register MBean - " + e.getMessage() + " !!!!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
@@ -103,7 +110,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	}
 	@Override
 	public String getProcessingTime() {
-		Duration duration = Duration.ofNanos(sqlSelectNanos.get() + sendNanos.get());
+		Duration duration = Duration.ofNanos((sqlSelectNanos.get() + sendNanos.get()) / 1_000_000);
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
@@ -165,7 +172,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	}
 	@Override
 	public String getSqlSelectTime() {
-		Duration duration = Duration.ofMillis(sqlSelectNanos.get());
+		Duration duration = Duration.ofMillis(sqlSelectNanos.get() / 1_000_000);
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
@@ -188,7 +195,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	}
 	@Override
 	public String getSendTime() {
-		Duration duration = Duration.ofMillis(sendNanos.get());
+		Duration duration = Duration.ofMillis(sendNanos.get() / 1_000_000);
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 

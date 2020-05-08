@@ -50,9 +50,11 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import eu.solutions.a2.cdc.oracle.schema.FileUtils;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
 /**
@@ -85,6 +87,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private boolean useOracdcSchemas = false;
 	private CountDownLatch runLatch;
 	private AtomicBoolean isPollRunning;
+	private boolean execInitialLoad = false;
+	private String initialLoadStatus = ParamConstants.INITIAL_LOAD_IGNORE;
+	private OraCdcInitialLoadThread initialLoadWorker;
+	private BlockingQueue<OraTable4InitialLoad> tablesQueue;
+	private OraTable4InitialLoad table4InitialLoad;
+	private boolean lastRecordInTable = true;
+	private OraCdcInitialLoad initialLoadMetrics;
 
 	@Override
 	public String version() {
@@ -113,7 +122,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			LOGGER.debug("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
 		}
 
-		try {
+		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
 			rdbmsInfo = OraRdbmsInfo.getInstance();
 			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, props.get("name"), this);
@@ -180,28 +189,45 @@ public class OraCdcLogMinerTask extends SourceTask {
 			final boolean startScnFromProps = props.containsKey(ParamConstants.LGMNR_START_SCN_PARAM);
 			stateFileName = props.get(ParamConstants.PERSISTENT_STATE_FILE_PARAM);
 			final Path stateFilePath = Paths.get(stateFileName);
+			// Initial load
+			if (ParamConstants.INITIAL_LOAD_EXECUTE.equals(props.get(ParamConstants.INITIAL_LOAD_PARAM))) {
+				execInitialLoad = true;
+				initialLoadStatus = ParamConstants.INITIAL_LOAD_EXECUTE;
+			}
 			if (stateFilePath.toFile().exists()) {
 				// File with stored state exists
+				final long restoreStarted = System.currentTimeMillis();
+				OraCdcPersistentState persistentState = OraCdcPersistentState.fromFile(stateFileName);
+				LOGGER.info("Will start processing using stored persistent state file {} dated {}.",
+						stateFileName,
+						LocalDateTime.ofInstant(
+								Instant.ofEpochMilli(persistentState.getLastOpTsMillis()), ZoneId.systemDefault()
+							).format(DateTimeFormatter.ISO_DATE_TIME));
+				if (rdbmsInfo.getDbId() != persistentState.getDbId()) {
+					LOGGER.error("DBID from stored state file {} and from connection {} are different!",
+							persistentState.getDbId(), rdbmsInfo.getDbId());
+					LOGGER.error("Exiting.");
+					throw new ConnectException("Unable to use stored file for database with different DBID!!!");
+				}
+				LOGGER.debug(persistentState.toString());
+				// Begin - initial load analysis...
+				if (execInitialLoad) {
+					// Need to check state file value
+					final String initialLoadFromStateFile = persistentState.getInitialLoad();
+					if (ParamConstants.INITIAL_LOAD_COMPLETED.equals(initialLoadFromStateFile)) {
+						execInitialLoad = false;
+						initialLoadStatus = ParamConstants.INITIAL_LOAD_COMPLETED;
+						LOGGER.info("Initial load set to {} (value from state file)", ParamConstants.INITIAL_LOAD_COMPLETED);
+					}
+				}
+
+				// End - initial load analysis...
 				if (startScnFromProps) {
 					// a2.first.change set in parameters, ignore stored state, rename file
 					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
 					LOGGER.info("Ignoring last processed SCN value from stored state file {} and setting it to {} from connector properties",
 							stateFileName, firstScn);
 				} else {
-					final long restoreStarted = System.currentTimeMillis();
-					OraCdcPersistentState persistentState = OraCdcPersistentState.fromFile(stateFileName);
-					LOGGER.info("Will start processing using stored persistent state file {} dated {}.",
-							stateFileName,
-							LocalDateTime.ofInstant(
-									Instant.ofEpochMilli(persistentState.getLastOpTsMillis()), ZoneId.systemDefault()
-								).format(DateTimeFormatter.ISO_DATE_TIME));
-					if (rdbmsInfo.getDbId() != persistentState.getDbId()) {
-						LOGGER.error("DBID from stored state file {} and from connection {} are different!",
-								persistentState.getDbId(), rdbmsInfo.getDbId());
-						LOGGER.error("Exiting.");
-						throw new ConnectException("Unable to use stored file for database with different DBID!!!");
-					}
-					LOGGER.debug(persistentState.toString());
 					firstScn = persistentState.getLastScn();
 					firstRsId = persistentState.getLastRsId();
 					firstSsn = persistentState.getLastSsn();
@@ -256,13 +282,80 @@ public class OraCdcLogMinerTask extends SourceTask {
 				}
 			}
 
+			String checkTableSql = null;
+			String mineDataSql = null;
+			String initialLoadSql = null;
+			if (rdbmsInfo.isCdb()) {
+				mineDataSql = OraDictSqlTexts.MINE_DATA_CDB;
+				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
+				if (execInitialLoad) {
+					initialLoadSql = OraDictSqlTexts.CHECK_TABLE_CDB;
+				}
+			} else {
+				mineDataSql = OraDictSqlTexts.MINE_DATA_NON_CDB;
+				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
+				if (execInitialLoad) {
+					initialLoadSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB;
+				}
+			}
+			if (includeList != null) {
+				final String tableList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
+				mineDataSql += "where ((OPERATION_CODE in (1,2,3) " + 
+						rdbmsInfo.getMineObjectsIds(connDictionary, false, tableList) +
+						")";
+				checkTableSql += tableList;
+				if (execInitialLoad) {
+					initialLoadSql += tableList;
+				}
+			}
+			if (excludeList != null) {
+				if (includeList != null) {
+					mineDataSql += " and (OPERATION_CODE in (1,2,3) ";
+				} else {
+					mineDataSql += " where ((OPERATION_CODE in (1,2,3) ";
+				}
+				mineDataSql += rdbmsInfo.getMineObjectsIds(connDictionary, true,
+						OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList)) +
+						")";
+				final String tableList = OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList);
+				checkTableSql += tableList;
+				if (execInitialLoad) {
+					initialLoadSql += tableList;
+				}
+			}
+			if (includeList == null && excludeList == null) {
+				mineDataSql += "where (OPERATION_CODE in (1,2,3) ";
+			}
+			// Finally - COMMIT and ROLLBACK
+			mineDataSql += " or OPERATION_CODE in (7,36))";
+			if (rdbmsInfo.isCdb()) {
+				// Do not process objects from CDB$ROOT and PDB$SEED
+				mineDataSql += rdbmsInfo.getConUidsList(OraPoolConnectionFactory.getLogMinerConnection());
+			}
+			LOGGER.debug("Mining SQL = {}", mineDataSql);
+			LOGGER.debug("Dictionary check SQL = {}", checkTableSql);
+			if (execInitialLoad) {
+				LOGGER.debug("Initial load table list SQL {}", initialLoadSql);
+				tablesQueue = new LinkedBlockingQueue<>();
+				buildInitialLoadTableList(initialLoadSql);
+				initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, props.get("name"));
+				initialLoadWorker = new OraCdcInitialLoadThread(
+						WAIT_FOR_WORKER_MILLIS,
+						firstScn,
+						tablesInProcessing,
+						queuesRoot,
+						rdbmsInfo,
+						initialLoadMetrics,
+						tablesQueue);
+			}
+
 			worker = new OraCdcLogMinerWorkerThread(
 					this,
 					pollInterval,
 					partition,
 					firstScn,
-					includeList,
-					excludeList,
+					mineDataSql,
+					checkTableSql,
 					redoSizeThreshold,
 					redoFilesCount,
 					tablesInProcessing,
@@ -285,6 +378,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 			throw new ConnectException(e);
 		}
 		LOGGER.trace("Starting worker thread.");
+		if (execInitialLoad) {
+			initialLoadWorker.start();
+		}
 		worker.start();
 		needToStoreState = true;
 		runLatch = new CountDownLatch(1);
@@ -294,77 +390,122 @@ public class OraCdcLogMinerTask extends SourceTask {
 	@Override
 	public List<SourceRecord> poll() throws InterruptedException {
 		LOGGER.trace("BEGIN: poll()");
-		isPollRunning.set(true);
-		int recordCount = 0;
-		int parseTime = 0;
-		List<SourceRecord> result = new ArrayList<>();
 		if (runLatch.getCount() < 1) {
 			LOGGER.trace("Returning from poll() -> processing stopped");
 			isPollRunning.set(false);
-			return result;
+			return null;
 		}
-		while (recordCount < batchSize) {
-			if (lastStatementInTransaction) {
-				// End of transaction, need to poll new
-				transaction = committedTransactions.poll();
-			}
-			if (transaction == null) {
-				// No more records produced by LogMiner worker
-				break;
-			} else {
-				// Prepare records...
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",
-							transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
-				}
-				lastStatementInTransaction = false;
-				boolean processTransaction = true;
-				do {
-					OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
-					processTransaction = transaction.getStatement(stmt);
-					lastStatementInTransaction = !processTransaction;
-
-					if (processTransaction) {
-						final OraTable4LogMiner oraTable = tablesInProcessing.get(stmt.getTableId());
-						if (oraTable == null) {
-							LOGGER.error("Strange consistency issue for DATA_OBJ# {}. Exiting.", stmt.getTableId());
-							isPollRunning.set(false);
-							throw new ConnectException("Strange consistency issue!!!");
-						} else {
-							try {
-
-								final long startParseTs = System.currentTimeMillis();
-								SourceRecord record = oraTable.parseRedoRecord(stmt);
-								result.add(record);
-								recordCount++;
-								parseTime += (System.currentTimeMillis() - startParseTs);
-							} catch (SQLException e) {
-								LOGGER.error(e.getMessage());
-								LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-								isPollRunning.set(false);
-								throw new ConnectException(e);
-							}
-						}
-					}
-				} while (processTransaction && recordCount < batchSize);
-				if (lastStatementInTransaction) {
-					// close Cronicle queue only when all statements are processed
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("End of processing transaction XID {}, first change {}, commit SCN {}.",
-								transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
-					}
-					transaction.close();
-					transaction = null;
+		isPollRunning.set(true);
+		List<SourceRecord> result = new ArrayList<>();
+		if (execInitialLoad) {
+			// Execute initial load...
+			if (!initialLoadWorker.isRunning() && tablesQueue.isEmpty() && table4InitialLoad == null) {
+				Thread.sleep(WAIT_FOR_WORKER_MILLIS);
+				if (tablesQueue.isEmpty()) {
+					LOGGER.info("Initial load completed");
+					execInitialLoad = false;
+					initialLoadStatus = ParamConstants.INITIAL_LOAD_COMPLETED;
+					return null;
 				}
 			}
-		}
-		if (recordCount == 0) {
-			synchronized (this) {
-				LOGGER.debug("Waiting {} ms", pollInterval);
-				this.wait(pollInterval);
+			int recordCount = 0;
+			while (recordCount < batchSize) {
+				if (lastRecordInTable) {
+					//First table or end of table reached, need to poll new
+					table4InitialLoad = tablesQueue.poll();
+					if (table4InitialLoad != null) {
+						initialLoadMetrics.startSendTable(table4InitialLoad.fqn());
+						LOGGER.info("Table {} initial load (send to Kafka phase) started.",
+								table4InitialLoad.fqn());
+					}
+				}
+				if (table4InitialLoad == null) {
+					LOGGER.debug("Waiting {} ms for initial load data...", pollInterval);
+					Thread.sleep(pollInterval);
+					break;
+				} else {
+					lastRecordInTable = false;
+					// Processing.......
+					SourceRecord record = table4InitialLoad.getSourceRecord();
+					if (record == null) {
+						initialLoadMetrics.finishSendTable(table4InitialLoad.fqn());
+						LOGGER.info("Table {} initial load (send to Kafka phase) completed.",
+								table4InitialLoad.fqn());
+						lastRecordInTable = true;
+						table4InitialLoad.close();
+						table4InitialLoad = null;
+					} else {
+						result.add(record);
+						recordCount++;
+					}
+				}
 			}
 		} else {
-			metrics.addSentRecords(result.size(), parseTime);
+			// Load data from archived redo...
+			int recordCount = 0;
+			int parseTime = 0;
+			while (recordCount < batchSize) {
+				if (lastStatementInTransaction) {
+					// End of transaction, need to poll new
+					transaction = committedTransactions.poll();
+				}
+				if (transaction == null) {
+					// No more records produced by LogMiner worker
+					break;
+				} else {
+					// Prepare records...
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",
+							transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
+					}
+					lastStatementInTransaction = false;
+					boolean processTransaction = true;
+					do {
+						OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
+						processTransaction = transaction.getStatement(stmt);
+						lastStatementInTransaction = !processTransaction;
+
+						if (processTransaction) {
+							final OraTable4LogMiner oraTable = tablesInProcessing.get(stmt.getTableId());
+							if (oraTable == null) {
+								LOGGER.error("Strange consistency issue for DATA_OBJ# {}. Exiting.", stmt.getTableId());
+								isPollRunning.set(false);
+								throw new ConnectException("Strange consistency issue!!!");
+							} else {
+								try {
+									final long startParseTs = System.currentTimeMillis();
+									SourceRecord record = oraTable.parseRedoRecord(stmt);
+									result.add(record);
+									recordCount++;
+									parseTime += (System.currentTimeMillis() - startParseTs);
+								} catch (SQLException e) {
+									LOGGER.error(e.getMessage());
+									LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+									isPollRunning.set(false);
+									throw new ConnectException(e);
+								}
+							}
+						}
+					} while (processTransaction && recordCount < batchSize);
+					if (lastStatementInTransaction) {
+						// close Cronicle queue only when all statements are processed
+						if (LOGGER.isDebugEnabled()) {
+							LOGGER.debug("End of processing transaction XID {}, first change {}, commit SCN {}.",
+								transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
+						}
+						transaction.close();
+						transaction = null;
+					}
+				}
+			}
+			if (recordCount == 0) {
+				synchronized (this) {
+					LOGGER.debug("Waiting {} ms", pollInterval);
+					Thread.sleep(pollInterval);
+				}
+			} else {
+				metrics.addSentRecords(result.size(), parseTime);
+			}
 		}
 		isPollRunning.set(false);
 		LOGGER.trace("END: poll()");
@@ -433,6 +574,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		ops.setLastScn(worker.getLastScn());
 		ops.setLastRsId(worker.getLastRsId());
 		ops.setLastSsn(worker.getLastSsn());
+		ops.setInitialLoad(initialLoadStatus);
 		if (saveFinalState) {
 			if (transaction != null) {
 				ops.setCurrentTransaction(transaction.attrsAsMap());
@@ -513,11 +655,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 		final PreparedStatement psCheckTable;
 		final boolean isCdb = rdbmsInfo.isCdb();
 		if (isCdb) {
-			psCheckTable = connection.prepareStatement(OraDictSqlTexts.CHECK_TABLE_CDB,
-						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			psCheckTable = connection.prepareStatement(
+					OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		} else {
-			psCheckTable = connection.prepareStatement(OraDictSqlTexts.CHECK_TABLE_NON_CDB,
-						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			psCheckTable = connection.prepareStatement(
+					OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		}
 		for (long combinedDataObjectId : processedTablesIds) {
 			if (!tablesInProcessing.containsKey(combinedDataObjectId)) {
@@ -552,6 +696,31 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 		}
 		psCheckTable.close();
+	}
+
+	private void buildInitialLoadTableList(final String initialLoadSql) throws SQLException {
+		try (Connection connection = OraPoolConnectionFactory.getConnection();
+				PreparedStatement statement = connection.prepareStatement(initialLoadSql);
+				ResultSet resultSet = statement.executeQuery()) {
+			final boolean isCdb = rdbmsInfo.isCdb();
+			while (resultSet.next()) {
+				final long objectId = resultSet.getLong("OBJECT_ID");
+				final long conId = isCdb ? resultSet.getLong("CON_ID") : 0L;
+				final long combinedDataObjectId = (conId << 32) | (objectId & 0xFFFFFFFFL);
+				final String tableName = resultSet.getString("TABLE_NAME");
+				if (!tablesInProcessing.containsKey(combinedDataObjectId)
+						&& !StringUtils.startsWith(tableName, "MLOG$_")) {
+					OraTable4LogMiner oraTable = new OraTable4LogMiner(
+							isCdb ? resultSet.getString("PDB_NAME") : null,
+							isCdb ? (short) conId : null,
+							resultSet.getString("OWNER"), tableName,
+							schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
+					tablesInProcessing.put(combinedDataObjectId, oraTable);
+				}
+			}
+		} catch (SQLException sqle) {
+			throw new SQLException(sqle);
+		}
 	}
 
 }

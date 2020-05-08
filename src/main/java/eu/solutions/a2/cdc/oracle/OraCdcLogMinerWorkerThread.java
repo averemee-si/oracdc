@@ -20,7 +20,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -34,7 +33,6 @@ import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
-import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
 
 /**
  * 
@@ -62,7 +60,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private Connection connLogMiner;
 	private PreparedStatement psLogMiner;
 	private ResultSet rsLogMiner;
-	private String mineDataSql;
+	private final String mineDataSql;
 	private final Connection connDictionary;
 	private final PreparedStatement psCheckTable;
 	private final Path queuesRoot;
@@ -80,8 +78,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final int pollInterval,
 			final Map<String, String> partition,
 			final long firstScn,
-			final List<String> includeList,
-			final List<String> excludeList,
+			final String mineDataSql,
+			final String checkTableSql,
 			final Long redoSizeThreshold,
 			final Integer redoFilesCount,
 			final Map<Long, OraTable4LogMiner> tablesInProcessing,
@@ -99,6 +97,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.task = task;
 		this.pollInterval = pollInterval;
 		this.partition = partition;
+		this.mineDataSql = mineDataSql;
 		this.tablesInProcessing = tablesInProcessing;
 		this.tablesOutOfScope = tablesOutOfScope;
 		this.queuesRoot = queuesRoot;
@@ -139,46 +138,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			} else {
 				throw new SQLException("Unable to mine data from databases with different DBID!!!");
 			}
-
-			String checkTableSql = null;
-			if (isCdb) {
-				mineDataSql = OraDictSqlTexts.MINE_DATA_CDB;
-				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB;
-			} else {
-				mineDataSql = OraDictSqlTexts.MINE_DATA_NON_CDB;
-				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB;
-			}
-			if (includeList != null) {
-				mineDataSql += "where ((OPERATION_CODE in (1,2,3) " + 
-						rdbmsInfo.getMineObjectsIds(connDictionary, false,
-								OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList)) +
-						")";
-				checkTableSql += OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
-			}
-			if (excludeList != null) {
-				if (includeList != null) {
-					mineDataSql += " and ";
-				} else {
-					mineDataSql += " where ";
-				}
-				mineDataSql += "((OPERATION_CODE in (1,2,3) " +
-						rdbmsInfo.getMineObjectsIds(connDictionary, true,
-								OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList)) +
-						")";
-				checkTableSql += OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList);
-
-			}
-			if (includeList == null && excludeList == null) {
-				mineDataSql += "where (OPERATION_CODE in (1,2,3) ";
-			}
-			// Finally - COMMIT and ROLLBACK
-			mineDataSql += " or OPERATION_CODE in (7,36))";
-			if (isCdb) {
-				// Do not process objects from CDB$ROOT and PDB$SEED
-				mineDataSql += rdbmsInfo.getConUidsList(connLogMiner);
-			}
-			LOGGER.debug("Mining SQL = {}", mineDataSql);
-			LOGGER.debug("Dictionary check SQL = {}", checkTableSql);
 
 			// Finally - prepare for mining...
 			psLogMiner = connLogMiner.prepareStatement(
