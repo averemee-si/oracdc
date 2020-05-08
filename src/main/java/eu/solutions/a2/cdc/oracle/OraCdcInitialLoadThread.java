@@ -65,7 +65,10 @@ public class OraCdcInitialLoadThread extends Thread {
 		this.tablesInProcessing = tablesInProcessing;
 		this.queuesRoot = queuesRoot;
 		this.tablesQueue = tablesQueue;
-		this.selectThreadCount = Math.min(Runtime.getRuntime().availableProcessors(), rdbmsInfo.getCpuCoreCount());
+		final int coreCount = Runtime.getRuntime().availableProcessors();
+		this.selectThreadCount = Math.min(coreCount, rdbmsInfo.getCpuCoreCount());
+		LOGGER.info("DB cores available {}, Kafka Cores available {}.", rdbmsInfo.getCpuCoreCount(), coreCount);
+		LOGGER.info("{} parallel loaders for select phase will be used.");
 		this.metrics = metrics;
 		// Set latch to number of tables for load...
 		this.runLatch = new CountDownLatch(tablesInProcessing.size());
