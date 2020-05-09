@@ -16,7 +16,6 @@ _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metri
 
 ### Known issues
 1. **INTERVAL** data types family not supported yet
-2. Initial data load - we're strongly recommend usage of bulk load methods.
 
 ### Performance tips
 1. If you do not use archivelogs as a source of database user activity audit information, consider setting Oracle RDBMS hidden parameter **_transaction_auditing** to **false** after consulting a [Oracle Support Services](https://www.oracle.com/support/)
@@ -292,6 +291,9 @@ CDB fixes/20c readiness
 
 Schema Editor GUI preview (java -cp <> eu.solutions.a2.cdc.oracle.schema.TableSchemaEditor). This GUI required for more precise mapping between Oracle and Kafka Connect datatypes. See also `a2.dictionary.file` parameter
 
+####0.9.6 (MAY-2020)
+
+Initial data load support. See also `a2.initial.load` parameter
 
 ## Authors
 

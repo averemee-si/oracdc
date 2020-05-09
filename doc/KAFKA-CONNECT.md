@@ -50,6 +50,8 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.dictionary.file` - File with stored columns data type mapping. For more details contact us at oracle@a2-solutions.eu. This file can be prepared using Schema Editor GUI (eu.solutions.a2.cdc.oracle.schema.TableSchemaEditor)
 
+`a2.initial.load` - A mode for performing initial load of data from tables when set to `EXECUTE`. Record the successful completion of the initial load in the offset file. Default value - `IGNORE`. 
+
 #### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
