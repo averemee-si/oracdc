@@ -30,6 +30,8 @@ public class JdbcTypes {
 			return "TIMESTAMP";
 		case Types.TIMESTAMP_WITH_TIMEZONE:
 			return "TIMESTAMP_WITH_TIMEZONE";
+		case Types.BOOLEAN:
+			return "BOOLEAN";
 		case Types.TINYINT:
 			return "TINYINT";
 		case Types.SMALLINT:
@@ -58,6 +60,10 @@ public class JdbcTypes {
 			return "NVARCHAR";
 		case Types.ROWID:
 			return "ROWID";
+		case Types.CLOB:
+			return "CLOB";
+		case Types.BLOB:
+			return "BLOB";
 		}
 		return "UNSUPPORTED!!!";
 	}
@@ -70,6 +76,8 @@ public class JdbcTypes {
 			return Types.TIMESTAMP;
 		case "TIMESTAMP_WITH_TIMEZONE":
 			return Types.TIMESTAMP_WITH_TIMEZONE;
+		case "BOOLEAN":
+			return Types.BOOLEAN;
 		case "TINYINT":
 			return Types.TINYINT;
 		case "SMALLINT":
@@ -98,6 +106,10 @@ public class JdbcTypes {
 			return Types.NVARCHAR;
 		case "ROWID":
 			return Types.ROWID;
+		case "CLOB":
+			return Types.CLOB;
+		case "BLOB":
+			return Types.BLOB;
 		}
 		return Integer.MIN_VALUE;
 	}
