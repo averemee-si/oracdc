@@ -72,13 +72,14 @@ public class OraCdcInitialLoadThread extends Thread {
 		this.metrics = metrics;
 		// Set latch to number of tables for load...
 		this.runLatch = new CountDownLatch(tablesInProcessing.size());
-		running = new AtomicBoolean(false);
+		// Need running status set here!!!
+		running = new AtomicBoolean(true);
 	}
 
 	@Override
 	public void run()  {
 		LOGGER.info("BEGIN: OraCdcInitialLoadThread.run()");
-		running.set(true);
+		final long startMillis = System.currentTimeMillis();
 		if (tablesInProcessing != null && tablesInProcessing.size() > 0) {
 			final BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<Runnable>(tablesInProcessing.size());
 			final ThreadPoolExecutor threadPool = new ThreadPoolExecutor(
@@ -108,7 +109,8 @@ public class OraCdcInitialLoadThread extends Thread {
 			LOGGER.warn("No tables for initial load!!!");
 		}
 		running.set(false);
-		LOGGER.info("END: OraCdcInitialLoadThread.run()");
+		LOGGER.info("END: OraCdcInitialLoadThread.run(), elapsed time {} ms",
+				(System.currentTimeMillis() - startMillis));
 	}
 
 	public boolean isRunning() {

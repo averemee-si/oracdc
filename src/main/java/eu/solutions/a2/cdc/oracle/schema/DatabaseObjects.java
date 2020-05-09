@@ -17,6 +17,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.OraDictSqlTexts;
 import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import eu.solutions.a2.cdc.oracle.OraRdbmsInfo;
 import eu.solutions.a2.cdc.oracle.OraTable4LogMiner;
@@ -131,8 +132,8 @@ public class DatabaseObjects implements ActionListener {
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			PreparedStatement statement = connection.prepareStatement(
 					rdbmsInfo.isCdb() ?
-						"select O.CON_ID, O.OBJECT_ID from CDB_OBJECTS O, CDB_PDBS D where O.CON_ID = D.CON_ID and O.OBJECT_TYPE = 'TABLE' and D.PDB_NAME = ? and O.OWNER = ? and O.OBJECT_NAME = ?" :
-						"select O.OBJECT_ID from ALL_OBJECTS O where O.OBJECT_TYPE = 'TABLE' and O.OWNER = ? and O.OBJECT_NAME = ?",
+						(OraDictSqlTexts.CHECK_TABLE_CDB + " and P.PDB_NAME = ? and O.OWNER = ? and O.OBJECT_NAME = ?") :
+						(OraDictSqlTexts.CHECK_TABLE_NON_CDB + " and O.OWNER = ? and O.OBJECT_NAME = ?"),
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			if (isCdb) {
 				statement.setString(1, tablePdb);
@@ -157,7 +158,7 @@ public class DatabaseObjects implements ActionListener {
 				OraTable4LogMiner oraTable = new OraTable4LogMiner(
 						isCdb ? tablePdb : null,
 						isCdb ? (short) conId : null,
-						tableOwner, tableName,
+						tableOwner, tableName, "ENABLED".equalsIgnoreCase(rs.getString("DEPENDENCIES")),
 						ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD, true, isCdb, null, null, null);
 				return new AbstractMap.SimpleImmutableEntry<Long, OraTable4LogMiner>(combinedDataObjectId, oraTable);
 			} else {

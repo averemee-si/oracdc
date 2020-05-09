@@ -681,6 +681,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? rsCheckTable.getString("PDB_NAME") : null,
 							isCdb ? (short) conId : null,
 							tableOwner, tableName,
+							"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
@@ -714,6 +715,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? resultSet.getString("PDB_NAME") : null,
 							isCdb ? (short) conId : null,
 							resultSet.getString("OWNER"), tableName,
+							"ENABLED".equalsIgnoreCase(resultSet.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}

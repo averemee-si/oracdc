@@ -34,8 +34,8 @@ public class OraSqlUtils {
 			schemaNameField = "L.LOG_OWNER";
 			objNameField = "L.MASTER";
 		} else {
-			schemaNameField = "OWNER";
-			objNameField = "OBJECT_NAME";
+			schemaNameField = "O.OWNER";
+			objNameField = "O.OBJECT_NAME";
 		}
 
 		final StringBuilder sb = new StringBuilder(512);

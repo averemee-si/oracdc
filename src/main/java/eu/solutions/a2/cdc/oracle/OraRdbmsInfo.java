@@ -281,7 +281,7 @@ public class OraRdbmsInfo {
 		//TODO
 		PreparedStatement ps = connection.prepareStatement(
 				"select OBJECT_ID\n" +
-				(this.cdb ? "from   CDB_OBJECTS\n" : "from   DBA_OBJECTS\n") +
+				(this.cdb ? "from   CDB_OBJECTS O\n" : "from   DBA_OBJECTS O\n") +
 				"where  DATA_OBJECT_ID is not null\n" +
 				"  and  OBJECT_TYPE like 'TABLE%'\n" +
 				"  and  TEMPORARY='N'\n" +

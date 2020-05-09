@@ -86,6 +86,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param conId
 	 * @param tableOwner
 	 * @param tableName
+	 * @param rowLevelScnDependency
 	 * @param schemaType
 	 * @param useOracdcSchemas
 	 * @param isCdb
@@ -95,13 +96,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 */
 	public OraTable4LogMiner(
 			final String pdbName, final Short conId, final String tableOwner,
-			final String tableName, final int schemaType, final boolean useOracdcSchemas,
+			final String tableName, final boolean rowLevelScnDependency, 
+			final int schemaType, final boolean useOracdcSchemas,
 			final boolean isCdb, final OraDumpDecoder odd,
 			final Map<String, String> sourcePartition, final String topicParam) {
 		this(pdbName, tableOwner, tableName, schemaType);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(topicParam, odd, sourcePartition);
-		tableWithPk = true;
+		this.tableWithPk = true;
+		this.setRowLevelScn(rowLevelScnDependency);
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -110,7 +113,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			Set<String> pkColumns = OraRdbmsInfo.getPkColumnsFromDict(connection,
 					isCdb ? conId : null, this.tableOwner, this.tableName);
 			if (pkColumns == null) {
-				tableWithPk = false;
+				this.tableWithPk = false;
 			}
 			PreparedStatement statement = connection.prepareStatement(
 					isCdb ? OraDictSqlTexts.COLUMN_LIST_CDB : OraDictSqlTexts.COLUMN_LIST_PLAIN,
@@ -150,6 +153,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				(String) tableData.get("tableName"),
 				schemaType);
 		tableWithPk = (boolean) tableData.get("tableWithPk");
+		final Boolean rowLevelScnDependency = (Boolean) tableData.get("rowLevelScn");
+		if (rowLevelScnDependency == null || !rowLevelScnDependency) {
+			this.setRowLevelScn(false);
+		} else {
+			this.setRowLevelScn(true);
+		}
 		if (LOGGER.isDebugEnabled()) {
 			if (pdbName == null) {
 				LOGGER.debug("Deserializing {}.{} from JSON", tableOwner, tableName);

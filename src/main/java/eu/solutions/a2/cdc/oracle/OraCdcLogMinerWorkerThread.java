@@ -268,6 +268,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											isCdb ? rsCheckTable.getString("PDB_NAME") : null,
 											isCdb ? (short) conId : null,
 											tableOwner, tableName,
+											"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 											schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
 									tablesInProcessing.put(combinedDataObjectId, oraTable);
 									metrics.addTableInProcessing(oraTable.fqn());									

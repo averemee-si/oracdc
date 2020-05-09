@@ -100,9 +100,10 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		this.metrics = metrics;
 		this.tableFqn = oraTable.fqn();
 		this.kafkaTopic = oraTable.getKafkaTopic();
+		this.setRowLevelScn(oraTable.isRowLevelScn());
 		// Build SQL select
 		final StringBuilder sb = new StringBuilder(512);
-		sb.append("select ORA_ROWSCN,");
+		sb.append("select ");
 		for (int i = 0; i < allColumns.size(); i++) {
 			OraColumn oraColumn = allColumns.get(i);
 			if (oraColumn.getColumnName().equals(OraColumn.ROWID_KEY)) {
@@ -119,11 +120,9 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		sb.append(tableOwner);
 		sb.append(".");
 		sb.append(tableName);
-		//TODO
-		//TODO - currently only ORA_ROWSCN!!!
-		//TODO - need to add AS OF SCN/FLASHBACK ARCHIVE too!!!
-		//TODO
-		sb.append(" where ORA_ROWSCN < ?");
+		if (this.isRowLevelScn()) {
+			sb.append(" where ORA_ROWSCN < ?");
+		}
 		sqlSelect = sb.toString();
 		LOGGER.debug("{} will be used for initial data load.", sqlSelect);
 
@@ -448,10 +447,14 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 				alterSession.close();
 				alterSession = null;
 			}
-			LOGGER.info("Table {} initial load (read phase) up to SCN {} started.", tableFqn, asOfScn);
 			PreparedStatement statement = connection.prepareStatement(sqlSelect,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			statement.setLong(1, asOfScn);
+			if (this.isRowLevelScn()) {
+				statement.setLong(1, asOfScn);
+				LOGGER.info("Table {} initial load (read phase) up to SCN {} started.", tableFqn, asOfScn);
+			} else {
+				LOGGER.info("Table {} (DEPENDENCY='DISABLED') initial load (read phase) started.", tableFqn);
+			}
 			final long startTime = System.nanoTime();
 			rsMaster = (OracleResultSet) statement.executeQuery();
 			while (rsMaster.next()) {

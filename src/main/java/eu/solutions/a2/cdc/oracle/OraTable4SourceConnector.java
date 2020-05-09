@@ -56,6 +56,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	protected Schema schema;
 	protected Schema keySchema;
 	protected Schema valueSchema;
+	private boolean rowLevelScn;
 
 	protected OraTable4SourceConnector(String tableOwner, String tableName, int schemaType) {
 		super(tableOwner, tableName, schemaType);
@@ -240,6 +241,14 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			targetKafkaTopic = topicParam;
 		}
 		return targetKafkaTopic;
+	}
+
+	public boolean isRowLevelScn() {
+		return rowLevelScn;
+	}
+
+	public void setRowLevelScn(boolean rowLevelScn) {
+		this.rowLevelScn = rowLevelScn;
 	}
 
 	protected void processAllColumns(
