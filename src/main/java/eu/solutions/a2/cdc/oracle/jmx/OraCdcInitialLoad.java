@@ -110,7 +110,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	}
 	@Override
 	public String getProcessingTime() {
-		Duration duration = Duration.ofNanos((sqlSelectNanos.get() + sendNanos.get()) / 1_000_000);
+		Duration duration = Duration.ofNanos(sqlSelectNanos.get() + sendNanos.get());
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
@@ -172,7 +172,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	}
 	@Override
 	public String getSqlSelectTime() {
-		Duration duration = Duration.ofMillis(sqlSelectNanos.get() / 1_000_000);
+		Duration duration = Duration.ofNanos(sqlSelectNanos.get());
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
@@ -195,7 +195,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 	}
 	@Override
 	public String getSendTime() {
-		Duration duration = Duration.ofMillis(sendNanos.get() / 1_000_000);
+		Duration duration = Duration.ofNanos(sendNanos.get());
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 
