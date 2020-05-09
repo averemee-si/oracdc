@@ -13,24 +13,28 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map.Entry;
 
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcSinkTableInfo;
+import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
@@ -271,15 +275,36 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkUpsert, columnNo, keyStruct.get(oraColumn.getColumnName()));
-			columnNo++;
+			try {
+				oraColumn.bindWithPrepStmt(sinkUpsert, columnNo, keyStruct.get(oraColumn.getColumnName()));
+				columnNo++;
+			} catch (DataException de) {
+				LOGGER.error("Data error while performing upsert! Table={}, PK column={}, {}.",
+						tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, keyStruct));
+				throw new DataException(de);
+			}
 		}
 		for (int i = 0; i < allColumns.size(); i++) {
 			final OraColumn oraColumn = allColumns.get(i);
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
 					(schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
-				oraColumn.bindWithPrepStmt(sinkUpsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
-				columnNo++;
+				try {
+					oraColumn.bindWithPrepStmt(sinkUpsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
+					columnNo++;
+				} catch (DataException de) {
+					LOGGER.error("Data error while performing upsert! Table={}, column={}, {}.",
+							tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, valueStruct));
+					LOGGER.error("PK value(s) for this row in table {} are", tableName);
+					int colNo = 1;
+					Iterator<Entry<String, OraColumn>> pkIterator = pkColumns.entrySet().iterator();
+					while (pkIterator.hasNext()) {
+						OraColumn pkColumn = pkIterator.next().getValue();
+						LOGGER.error("\t{}) PK column {}, {}",
+								colNo, pkColumn.getColumnName(), structValueAsString(pkColumn, keyStruct));
+						colNo++;
+					}
+					throw new DataException(de);
+				}
 			}
 		}
 		sinkUpsert.addBatch();
@@ -305,12 +330,38 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		int columnNo = 1;
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
-			oraColumn.bindWithPrepStmt(sinkDelete, columnNo, keyStruct.get(oraColumn.getColumnName()));
-			columnNo++;
+			try {
+				oraColumn.bindWithPrepStmt(sinkDelete, columnNo, keyStruct.get(oraColumn.getColumnName()));
+				columnNo++;
+			} catch (DataException de) {
+				LOGGER.error("Data error while performing delete! Table {}, PK column {}, {}.",
+						tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, keyStruct));
+				throw new DataException(de);
+			}
 		}
 		sinkDelete.addBatch();
 		deleteCount++;
 		LOGGER.trace("END: processDelete()");
+	}
+
+	public String structValueAsString(final OraColumn oraColumn, final Struct struct) {
+		final StringBuilder sb = new StringBuilder(128);
+		sb.append("Column Type =");
+		sb.append(JdbcTypes.getTypeName(oraColumn.getJdbcType()));
+		sb.append(", Column Value='");
+		switch (oraColumn.getJdbcType()) {
+			case Types.NUMERIC:
+			case Types.BINARY:
+			case Types.BLOB:
+				ByteBuffer bb = (ByteBuffer) struct.get(oraColumn.getColumnName());
+				sb.append(OraDumpDecoder.toHexString(bb.array()));
+				break;
+			default:
+				sb.append(struct.get(oraColumn.getColumnName()));
+				break;
+		}
+		sb.append("'");
+		return sb.toString();
 	}
 
 	@Override

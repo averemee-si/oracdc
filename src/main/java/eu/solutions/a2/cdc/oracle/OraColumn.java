@@ -542,7 +542,12 @@ public class OraColumn {
 				statement.setBigDecimal(columnNo, (BigDecimal) columnValue);
 				break;
 			case Types.NUMERIC:
-				statement.setBigDecimal(columnNo, OraNumber.toLogical(((ByteBuffer) columnValue).array()));
+				BigDecimal bd = OraNumber.toLogical(((ByteBuffer) columnValue).array());
+				if (bd == null) {
+					statement.setNull(columnNo, Types.NUMERIC);
+				} else {
+					statement.setBigDecimal(columnNo, bd);
+				}
 				break;
 			case Types.BINARY:
 				statement.setBytes(columnNo, ((ByteBuffer) columnValue).array());

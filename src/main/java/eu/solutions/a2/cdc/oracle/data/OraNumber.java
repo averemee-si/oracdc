@@ -19,6 +19,8 @@ import java.sql.SQLException;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import oracle.sql.NUMBER;
 
@@ -37,6 +39,8 @@ import oracle.sql.NUMBER;
  *
  */
 public class OraNumber {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraNumber.class);
 
 	public static final String LOGICAL_NAME = "eu.solutions.a2.cdc.oracle.data.OraNumber";
 
@@ -62,7 +66,12 @@ public class OraNumber {
 		try {
 			bd = new NUMBER(dumpValue).bigDecimalValue();
 		} catch (SQLException  sqle) {
-			throw new DataException(sqle);
+			if (dumpValue.length == 1 && dumpValue[0] == 0x0) {
+				LOGGER.error("Wrong dump value for Oracle NUMBER: 'Typ=2 Len=1: 0', assuming null!!!");
+				return null;
+			} else {
+				throw new DataException(sqle);
+			}
 		}
 		return bd;
 	}
