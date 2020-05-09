@@ -249,7 +249,6 @@ When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Orac
 
 ## TODO
 * **oracdc** as audit information source
-* Predefined schemas for tables
 * Oracle LOB handler: convert Oracle BLOB/CLOB/BFILE to link on object file system and send ref to Kafka instead of LOB data
 
 ## Version history
