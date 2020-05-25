@@ -59,8 +59,14 @@ public class OraLogMiner {
 	public static final short V$LOGMNR_CONTENTS_INSERT = 1;
 	public static final short V$LOGMNR_CONTENTS_DELETE = 2;
 	public static final short V$LOGMNR_CONTENTS_UPDATE = 3;
+	public static final short V$LOGMNR_CONTENTS_DDL = 5;
+	public static final short V$LOGMNR_CONTENTS_START = 6;
 	public static final short V$LOGMNR_CONTENTS_COMMIT = 7;
 	public static final short V$LOGMNR_CONTENTS_ROLLBACK = 36;
+	public static final short V$LOGMNR_SELECT_LOB_LOCATOR = 9;
+	public static final short V$LOGMNR_LOB_WRITE = 10;
+	public static final short V$LOGMNR_LOB_TRIM = 11;
+	public static final short V$LOGMNR_LOB_ERASE = 28;
 
 	public OraLogMiner(final Connection connection, final OraCdcLogMinerMgmt metrics,
 			final long firstChange, final int numArchLogs) throws SQLException {
