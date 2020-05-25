@@ -67,8 +67,8 @@ public class OraColumn {
 	 * 
 	 * Used in Source Connector
 	 * 
-	 * @param mviewSource
-	 * @param useOracdcSchemas
+	 * @param mviewSource         for MView log or archived redo log
+	 * @param useOracdcSchemas    true for extended schemas
 	 * @param resultSet
 	 * @param keySchema
 	 * @param valueSchema
@@ -214,16 +214,24 @@ public class OraColumn {
 					stringField(keySchema, valueSchema);
 					break;
 				case "CLOB":
-					jdbcType = Types.CLOB;
-					stringField(keySchema, valueSchema);
+					if (mviewSource) {
+						jdbcType = Types.CLOB;
+						stringField(keySchema, valueSchema);
+					} else {
+						//TODO - WIP for archived redo
+					}
 					break;
 				case "RAW":
 					jdbcType = Types.BINARY;
 					bytesField(keySchema, valueSchema);
 					break;
 				case "BLOB":
-					jdbcType = Types.BLOB;
-					bytesField(keySchema, valueSchema);
+					if (mviewSource) {
+						jdbcType = Types.BLOB;
+						bytesField(keySchema, valueSchema);
+					} else {
+						//TODO - WIP for archived redo
+					}
 					break;
 				default:
 					jdbcType = Types.VARCHAR;
