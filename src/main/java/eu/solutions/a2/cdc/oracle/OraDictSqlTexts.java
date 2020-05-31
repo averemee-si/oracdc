@@ -344,46 +344,76 @@ from   V$LOGMNR_CONTENTS L
 			"from   V$LOGMNR_CONTENTS L\n";
 
 /*
-select O.OBJECT_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES
+select O.OBJECT_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES,
+       decode(O.OBJECT_TYPE, 'TABLE', 'Y', 'N') IS_TABLE,
+       decode(O.OBJECT_TYPE, 'TABLE', O.OBJECT_ID,
+         (select PT.OBJECT_ID
+          from   DBA_OBJECTS PT
+          where  PT.OWNER=O.OWNER
+            and  PT.OBJECT_NAME=O.OBJECT_NAME
+            and  PT.OBJECT_TYPE='TABLE')) PARENT_OBJECT_ID
 from   DBA_OBJECTS O, DBA_TABLES T
-where  O.OBJECT_TYPE='TABLE'
+where  O.OBJECT_TYPE in ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
   and  O.TEMPORARY='N'
   and  O.OWNER not in ('SYS','SYSTEM','MGDSYS','OJVMSYS','AUDSYS','OUTLN','APPQOSSYS','DBSNMP','CTXSYS','ORDSYS','ORDPLUGINS','ORDDATA','MDSYS','OLAPSYS','GGSYS','XDB','GSMADMIN_INTERNAL','DBSFWUSER','LBACSYS','DVSYS','WMSYS')
   and  O.OWNER=T.OWNER
   and  O.OBJECT_NAME=T.TABLE_NAME
-  and  O.OBJECT_ID=?;
+  and  O.OBJECT_ID=:B1;
  */
 	public static final String CHECK_TABLE_NON_CDB =
-			"select O.OBJECT_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES\n" +
-			"from   DBA_OBJECTS O, DBA_TABLES T\n" +
-			"where  O.OBJECT_TYPE='TABLE'\n" + 
-			"  and  O.TEMPORARY='N'\n" +
-			"  and  O.OWNER not in ('SYS','SYSTEM','MGDSYS','OJVMSYS','AUDSYS','OUTLN','APPQOSSYS','DBSNMP','CTXSYS','ORDSYS','ORDPLUGINS','ORDDATA','MDSYS','OLAPSYS','GGSYS','XDB','GSMADMIN_INTERNAL','DBSFWUSER','LBACSYS','DVSYS','WMSYS')\n" +
-			"  and  O.OWNER=T.OWNER\n" +
+			"select O.OBJECT_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES,\n" + 
+			"       decode(O.OBJECT_TYPE, 'TABLE', 'Y', 'N') IS_TABLE,\n" + 
+			"       decode(O.OBJECT_TYPE, 'TABLE', O.OBJECT_ID,\n" + 
+			"         (select PT.OBJECT_ID\n" + 
+			"          from   DBA_OBJECTS PT\n" + 
+			"          where  PT.OWNER=O.OWNER\n" + 
+			"            and  PT.OBJECT_NAME=O.OBJECT_NAME\n" + 
+			"            and  PT.OBJECT_TYPE='TABLE')) PARENT_OBJECT_ID\n" + 
+			"from   DBA_OBJECTS O, DBA_TABLES T\n" + 
+			"where  O.OBJECT_TYPE in ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')\n" + 
+			"  and  O.TEMPORARY='N'\n" + 
+			"  and  O.OWNER not in ('SYS','SYSTEM','MGDSYS','OJVMSYS','AUDSYS','OUTLN','APPQOSSYS','DBSNMP','CTXSYS','ORDSYS','ORDPLUGINS','ORDDATA','MDSYS','OLAPSYS','GGSYS','XDB','GSMADMIN_INTERNAL','DBSFWUSER','LBACSYS','DVSYS','WMSYS')\n" + 
+			"  and  O.OWNER=T.OWNER\n" + 
 			"  and  O.OBJECT_NAME=T.TABLE_NAME\n";
 	public static final String CHECK_TABLE_NON_CDB_WHERE_PARAM =
 			"  and  O.OBJECT_ID=?\n";
-			
+
 /*
-select O.OBJECT_ID, O.CON_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES, P.PDB_NAME
+select O.OBJECT_ID, O.CON_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES, P.PDB_NAME,
+       decode(O.OBJECT_TYPE, 'TABLE', 'Y', 'N') IS_TABLE,
+       decode(O.OBJECT_TYPE, 'TABLE', O.OBJECT_ID,
+         (select PT.OBJECT_ID
+          from   CDB_OBJECTS PT
+          where  PT.OWNER=O.OWNER
+            and  PT.OBJECT_NAME=O.OBJECT_NAME
+            and  PT.CON_ID=O.CON_ID
+            and  PT.OBJECT_TYPE='TABLE')) PARENT_OBJECT_ID
 from   CDB_OBJECTS O, CDB_PDBS P, CDB_TABLES T
-where  O.OBJECT_TYPE='TABLE'
+where  O.OBJECT_TYPE in ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')
   and  O.TEMPORARY='N'
   and  O.OWNER not in ('SYS','SYSTEM','MGDSYS','OJVMSYS','AUDSYS','OUTLN','APPQOSSYS','DBSNMP','CTXSYS','ORDSYS','ORDPLUGINS','ORDDATA','MDSYS','OLAPSYS','GGSYS','XDB','GSMADMIN_INTERNAL','DBSFWUSER','LBACSYS','DVSYS','WMSYS')
   and  O.CON_ID=P.CON_ID (+)
   and  O.OWNER=T.OWNER
   and  O.OBJECT_NAME=T.TABLE_NAME
-  and  O.OBJECT_ID=?
-  and  O.CON_ID=?;
+  and  O.OBJECT_ID=:B1
+  and  O.CON_ID=:B2;
  */
 	public static final String CHECK_TABLE_CDB =
-		"select O.OBJECT_ID, O.CON_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES, P.PDB_NAME\n" +
-		"from   CDB_OBJECTS O, CDB_PDBS P, CDB_TABLES T\n" +
-		"where  O.OBJECT_TYPE='TABLE'\n" +
-		"  and  O.TEMPORARY='N'\n" +
+		"select O.OBJECT_ID, O.CON_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES, P.PDB_NAME,\n" + 
+		"       decode(O.OBJECT_TYPE, 'TABLE', 'Y', 'N') IS_TABLE,\n" + 
+		"       decode(O.OBJECT_TYPE, 'TABLE', O.OBJECT_ID,\n" + 
+		"         (select PT.OBJECT_ID\n" + 
+		"          from   CDB_OBJECTS PT\n" + 
+		"          where  PT.OWNER=O.OWNER\n" + 
+		"            and  PT.OBJECT_NAME=O.OBJECT_NAME\n" + 
+		"            and  PT.CON_ID=O.CON_ID\n" + 
+		"            and  PT.OBJECT_TYPE='TABLE')) PARENT_OBJECT_ID\n" + 
+		"from   CDB_OBJECTS O, CDB_PDBS P, CDB_TABLES T\n" + 
+		"where  O.OBJECT_TYPE in ('TABLE', 'TABLE PARTITION', 'TABLE SUBPARTITION')\n" + 
+		"  and  O.TEMPORARY='N'\n" + 
 		"  and  O.OWNER not in ('SYS','SYSTEM','MGDSYS','OJVMSYS','AUDSYS','OUTLN','APPQOSSYS','DBSNMP','CTXSYS','ORDSYS','ORDPLUGINS','ORDDATA','MDSYS','OLAPSYS','GGSYS','XDB','GSMADMIN_INTERNAL','DBSFWUSER','LBACSYS','DVSYS','WMSYS')\n" + 
-		"  and  O.CON_ID=P.CON_ID (+)\n" +
-		"  and  O.OWNER=T.OWNER\n" +
+		"  and  O.CON_ID=P.CON_ID (+)\n" + 
+		"  and  O.OWNER=T.OWNER\n" + 
 		"  and  O.OBJECT_NAME=T.TABLE_NAME\n";
 	public static final String CHECK_TABLE_CDB_WHERE_PARAM =
 		"  and  O.OBJECT_ID=?\n" +

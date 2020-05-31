@@ -20,6 +20,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -52,6 +53,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private boolean logMinerReady = false;
 	private final Map<String, String> partition;
 	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
+	private final Map<Long, OraTable4LogMiner> tablesPartitionsInProcessing;
 	private final Set<Long> tablesOutOfScope;
 	private final int schemaType;
 	private final String topic;
@@ -99,6 +101,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.partition = partition;
 		this.mineDataSql = mineDataSql;
 		this.tablesInProcessing = tablesInProcessing;
+		// We do not need concurrency for this map
+		this.tablesPartitionsInProcessing = new HashMap<>();
 		this.tablesOutOfScope = tablesOutOfScope;
 		this.queuesRoot = queuesRoot;
 		this.odd = odd;
@@ -243,9 +247,12 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								}
 							}
 						} else {
+							// OraLogMiner.V$LOGMNR_CONTENTS_INSERT
+							// OraLogMiner.V$LOGMNR_CONTENTS_DELETE
+							// OraLogMiner.V$LOGMNR_CONTENTS_UPDATE
 							// Read as long to speed up shift
 							final long dataObjectId = rsLogMiner.getLong("DATA_OBJ#");
-							final long combinedDataObjectId;
+							long combinedDataObjectId;
 							final long conId;
 							if (isCdb) {
 								conId = rsLogMiner.getInt("CON_ID");
@@ -254,7 +261,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								conId = 0;
 								combinedDataObjectId = dataObjectId;
 							}
-							OraTable4LogMiner oraTable = tablesInProcessing.get(combinedDataObjectId);
+							OraTable4LogMiner oraTable = tablesPartitionsInProcessing.get(combinedDataObjectId);
 							if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
 								psCheckTable.setLong(1, dataObjectId);
 								if (isCdb) {
@@ -262,16 +269,39 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								}
 								ResultSet rsCheckTable = psCheckTable.executeQuery();
 								if (rsCheckTable.next()) {
-									final String tableName = rsCheckTable.getString("TABLE_NAME");
-									final String tableOwner = rsCheckTable.getString("OWNER");
-									oraTable = new OraTable4LogMiner(
+									//May be this is partition, so just check tablesInProcessing map for table
+									long combinedParentTableId = -1;
+									boolean needNewTableDefinition = true;
+									final boolean isPartition = StringUtils.equals("N", rsCheckTable.getString("IS_TABLE"));
+									if (isPartition) {
+										final long parentTableId = rsCheckTable.getLong("PARENT_OBJECT_ID");
+										combinedParentTableId = isCdb ?
+												((conId << 32) | (parentTableId & 0xFFFFFFFFL)) :
+												parentTableId;
+										oraTable = tablesInProcessing.get(combinedParentTableId);
+										if (oraTable != null) {
+											needNewTableDefinition = false;
+											tablesPartitionsInProcessing.put(combinedDataObjectId, oraTable);
+											combinedDataObjectId = combinedParentTableId;
+										}
+									}
+									//Get table definition from RDBMS
+									if (needNewTableDefinition) {
+										final String tableName = rsCheckTable.getString("TABLE_NAME");
+										final String tableOwner = rsCheckTable.getString("OWNER");
+										oraTable = new OraTable4LogMiner(
 											isCdb ? rsCheckTable.getString("PDB_NAME") : null,
 											isCdb ? (short) conId : null,
 											tableOwner, tableName,
 											"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 											schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
-									tablesInProcessing.put(combinedDataObjectId, oraTable);
-									metrics.addTableInProcessing(oraTable.fqn());									
+										tablesPartitionsInProcessing.put(combinedDataObjectId, oraTable);
+										if (isPartition) {
+											combinedDataObjectId = combinedParentTableId;
+										}
+										tablesInProcessing.put(combinedDataObjectId, oraTable);
+										metrics.addTableInProcessing(oraTable.fqn());
+									}
 								} else {
 									tablesOutOfScope.add(combinedDataObjectId);
 									metrics.addTableOutOfScope();

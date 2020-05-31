@@ -248,6 +248,8 @@ When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Orac
 * [Maven](https://maven.apache.org/) - Dependency Management
 
 ## TODO
+
+* LOB support for LogMiner source
 * **oracdc** as audit information source
 * Oracle LOB handler: convert Oracle BLOB/CLOB/BFILE to link on object file system and send ref to Kafka instead of LOB data
 
@@ -293,6 +295,10 @@ Schema Editor GUI preview (java -cp <> eu.solutions.a2.cdc.oracle.schema.TableSc
 ####0.9.6 (MAY-2020)
 
 Initial data load support. See also `a2.initial.load` parameter
+
+#####0.9.6.1 (MAY-2020)
+
+Partitioned tables support
 
 ## Authors
 
