@@ -63,7 +63,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 
 	/**
 	 * This constructor is used only for Sink connector
-	 * 
+	 *
+	 * @param sinkPool
 	 * @param tableName
 	 * @param record
 	 * @param autoCreateTable
@@ -71,9 +72,10 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	 * @throws SQLException 
 	 */
 	public OraTable4SinkConnector(
-			final String tableName, final SinkRecord record, final boolean autoCreateTable, final int schemaType) throws SQLException {
+			final OraCdcJdbcSinkConnectionPool sinkPool, final String tableName,
+			final SinkRecord record, final boolean autoCreateTable, final int schemaType) throws SQLException {
 		super(schemaType);
-		dbType = HikariPoolConnectionFactory.getDbType();
+		dbType = sinkPool.getDbType();
 		LOGGER.trace("Creating OraTable object from Kafka connect SinkRecord...");
 		final List<Field> keyFields;
 		final List<Field> valueFields;
@@ -108,7 +110,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			}
 		}
 		metrics = new OraCdcSinkTableInfo(this.tableName);
-		prepareSql(autoCreateTable);
+		prepareSql(sinkPool, autoCreateTable);
 		upsertCount = 0;
 		deleteCount = 0;
 		upsertTime = 0;
@@ -116,7 +118,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	}
 
 
-	private void prepareSql(final boolean autoCreateTable) throws SQLException {
+	private void prepareSql(final OraCdcJdbcSinkConnectionPool sinkPool,
+							final boolean autoCreateTable) throws SQLException {
 		// Prepare UPDATE/INSERT/DELETE statements...
 		LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
 		final List<String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
@@ -129,11 +132,11 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		}
 
 		// Check for table existence
-		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
+		try (Connection connection = sinkPool.getConnection()) {
 			LOGGER.debug("Check for table {} in database", this.tableName);
 			DatabaseMetaData metaData = connection.getMetaData();
 			String tableNameCaseConv = tableName;
-			if (dbType == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL) {
+			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
 				LOGGER.debug("Working with PostgreSQL specific lower case only names");
 				// PostgreSQL specific...
 				// Also look at https://stackoverflow.com/questions/43111996/why-postgresql-does-not-like-uppercase-table-names
@@ -156,7 +159,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			String createTableSqlText = TargetDbSqlUtils.createTableSql(
 					this.tableName, this.dbType, this.pkColumns, this.allColumns);
 			LOGGER.debug("Create table with:\n{}", createTableSqlText);
-			try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
+			try (Connection connection = sinkPool.getConnection()) {
 				Statement statement = connection.createStatement();
 				statement.executeUpdate(createTableSqlText);
 				connection.commit();
@@ -276,7 +279,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
 			try {
-				oraColumn.bindWithPrepStmt(sinkUpsert, columnNo, keyStruct.get(oraColumn.getColumnName()));
+				oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, keyStruct.get(oraColumn.getColumnName()));
 				columnNo++;
 			} catch (DataException de) {
 				LOGGER.error("Data error while performing upsert! Table={}, PK column={}, {}.",
@@ -289,7 +292,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
 					(schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
 				try {
-					oraColumn.bindWithPrepStmt(sinkUpsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
+					oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
 					columnNo++;
 				} catch (DataException de) {
 					LOGGER.error("Data error while performing upsert! Table={}, column={}, {}.",
@@ -331,7 +334,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		while (iterator.hasNext()) {
 			final OraColumn oraColumn = iterator.next().getValue();
 			try {
-				oraColumn.bindWithPrepStmt(sinkDelete, columnNo, keyStruct.get(oraColumn.getColumnName()));
+				oraColumn.bindWithPrepStmt(dbType, sinkDelete, columnNo, keyStruct.get(oraColumn.getColumnName()));
 				columnNo++;
 			} catch (DataException de) {
 				LOGGER.error("Data error while performing delete! Table {}, PK column {}, {}.",

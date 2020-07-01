@@ -42,11 +42,12 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkTask.class);
 
-	private final Map<String, OraTable4SinkConnector> tablesInProcessing = new HashMap<>(); 
+	private final Map<String, OraTable4SinkConnector> tablesInProcessing = new HashMap<>();
 	private OraCdcJdbcSinkConnectorConfig config;
-	int batchSize = 1000;
-	boolean autoCreateTable = false;
+	private int batchSize = 1000;
+	private boolean autoCreateTable = false;
 	private int schemaType;
+	private OraCdcJdbcSinkConnectionPool sinkPool;
 
 	@Override
 	public String version() {
@@ -57,6 +58,21 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc '{}' Sink Task", props.get("name"));
 		config = new OraCdcJdbcSinkConnectorConfig(props);
+
+		try {
+			LOGGER.trace("BEGIN: Hikari Connection Pool initialization.");
+			sinkPool = new OraCdcJdbcSinkConnectionPool(
+					props.get("name"),
+					config.getString(ParamConstants.CONNECTION_URL_PARAM),
+					config.getString(ParamConstants.CONNECTION_USER_PARAM),
+					config.getString(ParamConstants.CONNECTION_PASSWORD_PARAM));
+			LOGGER.trace("END: Hikari Connection Pool initialization.");
+		} catch (SQLException sqle) {
+			LOGGER.error("Unable to connect to {}", config.getString(ParamConstants.CONNECTION_URL_PARAM));
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			throw new ConnectException("Unable to start oracdc Sink Connector Task.");
+		}
+
 		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
 		LOGGER.debug("batchSize = {} records.", batchSize);
 		autoCreateTable = config.getBoolean(OraCdcJdbcSinkConnectorConfig.AUTO_CREATE_PARAM);
@@ -73,7 +89,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 	public void put(Collection<SinkRecord> records) {
 		LOGGER.trace("BEGIN: put()");
 		final Set<String> tablesInProcess = new HashSet<>();
-		try (Connection connection = HikariPoolConnectionFactory.getConnection()) {
+		try (Connection connection = sinkPool.getConnection()) {
 			int processedRecords = 0;
 			final Map<TopicPartition, OffsetAndMetadata> currentOffsets = new HashMap<>();
 			for (SinkRecord record : records) {
@@ -89,7 +105,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 				if (oraTable == null) {
 					LOGGER.debug("Create new table definition for {} and add it to processing map,", tableName);
 					oraTable = new OraTable4SinkConnector(
-								tableName, record, autoCreateTable, schemaType);
+								sinkPool, tableName, record, autoCreateTable, schemaType);
 					tablesInProcessing.put(tableName, oraTable);
 				}
 				if (!tablesInProcess.contains(tableName)) {
@@ -129,6 +145,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 
 	@Override
 	public void stop() {
+		sinkPool = null;
 	}
 
 }

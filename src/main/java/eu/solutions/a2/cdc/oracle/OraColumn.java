@@ -499,12 +499,14 @@ public class OraColumn {
 
 	/**
 	 * 
+	 * @param dbType
 	 * @param statement
 	 * @param columnNo
 	 * @param columnValue
 	 * @throws SQLException
 	 */
 	public void bindWithPrepStmt(
+			final int dbType,
 			final PreparedStatement statement,
 			final int columnNo,
 			final Object columnValue) throws SQLException  {
@@ -562,7 +564,7 @@ public class OraColumn {
 				break;
 			case Types.VARCHAR:
 				// 0x00 PostgreSQL problem
-				if (HikariPoolConnectionFactory.getDbType() == HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL) {
+				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
 					statement.setString(columnNo, StringUtils.replace((String) columnValue, "\0", StringUtils.EMPTY));
 				} else { 
 					statement.setString(columnNo, (String) columnValue);

@@ -13,19 +13,16 @@
 
 package eu.solutions.a2.cdc.oracle;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Version;
 
 public class OraCdcJdbcSinkConnector extends SinkConnector {
@@ -43,18 +40,6 @@ public class OraCdcJdbcSinkConnector extends SinkConnector {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc '{}' Sink Connector", props.get("name"));
 		this.props = props;
-
-		try {
-			LOGGER.trace("BEGIN: Hikari Connection Pool init.");
-			HikariPoolConnectionFactory.init(
-					props.get(ParamConstants.CONNECTION_URL_PARAM),
-					props.get(ParamConstants.CONNECTION_USER_PARAM),
-					props.get(ParamConstants.CONNECTION_PASSWORD_PARAM));
-			LOGGER.trace("END: Hikari Connection Pool init.");
-		} catch (SQLException sqle) {
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-			throw new ConnectException("Unable to start oracdc Sink Connector.");
-		}
 	}
 
 	@Override

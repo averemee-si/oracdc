@@ -66,11 +66,11 @@ public class OraCdcSinkCreateTableTest {
 		}
 
 		String createScottDeptOra = TargetDbSqlUtils.createTableSql(
-				"DEPT", HikariPoolConnectionFactory.DB_TYPE_ORACLE, pkColumns, allColumns); 
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns); 
 		String createScottDeptPg = TargetDbSqlUtils.createTableSql(
-				"DEPT", HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL, pkColumns, allColumns); 
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns); 
 		String createScottDeptMySql = TargetDbSqlUtils.createTableSql(
-				"DEPT", HikariPoolConnectionFactory.DB_TYPE_MYSQL, pkColumns, allColumns);
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns);
 
 		assertTrue(createScottDeptOra.contains("DEPTNO NUMBER(3)"));
 		assertTrue(createScottDeptPg.contains("DEPTNO smallint"));

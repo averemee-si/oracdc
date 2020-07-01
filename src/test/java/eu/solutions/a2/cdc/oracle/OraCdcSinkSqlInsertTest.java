@@ -66,13 +66,13 @@ public class OraCdcSinkSqlInsertTest {
 		}
 
 		String sinkInsertSqlOra = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", HikariPoolConnectionFactory.DB_TYPE_ORACLE, pkColumns, allColumns)
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns)
 					.get(TargetDbSqlUtils.INSERT);
 		String sinkInsertSqlPg = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", HikariPoolConnectionFactory.DB_TYPE_POSTGRESQL, pkColumns, allColumns)
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns)
 					.get(TargetDbSqlUtils.INSERT);
 		String sinkInsertSqlMySql = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", HikariPoolConnectionFactory.DB_TYPE_MYSQL, pkColumns, allColumns)
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns)
 					.get(TargetDbSqlUtils.INSERT);
 
 		System.out.println(sinkInsertSqlOra);

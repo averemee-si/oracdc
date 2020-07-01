@@ -21,21 +21,29 @@ import org.slf4j.LoggerFactory;
 
 import com.zaxxer.hikari.HikariDataSource;
 
-public class HikariPoolConnectionFactory {
+public class OraCdcJdbcSinkConnectionPool {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(HikariPoolConnectionFactory.class);
-
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkConnectionPool.class);
 	private static final int INITIAL_SIZE = 4;
-	private static HikariDataSource dataSource = null;
 
 	public static final int DB_TYPE_MYSQL = 1;
 	public static final int DB_TYPE_POSTGRESQL = 2;
 	public static final int DB_TYPE_ORACLE = 3;
 
-	private static int dbType = DB_TYPE_MYSQL;
+	private HikariDataSource dataSource;
+	private int dbType = DB_TYPE_MYSQL;
 
-	public static final void init(String url, String user, String password) throws SQLException {
-		LOGGER.trace("Entered {}.init", HikariPoolConnectionFactory.class.getName());
+	/**
+	 * 
+	 * @param connectorName  name of connector
+	 * @param url            JDBC URL
+	 * @param user           JDBC user
+	 * @param password       JDBC password
+	 * @throws SQLException
+	 */
+	public OraCdcJdbcSinkConnectionPool(
+			String connectorName, String url, String user, String password) throws SQLException {
+		LOGGER.trace("Entered {}.init", OraCdcJdbcSinkConnectionPool.class.getName());
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("JDBC Url = {}", url);
 			LOGGER.debug("Initial pool size = {}", INITIAL_SIZE);
@@ -45,7 +53,7 @@ public class HikariPoolConnectionFactory {
 		dataSource.setUsername(user);
 		dataSource.setPassword(password);
 		dataSource.setAutoCommit(false);
-		dataSource.setPoolName("oracdc-hikari-pool-1");
+		dataSource.setPoolName("oracdc-hikari-" + connectorName);
 		//TODO - ???
 		dataSource.setMaximumPoolSize(INITIAL_SIZE);
 		if (url.startsWith("jdbc:mariadb:") || url.startsWith("jdbc:mysql:")) {
@@ -81,7 +89,7 @@ public class HikariPoolConnectionFactory {
 		}
 	}
 
-	public static Connection getConnection() throws SQLException {
+	public Connection getConnection() throws SQLException {
 		Connection connection = dataSource.getConnection();
 		if (connection.getAutoCommit()) {
 			connection.setAutoCommit(false);
@@ -89,8 +97,15 @@ public class HikariPoolConnectionFactory {
 		return connection;
 	}
 
-	public static int getDbType() {
+	public int getDbType() {
 		return dbType;
+	}
+
+	public void close() {
+		if (dataSource != null) {
+			dataSource.close();
+		}
+		dataSource = null;
 	}
 
 }
