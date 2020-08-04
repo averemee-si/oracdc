@@ -62,9 +62,29 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 		super(tableOwner, tableName, schemaType);
 	}
 
+	/**
+	 * 
+	 * @param mviewSource          snapshot log or archivelog source
+	 * @param useOracdcSchemas     true for extended schemas
+	 * @param processLobs          true for processing BLOB/CLOB
+	 * @param pdbName
+	 * @param rsColumns
+	 * @param sourceOffset
+	 * @param pkColsSet
+	 * @param idToNameMap
+	 * @param snapshotLog           Snapshot log only!
+	 * @param mViewSelect           Snapshot log only!
+	 * @param masterSelect          Snapshot log only!
+	 * @param snapshotDelete        Snapshot log only!
+	 * @param logWithRowIds         Snapshot log only!
+	 * @param logWithPrimaryKey     Snapshot log only!
+	 * @param logWithSequence       Snapshot log only!
+	 * @throws SQLException
+	 */
 	protected void buildColumnList(
 			final boolean mviewSource,
 			final boolean useOracdcSchemas,
+			final boolean processLobs,
 			final String pdbName,
 			final ResultSet rsColumns, 
 			final Map<String, Object> sourceOffset,
@@ -134,7 +154,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 
 		while (rsColumns .next()) {
 			final OraColumn column = new OraColumn(
-					mviewSource, useOracdcSchemas,
+					mviewSource, useOracdcSchemas, processLobs,
 					rsColumns, keySchemaBuilder, valueSchemaBuilder, schemaType, pkColsSet);
 			allColumns.add(column);
 			LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);

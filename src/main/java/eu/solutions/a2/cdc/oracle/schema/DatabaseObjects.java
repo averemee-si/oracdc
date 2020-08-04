@@ -155,11 +155,15 @@ public class DatabaseObjects implements ActionListener {
 					conId = 0;
 					combinedDataObjectId = dataObjectId;
 				}
+				//TODO
+				//TODO
+				//TODO
+				final boolean processLobs = true;
 				OraTable4LogMiner oraTable = new OraTable4LogMiner(
 						isCdb ? tablePdb : null,
 						isCdb ? (short) conId : null,
 						tableOwner, tableName, "ENABLED".equalsIgnoreCase(rs.getString("DEPENDENCIES")),
-						ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD, true, isCdb, null, null, null);
+						ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD, true, processLobs, isCdb, null, null, null);
 				return new AbstractMap.SimpleImmutableEntry<Long, OraTable4LogMiner>(combinedDataObjectId, oraTable);
 			} else {
 				throw new SQLException(

@@ -74,6 +74,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private int lastSsn;
 	private final AtomicBoolean running;
 	private boolean isCdb;
+	private final boolean processLobs;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -88,6 +89,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final Set<Long> tablesOutOfScope,
 			final int schemaType,
 			final boolean useOracdcSchemas,
+			final boolean processLobs,
 			final String topic,
 			final OraDumpDecoder odd,
 			final Path queuesRoot,
@@ -108,6 +110,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.odd = odd;
 		this.schemaType = schemaType;
 		this.useOracdcSchemas = useOracdcSchemas;
+		this.processLobs = processLobs;
 		this.topic = topic;
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
@@ -294,7 +297,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											isCdb ? (short) conId : null,
 											tableOwner, tableName,
 											"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-											schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
+											schemaType, useOracdcSchemas, processLobs,
+											isCdb, odd, partition, topic);
 										tablesPartitionsInProcessing.put(combinedDataObjectId, oraTable);
 										if (isPartition) {
 											combinedDataObjectId = combinedParentTableId;

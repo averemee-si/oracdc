@@ -69,6 +69,7 @@ public class OraColumn {
 	 * 
 	 * @param mviewSource         for MView log or archived redo log
 	 * @param useOracdcSchemas    true for extended schemas
+	 * @param processLobs         when true and useOracdcSchemas eq true BLOB/CLOB columns are processed
 	 * @param resultSet
 	 * @param keySchema
 	 * @param valueSchema
@@ -77,8 +78,13 @@ public class OraColumn {
 	 * @throws SQLException
 	 */
 	public OraColumn(
-			final boolean mviewSource, final boolean useOracdcSchemas, final ResultSet resultSet,
-			final SchemaBuilder keySchema, final SchemaBuilder valueSchema, final int schemaType,
+			final boolean mviewSource,
+			final boolean useOracdcSchemas,
+			final boolean processLobs,
+			final ResultSet resultSet,
+			final SchemaBuilder keySchema,
+			final SchemaBuilder valueSchema,
+			final int schemaType,
 			final Set<String> pkColsSet) throws SQLException {
 		this.columnName = resultSet.getString("COLUMN_NAME");
 		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;

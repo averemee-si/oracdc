@@ -89,6 +89,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param rowLevelScnDependency
 	 * @param schemaType
 	 * @param useOracdcSchemas
+	 * @param processLobs
 	 * @param isCdb
 	 * @param odd
 	 * @param sourcePartition
@@ -96,8 +97,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 */
 	public OraTable4LogMiner(
 			final String pdbName, final Short conId, final String tableOwner,
-			final String tableName, final boolean rowLevelScnDependency, 
-			final int schemaType, final boolean useOracdcSchemas,
+			final String tableName, final boolean rowLevelScnDependency,
+			final int schemaType, final boolean useOracdcSchemas, final boolean processLobs,
 			final boolean isCdb, final OraDumpDecoder odd,
 			final Map<String, String> sourcePartition, final String topicParam) {
 		this(pdbName, tableOwner, tableName, schemaType);
@@ -127,7 +128,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			ResultSet rsColumns = statement.executeQuery();
 			
 			buildColumnList(
-					false, useOracdcSchemas, pdbName, rsColumns, null, pkColumns, idToNameMap,
+					false, useOracdcSchemas, processLobs, pdbName, rsColumns, null, pkColumns, idToNameMap,
 					null, null, null, null, false, false, false);
 			rsColumns.close();
 			rsColumns = null;

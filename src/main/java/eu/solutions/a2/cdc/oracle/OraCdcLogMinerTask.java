@@ -85,6 +85,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private boolean lastStatementInTransaction = true;
 	private boolean needToStoreState = false;
 	private boolean useOracdcSchemas = false;
+	private boolean processLobs = false;
 	private CountDownLatch runLatch;
 	private AtomicBoolean isPollRunning;
 	private boolean execInitialLoad = false;
@@ -121,6 +122,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 		if (useOracdcSchemas) {
 			LOGGER.debug("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
 		}
+		//TODO
+		//TODO parseLobs!!!
+		//TODO
 
 		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
 			rdbmsInfo = OraRdbmsInfo.getInstance();
@@ -362,6 +366,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					tablesOutOfScope,
 					schemaType,
 					useOracdcSchemas,
+					processLobs,
 					topic,
 					odd,
 					queuesRoot,
@@ -682,7 +687,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? (short) conId : null,
 							tableOwner, tableName,
 							"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-							schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
+							schemaType, useOracdcSchemas, processLobs,
+							isCdb, odd, partition, topic);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
 					LOGGER.debug("Restored metadata for table {}, OBJECT_ID={}, CON_ID={}",
@@ -716,7 +722,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? (short) conId : null,
 							resultSet.getString("OWNER"), tableName,
 							"ENABLED".equalsIgnoreCase(resultSet.getString("DEPENDENCIES")),
-							schemaType, useOracdcSchemas, isCdb, odd, partition, topic);
+							schemaType, useOracdcSchemas, processLobs,
+							isCdb, odd, partition, topic);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}
