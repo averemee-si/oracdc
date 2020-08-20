@@ -37,6 +37,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
+import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 /**
@@ -407,70 +408,77 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final Struct keyStruct, final Struct valueStruct) throws SQLException {
 		final String columnName = oraColumn.getColumnName();
 		final String hex = StringUtils.substring(hexValue, 1, hexValue.length() - 1);
-		final Object columnValue; 
-		switch (oraColumn.getJdbcType()) {
-			case Types.DATE:
-			case Types.TIMESTAMP:
-				columnValue = OraDumpDecoder.toTimestamp(hex);
-				break;
-			case Types.TIMESTAMP_WITH_TIMEZONE:
-				columnValue = OraTimestamp.fromLogical(
+		final Object columnValue;
+		try {
+			switch (oraColumn.getJdbcType()) {
+				case Types.DATE:
+				case Types.TIMESTAMP:
+					columnValue = OraDumpDecoder.toTimestamp(hex);
+					break;
+				case Types.TIMESTAMP_WITH_TIMEZONE:
+					columnValue = OraTimestamp.fromLogical(
 						OraDumpDecoder.toByteArray(hex), oraColumn.isLocalTimeZone());
-				break;
-			case Types.TINYINT:
-				columnValue = OraDumpDecoder.toByte(hex);
-				break;
-			case Types.SMALLINT:
-				columnValue = OraDumpDecoder.toShort(hex);
-				break;
-			case Types.INTEGER:
-				columnValue = OraDumpDecoder.toInt(hex);
-				break;
-			case Types.BIGINT:
-				columnValue = OraDumpDecoder.toLong(hex);
-				break;
-			case Types.FLOAT:
-				if (oraColumn.isBinaryFloatDouble()) {
-					columnValue = OraDumpDecoder.fromBinaryFloat(hex);
-				} else {
-					columnValue = OraDumpDecoder.toFloat(hex);
-				}
-				break;
-			case Types.DOUBLE:
-				if (oraColumn.isBinaryFloatDouble()) {
-					columnValue = OraDumpDecoder.fromBinaryDouble(hex);
-				} else {
-					columnValue = OraDumpDecoder.toDouble(hex);
-				}
-				break;
-			case Types.DECIMAL:
-				columnValue = OraDumpDecoder.toBigDecimal(hex).setScale(oraColumn.getDataScale());
-				break;
-			case Types.NUMERIC:
-				// do not need to call OraNumber.fromLogical()
-				columnValue = OraDumpDecoder.toByteArray(hex);
-				break;
-			case Types.BINARY:
-				columnValue = OraDumpDecoder.toByteArray(hex);
-				break;
-			case Types.CHAR:
-			case Types.VARCHAR:
-				columnValue = odd.fromVarchar2(hex);
-				break;
-			case Types.NCHAR:
-			case Types.NVARCHAR:
-				columnValue = odd.fromNvarchar2(hex);
-				break;
-			default:
-				columnValue = oraColumn.unsupportedTypeValue();
-				break;
-		}
-		if (pkColumns.containsKey(columnName)) {
-			keyStruct.put(columnName, columnValue);
-		}
-		if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
+					break;
+				case Types.TINYINT:
+					columnValue = OraDumpDecoder.toByte(hex);
+					break;
+				case Types.SMALLINT:
+					columnValue = OraDumpDecoder.toShort(hex);
+					break;
+				case Types.INTEGER:
+					columnValue = OraDumpDecoder.toInt(hex);
+					break;
+				case Types.BIGINT:
+					columnValue = OraDumpDecoder.toLong(hex);
+					break;
+				case Types.FLOAT:
+					if (oraColumn.isBinaryFloatDouble()) {
+						columnValue = OraDumpDecoder.fromBinaryFloat(hex);
+					} else {
+						columnValue = OraDumpDecoder.toFloat(hex);
+					}
+					break;
+				case Types.DOUBLE:
+					if (oraColumn.isBinaryFloatDouble()) {
+						columnValue = OraDumpDecoder.fromBinaryDouble(hex);
+					} else {
+						columnValue = OraDumpDecoder.toDouble(hex);
+					}
+					break;
+				case Types.DECIMAL:
+					columnValue = OraDumpDecoder.toBigDecimal(hex).setScale(oraColumn.getDataScale());
+					break;
+				case Types.NUMERIC:
+					// do not need to call OraNumber.fromLogical()
+					columnValue = OraDumpDecoder.toByteArray(hex);
+					break;
+				case Types.BINARY:
+					columnValue = OraDumpDecoder.toByteArray(hex);
+					break;
+				case Types.CHAR:
+				case Types.VARCHAR:
+					columnValue = odd.fromVarchar2(hex);
+					break;
+				case Types.NCHAR:
+				case Types.NVARCHAR:
+					columnValue = odd.fromNvarchar2(hex);
+					break;
+				default:
+					columnValue = oraColumn.unsupportedTypeValue();
+					break;
+			}
+			if (pkColumns.containsKey(columnName)) {
+				keyStruct.put(columnName, columnValue);
+			}
+			if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
 				schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-			valueStruct.put(columnName, columnValue);
+				valueStruct.put(columnName, columnValue);
+			}
+		} catch (SQLException sqle) {
+			LOGGER.error(
+					"{}! While decoding redo values for table {}\n\t\tcolumn {}\n\t\tJDBC Type {}\n\t\tdump value (hex) {}",
+					sqle.getMessage(), this.tableFqn, columnName, JdbcTypes.getTypeName(oraColumn.getJdbcType()), hex);
+			throw new SQLException(sqle);
 		}
 	}
 
