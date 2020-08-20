@@ -60,6 +60,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private String kafkaTopic;
 	private OraDumpDecoder odd;
 	private boolean tableWithPk;
+	private boolean processLobs;
 	private final String tableFqn;
 
 	/**
@@ -68,14 +69,17 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param tableOwner   owner
 	 * @param tableName    name
 	 * @param schemaType   type of schema
+	 * @param processLobs  true for LOB support
 	 */
 	private OraTable4LogMiner(
-			final String pdbName, final String tableOwner, final String tableName, final int schemaType) {
+			final String pdbName, final String tableOwner, final String tableName,
+			final int schemaType, final boolean processLobs) {
 		super(tableOwner, tableName, schemaType);
 		this.idToNameMap = new HashMap<>();
 		this.pdbName = pdbName;
 		this.tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
 				this.tableOwner + "." + this.tableName;
+		this.processLobs = processLobs;
 	}
 
 	/**
@@ -101,7 +105,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final int schemaType, final boolean useOracdcSchemas, final boolean processLobs,
 			final boolean isCdb, final OraDumpDecoder odd,
 			final Map<String, String> sourcePartition, final String topicParam) {
-		this(pdbName, tableOwner, tableName, schemaType);
+		this(pdbName, tableOwner, tableName, schemaType, processLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(topicParam, odd, sourcePartition);
 		this.tableWithPk = true;
@@ -147,12 +151,13 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * Restore OraTable from JSON
 	 * 
 	 * @param tableData
+	 * @param schemaType
 	 */
 	public OraTable4LogMiner(Map<String, Object> tableData, final int schemaType) {
 		this((String) tableData.get("pdbName"),
 				(String) tableData.get("tableOwner"),
 				(String) tableData.get("tableName"),
-				schemaType);
+				schemaType, (boolean) tableData.get("processLobs"));
 		tableWithPk = (boolean) tableData.get("tableWithPk");
 		final Boolean rowLevelScnDependency = (Boolean) tableData.get("rowLevelScn");
 		if (rowLevelScnDependency == null || !rowLevelScnDependency) {
@@ -251,6 +256,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					// Column can be excluded
 					if (StringUtils.startsWith(columnValue, "N")) {
 						valueStruct.put(oraColumn.getColumnName(), null);
+					} else if ("''".equals(columnValue) &&
+							(oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB)) {
+						// EMPTY_BLOB()/EMPTY_CLOB() passed as ''
+						break;
 					} else {
 						parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
 					}
@@ -300,6 +309,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					// Column can be excluded
 					if (StringUtils.endsWith(currentExpr, "L")) {
 						valueStruct.put(oraColumn.getColumnName(), null);
+					} else if (oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB) {
+						//TODO
+						//TODO EMPTY_BLOB()/EMPTY_CLOB() handling!
+						//TODO LOB_WRITE results!!!
+						//TODO
+						break;
 					} else {
 						parseRedoRecordValues(oraColumn,
 								StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
@@ -478,6 +493,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	public void setTableWithPk(boolean tableWithPk) {
 		this.tableWithPk = tableWithPk;
+	}
+
+	public boolean isProcessLobs() {
+		return processLobs;
+	}
+
+	public void setProcessLobs(boolean processLobs) {
+		this.processLobs = processLobs;
 	}
 
 	public void setTopicDecoderPartition(final String topicParam,

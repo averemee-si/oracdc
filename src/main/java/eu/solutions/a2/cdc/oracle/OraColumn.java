@@ -35,6 +35,8 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
+import eu.solutions.a2.cdc.oracle.data.OraBlob;
+import eu.solutions.a2.cdc.oracle.data.OraClob;
 import eu.solutions.a2.cdc.oracle.data.OraNumber;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
@@ -61,6 +63,7 @@ public class OraColumn {
 	private Integer dataScale;
 	private Boolean binaryFloatDouble;
 	private Boolean localTimeZone;
+	private Integer lobObjectId;
 
 
 	/**
@@ -220,11 +223,13 @@ public class OraColumn {
 					stringField(keySchema, valueSchema);
 					break;
 				case "CLOB":
+					jdbcType = Types.CLOB;
 					if (mviewSource) {
-						jdbcType = Types.CLOB;
 						stringField(keySchema, valueSchema);
-					} else {
-						//TODO - WIP for archived redo
+					} else if (processLobs) {
+						// Archived redo as source and LOB processing
+						lobObjectId = resultSet.getInt("OBJECT_ID");
+						valueSchema.field(this.columnName, OraClob.builder().build());
 					}
 					break;
 				case "RAW":
@@ -232,11 +237,13 @@ public class OraColumn {
 					bytesField(keySchema, valueSchema);
 					break;
 				case "BLOB":
+					jdbcType = Types.BLOB;
 					if (mviewSource) {
-						jdbcType = Types.BLOB;
 						bytesField(keySchema, valueSchema);
-					} else {
-						//TODO - WIP for archived redo
+					} else if (processLobs) {
+						// Archived redo as source and LOB processing
+						lobObjectId = resultSet.getInt("OBJECT_ID");
+						valueSchema.field(this.columnName, OraBlob.builder().build());
 					}
 					break;
 				default:
@@ -501,6 +508,14 @@ public class OraColumn {
 
 	public void setLocalTimeZone(Boolean localTimeZone) {
 		this.localTimeZone = localTimeZone;
+	}
+
+	public Integer getLobObjectId() {
+		return lobObjectId;
+	}
+
+	public void setLobObjectId(Integer lobObjectId) {
+		this.lobObjectId = lobObjectId;
 	}
 
 	/**

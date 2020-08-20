@@ -152,13 +152,13 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			}
 		}
 
-		while (rsColumns .next()) {
+		while (rsColumns.next()) {
 			final OraColumn column = new OraColumn(
 					mviewSource, useOracdcSchemas, processLobs,
 					rsColumns, keySchemaBuilder, valueSchemaBuilder, schemaType, pkColsSet);
-			allColumns.add(column);
-			LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);
+			boolean columnAdded = true;
 			if (mviewSource) {
+				allColumns.add(column);
 				if (masterFirstColumn) {
 					masterFirstColumn = false;
 				} else {
@@ -168,7 +168,21 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 				masterSelect.append(column.getColumnName());
 				masterSelect.append("\"");
 			} else {
-				idToNameMap.put(column.getNameFromId(), column);
+				// For archived redo more logic required
+				if (column.getJdbcType() == Types.BLOB || column.getJdbcType() == Types.CLOB) {
+					if (processLobs) {
+						allColumns.add(column);
+						idToNameMap.put(column.getNameFromId(), column);
+					} else {
+						columnAdded = false;
+					}
+				} else {
+					allColumns.add(column);
+					idToNameMap.put(column.getNameFromId(), column);
+				}
+			}
+			if (columnAdded) {
+				LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);
 			}
 
 			if (column.isPartOfPk()) {
