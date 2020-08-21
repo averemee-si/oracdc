@@ -300,6 +300,10 @@ Initial data load support. See also `a2.initial.load` parameter
 
 Partitioned tables support
 
+#####0.9.6.2 (AUG-2020)
+
+Oracle NUMBER datatype mapping fixes
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)

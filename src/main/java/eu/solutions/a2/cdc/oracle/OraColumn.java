@@ -152,12 +152,16 @@ public class OraColumn {
 					}
 					break;
 				case "NUMBER":
-					final int dataPrecision = resultSet.getInt("DATA_PRECISION");
+					int dataPrecision = resultSet.getInt("DATA_PRECISION");
 					final boolean precisionIsNull = resultSet.wasNull();
 					dataScale = resultSet.getInt("DATA_SCALE");
 					final boolean scaleIsNull = resultSet.wasNull();
 					if (scaleIsNull) {
 						dataScale = null;
+					} else if (precisionIsNull) {
+						//DATA_SCALE set but DATA_PRECISION is unknown....
+						//Set it to MAX
+						dataPrecision = 38;
 					}
 					if (precisionIsNull && scaleIsNull) {
 						// NUMBER w/out precision and scale
