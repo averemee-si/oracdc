@@ -303,10 +303,17 @@ public class OraCdcLogMinerTask extends SourceTask {
 				}
 			}
 			if (includeList != null) {
-				final String tableList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
-				mineDataSql += "where ((OPERATION_CODE in (1,2,3) " + 
-						rdbmsInfo.getMineObjectsIds(connDictionary, false, tableList) +
-						")";
+				final String tableList = OraSqlUtils.parseTableSchemaList(
+						false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
+				final String objectList = rdbmsInfo.getMineObjectsIds(
+						connDictionary, false, tableList);
+				if (StringUtils.endsWith(objectList, "()")) {
+					// and DATA_OBJ# in ()
+					LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
+							ParamConstants.TABLE_INCLUDE_PARAM, props.get(ParamConstants.TABLE_INCLUDE_PARAM));
+					throw new ConnectException("Please check value of a2.include parameter or remove it from configuration!");
+				}
+				mineDataSql += "where ((OPERATION_CODE in (1,2,3) " +  objectList + ")";
 				checkTableSql += tableList;
 				if (execInitialLoad) {
 					initialLoadSql += tableList;
@@ -318,9 +325,15 @@ public class OraCdcLogMinerTask extends SourceTask {
 				} else {
 					mineDataSql += " where ((OPERATION_CODE in (1,2,3) ";
 				}
-				mineDataSql += rdbmsInfo.getMineObjectsIds(connDictionary, true,
-						OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList)) +
-						")";
+				final String objectList = rdbmsInfo.getMineObjectsIds(connDictionary, true,
+						OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList));
+				if (StringUtils.endsWith(objectList, "()")) {
+					// and DATA_OBJ# not in ()
+					LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
+							ParamConstants.TABLE_EXCLUDE_PARAM, props.get(ParamConstants.TABLE_EXCLUDE_PARAM));
+					throw new ConnectException("Please check value of a2.exclude parameter or remove it from configuration!");
+				}
+				mineDataSql += objectList + ")";
 				final String tableList = OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList);
 				checkTableSql += tableList;
 				if (execInitialLoad) {
@@ -524,39 +537,42 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 	public void stop(boolean stopWorker) {
 		LOGGER.info("Stopping oracdc logminer source task.");
-		runLatch.countDown();
-		if (stopWorker) {
-			worker.shutdown();
-			while (worker.isRunning()) {
-				try {
-					LOGGER.debug("Waiting {} ms for worker thread to stop...", WAIT_FOR_WORKER_MILLIS);
-					Thread.sleep(WAIT_FOR_WORKER_MILLIS);
-				} catch (InterruptedException e) {
-					LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+		if (runLatch != null ) {
+			// We can stop before runLatch initialization due to invalid parameters
+			runLatch.countDown();
+			if (stopWorker) {
+				worker.shutdown();
+				while (worker.isRunning()) {
+					try {
+						LOGGER.debug("Waiting {} ms for worker thread to stop...", WAIT_FOR_WORKER_MILLIS);
+						Thread.sleep(WAIT_FOR_WORKER_MILLIS);
+					} catch (InterruptedException e) {
+						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+					}
+				}
+			} else {
+				while (isPollRunning.get()) {
+					try {
+						LOGGER.debug("Waiting {} ms for connector task to stop...", WAIT_FOR_WORKER_MILLIS);
+						Thread.sleep(WAIT_FOR_WORKER_MILLIS);
+					} catch (InterruptedException e) {
+						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+					}
 				}
 			}
-		} else {
-			while (isPollRunning.get()) {
+			if (needToStoreState) {
 				try {
-					LOGGER.debug("Waiting {} ms for connector task to stop...", WAIT_FOR_WORKER_MILLIS);
-					Thread.sleep(WAIT_FOR_WORKER_MILLIS);
-				} catch (InterruptedException e) {
-					LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-				}
+					saveState(true);
+				} catch(IOException ioe) {
+					LOGGER.error("Unable to save state to file " + stateFileName + "!");
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+					throw new ConnectException("Unable to save state to file " + stateFileName + "!");
 			}
-		}
-		if (needToStoreState) {
-			try {
-				saveState(true);
-			} catch(IOException ioe) {
-				LOGGER.error("Unable to save state to file " + stateFileName + "!");
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-				throw new ConnectException("Unable to save state to file " + stateFileName + "!");
-		}
 
-		} else {
-			LOGGER.info("Do not need to run store state procedures.");
-			LOGGER.info("Check Connect log files for errors.");
+			} else {
+				LOGGER.info("Do not need to run store state procedures.");
+				LOGGER.info("Check Connect log files for errors.");
+			}
 		}
 	}
 
