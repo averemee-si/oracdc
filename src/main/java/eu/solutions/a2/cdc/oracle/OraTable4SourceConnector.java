@@ -262,21 +262,6 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 		}
 	}
 
-	protected String getKafkaTopic(final String topicParam) {
-		final String targetKafkaTopic;
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			if (StringUtils.isEmpty(topicParam)) {
-				targetKafkaTopic = StringUtils.replace(this.tableName, "$", "_4_");
-			} else {
-				targetKafkaTopic = topicParam + "_" + StringUtils.replace(this.tableName, "$", "_4_");
-			}
-		} else {
-			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-			targetKafkaTopic = topicParam;
-		}
-		return targetKafkaTopic;
-	}
-
 	public boolean isRowLevelScn() {
 		return rowLevelScn;
 	}
