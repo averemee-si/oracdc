@@ -124,26 +124,27 @@ from DBA_LOG_GROUPS;
 
 ### Creating Oracle ROLE with LogMiner privileges
 
-For Oracle RDBMS versions 12c+ before creation role without `c##` prefix additional session parameter required to prevent ORA-65096 error (Ref.: [ZDLRA - Container Database - Redo_Transport_User - How to create common user on CDB and Recovery Catalog (Doc ID 2148774.1)](https://support.oracle.com/rs?type=doc&id=2148774.1)):
-
-```
-alter session set "_oracle_script"=true;
-```
+Instructions below are for CDB, for non-CDB ([depreciated in 12c](Deprecation of Non-CDB Architecture), will be desupported in 20c) you can use role and user names without **c##** prefix.
 Log in as sysdba and enter the following commands to create a role with the privileges required for running **oracdc** with LogMiner as CDC source:
 
 ```
-create role REPLICATOR;
-grant CREATE SESSION to REPLICATOR;
-grant SELECT ANY TRANSACTION to REPLICATOR;
-grant SELECT ANY DICTIONARY to REPLICATOR;
-grant EXECUTE_CATALOG_ROLE to REPLICATOR;
+create role C##REPLICATOR;
+grant CREATE SESSION to C##REPLICATOR;
+grant SELECT ANY TRANSACTION to C##REPLICATOR;
+grant SELECT ANY DICTIONARY to C##REPLICATOR;
+grant EXECUTE_CATALOG_ROLE to C##REPLICATOR;
 ```
 For Oracle RDBMS versions 12c+ additional privilege required:
 
 ```
-grant LOGMINING to REPLICATOR;
+grant LOGMINING to C##REPLICATOR;
 ```
-Assign **REPLICATOR** role to the Oracle RDBMS user.
+Assign **C##REPLICATOR** role to the Oracle RDBMS user.
+
+```
+grant C##REPLICATOR to C##ORACDC;
+```
+
 
 ### Additional configuration for physical standby database (V$DATABASE.OPEN_MODE = MOUNTED)
 
