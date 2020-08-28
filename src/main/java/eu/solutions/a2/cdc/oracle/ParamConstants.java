@@ -23,6 +23,10 @@ public class ParamConstants {
 	public static final int SCHEMA_TYPE_INT_DEBEZIUM = 1;
 	public static final int SCHEMA_TYPE_INT_KAFKA_STD = 2;
 
+	public static final int TOPIC_NAME_STYLE_INT_TABLE = 1;
+	public static final int TOPIC_NAME_STYLE_INT_SCHEMA_TABLE = 2;
+	public static final int TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE = 3;
+
 	public static final String CONNECTION_URL_PARAM = "a2.jdbc.url";
 	public static final String CONNECTION_URL_DOC = "JDBC connection URL";
 
@@ -98,5 +102,17 @@ public class ParamConstants {
 	public static final String INITIAL_LOAD_IGNORE = "IGNORE";
 	public static final String INITIAL_LOAD_EXECUTE = "EXECUTE";
 	public static final String INITIAL_LOAD_COMPLETED = "COMPLETED";
+
+	public static final String TOPIC_NAME_STYLE_PARAM = "a2.topic.name.style";
+	public static final String TOPIC_NAME_STYLE_DOC = "Kafka topic naming convention when a2.schema.type=kafka. Valid values - TABLE (default), SCHEMA_TABLE, PDB_SCHEMA_TABLE";
+	public static final String TOPIC_NAME_STYLE_TABLE = "TABLE";
+	public static final String TOPIC_NAME_STYLE_SCHEMA_TABLE = "SCHEMA_TABLE";
+	public static final String TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE = "PDB_SCHEMA_TABLE";
+
+	public static final String TOPIC_NAME_DELIMITER_PARAM = "a2.topic.name.delimiter";
+	public static final String TOPIC_NAME_DELIMITER_DOC = "Kafka topic name delimiter when a2.schema.type=kafka and a2.topic.name.style set to SCHEMA_TABLE or PDB_SCHEMA_TABLE. Valid values - '_' (Default), '-', '.'";
+	public static final String TOPIC_NAME_DELIMITER_UNDERSCORE = "_";
+	public static final String TOPIC_NAME_DELIMITER_DASH = "-";
+	public static final String TOPIC_NAME_DELIMITER_DOT = ".";
 
 }

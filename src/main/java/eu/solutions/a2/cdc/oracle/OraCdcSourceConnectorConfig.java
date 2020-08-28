@@ -65,7 +65,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.BATCH_SIZE_DOC)
 				.define(ParamConstants.SCHEMA_TYPE_PARAM, Type.STRING,
 						ParamConstants.SCHEMA_TYPE_KAFKA,
-						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA, ParamConstants.SCHEMA_TYPE_DEBEZIUM),
+						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA,
+								ParamConstants.SCHEMA_TYPE_DEBEZIUM),
 						Importance.LOW, ParamConstants.SCHEMA_TYPE_DOC)
 				.define(TOPIC_PREFIX_PARAM, Type.STRING, "",
 						Importance.MEDIUM, TOPIC_PREFIX_DOC)
@@ -97,8 +98,21 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.DICTIONARY_FILE_DOC)
 				.define(ParamConstants.INITIAL_LOAD_PARAM, Type.STRING,
 						ParamConstants.INITIAL_LOAD_IGNORE,
-						ConfigDef.ValidString.in(ParamConstants.INITIAL_LOAD_IGNORE, ParamConstants.INITIAL_LOAD_EXECUTE),
-						Importance.LOW, ParamConstants.INITIAL_LOAD_DOC);
+						ConfigDef.ValidString.in(ParamConstants.INITIAL_LOAD_IGNORE,
+								ParamConstants.INITIAL_LOAD_EXECUTE),
+						Importance.LOW, ParamConstants.INITIAL_LOAD_DOC)
+				.define(ParamConstants.TOPIC_NAME_STYLE_PARAM, Type.STRING,
+						ParamConstants.TOPIC_NAME_STYLE_TABLE,
+						ConfigDef.ValidString.in(ParamConstants.TOPIC_NAME_STYLE_TABLE,
+								ParamConstants.TOPIC_NAME_STYLE_SCHEMA_TABLE,
+								ParamConstants.TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE),
+						Importance.LOW, ParamConstants.TOPIC_NAME_STYLE_DOC)
+				.define(ParamConstants.TOPIC_NAME_DELIMITER_PARAM, Type.STRING,
+						ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,
+						ConfigDef.ValidString.in(ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,
+								ParamConstants.TOPIC_NAME_DELIMITER_DASH,
+								ParamConstants.TOPIC_NAME_DELIMITER_DOT),
+						Importance.LOW, ParamConstants.TOPIC_NAME_DELIMITER_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {

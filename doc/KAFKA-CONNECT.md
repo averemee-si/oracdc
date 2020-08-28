@@ -52,6 +52,10 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.initial.load` - A mode for performing initial load of data from tables when set to `EXECUTE`. Record the successful completion of the initial load in the offset file. Default value - `IGNORE`. 
 
+`a2.topic.name.style` - Kafka topic naming convention when `a2.schema.type=kafka`. Valid values - `TABLE` (default), `SCHEMA_TABLE`, `PDB_SCHEMA_TABLE`. 
+
+`a2.topic.name.delimiter` - Kafka topic name delimiter when `a2.schema.type=kafka` and `a2.topic.name.style` set to `SCHEMA_TABLE` or `PDB_SCHEMA_TABLE`. Valid values - `_` (Default), `-`, and `.`. 
+
 #### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
