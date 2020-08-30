@@ -39,6 +39,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.KafkaUtils;
 
 /**
  * 
@@ -99,16 +100,19 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param odd
 	 * @param sourcePartition
 	 * @param topicParam
+	 * @param topicNameStyle
+	 * @param topicNameDelimiter
 	 */
 	public OraTable4LogMiner(
 			final String pdbName, final Short conId, final String tableOwner,
 			final String tableName, final boolean rowLevelScnDependency,
 			final int schemaType, final boolean useOracdcSchemas, final boolean processLobs,
 			final boolean isCdb, final OraDumpDecoder odd,
-			final Map<String, String> sourcePartition, final String topicParam) {
+			final Map<String, String> sourcePartition, final String topicParam,
+			final int topicNameStyle, final String topicNameDelimiter) {
 		this(pdbName, tableOwner, tableName, schemaType, processLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
-		setTopicDecoderPartition(topicParam, odd, sourcePartition);
+		setTopicDecoderPartition(topicParam, topicNameStyle, topicNameDelimiter, odd, sourcePartition);
 		this.tableWithPk = true;
 		this.setRowLevelScn(rowLevelScnDependency);
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
@@ -512,12 +516,33 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	}
 
 	public void setTopicDecoderPartition(final String topicParam,
+			final int topicNameStyle, final String topicNameDelimiter,
 			final OraDumpDecoder odd, final Map<String, String> sourcePartition) {
 		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			if (StringUtils.isEmpty(topicParam)) {
-				this.kafkaTopic = StringUtils.replace(this.tableName, "$", "_4_");
+			if (topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_TABLE) {
+				this.kafkaTopic = this.tableName;
+			} else if (topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE) {
+				this.kafkaTopic = this.tableOwner + topicNameDelimiter + this.tableName;
 			} else {
-				this.kafkaTopic = topicParam + "_" + StringUtils.replace(this.tableName, "$", "_4_");
+				// topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE
+				if (this.pdbName == null) {
+					LOGGER.warn("Unable to use a2.topic.name.style=PDB_SCHEMA_TABLE in non-CDB database for table {}!",
+							this.fqn());
+					this.kafkaTopic = this.tableOwner + topicNameDelimiter + this.tableName;
+				} else {
+					this.kafkaTopic = this.pdbName + topicNameDelimiter +
+										this.tableOwner + topicNameDelimiter + this.tableName;
+				}
+			}
+			if (!StringUtils.isEmpty(topicParam)) {
+				this.kafkaTopic = topicParam + topicNameDelimiter + this.kafkaTopic;
+			}
+			if (!KafkaUtils.validTopicName(this.kafkaTopic)) {
+				this.kafkaTopic = KafkaUtils.fixTopicName(this.kafkaTopic, "zZ");
+			}
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Kafka topic for table {} set to {}.",
+						this.fqn(), this.kafkaTopic);
 			}
 		} else {
 			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM

@@ -75,6 +75,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final AtomicBoolean running;
 	private boolean isCdb;
 	private final boolean processLobs;
+	private final int topicNameStyle;
+	private final String topicNameDelimiter;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -95,7 +97,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final Path queuesRoot,
 			final Map<String, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
-			final OraCdcLogMinerMgmt metrics) throws SQLException {
+			final OraCdcLogMinerMgmt metrics,
+			final int topicNameStyle,
+			final String topicNameDelimiter) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -115,6 +119,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
+		this.topicNameStyle = topicNameStyle;
+		this.topicNameDelimiter = topicNameDelimiter;
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
 		try {
@@ -298,7 +304,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											tableOwner, tableName,
 											"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 											schemaType, useOracdcSchemas, processLobs,
-											isCdb, odd, partition, topic);
+											isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter);
 										tablesPartitionsInProcessing.put(combinedDataObjectId, oraTable);
 										if (isPartition) {
 											combinedDataObjectId = combinedParentTableId;

@@ -72,6 +72,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private Map<String, String> partition;
 	private int schemaType;
 	private String topic;
+	private int topicNameStyle;
+	private String topicNameDelimiter;
 	private String stateFileName;
 	private OraRdbmsInfo rdbmsInfo;
 	private OraCdcLogMinerMgmt metrics;
@@ -113,6 +115,18 @@ public class OraCdcLogMinerTask extends SourceTask {
 		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
 		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
 			topic = props.get(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM);
+			switch (props.get(ParamConstants.TOPIC_NAME_STYLE_PARAM)) {
+			case ParamConstants.TOPIC_NAME_STYLE_TABLE:
+				topicNameStyle = ParamConstants.TOPIC_NAME_STYLE_INT_TABLE;
+				break;
+			case ParamConstants.TOPIC_NAME_STYLE_SCHEMA_TABLE:
+				topicNameStyle = ParamConstants.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE;
+				break;
+			case ParamConstants.TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE:
+				topicNameStyle = ParamConstants.TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE;
+				break;
+			}
+			topicNameDelimiter = props.get(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
 		} else {
 			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
 			topic = props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
@@ -170,7 +184,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 								tablesInProcessing.size(), schemaFileName);
 						tablesInProcessing.forEach((key, table) -> {
 							table.setTopicDecoderPartition(
-									topic, odd, partition);
+									topic, topicNameStyle, topicNameDelimiter, odd, partition);
 							metrics.addTableInProcessing(table.fqn());
 						});
 					} catch (IOException ioe) {
@@ -385,7 +399,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 					queuesRoot,
 					activeTransactions,
 					committedTransactions,
-					metrics);
+					metrics,
+					topicNameStyle,
+					topicNameDelimiter);
 			if (rewind) {
 				worker.rewind(firstScn, firstRsId, firstSsn);
 			}
@@ -704,7 +720,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							tableOwner, tableName,
 							"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas, processLobs,
-							isCdb, odd, partition, topic);
+							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
 					LOGGER.debug("Restored metadata for table {}, OBJECT_ID={}, CON_ID={}",
@@ -739,7 +755,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							resultSet.getString("OWNER"), tableName,
 							"ENABLED".equalsIgnoreCase(resultSet.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas, processLobs,
-							isCdb, odd, partition, topic);
+							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

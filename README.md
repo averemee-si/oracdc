@@ -305,6 +305,10 @@ Partitioned tables support
 
 Oracle NUMBER datatype mapping fixes
 
+#####0.9.6.3 (AUG-2020)
+
+Kafka topic name configuration using a2.topic.name.style & a2.topic.name.delimiter parameters
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
