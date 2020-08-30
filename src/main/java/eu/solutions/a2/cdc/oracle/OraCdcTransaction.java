@@ -225,11 +225,11 @@ public class OraCdcTransaction {
 	public static OraCdcTransaction restoreFromMap(Map<String, Object> attrs) throws IOException {
 		final Path transDir = Paths.get((String) attrs.get(QUEUE_DIR));
 		final String transXid = (String) attrs.get(TRANS_XID);
-		final long transFirstChange = (long) attrs.get(TRANS_FIRST_CHANGE);
-		final long transNextChange = (long) attrs.get(TRANS_NEXT_CHANGE);
+		final long transFirstChange = valueAsLong(attrs.get(TRANS_FIRST_CHANGE));
+		final long transNextChange = valueAsLong(attrs.get(TRANS_NEXT_CHANGE));
 		final int transQueueSize = (int) attrs.get(QUEUE_SIZE);
 		final int transOffset = (int) attrs.get(QUEUE_OFFSET);
-		final Long transCommitScn = (Long) attrs.get(TRANS_COMMIT_SCN);
+		final Long transCommitScn = valueAsLong(attrs.get(TRANS_COMMIT_SCN));
 		return new OraCdcTransaction(transDir, transXid,
 				transFirstChange, transNextChange, transCommitScn, transQueueSize, transOffset);
 	}
@@ -256,6 +256,14 @@ public class OraCdcTransaction {
 
 	public Path getPath() {
 		return queueDirectory;
+	}
+
+	private static long valueAsLong(Object value) {
+		if (value instanceof Integer) {
+			return ((Integer) value).intValue();
+		} else {
+			return (long) value;
+		}
 	}
 
 }
