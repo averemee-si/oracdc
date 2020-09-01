@@ -42,11 +42,11 @@
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<junit.version>4.12</junit.version>
-		<kafka.version>2.3.1</kafka.version>
+		<kafka.version>2.4.1</kafka.version>
 		<commons.lang3.version>3.8.1</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<chronicle.queue.version>5.17.43</chronicle.queue.version>
-		<ora.jdbc.version>19.6.0.0</ora.jdbc.version>
+		<ora.jdbc.version>19.7.0.0</ora.jdbc.version>
 		<HikariCP.version>3.4.1</HikariCP.version>
 		<jackson.version>2.10.0</jackson.version>
 		<slf4j.version>1.7.28</slf4j.version>
