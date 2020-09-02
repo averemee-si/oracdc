@@ -229,7 +229,8 @@ public class OraCdcTransaction {
 		final long transNextChange = valueAsLong(attrs.get(TRANS_NEXT_CHANGE));
 		final int transQueueSize = (int) attrs.get(QUEUE_SIZE);
 		final int transOffset = (int) attrs.get(QUEUE_OFFSET);
-		final Long transCommitScn = valueAsLong(attrs.get(TRANS_COMMIT_SCN));
+		final Object transCommitScnObj = attrs.get(TRANS_COMMIT_SCN);
+		final Long transCommitScn = transCommitScnObj == null ? null : valueAsLong(transCommitScnObj);
 		return new OraCdcTransaction(transDir, transXid,
 				transFirstChange, transNextChange, transCommitScn, transQueueSize, transOffset);
 	}
