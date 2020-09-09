@@ -43,6 +43,8 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	private int ssn;
 	/** V$LOGMNR_CONTENTS.ROW_ID */
 	private String rowId;
+	/** BLOB/CLOB count, default 0 */
+	private byte lobCount;
 
 	/**
 	 * 
@@ -74,6 +76,8 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		this.rsId = rsId;
 		this.ssn = ssn;
 		this.rowId = rowId;
+		// No BLOB/CLOB initially
+		this.lobCount = 0;
 	}
 
 	public long getTableId() {
@@ -140,6 +144,14 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		this.rowId = rowId;
 	}
 
+	public byte getLobCount() {
+		return lobCount;
+	}
+
+	public void setLobCount(byte lobCount) {
+		this.lobCount = lobCount;
+	}
+
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder(1024);
@@ -164,6 +176,8 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		sb.append(ssn);
 		sb.append(", ROW_ID=");
 		sb.append(rowId);
+		sb.append(", LOB_COUNT=");
+		sb.append(lobCount);
 		sb.append("]");
 
 		return sb.toString();
@@ -179,7 +193,8 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 			.writeLong(scn)
 			.write8bit(rsId)
 			.writeInt(ssn)
-			.write8bit(rowId);
+			.write8bit(rowId)
+			.writeByte(lobCount);
 	}
 
 
@@ -194,6 +209,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		rsId = raw.read8bit();
 		ssn = raw.readInt();
 		rowId = raw.read8bit();
+		lobCount = raw.readByte();
 	}
 
 
