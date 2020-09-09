@@ -360,6 +360,26 @@ from   V$LOGMNR_CONTENTS L
 			"from   V$LOGMNR_CONTENTS L\n";
 
 /*
+select CSF, SQL_REDO
+from   V$LOGMNR_CONTENTS
+where  OPERATION_CODE = 10 and SCN = ? and DATA_OBJ# = ?
+ */
+	public static final String MINE_LOB_NON_CDB =
+			"select CSF, SQL_REDO\n" + 
+			"from   V$LOGMNR_CONTENTS\n" +
+			"where  OPERATION_CODE = 10 and SCN = ? and DATA_OBJ# = ?";
+
+/*
+select CSF, SQL_REDO
+from   V$LOGMNR_CONTENTS
+where  OPERATION_CODE = 10 and SCN = ? and DATA_OBJ# = ? and SRC_CON_ID = ?
+ */
+	public static final String MINE_LOB_CDB =
+			"select CSF, SQL_REDO\n" + 
+			"from   V$LOGMNR_CONTENTS\n" +
+			"where  OPERATION_CODE = 10 and SCN = ? and DATA_OBJ# = ? and SRC_CON_ID = ?";
+
+/*
 select O.OBJECT_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES,
        decode(O.OBJECT_TYPE, 'TABLE', 'Y', 'N') IS_TABLE,
        decode(O.OBJECT_TYPE, 'TABLE', O.OBJECT_ID,
