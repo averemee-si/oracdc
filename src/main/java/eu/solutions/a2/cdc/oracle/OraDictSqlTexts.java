@@ -347,7 +347,7 @@ from   V$LOGMNR_CONTENTS
 where  OPERATION_CODE in (1,2,3)
  */
 	public static final String MINE_DATA_NON_CDB =
-			"select SCN, TIMESTAMP, OPERATION_CODE, XID, RS_ID, SSN, CSF, ROW_ID, DATA_OBJ#, SQL_REDO\n" + 
+			"select SCN, TIMESTAMP, OPERATION_CODE, XID, RS_ID, SSN, CSF, ROW_ID, DATA_OBJ#, DATA_OBJD#, SQL_REDO\n" + 
 			"from   V$LOGMNR_CONTENTS\n";
 /*
 select SCN, TIMESTAMP, OPERATION_CODE, XID, RS_ID, SSN, CSF, ROW_ID, DATA_OBJ#, SQL_REDO,
@@ -355,29 +355,29 @@ select SCN, TIMESTAMP, OPERATION_CODE, XID, RS_ID, SSN, CSF, ROW_ID, DATA_OBJ#, 
 from   V$LOGMNR_CONTENTS L
  */
 	public static final String MINE_DATA_CDB =
-			"select SCN, TIMESTAMP, OPERATION_CODE, XID, RS_ID, SSN, CSF, ROW_ID, DATA_OBJ#, SQL_REDO,\n" +
+			"select SCN, TIMESTAMP, OPERATION_CODE, XID, RS_ID, SSN, CSF, ROW_ID, DATA_OBJ#, DATA_OBJD#, SQL_REDO,\n" +
 			"       (select CON_ID from V$CONTAINERS C where C.CON_UID = L.SRC_CON_UID) CON_ID\n" +
 			"from   V$LOGMNR_CONTENTS L\n";
 
 /*
-select CSF, SQL_REDO
+select OPERATION_CODE, CSF, SQL_REDO
 from   V$LOGMNR_CONTENTS
-where  OPERATION_CODE = 10 and SCN = ? and DATA_OBJ# = ?
+where  OPERATION_CODE in (0,10) and RS_ID > ? and DATA_OBJ# = ? and XID = ?
  */
 	public static final String MINE_LOB_NON_CDB =
-			"select CSF, SQL_REDO\n" + 
+			"select OPERATION_CODE, CSF, SQL_REDO\n" + 
 			"from   V$LOGMNR_CONTENTS\n" +
-			"where  OPERATION_CODE = 10 and SCN = ? and DATA_OBJ# = ?";
+			"where  OPERATION_CODE in (0,10) and RS_ID > ? and DATA_OBJ# = ? and XID = ?";
 
 /*
-select CSF, SQL_REDO
+select OPERATION_CODE, CSF, SQL_REDO
 from   V$LOGMNR_CONTENTS
-where  OPERATION_CODE = 10 and SCN = ? and DATA_OBJ# = ? and SRC_CON_ID = ?
+where  OPERATION_CODE in (0,10) and RS_ID > ? and DATA_OBJ# = ? and XID = ? and SRC_CON_ID = ?
  */
 	public static final String MINE_LOB_CDB =
-			"select CSF, SQL_REDO\n" + 
+			"select OPERATION_CODE, CSF, SQL_REDO\n" + 
 			"from   V$LOGMNR_CONTENTS\n" +
-			"where  OPERATION_CODE = 10 and SCN = ? and DATA_OBJ# = ? and SRC_CON_ID = ?";
+			"where  OPERATION_CODE in (0,10) and RS_ID > ? and DATA_OBJ# = ? and XID = ? and SRC_CON_ID = ?";
 
 /*
 select O.OBJECT_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES,
