@@ -56,6 +56,7 @@ public class OraLogMiner {
 	long archLogsSize = 0;
 	List<String> fileNames = new ArrayList<>();
 
+	public static final short V$LOGMNR_CONTENTS_INTERNAL = 0;
 	public static final short V$LOGMNR_CONTENTS_INSERT = 1;
 	public static final short V$LOGMNR_CONTENTS_DELETE = 2;
 	public static final short V$LOGMNR_CONTENTS_UPDATE = 3;
