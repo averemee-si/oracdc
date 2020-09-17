@@ -145,7 +145,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					false, useOracdcSchemas, processLobs, pdbName, rsColumns, null, pkColumns,
 					idToNameMap, lobColumns,
 					null, null, null, null, false, false, false);
-			if (lobColumns.size() > 0) {
+			if (processLobs && lobColumns.size() > 0) {
 				this.withLobs = true;
 			}
 			rsColumns.close();
