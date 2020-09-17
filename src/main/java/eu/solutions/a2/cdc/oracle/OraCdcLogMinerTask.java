@@ -502,7 +502,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 						if (processTransaction) {
 							final OraTable4LogMiner oraTable = tablesInProcessing.get(stmt.getTableId());
 							if (oraTable == null) {
-								LOGGER.error("Strange consistency issue for DATA_OBJ# {}. Exiting.", stmt.getTableId());
+								LOGGER.error("Strange consistency issue for DATA_OBJ# {}, transaction XID {}, statement SCN={}, RS_ID='{}', SSN={}.\n Exiting.",
+										stmt.getTableId(), transaction.getXid(), stmt.getScn(), stmt.getRsId(), stmt.getSsn());
 								isPollRunning.set(false);
 								throw new ConnectException("Strange consistency issue!!!");
 							} else {
