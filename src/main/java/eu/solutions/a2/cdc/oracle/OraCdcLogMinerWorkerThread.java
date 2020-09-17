@@ -44,6 +44,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
 	private static final int ORA_17410 = 17410;
+	private static final int ORA_17026 = 17026;
 
 	private final OraCdcLogMinerTask task;
 	private final int pollInterval;
@@ -228,7 +229,17 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						final String xid = rsLogMiner.getString("XID");
 						lastScn = rsLogMiner.getLong("SCN");
 						lastRsId = rsLogMiner.getString("RS_ID");
-						lastSsn = rsLogMiner.getInt("SSN");
+						try {
+							lastSsn = rsLogMiner.getInt("SSN");
+						} catch(SQLException ofe) {
+							if (ofe.getErrorCode() == ORA_17026) {
+								LOGGER.error(
+										"ORA-17026 while reading V$LOGMNR_CONTENTS.SSN column.\n" +
+										"V$LOGMNR_CONTENTS row: SCN={}, RS_ID='{}', SSN={} for XID={}, OPERATION_CODE={}.",
+										lastScn, lastRsId, rsLogMiner.getLong("SSN"), xid, operation);
+							}
+							throw new SQLException(ofe);
+						}
 						OraCdcTransaction transaction = activeTransactions.get(xid);
 						if (operation == OraLogMiner.V$LOGMNR_CONTENTS_COMMIT) {
 							if (transaction != null) {
