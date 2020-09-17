@@ -71,6 +71,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	 * @param sourceOffset
 	 * @param pkColsSet
 	 * @param idToNameMap
+	 * @param lobColumns
 	 * @param snapshotLog           Snapshot log only!
 	 * @param mViewSelect           Snapshot log only!
 	 * @param masterSelect          Snapshot log only!
@@ -89,6 +90,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			final Map<String, Object> sourceOffset,
 			final Set<String> pkColsSet,
 			final Map<String, OraColumn> idToNameMap,
+			final Map<Integer, OraColumn> lobColumns,
 			final String snapshotLog,
 			final StringBuilder mViewSelect,
 			final StringBuilder masterSelect,
@@ -172,6 +174,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 					if (processLobs) {
 						allColumns.add(column);
 						idToNameMap.put(column.getNameFromId(), column);
+						lobColumns.put(column.getLobObjectId(), column);
 					} else {
 						columnAdded = false;
 					}

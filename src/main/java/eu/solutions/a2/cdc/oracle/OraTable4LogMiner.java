@@ -64,6 +64,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private boolean tableWithPk;
 	private boolean processLobs;
 	private final String tableFqn;
+	private boolean withLobs = false;
+	private Map<Integer, OraColumn> lobColumns;
 
 	/**
 	 * 
@@ -82,6 +84,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
 				this.tableOwner + "." + this.tableName;
 		this.processLobs = processLobs;
+		if (this.processLobs) {
+			lobColumns = new HashMap<>();
+		}
 	}
 
 	/**
@@ -137,8 +142,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			ResultSet rsColumns = statement.executeQuery();
 			
 			buildColumnList(
-					false, useOracdcSchemas, processLobs, pdbName, rsColumns, null, pkColumns, idToNameMap,
+					false, useOracdcSchemas, processLobs, pdbName, rsColumns, null, pkColumns,
+					idToNameMap, lobColumns,
 					null, null, null, null, false, false, false);
+			if (lobColumns.size() > 0) {
+				this.withLobs = true;
+			}
 			rsColumns.close();
 			rsColumns = null;
 			statement.close();
@@ -201,6 +210,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (column.isPartOfPk()) {
 					final String pkColumnName = column.getColumnName();
 					pkColumns.put(pkColumnName, column);
+				}
+				if (column.getJdbcType() == Types.BLOB || column.getJdbcType() == Types.CLOB) {
+					lobColumns.put(column.getLobObjectId(), column);
 				}
 				LOGGER.debug("\t Adding {} column.", column.getColumnName());
 			}
@@ -513,6 +525,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	public void setProcessLobs(boolean processLobs) {
 		this.processLobs = processLobs;
+	}
+
+	public boolean isWithLobs() {
+		return withLobs;
 	}
 
 	public void setTopicDecoderPartition(final String topicParam,
