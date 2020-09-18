@@ -54,7 +54,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private boolean logMinerReady = false;
 	private final Map<String, String> partition;
 	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
-	private final Map<Long, OraTable4LogMiner> tablesPartitionsInProcessing;
+	private final Map<Long, Long> partitionsInProcessing;
 	private final Set<Long> tablesOutOfScope;
 	private final int schemaType;
 	private final String topic;
@@ -109,7 +109,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.mineDataSql = mineDataSql;
 		this.tablesInProcessing = tablesInProcessing;
 		// We do not need concurrency for this map
-		this.tablesPartitionsInProcessing = new HashMap<>();
+		this.partitionsInProcessing = new HashMap<>();
 		this.tablesOutOfScope = tablesOutOfScope;
 		this.queuesRoot = queuesRoot;
 		this.odd = odd;
@@ -281,55 +281,65 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								conId = 0;
 								combinedDataObjectId = dataObjectId;
 							}
-							OraTable4LogMiner oraTable = tablesPartitionsInProcessing.get(combinedDataObjectId);
+							// First check for table definition...
+							OraTable4LogMiner oraTable = tablesInProcessing.get(combinedDataObjectId);
 							if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
-								psCheckTable.setLong(1, dataObjectId);
-								if (isCdb) {
-									psCheckTable.setLong(2, conId);
-								}
-								ResultSet rsCheckTable = psCheckTable.executeQuery();
-								if (rsCheckTable.next()) {
-									//May be this is partition, so just check tablesInProcessing map for table
-									long combinedParentTableId = -1;
-									boolean needNewTableDefinition = true;
-									final boolean isPartition = StringUtils.equals("N", rsCheckTable.getString("IS_TABLE"));
-									if (isPartition) {
-										final long parentTableId = rsCheckTable.getLong("PARENT_OBJECT_ID");
-										combinedParentTableId = isCdb ?
-												((conId << 32) | (parentTableId & 0xFFFFFFFFL)) :
-												parentTableId;
-										oraTable = tablesInProcessing.get(combinedParentTableId);
-										if (oraTable != null) {
-											needNewTableDefinition = false;
-											tablesPartitionsInProcessing.put(combinedDataObjectId, oraTable);
-											combinedDataObjectId = combinedParentTableId;
-										}
-									}
-									//Get table definition from RDBMS
-									if (needNewTableDefinition) {
-										final String tableName = rsCheckTable.getString("TABLE_NAME");
-										final String tableOwner = rsCheckTable.getString("OWNER");
-										oraTable = new OraTable4LogMiner(
-											isCdb ? rsCheckTable.getString("PDB_NAME") : null,
-											isCdb ? (short) conId : null,
-											tableOwner, tableName,
-											"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-											schemaType, useOracdcSchemas, processLobs,
-											isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter);
-										tablesPartitionsInProcessing.put(combinedDataObjectId, oraTable);
-										if (isPartition) {
-											combinedDataObjectId = combinedParentTableId;
-										}
-										tablesInProcessing.put(combinedDataObjectId, oraTable);
-										metrics.addTableInProcessing(oraTable.fqn());
-									}
+								// Check for partitions
+								Long combinedParentTableId = partitionsInProcessing.get(combinedDataObjectId);
+								if (combinedParentTableId != null) {
+									combinedDataObjectId = combinedParentTableId;
+									oraTable = tablesInProcessing.get(combinedDataObjectId);
 								} else {
-									tablesOutOfScope.add(combinedDataObjectId);
-									metrics.addTableOutOfScope();
+									// Check for object...
+									psCheckTable.setLong(1, dataObjectId);
+									if (isCdb) {
+										psCheckTable.setLong(2, conId);
+									}
+									ResultSet rsCheckTable = psCheckTable.executeQuery();
+									if (rsCheckTable.next()) {
+										//May be this is partition, so just check tablesInProcessing map for table
+										boolean needNewTableDefinition = true;
+										final boolean isPartition = StringUtils.equals("N", rsCheckTable.getString("IS_TABLE"));
+										if (isPartition) {
+											final long parentTableId = rsCheckTable.getLong("PARENT_OBJECT_ID");
+											combinedParentTableId = isCdb ?
+													((conId << 32) | (parentTableId & 0xFFFFFFFFL)) :
+													parentTableId;
+											oraTable = tablesInProcessing.get(combinedParentTableId);
+											if (oraTable != null) {
+												needNewTableDefinition = false;
+												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
+												metrics.addPartitionInProcessing();
+												combinedDataObjectId = combinedParentTableId;
+											}
+										}
+										//Get table definition from RDBMS
+										if (needNewTableDefinition) {
+											final String tableName = rsCheckTable.getString("TABLE_NAME");
+											final String tableOwner = rsCheckTable.getString("OWNER");
+											oraTable = new OraTable4LogMiner(
+												isCdb ? rsCheckTable.getString("PDB_NAME") : null,
+												isCdb ? (short) conId : null,
+												tableOwner, tableName,
+												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
+												schemaType, useOracdcSchemas, processLobs,
+												isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter);
+											if (isPartition) {
+												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
+												metrics.addPartitionInProcessing();
+												combinedDataObjectId = combinedParentTableId;
+											}
+											tablesInProcessing.put(combinedDataObjectId, oraTable);
+											metrics.addTableInProcessing(oraTable.fqn());
+										}
+									} else {
+										tablesOutOfScope.add(combinedDataObjectId);
+										metrics.addTableOutOfScope();
+									}
+									rsCheckTable.close();
+									rsCheckTable = null;
+									psCheckTable.clearParameters();
 								}
-								rsCheckTable.close();
-								rsCheckTable = null;
-								psCheckTable.clearParameters();
 							}
 
 							if (oraTable != null) {
