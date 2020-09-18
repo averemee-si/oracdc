@@ -20,6 +20,7 @@ package eu.solutions.a2.cdc.oracle.jmx;
  */
 public interface OraCdcLogMinerMgmtMBean {
 	public int getTablesInProcessingCount();
+	public int getPartitionsInProcessingCount();
 	public String[] getTablesInProcessing();
 	public String[] getLast100ProcessedArchivelogs();
 	public String getLastProcessedArchivelog();

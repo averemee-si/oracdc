@@ -49,6 +49,7 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 
 	private List<String> tablesInProcessing = new ArrayList<>();
 	private int tableOutOfScopeCount = 0;
+	private int partitionsCount = 0;
 	private List<String> nowProcessedArchivelogs;
 	private LimitedSizeQueue<String> lastHundredProcessed = new LimitedSizeQueue<>(100);
 	private long currentFirstScn;
@@ -128,6 +129,14 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	@Override
 	public int getTableOutOfScopeCount() {
 		return tableOutOfScopeCount;
+	}
+
+	public void addPartitionInProcessing() {
+		partitionsCount++;
+	}
+	@Override
+	public int getPartitionsInProcessingCount() {
+		return partitionsCount;
 	}
 
 	public void setNowProcessed(
