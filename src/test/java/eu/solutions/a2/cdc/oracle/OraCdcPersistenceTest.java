@@ -71,7 +71,7 @@ public class OraCdcPersistenceTest {
 		ops.setLastOpTsMillis(System.currentTimeMillis());
 		ops.setLastScn(275168436063l);
 		ops.setLastRsId(" 0x000098.000001b5.0030 ");
-		ops.setLastSsn(0);
+		ops.setLastSsn(0l);
 		ops.setCurrentTransaction(trans1.attrsAsMap());
 		ops.setInProgressTransactions(inProgress);
 		ops.setCommittedTransactions(committed);

@@ -45,7 +45,7 @@ public class OraCdcPersistentState implements Serializable {
 	private Long dbId;
 	private Long lastScn;
 	private String lastRsId;
-	private Integer lastSsn;
+	private Long lastSsn;
 	private Long lastOpTsMillis;
 	private String initialLoad;
 
@@ -118,11 +118,11 @@ public class OraCdcPersistentState implements Serializable {
 		this.lastRsId = lastRsId;
 	}
 
-	public Integer getLastSsn() {
+	public Long getLastSsn() {
 		return lastSsn;
 	}
 
-	public void setLastSsn(Integer lastSsn) {
+	public void setLastSsn(Long lastSsn) {
 		this.lastSsn = lastSsn;
 	}
 

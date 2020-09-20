@@ -203,7 +203,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			boolean rewind = false;
 			final long firstScn;
 			String firstRsId = null;
-			int firstSsn = 0;
+			long firstSsn = 0;
 			final boolean startScnFromProps = props.containsKey(ParamConstants.LGMNR_START_SCN_PARAM);
 			stateFileName = props.get(ParamConstants.PERSISTENT_STATE_FILE_PARAM);
 			final Path stateFilePath = Paths.get(stateFileName);
