@@ -272,12 +272,12 @@ public class OraRdbmsInfo {
 		if (exclude) {
 			sb.append(" and DATA_OBJ# not in (");
 		} else {
-			sb.append(" and DATA_OBJ# in (");
+			sb.append(" and (DATA_OBJ# in (");
 		}
 		//TODO
 		//TODO For CDB - pair required!!!
 		//TODO OBJECT_ID is not unique!!!
-		//TODO Will work well obly with 
+		//TODO Need to add "a2.static.objects" parameter for using this for predicate
 		//TODO
 		PreparedStatement ps = connection.prepareStatement(
 				"select OBJECT_ID\n" +
@@ -290,8 +290,10 @@ public class OraRdbmsInfo {
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ResultSet rs = ps.executeQuery();
 		boolean firstValue = true;
+		boolean lastValue = false;
 		int recordCount = 0;
 		while (rs.next()) {
+			lastValue = false;
 			if (firstValue) {
 				firstValue = false;
 			} else {
@@ -302,18 +304,24 @@ public class OraRdbmsInfo {
 			if (recordCount > 999) {
 				// ORA-01795
 				sb.append(")");
+				lastValue = true;
 				if (exclude) {
 					sb.append(" and DATA_OBJ# not in (");
 				} else {
-					sb.append(" and DATA_OBJ# in (");
+					sb.append(" or DATA_OBJ# in (");
 				}
 				firstValue = true;
 				recordCount = 0;
 			}
 		}
+		if (!lastValue) {
+			sb.append(")");
+		}
 		sb.append(")");
-		rs.close(); rs = null;
-		ps.close(); ps = null;
+		rs.close();
+		rs = null;
+		ps.close();
+		ps = null;
 		return sb.toString();
 	}
 
