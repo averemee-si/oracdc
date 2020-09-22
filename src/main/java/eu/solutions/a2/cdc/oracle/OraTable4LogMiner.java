@@ -367,6 +367,17 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 				}
 			}
+		} else {
+			// We expect here only 1,2,3 as valid values for OPERATION_CODE
+			LOGGER.error("Corrupted record found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:");
+			LOGGER.error("\tSCN = {}", stmt.getScn());
+			LOGGER.error("\tTIMESTAMP = {}", stmt.getTs());
+			LOGGER.error("\tRS_ID = {}", stmt.getRsId());
+			LOGGER.error("\tSSN = {}", stmt.getSsn());
+			LOGGER.error("\tROW_ID = {}", stmt.getRowId());
+			LOGGER.error("\tOPERATION_CODE = {}", stmt.getOperation());
+			LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
+			throw new SQLException("Unknown OPERATION_CODE while parsing redo record!");
 		}
 		SourceRecord sourceRecord = null;
 		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
