@@ -228,6 +228,9 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			taskParam.put(ParamConstants.TABLE_INCLUDE_PARAM,
 					config.originalsStrings().get(ParamConstants.TABLE_INCLUDE_PARAM));
 		}
+		taskParam.put(ParamConstants.TABLE_LIST_STYLE_PARAM,
+				config.originalsStrings().get(ParamConstants.TABLE_LIST_STYLE_PARAM));
+		
 		final long redoSize = config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM);
 		if (redoSize > 0) {
 			LOGGER.trace("Redo size threshold will be used instead of count of redo files.");

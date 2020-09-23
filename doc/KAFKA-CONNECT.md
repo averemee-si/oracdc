@@ -54,7 +54,9 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.topic.name.style` - Kafka topic naming convention when `a2.schema.type=kafka`. Valid values - `TABLE` (default), `SCHEMA_TABLE`, `PDB_SCHEMA_TABLE`. 
 
-`a2.topic.name.delimiter` - Kafka topic name delimiter when `a2.schema.type=kafka` and `a2.topic.name.style` set to `SCHEMA_TABLE` or `PDB_SCHEMA_TABLE`. Valid values - `_` (Default), `-`, and `.`. 
+`a2.topic.name.delimiter` - Kafka topic name delimiter when `a2.schema.type=kafka` and `a2.topic.name.style` set to `SCHEMA_TABLE` or `PDB_SCHEMA_TABLE`. Valid values - `_` (default), `-`, and `.`. 
+
+`a2.table.list.style` - When set to `static` (default) **oracdc** reads tables and partition list to process only at startup according to values of `a2.include` and `a2.exclude` parameters. When set to `dynamic` **oracdc** builds list of objects to process on the fly
 
 #### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 

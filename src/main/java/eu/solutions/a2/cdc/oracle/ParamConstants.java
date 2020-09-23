@@ -115,4 +115,9 @@ public class ParamConstants {
 	public static final String TOPIC_NAME_DELIMITER_DASH = "-";
 	public static final String TOPIC_NAME_DELIMITER_DOT = ".";
 
+	public static final String TABLE_LIST_STYLE_PARAM = "a2.table.list.style";
+	public static final String TABLE_LIST_STYLE_DOC = "When set to 'static' (default) oracdc reads tables and partition list to process only at startup according to values of a2.include and a2.exclude parameters. When set to 'dynamic' oracdc builds list of objects to process on the fly";
+	public static final String TABLE_LIST_STYLE_STATIC = "static";
+	public static final String TABLE_LIST_STYLE_DYNAMIC = "dynamic";
+
 }

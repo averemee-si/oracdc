@@ -112,7 +112,12 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						ConfigDef.ValidString.in(ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,
 								ParamConstants.TOPIC_NAME_DELIMITER_DASH,
 								ParamConstants.TOPIC_NAME_DELIMITER_DOT),
-						Importance.LOW, ParamConstants.TOPIC_NAME_DELIMITER_DOC);
+						Importance.LOW, ParamConstants.TOPIC_NAME_DELIMITER_DOC)
+				.define(ParamConstants.TABLE_LIST_STYLE_PARAM, Type.STRING,
+						ParamConstants.TABLE_LIST_STYLE_STATIC,
+						ConfigDef.ValidString.in(ParamConstants.TABLE_LIST_STYLE_STATIC,
+								ParamConstants.TABLE_LIST_STYLE_DYNAMIC),
+						Importance.LOW, ParamConstants.TABLE_LIST_STYLE_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {
