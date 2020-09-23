@@ -307,7 +307,11 @@ Oracle NUMBER datatype mapping fixes
 
 #####0.9.6.3 (AUG-2020)
 
-Kafka topic name configuration using a2.topic.name.style & a2.topic.name.delimiter parameters
+Kafka topic name configuration using `a2.topic.name.style` & `a2.topic.name.delimiter` parameters
+
+#####0.9.6.4 (SEP-2020)
+
+Dynamic list of tables to mine using `a2.table.list.style` parameter
 
 ## Authors
 

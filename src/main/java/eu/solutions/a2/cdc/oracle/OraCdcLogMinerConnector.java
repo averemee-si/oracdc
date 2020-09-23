@@ -229,7 +229,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					config.originalsStrings().get(ParamConstants.TABLE_INCLUDE_PARAM));
 		}
 		taskParam.put(ParamConstants.TABLE_LIST_STYLE_PARAM,
-				config.originalsStrings().get(ParamConstants.TABLE_LIST_STYLE_PARAM));
+				config.getString(ParamConstants.TABLE_LIST_STYLE_PARAM));
 		
 		final long redoSize = config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM);
 		if (redoSize > 0) {

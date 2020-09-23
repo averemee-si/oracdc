@@ -169,6 +169,14 @@ public class OraCdcLogMinerTask extends SourceTask {
 				includeList =
 						Arrays.asList(props.get(ParamConstants.TABLE_INCLUDE_PARAM).split("\\s*,\\s*"));
 			}
+			final boolean tableListGenerationStatic;
+			if (ParamConstants.TABLE_LIST_STYLE_STATIC.equalsIgnoreCase(props.get(ParamConstants.TABLE_LIST_STYLE_PARAM))) {
+				// ParamConstants.TABLE_LIST_STYLE_STATIC
+				tableListGenerationStatic = true;
+			} else {
+				// TABLE_LIST_STYLE_DYNAMIC
+				tableListGenerationStatic = false;
+			}
 
 			final Path queuesRoot = FileSystems.getDefault().getPath(
 					props.get(ParamConstants.TEMP_DIR_PARAM));
@@ -319,49 +327,61 @@ public class OraCdcLogMinerTask extends SourceTask {
 			if (includeList != null) {
 				final String tableList = OraSqlUtils.parseTableSchemaList(
 						false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
-				final String objectList = rdbmsInfo.getMineObjectsIds(
+				if (tableListGenerationStatic) {
+					// static build list of tables/partitions
+					final String objectList = rdbmsInfo.getMineObjectsIds(
 						connDictionary, false, tableList);
-				if (StringUtils.endsWith(objectList, "()")) {
-					// and DATA_OBJ# in ()
-					LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
+					if (StringUtils.endsWith(objectList, "()")) {
+						// and DATA_OBJ# in ()
+						LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
 							ParamConstants.TABLE_INCLUDE_PARAM, props.get(ParamConstants.TABLE_INCLUDE_PARAM));
-					throw new ConnectException("Please check value of a2.include parameter or remove it from configuration!");
-				}
-				mineDataSql += "where ((OPERATION_CODE in (1,2,3) " +  objectList + ")";
+						throw new ConnectException("Please check value of a2.include parameter or remove it from configuration!");
+					}
+					mineDataSql += "where ((OPERATION_CODE in (1,2,3) " +  objectList + ")";
+				} 
 				checkTableSql += tableList;
 				if (execInitialLoad) {
 					initialLoadSql += tableList;
 				}
 			}
 			if (excludeList != null) {
-				if (includeList != null) {
-					mineDataSql += " and (OPERATION_CODE in (1,2,3) ";
-				} else {
-					mineDataSql += " where ((OPERATION_CODE in (1,2,3) ";
+				if (tableListGenerationStatic) {
+					// for static list
+					if (includeList != null) {
+						mineDataSql += " and (OPERATION_CODE in (1,2,3) ";
+					} else {
+						mineDataSql += " where ((OPERATION_CODE in (1,2,3) ";
+					}
+					final String objectList = rdbmsInfo.getMineObjectsIds(connDictionary, true,
+							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList));
+					if (StringUtils.endsWith(objectList, "()")) {
+						// and DATA_OBJ# not in ()
+						LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
+								ParamConstants.TABLE_EXCLUDE_PARAM, props.get(ParamConstants.TABLE_EXCLUDE_PARAM));
+						throw new ConnectException("Please check value of a2.exclude parameter or remove it from configuration!");
+					}
+					mineDataSql += objectList + ")";
 				}
-				final String objectList = rdbmsInfo.getMineObjectsIds(connDictionary, true,
-						OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList));
-				if (StringUtils.endsWith(objectList, "()")) {
-					// and DATA_OBJ# not in ()
-					LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
-							ParamConstants.TABLE_EXCLUDE_PARAM, props.get(ParamConstants.TABLE_EXCLUDE_PARAM));
-					throw new ConnectException("Please check value of a2.exclude parameter or remove it from configuration!");
-				}
-				mineDataSql += objectList + ")";
 				final String tableList = OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList);
 				checkTableSql += tableList;
 				if (execInitialLoad) {
 					initialLoadSql += tableList;
 				}
 			}
-			if (includeList == null && excludeList == null) {
-				mineDataSql += "where (OPERATION_CODE in (1,2,3) ";
-			}
-			// Finally - COMMIT and ROLLBACK
-			if ((includeList != null && excludeList != null) || excludeList != null)  {
-				mineDataSql += " or OPERATION_CODE in (7,36)";
+			if (tableListGenerationStatic) {
+				// for static list only!!!
+				if (includeList == null && excludeList == null) {
+					mineDataSql += "where (OPERATION_CODE in (1,2,3) ";
+				}
+				// Finally - COMMIT and ROLLBACK
+				if ((includeList != null && excludeList != null) || excludeList != null)  {
+					mineDataSql += " or OPERATION_CODE in (7,36)";
+				} else {
+					mineDataSql += " or OPERATION_CODE in (7,36))";	
+				}
 			} else {
-				mineDataSql += " or OPERATION_CODE in (7,36))";	
+				// for dynamic list
+				mineDataSql += "where OPERATION_CODE in (1,2,3,7,36) ";
 			}
 			if (rdbmsInfo.isCdb()) {
 				// Do not process objects from CDB$ROOT and PDB$SEED
