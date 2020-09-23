@@ -6,6 +6,7 @@
 |:---------------------------|:--------|:-------------------------------------------------------------------------------------------|
 |TablesInProcessingCount     |int      |Number of tables in processing                                                              |
 |TablesInProcessing          |String[] |Names of tables in processing                                                               |
+|PartitionsInProcessingCount |int      |Number of partitions and subpartitions in processing                                        |
 |Last100ProcessedArchivelogs |String[] |Last 100 processed archivelogs                                                              |
 |LastProcessedArchivelog     |String   |Last processed archivelog                                                                   |
 |LastProcessedScn            |long     |Last processed SCN                                                                          |
