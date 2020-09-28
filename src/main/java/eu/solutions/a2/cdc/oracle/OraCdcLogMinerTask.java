@@ -315,13 +315,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 				mineDataSql = OraDictSqlTexts.MINE_DATA_CDB;
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
 				if (execInitialLoad) {
-					initialLoadSql = OraDictSqlTexts.CHECK_TABLE_CDB;
+					initialLoadSql = OraDictSqlTexts.INITIAL_LOAD_LIST_CDB;
 				}
 			} else {
 				mineDataSql = OraDictSqlTexts.MINE_DATA_NON_CDB;
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
 				if (execInitialLoad) {
-					initialLoadSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB;
+					initialLoadSql = OraDictSqlTexts.INITIAL_LOAD_LIST_NON_CDB;
 				}
 			}
 			if (includeList != null) {
