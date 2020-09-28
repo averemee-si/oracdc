@@ -612,11 +612,11 @@ public class OraColumn {
 	}
 
 	private void stringField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Schema.STRING_SCHEMA);
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Schema.STRING_SCHEMA);
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
 			}
@@ -624,11 +624,11 @@ public class OraColumn {
 	}
 
 	private void bytesField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Schema.OPTIONAL_BYTES_SCHEMA);
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Schema.BYTES_SCHEMA);
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Schema.BYTES_SCHEMA);
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Schema.OPTIONAL_BYTES_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.BYTES_SCHEMA);
 			}
@@ -636,11 +636,11 @@ public class OraColumn {
 	}
 
 	private void byteField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Schema.OPTIONAL_INT8_SCHEMA);
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Schema.INT8_SCHEMA);
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Schema.INT8_SCHEMA);
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Schema.OPTIONAL_INT8_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.INT8_SCHEMA);
 			}
@@ -648,11 +648,11 @@ public class OraColumn {
 	}
 
 	private void shortField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Schema.OPTIONAL_INT16_SCHEMA);
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Schema.INT16_SCHEMA);
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Schema.INT16_SCHEMA);
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Schema.OPTIONAL_INT16_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.INT16_SCHEMA);
 			}
@@ -660,11 +660,11 @@ public class OraColumn {
 	}
 
 	private void intField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Schema.OPTIONAL_INT32_SCHEMA);
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Schema.INT32_SCHEMA);
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Schema.INT32_SCHEMA);
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Schema.OPTIONAL_INT32_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.INT32_SCHEMA);
 			}
@@ -672,11 +672,11 @@ public class OraColumn {
 	}
 
 	private void longField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Schema.OPTIONAL_INT64_SCHEMA);
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Schema.INT64_SCHEMA);
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Schema.INT64_SCHEMA);
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Schema.OPTIONAL_INT64_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.INT64_SCHEMA);
 			}
@@ -684,11 +684,11 @@ public class OraColumn {
 	}
 
 	private void decimalField(final int scale, final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Decimal.builder(scale).optional().build());
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Decimal.builder(scale).required().build());
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Decimal.builder(scale).required().build());
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Decimal.builder(scale).optional().build());
 			} else {
 				valueSchema.field(this.columnName, Decimal.builder(scale).required().build());
 			}
@@ -696,11 +696,11 @@ public class OraColumn {
 	}
 
 	private void doubleField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
 			}
@@ -708,11 +708,11 @@ public class OraColumn {
 	}
 
 	private void floatField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT32_SCHEMA);
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT32_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
 			}
@@ -720,11 +720,11 @@ public class OraColumn {
 	}
 
 	private void oraNumberField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, OraNumber.builder().optional().build());
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, OraNumber.builder().required().build());
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, OraNumber.builder().required().build());
+			if (this.nullable) {
+				valueSchema.field(this.columnName, OraNumber.builder().optional().build());
 			} else {
 				valueSchema.field(this.columnName, OraNumber.builder().required().build());
 			}
@@ -732,11 +732,11 @@ public class OraColumn {
 	}
 
 	private void timestampField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, Timestamp.builder().optional().build());
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Timestamp.builder().required().build());
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, Timestamp.builder().required().build());
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Timestamp.builder().optional().build());
 			} else {
 				valueSchema.field(this.columnName, Timestamp.builder().required().build());
 			}
@@ -744,11 +744,11 @@ public class OraColumn {
 	}
 
 	private void oraTimestampField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.nullable) {
-			valueSchema.field(this.columnName, OraTimestamp.builder().optional().build());
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, OraTimestamp.builder().required().build());
 		} else {
-			if (this.partOfPk) {
-				keySchema.field(this.columnName, OraTimestamp.builder().required().build());
+			if (this.nullable) {
+				valueSchema.field(this.columnName, OraTimestamp.builder().optional().build());
 			} else {
 				valueSchema.field(this.columnName, OraTimestamp.builder().required().build());
 			}
