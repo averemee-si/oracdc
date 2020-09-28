@@ -18,6 +18,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -411,6 +412,10 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						LOGGER.error("Primary key column(s) for table {}:", this.tableFqn);
 						pkColumns.forEach((k, v) -> {
 							LOGGER.error("\t" + v.getColumnName());
+						});
+						LOGGER.error("Key schema elements for table {}:", this.tableFqn);
+						keySchema.fields().forEach((f) -> {
+							LOGGER.error("\t" + f.name());
 						});
 						throw new DataException(de);
 					}
