@@ -20,6 +20,7 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -402,7 +403,17 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 					//TODO
 				}
 				if (keyStruct != null && pkColumns.containsKey(columnName)) {
-					keyStruct.put(columnName, columnValue);
+					try {
+						keyStruct.put(columnName, columnValue);
+					} catch (DataException de) {
+						LOGGER.error("Data exception while performing initial load for table {}, COLUMN={}, VALUE={}",
+								this.tableFqn, columnName, columnValue);
+						LOGGER.error("Primary key column(s) for table {}:", this.tableFqn);
+						pkColumns.forEach((k, v) -> {
+							LOGGER.error("\t" + v.getColumnName());
+						});
+						throw new DataException(de);
+					}
 				}
 				// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
 				if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
