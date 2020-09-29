@@ -194,9 +194,9 @@ public class TargetDbSqlUtils {
 		} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
 			sbInsSql.append("merge into ");
 			sbInsSql.append(tableName);
-			sbInsSql.append(" D using(select ");
+			sbInsSql.append(" D using\n(select ");
 		}
-		
+
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
 		int pkColumnNo = 0;
 		while (iterator.hasNext()) {
