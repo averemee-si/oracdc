@@ -222,7 +222,7 @@ public class TargetDbSqlUtils {
 			if (pkColumnNo < pkColCount - 1) {
 				sbInsSql.append(",");
 				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
-					sbOraMergeOnList.append(",");
+					sbOraMergeOnList.append(" and ");
 					sbOraInsertList.append(",");
 					sbOraValuesList.append(",");
 				}

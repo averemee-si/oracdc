@@ -33,8 +33,10 @@ public class OraCdcSinkSqlInsertTest {
 	public void test() {
 
 		final Field deptNo = new Field("DEPTNO", 0, Schema.INT8_SCHEMA);
+		final Field deptId = new Field("DEPTID", 0, Schema.INT8_SCHEMA);
 		final List<Field> keyFields = new ArrayList<>();
 		keyFields.add(deptNo);
+		keyFields.add(deptId);
 
 		final Field dName = new Field("DNAME", 0, Schema.OPTIONAL_STRING_SCHEMA);
 		final Field loc = new Field("LOC", 1, Schema.OPTIONAL_STRING_SCHEMA);
