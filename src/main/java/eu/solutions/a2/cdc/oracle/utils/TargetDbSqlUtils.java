@@ -174,6 +174,7 @@ public class TargetDbSqlUtils {
 			final List<OraColumn> allColumns) {
 
 		final int pkColCount = pkColumns.size();
+		final boolean onlyPkColumns = allColumns.size() == 0;
 		final StringBuilder sbDelUpdWhere = new StringBuilder(128);
 		sbDelUpdWhere.append(" where ");
 
@@ -238,8 +239,10 @@ public class TargetDbSqlUtils {
 		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
 			sbUpsert.append(") do update set ");
 		} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+			if (!onlyPkColumns) {
 				sbOraInsertList.append(",");
 				sbOraValuesList.append(",");
+			}
 		}
 
 		final StringBuilder sbUpdSql = new StringBuilder(256);

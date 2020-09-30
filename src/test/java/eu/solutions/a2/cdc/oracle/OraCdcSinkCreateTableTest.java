@@ -72,6 +72,10 @@ public class OraCdcSinkCreateTableTest {
 		String createScottDeptMySql = TargetDbSqlUtils.createTableSql(
 				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns);
 
+		System.out.println(createScottDeptOra);
+		System.out.println(createScottDeptPg);
+		System.out.println(createScottDeptMySql);
+
 		assertTrue(createScottDeptOra.contains("DEPTNO NUMBER(3)"));
 		assertTrue(createScottDeptPg.contains("DEPTNO smallint"));
 		assertTrue(createScottDeptMySql.contains("DEPTNO tinyint"));
