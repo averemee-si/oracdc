@@ -109,7 +109,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				allColumns.add(column);
 			}
 		}
-		if (pkColumns.size() == allColumns.size()) {
+		if (allColumns.size() == 0) {
 			LOGGER.warn("Table {} contains only primary key column(s)!", this.tableName);
 			LOGGER.warn("Column list for {}:", this.tableName);
 			pkColumns.forEach((k, oraColumn) -> {
