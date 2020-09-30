@@ -109,6 +109,14 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				allColumns.add(column);
 			}
 		}
+		if (pkColumns.size() == allColumns.size()) {
+			LOGGER.warn("Table {} contains only primary key column(s)!", this.tableName);
+			LOGGER.warn("Column list for {}:", this.tableName);
+			pkColumns.forEach((k, oraColumn) -> {
+				LOGGER.warn("\t{},\t JDBC Type -> {}",
+						oraColumn.getColumnName(), JdbcTypes.getTypeName(oraColumn.getJdbcType()));
+			});
+		}
 		metrics = new OraCdcSinkTableInfo(this.tableName);
 		prepareSql(sinkPool, autoCreateTable);
 		upsertCount = 0;
