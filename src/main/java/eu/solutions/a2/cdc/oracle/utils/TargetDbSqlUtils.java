@@ -188,14 +188,16 @@ public class TargetDbSqlUtils {
 			sbInsSql.append("(");
 		}
 		final StringBuilder sbUpsert = new StringBuilder(128);
-		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
-			sbUpsert.append(" on conflict(");
-		} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL) {
-			sbUpsert.append(" on duplicate key update ");
-		} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
-			sbInsSql.append("merge into ");
-			sbInsSql.append(tableName);
-			sbInsSql.append(" D using\n(select ");
+		if (!onlyPkColumns) {
+			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+				sbUpsert.append(" on conflict(");
+			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL) {
+				sbUpsert.append(" on duplicate key update ");
+			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+				sbInsSql.append("merge into ");
+				sbInsSql.append(tableName);
+				sbInsSql.append(" D using\n(select ");
+			}
 		}
 
 		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
@@ -209,19 +211,29 @@ public class TargetDbSqlUtils {
 			sbDelUpdWhere.append("=?");
 
 			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
-				sbInsSql.append("? ");
+				if (!onlyPkColumns) {
+					sbInsSql.append("? ");
+				}
 				sbOraMergeOnList.append("D.");
 				sbOraMergeOnList.append(columnName);
 				sbOraMergeOnList.append("=");
 				sbOraMergeOnList.append("ORACDC.");
 				sbOraMergeOnList.append(columnName);
 				sbOraInsertList.append(columnName);
-				sbOraValuesList.append("ORACDC.");
-				sbOraValuesList.append(columnName);
+				if (!onlyPkColumns) {
+					sbOraValuesList.append("ORACDC.");
+					sbOraValuesList.append(columnName);
+				} else {
+					sbOraValuesList.append("?");
+				}
 			}
-			sbInsSql.append(columnName);
+			if (!onlyPkColumns || dbType != OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+				sbInsSql.append(columnName);
+			}
 			if (pkColumnNo < pkColCount - 1) {
-				sbInsSql.append(",");
+				if (!onlyPkColumns || dbType != OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+					sbInsSql.append(",");
+				}
 				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
 					sbOraMergeOnList.append(" and ");
 					sbOraInsertList.append(",");
@@ -229,15 +241,19 @@ public class TargetDbSqlUtils {
 				}
 			}
 			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
-				sbUpsert.append(columnName);
-				if (pkColumnNo < pkColCount - 1) {
-					sbUpsert.append(",");
+				if (!onlyPkColumns) {
+					sbUpsert.append(columnName);
+					if (pkColumnNo < pkColCount - 1) {
+						sbUpsert.append(",");
+					}
 				}
 			}
 			pkColumnNo++;
 		}
 		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
-			sbUpsert.append(") do update set ");
+			if (!onlyPkColumns) {
+				sbUpsert.append(") do update set ");
+			}
 		} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
 			if (!onlyPkColumns) {
 				sbOraInsertList.append(",");
@@ -296,17 +312,28 @@ public class TargetDbSqlUtils {
 		}
 
 		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
-			sbInsSql.append(" from DUAL) ORACDC\non (");
-			sbInsSql.append(sbOraMergeOnList);
-			sbInsSql.append(")");
-			sbInsSql.append("\nwhen matched then update\nset ");
-			sbInsSql.append(sbUpsert);
-			sbInsSql.append("\nwhen not matched then\ninsert(");
-			sbInsSql.append(sbOraInsertList);
-			sbInsSql.append(")");
-			sbInsSql.append("\nvalues(");
-			sbInsSql.append(sbOraValuesList);
-			sbInsSql.append(")");
+			if (!onlyPkColumns) { 
+				sbInsSql.append(" from DUAL) ORACDC\non (");
+				sbInsSql.append(sbOraMergeOnList);
+				sbInsSql.append(")");
+				sbInsSql.append("\nwhen matched then update\nset ");
+				sbInsSql.append(sbUpsert);
+				sbInsSql.append("\nwhen not matched then\ninsert(");
+				sbInsSql.append(sbOraInsertList);
+				sbInsSql.append(")");
+				sbInsSql.append("\nvalues(");
+				sbInsSql.append(sbOraValuesList);
+				sbInsSql.append(")");
+			} else {
+				sbInsSql.append("insert into ");
+				sbInsSql.append(tableName);
+				sbInsSql.append("(");
+				sbInsSql.append(sbOraInsertList);
+				sbInsSql.append(")");
+				sbInsSql.append("\nvalues(");
+				sbInsSql.append(sbOraValuesList);
+				sbInsSql.append(")");
+			}
 		} else {
 			sbInsSql.append(") values(");
 			final int totalColumns = nonPkColumnCount + pkColCount;
