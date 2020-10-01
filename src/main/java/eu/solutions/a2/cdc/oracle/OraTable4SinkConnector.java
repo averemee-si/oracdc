@@ -59,6 +59,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	private int deleteCount;
 	private long upsertTime;
 	private long deleteTime;
+	private final boolean onlyPkColumns;
 
 
 	/**
@@ -110,12 +111,15 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			}
 		}
 		if (allColumns.size() == 0) {
+			onlyPkColumns = true;
 			LOGGER.warn("Table {} contains only primary key column(s)!", this.tableName);
 			LOGGER.warn("Column list for {}:", this.tableName);
 			pkColumns.forEach((k, oraColumn) -> {
 				LOGGER.warn("\t{},\t JDBC Type -> {}",
 						oraColumn.getColumnName(), JdbcTypes.getTypeName(oraColumn.getJdbcType()));
 			});
+		} else {
+			onlyPkColumns = false;
 		}
 		metrics = new OraCdcSinkTableInfo(this.tableName);
 		prepareSql(sinkPool, autoCreateTable);
@@ -219,12 +223,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		LOGGER.trace("BEGIN: exec()");
 		final long nanosStart = System.nanoTime();
 		if ((sinkUpsert != null) && (upsertCount > 0)) {
-			try {
-				sinkUpsert.executeBatch();
-			} catch(SQLException sqle) {
-				LOGGER.error("Error while executing UPSERT statement {}", sinkUpsertSql);
-				throw new SQLException(sqle);
-			}
+			execUpsert();
 			sinkUpsert.clearBatch();
 			upsertTime += System.nanoTime() - nanosStart;
 			metrics.addUpsert(upsertCount, upsertTime);
@@ -232,12 +231,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			upsertTime = 0;
 		}
 		if ((sinkDelete != null) && (deleteCount > 0)) {
-			try {
-				sinkDelete.executeBatch();
-			} catch(SQLException sqle) {
-				LOGGER.error("Error while executing DELETE statement {}", sinkDeleteSql);
-				throw new SQLException(sqle);
-			}
+			execDelete();
 			sinkDelete.clearBatch();
 			deleteTime += System.nanoTime() - nanosStart;
 			metrics.addDelete(deleteCount, deleteTime);
@@ -252,12 +246,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		final long nanosStart = System.nanoTime();
 		if (sinkUpsert != null) {
 			if (upsertCount > 0) {
-				try {
-					sinkUpsert.executeBatch();
-				} catch(SQLException sqle) {
-					LOGGER.error("Error while executing UPSERT statement {}", sinkUpsertSql);
-					throw new SQLException(sqle);
-				}
+				execUpsert();
 				upsertTime += System.nanoTime() - nanosStart;
 				metrics.addUpsert(upsertCount, upsertTime);
 			}
@@ -268,12 +257,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		}
 		if (sinkDelete != null) {
 			if (deleteCount > 0) {
-				try {
-					sinkDelete.executeBatch();
-				} catch(SQLException sqle) {
-					LOGGER.error("Error while executing DELETE statement {}", sinkDeleteSql);
-					throw new SQLException(sqle);
-				}
+				execDelete();
 				deleteTime += System.nanoTime() - nanosStart;
 				metrics.addDelete(deleteCount, deleteTime);
 			}
@@ -283,6 +267,35 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			deleteTime = 0;
 		}
 		LOGGER.trace("END: closeCursors()");
+	}
+
+	private void execUpsert() throws SQLException {
+		try {
+			sinkUpsert.executeBatch();
+		} catch(SQLException sqle) {
+			boolean raiseException = true;
+			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+				if (onlyPkColumns && sqle.getErrorCode() == 1) {
+					// ORA-00001: unique constraint %s violated
+					// ignore for tables with PK only column(s)
+					raiseException = false;
+					LOGGER.warn(sqle.getMessage());
+				}
+			}
+			if (raiseException) {
+				LOGGER.error("Error while executing UPSERT statement {}", sinkUpsertSql);
+				throw new SQLException(sqle);
+			}
+		}
+	}
+
+	private void execDelete() throws SQLException {
+		try {
+			sinkDelete.executeBatch();
+		} catch(SQLException sqle) {
+			LOGGER.error("Error while executing DELETE statement {}", sinkUpsertSql);
+			throw new SQLException(sqle);
+		}
 	}
 
 	private void processUpsert(
