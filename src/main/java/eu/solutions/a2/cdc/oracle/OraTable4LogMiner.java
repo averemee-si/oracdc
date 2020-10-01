@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -325,7 +326,21 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (oraColumn != null) {
 					// Column can be excluded
 					if (StringUtils.endsWith(currentExpr, "L")) {
-						valueStruct.put(oraColumn.getColumnName(), null);
+						try {
+							valueStruct.put(oraColumn.getColumnName(), null);
+						} catch (DataException de) {
+							LOGGER.error("NULL value for NON NULL column {}, table {}",
+									oraColumn.getColumnName(), tableFqn);
+							LOGGER.error("Redo record information:");
+							LOGGER.error("\tSCN = {}", stmt.getScn());
+							LOGGER.error("\tTIMESTAMP = {}", stmt.getTs());
+							LOGGER.error("\tRS_ID = {}", stmt.getRsId());
+							LOGGER.error("\tSSN = {}", stmt.getSsn());
+							LOGGER.error("\tROW_ID = {}", stmt.getRowId());
+							LOGGER.error("\tOPERATION_CODE = {}", stmt.getOperation());
+							LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
+							throw new DataException(de);
+						}
 					} else if (oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB) {
 						//TODO
 						//TODO EMPTY_BLOB()/EMPTY_CLOB() handling!
