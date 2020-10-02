@@ -321,25 +321,22 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final String currentExpr = StringUtils.trim(setClause[i]);
 				final String columnName;
 				columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
-				setColumns.add(columnName);
 				final OraColumn oraColumn = idToNameMap.get(columnName);
 				if (oraColumn != null) {
 					// Column can be excluded
 					if (StringUtils.endsWith(currentExpr, "L")) {
 						try {
 							valueStruct.put(oraColumn.getColumnName(), null);
+							setColumns.add(columnName);
 						} catch (DataException de) {
-							LOGGER.error("NULL value for NON NULL column {}, table {}",
-									oraColumn.getColumnName(), tableFqn);
-							LOGGER.error("Redo record information:");
-							LOGGER.error("\tSCN = {}", stmt.getScn());
-							LOGGER.error("\tTIMESTAMP = {}", stmt.getTs());
-							LOGGER.error("\tRS_ID = {}", stmt.getRsId());
-							LOGGER.error("\tSSN = {}", stmt.getSsn());
-							LOGGER.error("\tROW_ID = {}", stmt.getRowId());
-							LOGGER.error("\tOPERATION_CODE = {}", stmt.getOperation());
-							LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
-							throw new DataException(de);
+							//TODO
+							//TODO Check for column value in WHERE clause
+							//TODO
+							if (!oraColumn.getDefaultValuePresent()) {
+								// throw error only if we don't expect to get value from WHERE clause
+								printInvalidFieldValue(oraColumn, stmt);
+								throw new DataException(de);
+							}
 						}
 					} else if (oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB) {
 						//TODO
@@ -351,6 +348,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						parseRedoRecordValues(oraColumn,
 								StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
 								keyStruct, valueStruct);
+						setColumns.add(columnName);
 					}
 				}
 			}
@@ -365,7 +363,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						final OraColumn oraColumn = idToNameMap.get(columnName);
 						if (oraColumn != null) {
 							// Column can be excluded
-							valueStruct.put(oraColumn.getColumnName(), null);
+							try {
+								valueStruct.put(oraColumn.getColumnName(), null);
+							} catch (DataException de) {
+								printInvalidFieldValue(oraColumn, stmt);
+								throw new DataException(de);
+							}
 						}
 					}
 				} else {
@@ -602,4 +605,17 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		return kafkaTopic;
 	}
 
+	private void printInvalidFieldValue(OraColumn oraColumn, OraCdcLogMinerStatement stmt) {
+		LOGGER.error("NULL value for NON NULL column {}, table {}",
+				oraColumn.getColumnName(), this.tableFqn);
+		LOGGER.error("Redo record information:");
+		LOGGER.error("\tSCN = {}", stmt.getScn());
+		LOGGER.error("\tTIMESTAMP = {}", stmt.getTs());
+		LOGGER.error("\tRS_ID = {}", stmt.getRsId());
+		LOGGER.error("\tSSN = {}", stmt.getSsn());
+		LOGGER.error("\tROW_ID = {}", stmt.getRowId());
+		LOGGER.error("\tOPERATION_CODE = {}", stmt.getOperation());
+		LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
+
+	}
 }
