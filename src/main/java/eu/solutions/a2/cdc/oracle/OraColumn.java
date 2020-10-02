@@ -64,6 +64,7 @@ public class OraColumn {
 	private Boolean binaryFloatDouble;
 	private Boolean localTimeZone;
 	private Integer lobObjectId;
+	private Boolean defaultValuePresent;
 
 
 	/**
@@ -92,6 +93,9 @@ public class OraColumn {
 		this.columnName = resultSet.getString("COLUMN_NAME");
 		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
 		this.nameFromId = "\"COL " + resultSet.getInt("COLUMN_ID") + "\"";
+
+		resultSet.getString("DATA_DEFAULT");
+		this.defaultValuePresent = resultSet.wasNull();
 
 		if (mviewSource) {
 			final String partOfPkString = resultSet.getString("PK");
@@ -520,6 +524,14 @@ public class OraColumn {
 
 	public void setLobObjectId(Integer lobObjectId) {
 		this.lobObjectId = lobObjectId;
+	}
+
+	public Boolean getDefaultValuePresent() {
+		return defaultValuePresent;
+	}
+
+	public void setDefaultValuePresent(Boolean defaultValuePresent) {
+		this.defaultValuePresent = defaultValuePresent;
 	}
 
 	/**
