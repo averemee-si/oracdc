@@ -39,6 +39,7 @@ import eu.solutions.a2.cdc.oracle.data.OraBlob;
 import eu.solutions.a2.cdc.oracle.data.OraClob;
 import eu.solutions.a2.cdc.oracle.data.OraNumber;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
+import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 /**
@@ -95,7 +96,11 @@ public class OraColumn {
 		this.nameFromId = "\"COL " + resultSet.getInt("COLUMN_ID") + "\"";
 
 		resultSet.getString("DATA_DEFAULT");
-		this.defaultValuePresent = resultSet.wasNull();
+		if (resultSet.wasNull()) {
+			this.defaultValuePresent = false;
+		} else {
+			this.defaultValuePresent = true;
+		}
 
 		if (mviewSource) {
 			final String partOfPkString = resultSet.getString("PK");
@@ -303,18 +308,35 @@ public class OraColumn {
 			jdbcType = Types.DOUBLE;
 			break;
 		case "BYTES":
-			if (field.schema().name() != null && Decimal.LOGICAL_NAME.equals(field.schema().name())) {
-				jdbcType = Types.DECIMAL;
-				try {
-					dataScale = Integer.valueOf(field.schema().parameters().get(Decimal.SCALE_FIELD));
-				} catch (Exception e) {
-					LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+			if (field.schema().name() != null) {
+				switch (field.schema().name()) {
+				case Decimal.LOGICAL_NAME:
+					jdbcType = Types.DECIMAL;
+					try {
+						dataScale = Integer.valueOf(field.schema().parameters().get(Decimal.SCALE_FIELD));
+					} catch (Exception e) {
+						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+					}
+					break;
+				case OraNumber.LOGICAL_NAME:
+					jdbcType = Types.NUMERIC;
+					break;
+				case OraBlob.LOGICAL_NAME:
+					jdbcType = Types.BLOB;
+					break;
+				case OraClob.LOGICAL_NAME:
+					jdbcType = Types.CLOB;
+					break;
+				default:
+					LOGGER.error("Unknown logical name {} for BYTES Schema.", field.schema().name());
+					LOGGER.error("Setting column {} JDBC type to binary.", field.name());
+					jdbcType = Types.BINARY;
 				}
-			} else if (field.schema().name() != null && OraNumber.LOGICAL_NAME.equals(field.schema().name())) {
-				jdbcType = Types.NUMERIC;
-			}
-			else {
+			} else {
 				jdbcType = Types.BINARY;
+			}
+			if (Decimal.LOGICAL_NAME.equals(field.schema().name())) {
+			} else if (OraNumber.LOGICAL_NAME.equals(field.schema().name())) {
 			}
 			break;
 		case "STRING":
@@ -608,7 +630,9 @@ public class OraColumn {
 				}
 				break;
 			default:
-				throw new SQLException("Unsupported data type!!!");
+				LOGGER.error("Unsupported data type {} for column {}.",
+						JdbcTypes.getTypeName(jdbcType), columnName);
+				throw new SQLException("Unsupported data type: " + JdbcTypes.getTypeName(jdbcType));
 			}
 		}
 	}
