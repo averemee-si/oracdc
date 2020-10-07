@@ -13,6 +13,8 @@
 
 package eu.solutions.a2.cdc.oracle;
 
+import java.io.ByteArrayInputStream;
+import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -21,8 +23,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.kafka.connect.data.Field;
@@ -36,6 +41,7 @@ import org.slf4j.LoggerFactory;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcSinkTableInfo;
 import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
 import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 
@@ -60,6 +66,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	private long upsertTime;
 	private long deleteTime;
 	private final boolean onlyPkColumns;
+	private final Map<String, OraColumn> lobColumns = new HashMap<>();
+	private Map<String, LobSqlHolder> lobColsSqlMap;
 
 
 	/**
@@ -85,9 +93,14 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			this.tableOwner = "oracdc";
 			this.tableName = tableName;
 			keyFields = record.keySchema().fields();
-			valueFields = record.valueSchema().fields();
+			if (record.valueSchema() != null) {
+				valueFields = record.valueSchema().fields();
+			} else {
+				LOGGER.warn("Value schema is NULL for table {}.", this.tableName);
+				valueFields = new ArrayList<>();
+			}
 		} else {	// if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
-			LOGGER.debug("Schema type set to Dbezium style.");
+			LOGGER.debug("Schema type set to Debezium style.");
 			Struct source = (Struct)((Struct) record.value()).get("source");
 			this.tableOwner = source.getString("owner");
 			if (tableName == null) {
@@ -107,7 +120,11 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
 				final OraColumn column = new OraColumn(field, false);
-				allColumns.add(column);
+				if (column.getJdbcType() == Types.BLOB || column.getJdbcType() == Types.CLOB) {
+					lobColumns.put(column.getColumnName(), column);
+				} else {
+					allColumns.add(column);
+				}
 			}
 		}
 		if (allColumns.size() == 0) {
@@ -134,13 +151,25 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 							final boolean autoCreateTable) throws SQLException {
 		// Prepare UPDATE/INSERT/DELETE statements...
 		LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
-		final List<String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
-				this.tableName, this.dbType, this.pkColumns, this.allColumns);
-		sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
+		final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
+				tableName, dbType, pkColumns, allColumns, lobColumns);
+		sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.UPSERT);
 		sinkDeleteSql = sqlTexts.get(TargetDbSqlUtils.DELETE);
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
 			LOGGER.debug("Table name -> {}, DELETE statement ->\n{}", this.tableName, sinkDeleteSql);
+		}
+		if (lobColumns.size() > 0) {
+			lobColsSqlMap = new HashMap<>();
+			lobColumns.forEach((columnName, v) -> {
+				LobSqlHolder holder = new LobSqlHolder();
+				holder.COLUMN = columnName;
+				holder.EXEC_COUNT = 0;
+				holder.SQL_TEXT = sqlTexts.get(columnName);
+				lobColsSqlMap.put(columnName, holder);
+				LOGGER.debug("\tLOB column {}.{}, UPDATE statement ->\n{}",
+						this.tableName, columnName, holder.SQL_TEXT);
+			});
 		}
 
 		// Check for table existence
@@ -168,19 +197,42 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		if (!ready4Ops && autoCreateTable) {
 			// Create table in target database
 			LOGGER.debug("Prepare to create table {}", this.tableName);
-			String createTableSqlText = TargetDbSqlUtils.createTableSql(
-					this.tableName, this.dbType, this.pkColumns, this.allColumns);
-			LOGGER.debug("Create table with:\n{}", createTableSqlText);
+			List<String> sqlCreateTexts = TargetDbSqlUtils.createTableSql(
+					tableName, dbType, pkColumns, allColumns, lobColumns);
+			LOGGER.debug("Creating table with:\n{}", sqlCreateTexts.get(0));
+			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
+					sqlCreateTexts.size() > 1) {
+				for (int i = 1; i < sqlCreateTexts.size(); i++) {
+					LOGGER.debug("\tPostgreSQL lo trigger:\n\t{}", sqlCreateTexts.get(i));
+				}
+			}
+			boolean createLoTriggerFailed = false;
 			try (Connection connection = sinkPool.getConnection()) {
 				Statement statement = connection.createStatement();
-				statement.executeUpdate(createTableSqlText);
+				statement.executeUpdate(sqlCreateTexts.get(0));
+				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
+						sqlCreateTexts.size() > 1) {
+					for (int i = 1; i < sqlCreateTexts.size(); i++) {
+						try {
+							statement.executeUpdate(sqlCreateTexts.get(i));
+						} catch (SQLException pge) {
+							createLoTriggerFailed = true;
+							LOGGER.error("Trigger creation has failed! Failed creation statement:\n");
+							LOGGER.error(sqlCreateTexts.get(i));
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(pge));
+							throw new SQLException(pge);
+						}
+					}
+				}
 				connection.commit();
 				ready4Ops = true;
 			} catch (SQLException sqle) {
 				ready4Ops = false;
-				LOGGER.error("Create table failed! Failed creation statement:");
-				LOGGER.error(createTableSqlText);
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				if (!createLoTriggerFailed) {
+					LOGGER.error("Table creation has failed! Failed creation statement:\n");
+					LOGGER.error(sqlCreateTexts.get(0));
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				}
 				throw new SQLException(sqle);
 			}
 		}
@@ -222,15 +274,16 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	public void exec() throws SQLException {
 		LOGGER.trace("BEGIN: exec()");
 		final long nanosStart = System.nanoTime();
-		if ((sinkUpsert != null) && (upsertCount > 0)) {
+		if (sinkUpsert != null && upsertCount > 0) {
 			execUpsert();
 			sinkUpsert.clearBatch();
+			execLobUpdate(false);
 			upsertTime += System.nanoTime() - nanosStart;
 			metrics.addUpsert(upsertCount, upsertTime);
 			upsertCount = 0;
 			upsertTime = 0;
 		}
-		if ((sinkDelete != null) && (deleteCount > 0)) {
+		if (sinkDelete != null && deleteCount > 0) {
 			execDelete();
 			sinkDelete.clearBatch();
 			deleteTime += System.nanoTime() - nanosStart;
@@ -247,8 +300,10 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		if (sinkUpsert != null) {
 			if (upsertCount > 0) {
 				execUpsert();
+				execLobUpdate(true);
 				upsertTime += System.nanoTime() - nanosStart;
 				metrics.addUpsert(upsertCount, upsertTime);
+
 			}
 			sinkUpsert.close();
 			sinkUpsert = null;
@@ -298,6 +353,38 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		}
 	}
 
+	private void execLobUpdate(final boolean closeCursor) throws SQLException {
+		if (lobColumns.size() > 0) {
+			Iterator<Entry<String, LobSqlHolder>> lobIterator = lobColsSqlMap.entrySet().iterator();
+			while (lobIterator.hasNext()) {
+				final LobSqlHolder holder = lobIterator.next().getValue();
+				try {
+					if (holder.EXEC_COUNT > 0) {
+						LOGGER.debug("Processing LOB update for {}.{} using SQL:\n\t",
+								this.tableName, holder.COLUMN, holder.SQL_TEXT);
+						holder.STATEMENT.executeBatch();
+						holder.STATEMENT.clearBatch();
+						//TODO
+						//TODO Add metric for counting LOB columns...
+						//TODO
+						holder.EXEC_COUNT = 0;
+						if (closeCursor) {
+							holder.STATEMENT.close();
+							holder.STATEMENT = null;
+						}
+					} else if (closeCursor && holder.STATEMENT != null) {
+						holder.STATEMENT.close();
+						holder.STATEMENT = null;
+					}
+				} catch(SQLException sqle) {
+					LOGGER.error("Error {} while executing LOB update statement {}",
+							sqle.getMessage(), holder.SQL_TEXT);
+					throw new SQLException(sqle);
+				}
+			}
+		}
+	}
+
 	private void processUpsert(
 			final Connection connection, final SinkRecord record) throws SQLException {
 		LOGGER.trace("BEGIN: processUpsert()");
@@ -335,9 +422,10 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				try {
 					oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
 					columnNo++;
-				} catch (DataException de) {
+				} catch (DataException | SQLException de) {
 					LOGGER.error("Data error while performing upsert! Table={}, column={}, {}.",
 							tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, valueStruct));
+					LOGGER.error("SQL statement:\n\t{}", sinkUpsertSql);
 					LOGGER.error("PK value(s) for this row in table {} are", tableName);
 					int colNo = 1;
 					Iterator<Entry<String, OraColumn>> pkIterator = pkColumns.entrySet().iterator();
@@ -353,6 +441,51 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		}
 		sinkUpsert.addBatch();
 		upsertCount++;
+
+		if (lobColumns.size() > 0) {
+			Iterator<Entry<String, LobSqlHolder>> lobIterator = lobColsSqlMap.entrySet().iterator();
+			while (lobIterator.hasNext()) {
+				final LobSqlHolder holder = lobIterator.next().getValue();
+//				final byte[] columnByteValue = ((ByteBuffer) valueStruct.get(holder.COLUMN)).array();
+				final byte[] columnByteValue = (byte[]) valueStruct.get(holder.COLUMN);
+				final int lobColType = lobColumns.get(holder.COLUMN).getJdbcType();
+				if (columnByteValue != null) {
+					try {
+						if (holder.STATEMENT == null) {
+							holder.STATEMENT = connection.prepareStatement(holder.SQL_TEXT);
+							holder.EXEC_COUNT = 0;
+						}
+						if (columnByteValue.length == 0) {
+							holder.STATEMENT.setNull(1, lobColType);
+						} else {
+							if (lobColType == Types.BLOB) {
+								holder.STATEMENT.setBinaryStream(
+										1, new ByteArrayInputStream(columnByteValue), columnByteValue.length);
+							} else {
+								// Types.CLOB
+								holder.STATEMENT.setCharacterStream(
+										1, new StringReader(GzipUtil.decompress(columnByteValue)));
+							}
+						}
+						// Bind PK columns...
+						columnNo = 2;
+						iterator = pkColumns.entrySet().iterator();
+						while (iterator.hasNext()) {
+							final OraColumn oraColumn = iterator.next().getValue();
+							oraColumn.bindWithPrepStmt(
+									dbType, holder.STATEMENT, columnNo, keyStruct.get(oraColumn.getColumnName()));
+							columnNo++;
+						}
+						holder.STATEMENT.addBatch();
+						holder.EXEC_COUNT++;
+					} catch (SQLException sqle) {
+						LOGGER.error("Error while preparing LOB update statement {}", holder.SQL_TEXT);
+						throw new SQLException(sqle);
+					}
+				}
+			}
+
+		}
 		LOGGER.trace("END: processUpsert()");
 	}
 
@@ -417,6 +550,13 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		sb.append(this.tableName);
 		sb.append("\"");
 		return sb.toString();
+	}
+
+	private class LobSqlHolder {
+		protected String COLUMN;
+		protected String SQL_TEXT;
+		protected PreparedStatement STATEMENT;
+		protected int EXEC_COUNT;
 	}
 
 }

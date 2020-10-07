@@ -25,6 +25,7 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.Test;
 
+import eu.solutions.a2.cdc.oracle.data.OraBlob;
 import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 public class OraCdcSinkSqlInsertTest {
@@ -44,8 +45,15 @@ public class OraCdcSinkSqlInsertTest {
 		valueFields.add(dName);
 		valueFields.add(loc);
 
+		final Field deptCodePdf = new Field("DEPT_CODE_PDF", 2, OraBlob.builder().build());
+		final Field deptCodeDocx = new Field("DEPT_CODE_DOCX", 2, OraBlob.builder().build());
+		final List<Field> lobFields = new ArrayList<>();
+		lobFields.add(deptCodePdf);
+		lobFields.add(deptCodeDocx);
+
 		final List<OraColumn> allColumns = new ArrayList<>();
 		final Map<String, OraColumn> pkColumns = new HashMap<>();
+		final Map<String, OraColumn> lobColumns = new HashMap<>();
 
 		for (Field field : keyFields) {
 			try {
@@ -66,24 +74,33 @@ public class OraCdcSinkSqlInsertTest {
 				}
 			}
 		}
+		for (Field field : lobFields) {
+			try {
+				final OraColumn column = new OraColumn(field, true);
+				lobColumns.put(column.getColumnName(), column);
+			} catch (SQLException sqle) {
+				sqle.printStackTrace();
+			}
+		}
 
-		String sinkInsertSqlOra = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns)
-					.get(TargetDbSqlUtils.INSERT);
-		String sinkInsertSqlPg = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns)
-					.get(TargetDbSqlUtils.INSERT);
-		String sinkInsertSqlMySql = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns)
-					.get(TargetDbSqlUtils.INSERT);
+		final Map<String, String> sqlTextsOra = TargetDbSqlUtils.generateSinkSql(
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns);
+		final Map<String, String> sqlTextsPg = TargetDbSqlUtils.generateSinkSql(
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
+		final Map<String, String> sqlTextsMySql = TargetDbSqlUtils.generateSinkSql(
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
 
-		System.out.println(sinkInsertSqlOra);
-		System.out.println(sinkInsertSqlPg);
-		System.out.println(sinkInsertSqlMySql);
+		final String sinkUpsertSqlOra = sqlTextsOra.get(TargetDbSqlUtils.UPSERT);
+		final String sinkUpsertSqlPg = sqlTextsPg.get(TargetDbSqlUtils.UPSERT);
+		final String sinkUpsertSqlMySql = sqlTextsMySql.get(TargetDbSqlUtils.UPSERT);
 
-		assertTrue(sinkInsertSqlOra.contains("when matched then update"));
-		assertTrue(sinkInsertSqlPg.contains("on conflict"));
-		assertTrue(sinkInsertSqlMySql.contains("on duplicate key update"));
+		System.out.println(sinkUpsertSqlOra);
+		System.out.println(sinkUpsertSqlPg);
+		System.out.println(sinkUpsertSqlMySql);
+
+		assertTrue(sinkUpsertSqlOra.contains("when matched then update"));
+		assertTrue(sinkUpsertSqlPg.contains("on conflict"));
+		assertTrue(sinkUpsertSqlMySql.contains("on duplicate key update"));
 
 	}
 

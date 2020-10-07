@@ -25,6 +25,7 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.Test;
 
+import eu.solutions.a2.cdc.oracle.data.OraBlob;
 import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 public class OraCdcSinkCreateTableTest {
@@ -42,8 +43,15 @@ public class OraCdcSinkCreateTableTest {
 		valueFields.add(dName);
 		valueFields.add(loc);
 
+		final Field deptCodePdf = new Field("DEPT_CODE_PDF", 2, OraBlob.builder().build());
+		final Field deptCodeDocx = new Field("DEPT_CODE_DOCX", 2, OraBlob.builder().build());
+		final List<Field> lobFields = new ArrayList<>();
+		lobFields.add(deptCodePdf);
+		lobFields.add(deptCodeDocx);
+
 		final List<OraColumn> allColumns = new ArrayList<>();
 		final Map<String, OraColumn> pkColumns = new HashMap<>();
+		final Map<String, OraColumn> lobColumns = new HashMap<>();
 
 		for (Field field : keyFields) {
 			try {
@@ -64,21 +72,37 @@ public class OraCdcSinkCreateTableTest {
 				}
 			}
 		}
+		for (Field field : lobFields) {
+			try {
+				final OraColumn column = new OraColumn(field, true);
+				lobColumns.put(column.getColumnName(), column);
+			} catch (SQLException sqle) {
+				sqle.printStackTrace();
+			}
+		}
 
-		String createScottDeptOra = TargetDbSqlUtils.createTableSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns); 
-		String createScottDeptPg = TargetDbSqlUtils.createTableSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns); 
-		String createScottDeptMySql = TargetDbSqlUtils.createTableSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns);
+		List<String> createScottDeptOra = TargetDbSqlUtils.createTableSql(
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE,
+				pkColumns, allColumns, lobColumns); 
+		List<String> createScottDeptPg = TargetDbSqlUtils.createTableSql(
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL,
+				pkColumns, allColumns, lobColumns); 
+		List<String> createScottDeptMySql = TargetDbSqlUtils.createTableSql(
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL,
+				pkColumns, allColumns, lobColumns);
 
-		System.out.println(createScottDeptOra);
-		System.out.println(createScottDeptPg);
-		System.out.println(createScottDeptMySql);
+		System.out.println(createScottDeptOra.get(0));
+		System.out.println(createScottDeptPg.get(0));
+		if (createScottDeptPg.size() > 1) {
+			for (int i = 1; i < createScottDeptPg.size(); i++) {
+				System.out.println("\t" + createScottDeptPg.get(i));
+			}
+		}
+		System.out.println(createScottDeptMySql.get(0));
 
-		assertTrue(createScottDeptOra.contains("DEPTNO NUMBER(3)"));
-		assertTrue(createScottDeptPg.contains("DEPTNO smallint"));
-		assertTrue(createScottDeptMySql.contains("DEPTNO tinyint"));
+		assertTrue(createScottDeptOra.get(0).contains("DEPTNO NUMBER(3)"));
+		assertTrue(createScottDeptPg.get(0).contains("DEPTNO smallint"));
+		assertTrue(createScottDeptMySql.get(0).contains("DEPTNO tinyint"));
 
 	}
 

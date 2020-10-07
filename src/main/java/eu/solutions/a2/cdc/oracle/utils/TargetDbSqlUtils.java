@@ -32,9 +32,10 @@ import eu.solutions.a2.cdc.oracle.OraColumn;
  */
 public class TargetDbSqlUtils {
 
-	public static final int INSERT = 0;
-	public static final int UPDATE = 1;
-	public static final int DELETE = 2;
+	public static final String INSERT = "0#";	//For future...
+	public static final String UPDATE = "1#";	//For future...
+	public static final String DELETE = "2#";
+	public static final String UPSERT = "3#";
 
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> MYSQL_MAPPING =
@@ -53,6 +54,8 @@ public class TargetDbSqlUtils {
 				put(Types.TIMESTAMP_WITH_TIMEZONE, "varchar(127)");
 				put(Types.VARCHAR, "varchar(255)");
 				put(Types.BINARY, "varbinary(1000)");
+				put(Types.BLOB, "longblob");
+				put(Types.CLOB, "longtext");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> POSTGRESQL_MAPPING =
@@ -70,7 +73,9 @@ public class TargetDbSqlUtils {
 				put(Types.TIMESTAMP, "timestamp");
 				put(Types.TIMESTAMP_WITH_TIMEZONE, "timestamp with time zone");
 				put(Types.VARCHAR, "text");
-				put(Types.BINARY, "bytea");
+				put(Types.BINARY, "bytea");			// https://www.postgresql.org/docs/current/lo.html
+				put(Types.BLOB, "lo");
+				put(Types.CLOB, "text");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> ORACLE_MAPPING =
@@ -89,13 +94,27 @@ public class TargetDbSqlUtils {
 				put(Types.TIMESTAMP_WITH_TIMEZONE, "TIMESTAMP(9) WITH TIME ZONE");
 				put(Types.VARCHAR, "VARCHAR2(4000)");
 				put(Types.BINARY, "RAW(2000)");
+				put(Types.BLOB, "BLOB");
+				put(Types.CLOB, "CLOB");
 			}});
 
-	public static String createTableSql(
+	/**
+	 * 
+	 * @param tableName
+	 * @param dbType
+	 * @param pkColumns
+	 * @param allColumns
+	 * @return List with at least one element for PostgreSQL and exactly one element for others RDBMS
+	 *         Element at index 0 is always CREATE TABLE, at other indexes (PostgreSQL only) SQL text 
+	 *         script for creation of lo trigger (Ref.: https://www.postgresql.org/docs/current/lo.html)
+	 */
+	public static List<String> createTableSql(
 			final String tableName,
 			final int dbType,
 			final Map<String, OraColumn> pkColumns,
-			final List<OraColumn> allColumns) {
+			final List<OraColumn> allColumns,
+			final Map<String, OraColumn> lobColumns) {
+		final List<String> sqlStrings = new ArrayList<>();
 		final StringBuilder sbCreateTable = new StringBuilder(256);
 		final StringBuilder sbPrimaryKey = new StringBuilder(64);
 
@@ -113,20 +132,20 @@ public class TargetDbSqlUtils {
 		sbCreateTable.append(tableName);
 		sbCreateTable.append("(\n");
 
-		sbPrimaryKey.append(",\nconstraint ");
+		sbPrimaryKey.append(",\n  constraint ");
 		sbPrimaryKey.append(tableName);
 		sbPrimaryKey.append("_PK primary key(");
 		
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
-		while (iterator.hasNext()) {
-			OraColumn column = iterator.next().getValue();
-			sbCreateTable.append(" ");
+		Iterator<Entry<String, OraColumn>> pkIterator = pkColumns.entrySet().iterator();
+		while (pkIterator.hasNext()) {
+			OraColumn column = pkIterator.next().getValue();
+			sbCreateTable.append("  ");
 			sbCreateTable.append(getTargetDbColumn(dbType, dataTypesMap, column));
 			sbCreateTable.append(" not null");
 
 			sbPrimaryKey.append(column.getColumnName());
 
-			if (iterator.hasNext()) {
+			if (pkIterator.hasNext()) {
 				sbCreateTable.append(",\n");
 				sbPrimaryKey.append(",");
 			}
@@ -143,9 +162,39 @@ public class TargetDbSqlUtils {
 			}
 		}
 
+		if (lobColumns != null && lobColumns.size() > 0) {
+			sbCreateTable.append(",\n");
+			Iterator<Entry<String, OraColumn>> lobIterator = lobColumns.entrySet().iterator();
+			while (lobIterator.hasNext()) {
+				OraColumn column = lobIterator.next().getValue();
+				sbCreateTable.append("  ");
+				sbCreateTable.append(getTargetDbColumn(dbType, dataTypesMap, column));
+
+				if (lobIterator.hasNext()) {
+					sbCreateTable.append(",\n");
+				}
+
+				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
+						column.getJdbcType() == Types.BLOB) {
+					final StringBuilder sbPostgresLoTriggers = new StringBuilder(128);
+					sbPostgresLoTriggers.append("CREATE TRIGGER t_lo_");
+					sbPostgresLoTriggers.append(tableName);
+					sbPostgresLoTriggers.append("_");
+					sbPostgresLoTriggers.append(column.getColumnName());
+					sbPostgresLoTriggers.append(" BEFORE UPDATE OR DELETE ON ");
+					sbPostgresLoTriggers.append(tableName);
+					sbPostgresLoTriggers.append("\n\tFOR EACH ROW EXECUTE FUNCTION lo_manage(");
+					sbPostgresLoTriggers.append(column.getColumnName());
+					sbPostgresLoTriggers.append(")\n");
+					sqlStrings.add(sbPostgresLoTriggers.toString());
+				}
+			}
+		}
+
 		sbCreateTable.append(sbPrimaryKey);
 		sbCreateTable.append("\n)");
-		return sbCreateTable.toString();
+		sqlStrings.add(0, sbCreateTable.toString());
+		return sqlStrings;
 	}
 
 	private static String getTargetDbColumn(final int dbType, final Map<Integer, String> dataTypesMap, final OraColumn column) {
@@ -168,10 +217,11 @@ public class TargetDbSqlUtils {
 		return sb.toString();
 	}
 
-	public static List<String> generateSinkSql(final String tableName,
+	public static Map<String, String> generateSinkSql(final String tableName,
 			final int dbType,
 			final Map<String, OraColumn> pkColumns,
-			final List<OraColumn> allColumns) {
+			final List<OraColumn> allColumns,
+			final Map<String, OraColumn> lobColumns) {
 
 		final int pkColCount = pkColumns.size();
 		final boolean onlyPkColumns = allColumns.size() == 0;
@@ -353,10 +403,24 @@ public class TargetDbSqlUtils {
 		sbDelSql.append(sbDelUpdWhere);
 		sbUpdSql.append(sbDelUpdWhere);
 
-		final List<String> generatedSql = new ArrayList<>();
-		generatedSql.add(INSERT, sbInsSql.toString());
-		generatedSql.add(UPDATE, sbUpdSql.toString());
-		generatedSql.add(DELETE, sbDelSql.toString());
+		final Map<String, String> generatedSql = new HashMap<>();
+		generatedSql.put(UPSERT, sbInsSql.toString());
+		generatedSql.put(UPDATE, sbUpdSql.toString());
+		generatedSql.put(DELETE, sbDelSql.toString());
+
+		if (lobColumns != null && lobColumns.size() > 0) {
+			lobColumns.forEach((columnName, v) -> {
+				final StringBuilder sbLobUpdate = new StringBuilder(64);
+				sbLobUpdate.append("update ");
+				sbLobUpdate.append(tableName);
+				sbLobUpdate.append(" set ");
+				sbLobUpdate.append(columnName);
+				sbLobUpdate.append("=?");
+				sbLobUpdate.append(sbDelUpdWhere);
+				generatedSql.put(columnName, sbLobUpdate.toString());
+			});
+		}
+
 		return generatedSql;
 	}
 
