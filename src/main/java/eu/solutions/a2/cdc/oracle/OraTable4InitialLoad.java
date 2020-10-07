@@ -1,10 +1,15 @@
 package eu.solutions.a2.cdc.oracle;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -28,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
 import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.core.io.IORuntimeException;
 import net.openhft.chronicle.queue.ChronicleQueue;
@@ -54,7 +60,9 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4InitialLoad.class);
 	private static final byte NULL_LENGTH_BYTE = (byte) -1;
-	private static final byte NULL_LENGTH_SHORT = (short) -1;
+	private static final short NULL_LENGTH_SHORT = (short) -1;
+	private static final int NULL_LENGTH_INT = (int) -1;
+	private static final int LOB_CHUNK_SIZE = 16384;
 	private static final int ORA_942 = 942;
 
 	private final String pdbName;
@@ -263,10 +271,67 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						final RowId rowIdValue = rsMaster.getRowId(columnName);
 						bytes.write8bit(rowIdValue == null ? ((String) null): rowIdValue.toString());
 						break;
-					//TODO
-					//TODO Types.BLOB
-					//TODO Types.CLOB
-					//TODO
+					case Types.CLOB:
+						final Clob clobValue = rsMaster.getClob(columnName);
+						if (rsMaster.wasNull() || clobValue.length() < 1) {
+							bytes.writeInt(NULL_LENGTH_INT);
+						} else {
+							if (Integer.MAX_VALUE < clobValue.length()) {
+								LOGGER.error(
+										"Unable to process CLOB column {}({}) with length ({}) greater than Integer.MAX_VALUE ({})",
+										this.fqn(), columnName, clobValue.length(), Integer.MAX_VALUE);
+								throw new SQLException(
+										"Unable to process CLOB column with length " + clobValue.length() + " chars!");
+							}
+							try (Reader reader = clobValue.getCharacterStream()) {
+								final StringBuilder sbClob = new StringBuilder((int) clobValue.length());
+								int charsRead;
+								final char[] data = new char[LOB_CHUNK_SIZE];
+								while ((charsRead = reader.read(data, 0, data.length)) != -1) {
+									sbClob.append(data, 0, charsRead);
+								}
+								final byte[] clobCompressed = GzipUtil.compress(sbClob.toString());
+								bytes.writeInt(clobCompressed.length);
+								bytes.write(clobCompressed);
+							} catch (IOException ioe) {
+								LOGGER.error("IO Error while processing CLOB column {}({})", 
+										this.fqn(), columnName);
+								LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+								throw new ConnectException(ioe);
+							}
+						}
+						break;
+					case Types.BLOB:
+						final Blob blobValue = rsMaster.getBlob(columnName);
+						if (rsMaster.wasNull() || blobValue.length() < 1) {
+							bytes.writeInt(NULL_LENGTH_INT);
+						} else {
+							if (Integer.MAX_VALUE < blobValue.length()) {
+								LOGGER.error(
+										"Unable to process BLOB column {}({}) with length ({}) greater than Integer.MAX_VALUE ({})",
+										this.fqn(), columnName, blobValue.length(), Integer.MAX_VALUE);
+								throw new SQLException(
+										"Unable to process BLOB column with length " + blobValue.length() + " bytes!");
+							}
+							try (InputStream is = blobValue.getBinaryStream();
+									ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+								final byte[] data = new byte[LOB_CHUNK_SIZE];
+								int bytesRead;
+								while ((bytesRead = is.read(data, 0, data.length)) != -1) {
+									baos.write(data, 0, bytesRead);
+								}
+								bytes.writeInt(baos.size());
+								bytes.write(baos.toByteArray());
+							} catch (IOException ioe) {
+								LOGGER.error("IO Error while processing BLOB column {}({})", 
+										this.fqn(), columnName);
+								LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+								throw new ConnectException(ioe);
+							}
+						}
+						break;
+					default:
+						throw new SQLException("Unsupported JDBC Type " + oraColumn.getJdbcType());
 				}
 			}
 		} catch (SQLException sqle) {
@@ -284,7 +349,6 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 				final String columnName = oraColumn.getColumnName();
 				Object columnValue = null;
 				byte sizeByte;
-				short sizeShort;	//TODO
 				switch (oraColumn.getJdbcType()) {
 					case Types.DATE:
 					case Types.TIMESTAMP:
@@ -381,7 +445,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						}
 						break;
 					case Types.BINARY:
-						sizeShort = raw.readShort();
+						final short sizeShort = raw.readShort();
 						if (sizeShort != NULL_LENGTH_SHORT) {
 							final byte[] ba = new byte[sizeShort];
 							raw.read(ba);
@@ -397,10 +461,22 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 					case Types.ROWID:
 						columnValue = raw.read8bit();
 						break;
-					//TODO
-					//TODO Types.BLOB
-					//TODO Types.CLOB
-					//TODO
+					case Types.CLOB:
+					case Types.BLOB:
+						final int sizeInt = raw.readInt();
+						if (sizeInt != NULL_LENGTH_INT) {
+							final byte[] ba = new byte[sizeInt];
+							raw.read(ba);
+							columnValue = ba;
+						} else {
+							//For nullify CLOB/BLOB we need to pass zero length array
+							//NULL at Kafka side is for "not touch LOB"
+							columnValue = new byte[0];
+						}
+						
+						break;
+					default:
+						throw new SQLException("Unsupported JDBC Type " + oraColumn.getJdbcType());
 				}
 				if (keyStruct != null && pkColumns.containsKey(columnName)) {
 					try {
