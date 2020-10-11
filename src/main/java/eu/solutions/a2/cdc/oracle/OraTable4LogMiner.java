@@ -366,8 +366,25 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							try {
 								valueStruct.put(oraColumn.getColumnName(), null);
 							} catch (DataException de) {
-								printInvalidFieldValue(oraColumn, stmt);
-								throw new DataException(de);
+								// Check again for column default value...
+								// This is due "SUPPLEMENTAL LOG DATA (ALL) COLUMNS"
+								boolean throwDataException = true;
+								if (oraColumn.getDefaultValuePresent()) {
+									final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
+									if (columnDefaultValue != null) {
+										LOGGER.warn("Substituting NULL value for column {}, table {} with DEFAULT value {}",
+												oraColumn.getColumnName(), this.tableFqn, columnDefaultValue);
+										LOGGER.warn("\tRedo record information:");
+										LOGGER.warn("\t\tSCN = {},\tRS_ID = {},\tSSN = {}",
+												stmt.getScn(), stmt.getRsId(), stmt.getSsn());
+										valueStruct.put(oraColumn.getColumnName(), columnDefaultValue);
+										throwDataException = false;
+									}
+								}
+								if (throwDataException) {
+									printInvalidFieldValue(oraColumn, stmt);
+									throw new DataException(de);
+								}
 							}
 						}
 					}
@@ -616,6 +633,5 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		LOGGER.error("\tROW_ID = {}", stmt.getRowId());
 		LOGGER.error("\tOPERATION_CODE = {}", stmt.getOperation());
 		LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
-
 	}
 }

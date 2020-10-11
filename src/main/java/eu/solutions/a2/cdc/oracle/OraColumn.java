@@ -41,6 +41,7 @@ import eu.solutions.a2.cdc.oracle.data.OraNumber;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import oracle.sql.NUMBER;
 
 /**
  * 
@@ -66,6 +67,8 @@ public class OraColumn {
 	private Boolean localTimeZone;
 	private Integer lobObjectId;
 	private Boolean defaultValuePresent;
+	private String defaultValue;
+	private Object typedDefaultValue;
 
 
 	/**
@@ -95,7 +98,7 @@ public class OraColumn {
 		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
 		this.nameFromId = "\"COL " + resultSet.getInt("COLUMN_ID") + "\"";
 
-		resultSet.getString("DATA_DEFAULT");
+		defaultValue = resultSet.getString("DATA_DEFAULT");
 		if (resultSet.wasNull()) {
 			this.defaultValuePresent = false;
 		} else {
@@ -554,6 +557,80 @@ public class OraColumn {
 
 	public void setDefaultValuePresent(Boolean defaultValuePresent) {
 		this.defaultValuePresent = defaultValuePresent;
+	}
+
+	public String getDefaultValue() {
+		return defaultValue;
+	}
+
+	public void setDefaultValue(String defaultValue) {
+		this.defaultValue = defaultValue;
+	}
+
+	public Object getTypedDefaultValue() {
+		if (defaultValuePresent) {
+			return null;
+		} else if (typedDefaultValue == null) {
+			//TODO
+			//TODO Currently only Oracle VARCHAR2/NVARCHAR2 and NUMBER supported
+			//TODO
+			try {
+				switch (jdbcType) {
+				case Types.CHAR:
+				case Types.VARCHAR:
+				case Types.NCHAR:
+				case Types.NVARCHAR:
+					if (StringUtils.startsWith(defaultValue, "'") &&
+						StringUtils.endsWith(defaultValue, "'")) {
+						typedDefaultValue = StringUtils.substringBetween(defaultValue, "'", "'");
+					} else {
+						LOGGER.warn("Default value for CHAR/NCHAR/VARCHAR2/NVARCHAR2 must be inside single quotes!");
+						typedDefaultValue = defaultValue;
+					}
+					break;
+				case Types.TINYINT:
+					typedDefaultValue = Byte.parseByte(defaultValue);
+					break;
+				case Types.SMALLINT:
+					typedDefaultValue = Short.parseShort(defaultValue);
+					break;
+				case Types.INTEGER:
+					typedDefaultValue = Integer.parseInt(defaultValue);
+					break;
+				case Types.BIGINT:
+					typedDefaultValue = Long.parseLong(defaultValue);
+					break;
+				case Types.FLOAT:
+					typedDefaultValue = Float.parseFloat(defaultValue);
+					break;
+				case Types.DOUBLE:
+					typedDefaultValue = Double.parseDouble(defaultValue);
+					break;
+				case Types.DECIMAL:
+					typedDefaultValue = (new BigDecimal(defaultValue)).setScale(dataScale);
+					break;
+				case Types.NUMERIC:
+					try {
+						typedDefaultValue = (new NUMBER(defaultValue, 10)).getBytes();
+					} catch (SQLException sqle) {
+						LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+						throw new NumberFormatException(sqle.getMessage());
+					}
+					break;
+				default:
+					LOGGER.error("Default value {} for column {} with type {} currently is not supported!",
+						defaultValue, columnName, JdbcTypes.getTypeName(jdbcType));
+					typedDefaultValue = null;
+				}
+			} catch (NumberFormatException nfe) {
+				LOGGER.error("Invalid number value {} for column {} with type {}!\nSetting it to null!!!",
+						defaultValue, columnName, JdbcTypes.getTypeName(jdbcType));
+				typedDefaultValue = null;
+			}
+			return typedDefaultValue;
+		} else {
+			return typedDefaultValue;
+		}
 	}
 
 	/**
