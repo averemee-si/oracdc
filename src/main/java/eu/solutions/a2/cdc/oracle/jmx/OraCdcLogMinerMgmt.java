@@ -14,51 +14,31 @@
 package eu.solutions.a2.cdc.oracle.jmx;
 
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.management.InstanceAlreadyExistsException;
-import javax.management.MBeanRegistrationException;
-import javax.management.MBeanServer;
-import javax.management.MalformedObjectNameException;
-import javax.management.NotCompliantMBeanException;
-import javax.management.ObjectName;
-
 import org.apache.commons.math3.util.Precision;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.OraCdcLogMinerTask;
 import eu.solutions.a2.cdc.oracle.OraRdbmsInfo;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
-import eu.solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
 
 /**
  * 
  * @author averemee
  *
  */
-public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
+public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdcLogMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMgmt.class);
 
 	private List<String> tablesInProcessing = new ArrayList<>();
 	private int tableOutOfScopeCount = 0;
 	private int partitionsCount = 0;
-	private List<String> nowProcessedArchivelogs;
-	private LimitedSizeQueue<String> lastHundredProcessed = new LimitedSizeQueue<>(100);
-	private long currentFirstScn;
-	private long currentNextScn;
-	private int processedArchivedRedoCount;
-	private long processedArchivedRedoSize;
-	private long startTimeMillis;
-	private LocalDateTime startTime;
-	private long startScn;
 	private long totalRecordsCount = 0;
 	private long recordsRolledBackCount = 0;
 	private int transactionsRolledBackCount = 0;
@@ -70,45 +50,26 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 	private int parsePerSecond = 0;
 	private long redoReadTimeElapsed = 0;
 	private float redoReadMbPerSec = 0;
-	private String lastRedoLog;
-	private LocalDateTime lastRedoLogTime;
-	private long lastScn = 0;
 
 	private final OraCdcLogMinerTask task;
 
 	public OraCdcLogMinerMgmt(
 			final OraRdbmsInfo rdbmsInfo, final String connectorName, final OraCdcLogMinerTask task) {
+		super(rdbmsInfo, connectorName, "LogMiner-metrics");
 		this.task = task;
-		try {
-			final StringBuilder sb = new StringBuilder(96);
-			sb.append("eu.solutions.a2.oracdc:type=LogMiner-metrics,name=");
-			sb.append(connectorName);
-			sb.append(",database=");
-			sb.append(rdbmsInfo.getInstanceName());
-			sb.append("_");
-			sb.append(rdbmsInfo.getHostName());
-			ObjectName name = new ObjectName(sb.toString());
-			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
-			mbs.registerMBean(this, name);
-		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
-			LOGGER.error("Unable to register MBean - " + e.getMessage() + " !!!!");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-			throw new ConnectException(e);
-		}
 	}
 
+	@Override
 	public void start(long startScn) {
-		this.startTimeMillis = System.currentTimeMillis();
-		this.startTime = LocalDateTime.now();
-		this.startScn = startScn;
+		super.start(startScn);
 	}
 	@Override
 	public String getStartTime() {
-		return startTime.format(DateTimeFormatter.ISO_DATE_TIME);
+		return super.startTime.format(DateTimeFormatter.ISO_DATE_TIME);
 	}
 	@Override
 	public long getStartScn() {
-		return startScn;
+		return super.startScn;
 	}
 
 	public void addTableInProcessing(final String tableName) {
@@ -139,62 +100,52 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		return partitionsCount;
 	}
 
+	@Override
 	public void setNowProcessed(
 			final List<String> nowProcessedArchiveLogs, final long currentFirstScn, final long currentNextScn) {
-		this.nowProcessedArchivelogs = nowProcessedArchiveLogs;
-		this.currentFirstScn = currentFirstScn;
-		this.currentNextScn = currentNextScn;
+		super.setNowProcessed(nowProcessedArchiveLogs, currentFirstScn, currentNextScn);
 	}
 	@Override
 	public String[] getNowProcessedArchivelogs() {
-		return nowProcessedArchivelogs.toArray(new String[0]);
+		return super.nowProcessedArchivelogs.toArray(new String[0]);
 	}
 	@Override
 	public long getCurrentFirstScn() {
-		return currentFirstScn;
+		return super.currentFirstScn;
 	}
 	@Override
 	public long getCurrentNextScn() {
-		return currentNextScn;
+		return super.currentNextScn;
 	}
 
+	@Override
 	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size) {
-		final int listSize = lastProcessed.size();
-		for (int i = 0; i < listSize; i++) {
-			lastHundredProcessed.add(lastProcessed.get(i));
-		}
-		processedArchivedRedoCount += count;
-		processedArchivedRedoSize += size;
-		lastRedoLog = lastProcessed.get(listSize - 1);
-		lastRedoLogTime = LocalDateTime.now();
-		lastScn = currentNextScn;
-		currentFirstScn = 0;
-		currentNextScn = 0;
+		super.addAlreadyProcessed(lastProcessed, count, size);
 	}
 	@Override
 	public String[] getLast100ProcessedArchivelogs() {
-		return lastHundredProcessed.toArray(new String[0]);
+		return super.lastHundredProcessed.toArray(new String[0]);
 	}
 	@Override
 	public int getProcessedArchivelogsCount() {
-		return processedArchivedRedoCount;
+		return super.processedArchivedRedoCount;
 	}
 	@Override
 	public float getProcessedArchivelogsSizeGb() {
-		return Precision.round((float)((float)processedArchivedRedoSize / (float)(1024*1024*1024)), 3);
+		return Precision.round((float)((float)super.processedArchivedRedoSize / (float)(1024*1024*1024)), 3);
 	}
 	@Override
 	public String getLastProcessedArchivelog() {
-		return lastRedoLog;
+		return super.lastRedoLog;
 	}
 	@Override
 	public long getLastProcessedScn() {
-		return lastScn;
+		return super.lastScn;
 	}
 	@Override
 	public String getLastProcessedArchivelogTime() {
-		if (lastRedoLogTime != null) {
-			return lastRedoLogTime.format(DateTimeFormatter.ISO_DATE_TIME);
+		if (super.lastRedoLogTime != null) {
+			return super.lastRedoLogTime.format(DateTimeFormatter.ISO_DATE_TIME);
 		} else {
 			return null;
 		}
@@ -270,7 +221,7 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		redoReadTimeElapsed += redoReadMillis;
 		if (redoReadTimeElapsed != 0) {
 			float seconds = redoReadTimeElapsed / 1000;
-			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
+			redoReadMbPerSec = Precision.round((super.processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
 		}
 	}
 	@Override
@@ -290,14 +241,15 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 
 	@Override
 	public long getElapsedTimeMillis() {
-		return System.currentTimeMillis() - startTimeMillis;
+		return System.currentTimeMillis() - super.startTimeMillis;
 	}
 	@Override
 	public String getElapsedTime() {
-		Duration duration = Duration.ofMillis(System.currentTimeMillis() - startTimeMillis);
+		Duration duration = Duration.ofMillis(System.currentTimeMillis() - super.startTimeMillis);
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 
+	@Override
 	public void saveCurrentState() {
 		if (task != null) {
 			try {
@@ -309,6 +261,7 @@ public class OraCdcLogMinerMgmt implements OraCdcLogMinerMgmtMBean {
 		}
 	}
 
+	@Override
 	public void saveCurrentTablesSchema() {
 		if (task != null) {
 			try {

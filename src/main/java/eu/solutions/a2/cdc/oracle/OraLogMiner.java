@@ -24,7 +24,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
+import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 
 /**
  * 
@@ -46,7 +46,7 @@ public class OraLogMiner {
 	private final boolean dictionaryAvailable;
 	private final long dbId;
 	private final String dbUniqueName;
-	private final OraCdcLogMinerMgmt metrics;
+	private final OraCdcLogMinerMgmtIntf metrics;
 //	private Connection connection;
 	private PreparedStatement psGetArchivedLogs;
 	private CallableStatement csAddArchivedLogs;
@@ -69,18 +69,18 @@ public class OraLogMiner {
 	public static final short V$LOGMNR_LOB_TRIM = 11;
 	public static final short V$LOGMNR_LOB_ERASE = 28;
 
-	public OraLogMiner(final Connection connection, final OraCdcLogMinerMgmt metrics,
+	public OraLogMiner(final Connection connection, final OraCdcLogMinerMgmtIntf metrics,
 			final long firstChange, final int numArchLogs) throws SQLException {
 		this(connection, metrics, firstChange, numArchLogs, null);
 	}
 
-	public OraLogMiner(final Connection connection, final OraCdcLogMinerMgmt metrics,
+	public OraLogMiner(final Connection connection, final OraCdcLogMinerMgmtIntf metrics,
 			final long firstChange, final long sizeOfArchLogs) throws SQLException {
 		this(connection, metrics, firstChange, null, sizeOfArchLogs);
 	}
 
 	private OraLogMiner(
-			final Connection connection, final OraCdcLogMinerMgmt metrics, final long firstChange,
+			final Connection connection, final OraCdcLogMinerMgmtIntf metrics, final long firstChange,
 			final Integer numArchLogs, final Long sizeOfArchLogs) throws SQLException {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
@@ -118,7 +118,7 @@ public class OraLogMiner {
 		psOpenMode.close();
 		psOpenMode = null;
 		// It's time to init JMS metrics...
-		this.metrics.start(this.firstChange);
+		metrics.start(firstChange);
 		LOGGER.trace("END: OraLogMiner Constructor");
 	}
 
