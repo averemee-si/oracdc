@@ -39,6 +39,7 @@ public class OraPoolConnectionFactory {
 	private static PoolDataSource pds = null;
 	private static boolean activateStandby = false;
 	private static Connection connection2Standby = null;
+	private static Connection connection4Lobs = null;
 
 
 	public static final void init(final String url, final String user, final String password) throws
@@ -71,6 +72,8 @@ public class OraPoolConnectionFactory {
 
 	public static Connection getConnection() throws SQLException {
 		Connection connection = pds.getConnection();
+		connection.setClientInfo("OCSID.MODULE","oracdc");
+		connection.setClientInfo("OCSID.CLIENTID","Generic R/W");
 		connection.setAutoCommit(false);
 		return connection;
 	}
@@ -82,17 +85,30 @@ public class OraPoolConnectionFactory {
 		final String url = "jdbc:oracle:thin:/@" + alias;
 		Properties props = new Properties();
 		props.setProperty("internal_logon", "sysdba");
+		props.setProperty("v$session.program","oracdc");
 		final OracleDataSource ods = new OracleDataSource();
 		ods.setConnectionProperties(props);
 		ods.setURL(url);
 		connection2Standby = ods.getConnection();
 		connection2Standby.setAutoCommit(false);
+
+		connection4Lobs = ods.getConnection();
+		connection4Lobs.setAutoCommit(false);
+
 		activateStandby = true;
 }
 
 	public static Connection getLogMinerConnection() throws SQLException {
 		if (activateStandby) {
 			return connection2Standby;
+		} else {
+			return getConnection();
+		}
+	}
+
+	public static Connection getLogbWorkerConnection() throws SQLException {
+		if (activateStandby) {
+			return connection4Lobs;
 		} else {
 			return getConnection();
 		}
