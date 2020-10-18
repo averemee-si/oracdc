@@ -102,7 +102,9 @@ public class OraPoolConnectionFactory {
 		if (activateStandby) {
 			return connection2Standby;
 		} else {
-			return getConnection();
+			Connection connection = getConnection();
+			connection.setClientInfo("OCSID.CLIENTID","LogMiner Data  R/O");
+			return connection;
 		}
 	}
 
@@ -110,7 +112,9 @@ public class OraPoolConnectionFactory {
 		if (activateStandby) {
 			return connection4Lobs;
 		} else {
-			return getConnection();
+			Connection connection = getConnection();
+			connection.setClientInfo("OCSID.CLIENTID","LogMiner LOB  R/O");
+			return connection;
 		}
 	}
 
