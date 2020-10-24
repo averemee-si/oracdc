@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
@@ -332,6 +333,13 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
 				if (onlyPkColumns && sqle.getErrorCode() == 1) {
 					// ORA-00001: unique constraint %s violated
+					// ignore for tables with PK only column(s)
+					raiseException = false;
+					LOGGER.warn(sqle.getMessage());
+				}
+			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL) {
+				if (onlyPkColumns && StringUtils.startsWith(sqle.getMessage(), "Duplicate entry")) {
+					// Duplicate entry 'XXX' for key 'YYYYY'
 					// ignore for tables with PK only column(s)
 					raiseException = false;
 					LOGGER.warn(sqle.getMessage());
