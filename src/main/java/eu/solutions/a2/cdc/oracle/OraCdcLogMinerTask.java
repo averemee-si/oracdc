@@ -337,7 +337,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 							ParamConstants.TABLE_INCLUDE_PARAM, props.get(ParamConstants.TABLE_INCLUDE_PARAM));
 						throw new ConnectException("Please check value of a2.include parameter or remove it from configuration!");
 					}
-					mineDataSql += "where ((OPERATION_CODE in (1,2,3) " +  objectList + ")";
+					if (processLobs) {
+						mineDataSql += "where ((OPERATION_CODE in (1,2,3,9) " +  objectList + ")";
+					} else {
+						mineDataSql += "where ((OPERATION_CODE in (1,2,3) " +  objectList + ")";
+					}
 				} 
 				checkTableSql += tableList;
 				if (execInitialLoad) {
@@ -348,9 +352,17 @@ public class OraCdcLogMinerTask extends SourceTask {
 				if (tableListGenerationStatic) {
 					// for static list
 					if (includeList != null) {
-						mineDataSql += " and (OPERATION_CODE in (1,2,3) ";
+						if (processLobs) {
+							mineDataSql += " and (OPERATION_CODE in (1,2,3,9) ";
+						} else {
+							mineDataSql += " and (OPERATION_CODE in (1,2,3) ";
+						}
 					} else {
-						mineDataSql += " where ((OPERATION_CODE in (1,2,3) ";
+						if (processLobs) {
+							mineDataSql += " where ((OPERATION_CODE in (1,2,3,9) ";
+						} else {
+							mineDataSql += " where ((OPERATION_CODE in (1,2,3) ";
+						}
 					}
 					final String objectList = rdbmsInfo.getMineObjectsIds(connDictionary, true,
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList));
@@ -371,17 +383,33 @@ public class OraCdcLogMinerTask extends SourceTask {
 			if (tableListGenerationStatic) {
 				// for static list only!!!
 				if (includeList == null && excludeList == null) {
-					mineDataSql += "where (OPERATION_CODE in (1,2,3) ";
+					if (processLobs) {
+						mineDataSql += "where (OPERATION_CODE in (1,2,3,9) ";
+					} else {
+						mineDataSql += "where (OPERATION_CODE in (1,2,3) ";
+					}
 				}
 				// Finally - COMMIT and ROLLBACK
 				if ((includeList != null && excludeList != null) || excludeList != null)  {
-					mineDataSql += " or OPERATION_CODE in (7,36)";
+					if (processLobs) {
+						mineDataSql += " or OPERATION_CODE in (7,36) or (OPERATION_CODE=0 and DATA_OBJ#=DATA_OBJD# and DATA_OBJ#!=0)";
+					} else {
+						mineDataSql += " or OPERATION_CODE in (7,36)";
+					}
 				} else {
-					mineDataSql += " or OPERATION_CODE in (7,36))";	
+					if (processLobs) {
+						mineDataSql += " or OPERATION_CODE in (7,36)) or (OPERATION_CODE=0 and DATA_OBJ#=DATA_OBJD# and DATA_OBJ#!=0)";
+					} else {
+						mineDataSql += " or OPERATION_CODE in (7,36))";
+					}
 				}
 			} else {
 				// for dynamic list
-				mineDataSql += "where OPERATION_CODE in (1,2,3,7,36) ";
+				if (processLobs) {
+					mineDataSql += "where OPERATION_CODE in (1,2,3,97,36) or (OPERATION_CODE=0 and DATA_OBJ#=DATA_OBJD# and DATA_OBJ#!=0)";
+				} else {
+					mineDataSql += "where OPERATION_CODE in (1,2,3,7,36) ";
+				}
 			}
 			if (rdbmsInfo.isCdb()) {
 				// Do not process objects from CDB$ROOT and PDB$SEED
