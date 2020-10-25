@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -32,48 +33,68 @@ public class OraCdcTransaction {
 	private static final String QUEUE_SIZE = "queueSize";
 	private static final String QUEUE_OFFSET = "tailerOffset";
 	private static final String TRANS_COMMIT_SCN = "commitScn";
+	private static final String PROCESS_LOBS = "processLobs";
 
 	private final String xid;
 	private long firstChange;
 	private long nextChange;
 	private Long commitScn;
 	private final Path queueDirectory;
+	private final Path lobsQueueDirectory;
+	private final boolean processLobs;
 	private ChronicleQueue statements;
 	private ExcerptAppender appender;
 	private ExcerptTailer tailer;
 	private int queueSize;
 	private int tailerOffset;
+	private ChronicleQueue lobs;
+	private ExcerptAppender lobsAppender;
+	private ExcerptTailer lobsTailer;
 
 	/**
 	 * 
 	 * Creates OraCdcTransaction for new transaction
 	 * 
+	 * @param processLobs
 	 * @param rootDir
 	 * @param xid
 	 * @param firstStatement
 	 * @throws IOException
 	 */
-	public OraCdcTransaction(
-			final Path rootDir, final String xid, final OraCdcLogMinerStatement firstStatement) throws IOException {
+	public OraCdcTransaction(final boolean processLobs, final Path rootDir, final String xid) throws IOException {
 		LOGGER.trace("BEGIN: create OraCdcTransaction for new transaction");
 		this.xid = xid;
-		firstChange = firstStatement.getScn();
-		nextChange = firstChange;
-
+		this.processLobs = processLobs;
 		queueDirectory = Files.createTempDirectory(rootDir, xid + ".");
+		if (processLobs) {
+			final String lobDirectory = queueDirectory.toString() + ".LOBDATA";
+			lobsQueueDirectory = Files.createDirectory(Paths.get(lobDirectory));
+		} else {
+			lobsQueueDirectory = null;
+		}
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Created queue directory {} for transaction XID {}.",
+			LOGGER.debug("Created row data queue directory {} for transaction XID {}.",
 					queueDirectory.toString(), xid);
+			if (processLobs) {
+				LOGGER.debug("Created LOB data queue directory {} for transaction XID {}.",
+						lobsQueueDirectory.toString(), xid);
+			}
 		}
 		try {
 			statements = ChronicleQueue
 				.singleBuilder(queueDirectory)
 				.build();
-			tailer = this.statements.createTailer();
-			appender = this.statements.acquireAppender();
-			appender.writeDocument(firstStatement);
-			queueSize = 1;
+			tailer = statements.createTailer();
+			appender = statements.acquireAppender();
+			queueSize = 0;
 			tailerOffset = 0;
+			if (processLobs) {
+				lobs = ChronicleQueue
+						.singleBuilder(lobsQueueDirectory)
+						.build();
+					lobsTailer = lobs.createTailer();
+					lobsAppender = lobs.acquireAppender();
+			}
 		} catch (Exception e) {
 			LOGGER.error("Unable to create Chronicle Queue!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
@@ -84,7 +105,101 @@ public class OraCdcTransaction {
 
 	/**
 	 * 
-	 * Restores OraCdcTransaction from previously creates Chronicle queue file
+	 * Creates OraCdcTransaction for new transaction without LOBs
+	 * 
+	 * @param rootDir
+	 * @param xid
+	 * @param firstStatement
+	 * @throws IOException
+	 */
+	public OraCdcTransaction(
+			final Path rootDir, final String xid, final OraCdcLogMinerStatement firstStatement) throws IOException {
+		this(false, rootDir, xid);
+		this.addStatement(firstStatement);
+	}
+
+	/**
+	 * 
+	 * Restores OraCdcTransaction from previously created Chronicle queue file
+	 * 
+	 * @param processLobs
+	 * @param queueDirectory
+	 * @param xid
+	 * @param firstChange
+	 * @param nextChange
+	 * @param commitScn
+	 * @param queueSize
+	 * @param savedTailerOffset
+	 */
+	public OraCdcTransaction(
+			final boolean processLobs, final Path queueDirectory, final String xid,
+			final long firstChange, final long nextChange, final Long commitScn,
+			final int queueSize, final int savedTailerOffset) throws IOException {
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("BEGIN: restore OraCdcTransaction for XID={} from {}",
+					xid, queueDirectory);
+		}
+		this.processLobs = processLobs;
+		this.queueDirectory = queueDirectory;
+		this.xid = xid;
+		this.queueSize = queueSize;
+		if (processLobs) {
+			lobsQueueDirectory = Paths.get(queueDirectory.toString() + ".LOBDATA");
+		} else {
+			lobsQueueDirectory = null;
+		}
+		try {
+			statements = ChronicleQueue
+				.singleBuilder(queueDirectory)
+				.build();
+			tailer = statements.createTailer();
+			appender = statements.acquireAppender();
+			if (lobsQueueDirectory != null) {
+				lobs = ChronicleQueue
+						.singleBuilder(lobsQueueDirectory)
+						.build();
+					lobsTailer = lobs.createTailer();
+					lobsAppender = lobs.acquireAppender();
+			}
+		} catch (Exception e) {
+			LOGGER.error("Unable to create Chronicle Queue!");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+			throw new IOException(e);
+		}
+		this.firstChange = firstChange;
+		this.nextChange = nextChange;
+		this.commitScn = commitScn;
+		tailerOffset = 0;
+		while (tailerOffset < savedTailerOffset) {
+			OraCdcLogMinerStatement oraSql = new OraCdcLogMinerStatement();
+			final boolean result = getStatement(oraSql);
+			if (!result) {
+				throw new IOException("Chronicle Queue for data corruption!!!");
+			}
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace("Chronicle Queue for data rewind current offset={}, SCN={}",
+					tailerOffset, oraSql.getScn());
+			}
+			if (processLobs) {
+				for (int i = 0; i < (int) oraSql.getLobCount(); i++) {
+					OraCdcLargeObjectHolder oraLob = new OraCdcLargeObjectHolder();
+					final boolean lobResult = lobsTailer.readDocument(oraLob);
+					if (!lobResult) {
+						throw new IOException("Chronicle Queue for LOBS corruption!!!");
+					}
+				}
+			}
+		}
+
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Chronicle Queue Successfully restored in directory {} for transaction XID {} with {} records.",
+					queueDirectory.toString(), xid, queueSize);
+		}
+	}
+
+	/**
+	 * 
+	 * Restores OraCdcTransaction from previously created Chronicle queue file
 	 * 
 	 * @param queueDirectory
 	 * @param xid
@@ -98,44 +213,24 @@ public class OraCdcTransaction {
 			final Path queueDirectory, final String xid,
 			final long firstChange, final long nextChange, final Long commitScn,
 			final int queueSize, final int savedTailerOffset) throws IOException {
-		LOGGER.trace("BEGIN: restore OraCdcTransaction from filesystem");
-		this.queueDirectory = queueDirectory;
-		this.xid = xid;
-		this.queueSize = queueSize;
-		try {
-			statements = ChronicleQueue
-				.singleBuilder(queueDirectory)
-				.build();
-			tailer = this.statements.createTailer();
-			appender = this.statements.acquireAppender();
-		} catch (Exception e) {
-			LOGGER.error("Unable to create Chronicle Queue!");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-			throw new IOException(e);
-		}
-		this.firstChange = firstChange;
-		this.nextChange = nextChange;
-		this.commitScn = commitScn;
-		this.tailerOffset = 0;
-		while (this.tailerOffset < savedTailerOffset) {
-			LOGGER.trace("rewind to stored offset");
-			OraCdcLogMinerStatement oraSql = new OraCdcLogMinerStatement();
-			final boolean result = this.getStatement(oraSql);
-			if (!result) {
-				throw new IOException("Chronicle Queue corruption!!!");
-			}
-		}
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Chronicle Queue Successfully restored in directory {} for transaction XID {} with {} records.",
-					queueDirectory.toString(), xid, queueSize);
-		}
-		LOGGER.trace("END: restore OraCdcTransaction from filesystem");
+		this(false, queueDirectory, xid, firstChange, nextChange, commitScn, queueSize, savedTailerOffset);
 	}
 
 	public void addStatement(final OraCdcLogMinerStatement oraSql) {
+		if (firstChange == 0) {
+			firstChange = oraSql.getScn();
+		}
 		appender.writeDocument(oraSql);
 		nextChange = oraSql.getScn();
 		queueSize++;
+	}
+
+	public void addStatement(final OraCdcLogMinerStatement oraSql, final List<OraCdcLargeObjectHolder> lobs) {
+		oraSql.setLobCount((byte) lobs.size());
+		addStatement(oraSql);
+		for (int i = 0; i < lobs.size(); i++) {
+			lobsAppender.writeDocument(lobs.get(i));
+		}
 	}
 
 	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
@@ -145,13 +240,43 @@ public class OraCdcTransaction {
 		return result;
 	}
 
+	public boolean getStatement(OraCdcLogMinerStatement oraSql, List<OraCdcLargeObjectHolder> lobs) {
+		boolean result = tailer.readDocument(oraSql);
+		firstChange = oraSql.getScn();
+		tailerOffset++;
+		for (int i = 0; i < oraSql.getLobCount(); i++) {
+			OraCdcLargeObjectHolder lobHolder = new OraCdcLargeObjectHolder();
+			result = result && lobsTailer.readDocument(lobHolder);
+			if (!result) {
+				break;
+			} else {
+				lobs.add(lobHolder);
+			}
+		}
+		return result;
+	}
+
 	public void close() {
-		LOGGER.trace("Closing Cronicle Queue and deleting files.");
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Closing Cronicle Queue and deleting memory-mapped files for transaction {}.", xid);
+		}
+		if (processLobs) {
+			if (lobs != null) {
+				lobs.close();
+			}
+			lobs = null;
+		}
 		if (statements != null) {
 			statements.close();
 		}
 		statements = null;
 		try {
+			if (processLobs) {
+				Files.walk(lobsQueueDirectory)
+				.sorted(Comparator.reverseOrder())
+				.map(Path::toFile)
+				.forEach(File::delete);
+			}
 			Files.walk(queueDirectory)
 				.sorted(Comparator.reverseOrder())
 				.map(Path::toFile)
@@ -174,6 +299,7 @@ public class OraCdcTransaction {
 		final Map<String, Object> transAsMap = new LinkedHashMap<>();
 		transAsMap.put(QUEUE_DIR, queueDirectory.toString());
 		transAsMap.put(TRANS_XID, xid);
+		transAsMap.put(PROCESS_LOBS, processLobs);
 		transAsMap.put(TRANS_FIRST_CHANGE, firstChange);
 		transAsMap.put(TRANS_NEXT_CHANGE, nextChange);
 		transAsMap.put(QUEUE_SIZE, queueSize);
@@ -194,6 +320,10 @@ public class OraCdcTransaction {
 		sb.append(" located in the '");
 		sb.append(queueDirectory.toString());
 		sb.append("', ");
+		sb.append(PROCESS_LOBS);
+		sb.append(" = ");
+		sb.append(processLobs);
+		sb.append(", ");
 		sb.append(QUEUE_SIZE);
 		sb.append(" = ");
 		sb.append(queueSize);
@@ -231,7 +361,9 @@ public class OraCdcTransaction {
 		final int transOffset = (int) attrs.get(QUEUE_OFFSET);
 		final Object transCommitScnObj = attrs.get(TRANS_COMMIT_SCN);
 		final Long transCommitScn = transCommitScnObj == null ? null : valueAsLong(transCommitScnObj);
-		return new OraCdcTransaction(transDir, transXid,
+		final Object transProcessLobsObj = attrs.get(PROCESS_LOBS);
+		final Boolean transProcessLobs = transProcessLobsObj == null ? false : (Boolean) transProcessLobsObj;
+		return new OraCdcTransaction(transProcessLobs, transDir, transXid,
 				transFirstChange, transNextChange, transCommitScn, transQueueSize, transOffset);
 	}
 
