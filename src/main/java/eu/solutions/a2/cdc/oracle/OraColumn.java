@@ -66,6 +66,7 @@ public class OraColumn {
 	private Boolean binaryFloatDouble;
 	private Boolean localTimeZone;
 	private Integer lobObjectId;
+	private Boolean secureFile;
 	private Boolean defaultValuePresent;
 	private String defaultValue;
 	private Object typedDefaultValue;
@@ -244,7 +245,7 @@ public class OraColumn {
 						stringField(keySchema, valueSchema);
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
-						lobObjectId = resultSet.getInt("OBJECT_ID");
+						setLobAttributes(resultSet);
 						valueSchema.field(this.columnName, OraClob.builder().build());
 					}
 					break;
@@ -258,7 +259,7 @@ public class OraColumn {
 						bytesField(keySchema, valueSchema);
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
-						lobObjectId = resultSet.getInt("OBJECT_ID");
+						setLobAttributes(resultSet);
 						valueSchema.field(this.columnName, OraBlob.builder().build());
 					}
 					break;
@@ -549,6 +550,14 @@ public class OraColumn {
 
 	public void setLobObjectId(Integer lobObjectId) {
 		this.lobObjectId = lobObjectId;
+	}
+
+	public Boolean getSecureFile() {
+		return secureFile;
+	}
+
+	public void setSecureFile(Boolean secureFile) {
+		this.secureFile = secureFile;
 	}
 
 	public Boolean getDefaultValuePresent() {
@@ -865,6 +874,15 @@ public class OraColumn {
 			} else {
 				valueSchema.field(this.columnName, OraTimestamp.builder().required().build());
 			}
+		}
+	}
+
+	private void setLobAttributes(ResultSet resultSet) throws SQLException {
+		lobObjectId = resultSet.getInt("OBJECT_ID");
+		if ("YES".equalsIgnoreCase(resultSet.getString("SECUREFILE"))) {
+			secureFile = true;
+		} else {
+			secureFile = false;
 		}
 	}
 
