@@ -226,10 +226,22 @@ public class OraCdcTransaction {
 	}
 
 	public void addStatement(final OraCdcLogMinerStatement oraSql, final List<OraCdcLargeObjectHolder> lobs) {
-		oraSql.setLobCount((byte) lobs.size());
+		final boolean lobsExists;
+		if (lobs == null) {
+			lobsExists = false;
+		} else {
+			lobsExists = true;
+		}
+		if (lobsExists) {
+			oraSql.setLobCount((byte) lobs.size());
+		} else {
+			oraSql.setLobCount((byte) 0);
+		}
 		addStatement(oraSql);
-		for (int i = 0; i < lobs.size(); i++) {
-			lobsAppender.writeDocument(lobs.get(i));
+		if (lobsExists) {
+			for (int i = 0; i < lobs.size(); i++) {
+				lobsAppender.writeDocument(lobs.get(i));
+			}
 		}
 	}
 
