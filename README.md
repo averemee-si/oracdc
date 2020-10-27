@@ -14,6 +14,13 @@ This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database
 ### Monitoring
 _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
 
+### Oracle Database SecureFiles and Large Objects
+Oracle Database SecureFiles and Large Objects i.e. LOB's are supported from v0.9.7 when parameter `a2.process.lobs` set to true. CLOB type supported only for columns with **DBA_LOBS.FORMAT='ENDIAN NEUTRAL'**. If you need support for CLOB columns with **DBA_LOBS.FORMAT='ENDIAN SPECIFIC'** or **XMLTYPE** please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+For processing LOB's please do not forget to set Apache Kafka parameters according to size of LOB's:
+1. For Source connector: _producer.max.request.size_
+2. For broker: _replica.fetch.max.bytes_ and _message.max.bytes_
+
+
 ### Known issues
 1. **INTERVAL** data types family not supported yet
 
@@ -244,13 +251,16 @@ By default (when `a2.oracdc.schemas` set to false) **oracdc** Source connector's
 
 When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Oracle **NUMBER** (**eu.solutions.a2.cdc.oracle.data.OraNumber**) and  **TIMESTAMP WITH [LOCAL] TIMEZONE** (**eu.solutions.a2.cdc.oracle.data.OraTimestamp**) datatypes.
 
+When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle **BLOB** (**eu.solutions.a2.cdc.oracle.data.OraBlob**) and  **CLOB** (**eu.solutions.a2.cdc.oracle.data.OraClob**) datatypes.
+
+
 ## Built With
 
 * [Maven](https://maven.apache.org/) - Dependency Management
 
 ## TODO
 
-* LOB support for LogMiner source
+* Support for _SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS/SUPPLEMENTAL LOG DATA (UNIQUE) COLUMNS_ to minimize supplemental logging overhead
 * **oracdc** as audit information source
 * Oracle LOB handler: convert Oracle BLOB/CLOB/BFILE to link on object file system and send ref to Kafka instead of LOB data
 
@@ -312,6 +322,10 @@ Kafka topic name configuration using `a2.topic.name.style` & `a2.topic.name.deli
 #####0.9.6.4 (SEP-2020)
 
 Dynamic list of tables to mine using `a2.table.list.style` parameter
+
+####0.9.7 (OCT-2020)
+
+LOB support. See also `a2.process.lobs` parameter
 
 ## Authors
 
