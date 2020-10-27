@@ -134,11 +134,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 		LOGGER.debug("topic set to {}.", topic);
 		useOracdcSchemas = Boolean.parseBoolean(props.get(ParamConstants.ORACDC_SCHEMAS_PARAM));
 		if (useOracdcSchemas) {
-			LOGGER.debug("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
+			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
 		}
-		//TODO
-		//TODO parseLobs!!!
-		//TODO
+		processLobs = Boolean.parseBoolean(props.get(ParamConstants.PROCESS_LOBS_PARAM));
+		if (processLobs) {
+			LOGGER.info("oracdc will process Oracle LOBs");
+		}
 
 		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
 			rdbmsInfo = OraRdbmsInfo.getInstance();

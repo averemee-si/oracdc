@@ -120,4 +120,7 @@ public class ParamConstants {
 	public static final String TABLE_LIST_STYLE_STATIC = "static";
 	public static final String TABLE_LIST_STYLE_DYNAMIC = "dynamic";
 
+	public static final String PROCESS_LOBS_PARAM = "a2.process.lobs";
+	public static final String PROCESS_LOBS_DOC = "process Oracle LOB columns? Default - false";
+
 }

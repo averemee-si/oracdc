@@ -192,7 +192,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		LOGGER.trace("BEGIN: taskConfigs(int maxTasks)");
 		final Map<String, String> taskParam = new HashMap<>();
 		taskParam.put("name", connectorName);
-		Boolean oracdcSchemas = config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM);
+		final Boolean oracdcSchemas = config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM);
 		taskParam.put(ParamConstants.ORACDC_SCHEMAS_PARAM, oracdcSchemas.toString());
 		if (oracdcSchemas) {
 			taskParam.put(ParamConstants.DICTIONARY_FILE_PARAM,
@@ -249,8 +249,10 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		}
 		taskParam.put(ParamConstants.TEMP_DIR_PARAM, tmpdir);
 		taskParam.put(ParamConstants.PERSISTENT_STATE_FILE_PARAM, stateFileName);
-		// Just pass value of INITIAL_LOAD_PARAM
+		// Just pass...
 		taskParam.put(ParamConstants.INITIAL_LOAD_PARAM, config.getString(ParamConstants.INITIAL_LOAD_PARAM));
+		final Boolean processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
+		taskParam.put(ParamConstants.PROCESS_LOBS_PARAM, processLobs.toString());
 
 		final List<Map<String, String>> configs = new ArrayList<>(1);
 		configs.add(taskParam);
