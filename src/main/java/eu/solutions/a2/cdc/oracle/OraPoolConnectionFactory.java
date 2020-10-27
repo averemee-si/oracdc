@@ -103,17 +103,7 @@ public class OraPoolConnectionFactory {
 			return connection2Standby;
 		} else {
 			Connection connection = getConnection();
-			connection.setClientInfo("OCSID.CLIENTID","LogMiner Data  R/O");
-			return connection;
-		}
-	}
-
-	public static Connection getLogbWorkerConnection() throws SQLException {
-		if (activateStandby) {
-			return connection4Lobs;
-		} else {
-			Connection connection = getConnection();
-			connection.setClientInfo("OCSID.CLIENTID","LogMiner LOB  R/O");
+			connection.setClientInfo("OCSID.CLIENTID","LogMiner Read-only");
 			return connection;
 		}
 	}
