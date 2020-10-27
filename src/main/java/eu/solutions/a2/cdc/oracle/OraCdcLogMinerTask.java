@@ -548,7 +548,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 					boolean processTransaction = true;
 					do {
 						OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
+						List<OraCdcLargeObjectHolder> lobs = null;
 						processTransaction = transaction.getStatement(stmt);
+						if (processLobs && stmt.getLobCount() > 0) {
+							lobs = new ArrayList<>();
+							transaction.getLobs(stmt.getLobCount(), lobs);
+						}
 						lastStatementInTransaction = !processTransaction;
 
 						if (processTransaction) {
@@ -561,7 +566,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							} else {
 								try {
 									final long startParseTs = System.currentTimeMillis();
-									SourceRecord record = oraTable.parseRedoRecord(stmt);
+									SourceRecord record = oraTable.parseRedoRecord(stmt, lobs);
 									result.add(record);
 									recordCount++;
 									parseTime += (System.currentTimeMillis() - startParseTs);

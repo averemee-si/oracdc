@@ -48,8 +48,6 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 	private int batchesSentCount = 0;
 	private long parseTimeElapsed = 0;
 	private int parsePerSecond = 0;
-	private long redoReadTimeElapsed = 0;
-	private float redoReadMbPerSec = 0;
 
 	private final OraCdcLogMinerTask task;
 
@@ -119,8 +117,9 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 	}
 
 	@Override
-	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size) {
-		super.addAlreadyProcessed(lastProcessed, count, size);
+	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size,
+			final long redoReadMillis) {
+		super.addAlreadyProcessed(lastProcessed, count, size, redoReadMillis);
 	}
 	@Override
 	public String[] getLast100ProcessedArchivelogs() {
@@ -217,13 +216,6 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 		return parsePerSecond;
 	}
 
-	public void addRedoReadMillis(long redoReadMillis) {
-		redoReadTimeElapsed += redoReadMillis;
-		if (redoReadTimeElapsed != 0) {
-			float seconds = redoReadTimeElapsed / 1000;
-			redoReadMbPerSec = Precision.round((super.processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
-		}
-	}
 	@Override
 	public long getRedoReadElapsedMillis() {
 		return redoReadTimeElapsed;

@@ -24,6 +24,7 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
+import org.apache.commons.math3.util.Precision;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,9 +54,9 @@ public class OraCdcLogMinerMgmtBase {
 	protected String lastRedoLog;
 	protected LocalDateTime lastRedoLogTime;
 	protected long lastScn = 0;
+	protected long redoReadTimeElapsed = 0;
+	protected float redoReadMbPerSec = 0;
 
-	// LogMiner-metrics
-	// LogMiner-LOB-metrics
 	public OraCdcLogMinerMgmtBase(
 			final OraRdbmsInfo rdbmsInfo, final String connectorName, final String jmxTypeName) {
 		try {
@@ -92,7 +93,8 @@ public class OraCdcLogMinerMgmtBase {
 		this.currentNextScn = currentNextScn;
 	}
 
-	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size) {
+	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size,
+			final long redoReadMillis) {
 		final int listSize = lastProcessed.size();
 		for (int i = 0; i < listSize; i++) {
 			lastHundredProcessed.add(lastProcessed.get(i));
@@ -104,6 +106,11 @@ public class OraCdcLogMinerMgmtBase {
 		lastScn = currentNextScn;
 		currentFirstScn = 0;
 		currentNextScn = 0;
+		redoReadTimeElapsed += redoReadMillis;
+		if (redoReadTimeElapsed != 0) {
+			float seconds = redoReadTimeElapsed / 1000;
+			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
+		}
 	}
 
 }

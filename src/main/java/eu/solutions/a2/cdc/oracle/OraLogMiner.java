@@ -38,6 +38,7 @@ public class OraLogMiner {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraLogMiner.class);
 
 	private long firstChange;
+	private long sessionFirstChange;
 	private long nextChange = 0;
 	private long lastSequence = -1;
 	private int numArchLogs;
@@ -47,14 +48,14 @@ public class OraLogMiner {
 	private final long dbId;
 	private final String dbUniqueName;
 	private final OraCdcLogMinerMgmtIntf metrics;
-//	private Connection connection;
 	private PreparedStatement psGetArchivedLogs;
 	private CallableStatement csAddArchivedLogs;
 	private CallableStatement csStartLogMiner;
 	private CallableStatement csStopLogMiner;
-	int archLogsAvailable = 0;
-	long archLogsSize = 0;
-	List<String> fileNames = new ArrayList<>();
+	private int archLogsAvailable = 0;
+	private long archLogsSize = 0;
+	private List<String> fileNames = new ArrayList<>();
+	private long readStartMillis;
 
 	public static final short V$LOGMNR_CONTENTS_INTERNAL = 0;
 	public static final short V$LOGMNR_CONTENTS_INSERT = 1;
@@ -133,7 +134,6 @@ public class OraLogMiner {
 	/**
 	 * Prepare LogMiner (exec DBMS_LOGMNR.START_LOGMNR) for given connection
 	 * 
-	 * 
 	 * @return  - true if LogMiner prepared, false if no more redo files available
 	 * @throws SQLException
 	 */
@@ -145,16 +145,16 @@ public class OraLogMiner {
 		if (firstChange == 0) {
 			// oracdc started without archived logs....
 			LOGGER.debug("Requerying V$ARCHIVED_LOG for FIRST_CHANGE# ...");
-			firstChange = OraRdbmsInfo.firstScnFromArchivedLogs(OraPoolConnectionFactory.getLogMinerConnection());
+			firstChange = OraRdbmsInfo.firstScnFromArchivedLogs(psGetArchivedLogs.getConnection());
 			if (firstChange == 0) {
 				LOGGER.debug("Nothing found in V$ARCHIVED_LOG... Will retry");
 				return false;
 			}
 		}
 
-		psGetArchivedLogs.setLong(1,  firstChange);
-		psGetArchivedLogs.setLong(2,  firstChange);
-		psGetArchivedLogs.setLong(3,  firstChange);
+		psGetArchivedLogs.setLong(1, firstChange);
+		psGetArchivedLogs.setLong(2, firstChange);
+		psGetArchivedLogs.setLong(3, firstChange);
 		ResultSet rs = psGetArchivedLogs.executeQuery();
 		fileNames = new ArrayList<>();
 		while (rs.next()) {
@@ -165,8 +165,7 @@ public class OraLogMiner {
 					lastSequence = sequence;
 					fileNames.add(archLogsAvailable, rs.getString("NAME"));
 					LOGGER.info("Adding archived log {} thread# {} sequence# {} first change number {} next log first change {}",
-							rs.getString("NAME"), rs.getShort("THREAD#"), lastSequence,
-							rs.getLong("FIRST_CHANGE#"), nextChange);
+							rs.getString("NAME"), rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"), nextChange);
 					archLogsAvailable++;
 					archLogsSize += rs.getLong("BYTES"); 
 					if (useNumOfArchLogs) {
@@ -194,7 +193,7 @@ public class OraLogMiner {
 			LOGGER.trace("Adding files to LogMiner session and starting it");
 			for (int fileNum = 0; fileNum < fileNames.size(); fileNum++) {
 				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Adding {} to LogMiner pricessing list.", fileNames.get(fileNum));
+					LOGGER.debug("Adding {} to LogMiner processing list.", fileNames.get(fileNum));
 				}
 				csAddArchivedLogs.setInt(1, fileNum);
 				csAddArchivedLogs.setString(2, fileNames.get(fileNum));
@@ -211,16 +210,89 @@ public class OraLogMiner {
 			csStartLogMiner.execute();
 			csStartLogMiner.clearParameters();
 			firstChange = nextChange;
-			LOGGER.trace("END: next() return true");
+			readStartMillis = System.currentTimeMillis();
+			LOGGER.trace("END: next() returns true");
 			return true;
 		}
 	}
+
+
+	public boolean extend() throws SQLException {
+		LOGGER.trace("BEGIN: extend()");
+
+		archLogsAvailable = 0;
+		archLogsSize = 0;
+
+		psGetArchivedLogs.setLong(1, firstChange);
+		psGetArchivedLogs.setLong(2, firstChange);
+		psGetArchivedLogs.setLong(3, firstChange);
+		ResultSet rs = psGetArchivedLogs.executeQuery();
+		while (rs.next()) {
+			final long sequence = rs.getLong("SEQUENCE#");
+			nextChange = rs.getLong("NEXT_CHANGE#");
+			if (sequence > lastSequence) {
+				if (firstChange < nextChange) {
+					lastSequence = sequence;
+					fileNames.add(archLogsAvailable, rs.getString("NAME"));
+					LOGGER.info("Adding archived log {} thread# {} sequence# {} first change number {} next log first change {}",
+							rs.getString("NAME"), rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"), nextChange);
+					archLogsAvailable++;
+					archLogsSize += rs.getLong("BYTES"); 
+					if (useNumOfArchLogs) {
+						if (archLogsAvailable >= numArchLogs) {
+							break;
+						}
+					} else {
+						if (archLogsSize >= sizeOfArchLogs) {
+							break;
+						}
+					}
+				}
+			}
+		}
+		rs.close();
+		rs = null;
+		psGetArchivedLogs.clearParameters();
+		// Set current processing in JMX
+		metrics.setNowProcessed(fileNames, firstChange, nextChange);
+
+		if (archLogsAvailable == 0) {
+			LOGGER.trace("END: extend() returns false");
+			return false;
+		} else {
+			LOGGER.trace("Adding files to LogMiner session and starting it");
+			for (int fileNum = 0; fileNum < fileNames.size(); fileNum++) {
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Adding {} to LogMiner processing list.", fileNames.get(fileNum));
+				}
+				csAddArchivedLogs.setInt(1, fileNum);
+				csAddArchivedLogs.setString(2, fileNames.get(fileNum));
+				csAddArchivedLogs.addBatch();
+			}
+			csAddArchivedLogs.executeBatch();
+			csAddArchivedLogs.clearBatch();
+
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Attempting to start LogMiner for SCN range from {} to {}.", sessionFirstChange, nextChange);
+			}
+			csStartLogMiner.setLong(1, sessionFirstChange); 
+			csStartLogMiner.setLong(2, nextChange);
+			csStartLogMiner.execute();
+			csStartLogMiner.clearParameters();
+			firstChange = nextChange;
+			readStartMillis = System.currentTimeMillis();
+			LOGGER.trace("END: extend() returns true");
+			return true;
+		}
+	}
+
 
 	public void stop() throws SQLException {
 		LOGGER.trace("BEGIN: stop()");
 		csStopLogMiner.execute();
 		// Add info about processed files to JMX
-		metrics.addAlreadyProcessed(fileNames, archLogsAvailable, archLogsSize);
+		metrics.addAlreadyProcessed(fileNames, archLogsAvailable, archLogsSize,
+				System.currentTimeMillis() - readStartMillis);
 		LOGGER.trace("END: stop()");
 	}
 
@@ -235,4 +307,5 @@ public class OraLogMiner {
 	public String getDbUniqueName() {
 		return dbUniqueName;
 	}
+
 }

@@ -40,6 +40,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
 import eu.solutions.a2.cdc.oracle.utils.KafkaUtils;
 
 /**
@@ -57,6 +58,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private static final String SQL_REDO_AND = " and ";
 	private static final String SQL_REDO_IS = " IS";
 	private static final String SQL_REDO_VALUES = " values ";
+
+	private static final int LOB_BASICFILES_DATA_BEGINS = 72;
+	private static final int LOB_SECUREFILES_DATA_BEGINS = 60;
 
 	private final Map<String, OraColumn> idToNameMap;
 	private String pdbName;
@@ -223,7 +227,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 	}
 
-	public SourceRecord parseRedoRecord(OraCdcLogMinerStatement stmt) throws SQLException {
+	public SourceRecord parseRedoRecord(
+			final OraCdcLogMinerStatement stmt,
+			final List<OraCdcLargeObjectHolder> lobs) throws SQLException {
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("BEGIN: parseRedoRecord()");
 		}
@@ -277,9 +283,17 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					} else if ("''".equals(columnValue) &&
 							(oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB)) {
 						// EMPTY_BLOB()/EMPTY_CLOB() passed as ''
+						valueStruct.put(oraColumn.getColumnName(), new byte[0]);
 						break;
 					} else {
-						parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
+						// Handle LOB inline value!
+						try {
+							parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
+						} catch (DataException de) {
+							LOGGER.error("Invalid value {}", columnValue);
+							printInvalidFieldValue(oraColumn, stmt);
+							throw new DataException(de);
+						}
 					}
 				}
 			}
@@ -326,7 +340,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					// Column can be excluded
 					if (StringUtils.endsWith(currentExpr, "L")) {
 						try {
-							valueStruct.put(oraColumn.getColumnName(), null);
+							if (oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB) {
+								// Explicit NULL for LOB!
+								valueStruct.put(oraColumn.getColumnName(), new byte[0]);
+							} else {
+								valueStruct.put(oraColumn.getColumnName(), null);
+							}
 							setColumns.add(columnName);
 						} catch (DataException de) {
 							//TODO
@@ -338,17 +357,17 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								throw new DataException(de);
 							}
 						}
-					} else if (oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB) {
-						//TODO
-						//TODO EMPTY_BLOB()/EMPTY_CLOB() handling!
-						//TODO LOB_WRITE results!!!
-						//TODO
-						break;
 					} else {
-						parseRedoRecordValues(oraColumn,
-								StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
-								keyStruct, valueStruct);
-						setColumns.add(columnName);
+						final String columnValue = StringUtils.substringAfter(currentExpr, "=");
+						if ("''".equals(columnValue) &&
+								(oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB)) {
+							valueStruct.put(oraColumn.getColumnName(), new byte[0]);
+							break;
+						} else {
+							parseRedoRecordValues(oraColumn, columnValue,
+									keyStruct, valueStruct);
+							setColumns.add(columnName);
+						}
 					}
 				}
 			}
@@ -394,10 +413,17 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						final OraColumn oraColumn = idToNameMap.get(columnName);
 						if (oraColumn != null) {
 							// Column can be excluded
-							parseRedoRecordValues(
+							final String columnValue = StringUtils.trim(StringUtils.substringAfter(currentExpr, "="));
+							try {
+								parseRedoRecordValues(
 									oraColumn,
-									StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
+									columnValue,
 									keyStruct, valueStruct);
+							} catch (DataException de) {
+								LOGGER.error("Invalid value {}", columnValue);
+								printInvalidFieldValue(oraColumn, stmt);
+								throw new DataException(de);
+							}
 						}
 					}
 				}
@@ -414,6 +440,23 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
 			throw new SQLException("Unknown OPERATION_CODE while parsing redo record!");
 		}
+
+		if (processLobs &&
+				(stmt.getOperation() == OraLogMiner.V$LOGMNR_CONTENTS_UPDATE ||
+				stmt.getOperation() == OraLogMiner.V$LOGMNR_CONTENTS_INSERT)) {
+			if (lobs != null) {
+				for (int i = 0; i < lobs.size(); i++) {
+					final OraCdcLargeObjectHolder lob = lobs.get(i);
+
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("{}: setting value for LOB column {}, value length={}.",
+								fqn(), lobColumns.get(lob.getLobId()).getColumnName(), lob.getContent().length);
+					}
+					valueStruct.put(lobColumns.get(lob.getLobId()).getColumnName(), lob.getContent());
+				}
+			}
+		}
+
 		SourceRecord sourceRecord = null;
 		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 			final Struct struct = new Struct(schema);
@@ -469,7 +512,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final OraColumn oraColumn, final String hexValue,
 			final Struct keyStruct, final Struct valueStruct) throws SQLException {
 		final String columnName = oraColumn.getColumnName();
-		final String hex = StringUtils.substring(hexValue, 1, hexValue.length() - 1);
+		//final String hex = StringUtils.substring(hexValue, 1, hexValue.length() - 1);
+		final String hex = StringUtils.substringBetween(hexValue, "'");
 		final Object columnValue;
 		try {
 			switch (oraColumn.getJdbcType()) {
@@ -525,6 +569,38 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				case Types.NVARCHAR:
 					columnValue = odd.fromNvarchar2(hex);
 					break;
+				case Types.CLOB:
+					final String clobValue;
+					if (oraColumn.getSecureFile()) {
+						if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
+							clobValue = "";
+						} else {
+							clobValue = OraDumpDecoder.fromClobNclob(StringUtils.substring(hex,
+								LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
+						}
+					} else {
+						clobValue = OraDumpDecoder.fromClobNclob(
+								StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
+					}
+					if (clobValue.length() == 0) {
+						columnValue = new byte[0];
+					} else {
+						columnValue = GzipUtil.compress(clobValue);
+					}
+					break;
+				case Types.BLOB:
+					if (oraColumn.getSecureFile()) {
+						if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
+							columnValue = new byte[0];
+						} else {
+							columnValue = OraDumpDecoder.toByteArray(StringUtils.substring(hex,
+								LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
+						}
+					} else {
+						columnValue = OraDumpDecoder.toByteArray(
+								StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
+					}
+					break;
 				default:
 					columnValue = oraColumn.unsupportedTypeValue();
 					break;
@@ -538,7 +614,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 		} catch (SQLException sqle) {
 			LOGGER.error(
-					"{}! While decoding redo values for table {}\n\t\tcolumn {}\n\t\tJDBC Type {}\n\t\tdump value (hex) {}",
+					"{}! While decoding redo values for table {}\n\t\tcolumn {}\n\t\tJDBC Type {}\n\t\tdump value (hex) '{}'",
 					sqle.getMessage(), this.tableFqn, columnName, JdbcTypes.getTypeName(oraColumn.getJdbcType()), hex);
 			throw new SQLException(sqle);
 		}
@@ -575,6 +651,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	public boolean isWithLobs() {
 		return withLobs;
+	}
+
+	public Map<Integer, OraColumn> getLobColumns() {
+		return lobColumns;
 	}
 
 	public void setTopicDecoderPartition(final String topicParam,
@@ -622,6 +702,19 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		return kafkaTopic;
 	}
 
+	private boolean extraSecureFileLengthByte(String hex) throws SQLException {
+		final String startPosFlag = StringUtils.substring(hex, 52, 54);
+		if (StringUtils.equals("00", startPosFlag)) {
+			return false;
+		} else if (StringUtils.equals("01", startPosFlag)) {
+			return true;
+		} else {
+			LOGGER.error("Invalid SECUREFILE additional length byte value '{}' for hex LOB '{}'",
+					startPosFlag, hex);
+			throw new SQLException("Invalid SECUREFILE additional length byte value!");
+		}
+	}
+
 	private void printInvalidFieldValue(OraColumn oraColumn, OraCdcLogMinerStatement stmt) {
 		LOGGER.error("NULL value for NON NULL column {}, table {}",
 				oraColumn.getColumnName(), this.tableFqn);
@@ -634,4 +727,5 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		LOGGER.error("\tOPERATION_CODE = {}", stmt.getOperation());
 		LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
 	}
+
 }

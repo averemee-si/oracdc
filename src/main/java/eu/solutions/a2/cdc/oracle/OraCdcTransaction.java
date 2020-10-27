@@ -268,6 +268,20 @@ public class OraCdcTransaction {
 		return result;
 	}
 
+	public boolean getLobs(final int lobCount, final List<OraCdcLargeObjectHolder> lobs) {
+		boolean result = true;
+		for (int i = 0; i < lobCount; i++) {
+			OraCdcLargeObjectHolder lobHolder = new OraCdcLargeObjectHolder();
+			result = result && lobsTailer.readDocument(lobHolder);
+			if (!result) {
+				break;
+			} else {
+				lobs.add(lobHolder);
+			}
+		}
+		return result;
+	}
+
 	public void close() {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Closing Cronicle Queue and deleting memory-mapped files for transaction {}.", xid);

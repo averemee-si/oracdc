@@ -87,44 +87,49 @@ where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
 			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
 	/*
 select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,
-       C.COLUMN_ID, C.DATA_DEFAULT,
-       (select O.OBJECT_ID
+       C.COLUMN_ID, C.DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE
+from   ALL_TAB_COLUMNS C,
+       (select O.OBJECT_ID, L.OWNER, L.TABLE_NAME, L.COLUMN_NAME, L.SECUREFILE
         from   DBA_LOBS L, DBA_OBJECTS O
-        where  C.OWNER=L.OWNER and C.TABLE_NAME=L.TABLE_NAME and C.COLUMN_NAME=L.COLUMN_NAME
-          and  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) OBJECT_ID
-from   ALL_TAB_COLUMNS C
-where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
+        where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S
+where  C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S.COLUMN_NAME (+)
+  and  C.OWNER='SCOTT' and C.TABLE_NAME='EMP'
   and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB') or C.DATA_TYPE like 'TIMESTAMP%');
 	 */
 	public static final String COLUMN_LIST_PLAIN =
 			"select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,\n" +
-			"       C.COLUMN_ID, C.DATA_DEFAULT,\n" +
-			"       (select O.OBJECT_ID\n" +
+			"       C.COLUMN_ID, C.DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE\n" +
+			"from   ALL_TAB_COLUMNS C,\n" +
+			"       (select O.OBJECT_ID, L.OWNER, L.TABLE_NAME, L.COLUMN_NAME, L.SECUREFILE\n" +
 			"        from   DBA_LOBS L, DBA_OBJECTS O\n" +
-			"        where  C.OWNER=L.OWNER and C.TABLE_NAME=L.TABLE_NAME and C.COLUMN_NAME=L.COLUMN_NAME\n" + 
-			"          and  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) OBJECT_ID\n" +
-			"from   ALL_TAB_COLUMNS C\n" +
-			"where  C.OWNER=? and C.TABLE_NAME=?\n" +
+			"        where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S\n" +
+			"where  C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S.COLUMN_NAME (+)\n" +
+			"  and  C.OWNER=? and C.TABLE_NAME=?\n" +
 			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
+	//TODO
+	//TODO
+	//TODO CDB and DATA_DEFAULT!!!
+	//TODO
+	//TODO
 	/*
 select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,
-       C.COLUMN_ID, C.DATA_DEFAULT,
-       (select O.OBJECT_ID
+       C.COLUMN_ID, NULL DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE
+from   CDB_TAB_COLUMNS C,
+       (select O.OBJECT_ID, L.CON_ID, L.OWNER, L.TABLE_NAME, L.COLUMN_NAME, L.SECUREFILE
         from   CDB_LOBS L, CDB_OBJECTS O
-        where  C.OWNER=L.OWNER and C.TABLE_NAME=L.TABLE_NAME and C.COLUMN_NAME=L.COLUMN_NAME and C.CON_ID=L.CON_ID
-          and  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME and O.CON_ID=L.CON_ID) OBJECT_ID
-from   CDB_TAB_COLUMNS C
-where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT' and CON_ID=0
+        where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S
+where  C.CON_ID=S.CON_ID (+) and C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S.COLUMN_NAME (+)
+  and  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT' and C.CON_ID = 0
   and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB') or C.DATA_TYPE like 'TIMESTAMP%');
 	 */
 	public static final String COLUMN_LIST_CDB =
 			"select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,\n" +
-			"       C.COLUMN_ID, C.DATA_DEFAULT,\n" +
-			"       (select O.OBJECT_ID\n" + 
+			"       C.COLUMN_ID, NULL DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE\n" + 
+			"from   CDB_TAB_COLUMNS C,\n" + 
+			"       (select O.OBJECT_ID, L.CON_ID, L.OWNER, L.TABLE_NAME, L.COLUMN_NAME, L.SECUREFILE\n" +
 			"        from   CDB_LOBS L, CDB_OBJECTS O\n" + 
-			"        where  C.OWNER=L.OWNER and C.TABLE_NAME=L.TABLE_NAME and C.COLUMN_NAME=L.COLUMN_NAME and C.CON_ID=L.CON_ID\n" + 
-			"          and  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME and O.CON_ID=L.CON_ID) OBJECT_ID\n" + 
-			"from   CDB_TAB_COLUMNS C\n" +
+			"        where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S\n" + 
+			"where  C.CON_ID=S.CON_ID (+) and C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S.COLUMN_NAME (+)\n" +
 			"where  C.OWNER=? and C.TABLE_NAME=? and CON_ID=?\n" +
 			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
 
@@ -269,7 +274,17 @@ select min(FIRST_CHANGE#) from V$ARCHIVED_LOG where ARCHIVED='YES' and STANDBY_D
 	 */
 	public static final String FIRST_AVAILABLE_SCN_IN_ARCHIVE =
 			"select min(FIRST_CHANGE#) from V$ARCHIVED_LOG where ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'";
-	
+
+	/*
+select   FIRST_CHANGE#
+from     V$ARCHIVED_LOG
+where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and (5974219 >= FIRST_CHANGE# and 5974219 <= NEXT_CHANGE#);
+	 */
+	public static final String FIRST_SCN_IN_ARCHIVED_LOG =
+			"select   FIRST_CHANGE#\n" +
+			"from     V$ARCHIVED_LOG\n" +
+			"where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and (? >= FIRST_CHANGE# and ? <= NEXT_CHANGE#)";
+
 	/*
 select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS*BLOCK_SIZE BYTES
 from     V$ARCHIVED_LOG
@@ -355,33 +370,33 @@ where  OPERATION_CODE in (1,2,3)
 			"from   V$LOGMNR_CONTENTS\n";
 /*
 select SCN, TIMESTAMP, OPERATION_CODE, XID, RS_ID, SSN, CSF, ROW_ID, DATA_OBJ#, SQL_REDO,
-       (select CON_ID from V$CONTAINERS C where C.CON_UID = L.SRC_CON_UID) CON_ID
+       SRC_CON_UID, (select CON_ID from V$CONTAINERS C where C.CON_UID = L.SRC_CON_UID) CON_ID
 from   V$LOGMNR_CONTENTS L
  */
 	public static final String MINE_DATA_CDB =
 			"select SCN, TIMESTAMP, OPERATION_CODE, XID, RS_ID, SSN, CSF, ROW_ID, DATA_OBJ#, DATA_OBJD#, SQL_REDO,\n" +
-			"       (select CON_ID from V$CONTAINERS C where C.CON_UID = L.SRC_CON_UID) CON_ID\n" +
+			"       SRC_CON_UID, (select CON_ID from V$CONTAINERS C where C.CON_UID = L.SRC_CON_UID) CON_ID\n" +
 			"from   V$LOGMNR_CONTENTS L\n";
 
 /*
-select OPERATION_CODE, CSF, SQL_REDO
+select SCN, RS_ID, OPERATION_CODE, CSF, SQL_REDO
 from   V$LOGMNR_CONTENTS
-where  OPERATION_CODE in (0,10) and RS_ID > ? and DATA_OBJ# = ? and XID = ?
+where  ((OPERATION_CODE in (0,1,2,3,9,10) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=?
  */
 	public static final String MINE_LOB_NON_CDB =
-			"select OPERATION_CODE, CSF, SQL_REDO\n" + 
+			"select SCN, RS_ID, OPERATION_CODE, CSF, SQL_REDO\n" + 
 			"from   V$LOGMNR_CONTENTS\n" +
-			"where  OPERATION_CODE in (0,10) and RS_ID > ? and DATA_OBJ# = ? and XID = ?";
+			"where  ((OPERATION_CODE in (0,1,2,3,9,10) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=?";
 
 /*
 select OPERATION_CODE, CSF, SQL_REDO
 from   V$LOGMNR_CONTENTS
-where  OPERATION_CODE in (0,10) and RS_ID > ? and DATA_OBJ# = ? and XID = ? and SRC_CON_ID = ?
+where  ((OPERATION_CODE in (0,1,2,3,9,10) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=? and SRC_CON_ID=?
  */
 	public static final String MINE_LOB_CDB =
 			"select OPERATION_CODE, CSF, SQL_REDO\n" + 
 			"from   V$LOGMNR_CONTENTS\n" +
-			"where  OPERATION_CODE in (0,10) and RS_ID > ? and DATA_OBJ# = ? and XID = ? and SRC_CON_ID = ?";
+			"where  ((OPERATION_CODE in (0,1,2,3,9,10) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=? and SRC_CON_ID=?";
 
 /*
 select O.OBJECT_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES,

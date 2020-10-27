@@ -25,6 +25,7 @@ public interface OraCdcLogMinerMgmtIntf {
 	public void start(long startScn);
 	public void setNowProcessed(
 			final List<String> nowProcessedArchiveLogs, final long currentFirstScn, final long currentNextScn);
-	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size);
+	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size,
+			final long redoReadMillis);
 
 }
