@@ -346,7 +346,7 @@ public class OraTable extends OraTable4SourceConnector {
 					stmtMaster.setTimestamp(bindNo, rsLog.getTimestamp(columnName));
 				break;
 			default:
-				// Types.BLOB, Types.CLOB - not possible!!! 
+				// Types.BLOB, Types.CLOB, Types.NCLOB - not possible!!! 
 				keyStruct.put(columnName, columnName);
 				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setString(bindNo, columnName);
@@ -423,7 +423,7 @@ public class OraTable extends OraTable4SourceConnector {
 				sbPrimaryKey.append("'");
 				break;
 			default:
-				// Types.BLOB, Types.CLOB - not possible!!!
+				// Types.BLOB, Types.CLOB, TYPES.NCLOB - not possible!!!
 				sbPrimaryKey.append("'->");
 				sbPrimaryKey.append(columnName);
 				sbPrimaryKey.append("<-'");
