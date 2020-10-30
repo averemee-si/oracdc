@@ -216,7 +216,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					final String pkColumnName = column.getColumnName();
 					pkColumns.put(pkColumnName, column);
 				}
-				if (column.getJdbcType() == Types.BLOB || column.getJdbcType() == Types.CLOB) {
+				if (column.getJdbcType() == Types.BLOB ||
+						column.getJdbcType() == Types.CLOB ||
+						column.getJdbcType() == Types.NCLOB) {
 					lobColumns.put(column.getLobObjectId(), column);
 				}
 				LOGGER.debug("\t Adding {} column.", column.getColumnName());
@@ -281,7 +283,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					if (StringUtils.startsWith(columnValue, "N")) {
 						valueStruct.put(oraColumn.getColumnName(), null);
 					} else if ("''".equals(columnValue) &&
-							(oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB)) {
+							(oraColumn.getJdbcType() == Types.BLOB ||
+							oraColumn.getJdbcType() == Types.CLOB ||
+							oraColumn.getJdbcType() == Types.NCLOB)) {
 						// EMPTY_BLOB()/EMPTY_CLOB() passed as ''
 						valueStruct.put(oraColumn.getColumnName(), new byte[0]);
 						break;
@@ -340,7 +344,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					// Column can be excluded
 					if (StringUtils.endsWith(currentExpr, "L")) {
 						try {
-							if (oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB) {
+							if (oraColumn.getJdbcType() == Types.BLOB ||
+									oraColumn.getJdbcType() == Types.CLOB ||
+									oraColumn.getJdbcType() == Types.NCLOB) {
 								// Explicit NULL for LOB!
 								valueStruct.put(oraColumn.getColumnName(), new byte[0]);
 							} else {
@@ -360,7 +366,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					} else {
 						final String columnValue = StringUtils.substringAfter(currentExpr, "=");
 						if ("''".equals(columnValue) &&
-								(oraColumn.getJdbcType() == Types.BLOB || oraColumn.getJdbcType() == Types.CLOB)) {
+								(oraColumn.getJdbcType() == Types.BLOB ||
+								oraColumn.getJdbcType() == Types.CLOB ||
+								oraColumn.getJdbcType() == Types.NCLOB)) {
 							valueStruct.put(oraColumn.getColumnName(), new byte[0]);
 							break;
 						} else {
@@ -570,6 +578,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					columnValue = odd.fromNvarchar2(hex);
 					break;
 				case Types.CLOB:
+				case Types.NCLOB:
 					final String clobValue;
 					if (oraColumn.getSecureFile()) {
 						if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {

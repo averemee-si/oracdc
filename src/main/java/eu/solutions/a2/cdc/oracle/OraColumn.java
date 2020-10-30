@@ -37,6 +37,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import eu.solutions.a2.cdc.oracle.data.OraBlob;
 import eu.solutions.a2.cdc.oracle.data.OraClob;
+import eu.solutions.a2.cdc.oracle.data.OraNClob;
 import eu.solutions.a2.cdc.oracle.data.OraNumber;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
@@ -78,7 +79,7 @@ public class OraColumn {
 	 * 
 	 * @param mviewSource         for MView log or archived redo log
 	 * @param useOracdcSchemas    true for extended schemas
-	 * @param processLobs         when true and useOracdcSchemas eq true BLOB/CLOB columns are processed
+	 * @param processLobs         when true and useOracdcSchemas eq true BLOB/CLOB/NCLOB columns are processed
 	 * @param resultSet
 	 * @param keySchema
 	 * @param valueSchema
@@ -249,6 +250,16 @@ public class OraColumn {
 						valueSchema.field(this.columnName, OraClob.builder().build());
 					}
 					break;
+				case "NCLOB":
+					jdbcType = Types.NCLOB;
+					if (mviewSource) {
+						stringField(keySchema, valueSchema);
+					} else if (processLobs) {
+						// Archived redo as source and LOB processing
+						setLobAttributes(resultSet);
+						valueSchema.field(this.columnName, OraNClob.builder().build());
+					}
+					break;
 				case "RAW":
 					jdbcType = Types.BINARY;
 					bytesField(keySchema, valueSchema);
@@ -330,6 +341,9 @@ public class OraColumn {
 					break;
 				case OraClob.LOGICAL_NAME:
 					jdbcType = Types.CLOB;
+					break;
+				case OraNClob.LOGICAL_NAME:
+					jdbcType = Types.NCLOB;
 					break;
 				default:
 					LOGGER.error("Unknown logical name {} for BYTES Schema.", field.schema().name());
@@ -423,16 +437,23 @@ public class OraColumn {
 			doubleField(keySchema, valueSchema);
 			break;
 		case Types.BINARY:
-		case Types.BLOB:
 			bytesField(keySchema, valueSchema);
 			break;
 		case Types.CHAR:
 		case Types.VARCHAR:
 		case Types.NCHAR:
 		case Types.NVARCHAR:
-		case Types.CLOB:
 		case Types.ROWID:
 			stringField(keySchema, valueSchema);
+			break;
+		case Types.CLOB:
+			valueSchema.field(this.columnName, OraClob.schema());
+			break;
+		case Types.NCLOB:
+			valueSchema.field(this.columnName, OraNClob.schema());
+			break;
+		case Types.BLOB:
+			valueSchema.field(this.columnName, OraBlob.schema());
 			break;
 		default:
 			throw new SQLException("Unsupported JDBC type " +

@@ -121,7 +121,9 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
 				final OraColumn column = new OraColumn(field, false);
-				if (column.getJdbcType() == Types.BLOB || column.getJdbcType() == Types.CLOB) {
+				if (column.getJdbcType() == Types.BLOB ||
+						column.getJdbcType() == Types.CLOB ||
+						column.getJdbcType() == Types.NCLOB) {
 					lobColumns.put(column.getColumnName(), column);
 				} else {
 					allColumns.add(column);
@@ -470,7 +472,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 								holder.STATEMENT.setBinaryStream(
 										1, new ByteArrayInputStream(columnByteValue), columnByteValue.length);
 							} else {
-								// Types.CLOB
+								// Types.CLOB || Types.NCLOB
 								holder.STATEMENT.setCharacterStream(
 										1, new StringReader(GzipUtil.decompress(columnByteValue)));
 							}

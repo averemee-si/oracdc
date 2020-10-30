@@ -65,7 +65,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	 * 
 	 * @param mviewSource          snapshot log or archivelog source
 	 * @param useOracdcSchemas     true for extended schemas
-	 * @param processLobs          true for processing BLOB/CLOB
+	 * @param processLobs          true for processing BLOB/CLOB/NCLOB
 	 * @param pdbName
 	 * @param rsColumns
 	 * @param sourceOffset
@@ -170,7 +170,9 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 				masterSelect.append("\"");
 			} else {
 				// For archived redo more logic required
-				if (column.getJdbcType() == Types.BLOB || column.getJdbcType() == Types.CLOB) {
+				if (column.getJdbcType() == Types.BLOB ||
+						column.getJdbcType() == Types.CLOB ||
+						column.getJdbcType() == Types.NCLOB) {
 					if (processLobs) {
 						allColumns.add(column);
 						idToNameMap.put(column.getNameFromId(), column);
@@ -365,7 +367,14 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 					}
 					break;
 				case Types.CLOB:
-					final Clob clobColumnValue = rsMaster.getClob(columnName);
+				case Types.NCLOB:
+					final Clob clobColumnValue;
+					if (oraColumn.getJdbcType() == Types.CLOB) {
+						clobColumnValue = rsMaster.getClob(columnName);
+					} else {
+						// Types.NCLOB
+						clobColumnValue = rsMaster.getNClob(columnName);
+					}
 					if (rsMaster.wasNull() || clobColumnValue.length() < 1) {
 						columnValue = null;
 					} else {
@@ -378,8 +387,9 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 						}
 						columnValue = sbClob.toString();
 						} catch (IOException ioe) {
-							LOGGER.error("IO Error while processing CLOB column {}.{}({})", 
-								tableOwner, tableName, columnName);
+							LOGGER.error("IO Error while processing {} column {}.{}({})", 
+									oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+									tableOwner, tableName, columnName);
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}
 					}

@@ -62,6 +62,8 @@ public class JdbcTypes {
 			return "ROWID";
 		case Types.CLOB:
 			return "CLOB";
+		case Types.NCLOB:
+			return "NCLOB";
 		case Types.BLOB:
 			return "BLOB";
 		}
@@ -108,6 +110,8 @@ public class JdbcTypes {
 			return Types.ROWID;
 		case "CLOB":
 			return Types.CLOB;
+		case "NCLOB":
+			return Types.NCLOB;
 		case "BLOB":
 			return Types.BLOB;
 		}

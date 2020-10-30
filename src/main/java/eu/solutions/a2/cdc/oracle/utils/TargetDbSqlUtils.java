@@ -56,6 +56,7 @@ public class TargetDbSqlUtils {
 				put(Types.BINARY, "varbinary(1000)");
 				put(Types.BLOB, "longblob");
 				put(Types.CLOB, "longtext");
+				put(Types.NCLOB, "longtext");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> POSTGRESQL_MAPPING =
@@ -76,6 +77,7 @@ public class TargetDbSqlUtils {
 				put(Types.BINARY, "bytea");			// https://www.postgresql.org/docs/current/lo.html
 				put(Types.BLOB, "lo");
 				put(Types.CLOB, "text");
+				put(Types.NCLOB, "text");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> ORACLE_MAPPING =
@@ -96,6 +98,7 @@ public class TargetDbSqlUtils {
 				put(Types.BINARY, "RAW(2000)");
 				put(Types.BLOB, "BLOB");
 				put(Types.CLOB, "CLOB");
+				put(Types.NCLOB, "NCLOB");
 			}});
 
 	/**

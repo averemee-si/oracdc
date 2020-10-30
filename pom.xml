@@ -16,7 +16,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.solutions.a2.oracle.cdc</groupId>
 	<artifactId>oracdc-kafka</artifactId>
-	<version>0.9.7</version>
+	<version>0.9.7.1</version>
 	<packaging>jar</packaging>
 
 	<name>oracdc-kafka</name>
@@ -28,6 +28,10 @@
 		<name>A2 Rešitve, d.o.o.</name>
 		<url>http://a2-solutions.eu/</url>
 	</organization>
+	<issueManagement>
+		<url>https://github.com/averemee-si/oracdc/issues</url>
+		<system>GitHub</system>
+	</issueManagement>
 
 	<licenses>
 		<license>

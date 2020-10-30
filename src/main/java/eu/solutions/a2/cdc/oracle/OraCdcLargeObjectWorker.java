@@ -211,15 +211,18 @@ public class OraCdcLargeObjectWorker {
 		rsReadLob = null;
 
 		final byte[] ba;
-		if (oraColumn.getJdbcType() == Types.CLOB) {
+		if (oraColumn.getJdbcType() == Types.CLOB || oraColumn.getJdbcType() == Types.NCLOB) {
 			final String clobAsString = OraDumpDecoder.fromClobNclob(lobHexData.toString());
 			ba = GzipUtil.compress(clobAsString);
 			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("CLOB column {}, XID='{}' processing completed, processing time {} ms, data length={}, compressed data length={}",
+				LOGGER.debug("{} column {}, XID='{}' processing completed, processing time {} ms, data length={}, compressed data length={}",
+						oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
 						oraColumn.getColumnName(), xid, (System.currentTimeMillis() - processingStartMillis), clobAsString.length(), ba.length);
 			}
 			if (LOGGER.isTraceEnabled()) {
-				LOGGER.debug("CLOB column {} content:\n{}", oraColumn.getColumnName(), clobAsString);
+				LOGGER.debug("{} column {} content:\n{}",
+						oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+						oraColumn.getColumnName(), clobAsString);
 			}
 		} else {
 			// Types.BLOB

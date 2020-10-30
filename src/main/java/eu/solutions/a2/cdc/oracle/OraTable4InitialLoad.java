@@ -272,16 +272,26 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						bytes.write8bit(rowIdValue == null ? ((String) null): rowIdValue.toString());
 						break;
 					case Types.CLOB:
-						final Clob clobValue = rsMaster.getClob(columnName);
+					case Types.NCLOB:
+						final Clob clobValue;
+						if (oraColumn.getJdbcType() == Types.CLOB) {
+							clobValue = rsMaster.getClob(columnName);
+						} else {
+							//NCLOB
+							clobValue = rsMaster.getNClob(columnName);
+						}
 						if (rsMaster.wasNull() || clobValue.length() < 1) {
 							bytes.writeInt(NULL_LENGTH_INT);
 						} else {
 							if (Integer.MAX_VALUE < clobValue.length()) {
 								LOGGER.error(
-										"Unable to process CLOB column {}({}) with length ({}) greater than Integer.MAX_VALUE ({})",
+										"Unable to process {} column {}({}) with length ({}) greater than Integer.MAX_VALUE ({})",
+										oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
 										this.fqn(), columnName, clobValue.length(), Integer.MAX_VALUE);
 								throw new SQLException(
-										"Unable to process CLOB column with length " + clobValue.length() + " chars!");
+										"Unable to process " +
+										(oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB") +
+										"column with length " + clobValue.length() + " chars!");
 							}
 							try (Reader reader = clobValue.getCharacterStream()) {
 								final StringBuilder sbClob = new StringBuilder((int) clobValue.length());
@@ -294,7 +304,8 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 								bytes.writeInt(clobCompressed.length);
 								bytes.write(clobCompressed);
 							} catch (IOException ioe) {
-								LOGGER.error("IO Error while processing CLOB column {}({})", 
+								LOGGER.error("IO Error while processing {} column {}({})",
+										oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
 										this.fqn(), columnName);
 								LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 								throw new ConnectException(ioe);
@@ -462,6 +473,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						columnValue = raw.read8bit();
 						break;
 					case Types.CLOB:
+					case Types.NCLOB:
 					case Types.BLOB:
 						final int sizeInt = raw.readInt();
 						if (sizeInt != NULL_LENGTH_INT) {
@@ -469,7 +481,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 							raw.read(ba);
 							columnValue = ba;
 						} else {
-							//For nullify CLOB/BLOB we need to pass zero length array
+							//For nullify CLOB/NCLOB/BLOB we need to pass zero length array
 							//NULL at Kafka side is for "not touch LOB"
 							columnValue = new byte[0];
 						}

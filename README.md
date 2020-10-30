@@ -251,7 +251,7 @@ By default (when `a2.oracdc.schemas` set to false) **oracdc** Source connector's
 
 When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Oracle **NUMBER** (**eu.solutions.a2.cdc.oracle.data.OraNumber**) and  **TIMESTAMP WITH [LOCAL] TIMEZONE** (**eu.solutions.a2.cdc.oracle.data.OraTimestamp**) datatypes.
 
-When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle **BLOB** (**eu.solutions.a2.cdc.oracle.data.OraBlob**) and  **CLOB** (**eu.solutions.a2.cdc.oracle.data.OraClob**) datatypes.
+When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle **BLOB** (**eu.solutions.a2.cdc.oracle.data.OraBlob**), **CLOB** (**eu.solutions.a2.cdc.oracle.data.OraClob**), and  **NCLOB** (**eu.solutions.a2.cdc.oracle.data.OraNClob**) datatypes.
 
 
 ## Built With
@@ -326,6 +326,11 @@ Dynamic list of tables to mine using `a2.table.list.style` parameter
 ####0.9.7 (OCT-2020)
 
 LOB support. See also `a2.process.lobs` parameter
+
+#####0.9.7.1 (OCT-2020)
+
+Support for NCLOB
+
 
 ## Authors
 
