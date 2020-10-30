@@ -20,7 +20,7 @@ import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
 
 /**
  * 
- * Representation of Oracle BLOB/CLOB for Kafka Connect
+ * Representation of Oracle CLOB for Kafka Connect
  * 
  * 
  * @author averemee
