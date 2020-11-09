@@ -253,6 +253,8 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		taskParam.put(ParamConstants.INITIAL_LOAD_PARAM, config.getString(ParamConstants.INITIAL_LOAD_PARAM));
 		final Boolean processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
 		taskParam.put(ParamConstants.PROCESS_LOBS_PARAM, processLobs.toString());
+		taskParam.put(ParamConstants.CONNECTION_BACKOFF_PARAM, 
+				config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM).toString());
 
 		final List<Map<String, String>> configs = new ArrayList<>(1);
 		configs.add(taskParam);

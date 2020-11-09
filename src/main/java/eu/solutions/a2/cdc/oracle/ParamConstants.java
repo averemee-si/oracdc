@@ -123,4 +123,8 @@ public class ParamConstants {
 	public static final String PROCESS_LOBS_PARAM = "a2.process.lobs";
 	public static final String PROCESS_LOBS_DOC = "process Oracle LOB columns? Default - false";
 
+	public static final String CONNECTION_BACKOFF_PARAM = "a2.connection.backoff";
+	public static final String CONNECTION_BACKOFF_DOC = "backoff time in milliseconds between reconnectoion attempts. Default - 30000ms";
+	public static final int CONNECTION_BACKOFF_DEFAULT = 30000;
+
 }

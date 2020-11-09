@@ -119,7 +119,9 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 								ParamConstants.TABLE_LIST_STYLE_DYNAMIC),
 						Importance.LOW, ParamConstants.TABLE_LIST_STYLE_DOC)
 				.define(ParamConstants.PROCESS_LOBS_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.PROCESS_LOBS_DOC);
+						Importance.LOW, ParamConstants.PROCESS_LOBS_DOC)
+				.define(ParamConstants.CONNECTION_BACKOFF_PARAM, Type.INT, ParamConstants.CONNECTION_BACKOFF_DEFAULT,
+						Importance.LOW, ParamConstants.CONNECTION_BACKOFF_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {

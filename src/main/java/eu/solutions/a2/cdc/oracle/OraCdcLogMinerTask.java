@@ -454,7 +454,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 					committedTransactions,
 					metrics,
 					topicNameStyle,
-					topicNameDelimiter);
+					topicNameDelimiter,
+					Integer.parseInt(props.get(ParamConstants.CONNECTION_BACKOFF_PARAM)));
 			if (rewind) {
 				worker.rewind(firstScn, firstRsId, firstSsn);
 			}

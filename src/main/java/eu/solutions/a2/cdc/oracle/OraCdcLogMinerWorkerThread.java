@@ -83,6 +83,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final int topicNameStyle;
 	private final String topicNameDelimiter;
 	private OraCdcLargeObjectWorker lobWorker;
+	private final int connectionRetryBackoff;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -105,7 +106,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcLogMinerMgmt metrics,
 			final int topicNameStyle,
-			final String topicNameDelimiter) throws SQLException {
+			final String topicNameDelimiter,
+			final int connectionRetryBackoff) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -127,6 +129,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.metrics = metrics;
 		this.topicNameStyle = topicNameStyle;
 		this.topicNameDelimiter = topicNameDelimiter;
+		this.connectionRetryBackoff = connectionRetryBackoff;
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
 		try {
@@ -630,7 +633,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			while (runLatch.getCount() > 0 && !ready) {
 				LOGGER.debug("Waiting {} ms for RDBMS connection restore...", pollInterval);
 				try {
-					this.wait(pollInterval);
+					this.wait(connectionRetryBackoff);
 				} catch (InterruptedException ie) {
 					LOGGER.error(ie.getMessage());
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));

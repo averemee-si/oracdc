@@ -60,6 +60,8 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.process.lobs` - process Oracle LOB columns. Default - _false_
 
+`a2.connection.backoff` - Backoff time in milliseconds between reconnectoion attempts. Default - _30000ms_
+
 #### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
