@@ -197,12 +197,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					.struct()
 					.required()
 					.name(tableFqn + ".Key")
-					.version(1);
+					.version(version);
 		final SchemaBuilder valueSchemaBuilder = SchemaBuilder
 					.struct()
 					.optional()
 					.name(tableFqn + ".Value")
-					.version(1);
+					.version(version);
 
 		try {
 			@SuppressWarnings("unchecked")

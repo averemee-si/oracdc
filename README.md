@@ -20,6 +20,8 @@ For processing LOB's please do not forget to set Apache Kafka parameters accordi
 1. For Source connector: _producer.max.request.size_
 2. For broker: _replica.fetch.max.bytes_ and _message.max.bytes_
 
+### DDL Support and schema evolution
+[Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) is currently not supported. Its support is planned for version 0.9.8 (DEC-2020 - JAN-2021) along with support for the [Schema Evolution](https://docs.confluent.io/current/schema-registry/avro.html#schema-evolution) at Apache Kafka side.
 
 ### Known issues
 1. **INTERVAL** data types family not supported yet

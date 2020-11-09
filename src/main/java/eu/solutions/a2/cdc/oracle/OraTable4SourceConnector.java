@@ -134,12 +134,12 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 					.struct()
 					.required()
 					.name(tableFqn + ".Key")
-					.version(1);
+					.version(version);
 		final SchemaBuilder valueSchemaBuilder = SchemaBuilder
 					.struct()
 					.optional()
 					.name(tableFqn + ".Value")
-					.version(1);
+					.version(version);
 		// Substitute missing primary key with ROWID value
 		if ((mviewSource && (!logWithPrimaryKey && logWithRowIds)) ||
 				(!mviewSource && pkColsSet == null)) {
