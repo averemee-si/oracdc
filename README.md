@@ -336,6 +336,10 @@ LOB support. See also `a2.process.lobs` parameter
 
 Support for NCLOB
 
+#####0.9.7.2 (NOV-2020)
+
+VIP (Verified Integration Program) compliance
+
 
 ## Authors
 
