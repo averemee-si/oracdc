@@ -221,6 +221,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				execInitialLoad = true;
 				initialLoadStatus = ParamConstants.INITIAL_LOAD_EXECUTE;
 			}
+			Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(partition);
 			if (stateFilePath.toFile().exists()) {
 				// File with stored state exists
 				final long restoreStarted = System.currentTimeMillis();
@@ -258,6 +259,14 @@ public class OraCdcLogMinerTask extends SourceTask {
 					firstScn = persistentState.getLastScn();
 					firstRsId = persistentState.getLastRsId();
 					firstSsn = persistentState.getLastSsn();
+
+					if (offsetFromKafka != null && offsetFromKafka.size() > 0) {
+						LOGGER.info("Last read SCN={}, RS_ID (RBA)='{}', SSN={}",
+								firstScn, firstRsId, firstSsn);
+						LOGGER.info("Last sent SCN={}, RS_ID (RBA)='{}', SSN={}",
+								offsetFromKafka.get("SCN"), offsetFromKafka.get("RS_ID"), offsetFromKafka.get("SSN"));
+					}
+					
 					if (persistentState.getCurrentTransaction() != null) {
 						transaction = OraCdcTransaction.restoreFromMap(persistentState.getCurrentTransaction());
 						// To prevent committedTransactions.poll() in this.poll()
@@ -300,7 +309,16 @@ public class OraCdcLogMinerTask extends SourceTask {
 				Files.copy(stateFilePath, Paths.get(savedStateFile), StandardCopyOption.REPLACE_EXISTING);
 				LOGGER.info("Stored state file {} copied to {}", stateFileName, savedStateFile);
 			} else {
-				if (startScnFromProps) {
+				// Check Kafka offset
+				if (offsetFromKafka != null && offsetFromKafka.size() > 0) {
+					firstScn = (long) offsetFromKafka.get("SCN");
+					firstRsId = (String) offsetFromKafka.get("RS_ID");
+					firstSsn = (long) offsetFromKafka.get("SSN");
+					rewind = true;
+					LOGGER.warn("Persistent state file {} not found!", stateFileName);
+					LOGGER.warn("oracdc will use offset from Kafka cluster: SCN={}, RS_ID(RBA)='{}', SSN={}",
+							firstScn, firstRsId, firstSsn);
+				} else if (startScnFromProps) {
 					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
 					LOGGER.info("Using first SCN value {} from connector properties.", firstScn);
 				} else {
