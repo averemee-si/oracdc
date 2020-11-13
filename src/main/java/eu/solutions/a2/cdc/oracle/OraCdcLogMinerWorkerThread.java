@@ -238,7 +238,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
 					}
 					boolean isRsLogMinerRowAvailable = rsLogMiner.next();
-					while (isRsLogMinerRowAvailable) {
+					while (isRsLogMinerRowAvailable && runLatch.getCount() > 0) {
 						boolean fetchRsLogMinerNext = true;
 						final short operation = rsLogMiner.getShort("OPERATION_CODE");
 						final String xid = rsLogMiner.getString("XID");
@@ -496,10 +496,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											}
 										}
 									}
-								}
-								if (!(runLatch.getCount() > 0)) {
-									LOGGER.debug("Breaking cycle in 'Catch the LOB!!!'");
-									break;
+									if (!(runLatch.getCount() > 0)) {
+										LOGGER.debug("Breaking cycle in 'Catch the LOB!!!'");
+										break;
+									}
 								}
 								//END: Catch the LOB!!!
 
@@ -618,7 +618,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	public void shutdown() {
 		LOGGER.info("Stopping oracdc logminer archivelog worker thread...");
-		runLatch.countDown();
+		while (runLatch.getCount() > 0) {
+			runLatch.countDown();
+		}
 		LOGGER.debug("call to shutdown() completed");
 	}
 
