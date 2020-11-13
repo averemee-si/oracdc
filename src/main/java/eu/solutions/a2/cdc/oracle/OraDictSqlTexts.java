@@ -130,7 +130,7 @@ where  C.CON_ID=S.CON_ID (+) and C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NA
 			"        from   CDB_LOBS L, CDB_OBJECTS O\n" + 
 			"        where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S\n" + 
 			"where  C.CON_ID=S.CON_ID (+) and C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S.COLUMN_NAME (+)\n" +
-			"where  C.OWNER=? and C.TABLE_NAME=? and CON_ID=?\n" +
+			"  and  C.OWNER=? and C.TABLE_NAME=? and C.CON_ID=?\n" +
 			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
 
 	/*
