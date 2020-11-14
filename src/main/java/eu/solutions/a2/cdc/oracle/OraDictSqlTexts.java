@@ -85,10 +85,14 @@ where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
 			"from   ALL_TAB_COLUMNS C\n" +
 			"where  C.OWNER=? and C.TABLE_NAME=?\n" +
 			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
+
+	/* CDB_ views in Oracle does not support LONG data type required for DATA_DEFAULT column */
+	/* Single SQL statement is used for non-CDB and CDB database but for CDB */
+	/* alter session set CONTAINER=' ' must be executed before reading from ResultSet! */
 	/*
 select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,
        C.COLUMN_ID, C.DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE
-from   ALL_TAB_COLUMNS C,
+from   DBA_TAB_COLUMNS C,
        (select O.OBJECT_ID, L.OWNER, L.TABLE_NAME, L.COLUMN_NAME, L.SECUREFILE
         from   DBA_LOBS L, DBA_OBJECTS O
         where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S
@@ -99,19 +103,16 @@ where  C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S
 	public static final String COLUMN_LIST_PLAIN =
 			"select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,\n" +
 			"       C.COLUMN_ID, C.DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE\n" +
-			"from   ALL_TAB_COLUMNS C,\n" +
+			"from   DBA_TAB_COLUMNS C,\n" +
 			"       (select O.OBJECT_ID, L.OWNER, L.TABLE_NAME, L.COLUMN_NAME, L.SECUREFILE\n" +
 			"        from   DBA_LOBS L, DBA_OBJECTS O\n" +
 			"        where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S\n" +
 			"where  C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S.COLUMN_NAME (+)\n" +
 			"  and  C.OWNER=? and C.TABLE_NAME=?\n" +
 			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
-	//TODO
-	//TODO
-	//TODO CDB and DATA_DEFAULT!!!
-	//TODO
-	//TODO
 	/*
+	 *  Just for history...
+	 * 
 select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,
        C.COLUMN_ID, NULL DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE
 from   CDB_TAB_COLUMNS C,
@@ -122,16 +123,7 @@ where  C.CON_ID=S.CON_ID (+) and C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NA
   and  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT' and C.CON_ID = 0
   and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%');
 	 */
-	public static final String COLUMN_LIST_CDB =
-			"select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,\n" +
-			"       C.COLUMN_ID, NULL DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE\n" + 
-			"from   CDB_TAB_COLUMNS C,\n" + 
-			"       (select O.OBJECT_ID, L.CON_ID, L.OWNER, L.TABLE_NAME, L.COLUMN_NAME, L.SECUREFILE\n" +
-			"        from   CDB_LOBS L, CDB_OBJECTS O\n" + 
-			"        where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S\n" + 
-			"where  C.CON_ID=S.CON_ID (+) and C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S.COLUMN_NAME (+)\n" +
-			"  and  C.OWNER=? and C.TABLE_NAME=? and C.CON_ID=?\n" +
-			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
+
 
 	/*
 select IC.COLUMN_NAME

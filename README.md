@@ -134,27 +134,43 @@ select LOG_GROUP_NAME, TABLE_NAME, DECODE(ALWAYS, 'ALWAYS', 'Unconditional', NUL
 from DBA_LOG_GROUPS;
 ```
 
-### Creating Oracle ROLE with LogMiner privileges
+### Creating non-privileged Oracle user for running LogMiner
 
 Instructions below are for CDB, for non-CDB ([depreciated in 12c](Deprecation of Non-CDB Architecture), will be desupported in 20c) you can use role and user names without **c##** prefix.
-Log in as sysdba and enter the following commands to create a role with the privileges required for running **oracdc** with LogMiner as CDC source:
+Log in as sysdba and enter the following commands to create a user with the privileges required for running **oracdc** with LogMiner as CDC source. For CDB:
 
 ```
-create role C##REPLICATOR;
-grant CREATE SESSION to C##REPLICATOR;
-grant SELECT ANY TRANSACTION to C##REPLICATOR;
-grant SELECT ANY DICTIONARY to C##REPLICATOR;
-grant EXECUTE_CATALOG_ROLE to C##REPLICATOR;
+create user C##ORACDC identified by ORACDC
+  default tablespace SYSAUX
+  temporary tablespace TEMP
+  quota unlimited on SYSAUX
+CONTAINER=ALL;
+alter user C##ORACDC SET CONTAINER_DATA=ALL CONTAINER=CURRENT;
+grant
+  CREATE SESSION,
+  SET CONTAINER,
+  SELECT ANY TRANSACTION,
+  SELECT ANY DICTIONARY,
+  EXECUTE_CATALOG_ROLE,
+  LOGMINING
+to C##ORACDC
+CONTAINER=ALL;
 ```
-For Oracle RDBMS versions 12c+ additional privilege required:
+
+For non-CDB:
 
 ```
-grant LOGMINING to C##REPLICATOR;
-```
-Assign **C##REPLICATOR** role to the Oracle RDBMS user.
-
-```
-grant C##REPLICATOR to C##ORACDC;
+create user ORACDC identified by ORACDC
+  default tablespace SYSAUX
+  temporary tablespace TEMP
+  quota unlimited on SYSAUX;
+grant
+  CREATE SESSION,
+  SELECT ANY TRANSACTION,
+  SELECT ANY DICTIONARY,
+  EXECUTE_CATALOG_ROLE,
+  LOGMINING
+to ORACDC CONTAINER=ALL;
 ```
 
 
@@ -339,6 +355,14 @@ Support for NCLOB
 #####0.9.7.2 (NOV-2020)
 
 VIP (Verified Integration Program) compliance
+
+#####0.9.7.3 (NOV-2020)
+
+fix CDB column type detection issue
+
+#####0.9.7.4 (NOV-2020)
+
+Important fixes for CDB
 
 
 ## Authors

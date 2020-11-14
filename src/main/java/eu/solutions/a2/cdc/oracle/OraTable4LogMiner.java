@@ -17,6 +17,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -135,14 +136,18 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (pkColumns == null) {
 				this.tableWithPk = false;
 			}
+
+			if (isCdb) {
+				Statement alterSession = connection.createStatement();
+				alterSession.execute("alter session set CONTAINER=" + pdbName);
+				alterSession.close();
+				alterSession = null;
+			}
 			PreparedStatement statement = connection.prepareStatement(
-					isCdb ? OraDictSqlTexts.COLUMN_LIST_CDB : OraDictSqlTexts.COLUMN_LIST_PLAIN,
+					OraDictSqlTexts.COLUMN_LIST_PLAIN,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			statement.setString(1, this.tableOwner);
 			statement.setString(2, this.tableName);
-			if (isCdb) {
-				statement.setShort(3, conId);
-			}
 
 			ResultSet rsColumns = statement.executeQuery();
 			
