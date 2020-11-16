@@ -15,6 +15,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.RowId;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Types;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -543,10 +544,8 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			connTzData = connection;
 			if (pdbName != null) {
-				PreparedStatement alterSession = connection.prepareCall(
-						"alter session set container=?");
-				alterSession.setString(1, pdbName);
-				alterSession.execute();
+				Statement alterSession = connection.createStatement();
+				alterSession.execute("alter session set CONTAINER=" + pdbName);
 				alterSession.close();
 				alterSession = null;
 			}
@@ -576,6 +575,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			if (sqle.getErrorCode() == ORA_942) {
 				LOGGER.error("Table {} not found while performing initial load!", tableFqn);
 			} else {
+				LOGGER.error("Error while performing initial load of {}!", tableFqn);
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 				throw new ConnectException(sqle);
 			}
