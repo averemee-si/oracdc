@@ -573,7 +573,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			LOGGER.info("Table {} initial load (read phase) completed. {} rows read.", tableFqn, queueSize);
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == ORA_942) {
-				LOGGER.error("Table {} not found while performing initial load!", tableFqn);
+				LOGGER.error("ORA-942!\nPlease grant select on table {} for user running connector!", tableFqn);
 			} else {
 				LOGGER.error("Error while performing initial load of {}!", tableFqn);
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
