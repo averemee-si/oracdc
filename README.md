@@ -114,9 +114,10 @@ Log in to SQL*Plus as SYSDBA, if you like to enable supplemental logging for who
 ```
 alter database add supplemental log data (ALL) columns;
 ```
-Alternatively, to enable only for selected tables (recommended):
+Alternatively, to enable only for selected tables and minimal supplemental logging, a database-level option (recommended):
 
 ```
+alter database add supplemental log data;
 alter table <OWNER>.<TABLE_NAME> add supplemental log data (ALL) columns; 
 ```
 If using Amazon RDS for Oracle please see [AWS Amazon Relational Database Service User Guide](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Appendix.Oracle.CommonDBATasks.Log.html#Appendix.Oracle.CommonDBATasks.AddingSupplementalLogging) about **rdsadmin.rdsadmin_util.alter_supplemental_logging** procedure.
