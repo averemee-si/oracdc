@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
-import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
+import eu.solutions.a2.cdc.oracle.utils.Lz4Util;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.sql.NUMBER;
 
@@ -213,7 +213,7 @@ public class OraCdcLargeObjectWorker {
 		final byte[] ba;
 		if (oraColumn.getJdbcType() == Types.CLOB || oraColumn.getJdbcType() == Types.NCLOB) {
 			final String clobAsString = OraDumpDecoder.fromClobNclob(lobHexData.toString());
-			ba = GzipUtil.compress(clobAsString);
+			ba = Lz4Util.compress(clobAsString);
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("{} column {}, XID='{}' processing completed, processing time {} ms, data length={}, compressed data length={}",
 						oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",

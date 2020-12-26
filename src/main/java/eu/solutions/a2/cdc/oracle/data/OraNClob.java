@@ -16,8 +16,6 @@ package eu.solutions.a2.cdc.oracle.data;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 
-import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
-
 /**
  * 
  * Representation of Oracle NCLOB for Kafka Connect
@@ -40,20 +38,6 @@ public class OraNClob {
 
 	public static Schema schema() {
 		return builder().build();
-	}
-
-	/**
-	 * 
-	 * @param schema
-	 * @param nClobData 
-	 * @return byte[] with compressed NCLOB data
-	 */
-	public static byte[] fromLogical(final Schema schema, final String nClobData) {
-		if (nClobData != null && nClobData.length() > 0) {
-			return GzipUtil.compress(nClobData);
-		} else {
-			return null;
-		}
 	}
 
 }

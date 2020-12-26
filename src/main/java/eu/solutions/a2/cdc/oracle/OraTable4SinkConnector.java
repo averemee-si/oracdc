@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcSinkTableInfo;
 import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
-import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
+import eu.solutions.a2.cdc.oracle.utils.Lz4Util;
 import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 
@@ -474,7 +474,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 							} else {
 								// Types.CLOB || Types.NCLOB
 								holder.STATEMENT.setCharacterStream(
-										1, new StringReader(GzipUtil.decompress(columnByteValue)));
+//										1, new StringReader(GzipUtil.decompress(columnByteValue)));
+										1, new StringReader(Lz4Util.decompress(columnByteValue)));
 							}
 						}
 						// Bind PK columns...

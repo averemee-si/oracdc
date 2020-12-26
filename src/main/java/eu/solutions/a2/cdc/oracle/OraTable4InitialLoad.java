@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
-import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
+import eu.solutions.a2.cdc.oracle.utils.Lz4Util;
 import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.core.io.IORuntimeException;
 import net.openhft.chronicle.queue.ChronicleQueue;
@@ -301,7 +301,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 								while ((charsRead = reader.read(data, 0, data.length)) != -1) {
 									sbClob.append(data, 0, charsRead);
 								}
-								final byte[] clobCompressed = GzipUtil.compress(sbClob.toString());
+								final byte[] clobCompressed = Lz4Util.compress(sbClob.toString());
 								bytes.writeInt(clobCompressed.length);
 								bytes.write(clobCompressed);
 							} catch (IOException ioe) {

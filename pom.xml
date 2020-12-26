@@ -54,6 +54,7 @@
 		<HikariCP.version>3.4.1</HikariCP.version>
 		<jackson.version>2.10.0</jackson.version>
 		<slf4j.version>1.7.28</slf4j.version>
+		<lz4.version>1.6.0</lz4.version>
 		<kafka.connect.maven.plugin.version>0.11.1</kafka.connect.maven.plugin.version>
 	</properties>
 
@@ -154,6 +155,12 @@
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-log4j12</artifactId>
 			<version>${slf4j.version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.lz4/lz4-java/ -->
+		<dependency>
+			<groupId>org.lz4</groupId>
+			<artifactId>lz4-java</artifactId>
+			<version>${lz4.version}</version>
 		</dependency>
 	</dependencies>
 

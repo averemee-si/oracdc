@@ -30,6 +30,10 @@
 			<scope>runtime</scope>
 			<excludes>
 				<exclude>org.apache.kafka:connect-api</exclude>
+				<exclude>com.fasterxml.jackson.core:jackson-core</exclude>
+				<exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
+				<exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
+				<exclude>org.lz4:lz4-java</exclude>
 			</excludes>
 		</dependencySet>
 	</dependencySets>

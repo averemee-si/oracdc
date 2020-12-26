@@ -16,8 +16,6 @@ package eu.solutions.a2.cdc.oracle.data;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 
-import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
-
 /**
  * 
  * Representation of Oracle CLOB for Kafka Connect
@@ -40,20 +38,6 @@ public class OraClob {
 
 	public static Schema schema() {
 		return builder().build();
-	}
-
-	/**
-	 * 
-	 * @param schema
-	 * @param blobData 
-	 * @return byte[] with compressed CLOB data
-	 */
-	public static byte[] fromLogical(final Schema schema, final String clobData) {
-		if (clobData != null && clobData.length() > 0) {
-			return GzipUtil.compress(clobData);
-		} else {
-			return null;
-		}
 	}
 
 }

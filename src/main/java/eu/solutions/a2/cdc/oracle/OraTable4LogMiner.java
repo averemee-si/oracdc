@@ -41,8 +41,8 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
-import eu.solutions.a2.cdc.oracle.utils.GzipUtil;
 import eu.solutions.a2.cdc.oracle.utils.KafkaUtils;
+import eu.solutions.a2.cdc.oracle.utils.Lz4Util;
 
 /**
  * 
@@ -599,7 +599,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					if (clobValue.length() == 0) {
 						columnValue = new byte[0];
 					} else {
-						columnValue = GzipUtil.compress(clobValue);
+						columnValue = Lz4Util.compress(clobValue);
 					}
 					break;
 				case Types.BLOB:
