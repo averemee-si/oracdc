@@ -16,6 +16,7 @@ package eu.solutions.a2.cdc.oracle;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolException;
@@ -40,10 +41,12 @@ public class OraPoolConnectionFactory {
 	private static boolean activateStandby = false;
 	private static Connection connection2Standby = null;
 	private static Connection connection4Lobs = null;
+	private static AtomicBoolean poolInitialized = new AtomicBoolean(false);
 
 
 	public static final void init(final String url, final String user, final String password) throws
 									SQLException {
+		poolInitialized.set(false);
 		if (mgr == null) {
 			try {
 				mgr = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
@@ -60,6 +63,7 @@ public class OraPoolConnectionFactory {
 			pds.setPassword(password);
 		}
 		pds.setInitialPoolSize(INITIAL_SIZE);
+		poolInitialized.set(true);
 	}
 
 	public static final void init4Wallet(final String wallet, final String tnsAdmin, final String alias) throws
@@ -71,6 +75,14 @@ public class OraPoolConnectionFactory {
 	}
 
 	public static Connection getConnection() throws SQLException {
+		while (!poolInitialized.get()) {
+			try {
+				// Wait for 50 ms
+				Thread.sleep(50);
+			} catch (InterruptedException ie) {
+				throw new SQLException(ie);
+			}
+		}
 		Connection connection = pds.getConnection();
 		connection.setClientInfo("OCSID.MODULE","oracdc");
 		connection.setClientInfo("OCSID.CLIENTID","Generic R/W");
@@ -110,6 +122,7 @@ public class OraPoolConnectionFactory {
 
 	public static void stopPool() throws SQLException {
 		try {
+			poolInitialized.set(false);
 			mgr.destroyConnectionPool(ORACDC_POOL_NAME);
 			pds = null;
 		} catch (UniversalConnectionPoolException ucpe) {
