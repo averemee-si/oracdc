@@ -365,6 +365,10 @@ fix CDB column type detection issue
 
 Important fixes for CDB
 
+#####0.9.7.5 (JAN-2021)
+
+fix Confluent Control Center 6.0+ sync issue with UCP PoolDataSource
+
 
 ## Authors
 
