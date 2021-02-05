@@ -127,7 +127,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			snapshotFqn = null;
 		}
 
-		final String tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
+		final String tableFqn = ((pdbName == null) ? "" : pdbName + ".") +
 				this.tableOwner + "." + this.tableName;
 		// Schema init
 		final SchemaBuilder keySchemaBuilder = SchemaBuilder
