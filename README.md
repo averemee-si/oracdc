@@ -369,6 +369,10 @@ Important fixes for CDB
 
 fix Confluent Control Center 6.0+ sync issue with UCP PoolDataSource
 
+#####0.9.7.6 (FEB-2021)
+
+Protobuf Schema compatibility
+
 
 ## Authors
 
