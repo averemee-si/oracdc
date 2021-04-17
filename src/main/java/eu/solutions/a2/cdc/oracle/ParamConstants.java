@@ -127,4 +127,8 @@ public class ParamConstants {
 	public static final String CONNECTION_BACKOFF_DOC = "backoff time in milliseconds between reconnectoion attempts. Default - 30000ms";
 	public static final int CONNECTION_BACKOFF_DEFAULT = 30000;
 
+	public static final String ARCHIVED_LOG_CAT_PARAM = "a2.archived.log.catalog";
+	public static final String ARCHIVED_LOG_CAT_DOC = "name of class which implements eu.solutions.a2.cdc.oracle.OraLogMiner interface. Default - eu.solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl which reads archived log information from V$ARCHIVED_LOG fixed view";
+	public static final String ARCHIVED_LOG_CAT_DEFAULT = "eu.solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl";
+
 }

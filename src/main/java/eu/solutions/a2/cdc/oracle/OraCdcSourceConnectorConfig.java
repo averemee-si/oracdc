@@ -121,7 +121,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				.define(ParamConstants.PROCESS_LOBS_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.PROCESS_LOBS_DOC)
 				.define(ParamConstants.CONNECTION_BACKOFF_PARAM, Type.INT, ParamConstants.CONNECTION_BACKOFF_DEFAULT,
-						Importance.LOW, ParamConstants.CONNECTION_BACKOFF_DOC);
+						Importance.LOW, ParamConstants.CONNECTION_BACKOFF_DOC)
+				.define(ParamConstants.ARCHIVED_LOG_CAT_PARAM, Type.STRING, ParamConstants.ARCHIVED_LOG_CAT_DEFAULT,
+						Importance.LOW, ParamConstants.ARCHIVED_LOG_CAT_DOC)
+				;
 	}
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {
