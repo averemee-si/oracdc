@@ -269,7 +269,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 		}
 		String opType = null;
-		if (stmt.getOperation() == OraLogMiner.V$LOGMNR_CONTENTS_INSERT) {
+		if (stmt.getOperation() == OraCdcV$LogmnrContents.INSERT) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("parseRedoRecord() processing INSERT");
 			}
@@ -306,7 +306,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 				}
 			}
-		} else if (stmt.getOperation() == OraLogMiner.V$LOGMNR_CONTENTS_DELETE) {
+		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("parseRedoRecord() processing DELETE");
 			}
@@ -330,7 +330,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 				}
 			}
-		} else if (stmt.getOperation() == OraLogMiner.V$LOGMNR_CONTENTS_UPDATE) {
+		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("parseRedoRecord() processing UPDATE");
 			}
@@ -455,8 +455,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 
 		if (processLobs &&
-				(stmt.getOperation() == OraLogMiner.V$LOGMNR_CONTENTS_UPDATE ||
-				stmt.getOperation() == OraLogMiner.V$LOGMNR_CONTENTS_INSERT)) {
+				(stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE ||
+				stmt.getOperation() == OraCdcV$LogmnrContents.INSERT)) {
 			if (lobs != null) {
 				for (int i = 0; i < lobs.size(); i++) {
 					final OraCdcLargeObjectHolder lob = lobs.get(i);
@@ -482,7 +482,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					stmt.getTs());
 			struct.put("source", source);
 			struct.put("before", keyStruct);
-			if (stmt.getOperation() != OraLogMiner.V$LOGMNR_CONTENTS_DELETE) {
+			if (stmt.getOperation() != OraCdcV$LogmnrContents.DELETE) {
 				struct.put("after", valueStruct);
 			}
 			struct.put("op", opType);
@@ -494,7 +494,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					schema,
 					struct);
 		} else if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			if (stmt.getOperation() == OraLogMiner.V$LOGMNR_CONTENTS_DELETE) {
+			if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) {
 				sourceRecord = new SourceRecord(
 						sourcePartition,
 						offset,

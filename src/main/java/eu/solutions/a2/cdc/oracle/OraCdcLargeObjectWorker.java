@@ -142,11 +142,11 @@ public class OraCdcLargeObjectWorker {
 					isRsLogMinerRowAvailable = rsReadLob.next();
 					if (isRsLogMinerRowAvailable) {
 						final short nextOperation = rsReadLob.getShort("OPERATION_CODE");
-						if (nextOperation == OraLogMiner.V$LOGMNR_LOB_WRITE) {
+						if (nextOperation == OraCdcV$LogmnrContents.LOB_WRITE) {
 							fetchRsLogMinerNext = false;
 							readLob = true;
 							continue;
-						} else if (nextOperation == OraLogMiner.V$LOGMNR_CONTENTS_INTERNAL &&
+						} else if (nextOperation == OraCdcV$LogmnrContents.INTERNAL &&
 								StringUtils.compare(currentRsId, rsReadLob.getString("RS_ID")) > 0) {
 							fetchRsLogMinerNext = true;
 							readLob = true;

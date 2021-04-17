@@ -14,6 +14,8 @@
 package eu.solutions.a2.cdc.oracle;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -35,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
+import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
@@ -107,7 +110,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final OraCdcLogMinerMgmt metrics,
 			final int topicNameStyle,
 			final String topicNameDelimiter,
-			final int connectionRetryBackoff) throws SQLException {
+			final int connectionRetryBackoff,
+			final String archivedLogCatalogImplClass) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -139,26 +143,70 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			rdbmsInfo = OraRdbmsInfo.getInstance();
 			isCdb = rdbmsInfo.isCdb();
 
-			if (redoSizeThreshold != null) {
-				logMiner = new OraLogMiner(connLogMiner, metrics, firstScn, redoSizeThreshold);
-			} else {
-				logMiner = new OraLogMiner(connLogMiner, metrics, firstScn, redoFilesCount);
+			try {
+				final Class<?> classLogMiner = Class.forName(archivedLogCatalogImplClass);
+				final Constructor<?> constructor = classLogMiner.getConstructor(
+						Connection.class, OraCdcLogMinerMgmtIntf.class, long.class, Integer.class, Long.class);
+				logMiner = (OraLogMiner) constructor.newInstance(
+						connLogMiner, metrics, firstScn, redoFilesCount, redoSizeThreshold);
+			} catch (ClassNotFoundException nfe) {
+				LOGGER.error("ClassNotFoundException while instantiating {}", archivedLogCatalogImplClass);
+				throw new ConnectException("ClassNotFoundException while instantiating " + archivedLogCatalogImplClass, nfe);
+			} catch (NoSuchMethodException nme) {
+				LOGGER.error(
+						"NoSuchMethodException while obtaining " +
+						"'{}.(java.sql.Connection, eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
+						" constructor", archivedLogCatalogImplClass);
+				throw new ConnectException("NoSuchMethodException while obtaining required constructor for " + archivedLogCatalogImplClass, nme);
+			} catch (SecurityException se) {
+				LOGGER.error(
+						"SecurityException while obtaining " +
+						"'{}.(java.sql.Connection, eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
+						" constructor", archivedLogCatalogImplClass);
+				throw new ConnectException("SecurityException while obtaining required constructor for " + archivedLogCatalogImplClass, se);
+			} catch (InvocationTargetException ite) {
+				LOGGER.error(
+						"InvocationTargetException while calling " +
+						"'{}.(java.sql.Connection, eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
+						" constructor", archivedLogCatalogImplClass);
+				throw new ConnectException("InvocationTargetException while calling required constructor for " + archivedLogCatalogImplClass, ite);
+			} catch (IllegalAccessException iae) {
+				LOGGER.error(
+						"IllegalAccessException while calling " +
+						"'{}.(java.sql.Connection, eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
+						" constructor", archivedLogCatalogImplClass);
+				throw new ConnectException("IllegalAccessException while calling required constructor for " + archivedLogCatalogImplClass, iae);
+			} catch (InstantiationException ie) {
+				LOGGER.error(
+						"InstantiationException while calling " +
+						"'{}.(java.sql.Connection, eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
+						" constructor", archivedLogCatalogImplClass);
+				throw new ConnectException("InstantiationException while calling required constructor for " + archivedLogCatalogImplClass, ie);
+			} catch (IllegalArgumentException iae2) {
+				LOGGER.error(
+						"IllegalArgumentException while calling " +
+						"'{}.(java.sql.Connection, eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
+						" constructor", archivedLogCatalogImplClass);
+				throw new ConnectException("IllegalArgumentException while calling required constructor for " + archivedLogCatalogImplClass, iae2);
 			}
-			if (logMiner.getDbId() == rdbmsInfo.getDbId()) {
-				LOGGER.debug("Database Id for dictionary and mining connections: {}", logMiner.getDbId());
-				if (logMiner.isDictionaryAvailable()) {
-					LOGGER.info("Mining database {} is in OPEN mode", logMiner.getDbUniqueName());
-					if (logMiner.getDbUniqueName().equals(rdbmsInfo.getDbUniqueName())) {
-						LOGGER.info("Same database will be used for dictionary query and mining");
+
+			if (logMiner.isOracleConnectionRequired()) {
+				if (logMiner.getDbId() == rdbmsInfo.getDbId()) {
+					LOGGER.debug("Database Id for dictionary and mining connections: {}", logMiner.getDbId());
+					if (logMiner.isDictionaryAvailable()) {
+						LOGGER.info("Mining database {} is in OPEN mode", logMiner.getDbUniqueName());
+						if (logMiner.getDbUniqueName().equals(rdbmsInfo.getDbUniqueName())) {
+							LOGGER.info("Same database will be used for dictionary query and mining");
+						} else {
+							LOGGER.info("Active DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
+						}
 					} else {
-						LOGGER.info("Active DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
+						LOGGER.info("Mining database {} is in MOUNT mode", logMiner.getDbUniqueName());
+						LOGGER.info("DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
 					}
 				} else {
-					LOGGER.info("Mining database {} is in MOUNT mode", logMiner.getDbUniqueName());
-					LOGGER.info("DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
+					throw new SQLException("Unable to mine data from databases with different DBID!!!");
 				}
-			} else {
-				throw new SQLException("Unable to mine data from databases with different DBID!!!");
 			}
 
 			// Finally - prepare for mining...
@@ -247,7 +295,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						lastSsn = rsLogMiner.getLong("SSN");
 						OraCdcTransaction transaction = activeTransactions.get(xid);
 						switch (operation) {
-						case OraLogMiner.V$LOGMNR_CONTENTS_COMMIT:
+						case OraCdcV$LogmnrContents.COMMIT:
 							if (transaction != null) {
 								// SCN of commit
 								transaction.setCommitScn(lastScn);
@@ -263,7 +311,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								}
 							}
 							break;
-						case OraLogMiner.V$LOGMNR_CONTENTS_ROLLBACK:
+						case OraCdcV$LogmnrContents.ROLLBACK:
 							if (transaction != null) {
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Rolling back at SCN transaction XID {} with {} records.",
@@ -278,9 +326,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								}
 							}
 							break;
-						case OraLogMiner.V$LOGMNR_CONTENTS_INSERT:
-						case OraLogMiner.V$LOGMNR_CONTENTS_DELETE:
-						case OraLogMiner.V$LOGMNR_CONTENTS_UPDATE:
+						case OraCdcV$LogmnrContents.INSERT:
+						case OraCdcV$LogmnrContents.DELETE:
+						case OraCdcV$LogmnrContents.UPDATE:
 							// Read as long to speed up shift
 							final long dataObjectId = rsLogMiner.getLong("DATA_OBJ#");
 							long combinedDataObjectId;
@@ -375,7 +423,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								}
 								// squeeze it!
 								sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
-								if (operation == OraLogMiner.V$LOGMNR_CONTENTS_INSERT) {
+								if (operation == OraCdcV$LogmnrContents.INSERT) {
 									sqlRedo = StringUtils.replace(sqlRedo, "')", "'");
 								} else {
 									sqlRedo = StringUtils.replace(sqlRedo, ")", "");
@@ -386,8 +434,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								//BEGIN: Catch the LOB!!!
 								List<OraCdcLargeObjectHolder> lobs = null;
 								if (processLobs && oraTable.isWithLobs() &&
-										(operation == OraLogMiner.V$LOGMNR_CONTENTS_INSERT ||
-										operation == OraLogMiner.V$LOGMNR_CONTENTS_UPDATE)) {
+										(operation == OraCdcV$LogmnrContents.INSERT ||
+										operation == OraCdcV$LogmnrContents.UPDATE)) {
 									final String tableOperationRsId = rsLogMiner.getString("RS_ID");
 									String lobStartRsId = tableOperationRsId; 
 									boolean searchLobObjects = true;
@@ -401,15 +449,15 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 										if (searchLobObjects) {
 											final short catchLobOperation = rsLogMiner.getShort("OPERATION_CODE");
 											final String catchLobXid = rsLogMiner.getString("XID");
-											if (catchLobOperation == OraLogMiner.V$LOGMNR_CONTENTS_INSERT ||
-													catchLobOperation == OraLogMiner.V$LOGMNR_CONTENTS_UPDATE ||
-													catchLobOperation == OraLogMiner.V$LOGMNR_CONTENTS_DELETE) {
+											if (catchLobOperation == OraCdcV$LogmnrContents.INSERT ||
+													catchLobOperation == OraCdcV$LogmnrContents.UPDATE ||
+													catchLobOperation == OraCdcV$LogmnrContents.DELETE) {
 												// Next INSERT/UPDATE/DELETE for given objects.....
 												// Do nothing and don't call next() for rsLogMiner
 												fetchRsLogMinerNext = false;
 												searchLobObjects = false;
-											} else if ((catchLobOperation == OraLogMiner.V$LOGMNR_CONTENTS_COMMIT ||
-													catchLobOperation == OraLogMiner.V$LOGMNR_CONTENTS_ROLLBACK) &&
+											} else if ((catchLobOperation == OraCdcV$LogmnrContents.COMMIT ||
+													catchLobOperation == OraCdcV$LogmnrContents.ROLLBACK) &&
 													(catchLobXid.equals(xid) || activeTransactions.containsKey(catchLobXid))) {
 												// Do nothing and don't call next() for rsLogMiner
 												fetchRsLogMinerNext = false;
@@ -519,7 +567,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								metrics.addRecord();
 							}
 							break;
-						case OraLogMiner.V$LOGMNR_CONTENTS_INTERNAL:
+						case OraCdcV$LogmnrContents.INTERNAL:
 							if (LOGGER.isDebugEnabled()) {
 								LOGGER.debug("Skipping internal operation at SCN {} for object ID {}",
 										lastScn, rsLogMiner.getLong("DATA_OBJ#"));
