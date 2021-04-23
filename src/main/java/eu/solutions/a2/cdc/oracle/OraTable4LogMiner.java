@@ -236,7 +236,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	public SourceRecord parseRedoRecord(
 			final OraCdcLogMinerStatement stmt,
-			final List<OraCdcLargeObjectHolder> lobs) throws SQLException {
+			final List<OraCdcLargeObjectHolder> lobs,
+			final String xid,
+			final long commitScn) throws SQLException {
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("BEGIN: parseRedoRecord()");
 		}
@@ -252,6 +254,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			LOGGER.trace("Parsing REDO record for {}", tableFqn);
 			LOGGER.trace("Redo record information:");
 			LOGGER.trace("\tSCN = {}", stmt.getScn());
+			LOGGER.trace("\tCOMMIT_SCN = {}", commitScn);
+			LOGGER.trace("\tXID = {}", xid);
 			LOGGER.trace("\tTIMESTAMP = {}", stmt.getTs());
 			LOGGER.trace("\tRS_ID = {}", stmt.getRsId());
 			LOGGER.trace("\tSSN = {}", stmt.getSsn());
@@ -300,7 +304,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
 						} catch (DataException de) {
 							LOGGER.error("Invalid value {}", columnValue);
-							printInvalidFieldValue(oraColumn, stmt);
+							printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 							throw new DataException(de);
 						}
 					}
@@ -364,7 +368,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							//TODO
 							if (!oraColumn.getDefaultValuePresent()) {
 								// throw error only if we don't expect to get value from WHERE clause
-								printInvalidFieldValue(oraColumn, stmt);
+								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw new DataException(de);
 							}
 						}
@@ -414,7 +418,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 									}
 								}
 								if (throwDataException) {
-									printInvalidFieldValue(oraColumn, stmt);
+									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 									throw new DataException(de);
 								}
 							}
@@ -434,7 +438,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 									keyStruct, valueStruct);
 							} catch (DataException de) {
 								LOGGER.error("Invalid value {}", columnValue);
-								printInvalidFieldValue(oraColumn, stmt);
+								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw new DataException(de);
 							}
 						}
@@ -445,6 +449,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			// We expect here only 1,2,3 as valid values for OPERATION_CODE
 			LOGGER.error("Corrupted record found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:");
 			LOGGER.error("\tSCN = {}", stmt.getScn());
+			LOGGER.error("\tCOMMIT_SCN = {}", commitScn);
+			LOGGER.error("\tXID = {}", xid);
 			LOGGER.error("\tTIMESTAMP = {}", stmt.getTs());
 			LOGGER.error("\tRS_ID = {}", stmt.getRsId());
 			LOGGER.error("\tSSN = {}", stmt.getSsn());
@@ -475,11 +481,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final Struct struct = new Struct(schema);
 			final Struct source = OraRdbmsInfo.getInstance().getStruct(
 					stmt.getSqlRedo(),
-					pdbName,
-					tableOwner,
-					tableName,
-					stmt.getScn(),
-					stmt.getTs());
+					pdbName, tableOwner, tableName,
+					stmt.getScn(), stmt.getTs(),
+					xid, commitScn, stmt.getRowId());
 			struct.put("source", source);
 			struct.put("before", keyStruct);
 			if (stmt.getOperation() != OraCdcV$LogmnrContents.DELETE) {
@@ -729,11 +733,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 	}
 
-	private void printInvalidFieldValue(OraColumn oraColumn, OraCdcLogMinerStatement stmt) {
+	private void printInvalidFieldValue(final OraColumn oraColumn,
+			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
 		LOGGER.error("NULL value for NON NULL column {}, table {}",
 				oraColumn.getColumnName(), this.tableFqn);
 		LOGGER.error("Redo record information:");
 		LOGGER.error("\tSCN = {}", stmt.getScn());
+		LOGGER.error("\tCOMMIT_SCN = {}", commitScn);
+		LOGGER.error("\tXID = {}", xid);
 		LOGGER.error("\tTIMESTAMP = {}", stmt.getTs());
 		LOGGER.error("\tRS_ID = {}", stmt.getRsId());
 		LOGGER.error("\tSSN = {}", stmt.getSsn());

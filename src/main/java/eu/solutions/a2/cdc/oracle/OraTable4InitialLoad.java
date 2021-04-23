@@ -605,13 +605,14 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 				final long ts = System.currentTimeMillis();
 				final Struct struct = new Struct(schema);
 				try {
+					//TODO
+					//TODO Improvement required!
+					//TODO
 					final Struct source = OraRdbmsInfo.getInstance().getStruct(
 						this.tableFqn,
-						pdbName,
-						tableOwner,
-						tableName,
-						0L,
-						ts);
+						pdbName, tableOwner, tableName,
+						0L, ts,
+						"", 0L, "");
 					struct.put("source", source);
 				} catch (SQLException sqle) {
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));

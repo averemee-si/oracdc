@@ -126,12 +126,17 @@ public class OraRdbmsInfo {
 		schemaBuilder.field("dbid", Schema.INT64_SCHEMA);
 		schemaBuilder.field("database_name", Schema.STRING_SCHEMA);
 		schemaBuilder.field("platform_name", Schema.STRING_SCHEMA);
-		// Table/Operation specific
+		//Operation specific
+		schemaBuilder.field("commit_scn", Schema.INT64_SCHEMA);
+		schemaBuilder.field("xid", Schema.STRING_SCHEMA);
+		// Table specific
 		schemaBuilder.field("query", Schema.OPTIONAL_STRING_SCHEMA);
 		schemaBuilder.field("pdb_name", Schema.OPTIONAL_STRING_SCHEMA);
 		schemaBuilder.field("owner", Schema.OPTIONAL_STRING_SCHEMA);
 		schemaBuilder.field("table", Schema.OPTIONAL_STRING_SCHEMA);
+		// Row specific
 		schemaBuilder.field("scn", Schema.INT64_SCHEMA);
+		schemaBuilder.field("row_id", Schema.STRING_SCHEMA);
 		schemaBuilder.field("ts_ms", Schema.INT64_SCHEMA);
 		schema = schemaBuilder.build();
 
@@ -150,7 +155,9 @@ public class OraRdbmsInfo {
 		return instance;
 	}
 
-	public Struct getStruct(String query, String pdbName, String owner, String table, long scn, Long ts) {
+	public Struct getStruct(final String query, final String pdbName, final String owner,
+			final String table, final long scn, final long ts, final String xid,
+			final long commitScn, final String rowId) {
 		Struct struct = new Struct(schema);
 		struct.put("instance_number", instanceNumber);
 		struct.put("version", versionString);
@@ -169,10 +176,10 @@ public class OraRdbmsInfo {
 		if (table != null)
 			struct.put("table", table);
 		struct.put("scn", scn);
-		if (ts != null)
-			struct.put("ts_ms", ts);
-		else
-			struct.put("ts_ms", 0l);
+		struct.put("ts_ms", ts);
+		struct.put("xid", xid);
+		struct.put("commit_scn", commitScn);
+		struct.put("row_id", rowId);
 		return struct;
 	}
 

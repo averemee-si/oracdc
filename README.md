@@ -373,6 +373,10 @@ fix Confluent Control Center 6.0+ sync issue with UCP PoolDataSource
 
 Protobuf Schema compatibility
 
+#####0.9.7.7 (APR-2021)
+
+Add more information about source record (XID, ROWID, and COMMIT_SCN)
+
 
 ## Authors
 

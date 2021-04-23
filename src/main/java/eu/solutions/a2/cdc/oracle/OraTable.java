@@ -199,7 +199,8 @@ public class OraTable extends OraTable4SourceConnector {
 							tableOwner,
 							tableName,
 							lastProcessedScn,
-							rsLog.getTimestamp("TIMESTAMP$$").getTime());
+							rsLog.getTimestamp("TIMESTAMP$$").getTime(),
+							"", lastProcessedScn,"");
 					struct.put("source", source);
 					struct.put("before", keyStruct);
 					if (!deleteOp) {
