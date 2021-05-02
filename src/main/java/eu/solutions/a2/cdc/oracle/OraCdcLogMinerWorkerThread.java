@@ -51,6 +51,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
 	private static final int ORA_17410 = 17410;
+	private static final int ORA_2396 = 2396;
 
 	private final OraCdcLogMinerTask task;
 	private final int pollInterval;
@@ -68,11 +69,12 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final OraLogMiner logMiner;
 	private Connection connLogMiner;
 	private PreparedStatement psLogMiner;
+	private PreparedStatement psCheckTable;
 	private OraclePreparedStatement psReadLob;
 	private OracleResultSet rsLogMiner;
 	private final String mineDataSql;
+	private final String checkTableSql;
 	private final Connection connDictionary;
-	private final PreparedStatement psCheckTable;
 	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
@@ -118,6 +120,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.pollInterval = pollInterval;
 		this.partition = partition;
 		this.mineDataSql = mineDataSql;
+		this.checkTableSql = checkTableSql;
 		this.tablesInProcessing = tablesInProcessing;
 		// We do not need concurrency for this map
 		this.partitionsInProcessing = new HashMap<>();
@@ -350,11 +353,41 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									oraTable = tablesInProcessing.get(combinedDataObjectId);
 								} else {
 									// Check for object...
-									psCheckTable.setLong(1, dataObjectId);
-									if (isCdb) {
-										psCheckTable.setLong(2, conId);
+									ResultSet rsCheckTable = null;
+									boolean wait4CheckTableCursor = true;
+									while (runLatch.getCount() > 0 && wait4CheckTableCursor) {
+										try {
+											psCheckTable.setLong(1, dataObjectId);
+											if (isCdb) {
+												psCheckTable.setLong(2, conId);
+											}
+											rsCheckTable = psCheckTable.executeQuery();
+											wait4CheckTableCursor = false;
+											break;
+										} catch (SQLException sqle) {
+											if (sqle.getErrorCode() == ORA_2396) {
+												LOGGER.warn("Encontered an 'ORA-02396: exceeded maximum idle time, please connect again'");
+												LOGGER.warn("Attempting to reconnect...");
+												try {
+													OraPoolConnectionFactory.stopPool(false);
+													OraPoolConnectionFactory.reCreatePool(false);
+													psCheckTable = connDictionary.prepareStatement(
+															checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+												} catch (SQLException ucpe) {
+													LOGGER.error("SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables",
+															sqle.getErrorCode(), sqle.getSQLState());
+													throw new SQLException(sqle);
+												}
+											} else {
+												//TODO
+												//TODO Check for more SQL errors.....
+												//TODO
+												LOGGER.error("SQL errorCode = {}, SQL state = '{}' while trying to connect to dictionary tables",
+														sqle.getErrorCode(), sqle.getSQLState());
+												throw new SQLException(sqle);
+											}
+										}
 									}
-									ResultSet rsCheckTable = psCheckTable.executeQuery();
 									if (rsCheckTable.next()) {
 										//May be this is partition, so just check tablesInProcessing map for table
 										boolean needNewTableDefinition = true;
@@ -692,6 +725,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					connLogMiner = OraPoolConnectionFactory.getLogMinerConnection();
 					psLogMiner = connLogMiner.prepareStatement(
 							mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+					psCheckTable = connDictionary.prepareStatement(
+							checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 					if (processLobs) {
 						psReadLob = (OraclePreparedStatement) connLogMiner.prepareStatement(
 								isCdb ? OraDictSqlTexts.MINE_LOB_CDB :
