@@ -89,6 +89,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final String topicNameDelimiter;
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
+	private final int fetchSize;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -112,8 +113,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final OraCdcLogMinerMgmt metrics,
 			final int topicNameStyle,
 			final String topicNameDelimiter,
-			final int connectionRetryBackoff,
-			final String archivedLogCatalogImplClass) throws SQLException {
+			final Map<String, String> props) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -136,7 +136,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.metrics = metrics;
 		this.topicNameStyle = topicNameStyle;
 		this.topicNameDelimiter = topicNameDelimiter;
-		this.connectionRetryBackoff = connectionRetryBackoff;
+		this.connectionRetryBackoff = Integer.parseInt(props.get(ParamConstants.CONNECTION_BACKOFF_PARAM));
+		this.fetchSize = Integer.parseInt(props.get(ParamConstants.FETCH_SIZE_PARAM));
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
 		try {
@@ -146,6 +147,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			rdbmsInfo = OraRdbmsInfo.getInstance();
 			isCdb = rdbmsInfo.isCdb();
 
+			final String archivedLogCatalogImplClass = props.get(ParamConstants.ARCHIVED_LOG_CAT_PARAM);
 			try {
 				final Class<?> classLogMiner = Class.forName(archivedLogCatalogImplClass);
 				final Constructor<?> constructor = classLogMiner.getConstructor(
@@ -215,6 +217,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			// Finally - prepare for mining...
 			psLogMiner = connLogMiner.prepareStatement(
 					mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			psLogMiner.setFetchSize(fetchSize);
+			LOGGER.info("Fetch size for accessing V$LOGMNR_CONTENTS set to {}.", fetchSize);
 			psCheckTable = connDictionary.prepareStatement(
 					checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			logMinerReady = logMiner.next();
@@ -223,6 +227,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						isCdb ? OraDictSqlTexts.MINE_LOB_CDB :
 								OraDictSqlTexts.MINE_LOB_NON_CDB,
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				psReadLob.setFetchSize(fetchSize);
 			}
 
 		} catch (SQLException e) {
@@ -725,6 +730,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					connLogMiner = OraPoolConnectionFactory.getLogMinerConnection();
 					psLogMiner = connLogMiner.prepareStatement(
 							mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+					psLogMiner.setFetchSize(fetchSize);
 					psCheckTable = connDictionary.prepareStatement(
 							checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 					if (processLobs) {
@@ -732,6 +738,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								isCdb ? OraDictSqlTexts.MINE_LOB_CDB :
 										OraDictSqlTexts.MINE_LOB_NON_CDB,
 								ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+						psReadLob.setFetchSize(fetchSize);
 					}
 					logMiner.createStatements(connLogMiner);
 					ready = true;

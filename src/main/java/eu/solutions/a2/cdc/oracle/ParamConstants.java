@@ -131,4 +131,8 @@ public class ParamConstants {
 	public static final String ARCHIVED_LOG_CAT_DOC = "name of class which implements eu.solutions.a2.cdc.oracle.OraLogMiner interface. Default - eu.solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl which reads archived log information from V$ARCHIVED_LOG fixed view";
 	public static final String ARCHIVED_LOG_CAT_DEFAULT = "eu.solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl";
 
+	public static final String FETCH_SIZE_PARAM = "a2.fetch.size";
+	public static final String FETCH_SIZE_DOC = "number of rows fetched with each RDBMS round trip for access V$LOGMNR_CONTENTS. Default 32";
+	public static final int FETCH_SIZE_DEFAULT = 32;
+
 }

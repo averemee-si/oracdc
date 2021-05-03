@@ -257,6 +257,8 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM).toString());
 		taskParam.put(ParamConstants.ARCHIVED_LOG_CAT_PARAM, 
 				config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM));
+		final Integer fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
+		taskParam.put(ParamConstants.FETCH_SIZE_PARAM, fetchSize.toString());
 
 		final List<Map<String, String>> configs = new ArrayList<>(1);
 		configs.add(taskParam);

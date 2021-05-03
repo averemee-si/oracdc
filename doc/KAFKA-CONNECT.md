@@ -64,6 +64,8 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.archived.log.catalog` - name of class which implements _eu.solutions.a2.cdc.oracle.OraLogMiner_ interface. Default - _eu.solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl_ which reads archived log information and information about next available archived redo log from [V$ARCHIVED_LOG](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-ARCHIVED_LOG.html) fixed view
 
+`a2.fetch.size` - number of rows fetched with each RDBMS round trip for accessing [V$LOGMNR_CONTENTS](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-LOGMNR_CONTENTS.html) fixed view. Default 32
+
 #### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_

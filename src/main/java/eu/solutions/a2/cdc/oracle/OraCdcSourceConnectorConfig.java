@@ -124,6 +124,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.CONNECTION_BACKOFF_DOC)
 				.define(ParamConstants.ARCHIVED_LOG_CAT_PARAM, Type.STRING, ParamConstants.ARCHIVED_LOG_CAT_DEFAULT,
 						Importance.LOW, ParamConstants.ARCHIVED_LOG_CAT_DOC)
+				.define(ParamConstants.FETCH_SIZE_PARAM, Type.INT, ParamConstants.FETCH_SIZE_DEFAULT,
+						Importance.LOW, ParamConstants.FETCH_SIZE_DOC)
 				;
 	}
 
