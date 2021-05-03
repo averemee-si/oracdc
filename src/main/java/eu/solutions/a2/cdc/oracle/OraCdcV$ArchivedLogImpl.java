@@ -136,9 +136,13 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		psGetArchivedLogs.setLong(3, firstChange);
 		ResultSet rs = psGetArchivedLogs.executeQuery();
 		fileNames = new ArrayList<>();
+		int lagSeconds = 0;
 		while (rs.next()) {
 			final long sequence = rs.getLong("SEQUENCE#");
 			nextChange = rs.getLong("NEXT_CHANGE#");
+			if (lagSeconds == 0) {
+				lagSeconds = rs.getInt("ACTUAL_LAG_SECONDS");
+			}
 			if (sequence > lastSequence) {
 				if (firstChange < nextChange) {
 					lastSequence = sequence;
@@ -163,7 +167,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		rs = null;
 		psGetArchivedLogs.clearParameters();
 		// Set current processing in JMX
-		metrics.setNowProcessed(fileNames, firstChange, nextChange);
+		metrics.setNowProcessed(fileNames, firstChange, nextChange, lagSeconds);
 
 		if (archLogsAvailable == 0) {
 			LOGGER.trace("END: next() return false");
@@ -206,9 +210,13 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		psGetArchivedLogs.setLong(2, firstChange);
 		psGetArchivedLogs.setLong(3, firstChange);
 		ResultSet rs = psGetArchivedLogs.executeQuery();
+		int lagSeconds = 0;
 		while (rs.next()) {
 			final long sequence = rs.getLong("SEQUENCE#");
 			nextChange = rs.getLong("NEXT_CHANGE#");
+			if (lagSeconds == 0) {
+				lagSeconds = rs.getInt("ACTUAL_LAG_SECONDS");
+			}
 			if (sequence > lastSequence) {
 				if (firstChange < nextChange) {
 					lastSequence = sequence;
@@ -233,7 +241,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		rs = null;
 		psGetArchivedLogs.clearParameters();
 		// Set current processing in JMX
-		metrics.setNowProcessed(fileNames, firstChange, nextChange);
+		metrics.setNowProcessed(fileNames, firstChange, nextChange, lagSeconds);
 
 		if (archLogsAvailable == 0) {
 			LOGGER.trace("END: extend() returns false");

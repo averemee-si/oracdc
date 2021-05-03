@@ -63,11 +63,11 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 	}
 	@Override
 	public String getStartTime() {
-		return super.startTime.format(DateTimeFormatter.ISO_DATE_TIME);
+		return super.getStartTimeLdt().format(DateTimeFormatter.ISO_DATE_TIME);
 	}
 	@Override
 	public long getStartScn() {
-		return super.startScn;
+		return super.getStartScn();
 	}
 
 	public void addTableInProcessing(final String tableName) {
@@ -100,20 +100,21 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 
 	@Override
 	public void setNowProcessed(
-			final List<String> nowProcessedArchiveLogs, final long currentFirstScn, final long currentNextScn) {
-		super.setNowProcessed(nowProcessedArchiveLogs, currentFirstScn, currentNextScn);
+			final List<String> nowProcessedArchiveLogs, final long currentFirstScn, final long currentNextScn,
+			final int lagSeconds) {
+		super.setNowProcessed(nowProcessedArchiveLogs, currentFirstScn, currentNextScn, lagSeconds);
 	}
 	@Override
 	public String[] getNowProcessedArchivelogs() {
-		return super.nowProcessedArchivelogs.toArray(new String[0]);
+		return super.getNowProcessedArchiveLogsList().toArray(new String[0]);
 	}
 	@Override
 	public long getCurrentFirstScn() {
-		return super.currentFirstScn;
+		return super.getCurrentFirstScn();
 	}
 	@Override
 	public long getCurrentNextScn() {
-		return super.currentNextScn;
+		return super.getCurrentNextScn();
 	}
 
 	@Override
@@ -123,28 +124,28 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 	}
 	@Override
 	public String[] getLast100ProcessedArchivelogs() {
-		return super.lastHundredProcessed.toArray(new String[0]);
+		return super.getLastHundredProcessed().toArray(new String[0]);
 	}
 	@Override
 	public int getProcessedArchivelogsCount() {
-		return super.processedArchivedRedoCount;
+		return super.getProcessedArchivedRedoCount();
 	}
 	@Override
 	public float getProcessedArchivelogsSizeGb() {
-		return Precision.round((float)((float)super.processedArchivedRedoSize / (float)(1024*1024*1024)), 3);
+		return Precision.round((float)((float)super.getProcessedArchivedRedoSize() / (float)(1024*1024*1024)), 3);
 	}
 	@Override
 	public String getLastProcessedArchivelog() {
-		return super.lastRedoLog;
+		return super.getLastRedoLog();
 	}
 	@Override
 	public long getLastProcessedScn() {
-		return super.lastScn;
+		return super.getLastScn();
 	}
 	@Override
 	public String getLastProcessedArchivelogTime() {
-		if (super.lastRedoLogTime != null) {
-			return super.lastRedoLogTime.format(DateTimeFormatter.ISO_DATE_TIME);
+		if (super.getLastRedoLogTime() != null) {
+			return super.getLastRedoLogTime().format(DateTimeFormatter.ISO_DATE_TIME);
 		} else {
 			return null;
 		}
@@ -208,7 +209,7 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 	}
 	@Override
 	public String getParseElapsed() {
-		Duration duration = Duration.ofMillis(parseTimeElapsed);
+		final Duration duration = Duration.ofMillis(parseTimeElapsed);
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
@@ -218,27 +219,41 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 
 	@Override
 	public long getRedoReadElapsedMillis() {
-		return redoReadTimeElapsed;
+		return super.getRedoReadTimeElapsed();
 	}
 	@Override
 	public String getRedoReadElapsed() {
-		Duration duration = Duration.ofMillis(redoReadTimeElapsed);
+		final Duration duration = Duration.ofMillis(super.getRedoReadTimeElapsed());
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
 	public float getRedoReadMbPerSecond() {
-		return redoReadMbPerSec;
+		return super.getRedoReadMbPerSec();
 	}
-	
 
 	@Override
 	public long getElapsedTimeMillis() {
-		return System.currentTimeMillis() - super.startTimeMillis;
+		return System.currentTimeMillis() - super.getStartTimeMillis();
 	}
 	@Override
 	public String getElapsedTime() {
-		Duration duration = Duration.ofMillis(System.currentTimeMillis() - super.startTimeMillis);
+		final Duration duration = Duration.ofMillis(System.currentTimeMillis() - super.getStartTimeMillis());
 		return OraCdcMBeanUtils.formatDuration(duration);
+	}
+
+	@Override
+	public int getActualLagSeconds() {
+		return super.getLagSeconds();
+	}
+	@Override
+	public String getActualLagText() {
+		int lagSeconds = super.getLagSeconds();
+		if (lagSeconds > -1) {
+			final Duration duration = Duration.ofSeconds(lagSeconds); 
+			return OraCdcMBeanUtils.formatDuration(duration);
+		} else {
+			return "";
+		}
 	}
 
 	@Override

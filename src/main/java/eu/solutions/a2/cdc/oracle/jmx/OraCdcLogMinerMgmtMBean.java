@@ -50,6 +50,9 @@ public interface OraCdcLogMinerMgmtMBean {
 	public String getRedoReadElapsed();
 	public float getRedoReadMbPerSecond();
 
+	public int getActualLagSeconds();
+	public String getActualLagText();
+
 	public void saveCurrentState();
 	public void saveCurrentTablesSchema();
 

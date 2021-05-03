@@ -42,20 +42,21 @@ public class OraCdcLogMinerMgmtBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMgmtBase.class);
 
-	protected List<String> nowProcessedArchivelogs;
-	protected LimitedSizeQueue<String> lastHundredProcessed = new LimitedSizeQueue<>(100);
-	protected long currentFirstScn;
-	protected long currentNextScn;
-	protected int processedArchivedRedoCount;
-	protected long processedArchivedRedoSize;
-	protected long startTimeMillis;
-	protected LocalDateTime startTime;
-	protected long startScn;
-	protected String lastRedoLog;
-	protected LocalDateTime lastRedoLogTime;
-	protected long lastScn = 0;
-	protected long redoReadTimeElapsed = 0;
-	protected float redoReadMbPerSec = 0;
+	private List<String> nowProcessedArchivelogs;
+	private LimitedSizeQueue<String> lastHundredProcessed = new LimitedSizeQueue<>(100);
+	private long currentFirstScn;
+	private long currentNextScn;
+	private int processedArchivedRedoCount;
+	private long processedArchivedRedoSize;
+	private long startTimeMillis;
+	private LocalDateTime startTime;
+	private long startScn;
+	private String lastRedoLog;
+	private LocalDateTime lastRedoLogTime;
+	private long lastScn = 0;
+	private long redoReadTimeElapsed = 0;
+	private float redoReadMbPerSec = 0;
+	private int lagSeconds = -1;
 
 	public OraCdcLogMinerMgmtBase(
 			final OraRdbmsInfo rdbmsInfo, final String connectorName, final String jmxTypeName) {
@@ -87,10 +88,12 @@ public class OraCdcLogMinerMgmtBase {
 
 
 	public void setNowProcessed(
-			final List<String> nowProcessedArchiveLogs, final long currentFirstScn, final long currentNextScn) {
+			final List<String> nowProcessedArchiveLogs, final long currentFirstScn, final long currentNextScn,
+			final int lagSeconds) {
 		this.nowProcessedArchivelogs = nowProcessedArchiveLogs;
 		this.currentFirstScn = currentFirstScn;
 		this.currentNextScn = currentNextScn;
+		this.lagSeconds = lagSeconds;
 	}
 
 	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size,
@@ -111,6 +114,70 @@ public class OraCdcLogMinerMgmtBase {
 			float seconds = redoReadTimeElapsed / 1000;
 			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
 		}
+	}
+
+	public List<String> getNowProcessedArchiveLogsList() {
+		return nowProcessedArchivelogs;
+	}
+
+	public LimitedSizeQueue<String> getLastHundredProcessed() {
+		return lastHundredProcessed;
+	}
+
+	public long getCurrentFirstScn() {
+		return currentFirstScn;
+	}
+
+	public void setCurrentFirstScn(long currentFirstScn) {
+		this.currentFirstScn = currentFirstScn;
+	}
+
+	public long getCurrentNextScn() {
+		return currentNextScn;
+	}
+
+	public int getProcessedArchivedRedoCount() {
+		return processedArchivedRedoCount;
+	}
+
+	public long getProcessedArchivedRedoSize() {
+		return processedArchivedRedoSize;
+	}
+
+	public long getStartTimeMillis() {
+		return startTimeMillis;
+	}
+
+	public LocalDateTime getStartTimeLdt() {
+		return startTime;
+	}
+
+	public long getStartScn() {
+		return startScn;
+	}
+
+	public String getLastRedoLog() {
+		return lastRedoLog;
+	}
+
+	public LocalDateTime getLastRedoLogTime() {
+		return lastRedoLogTime;
+	}
+
+	public long getLastScn() {
+		return lastScn;
+	}
+
+	public long getRedoReadTimeElapsed() {
+		return redoReadTimeElapsed;
+	}
+
+	public float getRedoReadMbPerSec() {
+		return redoReadMbPerSec;
+	}
+
+	public int getLagSeconds() {
+		return lagSeconds;
 	}
 
 }
