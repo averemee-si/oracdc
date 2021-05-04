@@ -33,7 +33,8 @@ For processing LOB's please do not forget to set Apache Kafka parameters accordi
 1. If you do not use archivelogs as a source of database user activity audit information, consider setting Oracle RDBMS hidden parameter **_transaction_auditing** to **false** after consulting a [Oracle Support Services](https://www.oracle.com/support/)
 2. Always try to set up **supplemental logging** at the table level, and not for all database objects
 3. Proper file system parameters and sizing for path where [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) objects resides.
-4. Proper open files hard and soft limits for OS user running **oracdc** 
+4. Proper open files hard and soft limits for OS user running **oracdc**
+5. Depending on structure of your data try increasing value of `a2.fetch.size` parameter (default fetch size - 32 rows)
 
 ## eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
 This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
@@ -376,6 +377,10 @@ Protobuf Schema compatibility
 #####0.9.7.7 (APR-2021)
 
 Add more information about source record (XID, ROWID, and COMMIT_SCN)
+
+#####0.9.7.8 (MAY-2021)
+
+MAY-21 features/fixes (fix ORA-2396, add lag to JMX metrics, add feth size parameter)
 
 
 ## Authors
