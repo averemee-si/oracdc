@@ -350,7 +350,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					// static build list of tables/partitions
 					final String objectList = rdbmsInfo.getMineObjectsIds(
 						connDictionary, false, tableList);
-					if (StringUtils.endsWith(objectList, "()")) {
+					if (StringUtils.contains(objectList, "()")) {
 						// and DATA_OBJ# in ()
 						LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
 							ParamConstants.TABLE_INCLUDE_PARAM, props.get(ParamConstants.TABLE_INCLUDE_PARAM));
@@ -385,7 +385,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					}
 					final String objectList = rdbmsInfo.getMineObjectsIds(connDictionary, true,
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList));
-					if (StringUtils.endsWith(objectList, "()")) {
+					if (StringUtils.contains(objectList, "()")) {
 						// and DATA_OBJ# not in ()
 						LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
 								ParamConstants.TABLE_EXCLUDE_PARAM, props.get(ParamConstants.TABLE_EXCLUDE_PARAM));
