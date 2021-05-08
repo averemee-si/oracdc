@@ -68,7 +68,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final OraDumpDecoder odd;
 	private final OraLogMiner logMiner;
 	private Connection connLogMiner;
-	private PreparedStatement psLogMiner;
+	private OraclePreparedStatement psLogMiner;
 	private PreparedStatement psCheckTable;
 	private OraclePreparedStatement psReadLob;
 	private OracleResultSet rsLogMiner;
@@ -215,10 +215,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			}
 
 			// Finally - prepare for mining...
-			psLogMiner = connLogMiner.prepareStatement(
+			psLogMiner = (OraclePreparedStatement) connLogMiner.prepareStatement(
 					mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			psLogMiner.setFetchSize(fetchSize);
-			LOGGER.info("Fetch size for accessing V$LOGMNR_CONTENTS set to {}.", fetchSize);
+			psLogMiner.setRowPrefetch(fetchSize);
+			LOGGER.info("RowPrefetch size for accessing V$LOGMNR_CONTENTS set to {}.", fetchSize);
 			psCheckTable = connDictionary.prepareStatement(
 					checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			logMinerReady = logMiner.next();
@@ -227,7 +227,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						isCdb ? OraDictSqlTexts.MINE_LOB_CDB :
 								OraDictSqlTexts.MINE_LOB_NON_CDB,
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-				psReadLob.setFetchSize(fetchSize);
+				psReadLob.setRowPrefetch(fetchSize);
 			}
 
 		} catch (SQLException e) {
@@ -728,9 +728,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				}
 				try {
 					connLogMiner = OraPoolConnectionFactory.getLogMinerConnection();
-					psLogMiner = connLogMiner.prepareStatement(
+					psLogMiner = (OraclePreparedStatement)connLogMiner.prepareStatement(
 							mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-					psLogMiner.setFetchSize(fetchSize);
+					psLogMiner.setRowPrefetch(fetchSize);
 					psCheckTable = connDictionary.prepareStatement(
 							checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 					if (processLobs) {
@@ -738,7 +738,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								isCdb ? OraDictSqlTexts.MINE_LOB_CDB :
 										OraDictSqlTexts.MINE_LOB_NON_CDB,
 								ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-						psReadLob.setFetchSize(fetchSize);
+						psReadLob.setRowPrefetch(fetchSize);
 					}
 					logMiner.createStatements(connLogMiner);
 					ready = true;
