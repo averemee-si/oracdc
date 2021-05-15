@@ -135,4 +135,7 @@ public class ParamConstants {
 	public static final String FETCH_SIZE_DOC = "number of rows fetched with each RDBMS round trip for access V$LOGMNR_CONTENTS. Default 32";
 	public static final int FETCH_SIZE_DEFAULT = 32;
 
+	public static final String TRACE_LOGMINER_PARAM = "a2.logminer.trace";
+	public static final String TRACE_LOGMINER_DOC = "trace with 'event 10046 level 8' LogMiner calls? Default - false";
+
 }

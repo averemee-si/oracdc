@@ -126,6 +126,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.ARCHIVED_LOG_CAT_DOC)
 				.define(ParamConstants.FETCH_SIZE_PARAM, Type.INT, ParamConstants.FETCH_SIZE_DEFAULT,
 						Importance.LOW, ParamConstants.FETCH_SIZE_DOC)
+				.define(ParamConstants.TRACE_LOGMINER_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, ParamConstants.TRACE_LOGMINER_DOC)
 				;
 	}
 

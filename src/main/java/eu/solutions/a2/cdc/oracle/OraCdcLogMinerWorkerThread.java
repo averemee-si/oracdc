@@ -90,6 +90,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
+	private final boolean traceSession;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -138,10 +139,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.topicNameDelimiter = topicNameDelimiter;
 		this.connectionRetryBackoff = Integer.parseInt(props.get(ParamConstants.CONNECTION_BACKOFF_PARAM));
 		this.fetchSize = Integer.parseInt(props.get(ParamConstants.FETCH_SIZE_PARAM));
+		this.traceSession = Boolean.parseBoolean(props.get(ParamConstants.TRACE_LOGMINER_PARAM));
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
 		try {
-			connLogMiner = OraPoolConnectionFactory.getLogMinerConnection();
+			connLogMiner = OraPoolConnectionFactory.getLogMinerConnection(traceSession);
 			connDictionary = OraPoolConnectionFactory.getConnection();
 
 			rdbmsInfo = OraRdbmsInfo.getInstance();
@@ -727,7 +729,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
 				}
 				try {
-					connLogMiner = OraPoolConnectionFactory.getLogMinerConnection();
+					connLogMiner = OraPoolConnectionFactory.getLogMinerConnection(traceSession);
 					psLogMiner = (OraclePreparedStatement)connLogMiner.prepareStatement(
 							mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 					psLogMiner.setRowPrefetch(fetchSize);

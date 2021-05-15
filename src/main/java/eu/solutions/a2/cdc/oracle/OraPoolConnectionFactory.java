@@ -22,6 +22,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import oracle.jdbc.OracleConnection;
+import oracle.jdbc.OracleStatement;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolAdapter;
 import oracle.ucp.UniversalConnectionPoolException;
@@ -52,7 +54,6 @@ public class OraPoolConnectionFactory {
 	private static String dbPassword = null;
 	private static boolean activateStandby = false;
 	private static Connection connection2Standby = null;
-	private static Connection connection4Lobs = null;
 	private static String standbyWalletLocation = null;
 	private static String standbyTnsAdmin = null;
 	private static String standbyDbUrl = null;
@@ -150,21 +151,46 @@ public class OraPoolConnectionFactory {
 		connection2Standby = ods.getConnection();
 		connection2Standby.setAutoCommit(false);
 
-		connection4Lobs = ods.getConnection();
-		connection4Lobs.setAutoCommit(false);
-
 		activateStandby = true;
 		LOGGER.info("Connection to standby database {} successfully established.", standbyDbUrl);
 	}
 
 	public static Connection getLogMinerConnection() throws SQLException {
+		return getLogMinerConnection(false);
+	}
+
+	public static Connection getLogMinerConnection(final boolean trace) throws SQLException {
+		final Connection logMinerConnection;
 		if (activateStandby) {
-			return connection2Standby;
+			try {
+				((OracleConnection)connection2Standby).getDefaultTimeZone(); 
+			} catch (SQLException sqle) {
+				// Connection is not alive...
+				// Need to reinitilize!
+				//TODO
+				//TODO - better handling required!!!
+				//TODO
+				init4Standby();
+			}
+			logMinerConnection = connection2Standby;
 		} else {
-			Connection connection = getConnection();
-			connection.setClientInfo("OCSID.CLIENTID","LogMiner Read-only");
-			return connection;
+			logMinerConnection = getConnection();
+			logMinerConnection.setClientInfo("OCSID.CLIENTID","LogMiner Read-only");
 		}
+		if (trace) {
+			try {
+				final OracleStatement alterSession = (OracleStatement) logMinerConnection.createStatement();
+				alterSession.execute("alter session set max_dump_file_size=unlimited");
+				alterSession.execute("alter session set tracefile_identifier='oracdc'");
+				alterSession.execute("alter session set events '10046 trace name context forever, level 8'");
+			} catch (SQLException sqle) {
+				LOGGER.error("Unble to set trace parameters (max_dump_file_size, tracefile_identifier, and event 10046 level 8)!");
+				LOGGER.error("To fix please run:");
+				LOGGER.error("\tgrant alter session to {};",
+						((OracleConnection)logMinerConnection).getUserName());
+			}
+		}
+		return logMinerConnection;
 	}
 
 	public static synchronized void stopPool() throws SQLException {
@@ -180,13 +206,11 @@ public class OraPoolConnectionFactory {
 			if (activateStandby && stopAll) {
 				try {
 					connection2Standby.close();
-					connection4Lobs.close();
 				} catch (SQLException sqle) {
 					LOGGER.warn("Unable to stop connections to standby database");
 					LOGGER.warn(ExceptionUtils.getExceptionStackTrace(sqle));
 				}
 				connection2Standby = null;
-				connection4Lobs = null;
 			}
 		} catch (UniversalConnectionPoolException ucpe) {
 			throw new SQLException(ucpe);

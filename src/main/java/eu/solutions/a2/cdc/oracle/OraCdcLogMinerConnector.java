@@ -251,14 +251,16 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		taskParam.put(ParamConstants.PERSISTENT_STATE_FILE_PARAM, stateFileName);
 		// Just pass...
 		taskParam.put(ParamConstants.INITIAL_LOAD_PARAM, config.getString(ParamConstants.INITIAL_LOAD_PARAM));
-		final Boolean processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
-		taskParam.put(ParamConstants.PROCESS_LOBS_PARAM, processLobs.toString());
+		taskParam.put(ParamConstants.PROCESS_LOBS_PARAM,
+				config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM).toString());
 		taskParam.put(ParamConstants.CONNECTION_BACKOFF_PARAM, 
 				config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM).toString());
 		taskParam.put(ParamConstants.ARCHIVED_LOG_CAT_PARAM, 
 				config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM));
 		final Integer fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
 		taskParam.put(ParamConstants.FETCH_SIZE_PARAM, fetchSize.toString());
+		taskParam.put(ParamConstants.TRACE_LOGMINER_PARAM,
+				config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM).toString());
 
 		final List<Map<String, String>> configs = new ArrayList<>(1);
 		configs.add(taskParam);
