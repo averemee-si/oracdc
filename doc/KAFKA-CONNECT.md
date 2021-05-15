@@ -67,12 +67,14 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 `a2.fetch.size` - number of rows fetched with each RDBMS round trip for accessing [V$LOGMNR_CONTENTS](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-LOGMNR_CONTENTS.html) fixed view. Default 32
 
 `a2.logminer.trace` - trace with 'event 10046 level 8' LogMiner calls? Default - false. To enable tracing the following statements are executed at RDBMS session
+
 ```
 alter session set max_dump_file_size=unlimited;
 alter session set tracefile_identifier='oracdc';
 alter session set events '10046 trace name context forever, level 8';
 
 ```
+
 
 #### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 

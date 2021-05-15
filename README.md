@@ -34,7 +34,35 @@ For processing LOB's please do not forget to set Apache Kafka parameters accordi
 2. Always try to set up **supplemental logging** at the table level, and not for all database objects
 3. Proper file system parameters and sizing for path where [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) objects resides.
 4. Proper open files hard and soft limits for OS user running **oracdc**
-5. Depending on structure of your data try increasing value of `a2.fetch.size` parameter (default fetch size - 32 rows)
+5. To determine source of bottleneck set parameter `a2.logminer.trace` to true and analyze waits at Oracle RDBMS side using data from trace file (**tracefile_identifier='oracdc'**)
+6. For optimizing network transfer consider increase SDU (Ref.: [Database Net Services Administrator's Guide, Chapter 14 "Optimizing Performance"](https://docs.oracle.com/en/database/oracle/oracle-database/21/netag/optimizing-performance.html)). Also review Oracle Support Services Note 2652240.1[SDU Ignored By The JDBC Thin Client Connection](https://support.oracle.com/epmos/faces/DocumentDisplay?id=2652240.1). Example listener.ora with SDU set:
+
+```
+LISTENER =
+(DESCRIPTION_LIST =
+  (DESCRIPTION =
+    (SDU = 2097152)
+    (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 0.0.0.0)(PORT = 1521))
+  )
+)
+```
+Example jdbc connect string with SDU set:
+
+```
+jdbc:oracle:thin:@(description=(sdu=2097152)(address=(protocol=tcp)(host=oratest01)(port=1521))(connect_data=(server=dedicated)(service_name=KAFKA)))
+```
+While setting SDU always check live settings using listener trace set to **admin** level. For example:
+
+```
+cd <LISTENER_TRACE_DIR>
+lsnrctl set trc_level admin
+grep nsconneg `lsnrctl show trc_file | grep "set to" | awk {'print $6'}`
+```
+
+7. Use **oracdc** JMX performance [metrics]((doc/LOGMINER-METRICS.md))
+8. Depending on structure of your data try increasing value of `a2.fetch.size` parameter (default fetch size - 32 rows)
+
 
 ## eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
 This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
