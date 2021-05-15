@@ -35,7 +35,8 @@ For processing LOB's please do not forget to set Apache Kafka parameters accordi
 3. Proper file system parameters and sizing for path where [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) objects resides.
 4. Proper open files hard and soft limits for OS user running **oracdc**
 5. To determine source of bottleneck set parameter `a2.logminer.trace` to true and analyze waits at Oracle RDBMS side using data from trace file (**tracefile_identifier='oracdc'**)
-6. For optimizing network transfer consider increase SDU (Ref.: [Database Net Services Administrator's Guide, Chapter 14 "Optimizing Performance"](https://docs.oracle.com/en/database/oracle/oracle-database/21/netag/optimizing-performance.html)). Also review Oracle Support Services Note 2652240.1[SDU Ignored By The JDBC Thin Client Connection](https://support.oracle.com/epmos/faces/DocumentDisplay?id=2652240.1). Example listener.ora with SDU set:
+6. For optimizing network transfer consider increase SDU (Ref.: [Database Net Services Administrator's Guide, Chapter 14 "Optimizing Performance"](https://docs.oracle.com/en/database/oracle/oracle-database/21/netag/optimizing-performance.html)). Also review Oracle Support Services Note 2652240.1[SDU Ignored By The JDBC Thin Client Connection](https://support.oracle.com/epmos/faces/DocumentDisplay?id=2652240.1).
+Example listener.ora with SDU set:
 
 ```
 LISTENER =
@@ -60,7 +61,7 @@ lsnrctl set trc_level admin
 grep nsconneg `lsnrctl show trc_file | grep "set to" | awk {'print $6'}`
 ```
 
-7. Use **oracdc** JMX performance [metrics]((doc/LOGMINER-METRICS.md))
+7. Use **oracdc** JMX performance [metrics]((doc/LOGMINER-METRICS.md)
 8. Depending on structure of your data try increasing value of `a2.fetch.size` parameter (default fetch size - 32 rows)
 
 
