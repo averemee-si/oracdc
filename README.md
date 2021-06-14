@@ -63,6 +63,7 @@ grep nsconneg `lsnrctl show trc_file | grep "set to" | awk {'print $6'}`
 
 7. Use **oracdc** JMX performance [metrics]((doc/LOGMINER-METRICS.md)
 8. Depending on structure of your data try increasing value of `a2.fetch.size` parameter (default fetch size - 32 rows)
+9. Although some documents recommend changing setting of _log_read_buffers & _log_read_buffer_size hidden parameters we didn't see serious improvement or degradation using different combinations of these parameters. For more information please read [LogMiner Tuning: _log_read_buffers & _log_read_buffer_size](https://github.com/averemee-si/oracdc/wiki/LogMiner-Tuning:-_log_read_buffers-&-_log_read_buffer_size)
 
 
 ## eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
