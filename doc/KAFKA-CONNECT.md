@@ -85,3 +85,17 @@ alter session set events '10046 trace name context forever, level 8';
 `a2.standby.tns.admin` - Location of tnsnames.ora file for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-DATABASE.html)
 
 `a2.standby.tns.alias` - Connection TNS alias for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-DATABASE.html)
+
+#### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector distributed mode parameters
+
+`a2.distributed.activate` - Use **oracdc** in distributed configuration (redo logs are generated at source RDBMS server and then transferred to compatible target RDBMS server for processing with LogMiner. For description of this configuration please look at _Figure 22-1_ at [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html). Default - _false_
+
+`a2.distributed.wallet.location` - Location of Oracle Wallet for connecting to target database in distributed mode
+
+`a2.distributed.tns.admin` - Location of tnsnames.ora file for connecting to target database in distributed mode
+
+`a2.distributed.tns.alias` - Connection TNS alias for connecting to target database in distributed mode
+
+`a2.distributed.target.host` - hostname of the target (where dbms_logmnr runs) database on which the shipment agent is running
+
+`a2.distributed.source.port` - port number on which shipping agent listens for requests
