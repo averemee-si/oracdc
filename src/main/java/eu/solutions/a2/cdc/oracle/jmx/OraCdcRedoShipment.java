@@ -55,7 +55,7 @@ public class OraCdcRedoShipment implements OraCdcRedoShipmentMBean {
 			final StringBuilder sb = new StringBuilder(64);
 			sb.append("eu.solutions.a2.oracdc:type=Shipment-metrics,targetServer=");
 			sb.append(targetServer);
-			sb.append(":");
+			sb.append("-");
 			sb.append(targetPort);
 			ObjectName name = new ObjectName(sb.toString());
 			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
