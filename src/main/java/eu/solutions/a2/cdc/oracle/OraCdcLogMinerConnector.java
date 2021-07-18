@@ -123,6 +123,32 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 							config.getString(ParamConstants.STANDBY_TNS_ALIAS_PARAM));
 						LOGGER.info("Connection to PHYSICAL STANDBY will be used for LogMiner calls");
 					}
+					if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
+						LOGGER.warn("When {} set to true {} must set to false!\n",
+								ParamConstants.MAKE_STANDBY_ACTIVE_PARAM,
+								ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
+					}
+				}
+				if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
+					if (StringUtils.isAllBlank(ParamConstants.DISTRIBUTED_WALLET_PARAM)) {
+						validConfig = false;
+						throw new SQLException("Parameter " + ParamConstants.DISTRIBUTED_WALLET_PARAM + " not set!!!");
+					}
+					if (StringUtils.isAllBlank(ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM)) {
+						validConfig = false;
+						throw new SQLException("Parameter " + ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM + " not set!!!");
+					}
+					if (StringUtils.isAllBlank(ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM)) {
+						validConfig = false;
+						throw new SQLException("Parameter " + ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM + " not set!!!");
+					}
+					if (validConfig) {
+						OraPoolConnectionFactory.initDistributed(
+							config.getString(ParamConstants.DISTRIBUTED_WALLET_PARAM),
+							config.getString(ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM),
+							config.getString(ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM));
+						LOGGER.info("oracdc will run in distributed configuration.");
+					}
 				}
 			} catch (SQLException sqle) {
 				validConfig = false;
@@ -255,12 +281,30 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM).toString());
 		taskParam.put(ParamConstants.CONNECTION_BACKOFF_PARAM, 
 				config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM).toString());
-		taskParam.put(ParamConstants.ARCHIVED_LOG_CAT_PARAM, 
-				config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM));
+		if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
+			// When this set we need explicitly value of  a2.archived.log.catalog parameter
+			if (!OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName()
+					.equals(config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM))) {
+				LOGGER.warn("When {} set to true value of {} must be {}.", 
+						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM,
+						ParamConstants.ARCHIVED_LOG_CAT_PARAM,
+						OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName());
+				LOGGER.warn("Setting {} value to {}.",
+						ParamConstants.ARCHIVED_LOG_CAT_PARAM,
+						OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName());
+			}
+			taskParam.put(ParamConstants.ARCHIVED_LOG_CAT_PARAM, 
+					OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName());
+		} else {
+			taskParam.put(ParamConstants.ARCHIVED_LOG_CAT_PARAM, 
+					config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM));
+		}
 		final Integer fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
 		taskParam.put(ParamConstants.FETCH_SIZE_PARAM, fetchSize.toString());
-		taskParam.put(ParamConstants.TRACE_LOGMINER_PARAM,
-				config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM).toString());
+		taskParam.put(ParamConstants.DISTRIBUTED_TARGET_HOST,
+				config.getString(ParamConstants.DISTRIBUTED_TARGET_HOST));
+		taskParam.put(ParamConstants.DISTRIBUTED_TARGET_PORT,
+				config.getInt(ParamConstants.DISTRIBUTED_TARGET_PORT).toString());
 
 		final List<Map<String, String>> configs = new ArrayList<>(1);
 		configs.add(taskParam);

@@ -53,11 +53,12 @@ public class OraPoolConnectionFactory {
 	private static String dbUser = null;
 	private static String dbPassword = null;
 	private static boolean activateStandby = false;
-	private static Connection connection2Standby = null;
-	private static String standbyWalletLocation = null;
-	private static String standbyTnsAdmin = null;
-	private static String standbyDbUrl = null;
-	private static Properties standbyProps = null;
+	private static boolean activateDistributed = false;
+	private static Connection connection4LogMiner = null;
+	private static String conn4LogMinerWalletLocation = null;
+	private static String conn4LogMinerTnsAdmin = null;
+	private static String conn4LogMinerDbUrl = null;
+	private static Properties conn4LogMinerProps = null;
 
 	private static AtomicBoolean poolInitialized = new AtomicBoolean(false);
 
@@ -129,30 +130,53 @@ public class OraPoolConnectionFactory {
 		return connection;
 	}
 
-	public static synchronized void init4Standby(final String wallet, final String tnsAdmin, final String alias) throws
-									SQLException {
-		standbyWalletLocation = wallet;
-		standbyTnsAdmin =  tnsAdmin;
-		standbyDbUrl = "jdbc:oracle:thin:/@" + alias;
-		standbyProps = new Properties();
-		standbyProps.setProperty("internal_logon", "sysdba");
-		standbyProps.setProperty("v$session.program","oracdc");
+	public static synchronized void init4Standby(
+			final String wallet, final String tnsAdmin, final String alias) throws SQLException {
+		conn4LogMinerWalletLocation = wallet;
+		conn4LogMinerTnsAdmin =  tnsAdmin;
+		conn4LogMinerDbUrl = "jdbc:oracle:thin:/@" + alias;
+		conn4LogMinerProps = new Properties();
+		conn4LogMinerProps.setProperty("internal_logon", "sysdba");
+		conn4LogMinerProps.setProperty("v$session.program","oracdc");
 
-		init4Standby();
+		initConnection4LogMiner(true);
 	}
 
-	private static synchronized void init4Standby() throws SQLException {
-		LOGGER.info("Starting connection to standby database {}...", standbyDbUrl);
-		System.setProperty("oracle.net.wallet_location", standbyWalletLocation);
-		System.setProperty("oracle.net.tns_admin", standbyTnsAdmin);
-		final OracleDataSource ods = new OracleDataSource();
-		ods.setConnectionProperties(standbyProps);
-		ods.setURL(standbyDbUrl);
-		connection2Standby = ods.getConnection();
-		connection2Standby.setAutoCommit(false);
+	public static synchronized void initDistributed(
+			final String wallet, final String tnsAdmin, final String alias) throws SQLException {
+		conn4LogMinerWalletLocation = wallet;
+		conn4LogMinerTnsAdmin =  tnsAdmin;
+		conn4LogMinerDbUrl = "jdbc:oracle:thin:/@" + alias;
+		conn4LogMinerProps = new Properties();
+		conn4LogMinerProps.setProperty("v$session.program","oracdc");
 
-		activateStandby = true;
-		LOGGER.info("Connection to standby database {} successfully established.", standbyDbUrl);
+		initConnection4LogMiner(false);
+	}
+
+	public static synchronized void initConnection4LogMiner(final boolean standby) throws SQLException {
+		final String dbType;
+		if (standby) {
+			dbType = "standby";
+		} else {
+			dbType = "target mining";
+		}
+		LOGGER.info("Starting connection to {} database {}...",
+				dbType, conn4LogMinerDbUrl);
+		System.setProperty("oracle.net.wallet_location", conn4LogMinerWalletLocation);
+		System.setProperty("oracle.net.tns_admin", conn4LogMinerTnsAdmin);
+		final OracleDataSource ods = new OracleDataSource();
+		ods.setConnectionProperties(conn4LogMinerProps);
+		ods.setURL(conn4LogMinerDbUrl);
+		connection4LogMiner = ods.getConnection();
+		connection4LogMiner.setAutoCommit(false);
+
+		if (standby) {
+			activateStandby = true;
+		} else {
+			activateDistributed = true;
+		}
+		LOGGER.info("Connection to {} database {} successfully established.",
+				dbType, conn4LogMinerDbUrl);
 	}
 
 	public static Connection getLogMinerConnection() throws SQLException {
@@ -161,18 +185,18 @@ public class OraPoolConnectionFactory {
 
 	public static Connection getLogMinerConnection(final boolean trace) throws SQLException {
 		final Connection logMinerConnection;
-		if (activateStandby) {
+		if (activateStandby || activateDistributed) {
 			try {
-				((OracleConnection)connection2Standby).getDefaultTimeZone(); 
+				((OracleConnection)connection4LogMiner).getDefaultTimeZone(); 
 			} catch (SQLException sqle) {
 				// Connection is not alive...
 				// Need to reinitilize!
 				//TODO
 				//TODO - better handling required!!!
 				//TODO
-				init4Standby();
+				initConnection4LogMiner(activateStandby ? true : false);
 			}
-			logMinerConnection = connection2Standby;
+			logMinerConnection = connection4LogMiner;
 		} else {
 			logMinerConnection = getConnection();
 			logMinerConnection.setClientInfo("OCSID.CLIENTID","LogMiner Read-only");
@@ -203,14 +227,14 @@ public class OraPoolConnectionFactory {
 			poolInitialized.set(false);
 			mgr.destroyConnectionPool(ORACDC_POOL_NAME);
 			pds = null;
-			if (activateStandby && stopAll) {
+			if ((activateStandby  || activateDistributed) && stopAll) {
 				try {
-					connection2Standby.close();
+					connection4LogMiner.close();
 				} catch (SQLException sqle) {
 					LOGGER.warn("Unable to stop connections to standby database");
 					LOGGER.warn(ExceptionUtils.getExceptionStackTrace(sqle));
 				}
-				connection2Standby = null;
+				connection4LogMiner = null;
 			}
 		} catch (UniversalConnectionPoolException ucpe) {
 			throw new SQLException(ucpe);
@@ -221,7 +245,10 @@ public class OraPoolConnectionFactory {
 	public static synchronized void reCreatePool(boolean reCreateAll) throws SQLException {
 		init();
 		if (activateStandby && reCreateAll) {
-			init4Standby();
+			initConnection4LogMiner(true);
+		}
+		if (activateDistributed && reCreateAll) {
+			initConnection4LogMiner(false);
 		}
 	}
 
