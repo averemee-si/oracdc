@@ -392,7 +392,9 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 				}
 			}
 			try {
-				connDictionary.close();
+				if (connDictionary != null) {
+					connDictionary.close();
+				}
 			} catch (SQLException sqle) {
 				LOGGER.error(sqle.getMessage());
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
