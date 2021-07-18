@@ -98,4 +98,4 @@ alter session set events '10046 trace name context forever, level 8';
 
 `a2.distributed.target.host` - hostname of the target (where dbms_logmnr runs) database on which the shipment agent is running
 
-`a2.distributed.source.port` - port number on which shipping agent listens for requests
+`a2.distributed.target.port` - port number on which shipping agent listens for requests

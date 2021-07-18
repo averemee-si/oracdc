@@ -153,7 +153,7 @@ public class ParamConstants {
 	public static final String DISTRIBUTED_TARGET_HOST = "a2.distributed.target.host";
 	public static final String DISTRIBUTED_TARGET_HOST_DOC = "hostname of the target (where dbms_logmnr runs) database on which the shipment agent is running";
 
-	public static final String DISTRIBUTED_TARGET_PORT = "a2.distributed.source.port";
+	public static final String DISTRIBUTED_TARGET_PORT = "a2.distributed.target.port";
 	public static final String DISTRIBUTED_TARGET_PORT_DOC = "port number on which shipping agent listens for requests";
 	public static final int DISTRIBUTED_TARGET_PORT_DEFAULT = 21521;
 
