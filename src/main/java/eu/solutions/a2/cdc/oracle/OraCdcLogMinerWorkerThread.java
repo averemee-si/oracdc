@@ -207,7 +207,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						LOGGER.info("DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
 					}
 				} else {
-					throw new SQLException("Unable to mine data from databases with different DBID!!!");
+					LOGGER.info("Mining database {} has {} DBID.", logMiner.getDbUniqueName(), logMiner.getDbId());
+					LOGGER.info("Source database {} has {} DBID.", rdbmsInfo.getDbUniqueName(), rdbmsInfo.getDbId());
 				}
 			}
 
