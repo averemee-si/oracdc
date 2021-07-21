@@ -33,6 +33,7 @@ public class SourceDatabaseShipmentAgent {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(SourceDatabaseShipmentAgent.class);
 	private static final int INPUT_COMMAND_LENGTH = 1024;
+	private static final int MAX_FILE_SIZE = Integer.MAX_VALUE - 4096 + 1;
 
 	private final InetSocketAddress serverAddress;
 	private ServerSocketChannel listener = null;
@@ -81,8 +82,19 @@ public class SourceDatabaseShipmentAgent {
 					final File file = path.toFile();
 					final FileInputStream fis = new FileInputStream(file);
 					final FileChannel fc = fis.getChannel();
-					final long bytesSent = fc.transferTo(0, file.length(), channel);
-					LOGGER.debug("File {} with length {} bytes sent.", path, bytesSent);
+					final long fileSize = file.length();
+					if (fileSize < MAX_FILE_SIZE) {
+						fc.transferTo(0, fileSize, channel);
+					} else {
+						long position = 0;
+						while (position < fileSize) {
+								//TODO
+								//TODO - chunk size!!!
+								//TODO
+								position += fc.transferTo(position, 1048576, channel);
+						}
+					}
+					LOGGER.debug("File {} with length {} bytes sent.", path, fileSize);
 					fc.close();
 					fis.close();
 					channel.close();
