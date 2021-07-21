@@ -94,18 +94,13 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
-			final int pollInterval,
 			final Map<String, String> partition,
 			final long firstScn,
 			final String mineDataSql,
 			final String checkTableSql,
-			final Long redoSizeThreshold,
-			final Integer redoFilesCount,
 			final Map<Long, OraTable4LogMiner> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final int schemaType,
-			final boolean useOracdcSchemas,
-			final boolean processLobs,
 			final String topic,
 			final OraDumpDecoder odd,
 			final Path queuesRoot,
@@ -113,12 +108,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcLogMinerMgmt metrics,
 			final int topicNameStyle,
-			final String topicNameDelimiter,
 			final Map<String, String> props) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
-		this.pollInterval = pollInterval;
 		this.partition = partition;
 		this.mineDataSql = mineDataSql;
 		this.checkTableSql = checkTableSql;
@@ -129,19 +122,21 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.queuesRoot = queuesRoot;
 		this.odd = odd;
 		this.schemaType = schemaType;
-		this.useOracdcSchemas = useOracdcSchemas;
-		this.processLobs = processLobs;
 		this.topic = topic;
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
 		this.topicNameStyle = topicNameStyle;
-		this.topicNameDelimiter = topicNameDelimiter;
+		this.processLobs = Boolean.parseBoolean(props.get(ParamConstants.PROCESS_LOBS_PARAM));
+		this.pollInterval = Integer.parseInt(props.get(ParamConstants.POLL_INTERVAL_MS_PARAM));
+		this.useOracdcSchemas = Boolean.parseBoolean(props.get(ParamConstants.ORACDC_SCHEMAS_PARAM));
+		this.topicNameDelimiter = props.get(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
 		this.connectionRetryBackoff = Integer.parseInt(props.get(ParamConstants.CONNECTION_BACKOFF_PARAM));
 		this.fetchSize = Integer.parseInt(props.get(ParamConstants.FETCH_SIZE_PARAM));
 		this.traceSession = Boolean.parseBoolean(props.get(ParamConstants.TRACE_LOGMINER_PARAM));
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
+
 		try {
 			connLogMiner = OraPoolConnectionFactory.getLogMinerConnection(traceSession);
 			connDictionary = OraPoolConnectionFactory.getConnection();
@@ -153,9 +148,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			try {
 				final Class<?> classLogMiner = Class.forName(archivedLogCatalogImplClass);
 				final Constructor<?> constructor = classLogMiner.getConstructor(
-						Connection.class, OraCdcLogMinerMgmtIntf.class, long.class, Integer.class, Long.class);
+						Connection.class, OraCdcLogMinerMgmtIntf.class, long.class, Map.class, CountDownLatch.class);
 				logMiner = (OraLogMiner) constructor.newInstance(
-						connLogMiner, metrics, firstScn, redoFilesCount, redoSizeThreshold);
+						connLogMiner, metrics, firstScn, props, runLatch);
 			} catch (ClassNotFoundException nfe) {
 				LOGGER.error("ClassNotFoundException while instantiating {}", archivedLogCatalogImplClass);
 				throw new ConnectException("ClassNotFoundException while instantiating " + archivedLogCatalogImplClass, nfe);
@@ -212,7 +207,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						LOGGER.info("DataGuard database {} will be used for mining", logMiner.getDbUniqueName());
 					}
 				} else {
-					throw new SQLException("Unable to mine data from databases with different DBID!!!");
+					LOGGER.info("Mining database {} has {} DBID.", logMiner.getDbUniqueName(), logMiner.getDbId());
+					LOGGER.info("Source database {} has {} DBID.", rdbmsInfo.getDbUniqueName(), rdbmsInfo.getDbId());
 				}
 			}
 

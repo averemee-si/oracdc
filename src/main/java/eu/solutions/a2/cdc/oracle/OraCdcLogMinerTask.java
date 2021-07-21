@@ -150,16 +150,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, rdbmsInfo.getDbId());
 			partition = Collections.singletonMap(sourcePartitionName, ((Long)rdbmsInfo.getDbId()).toString());
 
-			final Long redoSizeThreshold;
-			final Integer redoFilesCount;
-			if (props.containsKey(ParamConstants.REDO_FILES_SIZE_PARAM)) {
-				redoSizeThreshold = Long.parseLong(props.get(ParamConstants.REDO_FILES_SIZE_PARAM));
-				redoFilesCount = null;
-			} else {
-				redoSizeThreshold = null;
-				redoFilesCount = Integer.parseInt(props.get(ParamConstants.REDO_FILES_COUNT_PARAM));
-			}
-
 			List<String> excludeList = null;
 			List<String> includeList = null;
 			if (props.containsKey(ParamConstants.TABLE_EXCLUDE_PARAM)) {
@@ -453,18 +443,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 			worker = new OraCdcLogMinerWorkerThread(
 					this,
-					pollInterval,
 					partition,
 					firstScn,
 					mineDataSql,
 					checkTableSql,
-					redoSizeThreshold,
-					redoFilesCount,
 					tablesInProcessing,
 					tablesOutOfScope,
 					schemaType,
-					useOracdcSchemas,
-					processLobs,
 					topic,
 					odd,
 					queuesRoot,
@@ -472,7 +457,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 					committedTransactions,
 					metrics,
 					topicNameStyle,
-					topicNameDelimiter,
 					props);
 			if (rewind) {
 				worker.rewind(firstScn, firstRsId, firstSsn);

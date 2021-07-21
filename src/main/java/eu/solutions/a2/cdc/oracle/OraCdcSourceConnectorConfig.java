@@ -128,6 +128,18 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.FETCH_SIZE_DOC)
 				.define(ParamConstants.TRACE_LOGMINER_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.TRACE_LOGMINER_DOC)
+				.define(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, ParamConstants.MAKE_DISTRIBUTED_ACTIVE_DOC)
+				.define(ParamConstants.DISTRIBUTED_WALLET_PARAM, Type.STRING, "",
+						Importance.LOW, ParamConstants.DISTRIBUTED_WALLET_DOC)
+				.define(ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM, Type.STRING, "",
+						Importance.LOW, ParamConstants.DISTRIBUTED_TNS_ADMIN_DOC)
+				.define(ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM, Type.STRING, "",
+						Importance.LOW, ParamConstants.DISTRIBUTED_TNS_ALIAS_DOC)
+				.define(ParamConstants.DISTRIBUTED_TARGET_HOST, Type.STRING, "",
+						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_HOST_DOC)
+				.define(ParamConstants.DISTRIBUTED_TARGET_PORT, Type.INT, ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT,
+						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_PORT_DOC)
 				;
 	}
 

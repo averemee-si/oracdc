@@ -25,7 +25,7 @@ import java.sql.SQLException;
  */
 public interface OraLogMiner {
 
-	void createStatements(final Connection connection) throws SQLException;
+	void createStatements(final Connection connLogMiner) throws SQLException;
 	boolean next() throws SQLException;
 	boolean extend() throws SQLException;
 	void stop() throws SQLException;

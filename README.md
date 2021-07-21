@@ -10,6 +10,7 @@ This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database
 1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. **V$DATABASE.OPEN_MODE = READ WRITE** 
 2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = READ ONLY**
 3. Physical Standby Database of Oracle **DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = MOUNTED**. In this mode, a physical standby database is used to retrieve data using LogMiner and connection to primary database is used to perform strictly limited number of queries to data dictionary (ALL|CDB_OBJECTS, ALL|CDB_TABLES, and ALL|CDB_TAB_COLUMNS). This option allows you to promote a physical standby database to source of replication, eliminates LogMiner overhead from primary database, and  decreases TCO of Oracle Database.
+4. Running in distributed configuration when source database generates redo log files and also contain dictionary and target database is compatible mining database (see Figure 22-1 in [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html)). **N.B.** Currently only non-CDB distributed database configuration has tested, tests for CDB distributed database configuration are in progress now.
 
 ### Monitoring
 _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
@@ -222,6 +223,30 @@ select USERNAME from V$PWFILE_USERS where SYSDBA = 'TRUE';
 For the user who will be used to connect to physical standby database create a Oracle Wallet. Please refer to section **Oracle Wallet** above.
 To run **oracdc** in this mode parameter `a2.standby.activate` must set to `true`.
 
+### Additional configuration for distributed database
+
+1. Copy *oracdc-kafka-<VERSION>-standalone.jar* or *a2solutions-oracdc-kafka-<VERSION>.zip* to source and target (mining) database servers.
+2. On source database server start _eu.solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_ with _--bind-address_ (IP address or hostname to listen for incoming requests from mining database server agent, default **0.0.0.0**) and _--port_ (TCP port to listen for incoming requests from mining database server agent, default **21521**) parameters, for instance
+
+```
+java -cp oracdc-kafka-0.9.8-standalone.jar \
+    eu.solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent \
+        --port 21521 \
+        --bind-address 192.168.7.101
+```
+3. On target (mining) database server start _eu.solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ with _--bind-address_ (IP address or hostname to listen for incoming requests from **oracdc** connector, default **0.0.0.0**), _--port_ (TCP port to listen for incoming requests from **oracdc** connector, default **21521**) parameters, _--source-host_ (IP address or hostname of _eu.solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_), _--source-port_ (TCP port of _eu.solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_), and _--file-destination_ (existing directory to store redo log files) for instance
+
+```
+java -cp oracdc-kafka-0.9.8-standalone.jar \
+    eu.solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent
+        --port 21521
+        --bind-address 192.168.7.102
+        --source-host 192.168.7.101
+        --source-port 21521
+        --file-destination /d00/oradata/archive
+```
+4. Configure **oracdc** connector with parameter `a2.distributed.activate` set to true.
+Set `a2.jdbc.url`/`a2.jdbc.username`/`a2.jdbc.password` or `a2.wallet.location`/`a2.tns.admin`/`a2.tns.alias`/`a2.tns.alias` parameters to valid values for connecting to source database. Set `a2.distributed.wallet.location`/`a2.distributed.tns.admin`/`a2.distributed.tns.alias` to valid values for connecting to target (mining) database. Set `a2.distributed.target.host` and `a2.distributed.target.port` to IP address/hostname and port where _eu.solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ runs. Example parameter settings is in [logminer-source-distributed-db.properties](config/logminer-source-distributed-db.properties) file
 
 ## Materialized View logs as CDC source (eu.solutions.a2.cdc.oracle.OraCdcSourceConnector)
 
@@ -412,6 +437,9 @@ Add more information about source record (XID, ROWID, and COMMIT_SCN)
 
 MAY-21 features/fixes (fix ORA-2396, add lag to JMX metrics, add feth size parameter)
 
+####0.9.8 (JUL-2021)
+
+Distributed database configuration
 
 ## Authors
 

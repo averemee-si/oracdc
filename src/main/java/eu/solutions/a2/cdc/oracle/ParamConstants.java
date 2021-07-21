@@ -138,4 +138,23 @@ public class ParamConstants {
 	public static final String TRACE_LOGMINER_PARAM = "a2.logminer.trace";
 	public static final String TRACE_LOGMINER_DOC = "trace with 'event 10046 level 8' LogMiner calls? Default - false";
 
+	public static final String MAKE_DISTRIBUTED_ACTIVE_PARAM = "a2.distributed.activate";
+	public static final String MAKE_DISTRIBUTED_ACTIVE_DOC = "Use oracdc in distributed configuration (redo logs are generated at source RDBMS server and then transferred to compatible target RDBMS server for processing with LogMiner. Default - false"; 
+
+	public static final String DISTRIBUTED_WALLET_PARAM = "a2.distributed.wallet.location";
+	public static final String DISTRIBUTED_WALLET_DOC = "Location of Oracle Wallet for connecting to target database in distributed mode";
+
+	public static final String DISTRIBUTED_TNS_ADMIN_PARAM = "a2.distributed.tns.admin";
+	public static final String DISTRIBUTED_TNS_ADMIN_DOC = "Location of tnsnames.ora file for connecting to target database in distributed mode";
+
+	public static final String DISTRIBUTED_TNS_ALIAS_PARAM = "a2.distributed.tns.alias";
+	public static final String DISTRIBUTED_TNS_ALIAS_DOC = "Connection TNS alias for connecting to target database in distributed mode";
+
+	public static final String DISTRIBUTED_TARGET_HOST = "a2.distributed.target.host";
+	public static final String DISTRIBUTED_TARGET_HOST_DOC = "hostname of the target (where dbms_logmnr runs) database on which the shipment agent is running";
+
+	public static final String DISTRIBUTED_TARGET_PORT = "a2.distributed.target.port";
+	public static final String DISTRIBUTED_TARGET_PORT_DOC = "port number on which shipping agent listens for requests";
+	public static final int DISTRIBUTED_TARGET_PORT_DEFAULT = 21521;
+
 }
