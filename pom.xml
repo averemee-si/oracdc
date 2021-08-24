@@ -16,7 +16,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.solutions.a2.oracle.cdc</groupId>
 	<artifactId>oracdc-kafka</artifactId>
-	<version>0.9.8</version>
+	<version>0.9.8.1</version>
 	<packaging>jar</packaging>
 
 	<name>oracdc-kafka</name>
@@ -51,7 +51,7 @@
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<commons.cli.version>1.4</commons.cli.version>
 		<chronicle.queue.version>5.17.43</chronicle.queue.version>
-		<ora.jdbc.version>19.9.0.0</ora.jdbc.version>
+		<ora.jdbc.version>21.1.0.0</ora.jdbc.version>
 		<HikariCP.version>3.4.1</HikariCP.version>
 		<jackson.version>2.10.0</jackson.version>
 		<slf4j.version>1.7.28</slf4j.version>
@@ -253,6 +253,7 @@
 								<requirement>Oracle 12c</requirement>
 								<requirement>Oracle 18c</requirement>
 								<requirement>Oracle 19c</requirement>
+								<requirement>Oracle 21c</requirement>
 							</requirements>
 
 							<deliveryGuarantee>

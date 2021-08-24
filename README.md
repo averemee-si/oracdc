@@ -2,7 +2,7 @@
 
 **oracdc** is a software package for near real-time data integration and replication in heterogeneous IT environments. **oracdc** consist of two  [Apache Kafka](http://kafka.apache.org/) Source Connector's and JDBC sink connector. **oracdc** provides data integration, [transactional change data capture](https://en.wikipedia.org/wiki/Change_data_capture), and data replication between operational and analytical IT systems. 
 Starting from Oracle RDBMS 12c various Oracle tools for [CDC](https://en.wikipedia.org/wiki/Change_data_capture) and/or replication are [deprecated and desupported](https://docs.oracle.com/database/121/UPGRD/deprecated.htm) and replaced by [Oracle Golden Gate](https://www.oracle.com/middleware/technologies/goldengate.html). This project is not intended to be 100% replacement of [expensive](https://www.oracle.com/assets/technology-price-list-070617.pdf) Oracle Golden Gate licenses however may help in many practical cases. Project was tested using [Oracle E-Business Suite](https://www.oracle.com/applications/ebusiness/) customer instance for transferring various information (mostly INV, ONT, WSH, GL & XLA tables) to further reporting and analytics in [PostgreSQL](https://www.postgresql.org/) database. We tested both short transactions (human data entry) and long transactions (various accounting programs) changing millions of rows in dozens of tables (description of some tables used: [WSH_NEW_DELIVERIES](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_NEW_DELIVERIES_tbl.htm), [WSH_DELIVERY_ASSIGNMENTS](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_DELIVERY_ASSIGNMENTS_tbl.htm), [WSH_DELIVERY_DETAILS](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_DELIVERY_DETAILS_tbl.htm)).
-**oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, and 19c. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+**oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, 19c, and 21c. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 
 ## eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector
 This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. When restarting, all in progress transactions, records, and objects are saved, their status is written to the file defined by parameter `a2.persistent.state.file` . An example `oracdc.state` file is located in `etc` directory.
@@ -440,6 +440,10 @@ MAY-21 features/fixes (fix ORA-2396, add lag to JMX metrics, add feth size param
 ####0.9.8 (JUL-2021)
 
 Distributed database configuration
+
+#####0.9.8.1 (AUG-2021)
+
+RDBMS 21c compatibility
 
 ## Authors
 
