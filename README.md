@@ -5,7 +5,7 @@ Starting from Oracle RDBMS 12c various Oracle tools for [CDC](https://en.wikiped
 **oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, 19c, and 21c. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 
 ## eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector
-This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. When restarting, all in progress transactions, records, and objects are saved, their status is written to the file defined by parameter `a2.persistent.state.file` . An example `oracdc.state` file is located in `etc` directory.
+This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. When restarting, all in progress transactions, records, and objects are saved, their status is written to the file defined by parameter `a2.persistent.state.file` . An example `oracdc.state` file is located in `etc` directory.
 **oracdc**'s _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ connects to the following configurations of Oracle RDBMS:
 1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. **V$DATABASE.OPEN_MODE = READ WRITE** 
 2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = READ ONLY**
@@ -22,10 +22,10 @@ For processing LOB's please do not forget to set Apache Kafka parameters accordi
 2. For broker: _replica.fetch.max.bytes_ and _message.max.bytes_
 
 ### DDL Support and schema evolution
-[Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) is currently not supported. Its support is planned for version 0.9.8 (DEC-2020 - JAN-2021) along with support for the [Schema Evolution](https://docs.confluent.io/current/schema-registry/avro.html#schema-evolution) at Apache Kafka side.
+[Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) is currently not supported. Its support is planned for version 0.9.8 (DEC-2020 - JAN-2021) along with support for the [Schema Evolution](https://docs.confluent.io/current/schema-registry/avro.html#schema-evolution) at Apache Kafka side.
 
 ### RDBMS errors resiliency and connection retry back-off
-**oracdc** resilent to Oracle database shutdown and/or restart while performing [DBMS_LOGMNR.ADD_LOGFILE](https://docs.oracle.com/en/database/oracle/oracle-database/19/arpls/DBMS_LOGMNR.html#GUID-30C5D959-C0A0-4591-9FBA-F57BC72BBE2F) call or waiting for new archived redo log. ORA-17410 ("No more data read from socket") is intercepted and an attempt to reconnect is made after fixed backoff time specified by parameter `a2.connection.backoff`
+**oracdc** resilent to Oracle database shutdown and/or restart while performing [DBMS_LOGMNR.ADD_LOGFILE](https://docs.oracle.com/en/database/oracle/oracle-database/21/arpls/DBMS_LOGMNR.html#GUID-30C5D959-C0A0-4591-9FBA-F57BC72BBE2F) call or waiting for new archived redo log. ORA-17410 ("No more data read from socket") is intercepted and an attempt to reconnect is made after fixed backoff time specified by parameter `a2.connection.backoff`
 
 ### Known issues
 1. **INTERVAL** data types family not supported yet
@@ -68,7 +68,7 @@ grep nsconneg `lsnrctl show trc_file | grep "set to" | awk {'print $6'}`
 
 
 ## eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
-This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 
 
 # Getting Started
@@ -358,7 +358,7 @@ Oracle Wallet support for storing database credentials
 
 ####0.9.3 (FEB-2020)
 
-[Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) as CDC source
+[Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html) as CDC source
 Removed AWS Kinesis support
 New class hierarchy
 
@@ -369,7 +369,7 @@ Removing dynamic invocation of Oracle JDBC. Ref.: [Oracle Database client librar
 
 ####0.9.4 (MAR-2020)
 
-Ability to run [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/12.2/sutil/oracle-logminer-utility.html) on the physical database when V$DATABASE.OPEN_MODE = MOUNTED to reduce TCO
+Ability to run [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html) on the physical database when V$DATABASE.OPEN_MODE = MOUNTED to reduce TCO
 
 #####0.9.4.1 (MAR-2020)
 
