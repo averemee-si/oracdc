@@ -94,7 +94,7 @@ mvn install
 
 ### Oracle JDBC drivers
 
-**oracdc** is shipped with Oracle JDBC 19.8.0, or you can copy drivers from Oracle RDBMS server
+**oracdc** is shipped with Oracle JDBC 21.1.0.0, or you can copy drivers from Oracle RDBMS server
 
 ```
 cp $ORACLE_HOME/jdbc/lib/ojdbc8.jar <JDBC directory> 
