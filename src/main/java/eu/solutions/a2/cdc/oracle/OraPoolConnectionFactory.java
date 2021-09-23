@@ -61,6 +61,7 @@ public class OraPoolConnectionFactory {
 	private static Properties conn4LogMinerProps = null;
 
 	private static AtomicBoolean poolInitialized = new AtomicBoolean(false);
+	private static AtomicBoolean poolInitInProgress = new AtomicBoolean(false);
 
 
 	public static synchronized void init(final String url, final String user, final String password) throws
@@ -82,42 +83,45 @@ public class OraPoolConnectionFactory {
 	}
 
 	private static synchronized void init() throws SQLException {
-		LOGGER.info("Starting connection to database {}...", dbUrl);
-		poolInitialized.set(false);
-		if (mgr == null) {
+		if (!poolInitInProgress.get() && !poolInitialized.get()) {
+			LOGGER.info("Starting connection to database {}...", dbUrl);
+			poolInitInProgress.set(true);
+			if (mgr == null) {
+				try {
+					mgr = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
+				} catch (UniversalConnectionPoolException ucpe) {
+					throw new SQLException(ucpe);
+				}
+			}
+			if (walletLocation != null) {
+				System.setProperty("oracle.net.wallet_location", walletLocation);
+				System.setProperty("oracle.net.tns_admin", tnsAdminLocation);
+			}
+			pds = PoolDataSourceFactory.getPoolDataSource();
+			pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
+			pds.setConnectionPoolName(ORACDC_POOL_NAME);
+			pds.setURL(dbUrl);
+			if (dbUser != null) {
+				pds.setUser(dbUser);
+				pds.setPassword(dbPassword);
+			}
+			pds.setInitialPoolSize(INITIAL_SIZE);
 			try {
-				mgr = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
+				mgr.createConnectionPool((UniversalConnectionPoolAdapter) pds);
+				mgr.startConnectionPool(ORACDC_POOL_NAME);
 			} catch (UniversalConnectionPoolException ucpe) {
 				throw new SQLException(ucpe);
 			}
+			poolInitialized.set(true);
+			poolInitInProgress.set(false);
+			LOGGER.info("Connection to database {} successfully established.", dbUrl);
 		}
-		if (walletLocation != null) {
-			System.setProperty("oracle.net.wallet_location", walletLocation);
-			System.setProperty("oracle.net.tns_admin", tnsAdminLocation);
-		}
-		pds = PoolDataSourceFactory.getPoolDataSource();
-		pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
-		pds.setConnectionPoolName(ORACDC_POOL_NAME);
-		pds.setURL(dbUrl);
-		if (dbUser != null) {
-			pds.setUser(dbUser);
-			pds.setPassword(dbPassword);
-		}
-		pds.setInitialPoolSize(INITIAL_SIZE);
-		try {
-			mgr.createConnectionPool((UniversalConnectionPoolAdapter) pds);
-			mgr.startConnectionPool(ORACDC_POOL_NAME);
-		} catch (UniversalConnectionPoolException ucpe) {
-			throw new SQLException(ucpe);
-		}
-		poolInitialized.set(true);
-		LOGGER.info("Connection to database {} successfully established.", dbUrl);
 	}
 
 	public static Connection getConnection() throws SQLException {
 		while (!poolInitialized.get()) {
 			try {
-				LOGGER.warn("Waiting {} ms for UCP initialization...", POOL_INIT_WAIT_MS);
+				LOGGER.warn("Waitin	g {} ms for UCP initialization...", POOL_INIT_WAIT_MS);
 				Thread.sleep(POOL_INIT_WAIT_MS);
 			} catch (InterruptedException ie) {
 				throw new SQLException(ie);
