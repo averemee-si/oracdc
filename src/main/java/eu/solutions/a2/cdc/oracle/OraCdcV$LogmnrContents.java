@@ -35,5 +35,8 @@ public class OraCdcV$LogmnrContents {
 	public static final short LOB_WRITE = 10;
 	public static final short LOB_TRIM = 11;
 	public static final short LOB_ERASE = 28;
+	public static final short XML_DOC_BEGIN = 68;
+	public static final short XML_DOC_WRITE = 70;
+	public static final short XML_DOC_END = 71;
 
 }
