@@ -127,6 +127,12 @@
 			<artifactId>oraclepki</artifactId>
 			<version>${ora.jdbc.version}</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.oracle.database.xml/xdb/ -->
+		<dependency>
+			<groupId>com.oracle.database.xml</groupId>
+			<artifactId>xdb</artifactId>
+			<version>${ora.jdbc.version}</version>
+		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.zaxxer/HikariCP/ -->
 		<dependency>
 			<groupId>com.zaxxer</groupId>
