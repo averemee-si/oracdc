@@ -66,6 +66,8 @@ public class JdbcTypes {
 			return "NCLOB";
 		case Types.BLOB:
 			return "BLOB";
+		case Types.SQLXML:
+			return "XMLTYPE";
 		}
 		return "UNSUPPORTED!!!";
 	}
@@ -114,6 +116,8 @@ public class JdbcTypes {
 			return Types.NCLOB;
 		case "BLOB":
 			return Types.BLOB;
+		case "XMLTYPE":
+			return Types.SQLXML;
 		}
 		return Integer.MIN_VALUE;
 	}
