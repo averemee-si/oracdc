@@ -133,6 +133,12 @@
 			<artifactId>xdb</artifactId>
 			<version>${ora.jdbc.version}</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.oracle.database.xml/xmlparserv2/ -->
+		<dependency>
+			<groupId>com.oracle.database.xml</groupId>
+			<artifactId>xmlparserv2</artifactId>
+			<version>${ora.jdbc.version}</version>
+		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.zaxxer/HikariCP/ -->
 		<dependency>
 			<groupId>com.zaxxer</groupId>
