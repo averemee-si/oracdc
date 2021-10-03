@@ -28,9 +28,11 @@ import net.openhft.chronicle.wire.WriteMarshallable;
 public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshallable {
 
 	/** LOB object Id */
-	private int lobId;
+	private long lobId;
 	/** LOB content */
 	private byte[] content;
+	/** SYS.XMLTYPE column name without dictionary i.e. "COL 2" */
+	private String columnId;
 
 	/**
 	 * 
@@ -44,13 +46,25 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 	 * @param lobId
 	 * @param content
 	 */
-	public OraCdcLargeObjectHolder(final int lobId, final byte[] content) {
+	public OraCdcLargeObjectHolder(final long lobId, final byte[] content) {
 		super();
 		this.lobId = lobId;
 		this.content = content;
 	}
 
-	public int getLobId() {
+	/**
+	 * 
+	 * @param columnId
+	 * @param content
+	 */
+	public OraCdcLargeObjectHolder(final String columnId, final byte[] content) {
+		super();
+		this.lobId = 0;
+		this.columnId = columnId;
+		this.content = content;
+	}
+
+	public long getLobId() {
 		return lobId;
 	}
 
@@ -58,9 +72,17 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 		return content;
 	}
 
+	public String getColumnId() {
+		return columnId;
+	}
+
 	@Override
 	public void writeMarshallable(WireOut wire) {
-		wire.bytes().writeInt(lobId);
+		wire.bytes().writeLong(lobId);
+		if (lobId == 0) {
+			// only for SYS.XMLTYPE
+			wire.bytes().write8bit(columnId);
+		}
 		if (content == null || content.length < 1) {
 			wire.bytes().writeInt(-1);
 		} else {
@@ -73,7 +95,11 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 	@Override
 	public void readMarshallable(WireIn wire) throws IORuntimeException {
 		Bytes<?> raw = wire.bytes();
-		lobId = raw.readInt();
+		lobId = raw.readLong();
+		if (lobId == 0) {
+			// SYS.XMLTYPE
+			columnId = raw.read8bit();
+		}
 		final int length = raw.readInt();
 		if (length > 0) {
 			content = new byte[length];
