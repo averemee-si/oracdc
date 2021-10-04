@@ -425,31 +425,4 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 		}
 	}
 
-	public static void main(String[] argv) throws IOException {
-		System.out.println("Test!");
-
-		final ByteBuffer fileRequest = ByteBuffer.allocate(1024);
-		final ByteBuffer fileResponse = ByteBuffer.allocate(1024);
-
-		fileRequest.put(
-				"/Users/alessio/polyxena/workspace.oxygen/oracdc-kafka/target/oracdc-kafka-0.9.8-standalone.jar".getBytes());
-		fileRequest.flip();
-		InetSocketAddress targetServerAddress = new InetSocketAddress("127.0.0.1", 21521);
-		//Pass request to target database server
-		SocketChannel channelToTarget = SocketChannel.open();
-		channelToTarget.connect(targetServerAddress);
-		channelToTarget.configureBlocking(true);
-		channelToTarget.write(fileRequest);
-
-		channelToTarget.read(fileResponse);
-		fileResponse.rewind();
-		final String responseContent = StringUtils.trim(new String(fileResponse.array(), "UTF-8"));
-		final String[] responseLines = StringUtils.split(responseContent, "\n");
-		if (responseLines.length == 3 && "OK".equals(responseLines[0])) {
-			System.out.println("->" + responseLines[1]);
-		} else {
-			// raise error
-		}
-
-	}
 }
