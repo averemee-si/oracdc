@@ -58,7 +58,7 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.table.list.style` - When set to `static` (default) **oracdc** reads tables and partition list to process only at startup according to values of `a2.include` and `a2.exclude` parameters. When set to `dynamic` **oracdc** builds list of objects to process on the fly
 
-`a2.process.lobs` - process Oracle LOB columns. Default - _false_
+`a2.process.lobs` - process Oracle BLOB, CLOB, NCLOB, and [XMLType](https://docs.oracle.com/en/database/oracle/oracle-database/21/adxdb/intro-to-XML-DB.html#GUID-02592188-AC38-4D00-A2FD-9E53604065C8) columns. Default - _false_
 
 `a2.connection.backoff` - Backoff time in milliseconds between reconnectoion attempts. Default - _30000ms_
 

@@ -15,11 +15,13 @@ This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database
 ### Monitoring
 _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
 
-### Oracle Database SecureFiles and Large Objects
+### Oracle Database SecureFiles and Large Objects including SYS.XMLTYPE
 Oracle Database SecureFiles and Large Objects i.e. LOB's are supported from v0.9.7 when parameter `a2.process.lobs` set to true. CLOB type supported only for columns with **DBA_LOBS.FORMAT='ENDIAN NEUTRAL'**. If you need support for CLOB columns with **DBA_LOBS.FORMAT='ENDIAN SPECIFIC'** or **XMLTYPE** please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
-For processing LOB's please do not forget to set Apache Kafka parameters according to size of LOB's:
+SYS.XMLTYPE data are supported from v0.9.8.2 when parameter `a2.process.lobs` set to true.
+For processing LOB's and SYS.XMLTYPE please do not forget to set Apache Kafka parameters according to size of LOB's:
 1. For Source connector: _producer.max.request.size_
 2. For broker: _replica.fetch.max.bytes_ and _message.max.bytes_
+By default CLOB, NCLOB, and SYS.XMLTYPE data are compressed using [LZ4](https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)) compression algorithm.
 
 ### DDL Support and schema evolution
 [Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) is currently not supported. Its support is planned for version 0.9.8 (DEC-2020 - JAN-2021) along with support for the [Schema Evolution](https://docs.confluent.io/current/schema-registry/avro.html#schema-evolution) at Apache Kafka side.
@@ -329,7 +331,7 @@ By default (when `a2.oracdc.schemas` set to false) **oracdc** Source connector's
 
 When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Oracle **NUMBER** (**eu.solutions.a2.cdc.oracle.data.OraNumber**) and  **TIMESTAMP WITH [LOCAL] TIMEZONE** (**eu.solutions.a2.cdc.oracle.data.OraTimestamp**) datatypes.
 
-When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle **BLOB** (**eu.solutions.a2.cdc.oracle.data.OraBlob**), **CLOB** (**eu.solutions.a2.cdc.oracle.data.OraClob**), and  **NCLOB** (**eu.solutions.a2.cdc.oracle.data.OraNClob**) datatypes.
+When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle **BLOB** (**eu.solutions.a2.cdc.oracle.data.OraBlob**), **CLOB** (**eu.solutions.a2.cdc.oracle.data.OraClob**),   **NCLOB** (**eu.solutions.a2.cdc.oracle.data.OraNClob**), and **SYS.XMLTYPE** (**eu.solutions.a2.cdc.oracle.data.OraXmlBinary**) datatypes.
 
 
 ## Built With
@@ -444,6 +446,10 @@ Distributed database configuration
 #####0.9.8.1 (AUG-2021)
 
 RDBMS 21c compatibility
+
+#####0.9.8.2 (OCT-2021)
+
+SYS.XMLTYPE support and fixes for partitioned tables with BLOB/CLOB/NCLOB columns
 
 ## Authors
 
