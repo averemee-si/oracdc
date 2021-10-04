@@ -90,26 +90,40 @@ where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
 	/* Single SQL statement is used for non-CDB and CDB database but for CDB */
 	/* alter session set CONTAINER=' ' must be executed before reading from ResultSet! */
 	/*
-select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,
-       C.COLUMN_ID, C.DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE
-from   DBA_TAB_COLUMNS C,
-       (select O.OBJECT_ID, L.OWNER, L.TABLE_NAME, L.COLUMN_NAME, L.SECUREFILE
-        from   DBA_LOBS L, DBA_OBJECTS O
-        where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S
-where  C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S.COLUMN_NAME (+)
+select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION,
+       C.DATA_SCALE, C.NULLABLE, C.COLUMN_ID, C.DATA_DEFAULT,
+       nvl(LC.SECUREFILE, LH.SECUREFILE) SECUREFILE,
+       H.DATA_TYPE STORAGE_DATA_TYPE, H.COLUMN_NAME STORAGE_NAME
+from   (select * from DBA_TAB_COLS where HIDDEN_COLUMN='NO') C,
+       DBA_LOBS LC,
+       (select * from DBA_TAB_COLS where HIDDEN_COLUMN='YES') H,
+       DBA_LOBS LH
+where  C.OWNER=LC.OWNER (+) and C.TABLE_NAME=LC.TABLE_NAME (+) and C.COLUMN_NAME=LC.COLUMN_NAME (+) 
+  and  C.OWNER=H.OWNER (+) and C.TABLE_NAME=H.TABLE_NAME (+) and C.COLUMN_ID=H.COLUMN_ID (+) 
+  and  H.OWNER=LH.OWNER (+) and H.TABLE_NAME=LH.TABLE_NAME (+) and H.QUALIFIED_COL_NAME=LH.COLUMN_NAME (+) 
   and  C.OWNER='SCOTT' and C.TABLE_NAME='EMP'
-  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%');
+  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB')
+       or C.DATA_TYPE like 'TIMESTAMP%' 
+       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER='SYS'))
+order by C.COLUMN_ID;
 	 */
 	public static final String COLUMN_LIST_PLAIN =
-			"select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE, C.NULLABLE,\n" +
-			"       C.COLUMN_ID, C.DATA_DEFAULT, S.OBJECT_ID, S.SECUREFILE\n" +
-			"from   DBA_TAB_COLUMNS C,\n" +
-			"       (select O.OBJECT_ID, L.OWNER, L.TABLE_NAME, L.COLUMN_NAME, L.SECUREFILE\n" +
-			"        from   DBA_LOBS L, DBA_OBJECTS O\n" +
-			"        where  O.OWNER=L.OWNER and O.OBJECT_NAME=L.SEGMENT_NAME) S\n" +
-			"where  C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NAME (+) and C.COLUMN_NAME=S.COLUMN_NAME (+)\n" +
+			"select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION,\n" +
+			"       C.DATA_SCALE, C.NULLABLE, C.COLUMN_ID, C.DATA_DEFAULT,\n" +
+			"       nvl(LC.SECUREFILE, LH.SECUREFILE) SECUREFILE,\n" +
+			"       H.DATA_TYPE STORAGE_DATA_TYPE, H.COLUMN_NAME STORAGE_NAME\n" +
+			"from   (select * from DBA_TAB_COLS where HIDDEN_COLUMN='NO') C,\n" +
+			"       DBA_LOBS LC,\n" +
+			"       (select * from DBA_TAB_COLS where HIDDEN_COLUMN='YES') H,\n" +
+			"       DBA_LOBS LH\n" +
+			"where  C.OWNER=LC.OWNER (+) and C.TABLE_NAME=LC.TABLE_NAME (+) and C.COLUMN_NAME=LC.COLUMN_NAME (+)\n" +
+			"  and  C.OWNER=H.OWNER (+) and C.TABLE_NAME=H.TABLE_NAME (+) and C.COLUMN_ID=H.COLUMN_ID (+) \n" +
+			"  and  H.OWNER=LH.OWNER (+) and H.TABLE_NAME=LH.TABLE_NAME (+) and H.QUALIFIED_COL_NAME=LH.COLUMN_NAME (+)\n" +
 			"  and  C.OWNER=? and C.TABLE_NAME=?\n" +
-			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
+			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB')\n" +
+			"       or C.DATA_TYPE like 'TIMESTAMP%' \n" +
+			"       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER='SYS'))\n" +
+			"order by C.COLUMN_ID\n";
 	/*
 	 *  Just for history...
 	 * 
@@ -124,6 +138,25 @@ where  C.CON_ID=S.CON_ID (+) and C.OWNER=S.OWNER (+) and C.TABLE_NAME=S.TABLE_NA
   and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%');
 	 */
 
+	/*
+select L.COLUMN_NAME
+from DBA_LOBS L, DBA_OBJECTS O
+where L.OWNER=O.OWNER and L.SEGMENT_NAME=O.OBJECT_NAME and O.OBJECT_ID=28031;
+	 */
+	public static final String MAP_DATAOBJ_TO_COLUMN_NON_CDB =
+			"select L.COLUMN_NAME\n" +
+			"from   DBA_LOBS L, DBA_OBJECTS O\n" +
+			"where  L.OWNER=O.OWNER and L.SEGMENT_NAME=O.OBJECT_NAME and O.OBJECT_ID=?\n";
+
+	/*
+select L.COLUMN_NAME
+from CDB_LOBS L, CDB_OBJECTS O
+where L.OWNER=O.OWNER and L.SEGMENT_NAME=O.OBJECT_NAME and O.OBJECT_ID=28031;
+	 */
+	public static final String MAP_DATAOBJ_TO_COLUMN_CDB =
+			"select L.COLUMN_NAME\n" +
+			"from   CDB_LOBS L, CDB_OBJECTS O\n" +
+			"where  L.OWNER=O.OWNER and L.SEGMENT_NAME=O.OBJECT_NAME and O.OBJECT_ID=?\n";
 
 	/*
 select IC.COLUMN_NAME
@@ -371,24 +404,33 @@ from   V$LOGMNR_CONTENTS L
 			"from   V$LOGMNR_CONTENTS L\n";
 
 /*
+ 0 - INTERNAL
+ 1 - INSERT
+ 2 - DELETE
+ 3 - UPDATE
+ 9 - SELECT_LOB_LOCATOR
+10 - LOB_WRITE
+68 - XML DOC BEGIN
+70 - XML DOC WRITE
+71 - XML DOC END
 select SCN, RS_ID, OPERATION_CODE, CSF, SQL_REDO
 from   V$LOGMNR_CONTENTS
-where  ((OPERATION_CODE in (0,1,2,3,9,10) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=?
+where  ((OPERATION_CODE in (0,1,2,3,9,10,68,70) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=?
  */
 	public static final String MINE_LOB_NON_CDB =
 			"select SCN, RS_ID, OPERATION_CODE, CSF, SQL_REDO\n" + 
 			"from   V$LOGMNR_CONTENTS\n" +
-			"where  ((OPERATION_CODE in (0,1,2,3,9,10) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=?";
+			"where  ((OPERATION_CODE in (0,1,2,3,9,10,68,70) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=?";
 
 /*
-select OPERATION_CODE, CSF, SQL_REDO
+select SCN, RS_ID, OPERATION_CODE, CSF, SQL_REDO
 from   V$LOGMNR_CONTENTS
-where  ((OPERATION_CODE in (0,1,2,3,9,10) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=? and SRC_CON_ID=?
+where  ((OPERATION_CODE in (0,1,2,3,9,10,68,70) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=? and SRC_CON_ID=?
  */
 	public static final String MINE_LOB_CDB =
-			"select OPERATION_CODE, CSF, SQL_REDO\n" + 
+			"select SCN, RS_ID, OPERATION_CODE, CSF, SQL_REDO\n" + 
 			"from   V$LOGMNR_CONTENTS\n" +
-			"where  ((OPERATION_CODE in (0,1,2,3,9,10) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=? and SRC_CON_ID=?";
+			"where  ((OPERATION_CODE in (0,1,2,3,9,10,68,70) and DATA_OBJ#=?) or OPERATION_CODE in (7,36)) and XID=? and SCN>=? and SRC_CON_UID=?";
 
 /*
 select O.OBJECT_ID, T.OWNER, T.TABLE_NAME, T.DEPENDENCIES,

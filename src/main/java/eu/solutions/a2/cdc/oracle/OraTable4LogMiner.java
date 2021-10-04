@@ -70,8 +70,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private boolean tableWithPk;
 	private boolean processLobs;
 	private final String tableFqn;
-	private boolean withLobs = false;
-	private Map<Integer, OraColumn> lobColumns;
+	private Map<Long, OraColumn> lobColumnsObjectIds;
+	private Map<String, OraColumn> lobColumnsNames;
+	private Map<String, String> lobColumnsHiddenNames;
 
 	/**
 	 * 
@@ -90,9 +91,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
 				this.tableOwner + "." + this.tableName;
 		this.processLobs = processLobs;
-		if (this.processLobs) {
-			lobColumns = new HashMap<>();
-		}
 	}
 
 	/**
@@ -151,17 +149,30 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 			ResultSet rsColumns = statement.executeQuery();
 			
-			buildColumnList(
-					false, useOracdcSchemas, processLobs, pdbName, rsColumns, null, pkColumns,
-					idToNameMap, lobColumns,
+			buildColumnList(false, useOracdcSchemas, processLobs, pdbName,
+					rsColumns, null, pkColumns, idToNameMap, 
 					null, null, null, null, false, false, false);
-			if (processLobs && lobColumns.size() > 0) {
-				this.withLobs = true;
-			}
 			rsColumns.close();
 			rsColumns = null;
 			statement.close();
 			statement = null;
+			if (this.isWithLobs()) {
+				lobColumnsObjectIds = new HashMap<>();
+				lobColumnsNames = new HashMap<>();
+				lobColumnsHiddenNames = new HashMap<>();
+				//Iterate again through column list. Does this affect performance?
+				for (OraColumn column : allColumns) {
+					if (column.getJdbcType() == Types.BLOB ||
+							column.getJdbcType() == Types.CLOB ||
+							column.getJdbcType() == Types.NCLOB ||
+							column.getJdbcType() == Types.SQLXML) {
+						lobColumnsNames.put(column.getColumnName(), column);
+						if (column.getJdbcType() == Types.SQLXML) {
+							lobColumnsHiddenNames.put(column.getStorageColumnName(), column.getColumnName());
+						}
+					}
+				}
+			}
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
@@ -220,11 +231,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (column.isPartOfPk()) {
 					final String pkColumnName = column.getColumnName();
 					pkColumns.put(pkColumnName, column);
-				}
-				if (column.getJdbcType() == Types.BLOB ||
-						column.getJdbcType() == Types.CLOB ||
-						column.getJdbcType() == Types.NCLOB) {
-					lobColumns.put(column.getLobObjectId(), column);
 				}
 				LOGGER.debug("\t Adding {} column.", column.getColumnName());
 			}
@@ -466,12 +472,19 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (lobs != null) {
 				for (int i = 0; i < lobs.size(); i++) {
 					final OraCdcLargeObjectHolder lob = lobs.get(i);
-
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("{}: setting value for LOB column {}, value length={}.",
-								fqn(), lobColumns.get(lob.getLobId()).getColumnName(), lob.getContent().length);
+					if (lob.getLobId() > 0) {
+						if (LOGGER.isDebugEnabled()) {
+							LOGGER.debug("{}: setting value for LOB column {}, value length={}.",
+								fqn(), lobColumnsObjectIds.get(lob.getLobId()).getColumnName(), lob.getContent().length);
+						}
+						valueStruct.put(lobColumnsObjectIds.get(lob.getLobId()).getColumnName(), lob.getContent());
+					} else if (lob.getLobId() == 0) {
+						if (LOGGER.isDebugEnabled()) {
+							LOGGER.debug("{}: setting value for XML column {}, value length={}.",
+								fqn(), idToNameMap.get(lob.getColumnId()).getColumnName(), lob.getContent().length);
+						}
+						valueStruct.put(idToNameMap.get(lob.getColumnId()).getColumnName(), lob.getContent());
 					}
-					valueStruct.put(lobColumns.get(lob.getLobId()).getColumnName(), lob.getContent());
 				}
 			}
 		}
@@ -619,6 +632,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
 					}
 					break;
+				case Types.SQLXML:
+					// We not expect SYS.XMLTYPE data here!!!
+					columnValue = new byte[0];
+					break;
 				default:
 					columnValue = oraColumn.unsupportedTypeValue();
 					break;
@@ -667,12 +684,32 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.processLobs = processLobs;
 	}
 
-	public boolean isWithLobs() {
-		return withLobs;
-	}
-
-	public Map<Integer, OraColumn> getLobColumns() {
-		return lobColumns;
+	public OraColumn getLobColumn(final long lobObjectId, final PreparedStatement psCheckLob) throws SQLException {
+		if (lobColumnsObjectIds.containsKey(lobObjectId)) {
+			return lobColumnsObjectIds.get(lobObjectId);
+		} else {
+			// Perform mapping of DATA_OBJ# to table column
+			psCheckLob.setLong(1, lobObjectId);
+			ResultSet rsCheckLob = psCheckLob.executeQuery();
+			if (rsCheckLob.next()) {
+				final String columnName = rsCheckLob.getString("COLUMN_NAME");
+				if (lobColumnsNames.containsKey(columnName)) {
+					final OraColumn column = lobColumnsNames.get(columnName);
+					lobColumnsObjectIds.put(lobObjectId, column);
+					return column;
+				} else if (lobColumnsHiddenNames.containsKey(columnName)) {
+					final OraColumn column = lobColumnsNames.get(lobColumnsHiddenNames.get(columnName));
+					lobColumnsObjectIds.put(lobObjectId, column);
+					return column;
+				} else {
+					LOGGER.error("Column for LOB with object Id {} not found in oracdc cache!", lobObjectId);
+					throw new SQLException("Column for LOB with object Id " + lobObjectId + " not found in oracdc cache!");
+				}
+			} else {
+				LOGGER.error("Column for LOB with object Id {} not found in database!", lobObjectId);
+				throw new SQLException("Column for LOB with object Id " + lobObjectId + " not found in database!");
+			}
+		}
 	}
 
 	public void setTopicDecoderPartition(final String topicParam,

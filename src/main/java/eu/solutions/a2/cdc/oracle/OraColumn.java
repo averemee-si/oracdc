@@ -40,6 +40,7 @@ import eu.solutions.a2.cdc.oracle.data.OraClob;
 import eu.solutions.a2.cdc.oracle.data.OraNClob;
 import eu.solutions.a2.cdc.oracle.data.OraNumber;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
+import eu.solutions.a2.cdc.oracle.data.OraXmlBinary;
 import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import oracle.sql.NUMBER;
@@ -66,12 +67,11 @@ public class OraColumn {
 	private Integer dataScale;
 	private Boolean binaryFloatDouble;
 	private Boolean localTimeZone;
-	private Integer lobObjectId;
 	private Boolean secureFile;
 	private Boolean defaultValuePresent;
 	private String defaultValue;
 	private Object typedDefaultValue;
-
+	private String storageColumnName;
 
 	/**
 	 * 
@@ -86,6 +86,7 @@ public class OraColumn {
 	 * @param schemaType
 	 * @param pkColsSet
 	 * @throws SQLException
+	 * @throws UnsupportedColumnDataTypeException 
 	 */
 	public OraColumn(
 			final boolean mviewSource,
@@ -95,7 +96,7 @@ public class OraColumn {
 			final SchemaBuilder keySchema,
 			final SchemaBuilder valueSchema,
 			final int schemaType,
-			final Set<String> pkColsSet) throws SQLException {
+			final Set<String> pkColsSet) throws SQLException, UnsupportedColumnDataTypeException {
 		this.columnName = resultSet.getString("COLUMN_NAME");
 		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
 		this.nameFromId = "\"COL " + resultSet.getInt("COLUMN_ID") + "\"";
@@ -274,10 +275,27 @@ public class OraColumn {
 						valueSchema.field(this.columnName, OraBlob.builder().build());
 					}
 					break;
-				default:
-					jdbcType = Types.VARCHAR;
-					stringField(keySchema, valueSchema);
+				case "XMLTYPE":
+					jdbcType = Types.SQLXML;
+					if (mviewSource) {
+						//TODO
+						//TODO - not always pure bytes!!!
+						//TODO
+						bytesField(keySchema, valueSchema);
+					} else if (processLobs) {
+						// Archived redo as source and LOB processing
+						setLobAttributes(resultSet);
+						storageColumnName = resultSet.getString("STORAGE_NAME");
+						//TODO
+						//TODO - only for default case!!!
+						//TODO
+						valueSchema.field(this.columnName, OraXmlBinary.builder().build());
+					}
 					break;
+				default:
+					LOGGER.warn("Datatype {} for column {} is not supported!",
+							oraType, this.columnName);
+					throw new UnsupportedColumnDataTypeException(this.columnName);
 			}
 		}
 		schemaEpilogue(keySchema, valueSchema, schemaType);
@@ -565,14 +583,6 @@ public class OraColumn {
 		this.localTimeZone = localTimeZone;
 	}
 
-	public Integer getLobObjectId() {
-		return lobObjectId;
-	}
-
-	public void setLobObjectId(Integer lobObjectId) {
-		this.lobObjectId = lobObjectId;
-	}
-
 	public Boolean getSecureFile() {
 		return secureFile;
 	}
@@ -661,6 +671,10 @@ public class OraColumn {
 		} else {
 			return typedDefaultValue;
 		}
+	}
+
+	public String getStorageColumnName() {
+		return storageColumnName;
 	}
 
 	/**
@@ -899,7 +913,6 @@ public class OraColumn {
 	}
 
 	private void setLobAttributes(ResultSet resultSet) throws SQLException {
-		lobObjectId = resultSet.getInt("OBJECT_ID");
 		if ("YES".equalsIgnoreCase(resultSet.getString("SECUREFILE"))) {
 			secureFile = true;
 		} else {

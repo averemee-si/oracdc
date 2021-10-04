@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.Lz4Util;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 
@@ -70,6 +71,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private Connection connLogMiner;
 	private OraclePreparedStatement psLogMiner;
 	private PreparedStatement psCheckTable;
+	private PreparedStatement psCheckLob;
 	private OraclePreparedStatement psReadLob;
 	private OracleResultSet rsLogMiner;
 	private final String mineDataSql;
@@ -91,6 +93,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
 	private final boolean traceSession;
+
+	private boolean fetchRsLogMinerNext;
+	private boolean isRsLogMinerRowAvailable;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -226,6 +231,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								OraDictSqlTexts.MINE_LOB_NON_CDB,
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 				psReadLob.setRowPrefetch(fetchSize);
+				psCheckLob = connDictionary.prepareStatement(
+						isCdb ? OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_CDB :
+							OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_NON_CDB,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);						
 			}
 
 		} catch (SQLException e) {
@@ -291,9 +300,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					if (rsLogMiner == null) {
 						rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
 					}
-					boolean isRsLogMinerRowAvailable = rsLogMiner.next();
+					isRsLogMinerRowAvailable = rsLogMiner.next();
 					while (isRsLogMinerRowAvailable && runLatch.getCount() > 0) {
-						boolean fetchRsLogMinerNext = true;
+						fetchRsLogMinerNext = true;
 						final short operation = rsLogMiner.getShort("OPERATION_CODE");
 						final String xid = rsLogMiner.getString("XID");
 						lastScn = rsLogMiner.getLong("SCN");
@@ -467,125 +476,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
 										combinedDataObjectId, operation, sqlRedo, timestamp, lastScn, lastRsId, lastSsn, rowId);
 
-								//BEGIN: Catch the LOB!!!
-								List<OraCdcLargeObjectHolder> lobs = null;
-								if (processLobs && oraTable.isWithLobs() &&
-										(operation == OraCdcV$LogmnrContents.INSERT ||
-										operation == OraCdcV$LogmnrContents.UPDATE)) {
-									final String tableOperationRsId = rsLogMiner.getString("RS_ID");
-									String lobStartRsId = tableOperationRsId; 
-									boolean searchLobObjects = true;
-									//TODO
-									//TODO Ignore CDB here???
-									//TODO
-									Integer lobObjectId = 0;
-									while (logMinerReady && searchLobObjects && runLatch.getCount() > 0) {
-										searchLobObjects = rsLogMiner.next();
-										isRsLogMinerRowAvailable = searchLobObjects;
-										if (searchLobObjects) {
-											final short catchLobOperation = rsLogMiner.getShort("OPERATION_CODE");
-											final String catchLobXid = rsLogMiner.getString("XID");
-											if (catchLobOperation == OraCdcV$LogmnrContents.INSERT ||
-													catchLobOperation == OraCdcV$LogmnrContents.UPDATE ||
-													catchLobOperation == OraCdcV$LogmnrContents.DELETE) {
-												// Next INSERT/UPDATE/DELETE for given objects.....
-												// Do nothing and don't call next() for rsLogMiner
-												fetchRsLogMinerNext = false;
-												searchLobObjects = false;
-											} else if ((catchLobOperation == OraCdcV$LogmnrContents.COMMIT ||
-													catchLobOperation == OraCdcV$LogmnrContents.ROLLBACK) &&
-													(catchLobXid.equals(xid) || activeTransactions.containsKey(catchLobXid))) {
-												// Do nothing and don't call next() for rsLogMiner
-												fetchRsLogMinerNext = false;
-												searchLobObjects = false;
-											} else {
-												// Check for RS_ID of INSERT
-												// Previous row contains: DATA_OBJ# = DATA_OBJD# = LOB_ID
-												//                        RS_ID to call readLob!!!
-												final String lobRsId = rsLogMiner.getString("RS_ID");
-												if (lobRsId.equals(tableOperationRsId)) {
-													final long lobSsn = rsLogMiner.getLong("SSN");
-													final long lobScn = rsLogMiner.getLong("SCN");
-													if (lobWorker == null) {
-														lobWorker = new OraCdcLargeObjectWorker(this,
-																isCdb, logMiner, psReadLob, runLatch,
-																pollInterval);
-													}
-													if (lobs == null) {
-														lobs = new ArrayList<>();
-													}
-													lobs.add(lobWorker.readLobData(
-															lobScn,
-															lobStartRsId,
-															tableOperationRsId,
-															dataObjectId,
-															catchLobXid,
-															oraTable.getLobColumns().get(lobObjectId),
-															isCdb ? rsLogMiner.getNUMBER("SRC_CON_UID") : null));
-													if (lobWorker.isLogMinerExtended()) {
-														//TODO
-														//TODO Add SCN>= to MineSql!!!
-														//TODO
-														rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
-														boolean rewind = true;
-														while(rewind && rsLogMiner.next()) {
-															if (rsLogMiner.getLong("SCN") == lobScn &&
-																StringUtils.equals(rsLogMiner.getString("RS_ID"), lobRsId) &&
-																rsLogMiner.getLong("SSN") == lobSsn) {
-																fetchRsLogMinerNext = true;
-																break;
-															}
-														}
-													}
-												} else {
-													lobObjectId = rsLogMiner.getInt("DATA_OBJ#");
-													lobStartRsId = rsLogMiner.getString("RS_ID");
-												}
-											}
-										} else {
-											//Switch to next archived log
-											logMinerReady = false;
-											logMiner.stop();
-											rsLogMiner.close();
-											rsLogMiner = null;
-											while (!logMinerReady && runLatch.getCount() > 0) {
-												try {
-													logMinerReady = logMiner.next();
-												} catch (SQLException sqle) {
-													if (sqle instanceof SQLRecoverableException) {
-														restoreOraConnection(sqle);
-													} else {
-														throw new SQLException(sqle);
-													}
-												}
-												if (logMinerReady) {
-													rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
-													//Exit from next archived log loop
-													break;
-												} else if (runLatch.getCount() > 0) {
-													//Wait for next archived log
-													synchronized (this) {
-														LOGGER.debug("Waiting {} ms", pollInterval);
-														try {
-															this.wait(pollInterval);
-														} catch (InterruptedException ie) {
-															LOGGER.error(ie.getMessage());
-															LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
-														}
-													}
-												} else {
-													//Stop processing
-													break;
-												}
-											}
-										}
-									}
-									if (!(runLatch.getCount() > 0)) {
-										LOGGER.debug("Breaking cycle in 'Catch the LOB!!!'");
-										break;
-									}
-								}
-								//END: Catch the LOB!!!
+								// Catch the LOBs!!!
+								List<OraCdcLargeObjectHolder> lobs = 
+										catchTheLob(operation, xid, dataObjectId, oraTable);
 
 								if (transaction == null) {
 									if (LOGGER.isDebugEnabled()) {
@@ -613,6 +506,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							// SELECT_LOB_LOCATOR must be processed in inner loop before!!!
 							LOGGER.error("Unknown operation {} at SCN {}, RS_ID '{}' for object ID {}",
 									operation, lastScn, rsLogMiner.getString("RS_ID"), rsLogMiner.getLong("DATA_OBJ#"));
+							LOGGER.error("Current query is:\n{}", mineDataSql);
 							throw new SQLException("Unknown operation in OraCdcLogMinerWorkerThread.run()");
 						}
 						// Copy again, to protect from exception...
@@ -746,6 +640,177 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				}
 			}
 		}
+	}
+
+
+	private List<OraCdcLargeObjectHolder> catchTheLob(
+			final short operation, final String xid,
+			final long dataObjectId, final OraTable4LogMiner oraTable) throws SQLException {
+		List<OraCdcLargeObjectHolder> lobs = null;
+		if (processLobs && oraTable.isWithLobs() &&
+				(operation == OraCdcV$LogmnrContents.INSERT ||
+				operation == OraCdcV$LogmnrContents.UPDATE)) {
+			final String tableOperationRsId = rsLogMiner.getString("RS_ID");
+			String lobStartRsId = tableOperationRsId; 
+			boolean searchLobObjects = true;
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace(
+						"Catch LOB started for table {}, operation {} at RBA '{}'.",
+						oraTable.fqn(), operation, tableOperationRsId);
+			}
+			//TODO
+			//TODO Ignore CDB here???
+			//TODO
+			long lobObjectId = 0;
+			while (logMinerReady && searchLobObjects && runLatch.getCount() > 0) {
+				searchLobObjects = rsLogMiner.next();
+				isRsLogMinerRowAvailable = searchLobObjects;
+				if (searchLobObjects) {
+					final short catchLobOperation = rsLogMiner.getShort("OPERATION_CODE");
+					final String catchLobXid = rsLogMiner.getString("XID");
+					if (catchLobOperation == OraCdcV$LogmnrContents.INSERT ||
+							catchLobOperation == OraCdcV$LogmnrContents.UPDATE ||
+							catchLobOperation == OraCdcV$LogmnrContents.DELETE) {
+						// Next INSERT/UPDATE/DELETE for given objects.....
+						// Do nothing and don't call next() for rsLogMiner
+						fetchRsLogMinerNext = false;
+						searchLobObjects = false;
+					} else if ((catchLobOperation == OraCdcV$LogmnrContents.COMMIT ||
+							catchLobOperation == OraCdcV$LogmnrContents.ROLLBACK) &&
+							(catchLobXid.equals(xid) || activeTransactions.containsKey(catchLobXid))) {
+						// Do nothing and don't call next() for rsLogMiner
+						fetchRsLogMinerNext = false;
+						searchLobObjects = false;
+					} else if (catchLobOperation == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
+						//TODO
+						//TODO What if XML DOC WRITE is in more than one redo log?
+						//TODO
+						// Current position is "XML DOC BEGIN" - need to read column id from SQL_REDO
+						// String is:
+						// XML DOC BEGIN:  select "COL 2" from "UNKNOWN"."OBJ# 28029"...
+						final String xmlColumnId = "\"" +
+								StringUtils.substringBetween(rsLogMiner.getString("SQL_REDO"), "\"") +
+								"\"";
+						// Next row(s) are:
+						// XML_REDO := HEXTORAW('.............
+						boolean multiLineSql = true;
+						final StringBuilder xmlHexData = new StringBuilder(65000);
+						while (multiLineSql) {
+							isRsLogMinerRowAvailable = rsLogMiner.next();
+							if (rsLogMiner.getShort("OPERATION_CODE") != OraCdcV$LogmnrContents.XML_DOC_WRITE) {
+								LOGGER.error("Unexpected operation with code {} at SCN {} RBA '{}'",
+										rsLogMiner.getShort("OPERATION_CODE"), rsLogMiner.getLong("SCN"), rsLogMiner.getString("RS_ID"));
+								throw new SQLException("Unexpected operation!!!");
+							}
+							multiLineSql = rsLogMiner.getBoolean("CSF");
+							xmlHexData.append(rsLogMiner.getString("SQL_REDO"));
+						}
+						fetchRsLogMinerNext = true;
+						final String xmlAsString = new String(
+								OraDumpDecoder.toByteArray(
+										StringUtils.substringBetween(xmlHexData.toString(), "HEXTORAW('", ")'")));
+						if (LOGGER.isTraceEnabled()) {
+							LOGGER.trace("{} column {} content:\n{}",
+									xmlColumnId, xmlAsString);
+						}
+						if (lobs == null) {
+							lobs = new ArrayList<>();
+						}
+						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, Lz4Util.compress(xmlAsString)));
+						continue;
+					} else {
+						// Check for RS_ID of INSERT
+						// Previous row contains: DATA_OBJ# = DATA_OBJD# = LOB_ID
+						//                        RS_ID to call readLob!!!
+						final String lobRsId = rsLogMiner.getString("RS_ID");
+						if (LOGGER.isTraceEnabled()) {
+							LOGGER.trace(
+									"Inside loop for LOB search with 'catch' operation {} and transaction Id {}, table op RBA {}, LOB op RBA {}",
+									catchLobOperation, catchLobXid, tableOperationRsId, lobRsId);
+						}
+						
+						if (lobRsId.equals(tableOperationRsId)) {
+							final long lobSsn = rsLogMiner.getLong("SSN");
+							final long lobScn = rsLogMiner.getLong("SCN");
+							if (lobWorker == null) {
+								lobWorker = new OraCdcLargeObjectWorker(this,
+										isCdb, logMiner, psReadLob, runLatch,
+										pollInterval);
+							}
+							if (lobs == null) {
+								lobs = new ArrayList<>();
+							}
+							lobs.add(lobWorker.readLobData(
+									lobScn,
+									lobStartRsId,
+									tableOperationRsId,
+									dataObjectId,
+									lobObjectId,
+									catchLobXid,
+									oraTable.getLobColumn(lobObjectId, psCheckLob),
+									isCdb ? rsLogMiner.getNUMBER("SRC_CON_UID") : null));
+							if (lobWorker.isLogMinerExtended()) {
+								//TODO
+								//TODO Add SCN>= to MineSql!!!
+								//TODO
+								rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
+								while(rsLogMiner.next()) {
+									if (rsLogMiner.getLong("SCN") == lobScn &&
+										StringUtils.equals(rsLogMiner.getString("RS_ID"), lobRsId) &&
+										rsLogMiner.getLong("SSN") == lobSsn) {
+										break;
+									}
+								}
+								fetchRsLogMinerNext = true;
+							}
+						} else {
+							lobObjectId = rsLogMiner.getInt("DATA_OBJ#");
+							lobStartRsId = rsLogMiner.getString("RS_ID");
+							if (catchLobOperation == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
+								// Perform XML document processing here
+							}
+						}
+					}
+				} else {
+					//Switch to next archived log
+					logMinerReady = false;
+					logMiner.stop();
+					rsLogMiner.close();
+					rsLogMiner = null;
+					while (!logMinerReady && runLatch.getCount() > 0) {
+						try {
+							logMinerReady = logMiner.next();
+						} catch (SQLException sqle) {
+							if (sqle instanceof SQLRecoverableException) {
+								restoreOraConnection(sqle);
+							} else {
+								throw new SQLException(sqle);
+							}
+						}
+						if (logMinerReady) {
+							rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
+							//Exit from next archived log loop
+							break;
+						} else if (runLatch.getCount() > 0) {
+							//Wait for next archived log
+							synchronized (this) {
+								LOGGER.debug("Waiting {} ms", pollInterval);
+								try {
+									this.wait(pollInterval);
+								} catch (InterruptedException ie) {
+									LOGGER.error(ie.getMessage());
+									LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
+								}
+							}
+						} else {
+							//Stop processing
+							break;
+						}
+					}
+				}
+			}
+		}
+		return lobs;
 	}
 
 }

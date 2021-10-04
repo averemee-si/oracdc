@@ -58,39 +58,63 @@ public class OraCdcLargeObjectWorker {
 		LOGGER.trace("END: OraCdcLargeObjectWorker Constructor");
 	}
 
+	/**
+	 * 
+	 * @param scn           SCN
+	 * @param rsId          RBA
+	 * @param parentOpRsId  RBA of parent operation
+	 * @param dataObjectId  parent DATA_OBJ#
+	 * @param lobObjectId   LOB segment DATA_OBJ#
+	 * @param xid           transactionId
+	 * @param oraColumn
+	 * @param srcConUid     SRC_CON_UID
+	 * @return
+	 * @throws SQLException
+	 */
 	OraCdcLargeObjectHolder readLobData(final long scn, final String rsId, final String parentOpRsId, 
-			final long dataObjectId, final String xid, final OraColumn oraColumn,
-			final NUMBER srcConId) throws SQLException {
+			final long dataObjectId, final long lobObjectId, final String xid, final OraColumn oraColumn,
+			final NUMBER srcConUid) throws SQLException {
 
 		final long processingStartMillis = System.currentTimeMillis();
-		if (LOGGER.isDebugEnabled()) {
+		if (LOGGER.isDebugEnabled() || LOGGER.isTraceEnabled()) {
 			if (isCdb) {
 				LOGGER.debug("readLobData started for SCN={}, RS_ID='{}', XID='{}', DATA_OBJ#={}, Parent OP RS_ID='{}', CON_ID={} for LOB column {} (OBJECT_ID={})",
-						scn, rsId, xid, dataObjectId, parentOpRsId, srcConId, oraColumn.getColumnName(), oraColumn.getLobObjectId());
+						scn, rsId, xid, dataObjectId, parentOpRsId, srcConUid.bigIntegerValue(), oraColumn.getColumnName(), lobObjectId);
+				LOGGER.trace("readLobData started for SCN={}, RS_ID='{}', XID='{}', DATA_OBJ#={}, Parent OP RS_ID='{}', CON_ID={} for LOB column {} (OBJECT_ID={})",
+						scn, rsId, xid, dataObjectId, parentOpRsId, srcConUid.bigIntegerValue(), oraColumn.getColumnName(), lobObjectId);
 			} else {
 				LOGGER.debug("readLobData started for SCN={}, RS_ID='{}', XID='{}', DATA_OBJ#={}, Parent OP RS_ID='{}' for LOB column {} (OBJECT_ID={})",
-						scn, rsId, xid, dataObjectId, parentOpRsId, oraColumn.getColumnName(), oraColumn.getLobObjectId());
+						scn, rsId, xid, dataObjectId, parentOpRsId, oraColumn.getColumnName(), lobObjectId);
+				LOGGER.trace("readLobData started for SCN={}, RS_ID='{}', XID='{}', DATA_OBJ#={}, Parent OP RS_ID='{}' for LOB column {} (OBJECT_ID={})",
+						scn, rsId, xid, dataObjectId, parentOpRsId, oraColumn.getColumnName(), lobObjectId);
 			}
 		}
 
 		logMinerExtended = false;
 		int rowsSkipped = 0;
 		boolean fetchRsLogMinerNext = true;
-		ResultSet rsReadLob = bindReadLobParameters(scn, xid, dataObjectId, srcConId);
+		boolean atLastRecord = false;
+		ResultSet rsReadLob = bindReadLobParameters(scn, xid, dataObjectId, srcConUid);
 		// Rewind
 		while (fetchRsLogMinerNext) {
-			rsReadLob.next();
-			if (StringUtils.compare(rsReadLob.getString("RS_ID"), rsId) > 0) {
-				fetchRsLogMinerNext = false;
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Rows skipped - {}, will start from SCN={}, RS_ID='{}'",
+			if (rsReadLob.next()) {
+				if (StringUtils.compare(rsReadLob.getString("RS_ID"), rsId) > 0) {
+					fetchRsLogMinerNext = false;
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Rows skipped - {}, will start from SCN={}, RS_ID='{}'",
 							rowsSkipped, rsReadLob.getLong("SCN"), rsReadLob.getString("RS_ID"));
+					}
+					break;
+				} else {
+					rowsSkipped++;
 				}
-				break;
 			} else {
-				rowsSkipped++;
+				atLastRecord = true;
+				fetchRsLogMinerNext = false;
+				break;
 			}
 		}
+		
 		boolean readLob = true;
 		boolean isRsLogMinerRowAvailable = false;
 		long lastProcessedScn = 0;
@@ -101,7 +125,7 @@ public class OraCdcLargeObjectWorker {
 			if (fetchRsLogMinerNext) {
 				isRsLogMinerRowAvailable = rsReadLob.next();
 			} else {
-				isRsLogMinerRowAvailable = true;
+				isRsLogMinerRowAvailable = atLastRecord ? false : true;
 			}
 			if (isRsLogMinerRowAvailable) {
 				// Exit when OPERATION_CODE == 0
@@ -168,7 +192,7 @@ public class OraCdcLargeObjectWorker {
 				while (!logMinerReady && runLatch.getCount() > 0) {
 					logMinerReady = logMiner.extend();
 					if (logMinerReady) {
-						rsReadLob = bindReadLobParameters(lastProcessedScn, xid, dataObjectId, srcConId);				
+						rsReadLob = bindReadLobParameters(lastProcessedScn, xid, dataObjectId, srcConUid);				
 						fetchRsLogMinerNext = true;
 						if (LOGGER.isDebugEnabled()) {
 							LOGGER.debug("Last processed SCN={}, RS_ID='{}'", lastProcessedScn, lastProcessedRsId);
@@ -176,16 +200,22 @@ public class OraCdcLargeObjectWorker {
 						// Get back...
 						rowsSkipped = 0;
 						while (fetchRsLogMinerNext) {
-							rsReadLob.next();
-							if (StringUtils.compare(rsReadLob.getString("RS_ID"), lastProcessedRsId) > 0) {
-								fetchRsLogMinerNext = false;
-								if (LOGGER.isDebugEnabled()) {
-									LOGGER.debug("Rows skipped - {}, will continue from SCN={}, RS_ID='{}'",
-											rowsSkipped, rsReadLob.getLong("SCN"), rsReadLob.getString("RS_ID"));
+							if (rsReadLob.next()) {
+								if (StringUtils.compare(rsReadLob.getString("RS_ID"), lastProcessedRsId) > 0) {
+									fetchRsLogMinerNext = false;
+									if (LOGGER.isDebugEnabled()) {
+										LOGGER.debug("Rows skipped - {}, will continue from SCN={}, RS_ID='{}'",
+												rowsSkipped, rsReadLob.getLong("SCN"), rsReadLob.getString("RS_ID"));
+									}
+									break;
+								} else {
+									rowsSkipped++;
 								}
-								break;
 							} else {
-								rowsSkipped++;
+								//TODO
+								//TODO just break here?
+								//TODO
+								break;
 							}
 						}
 						isRsLogMinerRowAvailable = true;
@@ -211,7 +241,9 @@ public class OraCdcLargeObjectWorker {
 		rsReadLob = null;
 
 		final byte[] ba;
-		if (oraColumn.getJdbcType() == Types.CLOB || oraColumn.getJdbcType() == Types.NCLOB) {
+		switch (oraColumn.getJdbcType()) {
+		case Types.CLOB:
+		case Types.NCLOB:
 			final String clobAsString = OraDumpDecoder.fromClobNclob(lobHexData.toString());
 			ba = Lz4Util.compress(clobAsString);
 			if (LOGGER.isDebugEnabled()) {
@@ -220,19 +252,25 @@ public class OraCdcLargeObjectWorker {
 						oraColumn.getColumnName(), xid, (System.currentTimeMillis() - processingStartMillis), clobAsString.length(), ba.length);
 			}
 			if (LOGGER.isTraceEnabled()) {
-				LOGGER.debug("{} column {} content:\n{}",
+				LOGGER.trace("{} column {} content:\n{}",
 						oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
 						oraColumn.getColumnName(), clobAsString);
 			}
-		} else {
-			// Types.BLOB
+			break;
+		case Types.BLOB:
 			ba = OraDumpDecoder.toByteArray(lobHexData.toString());
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("BLOB column {}, XID='{}' processing completed, processing time {} ms, data length={}",
 						oraColumn.getColumnName(), xid, (System.currentTimeMillis() - processingStartMillis), ba.length);
 			}
+			break;
+		default:
+			LOGGER.error("Type {} for column {} is not supported by {}",
+					oraColumn.getJdbcType(), oraColumn.getColumnName(), OraCdcLargeObjectWorker.class.getCanonicalName());
+			throw new SQLException("Unknown LOB type!!!");
 		}
-		return new OraCdcLargeObjectHolder(oraColumn.getLobObjectId(), ba);
+
+		return new OraCdcLargeObjectHolder(lobObjectId, ba);
 	}
 
 	protected boolean isLogMinerExtended() {
@@ -240,12 +278,12 @@ public class OraCdcLargeObjectWorker {
 	}
 
 	private ResultSet bindReadLobParameters(final long scn, final String xid,
-			final long dataObjectId, final NUMBER srcConId) throws SQLException {
+			final long dataObjectId, final NUMBER srcConUid) throws SQLException {
 		psReadLob.setLong(1, dataObjectId);
 		psReadLob.setString(2, xid);
 		psReadLob.setLong(3, scn);
 		if (isCdb) {
-			psReadLob.setNUMBER(4, srcConId);
+			psReadLob.setNUMBER(4, srcConUid);
 		}
 		return psReadLob.executeQuery();
 	}

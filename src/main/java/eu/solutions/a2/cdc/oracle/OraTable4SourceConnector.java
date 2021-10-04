@@ -24,6 +24,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.RowId;
 import java.sql.SQLException;
+import java.sql.SQLXML;
 import java.sql.Types;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import eu.solutions.a2.cdc.oracle.utils.Lz4Util;
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMPLTZ;
@@ -56,6 +58,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	protected Schema keySchema;
 	protected Schema valueSchema;
 	private boolean rowLevelScn;
+	private boolean withLobs = false;
 
 	protected OraTable4SourceConnector(String tableOwner, String tableName, int schemaType) {
 		super(tableOwner, tableName, schemaType);
@@ -71,7 +74,6 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	 * @param sourceOffset
 	 * @param pkColsSet
 	 * @param idToNameMap
-	 * @param lobColumns
 	 * @param snapshotLog           Snapshot log only!
 	 * @param mViewSelect           Snapshot log only!
 	 * @param masterSelect          Snapshot log only!
@@ -90,7 +92,6 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			final Map<String, Object> sourceOffset,
 			final Set<String> pkColsSet,
 			final Map<String, OraColumn> idToNameMap,
-			final Map<Integer, OraColumn> lobColumns,
 			final String snapshotLog,
 			final StringBuilder mViewSelect,
 			final StringBuilder masterSelect,
@@ -154,60 +155,74 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 		}
 
 		while (rsColumns.next()) {
-			final OraColumn column = new OraColumn(
+			
+			boolean columnAdded = false;
+			OraColumn column = null;
+			try {
+				column = new OraColumn(
 					mviewSource, useOracdcSchemas, processLobs,
 					rsColumns, keySchemaBuilder, valueSchemaBuilder, schemaType, pkColsSet);
-			boolean columnAdded = true;
-			if (mviewSource) {
-				allColumns.add(column);
-				if (masterFirstColumn) {
-					masterFirstColumn = false;
-				} else {
-					masterSelect.append(", ");
-				}
-				masterSelect.append("\"");
-				masterSelect.append(column.getColumnName());
-				masterSelect.append("\"");
-			} else {
-				// For archived redo more logic required
-				if (column.getJdbcType() == Types.BLOB ||
-						column.getJdbcType() == Types.CLOB ||
-						column.getJdbcType() == Types.NCLOB) {
-					if (processLobs) {
-						allColumns.add(column);
-						idToNameMap.put(column.getNameFromId(), column);
-						lobColumns.put(column.getLobObjectId(), column);
-					} else {
-						columnAdded = false;
-					}
-				} else {
-					allColumns.add(column);
-					idToNameMap.put(column.getNameFromId(), column);
-				}
-			}
-			if (columnAdded) {
-				LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);
+				columnAdded = true;
+			} catch (UnsupportedColumnDataTypeException ucdte) {
+				LOGGER.warn("Column {} not added to definition of table {}.{}",
+						ucdte.getColumnName(), this.tableOwner, this.tableName);
 			}
 
-			if (column.isPartOfPk()) {
-				pkColumns.put(column.getColumnName(), column);
+			if (columnAdded) {
 				if (mviewSource) {
-					if (mViewFirstColumn) {
-						mViewFirstColumn = false;
+					allColumns.add(column);
+					if (masterFirstColumn) {
+						masterFirstColumn = false;
 					} else {
-						mViewSelect.append(", ");
-						if (!logWithRowIds)
-							// We need this only when snapshot log don't contains M_ROW$$ 
-							masterWhere.append(" and ");
+						masterSelect.append(", ");
 					}
-					mViewSelect.append("\"");
-					mViewSelect.append(column.getColumnName());
-					mViewSelect.append("\"");
-					if (!logWithRowIds) {
-						// We need this only when snapshot log don't contains M_ROW$$ 
-						masterWhere.append("\"");
-						masterWhere.append(column.getColumnName());
-						masterWhere.append("\"=?");
+					masterSelect.append("\"");
+					masterSelect.append(column.getColumnName());
+					masterSelect.append("\"");
+				} else {
+					// For archived redo more logic required
+					if (column.getJdbcType() == Types.BLOB ||
+						column.getJdbcType() == Types.CLOB ||
+						column.getJdbcType() == Types.NCLOB ||
+						column.getJdbcType() == Types.SQLXML) {
+						if (processLobs) {
+							if (!withLobs) {
+								withLobs = true;
+							}
+							allColumns.add(column);
+							idToNameMap.put(column.getNameFromId(), column);
+						} else {
+							columnAdded = false;
+						}
+					} else {
+						allColumns.add(column);
+						idToNameMap.put(column.getNameFromId(), column);
+					}
+				}
+				if (columnAdded) {
+					LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);
+				}
+
+				if (column.isPartOfPk()) {
+					pkColumns.put(column.getColumnName(), column);
+					if (mviewSource) {
+						if (mViewFirstColumn) {
+							mViewFirstColumn = false;
+						} else {
+							mViewSelect.append(", ");
+							if (!logWithRowIds)
+							// We need this only when snapshot log don't contains M_ROW$$ 
+								masterWhere.append(" and ");
+						}
+						mViewSelect.append("\"");
+						mViewSelect.append(column.getColumnName());
+						mViewSelect.append("\"");
+						if (!logWithRowIds) {
+							// We need this only when snapshot log don't contains M_ROW$$ 
+							masterWhere.append("\"");
+							masterWhere.append(column.getColumnName());
+							masterWhere.append("\"=?");
+						}
 					}
 				}
 			}
@@ -273,6 +288,11 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	public void setRowLevelScn(boolean rowLevelScn) {
 		this.rowLevelScn = rowLevelScn;
 	}
+
+	public boolean isWithLobs() {
+		return withLobs;
+	}
+
 
 	protected void processAllColumns(
 			OracleResultSet rsMaster, final Struct keyStruct, final Struct valueStruct) throws SQLException {
@@ -378,17 +398,37 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 					if (rsMaster.wasNull() || clobColumnValue.length() < 1) {
 						columnValue = null;
 					} else {
-					try (Reader reader = clobColumnValue.getCharacterStream()) {
-						final char[] data = new char[8192];
-						final StringBuilder sbClob = new StringBuilder(8192);
-						int charsRead;
-						while ((charsRead = reader.read(data, 0, data.length)) != -1) {
-							sbClob.append(data, 0, charsRead);
-						}
-						columnValue = sbClob.toString();
+						try (Reader reader = clobColumnValue.getCharacterStream()) {
+							final char[] data = new char[8192];
+							final StringBuilder sbClob = new StringBuilder(8192);
+							int charsRead;
+							while ((charsRead = reader.read(data, 0, data.length)) != -1) {
+								sbClob.append(data, 0, charsRead);
+							}
+							columnValue = Lz4Util.compress(sbClob.toString());
 						} catch (IOException ioe) {
 							LOGGER.error("IO Error while processing {} column {}.{}({})", 
 									oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+									tableOwner, tableName, columnName);
+							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+						}
+					}
+					break;
+				case Types.SQLXML:
+					final SQLXML xmlColumnValue = rsMaster.getSQLXML(columnName);
+					if (rsMaster.wasNull()) {
+						columnValue = null;
+					} else {
+						try (Reader reader = xmlColumnValue.getCharacterStream()) {
+							final char[] data = new char[8192];
+							final StringBuilder sbSqlXml = new StringBuilder(8192);
+							int charsRead;
+							while ((charsRead = reader.read(data, 0, data.length)) != -1) {
+								sbSqlXml.append(data, 0, charsRead);
+							}
+							columnValue = Lz4Util.compress(sbSqlXml.toString());
+						} catch (IOException ioe) {
+							LOGGER.error("IO Error while processing XML column {}.{}({})", 
 									tableOwner, tableName, columnName);
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}
