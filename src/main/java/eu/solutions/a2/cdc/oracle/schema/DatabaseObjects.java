@@ -52,7 +52,8 @@ public class DatabaseObjects implements ActionListener {
 		cbTables.addActionListener(this);
 		if (rdbmsInfo.isCdb()) {
 			if (rdbmsInfo.isCdbRoot()) {
-				PreparedStatement statement = connection.prepareStatement("select PDB_NAME from CDB_PDBS",
+				PreparedStatement statement = connection.prepareStatement(
+						"select PDB_NAME from CDB_PDBS where PDB_NAME != 'PDB$SEED'",
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 				ResultSet rs = statement.executeQuery();
 				cbPdbs = new JComboBox<>();
