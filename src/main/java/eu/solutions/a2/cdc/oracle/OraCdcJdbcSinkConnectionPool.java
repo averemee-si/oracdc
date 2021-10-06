@@ -29,6 +29,7 @@ public class OraCdcJdbcSinkConnectionPool {
 	public static final int DB_TYPE_MYSQL = 1;
 	public static final int DB_TYPE_POSTGRESQL = 2;
 	public static final int DB_TYPE_ORACLE = 3;
+	public static final int DB_TYPE_MSSQL = 4;
 
 	private HikariDataSource dataSource;
 	private int dbType = DB_TYPE_MYSQL;
@@ -83,8 +84,9 @@ public class OraCdcJdbcSinkConnectionPool {
 			dbType = DB_TYPE_POSTGRESQL;
 		} else if ("Oracle".equalsIgnoreCase(databaseProductName)) {
 			dbType = DB_TYPE_ORACLE;
+		} else if (databaseProductName.startsWith("Microsoft")) {
+			dbType = DB_TYPE_MSSQL;
 		} else {
-			//TODO "Microsoft SQL Server"
 			//TODO - more?
 		}
 	}
