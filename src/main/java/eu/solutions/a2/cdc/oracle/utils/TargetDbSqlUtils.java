@@ -425,7 +425,12 @@ public class TargetDbSqlUtils {
 				sbInsSql.append(")");
 				sbInsSql.append("\nvalues(");
 				sbInsSql.append(sbOraValuesList);
-				sbInsSql.append(")");
+				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+					sbInsSql.append(")");
+				} else {
+					// dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL
+					sbInsSql.append(");");
+				}
 			} else {
 				sbInsSql.append("insert into ");
 				sbInsSql.append(tableName);
