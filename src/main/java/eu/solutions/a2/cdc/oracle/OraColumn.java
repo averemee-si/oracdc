@@ -476,6 +476,9 @@ public class OraColumn {
 		case Types.BLOB:
 			valueSchema.field(this.columnName, OraBlob.schema());
 			break;
+		case Types.SQLXML:
+			valueSchema.field(this.columnName, OraXmlBinary.schema());
+			break;
 		default:
 			throw new SQLException("Unsupported JDBC type " +
 					jdbcType + " for column " +
