@@ -57,6 +57,7 @@ public class TargetDbSqlUtils {
 				put(Types.BLOB, "longblob");
 				put(Types.CLOB, "longtext");
 				put(Types.NCLOB, "longtext");
+				put(Types.SQLXML, "longtext");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> POSTGRESQL_MAPPING =
@@ -78,6 +79,7 @@ public class TargetDbSqlUtils {
 				put(Types.BLOB, "lo");
 				put(Types.CLOB, "text");
 				put(Types.NCLOB, "text");
+				put(Types.SQLXML, "text");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> ORACLE_MAPPING =
@@ -99,6 +101,29 @@ public class TargetDbSqlUtils {
 				put(Types.BLOB, "BLOB");
 				put(Types.CLOB, "CLOB");
 				put(Types.NCLOB, "NCLOB");
+				put(Types.SQLXML, "XMLTYPE");
+			}});
+	@SuppressWarnings("serial")
+	private static final Map<Integer, String> MSSQL_MAPPING =
+			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
+				put(Types.BOOLEAN, "bit");
+				put(Types.TINYINT, "tinyint");
+				put(Types.SMALLINT, "smallint");
+				put(Types.INTEGER, "int");
+				put(Types.BIGINT, "bigint");
+				put(Types.FLOAT, "real");
+				put(Types.DOUBLE, "float");
+				put(Types.DECIMAL, "decimal");
+				put(Types.NUMERIC, "numeric");
+				put(Types.DATE, "date");
+				put(Types.TIMESTAMP, "datetime2");
+				put(Types.TIMESTAMP_WITH_TIMEZONE, "datetimeoffset");
+				put(Types.VARCHAR, "nvarchar(4000)");
+				put(Types.BINARY, "varbinary(8000)");
+				put(Types.BLOB, "varbinary(max)");
+				put(Types.CLOB, "nvarchar(max)");
+				put(Types.NCLOB, "nvarchar(max)");
+				put(Types.SQLXML, "xml");
 			}});
 
 	/**
@@ -122,11 +147,17 @@ public class TargetDbSqlUtils {
 		final StringBuilder sbPrimaryKey = new StringBuilder(64);
 
 		final Map<Integer, String> dataTypesMap;
-		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+		switch (dbType) {
+		case OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL:
 			dataTypesMap = POSTGRESQL_MAPPING;
-		} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+			break;
+		case OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE:
 			dataTypesMap = ORACLE_MAPPING;
-		} else {
+			break;
+		case OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL:
+			dataTypesMap = MSSQL_MAPPING;
+			break;
+		default:
 			//TODO - more types required
 			dataTypesMap = MYSQL_MAPPING;
 		}
@@ -208,7 +239,8 @@ public class TargetDbSqlUtils {
 			sb.append(dataTypesMap.get(column.getJdbcType()));
 		else {
 			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL || 
-					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||
+					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
 				sb.append(dataTypesMap.get(column.getJdbcType()));
 			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL) {
 				sb.append(dataTypesMap.get(column.getJdbcType()));
@@ -235,7 +267,8 @@ public class TargetDbSqlUtils {
 		final StringBuilder sbOraMergeOnList  = new StringBuilder(64);
 		final StringBuilder sbOraInsertList  = new StringBuilder(256);
 		final StringBuilder sbOraValuesList  = new StringBuilder(256);
-		if (dbType != OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL ||
+				dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL) {
 			sbInsSql.append("insert into ");
 			sbInsSql.append(tableName);
 			sbInsSql.append("(");
@@ -246,7 +279,8 @@ public class TargetDbSqlUtils {
 				sbUpsert.append(" on conflict(");
 			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL) {
 				sbUpsert.append(" on duplicate key update ");
-			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||
+					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
 				sbInsSql.append("merge into ");
 				sbInsSql.append(tableName);
 				sbInsSql.append(" D using\n(select ");
@@ -263,7 +297,8 @@ public class TargetDbSqlUtils {
 			sbDelUpdWhere.append(columnName);
 			sbDelUpdWhere.append("=?");
 
-			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||
+					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
 				if (!onlyPkColumns) {
 					sbInsSql.append("? ");
 				}
@@ -280,14 +315,19 @@ public class TargetDbSqlUtils {
 					sbOraValuesList.append("?");
 				}
 			}
-			if (!onlyPkColumns || dbType != OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+			if (!onlyPkColumns || 
+					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||
+					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
 				sbInsSql.append(columnName);
 			}
 			if (pkColumnNo < pkColCount - 1) {
-				if (!onlyPkColumns || dbType != OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+				if (!onlyPkColumns || 
+						dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||
+						dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
 					sbInsSql.append(",");
 				}
-				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||
+						dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
 					sbOraMergeOnList.append(" and ");
 					sbOraInsertList.append(",");
 					sbOraValuesList.append(",");
@@ -307,7 +347,8 @@ public class TargetDbSqlUtils {
 			if (!onlyPkColumns) {
 				sbUpsert.append(") do update set ");
 			}
-		} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+		} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE || 
+				dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
 			if (!onlyPkColumns) {
 				sbOraInsertList.append(",");
 				sbOraValuesList.append(",");
@@ -321,7 +362,8 @@ public class TargetDbSqlUtils {
 		final int nonPkColumnCount = allColumns.size();
 		for (int i = 0; i < nonPkColumnCount; i++) {
 			sbInsSql.append(",");
-			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||
+					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
 				sbInsSql.append("? ");
 			}
 			sbInsSql.append(allColumns.get(i).getColumnName());
@@ -347,7 +389,8 @@ public class TargetDbSqlUtils {
 				if (i < nonPkColumnCount - 1) {
 					sbUpsert.append(",");
 				}
-			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||
+					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
 				sbUpsert.append("D.");
 				sbUpsert.append(allColumns.get(i).getColumnName());
 				sbUpsert.append("=");
@@ -364,9 +407,15 @@ public class TargetDbSqlUtils {
 			}
 		}
 
-		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
-			if (!onlyPkColumns) { 
-				sbInsSql.append(" from DUAL) ORACDC\non (");
+		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||
+				dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL) {
+			if (!onlyPkColumns) {
+				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+					sbInsSql.append(" from DUAL) ORACDC\non (");
+				} else {
+					// dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL
+					sbInsSql.append(" ) ORACDC\non (");
+				}
 				sbInsSql.append(sbOraMergeOnList);
 				sbInsSql.append(")");
 				sbInsSql.append("\nwhen matched then update\nset ");

@@ -26,6 +26,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.junit.Test;
 
 import eu.solutions.a2.cdc.oracle.data.OraBlob;
+import eu.solutions.a2.cdc.oracle.data.OraXmlBinary;
 import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 public class OraCdcSinkCreateTableTest {
@@ -45,9 +46,11 @@ public class OraCdcSinkCreateTableTest {
 
 		final Field deptCodePdf = new Field("DEPT_CODE_PDF", 2, OraBlob.builder().build());
 		final Field deptCodeDocx = new Field("DEPT_CODE_DOCX", 2, OraBlob.builder().build());
+		final Field deptCodeXml = new Field("DEPT_CODE_XML", 2, OraXmlBinary.builder().build());
 		final List<Field> lobFields = new ArrayList<>();
 		lobFields.add(deptCodePdf);
 		lobFields.add(deptCodeDocx);
+		lobFields.add(deptCodeXml);
 
 		final List<OraColumn> allColumns = new ArrayList<>();
 		final Map<String, OraColumn> pkColumns = new HashMap<>();
@@ -90,6 +93,9 @@ public class OraCdcSinkCreateTableTest {
 		List<String> createScottDeptMySql = TargetDbSqlUtils.createTableSql(
 				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL,
 				pkColumns, allColumns, lobColumns);
+		List<String> createScottDeptMsSql = TargetDbSqlUtils.createTableSql(
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL,
+				pkColumns, allColumns, lobColumns);
 
 		System.out.println(createScottDeptOra.get(0));
 		System.out.println(createScottDeptPg.get(0));
@@ -99,10 +105,12 @@ public class OraCdcSinkCreateTableTest {
 			}
 		}
 		System.out.println(createScottDeptMySql.get(0));
+		System.out.println(createScottDeptMsSql.get(0));
 
 		assertTrue(createScottDeptOra.get(0).contains("DEPTNO NUMBER(3)"));
 		assertTrue(createScottDeptPg.get(0).contains("DEPTNO smallint"));
 		assertTrue(createScottDeptMySql.get(0).contains("DEPTNO tinyint"));
+		assertTrue(createScottDeptMsSql.get(0).contains("varbinary(max)"));
 
 	}
 

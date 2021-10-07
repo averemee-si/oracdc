@@ -26,6 +26,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.junit.Test;
 
 import eu.solutions.a2.cdc.oracle.data.OraBlob;
+import eu.solutions.a2.cdc.oracle.data.OraXmlBinary;
 import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 public class OraCdcSinkSqlInsertTest {
@@ -47,9 +48,11 @@ public class OraCdcSinkSqlInsertTest {
 
 		final Field deptCodePdf = new Field("DEPT_CODE_PDF", 2, OraBlob.builder().build());
 		final Field deptCodeDocx = new Field("DEPT_CODE_DOCX", 2, OraBlob.builder().build());
+		final Field deptCodeXml = new Field("DEPT_CODE_XML", 2, OraXmlBinary.builder().build());
 		final List<Field> lobFields = new ArrayList<>();
 		lobFields.add(deptCodePdf);
 		lobFields.add(deptCodeDocx);
+		lobFields.add(deptCodeXml);
 
 		final List<OraColumn> allColumns = new ArrayList<>();
 		final Map<String, OraColumn> pkColumns = new HashMap<>();
@@ -89,18 +92,23 @@ public class OraCdcSinkSqlInsertTest {
 				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMySql = TargetDbSqlUtils.generateSinkSql(
 				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
+		final Map<String, String> sqlTextsMsSql = TargetDbSqlUtils.generateSinkSql(
+				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns);
 
 		final String sinkUpsertSqlOra = sqlTextsOra.get(TargetDbSqlUtils.UPSERT);
 		final String sinkUpsertSqlPg = sqlTextsPg.get(TargetDbSqlUtils.UPSERT);
 		final String sinkUpsertSqlMySql = sqlTextsMySql.get(TargetDbSqlUtils.UPSERT);
+		final String sinkUpsertSqlMsSql = sqlTextsMsSql.get(TargetDbSqlUtils.UPSERT);
 
 		System.out.println(sinkUpsertSqlOra);
 		System.out.println(sinkUpsertSqlPg);
 		System.out.println(sinkUpsertSqlMySql);
+		System.out.println(sinkUpsertSqlMsSql);
 
 		assertTrue(sinkUpsertSqlOra.contains("when matched then update"));
 		assertTrue(sinkUpsertSqlPg.contains("on conflict"));
 		assertTrue(sinkUpsertSqlMySql.contains("on duplicate key update"));
+		assertTrue(sinkUpsertSqlMsSql.contains("when not matched then"));
 
 	}
 
