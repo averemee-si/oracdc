@@ -634,7 +634,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					break;
 				case Types.SQLXML:
 					// We not expect SYS.XMLTYPE data here!!!
-					columnValue = new byte[0];
+					// Set it to 'Not touch at Sink!!!'
+					columnValue = null;
 					break;
 				default:
 					columnValue = oraColumn.unsupportedTypeValue();
