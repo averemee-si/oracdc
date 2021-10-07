@@ -123,7 +123,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				final OraColumn column = new OraColumn(field, false);
 				if (column.getJdbcType() == Types.BLOB ||
 						column.getJdbcType() == Types.CLOB ||
-						column.getJdbcType() == Types.NCLOB) {
+						column.getJdbcType() == Types.NCLOB ||
+						column.getJdbcType() == Types.SQLXML) {
 					lobColumns.put(column.getColumnName(), column);
 				} else {
 					allColumns.add(column);

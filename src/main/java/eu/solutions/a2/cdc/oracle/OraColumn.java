@@ -363,6 +363,9 @@ public class OraColumn {
 				case OraNClob.LOGICAL_NAME:
 					jdbcType = Types.NCLOB;
 					break;
+				case OraXmlBinary.LOGICAL_NAME:
+					jdbcType = Types.SQLXML;
+					break;
 				default:
 					LOGGER.error("Unknown logical name {} for BYTES Schema.", field.schema().name());
 					LOGGER.error("Setting column {} JDBC type to binary.", field.name());
