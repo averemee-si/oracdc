@@ -104,7 +104,7 @@ where  C.OWNER=LC.OWNER (+) and C.TABLE_NAME=LC.TABLE_NAME (+) and C.COLUMN_NAME
   and  C.OWNER='SCOTT' and C.TABLE_NAME='EMP'
   and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB')
        or C.DATA_TYPE like 'TIMESTAMP%' 
-       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER='SYS'))
+       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))
 order by C.COLUMN_ID;
 	 */
 	public static final String COLUMN_LIST_PLAIN =
@@ -122,7 +122,7 @@ order by C.COLUMN_ID;
 			"  and  C.OWNER=? and C.TABLE_NAME=?\n" +
 			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB')\n" +
 			"       or C.DATA_TYPE like 'TIMESTAMP%' \n" +
-			"       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER='SYS'))\n" +
+			"       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))\n" +
 			"order by C.COLUMN_ID\n";
 	/*
 	 *  Just for history...
