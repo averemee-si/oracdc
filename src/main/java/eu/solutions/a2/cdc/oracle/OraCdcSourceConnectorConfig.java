@@ -140,6 +140,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_HOST_DOC)
 				.define(ParamConstants.DISTRIBUTED_TARGET_PORT, Type.INT, ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT,
 						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_PORT_DOC)
+				.define(ParamConstants.LOB_TRANSFORM_CLASS_PARAM, Type.STRING, ParamConstants.LOB_TRANSFORM_CLASS_DEFAULT,
+						Importance.LOW, ParamConstants.LOB_TRANSFORM_CLASS_DOC)
 				;
 	}
 

@@ -157,4 +157,8 @@ public class ParamConstants {
 	public static final String DISTRIBUTED_TARGET_PORT_DOC = "port number on which shipping agent listens for requests";
 	public static final int DISTRIBUTED_TARGET_PORT_DEFAULT = 21521;
 
+	public static final String LOB_TRANSFORM_CLASS_PARAM = "a2.lob.transformation.class";
+	public static final String LOB_TRANSFORM_CLASS_DOC = "name of class which implements eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf interface. Default - eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation";
+	public static final String LOB_TRANSFORM_CLASS_DEFAULT = "eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl";
+
 }

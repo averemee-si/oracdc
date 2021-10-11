@@ -60,6 +60,8 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.process.lobs` - process Oracle BLOB, CLOB, NCLOB, and [XMLType](https://docs.oracle.com/en/database/oracle/oracle-database/21/adxdb/intro-to-XML-DB.html#GUID-02592188-AC38-4D00-A2FD-9E53604065C8) columns. Default - _false_
 
+`a2.lob.transformation.class` - name of class which implements _eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf_ interface. Default - _eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl_ which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation
+
 `a2.connection.backoff` - Backoff time in milliseconds between reconnectoion attempts. Default - _30000ms_
 
 `a2.archived.log.catalog` - name of class which implements _eu.solutions.a2.cdc.oracle.OraLogMiner_ interface. Default - _eu.solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl_ which reads archived log information and information about next available archived redo log from [V$ARCHIVED_LOG](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-ARCHIVED_LOG.html) fixed view
