@@ -172,6 +172,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						}
 					}
 				}
+				valueSchema = valueSchemaBuilder.build();
 			}
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");

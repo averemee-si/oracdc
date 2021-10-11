@@ -59,6 +59,8 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	protected Schema valueSchema;
 	private boolean rowLevelScn;
 	private boolean withLobs = false;
+	// Declare here for access in OraTable4LogMiner (required for LOB transformations)
+	SchemaBuilder valueSchemaBuilder;
 
 	protected OraTable4SourceConnector(String tableOwner, String tableName, int schemaType) {
 		super(tableOwner, tableName, schemaType);
@@ -136,7 +138,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 					.required()
 					.name(tableFqn + ".Key")
 					.version(version);
-		final SchemaBuilder valueSchemaBuilder = SchemaBuilder
+		valueSchemaBuilder = SchemaBuilder
 					.struct()
 					.optional()
 					.name(tableFqn + ".Value")
@@ -266,8 +268,11 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 
 	protected void schemaEiplogue(final String tableFqn,
 			final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) throws SQLException {
-		keySchema = keySchemaBuilder.build(); 
-		valueSchema = valueSchemaBuilder.build(); 
+		keySchema = keySchemaBuilder.build();
+		if (!withLobs) {
+			// For tables with LOBs build schema in OraTable4LogMiner
+			valueSchema = valueSchemaBuilder.build();
+		}
 		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 			final SchemaBuilder schemaBuilder = SchemaBuilder
 					.struct()
