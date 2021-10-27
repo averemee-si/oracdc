@@ -13,6 +13,9 @@
 
 package eu.solutions.a2.cdc.oracle.data;
 
+import java.sql.Types;
+
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 
@@ -28,11 +31,30 @@ import eu.solutions.a2.cdc.oracle.OraColumn;
  */
 public interface OraCdcLobTransformationsIntf {
 
-	public void transformSchema(final String pdbName, final String tableOwner,
-			final String tableName, final OraColumn lobColumn, final SchemaBuilder valueSchema);
+	public default Schema transformSchema(final String pdbName, final String tableOwner,
+			final String tableName, final OraColumn lobColumn, final SchemaBuilder valueSchema) {
+		// Default:
+		// pass columns AS IS to valueSchema
+		final String columnName = lobColumn.getColumnName(); 
+		switch (lobColumn.getJdbcType()) {
+		case Types.BLOB:
+			valueSchema.field(columnName, OraBlob.builder().build());
+			break;
+		case Types.SQLXML:
+			valueSchema.field(columnName, OraXmlBinary.builder().build());
+			break;
+		case Types.CLOB:
+			valueSchema.field(columnName, OraClob.builder().build());
+			break;
+		case Types.NCLOB:
+			valueSchema.field(columnName, OraNClob.builder().build());
+			break;
+		}
+		return null;
+	}
 
-	public void transformData(final String pdbName, final String tableOwner,
+	public Struct transformData(final String pdbName, final String tableOwner,
 			final String tableName, final OraColumn lobColumn, final byte[] content,
-			final Struct keyStruct, final Struct valueStruct);
+			final Struct keyStruct, final Schema valueSchema);
 
 }
