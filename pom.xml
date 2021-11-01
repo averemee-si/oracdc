@@ -16,7 +16,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.solutions.a2.oracle.cdc</groupId>
 	<artifactId>oracdc-kafka</artifactId>
-	<version>0.9.8.2</version>
+	<version>0.9.8.3</version>
 	<packaging>jar</packaging>
 
 	<name>oracdc-kafka</name>

@@ -23,6 +23,121 @@ For processing LOB's and SYS.XMLTYPE please do not forget to set Apache Kafka pa
 2. For broker: _replica.fetch.max.bytes_ and _message.max.bytes_
 By default CLOB, NCLOB, and SYS.XMLTYPE data are compressed using [LZ4](https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)) compression algorithm.
 
+#### Large objects (BLOB/CLOB/NCLOB/XMLTYPE) transformation feature (oracdc 0.9.8.3+)
+Apache Kafka is not isn't meant to handle large messages with size over 1MB. But Oracle RDBMS often is used as storage for unstructured information too. For breaking this barrier we designed LOB transformation feature.
+Imagine that you have a table with following structure
+
+```
+descibe APPLSYS.FND_LOBS
+Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------
+ FILE_ID                                   NOT NULL NUMBER
+ FILE_NAME                                          VARCHAR2(256)
+ FILE_CONTENT_TYPE                         NOT NULL VARCHAR2(256)
+ FILE_DATA                                          BLOB
+ UPLOAD_DATE                                        DATE
+ EXPIRATION_DATE                                    DATE
+ PROGRAM_NAME                                       VARCHAR2(32)
+ PROGRAM_TAG                                        VARCHAR2(32)
+ LANGUAGE                                           VARCHAR2(4)
+ ORACLE_CHARSET                                     VARCHAR2(30)
+ FILE_FORMAT                               NOT NULL VARCHAR2(10)
+```
+and you need the data in this table including BLOB column `FILE_DATA` in the reporting subsystem, which is implemented in different database management system with limited large object support like [Snowflake](https://docs.snowflake.com/en/sql-reference/data-types-unsupported.html) and you have very strict constraints for traffic through Apache Kafka brokers. The best way to solve the problem is in [Reddite quae sunt Caesaris Caesari et quae sunt Dei Deo](https://en.wikipedia.org/wiki/Render_unto_Caesar) where RDBMS will perform all data manipulation and [object storage](https://en.wikipedia.org/wiki/Object_storage) will be used for storing large objects instead of storing it in  BLOB column `FILE_DATA`. To achieve this:
+1. Create transformation implementation class
+
+```
+package com.example.oracdc;
+
+import eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
+// more imports required
+
+public class TransformScannedDataInBlobs implements OraCdcLobTransformationsIntf {
+
+	@Override
+	public Schema transformSchema(String pdbName, String tableOwner, String tableName, OraColumn lobColumn,
+			SchemaBuilder valueSchema) {
+		if ("FND_LOBS".equals(tableName) &&
+				"FILE_DATA".equals(lobColumn.getColumnName())) {
+			final SchemaBuilder transformedSchemaBuilder = SchemaBuilder
+					.struct()
+					.optional()
+					.name(lobColumn.getColumnName())
+					.version(1);
+			transformedSchemaBuilder.field("S3_URL", Schema.OPTIONAL_STRING_SCHEMA);
+			valueSchema.field(lobColumn.getColumnName(), transformedSchemaBuilder.build());
+			return transformedSchemaBuilder.build();
+		} else {
+			return OraCdcLobTransformationsIntf.super.transformSchema(
+					pdbName, tableOwner, tableName, lobColumn,valueSchema);
+		}
+	}
+
+	@Override
+	public Struct transformData(String pdbName, String tableOwner, String tableName, OraColumn lobColumn, byte[] content, Struct keyStruct, Schema valueSchema) {
+		if ("FND_LOBS".equals(tableName) &&
+				"FILE_DATA".equals(lobColumn.getColumnName())) {
+				final Struct valueStruct = new Struct(valueSchema);
+				// ...
+				final String s3ObjectKey = <SOME_INIQUE_S3_OBJECT_KEY_USING_KEY_STRUCT>
+				// ...
+				final S3Client s3Client = S3Client
+										.builder()
+										.region(<VALID_AWS_REGION>)
+										.build();
+				final PutObjectRequest por = PutObjectRequest
+										.builder()
+										.bucket(<VALID_S3_BACKET>)
+										.key(s3ObjectKey)
+										.build();
+				s3Client.putObject(por, RequestBody.fromBytes(content));
+				// ...
+				
+				valueStruct.put("S3_URL", s3ObjectKey);
+				return valueStruct;
+		}
+		return null;
+	}
+}
+
+```
+2. Set required ***oracdc*** parameters
+
+```
+a2.process.lobs=true
+a2.lob.transformation.class=com.example.oracdc.TransformScannedDataInBlobs
+
+```
+
+
+#### JSON Datatype support for Oracle RDBMS 21c +
+Unfortunately, for operations on the JSON data type, the result is returned as (below is results for transaction which includes JSON datatype)
+
+```
+select SQL_REDO from V$LOGMNR_CONTENTS where XID='01000E0078020000';
+
+SQL_REDO
+--------------------------------------------------------------------------------
+set transaction read write
+Unsupported
+Unsupported
+Unsupported
+Unsupported
+commit
+
+6 rows selected.
+
+```
+Wherein
+
+```
+alter system dump logfile '/path-to-archived-log-file' scn min XXXXXXXXX scn max YYYYYYYYY;
+```
+shows correct values in redo block.
+Unfortunately, JSON data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html#GUID-BA995486-041E-4C83-83EA-D7BC2A866DE3), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
+We are watching the status of this issue.
+
+
 ### DDL Support and schema evolution
 [Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) is currently not supported. Its support is planned for version 0.9.8 (DEC-2020 - JAN-2021) along with support for the [Schema Evolution](https://docs.confluent.io/current/schema-registry/avro.html#schema-evolution) at Apache Kafka side.
 
@@ -450,6 +565,10 @@ RDBMS 21c compatibility
 #####0.9.8.2 (OCT-2021)
 
 SYS.XMLTYPE support and fixes for partitioned tables with BLOB/CLOB/NCLOB columns
+
+#####0.9.8.3 (NOV-2021)
+
+Large objects (BLOB/CLOB/NCLOB/XMLTYPE) transformation in source connector
 
 ## Authors
 
