@@ -36,6 +36,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
@@ -87,6 +88,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final AtomicBoolean running;
 	private boolean isCdb;
 	private final boolean processLobs;
+	private final OraCdcLobTransformationsIntf transformLobs;
 	private final int topicNameStyle;
 	private final String topicNameDelimiter;
 	private OraCdcLargeObjectWorker lobWorker;
@@ -113,7 +115,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcLogMinerMgmt metrics,
 			final int topicNameStyle,
-			final Map<String, String> props) throws SQLException {
+			final Map<String, String> props,
+			final OraCdcLobTransformationsIntf transformLobs) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -133,6 +136,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.metrics = metrics;
 		this.topicNameStyle = topicNameStyle;
 		this.processLobs = Boolean.parseBoolean(props.get(ParamConstants.PROCESS_LOBS_PARAM));
+		this.transformLobs = transformLobs;
 		this.pollInterval = Integer.parseInt(props.get(ParamConstants.POLL_INTERVAL_MS_PARAM));
 		this.useOracdcSchemas = Boolean.parseBoolean(props.get(ParamConstants.ORACDC_SCHEMAS_PARAM));
 		this.topicNameDelimiter = props.get(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
@@ -344,6 +348,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						case OraCdcV$LogmnrContents.INSERT:
 						case OraCdcV$LogmnrContents.DELETE:
 						case OraCdcV$LogmnrContents.UPDATE:
+						case OraCdcV$LogmnrContents.XML_DOC_BEGIN:
 							// Read as long to speed up shift
 							final long dataObjectId = rsLogMiner.getLong("DATA_OBJ#");
 							long combinedDataObjectId;
@@ -426,8 +431,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												isCdb ? (short) conId : null,
 												tableOwner, tableName,
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-												schemaType, useOracdcSchemas, processLobs,
-												isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter);
+												schemaType, useOracdcSchemas,
+												processLobs, transformLobs, isCdb,
+												odd, partition, topic, topicNameStyle, topicNameDelimiter);
 											if (isPartition) {
 												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
 												metrics.addPartitionInProcessing();
@@ -478,7 +484,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 								// Catch the LOBs!!!
 								List<OraCdcLargeObjectHolder> lobs = 
-										catchTheLob(operation, xid, dataObjectId, oraTable);
+										catchTheLob(operation, xid, dataObjectId, oraTable, sqlRedo);
 
 								if (transaction == null) {
 									if (LOGGER.isDebugEnabled()) {
@@ -645,11 +651,13 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private List<OraCdcLargeObjectHolder> catchTheLob(
 			final short operation, final String xid,
-			final long dataObjectId, final OraTable4LogMiner oraTable) throws SQLException {
+			final long dataObjectId, final OraTable4LogMiner oraTable,
+			final String redoData) throws SQLException {
 		List<OraCdcLargeObjectHolder> lobs = null;
 		if (processLobs && oraTable.isWithLobs() &&
 				(operation == OraCdcV$LogmnrContents.INSERT ||
-				operation == OraCdcV$LogmnrContents.UPDATE)) {
+				operation == OraCdcV$LogmnrContents.UPDATE ||
+				operation == OraCdcV$LogmnrContents.XML_DOC_BEGIN)) {
 			final String tableOperationRsId = rsLogMiner.getString("RS_ID");
 			String lobStartRsId = tableOperationRsId; 
 			boolean searchLobObjects = true;
@@ -682,42 +690,94 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						fetchRsLogMinerNext = false;
 						searchLobObjects = false;
 					} else if (catchLobOperation == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
-						//TODO
-						//TODO What if XML DOC WRITE is in more than one redo log?
-						//TODO
+						// Previous operation was OraCdcV$LogmnrContents.INSERT
 						// Current position is "XML DOC BEGIN" - need to read column id from SQL_REDO
 						// String is:
 						// XML DOC BEGIN:  select "COL 2" from "UNKNOWN"."OBJ# 28029"...
-						final String xmlColumnId = "\"" +
-								StringUtils.substringBetween(rsLogMiner.getString("SQL_REDO"), "\"") +
-								"\"";
+						boolean multiLineSql = rsLogMiner.getBoolean("CSF");
+						final StringBuilder xmlHexColumnId = new StringBuilder(16000);
+						xmlHexColumnId.append(rsLogMiner.getString("SQL_REDO"));
+						while (multiLineSql) {
+							rsLogMiner.next();
+							xmlHexColumnId.append(rsLogMiner.getString("SQL_REDO"));
+							multiLineSql = rsLogMiner.getBoolean("CSF");
+						}
+						final String xmlColumnId = getLobColumnId(xmlHexColumnId.toString());
 						// Next row(s) are:
 						// XML_REDO := HEXTORAW('.............
-						boolean multiLineSql = true;
-						final StringBuilder xmlHexData = new StringBuilder(65000);
-						while (multiLineSql) {
-							isRsLogMinerRowAvailable = rsLogMiner.next();
-							if (rsLogMiner.getShort("OPERATION_CODE") != OraCdcV$LogmnrContents.XML_DOC_WRITE) {
-								LOGGER.error("Unexpected operation with code {} at SCN {} RBA '{}'",
-										rsLogMiner.getShort("OPERATION_CODE"), rsLogMiner.getLong("SCN"), rsLogMiner.getString("RS_ID"));
-								throw new SQLException("Unexpected operation!!!");
-							}
-							multiLineSql = rsLogMiner.getBoolean("CSF");
-							xmlHexData.append(rsLogMiner.getString("SQL_REDO"));
-						}
-						fetchRsLogMinerNext = true;
-						final String xmlAsString = new String(
-								OraDumpDecoder.toByteArray(
-										StringUtils.substringBetween(xmlHexData.toString(), "HEXTORAW('", ")'")));
-						if (LOGGER.isTraceEnabled()) {
-							LOGGER.trace("{} column {} content:\n{}",
-									xmlColumnId, xmlAsString);
-						}
+						//TODO
+						//TODO What if XML DOC WRITE is in more than one redo log?
+						//TODO
+						final String xmlAsString = readXmlWriteRedoData(xmlColumnId);
 						if (lobs == null) {
 							lobs = new ArrayList<>();
 						}
 						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, Lz4Util.compress(xmlAsString)));
-						continue;
+						//TODO
+						//TODO BEGIN: Workaround for operation duplication when LogMiner runs
+						//TODO BEGIN: without dictionary 
+						//TODO
+						isRsLogMinerRowAvailable = rsLogMiner.next();
+						if (isRsLogMinerRowAvailable) {
+							if (dataObjectId == rsLogMiner.getLong("DATA_OBJ#") &&
+									OraCdcV$LogmnrContents.UPDATE == rsLogMiner.getShort("OPERATION_CODE") &&
+									StringUtils.contains(rsLogMiner.getString("SQL_REDO"), "HEXTORAW('0070") &&
+									StringUtils.equals(rsLogMiner.getString("XID"), xid)) {
+								// Skip these records
+								while (rsLogMiner.getBoolean("CSF")) {
+									isRsLogMinerRowAvailable = rsLogMiner.next();
+								}
+								fetchRsLogMinerNext = true;
+								// This update indicates that XML operations with table are done
+								break;
+							} else {
+								fetchRsLogMinerNext = false;
+								// There may be more BLOB/CLOB/NCLOB/XMLTYPE records here
+								continue;
+							}
+						}
+						//TODO
+						//TODO END: Workaround for operation duplication when LogMiner runs
+						//TODO END: without dictionary 
+						//TODO
+					} else if (catchLobOperation == OraCdcV$LogmnrContents.XML_DOC_WRITE) { 
+						final String xmlColumnId = getLobColumnId(redoData);
+						//TODO
+						//TODO What if XML DOC WRITE is in more than one redo log?
+						//TODO
+						fetchRsLogMinerNext = false;
+						final String xmlAsString = readXmlWriteRedoData(xmlColumnId);
+						if (lobs == null) {
+							lobs = new ArrayList<>();
+						}
+						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, Lz4Util.compress(xmlAsString)));
+						//TODO
+						//TODO BEGIN: Workaround for operation duplication when LogMiner runs
+						//TODO BEGIN: without dictionary 
+						//TODO
+						isRsLogMinerRowAvailable = rsLogMiner.next();
+						if (isRsLogMinerRowAvailable) {
+							if (dataObjectId == rsLogMiner.getLong("DATA_OBJ#") &&
+									OraCdcV$LogmnrContents.UPDATE == rsLogMiner.getShort("OPERATION_CODE") &&
+									StringUtils.contains(rsLogMiner.getString("SQL_REDO"), "HEXTORAW('0070") &&
+									StringUtils.equals(rsLogMiner.getString("XID"), xid)) {
+								// Skip these records
+								while (rsLogMiner.getBoolean("CSF")) {
+									isRsLogMinerRowAvailable = rsLogMiner.next();
+								}
+								fetchRsLogMinerNext = true;
+								// This update indicates that XML operations with table are done
+								break;
+							} else {
+								fetchRsLogMinerNext = false;
+								// There may be more BLOB/CLOB/NCLOB/XMLTYPE records here
+								continue;
+							}
+						}
+						//TODO
+						//TODO END: Workaround for operation duplication when LogMiner runs
+						//TODO END: without dictionary 
+						//TODO
 					} else {
 						// Check for RS_ID of INSERT
 						// Previous row contains: DATA_OBJ# = DATA_OBJD# = LOB_ID
@@ -811,6 +871,39 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			}
 		}
 		return lobs;
+	}
+
+	private String getLobColumnId(final String xmlHexColumnId)  {
+		return
+			"\"" + StringUtils.substringBetween(xmlHexColumnId, "\"") + "\"";
+	}
+
+	private String readXmlWriteRedoData(final String xmlColumnId) throws SQLException {
+		boolean multiLineSql = true;
+		final StringBuilder xmlHexData = new StringBuilder(65000);
+		while (multiLineSql) {
+			if (fetchRsLogMinerNext) {
+				isRsLogMinerRowAvailable = rsLogMiner.next();
+			} else {
+				fetchRsLogMinerNext = true;
+			}
+			if (rsLogMiner.getShort("OPERATION_CODE") != OraCdcV$LogmnrContents.XML_DOC_WRITE) {
+				LOGGER.error("Unexpected operation with code {} at SCN {} RBA '{}'",
+						rsLogMiner.getShort("OPERATION_CODE"), rsLogMiner.getLong("SCN"), rsLogMiner.getString("RS_ID"));
+				throw new SQLException("Unexpected operation!!!");
+			}
+			multiLineSql = rsLogMiner.getBoolean("CSF");
+			xmlHexData.append(rsLogMiner.getString("SQL_REDO"));
+		}
+		final String xmlAsString = new String(
+				OraDumpDecoder.toByteArray(
+						StringUtils.substringBetween(xmlHexData.toString(), "HEXTORAW('", ")'")));
+		if (LOGGER.isTraceEnabled()) {
+			LOGGER.trace("{} column {} content:\n{}",
+					xmlColumnId, xmlAsString);
+		}
+		fetchRsLogMinerNext = true;
+		return xmlAsString;
 	}
 
 }

@@ -67,7 +67,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	private long upsertTime;
 	private long deleteTime;
 	private final boolean onlyPkColumns;
-	private final Map<String, OraColumn> lobColumns = new HashMap<>();
+	private final Map<String, Object> lobColumns = new HashMap<>();
 	private Map<String, LobSqlHolder> lobColsSqlMap;
 
 
@@ -120,14 +120,22 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		// Only non PK columns!!!
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
-				final OraColumn column = new OraColumn(field, false);
-				if (column.getJdbcType() == Types.BLOB ||
+				if (StringUtils.equals("struct", field.schema().type().getName())) {
+					final List<OraColumn> transformation = new ArrayList<>();
+					for (Field unnestField : field.schema().fields()) {
+						transformation.add(new OraColumn(unnestField, true));
+					}
+					lobColumns.put(field.name(), transformation);
+				} else {
+					final OraColumn column = new OraColumn(field, false);
+					if (column.getJdbcType() == Types.BLOB ||
 						column.getJdbcType() == Types.CLOB ||
 						column.getJdbcType() == Types.NCLOB ||
 						column.getJdbcType() == Types.SQLXML) {
-					lobColumns.put(column.getColumnName(), column);
-				} else {
-					allColumns.add(column);
+						lobColumns.put(column.getColumnName(), column);
+					} else {
+						allColumns.add(column);
+					}
 				}
 			}
 		}
@@ -457,30 +465,59 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			Iterator<Entry<String, LobSqlHolder>> lobIterator = lobColsSqlMap.entrySet().iterator();
 			while (lobIterator.hasNext()) {
 				final LobSqlHolder holder = lobIterator.next().getValue();
-//				final byte[] columnByteValue = ((ByteBuffer) valueStruct.get(holder.COLUMN)).array();
-				final byte[] columnByteValue = (byte[]) valueStruct.get(holder.COLUMN);
-				final int lobColType = lobColumns.get(holder.COLUMN).getJdbcType();
-				if (columnByteValue != null) {
-					try {
-						if (holder.STATEMENT == null) {
-							holder.STATEMENT = connection.prepareStatement(holder.SQL_TEXT);
-							holder.EXEC_COUNT = 0;
-						}
-						if (columnByteValue.length == 0) {
-							holder.STATEMENT.setNull(1, lobColType);
-						} else {
-							if (lobColType == Types.BLOB) {
-								holder.STATEMENT.setBinaryStream(
-										1, new ByteArrayInputStream(columnByteValue), columnByteValue.length);
+				final Object objLobColumn = lobColumns.get(holder.COLUMN);
+				final Object objLobValue = valueStruct.get(holder.COLUMN);
+				if (objLobValue != null) {
+					//NULL means do not touch LOB!
+					if (holder.STATEMENT == null) {
+						holder.STATEMENT = connection.prepareStatement(holder.SQL_TEXT);
+						holder.EXEC_COUNT = 0;
+					}
+					if (objLobColumn instanceof OraColumn) {
+//						final byte[] columnByteValue = ((ByteBuffer) objLobValue).array();
+						final byte[] columnByteValue = (byte[]) objLobValue;
+						final int lobColType = ((OraColumn)objLobColumn).getJdbcType();
+						try {
+							if (columnByteValue.length == 0) {
+								holder.STATEMENT.setNull(1, lobColType);
 							} else {
-								// Types.CLOB || Types.NCLOB
-								holder.STATEMENT.setCharacterStream(
-//										1, new StringReader(GzipUtil.decompress(columnByteValue)));
-										1, new StringReader(Lz4Util.decompress(columnByteValue)));
+								if (lobColType == Types.BLOB) {
+									holder.STATEMENT.setBinaryStream(
+											1, new ByteArrayInputStream(columnByteValue), columnByteValue.length);
+								} else {
+									// Types.CLOB || Types.NCLOB
+									holder.STATEMENT.setCharacterStream(
+//											1, new StringReader(GzipUtil.decompress(columnByteValue)));
+											1, new StringReader(Lz4Util.decompress(columnByteValue)));
+								}
 							}
+							// Bind PK columns...
+							columnNo = 2;
+							iterator = pkColumns.entrySet().iterator();
+							while (iterator.hasNext()) {
+								final OraColumn oraColumn = iterator.next().getValue();
+								oraColumn.bindWithPrepStmt(
+										dbType, holder.STATEMENT, columnNo, keyStruct.get(oraColumn.getColumnName()));
+								columnNo++;
+							}
+							holder.STATEMENT.addBatch();
+							holder.EXEC_COUNT++;
+						} catch (SQLException sqle) {
+							LOGGER.error("Error while preparing LOB update statement {}", holder.SQL_TEXT);
+							throw new SQLException(sqle);
+						}
+					} else {
+					// Process transformed field
+						final Struct transformedStruct = (Struct) objLobValue;
+						@SuppressWarnings("unchecked")
+						final List<OraColumn> transformedCols = (List<OraColumn>) objLobColumn;
+						columnNo = 1;
+						for (OraColumn transformedColumn : transformedCols) {
+							transformedColumn.bindWithPrepStmt(
+									dbType, holder.STATEMENT, columnNo, transformedStruct.get(transformedColumn.getColumnName()));
+							columnNo++;
 						}
 						// Bind PK columns...
-						columnNo = 2;
 						iterator = pkColumns.entrySet().iterator();
 						while (iterator.hasNext()) {
 							final OraColumn oraColumn = iterator.next().getValue();
@@ -490,13 +527,9 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 						}
 						holder.STATEMENT.addBatch();
 						holder.EXEC_COUNT++;
-					} catch (SQLException sqle) {
-						LOGGER.error("Error while preparing LOB update statement {}", holder.SQL_TEXT);
-						throw new SQLException(sqle);
 					}
 				}
 			}
-
 		}
 		LOGGER.trace("END: processUpsert()");
 	}

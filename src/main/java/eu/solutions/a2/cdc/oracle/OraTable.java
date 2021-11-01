@@ -111,7 +111,7 @@ public class OraTable extends OraTable4SourceConnector {
 			final StringBuilder masterSelect = new StringBuilder(512);
 			final StringBuilder snapshotDelete = new StringBuilder(128);
 			// We always process LOB's for snapshot logs - despite of value processLobs passed
-			buildColumnList(true, false, false, null, rsColumns, sourceOffset, null, null,
+			buildColumnList(rsColumns, sourceOffset,
 					snapshotLog, mViewSelect, masterSelect, snapshotDelete,
 					logWithRowIds, logWithPrimaryKey, logWithSequence);
 

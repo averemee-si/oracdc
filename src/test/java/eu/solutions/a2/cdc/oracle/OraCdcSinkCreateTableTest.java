@@ -54,7 +54,7 @@ public class OraCdcSinkCreateTableTest {
 
 		final List<OraColumn> allColumns = new ArrayList<>();
 		final Map<String, OraColumn> pkColumns = new HashMap<>();
-		final Map<String, OraColumn> lobColumns = new HashMap<>();
+		final Map<String, Object> lobColumns = new HashMap<>();
 
 		for (Field field : keyFields) {
 			try {
@@ -97,14 +97,18 @@ public class OraCdcSinkCreateTableTest {
 				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL,
 				pkColumns, allColumns, lobColumns);
 
+		System.out.println("++++++++++ Oracle ++++++++++++++++++++++++");
 		System.out.println(createScottDeptOra.get(0));
+		System.out.println("++++++++++ PostgreSQL +++++++++++++++++++++");
 		System.out.println(createScottDeptPg.get(0));
 		if (createScottDeptPg.size() > 1) {
 			for (int i = 1; i < createScottDeptPg.size(); i++) {
 				System.out.println("\t" + createScottDeptPg.get(i));
 			}
 		}
+		System.out.println("++++++++++ MySQL ++++++++++++++++++++++++++");
 		System.out.println(createScottDeptMySql.get(0));
+		System.out.println("++++++++++ MsSQL ++++++++++++++++++++++++++");
 		System.out.println(createScottDeptMsSql.get(0));
 
 		assertTrue(createScottDeptOra.get(0).contains("DEPTNO NUMBER(3)"));

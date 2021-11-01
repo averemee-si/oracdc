@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -38,6 +39,8 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
+import eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl;
+import eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import eu.solutions.a2.cdc.oracle.data.OraTimestamp;
 import eu.solutions.a2.cdc.oracle.schema.JdbcTypes;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
@@ -69,10 +72,13 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private OraDumpDecoder odd;
 	private boolean tableWithPk;
 	private boolean processLobs;
+	private final OraCdcLobTransformationsIntf transformLobs;
 	private final String tableFqn;
 	private Map<Long, OraColumn> lobColumnsObjectIds;
 	private Map<String, OraColumn> lobColumnsNames;
+	private Map<String, Schema> lobColumnSchemas;
 	private Map<String, String> lobColumnsHiddenNames;
+	private boolean withLobs = false;
 
 	/**
 	 * 
@@ -81,16 +87,19 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param tableName    name
 	 * @param schemaType   type of schema
 	 * @param processLobs  true for LOB support
+	 * @param transformLobs
 	 */
 	private OraTable4LogMiner(
 			final String pdbName, final String tableOwner, final String tableName,
-			final int schemaType, final boolean processLobs) {
+			final int schemaType, final boolean processLobs,
+			final OraCdcLobTransformationsIntf transformLobs) {
 		super(tableOwner, tableName, schemaType);
 		this.idToNameMap = new HashMap<>();
 		this.pdbName = pdbName;
 		this.tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
 				this.tableOwner + "." + this.tableName;
 		this.processLobs = processLobs;
+		this.transformLobs = transformLobs;
 	}
 
 	/**
@@ -105,6 +114,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param schemaType
 	 * @param useOracdcSchemas
 	 * @param processLobs
+	 * @param transformLobs
 	 * @param isCdb
 	 * @param odd
 	 * @param sourcePartition
@@ -115,11 +125,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	public OraTable4LogMiner(
 			final String pdbName, final Short conId, final String tableOwner,
 			final String tableName, final boolean rowLevelScnDependency,
-			final int schemaType, final boolean useOracdcSchemas, final boolean processLobs,
+			final int schemaType, final boolean useOracdcSchemas,
+			final boolean processLobs, final OraCdcLobTransformationsIntf transformLobs,
 			final boolean isCdb, final OraDumpDecoder odd,
 			final Map<String, String> sourcePartition, final String topicParam,
 			final int topicNameStyle, final String topicNameDelimiter) {
-		this(pdbName, tableOwner, tableName, schemaType, processLobs);
+		this(pdbName, tableOwner, tableName, schemaType, processLobs, transformLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(topicParam, topicNameStyle, topicNameDelimiter, odd, sourcePartition);
 		this.tableWithPk = true;
@@ -129,9 +140,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
 			}
 			// Detect PK column list...
-			Set<String> pkColumns = OraRdbmsInfo.getPkColumnsFromDict(connection,
+			Set<String> pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
 					isCdb ? conId : null, this.tableOwner, this.tableName);
-			if (pkColumns == null) {
+			if (pkColsSet == null) {
 				this.tableWithPk = false;
 			}
 
@@ -148,32 +159,94 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			statement.setString(2, this.tableName);
 
 			ResultSet rsColumns = statement.executeQuery();
+
+			// Schema init
+			final SchemaBuilder keySchemaBuilder = SchemaBuilder
+						.struct()
+						.required()
+						.name(tableFqn + ".Key")
+						.version(version);
+			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
+						.struct()
+						.optional()
+						.name(tableFqn + ".Value")
+						.version(version);
+
+			if (!tableWithPk) {
+				addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
+			}
+			while (rsColumns.next()) {
+				boolean columnAdded = false;
+				OraColumn column = null;
+				try {
+					column = new OraColumn(
+						false, useOracdcSchemas, processLobs,
+						rsColumns, keySchemaBuilder, valueSchemaBuilder, schemaType, pkColsSet);
+					columnAdded = true;
+				} catch (UnsupportedColumnDataTypeException ucdte) {
+					LOGGER.warn("Column {} not added to definition of table {}.{}",
+							ucdte.getColumnName(), this.tableOwner, this.tableName);
+				}
+
+				if (columnAdded) {
+					// For archived redo more logic required
+					if (column.getJdbcType() == Types.BLOB ||
+						column.getJdbcType() == Types.CLOB ||
+						column.getJdbcType() == Types.NCLOB ||
+						column.getJdbcType() == Types.SQLXML) {
+						if (processLobs) {
+							if (!withLobs) {
+								withLobs = true;
+							}
+							if (withLobs && lobColumnsObjectIds == null) {
+								lobColumnsObjectIds = new HashMap<>();
+								lobColumnsNames = new HashMap<>();
+								lobColumnsHiddenNames = new HashMap<>();
+							}
+							allColumns.add(column);
+							idToNameMap.put(column.getNameFromId(), column);
+
+							final String lobColumnName = column.getColumnName();
+							lobColumnsNames.put(lobColumnName, column);
+							final Schema lobSchema = transformLobs.transformSchema(pdbName, tableOwner, tableName, column, valueSchemaBuilder);
+							if (lobSchema != null) {
+								// BLOB/CLOB/NCLOB/XMLTYPE is transformed
+								if (lobColumnSchemas == null) {
+									lobColumnSchemas = new HashMap<>();
+								}
+								lobColumnSchemas.put(lobColumnName, lobSchema);
+							}
+							if (column.getJdbcType() == Types.SQLXML) {
+								lobColumnsHiddenNames.put(column.getStorageColumnName(), column.getColumnName());
+							}
+
+						} else {
+							columnAdded = false;
+						}
+					} else {
+						allColumns.add(column);
+						idToNameMap.put(column.getNameFromId(), column);
+					}
+				}
+				if (columnAdded) {
+					LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);
+				}
+
+				if (column.isPartOfPk()) {
+					pkColumns.put(column.getColumnName(), column);
+				}
+
+			}
 			
-			buildColumnList(false, useOracdcSchemas, processLobs, pdbName,
-					rsColumns, null, pkColumns, idToNameMap, 
-					null, null, null, null, false, false, false);
 			rsColumns.close();
 			rsColumns = null;
 			statement.close();
 			statement = null;
-			if (this.isWithLobs()) {
-				lobColumnsObjectIds = new HashMap<>();
-				lobColumnsNames = new HashMap<>();
-				lobColumnsHiddenNames = new HashMap<>();
-				//Iterate again through column list. Does this affect performance?
-				for (OraColumn column : allColumns) {
-					if (column.getJdbcType() == Types.BLOB ||
-							column.getJdbcType() == Types.CLOB ||
-							column.getJdbcType() == Types.NCLOB ||
-							column.getJdbcType() == Types.SQLXML) {
-						lobColumnsNames.put(column.getColumnName(), column);
-						if (column.getJdbcType() == Types.SQLXML) {
-							lobColumnsHiddenNames.put(column.getStorageColumnName(), column.getColumnName());
-						}
-					}
-				}
-				valueSchema = valueSchemaBuilder.build();
-			}
+
+			// Schema
+			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
+
+
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
@@ -193,7 +266,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this((String) tableData.get("pdbName"),
 				(String) tableData.get("tableOwner"),
 				(String) tableData.get("tableName"),
-				schemaType, (boolean) tableData.get("processLobs"));
+				schemaType, (boolean) tableData.get("processLobs"),
+				new OraCdcDefaultLobTransformationsImpl());
 		tableWithPk = (boolean) tableData.get("tableWithPk");
 		final Boolean rowLevelScnDependency = (Boolean) tableData.get("rowLevelScn");
 		if (rowLevelScnDependency == null || !rowLevelScnDependency) {
@@ -234,6 +308,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					pkColumns.put(pkColumnName, column);
 				}
 				LOGGER.debug("\t Adding {} column.", column.getColumnName());
+				//TODO
+				//TODO Do we need special processing for LOB's here?
+				//TODO
 			}
 			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
 		} catch (SQLException sqle) {
@@ -308,9 +385,18 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					} else {
 						// Handle LOB inline value!
 						try {
-							parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
+							//We don't have inline values for XMLTYPE
+							if (oraColumn.getJdbcType() != Types.SQLXML) {
+								if (columnValue != null && columnValue.length() > 0) {
+									parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
+								} else {
+									LOGGER.warn("Null or zero length data for overload for column {} in table {}.",
+											oraColumn.getColumnName(), this.fqn());
+								}
+							}
 						} catch (DataException de) {
-							LOGGER.error("Invalid value {}", columnValue);
+							LOGGER.error("Invalid value {} for column {} in table {}",
+									columnValue, oraColumn.getColumnName(), this.fqn());
 							printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 							throw new DataException(de);
 						}
@@ -452,8 +538,41 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 				}
 			}
+		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace("parseRedoRecord() processing XML_DOC_BEGIN (for XMLTYPE update)");
+			}
+			opType = "u";
+			final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
+			String[] whereClause = StringUtils.splitByWholeSeparator(
+					StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
+			for (int i = 0; i < whereClause.length; i++) {
+				final String currentExpr = StringUtils.trim(whereClause[i]);
+				final String columnName;
+				if (StringUtils.endsWith(currentExpr, "L")) {
+					columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, SQL_REDO_IS));
+				} else {
+					columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
+				}
+				final OraColumn oraColumn = idToNameMap.get(columnName);
+				if (oraColumn != null) {
+					if (!StringUtils.endsWith(currentExpr, "L")) {
+						parseRedoRecordValues(
+								idToNameMap.get(columnName),
+								StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
+								keyStruct, valueStruct);
+					} else {
+						// We assume EXPLICIT null here
+						valueStruct.put(oraColumn.getColumnName(), null);					}
+				} else {
+					LOGGER.error("Can't detect column with name '{}' during parsing!", columnName);
+					printInvalidFieldValue(columnName, stmt, xid, commitScn);
+					throw new DataException(
+							"Can't detect column with name " + columnName + " during parsing!");
+				}
+			}
 		} else {
-			// We expect here only 1,2,3 as valid values for OPERATION_CODE
+			// We expect here only 1,2,3 as valid values for OPERATION_CODE (and 68 for special cases)
 			LOGGER.error("Corrupted record found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:");
 			LOGGER.error("\tSCN = {}", stmt.getScn());
 			LOGGER.error("\tCOMMIT_SCN = {}", commitScn);
@@ -469,22 +588,34 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 		if (processLobs &&
 				(stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE ||
-				stmt.getOperation() == OraCdcV$LogmnrContents.INSERT)) {
+				stmt.getOperation() == OraCdcV$LogmnrContents.INSERT) ||
+				stmt.getOperation() == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
 			if (lobs != null) {
 				for (int i = 0; i < lobs.size(); i++) {
 					final OraCdcLargeObjectHolder lob = lobs.get(i);
+					final String lobColumnName;
+					final OraColumn lobColumn;
 					if (lob.getLobId() > 0) {
-						if (LOGGER.isDebugEnabled()) {
-							LOGGER.debug("{}: setting value for LOB column {}, value length={}.",
-								fqn(), lobColumnsObjectIds.get(lob.getLobId()).getColumnName(), lob.getContent().length);
-						}
-						valueStruct.put(lobColumnsObjectIds.get(lob.getLobId()).getColumnName(), lob.getContent());
-					} else if (lob.getLobId() == 0) {
-						if (LOGGER.isDebugEnabled()) {
-							LOGGER.debug("{}: setting value for XML column {}, value length={}.",
-								fqn(), idToNameMap.get(lob.getColumnId()).getColumnName(), lob.getContent().length);
-						}
-						valueStruct.put(idToNameMap.get(lob.getColumnId()).getColumnName(), lob.getContent());
+						lobColumn = lobColumnsObjectIds.get(lob.getLobId());
+						lobColumnName = lobColumn.getColumnName();
+					} else {
+						// lob.getLobId() == 0
+						lobColumn = idToNameMap.get(lob.getColumnId());
+						lobColumnName = lobColumn.getColumnName();
+					}
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("{}: setting value for BLOB/C column {}, value length={}.",
+							fqn(), lobColumnName, lob.getContent().length);
+					}
+					if (lobColumnSchemas != null &&
+							lobColumnSchemas.containsKey(lobColumnName)) {
+						valueStruct.put(lobColumnName,
+								transformLobs.transformData(
+										pdbName, tableOwner, tableName,
+										lobColumn, lob.getContent(),
+										keyStruct, lobColumnSchemas.get(lobColumnName)));
+					} else {
+						valueStruct.put(lobColumnName, lob.getContent());
 					}
 				}
 			}
@@ -647,7 +778,21 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
 				schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-				valueStruct.put(columnName, columnValue);
+				if ((oraColumn.getJdbcType() == Types.BLOB ||
+						oraColumn.getJdbcType() == Types.CLOB ||
+						oraColumn.getJdbcType() == Types.NCLOB ||
+						oraColumn.getJdbcType() == Types.SQLXML) &&
+							(lobColumnSchemas != null &&
+							lobColumnSchemas.containsKey(columnName))) {
+					// Data are overloaded
+					valueStruct.put(columnName,
+							transformLobs.transformData(
+									pdbName, tableOwner, tableName, oraColumn,
+									(byte[]) columnValue, keyStruct,
+									lobColumnSchemas.get(columnName)));
+				} else {
+					valueStruct.put(columnName, columnValue);
+				}
 			}
 		} catch (SQLException sqle) {
 			LOGGER.error(
@@ -759,6 +904,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		return kafkaTopic;
 	}
 
+	public boolean isWithLobs() {
+		return withLobs;
+	}
+
 	private boolean extraSecureFileLengthByte(String hex) throws SQLException {
 		final String startPosFlag = StringUtils.substring(hex, 52, 54);
 		if (StringUtils.equals("00", startPosFlag)) {
@@ -774,8 +923,13 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private void printInvalidFieldValue(final OraColumn oraColumn,
 			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
+		printInvalidFieldValue(oraColumn.getColumnName(), stmt, xid, commitScn);
+	}
+
+	private void printInvalidFieldValue(final String columnName,
+			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
 		LOGGER.error("NULL value for NON NULL column {}, table {}",
-				oraColumn.getColumnName(), this.tableFqn);
+				columnName, this.tableFqn);
 		LOGGER.error("Redo record information:");
 		LOGGER.error("\tSCN = {}", stmt.getScn());
 		LOGGER.error("\tCOMMIT_SCN = {}", commitScn);

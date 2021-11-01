@@ -56,7 +56,7 @@ public class OraCdcSinkSqlInsertTest {
 
 		final List<OraColumn> allColumns = new ArrayList<>();
 		final Map<String, OraColumn> pkColumns = new HashMap<>();
-		final Map<String, OraColumn> lobColumns = new HashMap<>();
+		final Map<String, Object> lobColumns = new HashMap<>();
 
 		for (Field field : keyFields) {
 			try {
@@ -100,10 +100,22 @@ public class OraCdcSinkSqlInsertTest {
 		final String sinkUpsertSqlMySql = sqlTextsMySql.get(TargetDbSqlUtils.UPSERT);
 		final String sinkUpsertSqlMsSql = sqlTextsMsSql.get(TargetDbSqlUtils.UPSERT);
 
+		System.out.println("========== Oracle ========================");
 		System.out.println(sinkUpsertSqlOra);
+		System.out.println();
+		System.out.println(sqlTextsOra.get("DEPT_CODE_PDF"));
+		System.out.println("========== PostgreSQL ====================");
 		System.out.println(sinkUpsertSqlPg);
+		System.out.println();
+		System.out.println(sqlTextsPg.get("DEPT_CODE_PDF"));
+		System.out.println("========== MySQL ==========================");
 		System.out.println(sinkUpsertSqlMySql);
+		System.out.println();
+		System.out.println(sqlTextsMySql.get("DEPT_CODE_PDF"));
+		System.out.println("========== MsSQL ==========================");
 		System.out.println(sinkUpsertSqlMsSql);
+		System.out.println();
+		System.out.println(sqlTextsMsSql.get("DEPT_CODE_PDF"));
 
 		assertTrue(sinkUpsertSqlOra.contains("when matched then update"));
 		assertTrue(sinkUpsertSqlPg.contains("on conflict"));

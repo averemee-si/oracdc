@@ -248,7 +248,6 @@ public class OraColumn {
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
 						setLobAttributes(resultSet);
-						valueSchema.field(this.columnName, OraClob.builder().build());
 					}
 					break;
 				case "NCLOB":
@@ -258,7 +257,6 @@ public class OraColumn {
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
 						setLobAttributes(resultSet);
-						valueSchema.field(this.columnName, OraNClob.builder().build());
 					}
 					break;
 				case "RAW":
@@ -272,24 +270,16 @@ public class OraColumn {
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
 						setLobAttributes(resultSet);
-						valueSchema.field(this.columnName, OraBlob.builder().build());
 					}
 					break;
 				case "XMLTYPE":
 					jdbcType = Types.SQLXML;
 					if (mviewSource) {
-						//TODO
-						//TODO - not always pure bytes!!!
-						//TODO
-						bytesField(keySchema, valueSchema);
+						stringField(keySchema, valueSchema);
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
 						setLobAttributes(resultSet);
 						storageColumnName = resultSet.getString("STORAGE_NAME");
-						//TODO
-						//TODO - only for default case!!!
-						//TODO
-						valueSchema.field(this.columnName, OraXmlBinary.builder().build());
 					}
 					break;
 				default:
