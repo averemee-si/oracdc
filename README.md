@@ -28,7 +28,7 @@ Apache Kafka is not isn't meant to handle large messages with size over 1MB. But
 Imagine that you have a table with following structure
 
 ```
-descibe APPLSYS.FND_LOBS
+describe APPLSYS.FND_LOBS
 Name                                      Null?    Type
  ----------------------------------------- -------- ----------------
  FILE_ID                                   NOT NULL NUMBER
@@ -139,7 +139,7 @@ We are watching the status of this issue.
 
 
 ### DDL Support and schema evolution
-[Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) is currently not supported. Its support is planned for version 0.9.8 (DEC-2020 - JAN-2021) along with support for the [Schema Evolution](https://docs.confluent.io/current/schema-registry/avro.html#schema-evolution) at Apache Kafka side.
+[Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) is currently not supported. Its support is planned for version 0.9.9 (DEC-2021 - JAN-2022) along with support for the [Schema Evolution](https://docs.confluent.io/current/schema-registry/avro.html#schema-evolution) at Apache Kafka side.
 
 ### RDBMS errors resiliency and connection retry back-off
 **oracdc** resilent to Oracle database shutdown and/or restart while performing [DBMS_LOGMNR.ADD_LOGFILE](https://docs.oracle.com/en/database/oracle/oracle-database/21/arpls/DBMS_LOGMNR.html#GUID-30C5D959-C0A0-4591-9FBA-F57BC72BBE2F) call or waiting for new archived redo log. ORA-17410 ("No more data read from socket") is intercepted and an attempt to reconnect is made after fixed backoff time specified by parameter `a2.connection.backoff`
@@ -211,7 +211,7 @@ mvn install
 
 ### Oracle JDBC drivers
 
-**oracdc** is shipped with Oracle JDBC 21.1.0.0, or you can copy drivers from Oracle RDBMS server
+**oracdc** is shipped with Oracle JDBC 21.3.0.0, or you can copy drivers from Oracle RDBMS server
 
 ```
 cp $ORACLE_HOME/jdbc/lib/ojdbc8.jar <JDBC directory> 
@@ -455,9 +455,10 @@ When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle
 
 ## TODO
 
-* Support for _SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS/SUPPLEMENTAL LOG DATA (UNIQUE) COLUMNS_ to minimize supplemental logging overhead
+* DDL support
+* better resilience to RDBMS errors
 * **oracdc** as audit information source
-* Oracle LOB handler: convert Oracle BLOB/CLOB/BFILE to link on object file system and send ref to Kafka instead of LOB data
+
 
 ## Version history
 
