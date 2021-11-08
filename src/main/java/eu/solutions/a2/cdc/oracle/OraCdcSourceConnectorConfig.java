@@ -48,7 +48,7 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.HIGH, ParamConstants.CONNECTION_URL_DOC)
 				.define(ParamConstants.CONNECTION_USER_PARAM, Type.STRING, "",
 						Importance.HIGH, ParamConstants.CONNECTION_USER_DOC)
-				.define(ParamConstants.CONNECTION_PASSWORD_PARAM, Type.STRING, "",
+				.define(ParamConstants.CONNECTION_PASSWORD_PARAM, Type.PASSWORD, "",
 						Importance.HIGH, ParamConstants.CONNECTION_PASSWORD_DOC)
 				.define(ParamConstants.CONNECTION_WALLET_PARAM, Type.STRING, "",
 						Importance.HIGH, ParamConstants.CONNECTION_WALLET_DOC)
