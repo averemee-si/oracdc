@@ -68,7 +68,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 				OraPoolConnectionFactory.init(
 					config.getString(ParamConstants.CONNECTION_URL_PARAM),
 					config.getString(ParamConstants.CONNECTION_USER_PARAM),
-					config.getString(ParamConstants.CONNECTION_PASSWORD_PARAM));
+					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
 			} else if (!"".equals(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
 				LOGGER.trace("Connecting to Oracle RDBMS using Oracle Wallet");
 				OraPoolConnectionFactory.init4Wallet(

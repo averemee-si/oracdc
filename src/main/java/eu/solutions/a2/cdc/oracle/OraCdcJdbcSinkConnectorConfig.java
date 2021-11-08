@@ -36,7 +36,7 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 						Importance.HIGH, ParamConstants.CONNECTION_URL_DOC)
 				.define(ParamConstants.CONNECTION_USER_PARAM, Type.STRING,
 						Importance.HIGH, ParamConstants.CONNECTION_USER_DOC)
-				.define(ParamConstants.CONNECTION_PASSWORD_PARAM, Type.STRING,
+				.define(ParamConstants.CONNECTION_PASSWORD_PARAM, Type.PASSWORD,
 						Importance.HIGH, ParamConstants.CONNECTION_PASSWORD_DOC)
 				.define(ParamConstants.BATCH_SIZE_PARAM, Type.INT,
 						ParamConstants.BATCH_SIZE_DEFAULT,

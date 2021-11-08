@@ -65,7 +65,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 					props.get("name"),
 					config.getString(ParamConstants.CONNECTION_URL_PARAM),
 					config.getString(ParamConstants.CONNECTION_USER_PARAM),
-					config.getString(ParamConstants.CONNECTION_PASSWORD_PARAM));
+					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
 			LOGGER.trace("END: Hikari Connection Pool initialization.");
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to connect to {}", config.getString(ParamConstants.CONNECTION_URL_PARAM));
