@@ -495,21 +495,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 				LOGGER.debug("Mining SQL = {}", mineDataSql);
 				LOGGER.debug("Dictionary check SQL = {}", checkTableSql);
 			}
-			if (execInitialLoad) {
-				LOGGER.debug("Initial load table list SQL {}", initialLoadSql);
-				tablesQueue = new LinkedBlockingQueue<>();
-				buildInitialLoadTableList(initialLoadSql);
-				initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, props.get("name"));
-				initialLoadWorker = new OraCdcInitialLoadThread(
-						WAIT_FOR_WORKER_MILLIS,
-						firstScn,
-						tablesInProcessing,
-						queuesRoot,
-						rdbmsInfo,
-						initialLoadMetrics,
-						tablesQueue);
-			}
-
 			worker = new OraCdcLogMinerWorkerThread(
 					this,
 					partition,
@@ -531,6 +516,22 @@ public class OraCdcLogMinerTask extends SourceTask {
 			if (rewind) {
 				worker.rewind(firstScn, firstRsId, firstSsn);
 			}
+
+			if (execInitialLoad) {
+				LOGGER.debug("Initial load table list SQL {}", initialLoadSql);
+				tablesQueue = new LinkedBlockingQueue<>();
+				buildInitialLoadTableList(initialLoadSql);
+				initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, props.get("name"));
+				initialLoadWorker = new OraCdcInitialLoadThread(
+						WAIT_FOR_WORKER_MILLIS,
+						firstScn,
+						tablesInProcessing,
+						queuesRoot,
+						rdbmsInfo,
+						initialLoadMetrics,
+						tablesQueue);
+			}
+
 
 		} catch (SQLException | InvalidPathException | IOException e) {
 			LOGGER.error("Unable to start oracdc logminer task!");

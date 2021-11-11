@@ -15,6 +15,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.RowId;
 import java.sql.SQLException;
+import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.Comparator;
@@ -342,6 +343,24 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 							}
 						}
 						break;
+					case Types.SQLXML:
+						final SQLXML xmlValue = rsMaster.getSQLXML(columnName);
+						if (rsMaster.wasNull()) {
+							bytes.writeInt(NULL_LENGTH_INT);
+						} else {
+							//TODO
+							//TODO or better to use xmlValue.getCharacterStream() ?
+							//TODO
+							final String xmlAsString = xmlValue.getString();
+							if (xmlAsString.length() < 1) {
+								bytes.writeInt(NULL_LENGTH_INT);
+							} else {
+								final byte[] xmlCompressed = Lz4Util.compress(xmlAsString);
+								bytes.writeInt(xmlCompressed.length);
+								bytes.write(xmlCompressed);
+							}
+						}
+						break;
 					default:
 						throw new SQLException("Unsupported JDBC Type " + oraColumn.getJdbcType());
 				}
@@ -476,20 +495,21 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 					case Types.CLOB:
 					case Types.NCLOB:
 					case Types.BLOB:
+					case Types.SQLXML:
 						final int sizeInt = raw.readInt();
 						if (sizeInt != NULL_LENGTH_INT) {
 							final byte[] ba = new byte[sizeInt];
 							raw.read(ba);
 							columnValue = ba;
 						} else {
-							//For nullify CLOB/NCLOB/BLOB we need to pass zero length array
+							//For nullify BLOB/CLOB/NCLOB/XMLTYPE we need to pass zero length array
 							//NULL at Kafka side is for "not touch LOB"
 							columnValue = new byte[0];
 						}
-						
 						break;
 					default:
-						throw new SQLException("Unsupported JDBC Type " + oraColumn.getJdbcType());
+						throw new SQLException("Unsupported JDBC Type " +
+								oraColumn.getJdbcType() + " for column " + columnName);
 				}
 				if (keyStruct != null && pkColumns.containsKey(columnName)) {
 					try {
@@ -571,6 +591,12 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 					queueSize, queueSize * this.allColumns.size(), (System.nanoTime() - startTime));
 			success = true;
 			LOGGER.info("Table {} initial load (read phase) completed. {} rows read.", tableFqn, queueSize);
+			if (pdbName != null) {
+				Statement alterSession = connection.createStatement();
+				alterSession.execute("alter session set CONTAINER=" + OraRdbmsInfo.getInstance().getPdbName());
+				alterSession.close();
+				alterSession = null;
+			}
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == ORA_942) {
 				LOGGER.error("ORA-942!\nPlease grant select on table {} for user running connector!", tableFqn);
