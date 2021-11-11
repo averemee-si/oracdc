@@ -20,6 +20,7 @@ import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -32,7 +33,9 @@ import org.apache.kafka.connect.data.Struct;
 public class OraRdbmsInfo {
 
 	private final String versionString;
+	private final String rdbmsEdition;
 	private final int versionMajor;
+	private final int versionMinor;
 	private final short instanceNumber;
 	private final String instanceName;
 	private final String hostName;
@@ -42,12 +45,17 @@ public class OraRdbmsInfo {
 	private final String platformName;
 	private final boolean cdb;
 	private final boolean cdbRoot;
+	private final boolean pdbConnectionAllowed;
+	private final String pdbName;
 	private final Schema schema;
 	private final String dbCharset;
 	private final String dbNCharCharset;
 	private final String dbUniqueName;
 
 	private final static int CDB_INTRODUCED = 12;
+	private final static int PDB_MINING_INTRODUCED = 21;
+	private final static int PDB_MINING_BACKPORT_MAJOR = 19;
+	private final static int PDB_MINING_BACKPORT_MINOR = 10;
 
 	private static OraRdbmsInfo instance;
 
@@ -60,49 +68,74 @@ public class OraRdbmsInfo {
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ResultSet rs = ps.executeQuery();
 		if (rs.next()) {
-			versionString = rs.getString("VERSION");
 			instanceNumber = rs.getShort("INSTANCE_NUMBER");
 			instanceName = rs.getString("INSTANCE_NAME");
 			hostName = rs.getString("HOST_NAME");
 			cpuCoreCount = rs.getInt("CPU_CORE_COUNT_CURRENT");
 		} else {
-			throw new SQLException("Unable to detect RDBMS version!");
+			throw new SQLException("Unable to read data from V$INSTANCE!");
 		}
 		rs.close();
 		rs = null;
 		ps.close();
 		ps = null;
 
-		versionMajor = Integer.parseInt(
-				versionString.substring(0, versionString.indexOf(".")));
+		ps = connection.prepareStatement(OraDictSqlTexts.RDBMS_PRODUCT_VERSION,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		rs= ps.executeQuery();
+		if (rs.next()) {
+			versionString = rs.getString("VERSION_FULL");
+			rdbmsEdition = rs.getString("PRODUCT");
+		} else {
+			throw new SQLException("Unable to read data from PRODUCT_COMPONENT_VERSION!");
+		}
+		rs.close();
+		rs = null;
+		ps.close();
+		ps = null;
+
+		versionMajor = Integer.parseInt(StringUtils.substringBefore(versionString, "."));
+		versionMinor = Integer.parseInt(StringUtils.substringBetween(versionString, ".", "."));
 
 		if (versionMajor < CDB_INTRODUCED) {
 			cdb = false;
 			cdbRoot = false;
+			pdbConnectionAllowed = false;
+			pdbName = null;
 			ps = connection.prepareStatement(OraDictSqlTexts.DB_INFO_PRE12C,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			rs = ps.executeQuery();
 			if (!rs.next()) {
-				throw new SQLException("Unable to detect database information!");
+				throw new SQLException("Unable to read data from V$DATABASE!");
 			}
 		} else {
 			ps = connection.prepareStatement(OraDictSqlTexts.DB_CDB_PDB_INFO,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			rs = ps.executeQuery();
 			if (rs.next()) {
+				pdbName = rs.getString("CON_NAME");
 				if ("YES".equalsIgnoreCase(rs.getString("CDB"))) {
 					cdb = true;
-					if ("CDB$ROOT".equalsIgnoreCase(rs.getString("CON_NAME"))) {
+					if ("CDB$ROOT".equalsIgnoreCase(pdbName)) {
 						cdbRoot = true;
+						pdbConnectionAllowed = false;
 					} else {
 						cdbRoot = false;
+						// LogMiner works with PDB only from 19.10+ 
+						if (versionMajor >= PDB_MINING_INTRODUCED ||
+								(versionMajor == PDB_MINING_BACKPORT_MAJOR && versionMinor >= PDB_MINING_BACKPORT_MINOR)) {
+							pdbConnectionAllowed = true;
+						} else {
+							pdbConnectionAllowed = false;
+						}
 					}
 				} else {
 					cdb = false;
 					cdbRoot = false;
+					pdbConnectionAllowed = false;
 				}
 			} else
-				throw new SQLException("Unable to detect CDB/PDB status!");
+				throw new SQLException("Unable to read data from V$DATABASE!");
 		}
 
 		dbId = rs.getLong("DBID");
@@ -364,8 +397,16 @@ public class OraRdbmsInfo {
 		return versionString;
 	}
 
+	public String getRdbmsEdition() {
+		return rdbmsEdition;
+	}
+
 	public int getVersionMajor() {
 		return versionMajor;
+	}
+
+	public int getVersionMinor() {
+		return versionMinor;
 	}
 
 	public short getInstanceNumber() {
@@ -404,6 +445,10 @@ public class OraRdbmsInfo {
 		return cdbRoot;
 	}
 
+	public boolean isPdbConnectionAllowed() {
+		return pdbConnectionAllowed;
+	}
+
 	public Schema getSchema() {
 		return schema;
 	}
@@ -418,6 +463,49 @@ public class OraRdbmsInfo {
 
 	public String getDbUniqueName() {
 		return dbUniqueName;
+	}
+
+	@Override
+	public String toString() {
+		final StringBuilder sb = new StringBuilder(256);
+		sb.append(rdbmsEdition);
+		sb.append("\n");
+		sb.append(versionString);
+		sb.append("\n");
+
+		sb.append("ORACLE_SID=");
+		sb.append(instanceName);
+		sb.append(", INSTANCE_NUMBER=");
+		sb.append(instanceNumber);
+		sb.append("\n");
+
+		sb.append("HOST_NAME=");
+		sb.append(hostName);
+		sb.append(", CPU_CORE_COUNT_CURRENT=");
+		sb.append(cpuCoreCount);
+		sb.append(", PLATFORM_NAME=");
+		sb.append(platformName);
+		sb.append("\n");
+
+		sb.append("DBID=");
+		sb.append(dbId);
+		sb.append(", DATABASE_NAME=");
+		sb.append(databaseName);
+		sb.append(", DB_UNIQUE_NAME=");
+		sb.append(dbUniqueName);
+		sb.append("\n");
+
+		sb.append("NLS_CHARACTERSET=");
+		sb.append(dbCharset);
+		sb.append(", NLS_NCHAR_CHARACTERSET=");
+		sb.append(dbNCharCharset);
+
+		if (cdb) {
+			sb.append("\nConnected to CDB, PDB=");
+			sb.append(pdbName);
+		}
+
+		return sb.toString();
 	}
 
 }
