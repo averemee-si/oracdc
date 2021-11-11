@@ -449,6 +449,10 @@ public class OraRdbmsInfo {
 		return pdbConnectionAllowed;
 	}
 
+	public String getPdbName() {
+		return pdbName;
+	}
+
 	public Schema getSchema() {
 		return schema;
 	}
