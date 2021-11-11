@@ -93,8 +93,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 		if (validConfig) {
 			try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 				OraRdbmsInfo rdbmsInfo = new OraRdbmsInfo(connection);
-				LOGGER.info("Connected to $ORACLE_SID={}, version={}, running on {}, OS {}.",
-						rdbmsInfo.getInstanceName(), rdbmsInfo.getVersionString(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
+				LOGGER.info("Connected to {}\n{}\n\t$ORACLE_SID={}, running on {}, OS {}.",
+						rdbmsInfo.getRdbmsEdition(), rdbmsInfo.getVersionString(),
+						rdbmsInfo.getInstanceName(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
 
 				String sqlStatementText = null;
 				if (rdbmsInfo.getVersionMajor() < 11) {

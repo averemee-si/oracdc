@@ -47,6 +47,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private long sizeOfArchLogs;
 	private final boolean useNumOfArchLogs;
 	private final boolean dictionaryAvailable;
+	private final boolean callDbmsLogmnrAddLogFile;
 	private final long dbId;
 	private final String dbUniqueName;
 	private final OraCdcLogMinerMgmtIntf metrics;
@@ -65,6 +66,14 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			final Map<String, String> props, final CountDownLatch runLatch) throws SQLException {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
+
+		OraRdbmsInfo rdbmsInfo = OraRdbmsInfo.getInstance();
+		if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
+			// 19.10+ and connection to PDB
+			callDbmsLogmnrAddLogFile = false;
+		} else {
+			callDbmsLogmnrAddLogFile = true;
+		}
 
 		if (props.containsKey(ParamConstants.REDO_FILES_SIZE_PARAM)) {
 			LOGGER.trace("Limit based of size in bytes of archived logs will be used");
@@ -109,9 +118,11 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	public void createStatements(final Connection connLogMiner) throws SQLException {
 		psGetArchivedLogs = connLogMiner.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		csAddArchivedLogs = connLogMiner.prepareCall(OraDictSqlTexts.ADD_ARCHIVED_LOG);
 		csStartLogMiner = connLogMiner.prepareCall(OraDictSqlTexts.START_LOGMINER);
 		csStopLogMiner = connLogMiner.prepareCall(OraDictSqlTexts.STOP_LOGMINER);
+		if (callDbmsLogmnrAddLogFile) {
+			csAddArchivedLogs = connLogMiner.prepareCall(OraDictSqlTexts.ADD_ARCHIVED_LOG);
+		}
 	}
 
 	/**
@@ -198,17 +209,19 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			// Set current processing in JMX
 			metrics.setNowProcessed(
 					fileNames, nextLogs ? firstChange : sessionFirstChange, nextChange, lagSeconds);
-			LOGGER.trace("Adding files to LogMiner session and starting it");
-			for (int fileNum = 0; fileNum < fileNames.size(); fileNum++) {
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Adding {} to LogMiner processing list.", fileNames.get(fileNum));
+			if (callDbmsLogmnrAddLogFile) {
+				LOGGER.trace("Adding files to LogMiner session and starting it");
+				for (int fileNum = 0; fileNum < fileNames.size(); fileNum++) {
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Adding {} to LogMiner processing list.", fileNames.get(fileNum));
+					}
+					csAddArchivedLogs.setInt(1, fileNum);
+					csAddArchivedLogs.setString(2, fileNames.get(fileNum));
+					csAddArchivedLogs.addBatch();
 				}
-				csAddArchivedLogs.setInt(1, fileNum);
-				csAddArchivedLogs.setString(2, fileNames.get(fileNum));
-				csAddArchivedLogs.addBatch();
+				csAddArchivedLogs.executeBatch();
+				csAddArchivedLogs.clearBatch();
 			}
-			csAddArchivedLogs.executeBatch();
-			csAddArchivedLogs.clearBatch();
 
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Attempting to start LogMiner for SCN range from {} to {}.",

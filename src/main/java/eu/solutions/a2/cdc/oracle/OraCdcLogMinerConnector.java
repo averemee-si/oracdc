@@ -93,14 +93,15 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		if (validConfig) {
 			try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 				OraRdbmsInfo rdbmsInfo = new OraRdbmsInfo(connection);
-				LOGGER.info("Connected to $ORACLE_SID={}, version={}, running on {}, OS {}.",
-						rdbmsInfo.getInstanceName(), rdbmsInfo.getVersionString(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
+				LOGGER.info("Connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.",
+						rdbmsInfo.getRdbmsEdition(), rdbmsInfo.getVersionString(),
+						rdbmsInfo.getInstanceName(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
 
-				if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot()) {
+				if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot() && !rdbmsInfo.isPdbConnectionAllowed()) {
 					validConfig = false;
 					throw new SQLException("Must connected to CDB$ROOT while using oracdc for mining data using LogMiner!!!");
 				} else {
-					LOGGER.trace("Connected CDB$ROOT, Oracle RDBMS version {}.", rdbmsInfo.getVersionString());
+					LOGGER.trace("Oracle connection information:\n{}", rdbmsInfo.toString());
 				}
 
 				if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {

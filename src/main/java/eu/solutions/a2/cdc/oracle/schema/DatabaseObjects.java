@@ -51,7 +51,7 @@ public class DatabaseObjects implements ActionListener {
 		cbTables.setPrototypeDisplayValue(protoValue);
 		cbTables.setName("TABLE_NAME");
 		cbTables.addActionListener(this);
-		if (rdbmsInfo.isCdb()) {
+		if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
 			if (rdbmsInfo.isCdbRoot()) {
 				PreparedStatement statement = connection.prepareStatement(
 						"select PDB_NAME from CDB_PDBS where PDB_NAME != 'PDB$SEED'",
@@ -130,10 +130,10 @@ public class DatabaseObjects implements ActionListener {
 					"No table selected!", JOptionPane.ERROR_MESSAGE); 
 			return null;
 		}
-		final boolean isCdb = rdbmsInfo.isCdb();
+		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			PreparedStatement statement = connection.prepareStatement(
-					rdbmsInfo.isCdb() ?
+					isCdb ?
 						(OraDictSqlTexts.CHECK_TABLE_CDB + " and P.PDB_NAME = ? and O.OWNER = ? and O.OBJECT_NAME = ?") :
 						(OraDictSqlTexts.CHECK_TABLE_NON_CDB + " and O.OWNER = ? and O.OBJECT_NAME = ?"),
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -204,11 +204,11 @@ public class DatabaseObjects implements ActionListener {
 	private void fillTableNames() {
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			PreparedStatement statement = connection.prepareStatement(
-					rdbmsInfo.isCdb() ?
+					rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed() ?
 						"select TABLE_NAME from CDB_TABLES T, CDB_USERS U, CDB_PDBS D where U.CON_ID = D.CON_ID and T.OWNER = U.USERNAME and D.PDB_NAME = ? and U.USERNAME = ?" :
 						"select TABLE_NAME from ALL_TABLES T, ALL_USERS U where T.OWNER = U.USERNAME and U.USERNAME = ?",
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			if (rdbmsInfo.isCdb()) {
+			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
 				statement.setString(1, tablePdb);
 				statement.setString(2, tableOwner);
 			} else {

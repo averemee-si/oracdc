@@ -349,7 +349,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			String checkTableSql = null;
 			String mineDataSql = null;
 			String initialLoadSql = null;
-			if (rdbmsInfo.isCdb()) {
+			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
 				mineDataSql = OraDictSqlTexts.MINE_DATA_CDB;
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
 				if (execInitialLoad) {
@@ -487,7 +487,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					mineDataSql += "where OPERATION_CODE in (1,2,3,7,36) ";
 				}
 			}
-			if (rdbmsInfo.isCdb()) {
+			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
 				// Do not process objects from CDB$ROOT and PDB$SEED
 				mineDataSql += rdbmsInfo.getConUidsList(OraPoolConnectionFactory.getLogMinerConnection());
 			}
@@ -822,7 +822,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		//TODO
 		final Connection connection = OraPoolConnectionFactory.getConnection();
 		final PreparedStatement psCheckTable;
-		final boolean isCdb = rdbmsInfo.isCdb();
+		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		if (isCdb) {
 			psCheckTable = connection.prepareStatement(
 					OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM,
@@ -874,7 +874,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		try (Connection connection = OraPoolConnectionFactory.getConnection();
 				PreparedStatement statement = connection.prepareStatement(initialLoadSql);
 				ResultSet resultSet = statement.executeQuery()) {
-			final boolean isCdb = rdbmsInfo.isCdb();
+			final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 			while (resultSet.next()) {
 				final long objectId = resultSet.getLong("OBJECT_ID");
 				final long conId = isCdb ? resultSet.getLong("CON_ID") : 0L;

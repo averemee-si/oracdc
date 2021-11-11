@@ -151,7 +151,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			connDictionary = OraPoolConnectionFactory.getConnection();
 
 			rdbmsInfo = OraRdbmsInfo.getInstance();
-			isCdb = rdbmsInfo.isCdb();
+			isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 
 			final String archivedLogCatalogImplClass = props.get(ParamConstants.ARCHIVED_LOG_CAT_PARAM);
 			try {
