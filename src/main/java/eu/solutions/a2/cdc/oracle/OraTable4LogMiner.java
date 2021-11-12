@@ -246,6 +246,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			// Schema
 			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
 
+			if (isCdb) {
+				// Restore container in session
+				Statement alterSession = connection.createStatement();
+				alterSession.execute("alter session set CONTAINER=" + OraRdbmsInfo.getInstance().getPdbName());
+				alterSession.close();
+				alterSession = null;
+			}
+
 
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
