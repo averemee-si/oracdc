@@ -286,7 +286,7 @@ from DBA_LOG_GROUPS;
 
 ### Creating non-privileged Oracle user for running LogMiner
 
-Instructions below are for CDB, for non-CDB ([depreciated in 12c](Deprecation of Non-CDB Architecture), will be desupported in 20c) you can use role and user names without **c##** prefix.
+Instructions below are for CDB, for non-CDB ([depreciated in 12c](https://docs.oracle.com/en/database/oracle/oracle-database/21/nfcon/details-using-non-cdbs-and-cdbs-282450945.html), desupported in 21c) you can use role and user names without **c##** prefix.
 Log in as sysdba and enter the following commands to create a user with the privileges required for running **oracdc** with LogMiner as CDC source. For CDB:
 
 ```
@@ -323,6 +323,8 @@ grant
 to ORACDC CONTAINER=ALL;
 ```
 
+### Options for connecting to Oracle Database
+In CDB Architecture **oracdc** must connected to [CDB$ROOT](https://docs.oracle.com/en/database/oracle/oracle-database/21/multi/introduction-to-the-multitenant-architecture.html), but starting from Oracle Database [19c RU 10](https://updates.oracle.com/download/32218454.html) and Oracle Database 21c you can chose to connect either to the [CDB$ROOT](https://docs.oracle.com/en/database/oracle/oracle-database/21/multi/introduction-to-the-multitenant-architecture.html), or to an individual PDB.
 
 ### Additional configuration for physical standby database (V$DATABASE.OPEN_MODE = MOUNTED)
 
@@ -570,6 +572,10 @@ SYS.XMLTYPE support and fixes for partitioned tables with BLOB/CLOB/NCLOB column
 #####0.9.8.3 (NOV-2021)
 
 Large objects (BLOB/CLOB/NCLOB/XMLTYPE) transformation in source connector
+
+#####0.9.8.4 (NOV-2021)
+
+CDB: support connection to CDB$ROOT or to an individual PDB
 
 ## Authors
 
