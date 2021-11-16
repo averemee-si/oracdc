@@ -103,6 +103,9 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				} else {
 					LOGGER.trace("Oracle connection information:\n{}", rdbmsInfo.toString());
 				}
+				if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
+					LOGGER.info("Connected to PDB {} (RDBMS 19.10+ Feature)", rdbmsInfo.getPdbName());
+				}
 
 				if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
 					if (StringUtils.isAllBlank(ParamConstants.STANDBY_WALLET_PARAM)) {
