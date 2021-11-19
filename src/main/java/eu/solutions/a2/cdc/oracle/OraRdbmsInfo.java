@@ -24,6 +24,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 
@@ -56,6 +58,7 @@ public class OraRdbmsInfo {
 	private final static int PDB_MINING_INTRODUCED = 21;
 	private final static int PDB_MINING_BACKPORT_MAJOR = 19;
 	private final static int PDB_MINING_BACKPORT_MINOR = 10;
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraRdbmsInfo.class);
 
 	private static OraRdbmsInfo instance;
 
@@ -314,19 +317,24 @@ public class OraRdbmsInfo {
 		} else {
 			sb.append(" and (DATA_OBJ# in (");
 		}
+		
 		//TODO
 		//TODO For CDB - pair required!!!
 		//TODO OBJECT_ID is not unique!!!
 		//TODO Need to add "a2.static.objects" parameter for using this for predicate
 		//TODO
-		PreparedStatement ps = connection.prepareStatement(
+		final String selectObjectIds =
 				"select OBJECT_ID\n" +
-				(this.cdb ? "from   CDB_OBJECTS O\n" : "from   DBA_OBJECTS O\n") +
+				((cdb && !pdbConnectionAllowed) ? "from   CDB_OBJECTS O\n" : "from   DBA_OBJECTS O\n") +
 				"where  DATA_OBJECT_ID is not null\n" +
 				"  and  OBJECT_TYPE like 'TABLE%'\n" +
 				"  and  TEMPORARY='N'\n" +
-				(this.cdb ? "  and  CON_ID > 2\n" : "") +
-				where,
+				((cdb && !pdbConnectionAllowed) ? "  and  CON_ID > 2\n" : "") +
+				where;
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("SQL for getting object Id's = {}", selectObjectIds);
+		}
+		PreparedStatement ps = connection.prepareStatement(selectObjectIds,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ResultSet rs = ps.executeQuery();
 		boolean firstValue = true;
@@ -366,7 +374,7 @@ public class OraRdbmsInfo {
 	}
 
 	public String getConUidsList(final Connection connection) throws SQLException {
-		if (cdb) {
+		if (cdb && !pdbConnectionAllowed) {
 			final StringBuilder sb = new StringBuilder(256);
 			sb.append(" and SRC_CON_UID in (");
 			// We do not need CDB$ROOT and PDB$SEED
