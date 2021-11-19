@@ -20,6 +20,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -604,7 +605,7 @@ public class OraColumn {
 	}
 
 	public Object getTypedDefaultValue() {
-		if (defaultValuePresent) {
+		if (!defaultValuePresent) {
 			return null;
 		} else if (typedDefaultValue == null) {
 			//TODO
@@ -914,6 +915,41 @@ public class OraColumn {
 		} else {
 			secureFile = false;
 		}
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(
+				columnName, nameFromId, partOfPk, jdbcType, nullable,
+				dataScale, binaryFloatDouble, localTimeZone, secureFile,
+				defaultValuePresent, defaultValue, storageColumnName);
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null) {
+			return false;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
+		OraColumn other = (OraColumn) obj;
+		return
+				Objects.equals(columnName, other.columnName) &&
+				Objects.equals(nameFromId, other.nameFromId) &&
+				partOfPk == other.partOfPk &&
+				jdbcType == other.jdbcType &&
+				nullable == other.nullable &&
+				Objects.equals(dataScale, other.dataScale) && 
+				Objects.equals(binaryFloatDouble, other.binaryFloatDouble) &&
+				Objects.equals(localTimeZone, other.localTimeZone) &&
+				Objects.equals(secureFile, other.secureFile) &&
+				Objects.equals(defaultValuePresent, other.defaultValuePresent) &&
+				Objects.equals(defaultValue, other.defaultValue) &&
+				Objects.equals(storageColumnName, other.storageColumnName);
 	}
 
 }
