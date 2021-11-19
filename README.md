@@ -307,7 +307,7 @@ to C##ORACDC
 CONTAINER=ALL;
 ```
 
-For non-CDB:
+For non-CDB or for connection to PDB in RDBMS 19.10+:
 
 ```
 create user ORACDC identified by ORACDC
@@ -320,7 +320,7 @@ grant
   SELECT ANY DICTIONARY,
   EXECUTE_CATALOG_ROLE,
   LOGMINING
-to ORACDC CONTAINER=ALL;
+to ORACDC;
 ```
 
 ### Options for connecting to Oracle Database
