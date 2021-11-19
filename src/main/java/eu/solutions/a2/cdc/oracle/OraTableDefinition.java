@@ -69,6 +69,14 @@ public abstract class OraTableDefinition {
 		return schemaType;
 	}
 
+	public int getVersion() {
+		return version;
+	}
+
+	public void setVersion(int version) {
+		this.version = version;
+	}
+
 	public void setTableName(String tableName) {
 		this.tableName = tableName;
 	}
