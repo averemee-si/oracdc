@@ -343,7 +343,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		offset.put("SSN", stmt.getSsn());
 
 		if (LOGGER.isTraceEnabled()) {
-			LOGGER.trace("Parsing REDO record for {}", tableFqn);
+			LOGGER.trace("Parsing REDO record for table {}", tableFqn);
 			LOGGER.trace("Redo record information:");
 			LOGGER.trace("\tSCN = {}", stmt.getScn());
 			LOGGER.trace("\tCOMMIT_SCN = {}", commitScn);
@@ -581,7 +581,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 		} else {
 			// We expect here only 1,2,3 as valid values for OPERATION_CODE (and 68 for special cases)
-			LOGGER.error("Corrupted record found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:");
+			LOGGER.error("Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:",
+					tableFqn);
 			LOGGER.error("\tSCN = {}", stmt.getScn());
 			LOGGER.error("\tCOMMIT_SCN = {}", commitScn);
 			LOGGER.error("\tXID = {}", xid);
@@ -937,8 +938,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private void printInvalidFieldValue(final String columnName,
 			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
 		LOGGER.error("NULL value for NON NULL column {}, table {}",
-				columnName, this.tableFqn);
-		LOGGER.error("Redo record information:");
+				columnName, tableFqn);
+		LOGGER.error("Redo record information for table {}:", tableFqn);
 		LOGGER.error("\tSCN = {}", stmt.getScn());
 		LOGGER.error("\tCOMMIT_SCN = {}", commitScn);
 		LOGGER.error("\tXID = {}", xid);
