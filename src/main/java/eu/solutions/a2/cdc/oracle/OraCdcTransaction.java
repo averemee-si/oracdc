@@ -58,7 +58,6 @@ public class OraCdcTransaction {
 	 * @param processLobs
 	 * @param rootDir
 	 * @param xid
-	 * @param firstStatement
 	 * @throws IOException
 	 */
 	public OraCdcTransaction(final boolean processLobs, final Path rootDir, final String xid) throws IOException {
