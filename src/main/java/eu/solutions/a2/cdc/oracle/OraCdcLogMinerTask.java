@@ -379,14 +379,15 @@ public class OraCdcLogMinerTask extends SourceTask {
 					 1 - INSERT
 					 2 - DELETE
 					 3 - UPDATE
+					 5 - DDL
 					 9 - SELECT_LOB_LOCATOR
 					68 - XML DOC BEGIN
 					70 - XML DOC WRITE
 					*/
 					if (processLobs) {
-						mineDataSql += "where ((OPERATION_CODE in (1,2,3,9,68,70) " +  objectList + ")";
+						mineDataSql += "where ((OPERATION_CODE in (1,2,3,5,9,68,70) " +  objectList + ")";
 					} else {
-						mineDataSql += "where ((OPERATION_CODE in (1,2,3) " +  objectList + ")";
+						mineDataSql += "where ((OPERATION_CODE in (1,2,3,5) " +  objectList + ")";
 					}
 				} 
 				checkTableSql += tableList;
@@ -401,21 +402,22 @@ public class OraCdcLogMinerTask extends SourceTask {
 					 1 - INSERT
 					 2 - DELETE
 					 3 - UPDATE
+					 5 - DDL
 					 9 - SELECT_LOB_LOCATOR
 					68 - XML DOC BEGIN
 					70 - XML DOC WRITE
 					*/
 					if (includeList != null) {
 						if (processLobs) {
-							mineDataSql += " and (OPERATION_CODE in (1,2,3,9,68,70) ";
+							mineDataSql += " and (OPERATION_CODE in (1,2,3,5,9,68,70) ";
 						} else {
-							mineDataSql += " and (OPERATION_CODE in (1,2,3) ";
+							mineDataSql += " and (OPERATION_CODE in (1,2,3,5) ";
 						}
 					} else {
 						if (processLobs) {
-							mineDataSql += " where ((OPERATION_CODE in (1,2,3,9,68,70) ";
+							mineDataSql += " where ((OPERATION_CODE in (1,2,3,5,9,68,70) ";
 						} else {
-							mineDataSql += " where ((OPERATION_CODE in (1,2,3) ";
+							mineDataSql += " where ((OPERATION_CODE in (1,2,3,5) ";
 						}
 					}
 					final String objectList = rdbmsInfo.getMineObjectsIds(connDictionary, true,
@@ -441,14 +443,15 @@ public class OraCdcLogMinerTask extends SourceTask {
 					 1 - INSERT
 					 2 - DELETE
 					 3 - UPDATE
+					 5 - DDL
 					 9 - SELECT_LOB_LOCATOR
 					68 - XML DOC BEGIN
 					70 - XML DOC WRITE
 					*/
 					if (processLobs) {
-						mineDataSql += "where (OPERATION_CODE in (1,2,3,9,68,70) ";
+						mineDataSql += "where (OPERATION_CODE in (1,2,3,5,9,68,70) ";
 					} else {
-						mineDataSql += "where (OPERATION_CODE in (1,2,3) ";
+						mineDataSql += "where (OPERATION_CODE in (1,2,3,5) ";
 					}
 				}
 				// Finally - COMMIT and ROLLBACK
@@ -475,16 +478,17 @@ public class OraCdcLogMinerTask extends SourceTask {
 				 1 - INSERT
 				 2 - DELETE
 				 3 - UPDATE
-				 7 - COMMIT 
+				 5 - DDL
+				 7 - COMMIT
 				36 - ROLLBACK
 				 9 - SELECT_LOB_LOCATOR
 				68 - XML DOC BEGIN
 				70 - XML DOC WRITE
 				*/
 				if (processLobs) {
-					mineDataSql += "where OPERATION_CODE in (1,2,3,7,36,9,68,70) or (OPERATION_CODE=0 and DATA_OBJ#=DATA_OBJD# and DATA_OBJ#!=0)";
+					mineDataSql += "where OPERATION_CODE in (1,2,3,5,7,36,9,68,70) or (OPERATION_CODE=0 and DATA_OBJ#=DATA_OBJD# and DATA_OBJ#!=0)";
 				} else {
-					mineDataSql += "where OPERATION_CODE in (1,2,3,7,36) ";
+					mineDataSql += "where OPERATION_CODE in (1,2,3,5,7,36) ";
 				}
 			}
 			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
@@ -640,11 +644,19 @@ public class OraCdcLogMinerTask extends SourceTask {
 								throw new ConnectException("Strange consistency issue!!!");
 							} else {
 								try {
-									final long startParseTs = System.currentTimeMillis();
-									SourceRecord record = oraTable.parseRedoRecord(stmt, lobs, transaction.getXid(), transaction.getCommitScn());
-									result.add(record);
-									recordCount++;
-									parseTime += (System.currentTimeMillis() - startParseTs);
+									if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
+										//TODO
+										//TODO Handle DDL
+										//TODO Add counters for DDL processing time
+										//TODO
+										LOGGER.info("DDL statement\n\t'{}'\nis temporary ignored", stmt.getSqlRedo());
+									} else {
+										final long startParseTs = System.currentTimeMillis();
+										SourceRecord record = oraTable.parseRedoRecord(stmt, lobs, transaction.getXid(), transaction.getCommitScn());
+										result.add(record);
+										recordCount++;
+										parseTime += (System.currentTimeMillis() - startParseTs);
+									}
 								} catch (SQLException e) {
 									LOGGER.error(e.getMessage());
 									LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));

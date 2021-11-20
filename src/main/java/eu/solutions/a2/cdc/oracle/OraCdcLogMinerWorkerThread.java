@@ -453,25 +453,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							}
 
 							if (oraTable != null) {
-								final boolean multiLineSql = rsLogMiner.getBoolean("CSF");
 								final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
 								final String rowId = rsLogMiner.getString("ROW_ID");
-								String sqlRedo;
-								if (multiLineSql) {
-									StringBuilder sb = new StringBuilder(16000);
-									boolean moreRedoLines = multiLineSql;
-									while (moreRedoLines) {
-										sb.append(rsLogMiner.getString("SQL_REDO"));
-										moreRedoLines = rsLogMiner.getBoolean("CSF");
-										if (moreRedoLines) { 
-											rsLogMiner.next();
-										}
-									}
-									sqlRedo = sb.toString();
-									sb = null;
-								} else {
-									sqlRedo = rsLogMiner.getString("SQL_REDO");
-								}
+								String sqlRedo = readSqlRedo();
 								// squeeze it!
 								sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
 								if (operation == OraCdcV$LogmnrContents.INSERT) {
@@ -500,6 +484,37 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									transaction.addStatement(lmStmt);
 								}
 								metrics.addRecord();
+							}
+							break;
+						case OraCdcV$LogmnrContents.DDL:
+							final long combinedDdlDataObjectId;
+							if (isCdb) {
+								combinedDdlDataObjectId = (rsLogMiner.getInt("CON_ID") << 32) | (rsLogMiner.getLong("DATA_OBJ#") & 0xFFFFFFFFL); 
+							} else {
+								combinedDdlDataObjectId = rsLogMiner.getLong("DATA_OBJ#");
+							}
+							if (tablesInProcessing.containsKey(combinedDdlDataObjectId)) {
+								// Handle DDL only for known for oracdc table
+								final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
+								final String rowId = rsLogMiner.getString("ROW_ID");
+								final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
+										combinedDdlDataObjectId, operation, readSqlRedo(),
+										timestamp, lastScn, lastRsId, lastSsn, rowId);
+								if (transaction == null) {
+									if (LOGGER.isDebugEnabled()) {
+										LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
+												xid, timestamp, lastScn);
+									}
+									transaction = new OraCdcTransaction(processLobs, queuesRoot, xid);
+									activeTransactions.put(xid, transaction);
+								}
+								transaction.addStatement(lmStmt);
+								metrics.addRecord();
+							} else {
+								if (LOGGER.isDebugEnabled()) {
+									LOGGER.debug("Skipping DDL operation '{}' at SCN {} for object ID {}",
+											rsLogMiner.getString("SQL_REDO"), lastScn, rsLogMiner.getLong("DATA_OBJ#"));
+								}
 							}
 							break;
 						case OraCdcV$LogmnrContents.INTERNAL:
@@ -906,4 +921,21 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		return xmlAsString;
 	}
 
+	private String readSqlRedo() throws SQLException {
+		final boolean multiLineSql = rsLogMiner.getBoolean("CSF");
+		if (multiLineSql) {
+			final StringBuilder sb = new StringBuilder(16000);
+			boolean moreRedoLines = multiLineSql;
+			while (moreRedoLines) {
+				sb.append(rsLogMiner.getString("SQL_REDO"));
+				moreRedoLines = rsLogMiner.getBoolean("CSF");
+				if (moreRedoLines) { 
+					rsLogMiner.next();
+				}
+			}
+			return sb.toString();
+		} else {
+			return rsLogMiner.getString("SQL_REDO");
+		}
+	}
 }
