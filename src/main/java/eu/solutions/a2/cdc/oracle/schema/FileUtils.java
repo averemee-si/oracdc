@@ -30,6 +30,8 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import eu.solutions.a2.cdc.oracle.OraTable4LogMiner;
 import eu.solutions.a2.cdc.oracle.ParamConstants;
+import eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl;
+import eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 
 /**
  * 
@@ -39,9 +41,10 @@ import eu.solutions.a2.cdc.oracle.ParamConstants;
 public class FileUtils {
 
 	public static Map<Long, OraTable4LogMiner> readDictionaryFile(
-			final String fileName, Integer schemaType) throws IOException {
+			final String fileName, Integer schemaType, final OraCdcLobTransformationsIntf transformLobs)
+					throws IOException {
 		InputStream is = new FileInputStream(fileName);
-		Map<Long, OraTable4LogMiner> schemas = readDictionaryFile(is, schemaType);
+		Map<Long, OraTable4LogMiner> schemas = readDictionaryFile(is, schemaType, transformLobs);
 		is.close();
 		return schemas;
 	}
@@ -49,13 +52,15 @@ public class FileUtils {
 	public static Map<Long, OraTable4LogMiner> readDictionaryFile(
 			final File file, Integer schemaType) throws IOException {
 		InputStream is = new FileInputStream(file);
-		Map<Long, OraTable4LogMiner> schemas = readDictionaryFile(is, schemaType);
+		// GUI call - OK for default implementation
+		Map<Long, OraTable4LogMiner> schemas = readDictionaryFile(
+				is, schemaType, new OraCdcDefaultLobTransformationsImpl());
 		is.close();
 		return schemas;
 	}
 
 	private static Map<Long, OraTable4LogMiner> readDictionaryFile(
-			final InputStream is, Integer schemaType) throws IOException {
+			final InputStream is, Integer schemaType, final OraCdcLobTransformationsIntf transformLobs) throws IOException {
 		Map<String, Map<String, Object>> fileData = new HashMap<>();
 		final ObjectReader reader = new ObjectMapper()
 				.readerFor(fileData.getClass());
@@ -64,7 +69,8 @@ public class FileUtils {
 		try {
 			fileData.forEach((k, v) -> {
 				schemas.put(Long.parseLong(k), new OraTable4LogMiner(v, 
-					(schemaType == null) ? ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD : schemaType));
+					(schemaType == null) ? ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD : schemaType,
+							transformLobs));
 			});
 		} catch (Exception e) {
 			throw new IOException(e);

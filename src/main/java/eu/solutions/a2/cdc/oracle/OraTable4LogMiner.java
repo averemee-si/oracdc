@@ -123,7 +123,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param topicNameDelimiter
 	 */
 	public OraTable4LogMiner(
-			final String pdbName, final Short conId, final String tableOwner,
+			final String pdbName, final short conId, final String tableOwner,
 			final String tableName, final boolean rowLevelScnDependency,
 			final int schemaType, final boolean useOracdcSchemas,
 			final boolean processLobs, final OraCdcLobTransformationsIntf transformLobs,
@@ -141,7 +141,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			// Detect PK column list...
 			Set<String> pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
-					isCdb ? conId : null, this.tableOwner, this.tableName);
+					isCdb ? conId : -1, this.tableOwner, this.tableName);
 			if (pkColsSet == null) {
 				this.tableWithPk = false;
 			}
@@ -269,13 +269,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * 
 	 * @param tableData
 	 * @param schemaType
+	 * @param transformLobs
 	 */
-	public OraTable4LogMiner(Map<String, Object> tableData, final int schemaType) {
+	public OraTable4LogMiner(Map<String, Object> tableData, final int schemaType, final OraCdcLobTransformationsIntf transformLobs) {
 		this((String) tableData.get("pdbName"),
 				(String) tableData.get("tableOwner"),
 				(String) tableData.get("tableName"),
 				schemaType, (boolean) tableData.get("processLobs"),
-				new OraCdcDefaultLobTransformationsImpl());
+				transformLobs);
 		tableWithPk = (boolean) tableData.get("tableWithPk");
 		final Boolean rowLevelScnDependency = (Boolean) tableData.get("rowLevelScn");
 		if (rowLevelScnDependency == null || !rowLevelScnDependency) {
@@ -915,6 +916,137 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	public boolean isWithLobs() {
 		return withLobs;
+	}
+
+	public void processDdl(final OraRdbmsInfo rdbmsInfo, final String sqlRedo) throws SQLException {
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Processing DDL for table {}:\n\t'{}'",
+					tableFqn, sqlRedo);
+		}
+		final boolean isCdb = rdbmsInfo.isCdb() && (!rdbmsInfo.isPdbConnectionAllowed());
+		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+			// Detect PK column list...
+//			Set<String> pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
+//					isCdb ? conId : -1, this.tableOwner, this.tableName);
+//			if (pkColsSet == null) {
+//				this.tableWithPk = false;
+//			}
+
+			if (isCdb) {
+				Statement alterSession = connection.createStatement();
+				alterSession.execute("alter session set CONTAINER=" + pdbName);
+				alterSession.close();
+				alterSession = null;
+			}
+			PreparedStatement statement = connection.prepareStatement(
+					OraDictSqlTexts.COLUMN_LIST_PLAIN,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			statement.setString(1, this.tableOwner);
+			statement.setString(2, this.tableName);
+
+			ResultSet rsColumns = statement.executeQuery();
+
+			// Schema init
+			final SchemaBuilder keySchemaBuilder = SchemaBuilder
+						.struct()
+						.required()
+						.name(tableFqn + ".Key")
+						.version(version);
+			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
+						.struct()
+						.optional()
+						.name(tableFqn + ".Value")
+						.version(version);
+
+			if (!tableWithPk) {
+				addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
+			}
+			while (rsColumns.next()) {
+				boolean columnAdded = false;
+				OraColumn column = null;
+//				try {
+//					column = new OraColumn(
+//						false, useOracdcSchemas, processLobs,
+//						rsColumns, keySchemaBuilder, valueSchemaBuilder, schemaType, pkColsSet);
+//					columnAdded = true;
+//				} catch (UnsupportedColumnDataTypeException ucdte) {
+//					LOGGER.warn("Column {} not added to definition of table {}.{}",
+//							ucdte.getColumnName(), this.tableOwner, this.tableName);
+//				}
+
+				if (columnAdded) {
+					// For archived redo more logic required
+					if (column.getJdbcType() == Types.BLOB ||
+						column.getJdbcType() == Types.CLOB ||
+						column.getJdbcType() == Types.NCLOB ||
+						column.getJdbcType() == Types.SQLXML) {
+						if (processLobs) {
+							if (!withLobs) {
+								withLobs = true;
+							}
+							if (withLobs && lobColumnsObjectIds == null) {
+								lobColumnsObjectIds = new HashMap<>();
+								lobColumnsNames = new HashMap<>();
+								lobColumnsHiddenNames = new HashMap<>();
+							}
+							allColumns.add(column);
+							idToNameMap.put(column.getNameFromId(), column);
+
+							final String lobColumnName = column.getColumnName();
+							lobColumnsNames.put(lobColumnName, column);
+							final Schema lobSchema = transformLobs.transformSchema(pdbName, tableOwner, tableName, column, valueSchemaBuilder);
+							if (lobSchema != null) {
+								// BLOB/CLOB/NCLOB/XMLTYPE is transformed
+								if (lobColumnSchemas == null) {
+									lobColumnSchemas = new HashMap<>();
+								}
+								lobColumnSchemas.put(lobColumnName, lobSchema);
+							}
+							if (column.getJdbcType() == Types.SQLXML) {
+								lobColumnsHiddenNames.put(column.getStorageColumnName(), column.getColumnName());
+							}
+
+						} else {
+							columnAdded = false;
+						}
+					} else {
+						allColumns.add(column);
+						idToNameMap.put(column.getNameFromId(), column);
+					}
+				}
+				if (columnAdded) {
+					LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);
+				}
+
+				if (column.isPartOfPk()) {
+					pkColumns.put(column.getColumnName(), column);
+				}
+
+			}
+			
+			rsColumns.close();
+			rsColumns = null;
+			statement.close();
+			statement = null;
+
+			// Schema
+			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
+
+			if (isCdb) {
+				// Restore container in session
+				Statement alterSession = connection.createStatement();
+				alterSession.execute("alter session set CONTAINER=" + OraRdbmsInfo.getInstance().getPdbName());
+				alterSession.close();
+				alterSession = null;
+			}
+
+
+		} catch (SQLException sqle) {
+			LOGGER.error("Unable to get table information.");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			throw new ConnectException(sqle);
+		}
+		LOGGER.trace("END: Creating OraTable object from LogMiner data...");
 	}
 
 	private boolean extraSecureFileLengthByte(String hex) throws SQLException {

@@ -207,7 +207,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				if (!StringUtils.isEmpty(schemaFileName)) {
 					try {
 						LOGGER.info("Loading stored schema definitions from file {}.", schemaFileName);
-						tablesInProcessing = FileUtils.readDictionaryFile(schemaFileName, schemaType);
+						tablesInProcessing = FileUtils.readDictionaryFile(schemaFileName, schemaType, transformLobs);
 						LOGGER.info("{} table schema definitions loaded from file {}.",
 								tablesInProcessing.size(), schemaFileName);
 						tablesInProcessing.forEach((key, table) -> {
