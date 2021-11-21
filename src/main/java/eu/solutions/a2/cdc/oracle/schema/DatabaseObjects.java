@@ -163,7 +163,7 @@ public class DatabaseObjects implements ActionListener {
 				final boolean processLobs = true;
 				OraTable4LogMiner oraTable = new OraTable4LogMiner(
 						isCdb ? tablePdb : null,
-						isCdb ? (short) conId : null,
+						isCdb ? (short) conId : -1,
 						tableOwner, tableName, "ENABLED".equalsIgnoreCase(rs.getString("DEPENDENCIES")),
 						ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD, true,
 						processLobs, new OraCdcDefaultLobTransformationsImpl(), isCdb,

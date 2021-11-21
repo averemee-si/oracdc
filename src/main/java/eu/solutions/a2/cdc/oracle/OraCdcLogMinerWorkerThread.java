@@ -428,7 +428,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											final String tableOwner = rsCheckTable.getString("OWNER");
 											oraTable = new OraTable4LogMiner(
 												isCdb ? rsCheckTable.getString("PDB_NAME") : null,
-												isCdb ? (short) conId : null,
+												isCdb ? (short) conId : -1,
 												tableOwner, tableName,
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 												schemaType, useOracdcSchemas,

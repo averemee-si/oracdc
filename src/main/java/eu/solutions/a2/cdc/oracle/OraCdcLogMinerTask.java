@@ -861,7 +861,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					final String tableOwner = rsCheckTable.getString("OWNER");
 					OraTable4LogMiner oraTable = new OraTable4LogMiner(
 							isCdb ? rsCheckTable.getString("PDB_NAME") : null,
-							isCdb ? (short) conId : null,
+							isCdb ? (short) conId : -1,
 							tableOwner, tableName,
 							"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas,
@@ -897,7 +897,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 						&& !StringUtils.startsWith(tableName, "MLOG$_")) {
 					OraTable4LogMiner oraTable = new OraTable4LogMiner(
 							isCdb ? resultSet.getString("PDB_NAME") : null,
-							isCdb ? (short) conId : null,
+							isCdb ? (short) conId : -1,
 							resultSet.getString("OWNER"), tableName,
 							"ENABLED".equalsIgnoreCase(resultSet.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas,
