@@ -223,7 +223,7 @@ public class OraRdbmsInfo {
 	 * Returns set of column names for primary key or it equivalent (unique with all non-null)
 	 * 
 	 * @param connection - Connection to data dictionary (db in 'OPEN' state)
-	 * @param conId      - CON_ID, if null we working with non CDB or pre-12c Oracle Database
+	 * @param conId      - CON_ID, if -1 we working with non CDB or pre-12c Oracle Database
 	 * @param owner      - Table owner
 	 * @param tableName  - Table name
 	 * @return           - Set with names of primary key columns. null if nothing found
@@ -231,18 +231,19 @@ public class OraRdbmsInfo {
 	 */
 	public static Set<String> getPkColumnsFromDict(
 			final Connection connection,
-			final Short conId,
+			final short conId,
 			final String owner,
 			final String tableName) throws SQLException {
+		final boolean isCdb = (conId > -1);
 		Set<String> result = null;
 		PreparedStatement ps = connection.prepareStatement(
-				(conId == null) ?
-						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_NON_CDB :
-						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_CDB,
+				(isCdb) ?
+						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_CDB :
+						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_NON_CDB,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ps.setString(1, owner);
 		ps.setString(2, tableName);
-		if (conId != null) {
+		if (isCdb) {
 			ps.setShort(3, conId);			
 		}
 
@@ -257,13 +258,13 @@ public class OraRdbmsInfo {
 		if (result == null) {
 			// Try to find unique index with non-null columns only
 			ps = connection.prepareStatement(
-					(conId == null) ?
-							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_NON_CDB :
-							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_CDB,
+					(isCdb) ?
+							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_CDB :
+							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_NON_CDB,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			ps.setString(1, owner);
 			ps.setString(2, tableName);
-			if (conId != null) {
+			if (isCdb) {
 				ps.setShort(3, conId);			
 			}
 			rs = ps.executeQuery();
