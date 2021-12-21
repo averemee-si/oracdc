@@ -13,7 +13,12 @@
 
 package eu.solutions.a2.cdc.oracle.utils;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.RegExUtils;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * 
@@ -26,6 +31,17 @@ public class OraSqlUtils {
 
 	public static final int MODE_WHERE_ALL_MVIEW_LOGS = 1;
 	public static final int MODE_WHERE_ALL_OBJECTS = 2;
+	public static final String ALTER_TABLE_COLUMN_RENAME = "rename";
+	public static final String ALTER_TABLE_COLUMN_ADD = "add";
+	public static final String ALTER_TABLE_COLUMN_MODIFY = "modify";
+	public static final String ALTER_TABLE_COLUMN_DROP = "drop";
+	public static final String ALTER_TABLE_COLUMN_SET = "set";
+	public static final String RESERVED_WORD_COLUMN = "column";
+	public static final String RESERVED_WORD_UNUSED = "unused";
+	public static final String RESERVED_WORD_CONSTRAINT = "constraint";
+	public static final String RESERVED_WORD_TO = "to";
+
+	private static final String COMMA_INSIDE = ",(?=[^()]*\\))";
 
 	public static String parseTableSchemaList(final boolean exclude, final int mode, final List<String> listSchemaObj) {
 		final String schemaNameField;
@@ -84,6 +100,128 @@ public class OraSqlUtils {
 
 		sb.append(")");
 		return sb.toString();
+	}
+
+	public static String alterTablePreProcessor(final String originalText) {
+		String[] tokens = StringUtils.splitPreserveAllTokens(originalText);
+		if (StringUtils.equalsIgnoreCase(tokens[0], "alter") &&
+				StringUtils.equalsIgnoreCase(tokens[1], "table")) {
+			final int beginIndex;
+			if ((StringUtils.endsWith(tokens[2], ".") && tokens[2].length() > 1) ||
+					(StringUtils.startsWith(tokens[3], ".") && tokens[3].length() > 1)) {
+				// alter table SCOTT. DEPT <REST OF...>
+				// alter table SCOTT .DEPT <REST OF...>
+				beginIndex = 4;
+			} else if (StringUtils.equals(tokens[3], ".")) {
+				// alter table SCOTT . DEPT <REST OF...>
+				beginIndex = 5;
+			} else {
+				// alter table SCOTT.DEPT <REST OF...>
+				beginIndex = 3;
+			}
+			switch (StringUtils.lowerCase(tokens[beginIndex])) {
+			case ALTER_TABLE_COLUMN_RENAME:
+				// Only
+				//     alter table rename column <OLD_NAME> to <NEW_NAME>
+				// is supported
+				if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
+					if ((tokens.length - beginIndex) == 5 && 
+							StringUtils.equalsIgnoreCase(tokens[beginIndex + 3], RESERVED_WORD_TO)) {
+						// tokens[beginIndex + 2] - old name
+						// tokens[beginIndex + 4] - new name
+						return ALTER_TABLE_COLUMN_RENAME + "\n" +
+							tokens[beginIndex + 2] + ";" + tokens[beginIndex + 4];
+					} else {
+						return null;
+					}
+				} else {
+					return null;
+				}
+			case ALTER_TABLE_COLUMN_ADD:
+				return alterTablePreProcessor(originalText, ALTER_TABLE_COLUMN_ADD, tokens, beginIndex);
+			case ALTER_TABLE_COLUMN_MODIFY:
+				return alterTablePreProcessor(originalText, ALTER_TABLE_COLUMN_MODIFY, tokens, beginIndex);
+			case ALTER_TABLE_COLUMN_DROP:
+				if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_UNUSED)) {
+					// Ignore
+					// alter table drop unused columns;
+					return null;
+				} else if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
+					// alter table table_name drop column column_name;
+					return ALTER_TABLE_COLUMN_DROP + "\n" +
+						StringUtils.trim(tokens[beginIndex + 2]);
+				} else if (StringUtils.startsWith(tokens[beginIndex + 1], "(")) {
+					// alter table table_name drop (column_name1, column_name2);
+					return ALTER_TABLE_COLUMN_DROP + "\n" +
+						Arrays
+							.stream(StringUtils.split(
+									StringUtils.substringBetween(
+											originalText, "(", ")"), ","))
+							.map(s -> StringUtils.trim(s))
+							.collect(Collectors.joining(";"));
+				} else {
+					return null;
+				}
+			case ALTER_TABLE_COLUMN_SET:
+				if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_UNUSED)) {
+					// alter table table_name set unused (column_name1, column_name2);
+					return ALTER_TABLE_COLUMN_DROP + "\n" +
+						Arrays
+							.stream(StringUtils.split(
+										StringUtils.substringBetween(
+												originalText, "(", ")"), ","))
+							.map(s -> StringUtils.trim(s))
+							.collect(Collectors.joining(";"));
+				} else {
+					return null;
+				}
+			default:
+				return null;
+			}		
+		} else {
+			return null;
+		}
+	}
+
+	private static String alterTablePreProcessor(
+			final String originalText, final String operation, final String[] tokens, final int beginIndex) {
+		if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
+			// alter table add column <COLUMN_NAME> .......
+			return operation + "\n" +
+				Arrays
+					.stream(tokens, beginIndex + 2, tokens.length)
+					.map(s -> StringUtils.trim(s))
+					.map(s -> StringUtils.replace(s, ",", "|"))
+					.collect(Collectors.joining(" "));
+		} else if (StringUtils.startsWith(tokens[beginIndex + 1], "(")) {
+			// alter table add (<COLUMN_NAME> .......)
+			// For further processing only data between first "(" and last ")"
+			// are needed, also replace all commas used in NUMBER precision
+			// and finally split by commas
+			final String[] columnsToAdd = 
+					StringUtils.split(
+						RegExUtils.replaceAll(
+							StringUtils.substring(originalText, 
+								StringUtils.indexOf(originalText, "(") + 1, 
+								StringUtils.lastIndexOf(originalText, ")")),
+							COMMA_INSIDE, "|"),
+						",");
+			return operation + "\n" +
+				Arrays
+					.stream(columnsToAdd)
+					.map(s -> StringUtils.trim(s))
+					.collect(Collectors.joining(";"));
+		} else if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_CONSTRAINT)) {
+			// Ignore
+			// alter table add CoNsTrAiNt ...
+			return null;
+		} else {
+			return operation + "\n" +
+				Arrays
+					.stream(tokens, beginIndex + 1, tokens.length)
+					.map(s -> StringUtils.trim(s))
+					.collect(Collectors.joining(" "));
+		}
 	}
 
 }
