@@ -41,6 +41,7 @@ import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import eu.solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import eu.solutions.a2.cdc.oracle.utils.Lz4Util;
+import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 
@@ -494,22 +495,30 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								combinedDdlDataObjectId = rsLogMiner.getLong("DATA_OBJ#");
 							}
 							if (tablesInProcessing.containsKey(combinedDdlDataObjectId)) {
-								// Handle DDL only for known for oracdc table
+								// Handle DDL only for known table
 								final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
 								final String rowId = rsLogMiner.getString("ROW_ID");
-								final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
-										combinedDdlDataObjectId, operation, readSqlRedo(),
-										timestamp, lastScn, lastRsId, lastSsn, rowId);
-								if (transaction == null) {
-									if (LOGGER.isDebugEnabled()) {
-										LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
-												xid, timestamp, lastScn);
+								final String originalDdl = readSqlRedo();
+								final String preProcessedDdl = OraSqlUtils.alterTablePreProcessor(originalDdl);
+								if (preProcessedDdl != null) {
+									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
+											combinedDdlDataObjectId, operation, 
+											preProcessedDdl + "\n" + originalDdl,
+											timestamp, lastScn, lastRsId, lastSsn, rowId);
+									if (transaction == null) {
+										if (LOGGER.isDebugEnabled()) {
+											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
+													xid, timestamp, lastScn);
+										}
+										transaction = new OraCdcTransaction(processLobs, queuesRoot, xid);
+										activeTransactions.put(xid, transaction);
 									}
-									transaction = new OraCdcTransaction(processLobs, queuesRoot, xid);
-									activeTransactions.put(xid, transaction);
+									transaction.addStatement(lmStmt);
+									metrics.addRecord();
+								} else {
+									LOGGER.warn("Unsupported DDL operation '{}' at SCN {} for object ID {}",
+											originalDdl, lastScn, rsLogMiner.getLong("DATA_OBJ#"));
 								}
-								transaction.addStatement(lmStmt);
-								metrics.addRecord();
 							} else {
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Skipping DDL operation '{}' at SCN {} for object ID {}",
