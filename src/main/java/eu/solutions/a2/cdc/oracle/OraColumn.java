@@ -61,6 +61,7 @@ public class OraColumn {
 	public static final String ORA_ROWSCN = "ORA_ROWSCN";
 
 	private String columnName;
+	private int columnId;
 	private String nameFromId;
 	private boolean partOfPk;
 	private int jdbcType;
@@ -100,7 +101,7 @@ public class OraColumn {
 			final Set<String> pkColsSet) throws SQLException, UnsupportedColumnDataTypeException {
 		this.columnName = resultSet.getString("COLUMN_NAME");
 		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
-		this.nameFromId = "\"COL " + resultSet.getInt("COLUMN_ID") + "\"";
+		this.setColumnId(resultSet.getInt("COLUMN_ID"));
 
 		defaultValue = resultSet.getString("DATA_DEFAULT");
 		if (resultSet.wasNull()) {
@@ -524,6 +525,15 @@ public class OraColumn {
 		this.columnName = columnName;
 	}
 
+	public int getColumnId() {
+		return columnId;
+	}
+
+	public void setColumnId(int columnId) {
+		this.columnId = columnId;
+		this.nameFromId = "\"COL " + this.columnId + "\"";
+	}
+
 	public String getNameFromId() {
 		return nameFromId;
 	}
@@ -920,7 +930,7 @@ public class OraColumn {
 	@Override
 	public int hashCode() {
 		return Objects.hash(
-				columnName, nameFromId, partOfPk, jdbcType, nullable,
+				columnName, columnId, partOfPk, jdbcType, nullable,
 				dataScale, binaryFloatDouble, localTimeZone, secureFile,
 				defaultValuePresent, defaultValue, storageColumnName);
 	}
@@ -939,7 +949,7 @@ public class OraColumn {
 		OraColumn other = (OraColumn) obj;
 		return
 				Objects.equals(columnName, other.columnName) &&
-				Objects.equals(nameFromId, other.nameFromId) &&
+				Objects.equals(columnId, other.columnId) &&
 				partOfPk == other.partOfPk &&
 				jdbcType == other.jdbcType &&
 				nullable == other.nullable &&
