@@ -129,9 +129,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			boolean columnAdded = false;
 			OraColumn column = null;
 			try {
-				column = new OraColumn(
-					true, false, false,
-					rsColumns, keySchemaBuilder, valueSchemaBuilder, schemaType, null);
+				column = new OraColumn(true, false, false, rsColumns, null);
 				columnAdded = true;
 			} catch (UnsupportedColumnDataTypeException ucdte) {
 				LOGGER.warn("Column {} not added to definition of table {}.{}",
@@ -156,6 +154,11 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
+					// Schema addition
+					keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+					}
 					if (mViewFirstColumn) {
 						mViewFirstColumn = false;
 					} else {
@@ -173,6 +176,9 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 						masterWhere.append(column.getColumnName());
 						masterWhere.append("\"=?");
 					}
+				} else {
+					// Just add to value schema
+					valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 				}
 			}
 		}
