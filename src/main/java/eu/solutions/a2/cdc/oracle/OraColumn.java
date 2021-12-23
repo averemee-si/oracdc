@@ -123,12 +123,31 @@ public class OraColumn {
 		}
 
 		final String oraType = resultSet.getString("DATA_TYPE");
-		if ("DATE".equals(oraType) || StringUtils.startsWith(oraType, "TIMESTAMP")) {
+		dataScale = resultSet.getInt("DATA_SCALE");
+		if (resultSet.wasNull()) {
+			dataScale = null;
+		}
+		Integer dataPrecision = resultSet.getInt("DATA_PRECISION");
+		if (resultSet.wasNull()) {
+			dataPrecision = null;
+		}
+		detectTypeAndSchema(
+				oraType, mviewSource, useOracdcSchemas, processLobs, dataPrecision,
+				StringUtils.equalsIgnoreCase("YES", resultSet.getString("SECUREFILE")),
+				resultSet.getString("STORAGE_NAME"));
+
+	}
+
+	private void detectTypeAndSchema(
+			final String oraType,
+			final boolean mviewSource,
+			final boolean useOracdcSchemas,
+			final boolean processLobs,
+			Integer dataPrecision,
+			final boolean isSecureFile,
+			final String xmlColHiddenName) throws UnsupportedColumnDataTypeException {
+		if (StringUtils.equals(oraType, "DATE") || StringUtils.startsWith(oraType, "TIMESTAMP")) {
 			if (useOracdcSchemas) {
-				dataScale = resultSet.getInt("DATA_SCALE");
-				if (resultSet.wasNull()) {
-					dataScale = null;
-				}
 				if (StringUtils.endsWith(oraType, "WITH LOCAL TIME ZONE")) {
 					// 231:
 					// TIMESTAMP [(fractional_seconds)] WITH LOCAL TIME ZONE
@@ -166,18 +185,12 @@ public class OraColumn {
 					}
 					break;
 				case "NUMBER":
-					int dataPrecision = resultSet.getInt("DATA_PRECISION");
-					final boolean precisionIsNull = resultSet.wasNull();
-					dataScale = resultSet.getInt("DATA_SCALE");
-					final boolean scaleIsNull = resultSet.wasNull();
-					if (scaleIsNull) {
-						dataScale = null;
-					} else if (precisionIsNull) {
+					if (dataScale != null && dataPrecision == null) {
 						//DATA_SCALE set but DATA_PRECISION is unknown....
 						//Set it to MAX
 						dataPrecision = 38;
 					}
-					if (precisionIsNull && scaleIsNull) {
+					if (dataPrecision == null && dataScale == null) {
 						// NUMBER w/out precision and scale
 						// OEBS and other legacy systems specific
 						// Can be Integer or decimal or float....
@@ -246,7 +259,7 @@ public class OraColumn {
 						stringField();
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
-						setLobAttributes(resultSet);
+						secureFile = isSecureFile;
 					}
 					break;
 				case "NCLOB":
@@ -255,7 +268,7 @@ public class OraColumn {
 						stringField();
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
-						setLobAttributes(resultSet);
+						secureFile = isSecureFile;
 					}
 					break;
 				case "RAW":
@@ -268,7 +281,7 @@ public class OraColumn {
 						bytesField();
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
-						setLobAttributes(resultSet);
+						secureFile = isSecureFile;
 					}
 					break;
 				case "XMLTYPE":
@@ -277,8 +290,8 @@ public class OraColumn {
 						stringField();
 					} else if (processLobs) {
 						// Archived redo as source and LOB processing
-						setLobAttributes(resultSet);
-						storageColumnName = resultSet.getString("STORAGE_NAME");
+						secureFile = isSecureFile;
+						storageColumnName = xmlColHiddenName;
 					}
 					break;
 				default:
@@ -1004,14 +1017,6 @@ public class OraColumn {
 		}
 	}
 
-	private void setLobAttributes(ResultSet resultSet) throws SQLException {
-		if ("YES".equalsIgnoreCase(resultSet.getString("SECUREFILE"))) {
-			secureFile = true;
-		} else {
-			secureFile = false;
-		}
-	}
-
 	@Override
 	public int hashCode() {
 		return Objects.hash(
@@ -1047,4 +1052,13 @@ public class OraColumn {
 				Objects.equals(storageColumnName, other.storageColumnName);
 	}
 
+	public static String canonicalColumnName(final String rawColumnName) {
+		if (StringUtils.startsWith(rawColumnName, "\"") && StringUtils.endsWith(rawColumnName, "\"")) {
+			// Column name is escaped by "
+			return StringUtils.substringBetween(rawColumnName, "\"", "\"");
+		} else {
+			// Uppercase it!
+			return StringUtils.upperCase(rawColumnName);
+		}
+	}
 }
