@@ -61,6 +61,22 @@ public class OraColumn {
 	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";
 	public static final String ORA_ROWSCN = "ORA_ROWSCN";
 
+	private static final String TYPE_VARCHAR2 = "VARCHAR2";
+	private static final String TYPE_NVARCHAR2 = "NVARCHAR2";
+	private static final String TYPE_CHAR = "CHAR";
+	private static final String TYPE_NCHAR = "NCHAR";
+	private static final String TYPE_FLOAT = "FLOAT";
+	private static final String TYPE_RAW = "RAW";
+	private static final String TYPE_DATE = "DATE";
+	private static final String TYPE_TIMESTAMP = "TIMESTAMP";
+	private static final String TYPE_NUMBER = "NUMBER";
+	private static final String TYPE_BINARY_FLOAT = "BINARY_FLOAT";
+	private static final String TYPE_BINARY_DOUBLE = "BINARY_DOUBLE";
+	private static final String TYPE_BLOB = "BLOB";
+	private static final String TYPE_CLOB = "CLOB";
+	private static final String TYPE_NCLOB = "NCLOB";
+	private static final String TYPE_XMLTYPE = "XMLTYPE";
+
 	private String columnName;
 	private int columnId;
 	private String nameFromId;
@@ -74,7 +90,6 @@ public class OraColumn {
 	private Boolean defaultValuePresent;
 	private String defaultValue;
 	private Object typedDefaultValue;
-	private String storageColumnName;
 	@JsonIgnore
 	private Schema schema;
 
@@ -131,10 +146,167 @@ public class OraColumn {
 		if (resultSet.wasNull()) {
 			dataPrecision = null;
 		}
-		detectTypeAndSchema(
-				oraType, mviewSource, useOracdcSchemas, processLobs, dataPrecision,
-				StringUtils.equalsIgnoreCase("YES", resultSet.getString("SECUREFILE")),
-				resultSet.getString("STORAGE_NAME"));
+		detectTypeAndSchema(oraType, mviewSource, useOracdcSchemas, dataPrecision);
+
+	}
+
+	/**
+	 *
+	 * Used in Source connector for DDL processing
+	 *   It is assumed that the column is not part of the primary key
+	 *   It is assumed that the LOB column is SECUREFILE
+	 * 
+	 * @param useOracdcSchemas    true for extended schemas
+	 * @param processLobs         when true and useOracdcSchemas eq true BLOB/CLOB/NCLOB columns are processed
+	 * @param columnName
+	 * @param columnAttributes
+	 * @param originalDdl
+	 * @param columnId
+	 * @throws UnsupportedColumnDataTypeException 
+	 */
+	public OraColumn(
+			final boolean useOracdcSchemas,
+			final boolean procesLobs,
+			final String columnName,
+			final String columnAttributes,
+			final String originalDdl,
+			final int columnId)
+			throws UnsupportedColumnDataTypeException {
+		this.columnName = columnName;
+		this.setColumnId(columnId);
+		// 
+		this.partOfPk = false;
+		Integer dataPrecision = null;
+		this.dataScale = null;
+	
+
+		if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_VARCHAR2)) {
+			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_VARCHAR2, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_NVARCHAR2)) {
+			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_NVARCHAR2, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_CHAR)) {
+			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_CHAR, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_NCHAR)) {
+			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_NCHAR, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_RAW)) {
+			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_RAW, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_FLOAT)) {
+			// Ignore PRECISION for FLOAT
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_FLOAT, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_DATE)) {
+			// No PRECISION for DATE
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_DATE, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_TIMESTAMP)) {
+			// Ignore fractional seconds!!!
+			if (StringUtils.containsIgnoreCase(columnAttributes, "LOCAL")) {
+				// 231: TIMESTAMP [(fractional_seconds_precision)] WITH LOCAL TIME ZONE
+				detectIsNullAndDefault(columnAttributes);
+				detectTypeAndSchema("TIMESTAMP WITH LOCAL TIME ZONE", false, useOracdcSchemas, dataPrecision);
+			} else if (StringUtils.containsIgnoreCase(columnAttributes, "ZONE")) {
+				// 181: TIMESTAMP [(fractional_seconds_precision)] WITH TIME ZONE
+				detectIsNullAndDefault(columnAttributes);
+				detectTypeAndSchema("TIMESTAMP WITH TIME ZONE", false, useOracdcSchemas, dataPrecision);
+			} else {
+				// 180: TIMESTAMP [(fractional_seconds_precision)]
+				detectIsNullAndDefault(columnAttributes);
+				detectTypeAndSchema(TYPE_TIMESTAMP, false, useOracdcSchemas, dataPrecision);
+			}
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_NUMBER)) {
+			detectIsNullAndDefault(columnAttributes);
+			final String precisionAndScale = StringUtils.trim(
+					StringUtils.substringBetween(columnAttributes, "(", ")")); 
+			if (precisionAndScale != null) {
+				try {
+					if (StringUtils.contains(precisionAndScale, "|")) {
+						final String[] tokens = StringUtils.split(precisionAndScale, "|");
+						dataPrecision = Integer.parseInt(StringUtils.trim(tokens[0]));
+						dataScale = Integer.parseInt(StringUtils.trim(tokens[0]));
+					} else {
+						dataPrecision = Integer.parseInt(precisionAndScale);
+					}
+				} catch (NumberFormatException nfe) {
+					LOGGER.error("Unable to detect PRECISION and SCALE for column {} while parsing DDL command\n'{}}",
+							columnName, originalDdl);
+					LOGGER.error("Both PRECISION and SCALE are reset to NULL!!!");
+					dataPrecision = null;
+					dataScale = null;
+				}
+			}
+			detectTypeAndSchema(TYPE_NUMBER, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_BINARY_FLOAT)) {
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_BINARY_FLOAT, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_BINARY_DOUBLE)) {
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_BINARY_DOUBLE, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_BLOB)) {
+			nullable = true;
+			defaultValuePresent = false;
+			detectTypeAndSchema(TYPE_BLOB, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_CLOB)) {
+			nullable = true;
+			defaultValuePresent = false;
+			detectTypeAndSchema(TYPE_CLOB, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_NCLOB)) {
+			nullable = true;
+			defaultValuePresent = false;
+			detectTypeAndSchema(TYPE_NCLOB, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_XMLTYPE)) {
+			nullable = true;
+			defaultValuePresent = false;
+			detectTypeAndSchema(TYPE_XMLTYPE, false, useOracdcSchemas, dataPrecision);
+		} else {
+			throw new UnsupportedColumnDataTypeException("Unable to parse DDL statement\n'" +
+												originalDdl + "'\nUnsupported datatype");
+		}
+		
+	}
+
+
+	private void detectIsNullAndDefault(final String columnAttributes) {
+		int posNull = -1;
+		int posNot = -1;
+		int posDefault = -1;
+		final String[] tokens = StringUtils.split(columnAttributes);
+		for (int i = 0; i < tokens.length; i++) {
+			if (StringUtils.equalsIgnoreCase(tokens[i], "null")) {
+				posNull = i;
+				if (StringUtils.equalsIgnoreCase(tokens[i - 1], "not")) {
+					posNot = i - 1;
+				}
+			}
+			if (StringUtils.equalsIgnoreCase(tokens[i], "default")) {
+				posDefault = i;
+			}
+		}
+		if (posNull == -1) {
+			// By default - NULL
+			nullable = true;
+		} else if (posNot == -1) {
+			// NULL explicitly set
+			nullable = true;
+		} else {
+			nullable = false;
+		}
+
+		if (posDefault == -1) {
+			defaultValuePresent = false;
+		} else if (posDefault + 1 <= tokens.length - 1) {
+			defaultValuePresent = true;
+			defaultValue = tokens[posDefault + 1]; 
+		}
 
 	}
 
@@ -142,11 +314,8 @@ public class OraColumn {
 			final String oraType,
 			final boolean mviewSource,
 			final boolean useOracdcSchemas,
-			final boolean processLobs,
-			Integer dataPrecision,
-			final boolean isSecureFile,
-			final String xmlColHiddenName) throws UnsupportedColumnDataTypeException {
-		if (StringUtils.equals(oraType, "DATE") || StringUtils.startsWith(oraType, "TIMESTAMP")) {
+			Integer dataPrecision) throws UnsupportedColumnDataTypeException {
+		if (StringUtils.equals(oraType, TYPE_DATE) || StringUtils.startsWith(oraType, TYPE_TIMESTAMP)) {
 			if (useOracdcSchemas) {
 				if (StringUtils.endsWith(oraType, "WITH LOCAL TIME ZONE")) {
 					// 231:
@@ -170,7 +339,7 @@ public class OraColumn {
 			}
 		} else {
 			switch (oraType) {
-				case "FLOAT":
+				case TYPE_FLOAT:
 					// A subtype of the NUMBER datatype having precision p.
 					// A FLOAT value is represented internally as NUMBER.
 					// The precision p can range from 1 to 126 binary digits.
@@ -184,7 +353,7 @@ public class OraColumn {
 						doubleField();
 					}
 					break;
-				case "NUMBER":
+				case TYPE_NUMBER:
 					if (dataScale != null && dataPrecision == null) {
 						//DATA_SCALE set but DATA_PRECISION is unknown....
 						//Set it to MAX
@@ -227,71 +396,58 @@ public class OraColumn {
 						decimalField(dataScale);
 					}
 					break;
-				case "BINARY_FLOAT":
+				case TYPE_BINARY_FLOAT:
 					jdbcType = Types.FLOAT;
 					binaryFloatDouble = true;
 					floatField();
 					break;
-				case "BINARY_DOUBLE":
+				case TYPE_BINARY_DOUBLE:
 					jdbcType = Types.DOUBLE;
 					binaryFloatDouble = true;
 					doubleField();
 					break;
-				case "CHAR":
+				case TYPE_CHAR:
 					jdbcType = Types.CHAR;
 					stringField();
 					break;
-				case "NCHAR":
+				case TYPE_NCHAR:
 					jdbcType = Types.NCHAR;
 					stringField();
 					break;
-				case "VARCHAR2":
+				case TYPE_VARCHAR2:
 					jdbcType = Types.VARCHAR;
 					stringField();
 					break;
-				case "NVARCHAR2":
+				case TYPE_NVARCHAR2:
 					jdbcType = Types.NVARCHAR;
 					stringField();
 					break;
-				case "CLOB":
+				case TYPE_CLOB:
 					jdbcType = Types.CLOB;
 					if (mviewSource) {
 						stringField();
-					} else if (processLobs) {
-						// Archived redo as source and LOB processing
-						secureFile = isSecureFile;
 					}
 					break;
-				case "NCLOB":
+				case TYPE_NCLOB:
 					jdbcType = Types.NCLOB;
 					if (mviewSource) {
 						stringField();
-					} else if (processLobs) {
-						// Archived redo as source and LOB processing
-						secureFile = isSecureFile;
 					}
 					break;
-				case "RAW":
+				case TYPE_RAW:
 					jdbcType = Types.BINARY;
 					bytesField();
 					break;
-				case "BLOB":
+				case TYPE_BLOB:
 					jdbcType = Types.BLOB;
 					if (mviewSource) {
 						bytesField();
-					} else if (processLobs) {
-						// Archived redo as source and LOB processing
-						secureFile = isSecureFile;
 					}
 					break;
-				case "XMLTYPE":
+				case TYPE_XMLTYPE:
 					jdbcType = Types.SQLXML;
 					if (mviewSource) {
 						stringField();
-					} else if (processLobs) {
-						// Archived redo as source and LOB processing
-						secureFile = isSecureFile;
-						storageColumnName = xmlColHiddenName;
 					}
 					break;
 				default:
@@ -690,10 +846,6 @@ public class OraColumn {
 		}
 	}
 
-	public String getStorageColumnName() {
-		return storageColumnName;
-	}
-
 	public Schema getSchema() {
 		return schema;
 	}
@@ -1022,7 +1174,7 @@ public class OraColumn {
 		return Objects.hash(
 				columnName, columnId, partOfPk, jdbcType, nullable,
 				dataScale, binaryFloatDouble, localTimeZone, secureFile,
-				defaultValuePresent, defaultValue, storageColumnName);
+				defaultValuePresent, defaultValue);
 	}
 
 	@Override
@@ -1048,8 +1200,7 @@ public class OraColumn {
 				Objects.equals(localTimeZone, other.localTimeZone) &&
 				Objects.equals(secureFile, other.secureFile) &&
 				Objects.equals(defaultValuePresent, other.defaultValuePresent) &&
-				Objects.equals(defaultValue, other.defaultValue) &&
-				Objects.equals(storageColumnName, other.storageColumnName);
+				Objects.equals(defaultValue, other.defaultValue);
 	}
 
 	public static String canonicalColumnName(final String rawColumnName) {
@@ -1061,4 +1212,5 @@ public class OraColumn {
 			return StringUtils.upperCase(rawColumnName);
 		}
 	}
+
 }
