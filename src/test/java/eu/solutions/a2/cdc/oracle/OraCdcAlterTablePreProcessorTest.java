@@ -57,6 +57,10 @@ public class OraCdcAlterTablePreProcessorTest {
 				OraSqlUtils.alterTablePreProcessor("ALTER TABLE SCOTT . EMP ADD (jcol JSON, AMOUNT number(5,2) default -1)"),
 				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" +
 					"jcol JSON;AMOUNT number(5|2) default -1");
+		assertEquals("Unexpected results",
+				OraSqlUtils.alterTablePreProcessor("ALTER TABLE SCOTT . EMP ADD AMOUNT number(5,2)"),
+				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" +
+						"AMOUNT number(5|2)");
 
 		assertEquals("Unexpected results",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT . EMP modify REF_NO number(9) default 0"),

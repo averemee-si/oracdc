@@ -220,6 +220,7 @@ public class OraSqlUtils {
 				Arrays
 					.stream(tokens, beginIndex + 1, tokens.length)
 					.map(s -> StringUtils.trim(s))
+					.map(s -> StringUtils.replace(s, ",", "|"))
 					.collect(Collectors.joining(" "));
 		}
 	}
