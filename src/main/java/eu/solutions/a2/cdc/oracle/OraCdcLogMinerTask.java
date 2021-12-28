@@ -308,9 +308,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							LOGGER.debug("Restored in progress transaction {}", oct.toString());
 						}
 					}
-					if (persistentState.getProcessedTablesIds() != null) {
-						restoreTableInfoFromDictionary(persistentState.getProcessedTablesIds());
-					}
+					// Restore table's and versions
+					restoreTableInfoFromDictionary(persistentState);
 					if (persistentState.getOutOfScopeTablesIds() != null) {
 						persistentState.getOutOfScopeTablesIds().forEach(combinedId -> {
 							tablesOutOfScope.add(combinedId);
@@ -649,7 +648,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 										//TODO Handle DDL
 										//TODO Add counters for DDL processing time
 										//TODO
-										LOGGER.info("DDL statement\n\t'{}'\nis temporary ignored", stmt.getSqlRedo());
+										oraTable.processDdl(useOracdcSchemas, stmt, transaction.getXid(), transaction.getCommitScn());
 									} else {
 										final long startParseTs = System.currentTimeMillis();
 										SourceRecord record = oraTable.parseRedoRecord(stmt, lobs, transaction.getXid(), transaction.getCommitScn());
@@ -780,16 +779,19 @@ public class OraCdcLogMinerTask extends SourceTask {
 			ops.setInProgressTransactions(wip);
 		}
 		if (!tablesInProcessing.isEmpty()) {
-			final List<Long> wipTables = new ArrayList<>();
+			final List<String> wipTables = new ArrayList<>();
 			tablesInProcessing.forEach((combinedId, table) -> {
-				wipTables.add(combinedId);
+				wipTables.add(
+						combinedId + 
+						OraCdcPersistentState.TABLE_VERSION_SEPARATOR +
+						table.getVersion());
 				if (LOGGER.isDebugEnabled()) {
 					final int tableId = (int) ((long) combinedId);
 					final int conId = (int) (combinedId >> 32);
 					LOGGER.debug("Added to state file in process table OBJECT_ID {} from CON_ID {}", tableId, conId);
 				}
 			});
-			ops.setProcessedTablesIds(wipTables);
+			ops.setProcessedTablesIdsWithVersion(wipTables);
 		}
 		if (!tablesOutOfScope.isEmpty()) {
 			final List<Long> oosTables = new ArrayList<>();
@@ -829,10 +831,19 @@ public class OraCdcLogMinerTask extends SourceTask {
 		FileUtils.writeDictionaryFile(tablesInProcessing, schemaFileName);
 	}
 
-	private void restoreTableInfoFromDictionary(List<Long> processedTablesIds) throws SQLException {
-		//TODO
-		//TODO Same code as in WorkerThread - require serious improvement!!!
-		//TODO
+	private void restoreTableInfoFromDictionary(final OraCdcPersistentState ops) throws SQLException {
+//		final List<Long> processedTablesIds = ops.getProcessedTablesIds();
+		final boolean useVersion;
+		final int tableCount;
+		if (ops.getProcessedTablesIdsWithVersion() != null) {
+			useVersion = true;
+			tableCount = ops.getProcessedTablesIdsWithVersion().size();
+		} else if (ops.getProcessedTablesIds() != null) {
+			useVersion = false;
+			tableCount = ops.getProcessedTablesIds().size();
+		} else {
+			return;
+		}
 		final Connection connection = OraPoolConnectionFactory.getConnection();
 		final PreparedStatement psCheckTable;
 		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
@@ -845,7 +856,19 @@ public class OraCdcLogMinerTask extends SourceTask {
 					OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		}
-		for (long combinedDataObjectId : processedTablesIds) {
+		for (int i = 0; i < tableCount; i++) {
+			final long combinedDataObjectId;
+			final int version;
+			if (useVersion) {
+				final String[] versionWithId = StringUtils.split(
+						ops.getProcessedTablesIdsWithVersion().get(i),
+						OraCdcPersistentState.TABLE_VERSION_SEPARATOR);
+				combinedDataObjectId = Long.parseLong(versionWithId[0]);
+				version = Integer.parseInt(versionWithId[1]);
+			} else {
+				combinedDataObjectId = ops.getProcessedTablesIds().get(i);
+				version = 1;
+			}
 			if (!tablesInProcessing.containsKey(combinedDataObjectId)) {
 				final int tableId = (int) combinedDataObjectId;
 				final int conId = (int) (combinedDataObjectId >> 32);
@@ -867,6 +890,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							schemaType, useOracdcSchemas,
 							processLobs, transformLobs,
 							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter);
+					oraTable.setVersion(version);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
 					LOGGER.debug("Restored metadata for table {}, OBJECT_ID={}, CON_ID={}",

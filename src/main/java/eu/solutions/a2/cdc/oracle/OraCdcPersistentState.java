@@ -40,6 +40,8 @@ public class OraCdcPersistentState implements Serializable {
 
 	private static final long serialVersionUID = -1124449350380428483L;
 
+	public static final String TABLE_VERSION_SEPARATOR = "|";
+
 	private String instanceName;
 	private String hostName;
 	private Long dbId;
@@ -52,7 +54,10 @@ public class OraCdcPersistentState implements Serializable {
 	private Map<String, Object> currentTransaction;
 	private List<Map<String, Object>> committedTransactions;
 	private List<Map<String, Object>> inProgressTransactions;
+	/* Deprecated with DDL support! */
 	private List<Long> processedTablesIds;
+	/* Each string is pair of table Id and version separated by | */
+	private List<String> processedTablesIdsWithVersion;
 	private List<Long> outOfScopeTablesIds;
 
 	public OraCdcPersistentState() {
@@ -172,6 +177,14 @@ public class OraCdcPersistentState implements Serializable {
 
 	public void setProcessedTablesIds(List<Long> processedTablesIds) {
 		this.processedTablesIds = processedTablesIds;
+	}
+
+	public List<String> getProcessedTablesIdsWithVersion() {
+		return processedTablesIdsWithVersion;
+	}
+
+	public void setProcessedTablesIdsWithVersion(List<String> processedTablesIdsWithVersion) {
+		this.processedTablesIdsWithVersion = processedTablesIdsWithVersion;
 	}
 
 	public List<Long> getOutOfScopeTablesIds() {
