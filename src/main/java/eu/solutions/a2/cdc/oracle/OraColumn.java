@@ -237,8 +237,8 @@ public class OraColumn {
 						dataPrecision = Integer.parseInt(precisionAndScale);
 					}
 				} catch (NumberFormatException nfe) {
-					LOGGER.error("Unable to detect PRECISION and SCALE for column {} while parsing DDL command\n'{}}",
-							columnName, originalDdl);
+					LOGGER.error("Unable to detect PRECISION and SCALE for column {} while parsing DDL command\n'{}'\nusing pre-processed from DDL '{}'",
+							columnName, originalDdl, columnAttributes);
 					LOGGER.error("Both PRECISION and SCALE are reset to NULL!!!");
 					dataPrecision = null;
 					dataScale = null;
