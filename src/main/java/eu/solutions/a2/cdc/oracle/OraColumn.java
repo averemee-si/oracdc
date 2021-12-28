@@ -232,7 +232,7 @@ public class OraColumn {
 					if (StringUtils.contains(precisionAndScale, "|")) {
 						final String[] tokens = StringUtils.split(precisionAndScale, "|");
 						dataPrecision = Integer.parseInt(StringUtils.trim(tokens[0]));
-						dataScale = Integer.parseInt(StringUtils.trim(tokens[0]));
+						dataScale = Integer.parseInt(StringUtils.trim(tokens[1]));
 					} else {
 						dataPrecision = Integer.parseInt(precisionAndScale);
 					}
