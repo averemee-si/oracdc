@@ -36,3 +36,6 @@
 |RedoReadMbPerSecond         |float    |Average MB per second of archivelog reading                                                          |
 |ActualLagSeconds            |int      |Actual lag in seconds (SYSDATE - V$ARACHIVED_LOG.FIRST_TIME) for currently processing archived log   |
 |ActualLagText               |String   |Actual lag in for currently processing archived log, Days/Hours/Minutes/Seconds                      |
+|DdlColumnsCount             |int      |Number of successfully changed by DDL commands columns                                               |
+|DdlElapsedMillis            |long     |Time spent for processing DDL commands, milliseconds                                                 | 
+|DdlElapsed                  |String   |Time spent for processing DDL commands, Days/Hours/Minutes/Seconds                                   | 

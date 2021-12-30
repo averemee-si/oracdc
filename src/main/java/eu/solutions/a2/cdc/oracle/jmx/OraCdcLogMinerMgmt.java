@@ -48,6 +48,8 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 	private int batchesSentCount = 0;
 	private long parseTimeElapsed = 0;
 	private int parsePerSecond = 0;
+	private int ddlColumnsCount = 0;
+	private long ddlTimeElapsed = 0;
 
 	private final OraCdcLogMinerTask task;
 
@@ -256,6 +258,24 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 		}
 	}
 
+	public void addDdlMetrics(final int ddlCount, final long ddlElapsed) {
+		ddlColumnsCount += ddlCount;
+		ddlTimeElapsed += ddlElapsed;
+	}
+	@Override
+	public int getDdlColumnsCount() {
+		return ddlColumnsCount;
+	}
+	@Override
+	public long getDdlElapsedMillis() {
+		return ddlTimeElapsed;
+	}
+	@Override
+	public String getDdlElapsed() {
+		final Duration duration = Duration.ofMillis(ddlTimeElapsed);
+		return OraCdcMBeanUtils.formatDuration(duration);
+	}
+	
 	@Override
 	public void saveCurrentState() {
 		if (task != null) {

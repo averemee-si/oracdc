@@ -53,6 +53,10 @@ public interface OraCdcLogMinerMgmtMBean {
 	public int getActualLagSeconds();
 	public String getActualLagText();
 
+	public int getDdlColumnsCount();
+	public long getDdlElapsedMillis();
+	public String getDdlElapsed();
+
 	public void saveCurrentState();
 	public void saveCurrentTablesSchema();
 
