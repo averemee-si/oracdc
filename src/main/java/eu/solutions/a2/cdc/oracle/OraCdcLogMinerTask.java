@@ -644,11 +644,10 @@ public class OraCdcLogMinerTask extends SourceTask {
 							} else {
 								try {
 									if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
-										//TODO
-										//TODO Handle DDL
-										//TODO Add counters for DDL processing time
-										//TODO
-										oraTable.processDdl(useOracdcSchemas, stmt, transaction.getXid(), transaction.getCommitScn());
+										final long ddlStartTs = System.currentTimeMillis();
+										final int changedColumnCount = 
+												oraTable.processDdl(useOracdcSchemas, stmt, transaction.getXid(), transaction.getCommitScn());
+										metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
 									} else {
 										final long startParseTs = System.currentTimeMillis();
 										SourceRecord record = oraTable.parseRedoRecord(stmt, lobs, transaction.getXid(), transaction.getCommitScn());
