@@ -39,6 +39,7 @@ public class OraSqlUtils {
 	public static final String RESERVED_WORD_COLUMN = "column";
 	public static final String RESERVED_WORD_UNUSED = "unused";
 	public static final String RESERVED_WORD_CONSTRAINT = "constraint";
+	public static final String RESERVED_WORD_SUPPLEMENTAL = "supplemental";
 	public static final String RESERVED_WORD_TO = "to";
 
 	private static final String COMMA_INSIDE = ",(?=[^()]*\\))";
@@ -211,9 +212,11 @@ public class OraSqlUtils {
 					.stream(columnsToAdd)
 					.map(s -> StringUtils.trim(s))
 					.collect(Collectors.joining(";"));
-		} else if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_CONSTRAINT)) {
+		} else if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_CONSTRAINT) ||
+				StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_SUPPLEMENTAL)) {
 			// Ignore
 			// alter table add CoNsTrAiNt ...
+			// alter table add SuPpLeMeNtAl LoG DaTa ...
 			return null;
 		} else {
 			return operation + "\n" +
