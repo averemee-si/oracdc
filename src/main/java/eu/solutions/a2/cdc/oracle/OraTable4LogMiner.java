@@ -399,7 +399,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							oraColumn.getJdbcType() == Types.NCLOB)) {
 						// EMPTY_BLOB()/EMPTY_CLOB() passed as ''
 						valueStruct.put(oraColumn.getColumnName(), new byte[0]);
-						break;
+						continue;
 					} else {
 						// Handle LOB inline value!
 						try {
@@ -502,7 +502,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								oraColumn.getJdbcType() == Types.CLOB ||
 								oraColumn.getJdbcType() == Types.NCLOB)) {
 							valueStruct.put(oraColumn.getColumnName(), new byte[0]);
-							break;
+							continue;
 						} else {
 							parseRedoRecordValues(oraColumn, columnValue,
 									keyStruct, valueStruct);
