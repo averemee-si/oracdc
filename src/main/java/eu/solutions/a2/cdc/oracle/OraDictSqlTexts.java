@@ -280,8 +280,17 @@ where  PRODUCT like '%Database%Edition%' and rownum=1;
  */
 	public static final String RDBMS_PRODUCT_VERSION =
 			"select PRODUCT, VERSION_FULL\n" +
-			"from   PRODUCT_COMPONENT_VERSION\n"
-			+ "where  PRODUCT like '%Database%Edition%' and rownum=1";
+			"from   PRODUCT_COMPONENT_VERSION\n" +
+			"where  PRODUCT like '%Database%Edition%' and rownum=1";
+/*
+select PRODUCT, VERSION_FULL
+from   PRODUCT_COMPONENT_VERSION
+where  PRODUCT like '%Database%Edition%' and rownum=1;
+ */
+	public static final String RDBMS_PRODUCT_VERSION_PRE18_1 =
+			"select PRODUCT\n" +
+			"from   PRODUCT_COMPONENT_VERSION\n" +
+			"where  upper(PRODUCT) like '%DATABASE%' and rownum=1";
 
 /*
 select OPEN_MODE, DBID from V$DATABASE;

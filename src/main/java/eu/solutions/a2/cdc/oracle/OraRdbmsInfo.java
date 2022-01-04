@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  */
 public class OraRdbmsInfo {
 
-	private final String versionString;
+	private String versionString;
 	private final String rdbmsEdition;
 	private final int versionMajor;
 	private final int versionMinor;
@@ -71,6 +71,7 @@ public class OraRdbmsInfo {
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ResultSet rs = ps.executeQuery();
 		if (rs.next()) {
+			versionString = rs.getString("VERSION");
 			instanceNumber = rs.getShort("INSTANCE_NUMBER");
 			instanceName = rs.getString("INSTANCE_NAME");
 			hostName = rs.getString("HOST_NAME");
@@ -83,12 +84,27 @@ public class OraRdbmsInfo {
 		ps.close();
 		ps = null;
 
-		ps = connection.prepareStatement(OraDictSqlTexts.RDBMS_PRODUCT_VERSION,
+		boolean versionFullPresent = true;
+		try {
+			ps = connection.prepareStatement(OraDictSqlTexts.RDBMS_PRODUCT_VERSION,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		rs= ps.executeQuery();
+			rs= ps.executeQuery();
+		} catch (SQLException sqle) {
+			if (sqle.getErrorCode() == 904) {
+				// ORA-00904: invalid identifier
+				ps = connection.prepareStatement(OraDictSqlTexts.RDBMS_PRODUCT_VERSION_PRE18_1,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				rs= ps.executeQuery();
+				versionFullPresent = false;
+			} else {
+				throw new SQLException(sqle);
+			}
+		}
 		if (rs.next()) {
-			versionString = rs.getString("VERSION_FULL");
-			rdbmsEdition = rs.getString("PRODUCT");
+			if (versionFullPresent) {
+				versionString = rs.getString("VERSION_FULL");
+			}
+				rdbmsEdition = rs.getString("PRODUCT");
 		} else {
 			throw new SQLException("Unable to read data from PRODUCT_COMPONENT_VERSION!");
 		}
