@@ -410,7 +410,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 										parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
 									} catch (SQLException sqle) {
 										LOGGER.error("Invalid value {} for column {} in table {}",
-												columnValue, oraColumn.getColumnName(), this.fqn());
+												columnValue, oraColumn.getColumnName(), tableFqn);
 										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 										if (!oraColumn.isNullable()) {
 											throw new SQLException(sqle);
@@ -426,7 +426,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							}
 						} catch (DataException de) {
 							LOGGER.error("Invalid value {} for column {} in table {}",
-									columnValue, oraColumn.getColumnName(), this.fqn());
+									columnValue, oraColumn.getColumnName(), tableFqn);
 							printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 							throw new DataException(de);
 						}
@@ -560,7 +560,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 									columnValue,
 									keyStruct, valueStruct);
 							} catch (DataException de) {
-								LOGGER.error("Invalid value {}", columnValue);
+								LOGGER.error("Invalid value {} for column {} in table {}",
+										columnValue, oraColumn.getColumnName(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw new DataException(de);
 							}
@@ -1134,7 +1135,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						lobColumnSchemas.put(lobColumnName, lobSchema);
 					}
 				} else {
-					if (!column.isPartOfPk()) {
+					if (!column.isPartOfPk() ||
+							schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 					}
 				}
