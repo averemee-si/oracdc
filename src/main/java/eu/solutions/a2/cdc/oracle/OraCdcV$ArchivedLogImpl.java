@@ -227,10 +227,16 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 				LOGGER.debug("Attempting to start LogMiner for SCN range from {} to {}.",
 						nextLogs ? firstChange : sessionFirstChange, nextChange);
 			}
-			csStartLogMiner.setLong(1, nextLogs ? firstChange : sessionFirstChange); 
-			csStartLogMiner.setLong(2, nextChange); 
-			csStartLogMiner.execute();
-			csStartLogMiner.clearParameters();
+			try {
+				csStartLogMiner.setLong(1, nextLogs ? firstChange : sessionFirstChange); 
+				csStartLogMiner.setLong(2, nextChange); 
+				csStartLogMiner.execute();
+				csStartLogMiner.clearParameters();
+			} catch(SQLException sqle) {
+				LOGGER.error("Unable to execute\n\t{}\n\tusing STARTSCN={} and ENDSCN={}",
+						OraDictSqlTexts.START_LOGMINER, nextLogs ? firstChange : sessionFirstChange, nextChange);
+				throw new SQLException(sqle);
+			}
 			if (nextLogs) {
 				// Set sessionFirstChange only in call to next()
 				sessionFirstChange = firstChange;
