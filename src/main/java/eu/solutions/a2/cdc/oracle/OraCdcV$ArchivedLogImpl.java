@@ -180,6 +180,17 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			}
 			if (sequence > lastSequence) {
 				if (firstChange < nextChange) {
+					// #25 BEGIN - hole in SEQUENCE# numbering  in V$ARCHIVED_LOG
+					if (nextLogs && (lastSequence - sequence) > 1) {
+						LOGGER.warn("Gap in V$ARCHIVED_LOG numbering detected between SEQUENCE# {} and {}",
+								lastSequence, sequence);
+						if (fileNames.size() > 0) {
+							break;
+						} else {
+							firstChange = rs.getLong("FIRST_CHANGE#");
+						}
+					}
+					// #25 END - hole in SEQUENCE# numbering  in V$ARCHIVED_LOG
 					lastSequence = sequence;
 					fileNames.add(archLogsAvailable, rs.getString("NAME"));
 					LOGGER.info("Adding archived log {} thread# {} sequence# {} first change number {} next log first change {}",
