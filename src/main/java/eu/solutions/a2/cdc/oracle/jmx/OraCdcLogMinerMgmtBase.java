@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import javax.management.InstanceAlreadyExistsException;
+import javax.management.InstanceNotFoundException;
 import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
 import javax.management.MalformedObjectNameException;
@@ -70,11 +71,21 @@ public class OraCdcLogMinerMgmtBase {
 			sb.append(rdbmsInfo.getInstanceName());
 			sb.append("_");
 			sb.append(rdbmsInfo.getHostName());
-			ObjectName name = new ObjectName(sb.toString());
-			MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+			final ObjectName name = new ObjectName(sb.toString());
+			final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+			if (mbs.isRegistered(name)) {
+				LOGGER.warn("JMX MBean {} already registered, trying to remove it.", name.getCanonicalName());
+				try {
+					mbs.unregisterMBean(name);
+				} catch (InstanceNotFoundException nfe) {
+					LOGGER.error("Unable to unregister MBean {}", name.getCanonicalName());
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(nfe));
+					throw new ConnectException(nfe);
+				}
+			}
 			mbs.registerMBean(this, name);
 		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
-			LOGGER.error("Unable to register MBean - " + e.getMessage() + " !!!!");
+			LOGGER.error("Unable to register MBean {} !!! ", e.getMessage());
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
 		}
