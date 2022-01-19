@@ -60,27 +60,37 @@ public class OraSqlUtils {
 		sb.append("(");
 
 		for (int i = 0; i < listSchemaObj.size(); i++) {
-			final String schemaObj = listSchemaObj.get(i).trim();
+			final String schemaObj = StringUtils.trim(listSchemaObj.get(i));
+			boolean escaped = StringUtils.contains(schemaObj, "\"");
 			if (schemaObj.contains(".")) {
 				final String[] pairSchemaObj = schemaObj.split("\\.");
-				if ("%".equals(pairSchemaObj[1]) || "*".equals(pairSchemaObj[1])) {
+				final String schemaName = StringUtils.trim(pairSchemaObj[0]);
+				final String objName = StringUtils.trim(pairSchemaObj[1]);
+				if (StringUtils.equals("%", pairSchemaObj[1]) ||
+						StringUtils.equals("*", pairSchemaObj[1])) {
 					// Only schema name present
 					sb.append("(");
 					sb.append(schemaNameField);
 					sb.append(exclude ? "!='" : "='");
-					sb.append(pairSchemaObj[0]);
+					sb.append(escaped ? 
+										StringUtils.remove(schemaName, "\"") :
+										StringUtils.upperCase(schemaName));
 					sb.append("')");
 				} else {
 					// Process pair... ... ...
 					sb.append("(");
 					sb.append(schemaNameField);
 					sb.append("='");
-					sb.append(pairSchemaObj[0]);
+					sb.append(escaped ? 
+										StringUtils.remove(schemaName, "\"") :
+										StringUtils.upperCase(schemaName));
 					sb.append("'");
 					sb.append(SQL_AND);
 					sb.append(objNameField);
 					sb.append(exclude ? "!='" : "='");
-					sb.append(pairSchemaObj[1]);
+					sb.append(escaped ? 
+										StringUtils.remove(objName, "\"") :
+										StringUtils.upperCase(objName));
 					sb.append("')");
 				}
 			} else {
