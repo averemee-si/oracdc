@@ -24,7 +24,6 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
 
 import eu.solutions.a2.cdc.oracle.OraDumpDecoder;
-import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
 
@@ -40,9 +39,6 @@ public class OraTimestamp {
 	public static final String LOGICAL_NAME = "eu.solutions.a2.cdc.oracle.data.OraTimestamp";
 	public static final DateTimeFormatter ISO_8601_FMT = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
-	// Unfortunately we need this....
-	private static Connection oraDbConnection;
-
 	public static SchemaBuilder builder() {
 		return SchemaBuilder.string()
 				.name(LOGICAL_NAME)
@@ -53,21 +49,14 @@ public class OraTimestamp {
 		return builder().build();
 	}
 
-	public static String fromLogical(final byte[] dumpValue, final boolean isLocal) {
+	public static String fromLogical(final byte[] dumpValue, final boolean isLocal, Connection connection) {
 		if (dumpValue == null) {
 			throw new DataException("oracle.sql.TIMESTAMPTZ/oracle.sql.TIMESTAMPTZ representation is null!");
-		}
-		if (oraDbConnection == null) {
-			try {
-				oraDbConnection = OraPoolConnectionFactory.getConnection();
-			} catch (SQLException sqle) {
-				throw new DataException("Unable to obtain connection for processing oracle.sql.TIMESTAMPTZ/oracle.sql.TIMESTAMPTZ!", sqle);
-			}
 		}
 		final OffsetDateTime odt;
 		if (isLocal) {
 			try {
-				odt = TIMESTAMPLTZ.toOffsetDateTime(oraDbConnection, dumpValue);
+				odt = TIMESTAMPLTZ.toOffsetDateTime(connection, dumpValue);
 			} catch (SQLException sqle) {
 				throw new DataException("Unable to convert " +
 							OraDumpDecoder.toHexString(dumpValue) +
@@ -75,7 +64,7 @@ public class OraTimestamp {
 			}
 		} else {
 			try {
-				odt = TIMESTAMPTZ.toOffsetDateTime(oraDbConnection, dumpValue);
+				odt = TIMESTAMPTZ.toOffsetDateTime(connection, dumpValue);
 			} catch (SQLException sqle) {
 				throw new DataException("Unable to convert " +
 							OraDumpDecoder.toHexString(dumpValue) +

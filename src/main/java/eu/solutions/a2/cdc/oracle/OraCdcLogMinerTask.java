@@ -680,7 +680,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 											metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
 										} else {
 											final long startParseTs = System.currentTimeMillis();
-											SourceRecord record = oraTable.parseRedoRecord(stmt, lobs, transaction.getXid(), transaction.getCommitScn());
+											SourceRecord record =
+													oraTable.parseRedoRecord(
+															stmt,
+															lobs,
+															transaction.getXid(),
+															transaction.getCommitScn(),
+															connDictionary);
 											result.add(record);
 											recordCount++;
 											parseTime += (System.currentTimeMillis() - startParseTs);

@@ -340,7 +340,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final OraCdcLogMinerStatement stmt,
 			final List<OraCdcLargeObjectHolder> lobs,
 			final String xid,
-			final long commitScn) throws SQLException {
+			final long commitScn,
+			final Connection connection) throws SQLException {
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("BEGIN: parseRedoRecord()");
 		}
@@ -407,7 +408,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							if (oraColumn.getJdbcType() != Types.SQLXML) {
 								if (columnValue != null && columnValue.length() > 0) {
 									try {
-										parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct);
+										parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct, connection);
 									} catch (SQLException sqle) {
 										LOGGER.error("Invalid value {} for column {} in table {}",
 												columnValue, oraColumn.getColumnName(), tableFqn);
@@ -452,7 +453,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							parseRedoRecordValues(
 									idToNameMap.get(columnName),
 									StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
-									keyStruct, valueStruct);
+									keyStruct, valueStruct, connection);
 						}
 					}
 				}
@@ -505,7 +506,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							continue;
 						} else {
 							parseRedoRecordValues(oraColumn, columnValue,
-									keyStruct, valueStruct);
+									keyStruct, valueStruct, connection);
 							setColumns.add(columnName);
 						}
 					}
@@ -558,7 +559,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								parseRedoRecordValues(
 									oraColumn,
 									columnValue,
-									keyStruct, valueStruct);
+									keyStruct, valueStruct, connection);
 							} catch (DataException de) {
 								LOGGER.error("Invalid value {} for column {} in table {}",
 										columnValue, oraColumn.getColumnName(), tableFqn);
@@ -591,7 +592,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						parseRedoRecordValues(
 								idToNameMap.get(columnName),
 								StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
-								keyStruct, valueStruct);
+								keyStruct, valueStruct, connection);
 					} else {
 						// We assume EXPLICIT null here
 						valueStruct.put(oraColumn.getColumnName(), null);					}
@@ -704,7 +705,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private void parseRedoRecordValues(
 			final OraColumn oraColumn, final String hexValue,
-			final Struct keyStruct, final Struct valueStruct) throws SQLException {
+			final Struct keyStruct, final Struct valueStruct,
+			final Connection connection) throws SQLException {
 		final String columnName = oraColumn.getColumnName();
 		//final String hex = StringUtils.substring(hexValue, 1, hexValue.length() - 1);
 		final String hex = StringUtils.substringBetween(hexValue, "'");
@@ -717,7 +719,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					break;
 				case Types.TIMESTAMP_WITH_TIMEZONE:
 					columnValue = OraTimestamp.fromLogical(
-						OraDumpDecoder.toByteArray(hex), oraColumn.isLocalTimeZone());
+						OraDumpDecoder.toByteArray(hex), oraColumn.isLocalTimeZone(), connection);
 					break;
 				case Types.TINYINT:
 					columnValue = OraDumpDecoder.toByte(hex);
