@@ -159,9 +159,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			try {
 				final Class<?> classLogMiner = Class.forName(archivedLogCatalogImplClass);
 				final Constructor<?> constructor = classLogMiner.getConstructor(
-						Connection.class, OraCdcLogMinerMgmtIntf.class, long.class, Map.class, CountDownLatch.class);
+						Connection.class,
+						OraCdcLogMinerMgmtIntf.class,
+						long.class,
+						Map.class,
+						CountDownLatch.class,
+						OraRdbmsInfo.class);
 				logMiner = (OraLogMiner) constructor.newInstance(
-						connLogMiner, metrics, firstScn, props, runLatch);
+						connLogMiner, metrics, firstScn, props, runLatch, rdbmsInfo);
 			} catch (ClassNotFoundException nfe) {
 				LOGGER.error("ClassNotFoundException while instantiating {}", archivedLogCatalogImplClass);
 				throw new ConnectException("ClassNotFoundException while instantiating " + archivedLogCatalogImplClass, nfe);

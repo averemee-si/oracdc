@@ -63,11 +63,12 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
 			final OraCdcLogMinerMgmtIntf metrics, final long firstChange,
-			final Map<String, String> props, final CountDownLatch runLatch) throws SQLException {
+			final Map<String, String> props,
+			final CountDownLatch runLatch,
+			final OraRdbmsInfo rdbmsInfo) throws SQLException {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
 
-		OraRdbmsInfo rdbmsInfo = OraRdbmsInfo.getInstance();
 		if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
 			// 19.10+ and connection to PDB
 			callDbmsLogmnrAddLogFile = false;
