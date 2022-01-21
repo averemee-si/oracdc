@@ -58,6 +58,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private final OraCdcLogMinerTask task;
 	private final int pollInterval;
+	private final OraRdbmsInfo rdbmsInfo;
 	private final OraCdcLogMinerMgmt metrics;
 	private final CountDownLatch runLatch;
 	private boolean logMinerReady = false;
@@ -144,6 +145,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.connectionRetryBackoff = Integer.parseInt(props.get(ParamConstants.CONNECTION_BACKOFF_PARAM));
 		this.fetchSize = Integer.parseInt(props.get(ParamConstants.FETCH_SIZE_PARAM));
 		this.traceSession = Boolean.parseBoolean(props.get(ParamConstants.TRACE_LOGMINER_PARAM));
+		this.rdbmsInfo = rdbmsInfo;
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 
 		runLatch = new CountDownLatch(1);
@@ -433,7 +435,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 												schemaType, useOracdcSchemas,
 												processLobs, transformLobs, isCdb,
-												odd, partition, topic, topicNameStyle, topicNameDelimiter);
+												odd, partition, topic, topicNameStyle, topicNameDelimiter,
+												rdbmsInfo);
 											if (isPartition) {
 												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
 												metrics.addPartitionInProcessing();

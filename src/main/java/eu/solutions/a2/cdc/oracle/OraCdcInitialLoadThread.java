@@ -49,6 +49,7 @@ public class OraCdcInitialLoadThread extends Thread {
 	private final BlockingQueue<OraTable4InitialLoad> tablesQueue;
 	private final AtomicBoolean running;
 	private final int selectThreadCount;
+	private final OraRdbmsInfo rdbmsInfo;
 
 	public OraCdcInitialLoadThread(
 			final int waitInterval,
@@ -74,6 +75,7 @@ public class OraCdcInitialLoadThread extends Thread {
 		this.runLatch = new CountDownLatch(tablesInProcessing.size());
 		// Need running status set here!!!
 		running = new AtomicBoolean(true);
+		this.rdbmsInfo = rdbmsInfo;
 	}
 
 	@Override
@@ -88,7 +90,7 @@ public class OraCdcInitialLoadThread extends Thread {
 			tablesInProcessing.forEach((k, oraTable) -> {
 				try {
 					final OraTable4InitialLoad table4Load =
-						new OraTable4InitialLoad(queuesRoot, oraTable, metrics);
+						new OraTable4InitialLoad(queuesRoot, oraTable, metrics, rdbmsInfo);
 					threadPool.submit(() -> {
 						table4Load.readTableData(asOfScn, runLatch, tablesQueue);
 					});

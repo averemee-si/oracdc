@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
+import eu.solutions.a2.cdc.oracle.OraRdbmsInfo;
 import eu.solutions.a2.cdc.oracle.OraTable4LogMiner;
 import eu.solutions.a2.cdc.oracle.ParamConstants;
 import eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl;
@@ -41,10 +42,13 @@ import eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 public class FileUtils {
 
 	public static Map<Long, OraTable4LogMiner> readDictionaryFile(
-			final String fileName, Integer schemaType, final OraCdcLobTransformationsIntf transformLobs)
+			final String fileName, Integer schemaType,
+			final OraCdcLobTransformationsIntf transformLobs,
+			final OraRdbmsInfo rdbmsInfo)
 					throws IOException {
 		InputStream is = new FileInputStream(fileName);
-		Map<Long, OraTable4LogMiner> schemas = readDictionaryFile(is, schemaType, transformLobs);
+		Map<Long, OraTable4LogMiner> schemas =
+				readDictionaryFile(is, schemaType, transformLobs, rdbmsInfo);
 		is.close();
 		return schemas;
 	}
@@ -54,13 +58,15 @@ public class FileUtils {
 		InputStream is = new FileInputStream(file);
 		// GUI call - OK for default implementation
 		Map<Long, OraTable4LogMiner> schemas = readDictionaryFile(
-				is, schemaType, new OraCdcDefaultLobTransformationsImpl());
+				is, schemaType, new OraCdcDefaultLobTransformationsImpl(), null);
 		is.close();
 		return schemas;
 	}
 
 	private static Map<Long, OraTable4LogMiner> readDictionaryFile(
-			final InputStream is, Integer schemaType, final OraCdcLobTransformationsIntf transformLobs) throws IOException {
+			final InputStream is, Integer schemaType,
+			final OraCdcLobTransformationsIntf transformLobs,
+			final OraRdbmsInfo rdbmsInfo) throws IOException {
 		Map<String, Map<String, Object>> fileData = new HashMap<>();
 		final ObjectReader reader = new ObjectMapper()
 				.readerFor(fileData.getClass());
@@ -68,9 +74,13 @@ public class FileUtils {
 		final Map<Long, OraTable4LogMiner> schemas = new ConcurrentHashMap<>();
 		try {
 			fileData.forEach((k, v) -> {
-				schemas.put(Long.parseLong(k), new OraTable4LogMiner(v, 
-					(schemaType == null) ? ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD : schemaType,
-							transformLobs));
+				schemas.put(
+						Long.parseLong(k),
+						new OraTable4LogMiner(
+								v, 
+								(schemaType == null) ? ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD : schemaType,
+								transformLobs,
+								rdbmsInfo));
 			});
 		} catch (Exception e) {
 			throw new IOException(e);

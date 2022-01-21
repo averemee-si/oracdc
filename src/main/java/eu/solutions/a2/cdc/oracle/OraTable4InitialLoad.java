@@ -94,10 +94,12 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 	 * @param rootDir
 	 * @param oraTable
 	 * @param metrics
+	 * @param rdbmsInfo
 	 * @throws IOException
 	 */
 	public OraTable4InitialLoad(final Path rootDir, final OraTable4LogMiner oraTable,
-				final OraCdcInitialLoad metrics) throws IOException {
+				final OraCdcInitialLoad metrics,
+				final OraRdbmsInfo rdbmsInfo) throws IOException {
 		super(oraTable.getTableOwner(), oraTable.getTableName(), oraTable.getSchemaType());
 		LOGGER.trace("BEGIN: create OraCdcTableBuffer");
 		this.pdbName = oraTable.getPdbName();
@@ -111,6 +113,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		this.metrics = metrics;
 		this.tableFqn = oraTable.fqn();
 		this.kafkaTopic = oraTable.getKafkaTopic();
+		this.rdbmsInfo = rdbmsInfo;
 		this.setRowLevelScn(oraTable.isRowLevelScn());
 		// Build SQL select
 		final StringBuilder sb = new StringBuilder(512);
@@ -593,7 +596,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			LOGGER.info("Table {} initial load (read phase) completed. {} rows read.", tableFqn, queueSize);
 			if (pdbName != null) {
 				Statement alterSession = connection.createStatement();
-				alterSession.execute("alter session set CONTAINER=" + OraRdbmsInfo.getInstance().getPdbName());
+				alterSession.execute("alter session set CONTAINER=" + rdbmsInfo.getPdbName());
 				alterSession.close();
 				alterSession = null;
 			}
@@ -630,20 +633,15 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 				final long ts = System.currentTimeMillis();
 				final Struct struct = new Struct(schema);
-				try {
-					//TODO
-					//TODO Improvement required!
-					//TODO
-					final Struct source = OraRdbmsInfo.getInstance().getStruct(
+				//TODO
+				//TODO Improvement required!
+				//TODO
+				final Struct source = rdbmsInfo.getStruct(
 						this.tableFqn,
 						pdbName, tableOwner, tableName,
 						0L, ts,
 						"", 0L, "");
-					struct.put("source", source);
-				} catch (SQLException sqle) {
-					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-					throw new ConnectException(sqle);
-				}
+				struct.put("source", source);
 				struct.put("before", keyStruct);
 				struct.put("after", valueStruct);
 				struct.put("op", "c");

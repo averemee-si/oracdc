@@ -72,13 +72,15 @@ public class OraTable extends OraTable4SourceConnector {
 	 * @param logWithSequence
 	 * @param batchSize
 	 * @param schemaType type of schema
+	 * @param rdbmsInfo
 	 * @throws SQLException
 	 */
 	public OraTable(
 			final String tableOwner, final String masterTable, final String snapshotLog,
 			final boolean logWithRowIds, final boolean logWithPrimaryKey, final boolean logWithSequence,
 			final int batchSize, final int schemaType,
-			final Map<String, String> sourcePartition, Map<String, Object> sourceOffset) throws SQLException {
+			final Map<String, String> sourcePartition, final Map<String, Object> sourceOffset,
+			final OraRdbmsInfo rdbmsInfo) throws SQLException {
 		super(tableOwner, masterTable, schemaType);
 		LOGGER.trace("Creating OraTable object for materialized view log...");
 		this.logWithRowIds = logWithRowIds;
@@ -87,6 +89,7 @@ public class OraTable extends OraTable4SourceConnector {
 		this.batchSize = batchSize;
 		this.snapshotLog = snapshotLog;
 		this.sourcePartition = sourcePartition;
+		this.rdbmsInfo = rdbmsInfo;
 
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Table owner -> {}, master table -> {}", this.tableOwner, this.tableName);
@@ -193,7 +196,7 @@ public class OraTable extends OraTable4SourceConnector {
 
 				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 					final Struct struct = new Struct(schema);
-					final Struct source = OraRdbmsInfo.getInstance().getStruct(
+					final Struct source = rdbmsInfo.getStruct(
 							null,
 							null,
 							tableOwner,

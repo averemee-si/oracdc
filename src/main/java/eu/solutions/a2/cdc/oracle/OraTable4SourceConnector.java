@@ -57,6 +57,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	protected Schema keySchema;
 	protected Schema valueSchema;
 	private boolean rowLevelScn;
+	protected OraRdbmsInfo rdbmsInfo;
 
 	protected OraTable4SourceConnector(String tableOwner, String tableName, int schemaType) {
 		super(tableOwner, tableName, schemaType);
@@ -234,7 +235,9 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			schemaBuilder.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA);
 			schemaBuilder.field("before", keySchema);
 			schemaBuilder.field("after", valueSchema);
-			schemaBuilder.field("source", OraRdbmsInfo.getInstance().getSchema());
+			if (rdbmsInfo != null) {
+				schemaBuilder.field("source", rdbmsInfo.getSchema());
+			}
 			schema = schemaBuilder.build();
 		}
 	}

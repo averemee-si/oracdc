@@ -96,7 +96,7 @@ public class OraCdcSourceTask extends SourceTask {
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID)),
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK)),
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE)),
-					batchSize, schemaType, partition, offset);
+					batchSize, schemaType, partition, offset, rdbmsInfo);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));

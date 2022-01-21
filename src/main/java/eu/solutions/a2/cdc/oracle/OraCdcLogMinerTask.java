@@ -207,7 +207,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				if (!StringUtils.isEmpty(schemaFileName)) {
 					try {
 						LOGGER.info("Loading stored schema definitions from file {}.", schemaFileName);
-						tablesInProcessing = FileUtils.readDictionaryFile(schemaFileName, schemaType, transformLobs);
+						tablesInProcessing = FileUtils.readDictionaryFile(schemaFileName, schemaType, transformLobs, rdbmsInfo);
 						LOGGER.info("{} table schema definitions loaded from file {}.",
 								tablesInProcessing.size(), schemaFileName);
 						tablesInProcessing.forEach((key, table) -> {
@@ -931,7 +931,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas,
 							processLobs, transformLobs,
-							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter);
+							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter,
+							rdbmsInfo);
 					oraTable.setVersion(version);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
@@ -968,7 +969,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							"ENABLED".equalsIgnoreCase(resultSet.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas,
 							processLobs, transformLobs,
-							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter);
+							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter,
+							rdbmsInfo);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

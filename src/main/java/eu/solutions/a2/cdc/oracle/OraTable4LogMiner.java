@@ -122,6 +122,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param topicParam
 	 * @param topicNameStyle
 	 * @param topicNameDelimiter
+	 * @param rdbmsInfo
 	 */
 	public OraTable4LogMiner(
 			final String pdbName, final short conId, final String tableOwner,
@@ -130,12 +131,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final boolean processLobs, final OraCdcLobTransformationsIntf transformLobs,
 			final boolean isCdb, final OraDumpDecoder odd,
 			final Map<String, String> sourcePartition, final String topicParam,
-			final int topicNameStyle, final String topicNameDelimiter) {
+			final int topicNameStyle, final String topicNameDelimiter,
+			final OraRdbmsInfo rdbmsInfo) {
 		this(pdbName, tableOwner, tableName, schemaType, processLobs, transformLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(topicParam, topicNameStyle, topicNameDelimiter, odd, sourcePartition);
 		this.tableWithPk = true;
 		this.setRowLevelScn(rowLevelScnDependency);
+		this.rdbmsInfo = rdbmsInfo;
 		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -255,7 +258,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (isCdb) {
 				// Restore container in session
 				Statement alterSession = connection.createStatement();
-				alterSession.execute("alter session set CONTAINER=" + OraRdbmsInfo.getInstance().getPdbName());
+				alterSession.execute("alter session set CONTAINER=" + rdbmsInfo.getPdbName());
 				alterSession.close();
 				alterSession = null;
 			}
@@ -276,14 +279,18 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param tableData
 	 * @param schemaType
 	 * @param transformLobs
+	 * @param rdbmsInfo
 	 */
-	public OraTable4LogMiner(Map<String, Object> tableData, final int schemaType, final OraCdcLobTransformationsIntf transformLobs) {
+	public OraTable4LogMiner(Map<String, Object> tableData, final int schemaType,
+			final OraCdcLobTransformationsIntf transformLobs,
+			final OraRdbmsInfo rdbmsInfo) {
 		this((String) tableData.get("pdbName"),
 				(String) tableData.get("tableOwner"),
 				(String) tableData.get("tableName"),
 				schemaType, (boolean) tableData.get("processLobs"),
 				transformLobs);
 		tableWithPk = (boolean) tableData.get("tableWithPk");
+		this.rdbmsInfo = rdbmsInfo;
 		final Boolean rowLevelScnDependency = (Boolean) tableData.get("rowLevelScn");
 		if (rowLevelScnDependency == null || !rowLevelScnDependency) {
 			this.setRowLevelScn(false);
@@ -657,7 +664,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		SourceRecord sourceRecord = null;
 		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 			final Struct struct = new Struct(schema);
-			final Struct source = OraRdbmsInfo.getInstance().getStruct(
+			final Struct source = rdbmsInfo.getStruct(
 					stmt.getSqlRedo(),
 					pdbName, tableOwner, tableName,
 					stmt.getScn(), stmt.getTs(),
