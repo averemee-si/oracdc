@@ -635,82 +635,89 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 		} else {
 			// Load data from archived redo...
-			int recordCount = 0;
-			int parseTime = 0;
-			while (recordCount < batchSize) {
-				if (lastStatementInTransaction) {
-					// End of transaction, need to poll new
-					transaction = committedTransactions.poll();
-				}
-				if (transaction == null) {
-					// No more records produced by LogMiner worker
-					break;
-				} else {
-					// Prepare records...
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",
-							transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
-					}
-					lastStatementInTransaction = false;
-					boolean processTransaction = true;
-					do {
-						OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
-						List<OraCdcLargeObjectHolder> lobs = null;
-						processTransaction = transaction.getStatement(stmt);
-						if (processLobs && stmt.getLobCount() > 0) {
-							lobs = new ArrayList<>();
-							transaction.getLobs(stmt.getLobCount(), lobs);
-						}
-						lastStatementInTransaction = !processTransaction;
-
-						if (processTransaction) {
-							final OraTable4LogMiner oraTable = tablesInProcessing.get(stmt.getTableId());
-							if (oraTable == null) {
-								LOGGER.error("Strange consistency issue for DATA_OBJ# {}, transaction XID {}, statement SCN={}, RS_ID='{}', SSN={}.\n Exiting.",
-										stmt.getTableId(), transaction.getXid(), stmt.getScn(), stmt.getRsId(), stmt.getSsn());
-								isPollRunning.set(false);
-								throw new ConnectException("Strange consistency issue!!!");
-							} else {
-								try {
-									if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
-										final long ddlStartTs = System.currentTimeMillis();
-										final int changedColumnCount = 
-												oraTable.processDdl(useOracdcSchemas, stmt, transaction.getXid(), transaction.getCommitScn());
-										metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
-									} else {
-										final long startParseTs = System.currentTimeMillis();
-										SourceRecord record = oraTable.parseRedoRecord(stmt, lobs, transaction.getXid(), transaction.getCommitScn());
-										result.add(record);
-										recordCount++;
-										parseTime += (System.currentTimeMillis() - startParseTs);
-									}
-								} catch (SQLException e) {
-									LOGGER.error(e.getMessage());
-									LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-									isPollRunning.set(false);
-									throw new ConnectException(e);
-								}
-							}
-						}
-					} while (processTransaction && recordCount < batchSize);
+			try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
+				int recordCount = 0;
+				int parseTime = 0;
+				while (recordCount < batchSize) {
 					if (lastStatementInTransaction) {
-						// close Cronicle queue only when all statements are processed
+						// End of transaction, need to poll new
+						transaction = committedTransactions.poll();
+					}
+					if (transaction == null) {
+						// No more records produced by LogMiner worker
+						break;
+					} else {
+						// Prepare records...
 						if (LOGGER.isDebugEnabled()) {
-							LOGGER.debug("End of processing transaction XID {}, first change {}, commit SCN {}.",
+							LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",
 								transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
 						}
-						transaction.close();
-						transaction = null;
+						lastStatementInTransaction = false;
+						boolean processTransaction = true;
+						do {
+							OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
+							List<OraCdcLargeObjectHolder> lobs = null;
+							processTransaction = transaction.getStatement(stmt);
+							if (processLobs && stmt.getLobCount() > 0) {
+								lobs = new ArrayList<>();
+								transaction.getLobs(stmt.getLobCount(), lobs);
+							}
+							lastStatementInTransaction = !processTransaction;
+
+							if (processTransaction) {
+								final OraTable4LogMiner oraTable = tablesInProcessing.get(stmt.getTableId());
+								if (oraTable == null) {
+									LOGGER.error("Strange consistency issue for DATA_OBJ# {}, transaction XID {}, statement SCN={}, RS_ID='{}', SSN={}.\n Exiting.",
+											stmt.getTableId(), transaction.getXid(), stmt.getScn(), stmt.getRsId(), stmt.getSsn());
+									isPollRunning.set(false);
+									throw new ConnectException("Strange consistency issue!!!");
+								} else {
+									try {
+										if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
+											final long ddlStartTs = System.currentTimeMillis();
+											final int changedColumnCount = 
+													oraTable.processDdl(useOracdcSchemas, stmt, transaction.getXid(), transaction.getCommitScn());
+											metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
+										} else {
+											final long startParseTs = System.currentTimeMillis();
+											SourceRecord record = oraTable.parseRedoRecord(stmt, lobs, transaction.getXid(), transaction.getCommitScn());
+											result.add(record);
+											recordCount++;
+											parseTime += (System.currentTimeMillis() - startParseTs);
+										}
+									} catch (SQLException e) {
+										LOGGER.error(e.getMessage());
+										LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+										isPollRunning.set(false);
+										throw new ConnectException(e);
+									}
+								}
+							}
+						} while (processTransaction && recordCount < batchSize);
+						if (lastStatementInTransaction) {
+							// close Cronicle queue only when all statements are processed
+							if (LOGGER.isDebugEnabled()) {
+								LOGGER.debug("End of processing transaction XID {}, first change {}, commit SCN {}.",
+									transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
+							}
+							transaction.close();
+							transaction = null;
+						}
 					}
 				}
-			}
-			if (recordCount == 0) {
-				synchronized (this) {
-					LOGGER.debug("Waiting {} ms", pollInterval);
-					Thread.sleep(pollInterval);
+				if (recordCount == 0) {
+					synchronized (this) {
+						LOGGER.debug("Waiting {} ms", pollInterval);
+						Thread.sleep(pollInterval);
+					}
+				} else {
+					metrics.addSentRecords(result.size(), parseTime);
 				}
-			} else {
-				metrics.addSentRecords(result.size(), parseTime);
+			} catch (SQLException sqle) {
+				LOGGER.error(sqle.getMessage());
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				isPollRunning.set(false);
+				throw new ConnectException(sqle);
 			}
 		}
 		isPollRunning.set(false);
