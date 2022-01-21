@@ -544,7 +544,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 					metrics,
 					topicNameStyle,
 					props,
-					transformLobs);
+					transformLobs,
+					rdbmsInfo);
 			if (rewind) {
 				worker.rewind(firstScn, firstRsId, firstSsn);
 			}

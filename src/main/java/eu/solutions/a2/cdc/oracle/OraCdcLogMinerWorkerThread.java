@@ -58,7 +58,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private final OraCdcLogMinerTask task;
 	private final int pollInterval;
-	private final OraRdbmsInfo rdbmsInfo;
 	private final OraCdcLogMinerMgmt metrics;
 	private final CountDownLatch runLatch;
 	private boolean logMinerReady = false;
@@ -117,7 +116,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final OraCdcLogMinerMgmt metrics,
 			final int topicNameStyle,
 			final Map<String, String> props,
-			final OraCdcLobTransformationsIntf transformLobs) throws SQLException {
+			final OraCdcLobTransformationsIntf transformLobs,
+			final OraRdbmsInfo rdbmsInfo) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -144,15 +144,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.connectionRetryBackoff = Integer.parseInt(props.get(ParamConstants.CONNECTION_BACKOFF_PARAM));
 		this.fetchSize = Integer.parseInt(props.get(ParamConstants.FETCH_SIZE_PARAM));
 		this.traceSession = Boolean.parseBoolean(props.get(ParamConstants.TRACE_LOGMINER_PARAM));
+		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
+
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
 
 		try {
 			connLogMiner = OraPoolConnectionFactory.getLogMinerConnection(traceSession);
 			connDictionary = OraPoolConnectionFactory.getConnection();
-
-			rdbmsInfo = OraRdbmsInfo.getInstance();
-			isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 
 			final String archivedLogCatalogImplClass = props.get(ParamConstants.ARCHIVED_LOG_CAT_PARAM);
 			try {
