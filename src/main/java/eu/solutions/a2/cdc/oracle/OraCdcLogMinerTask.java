@@ -171,7 +171,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		}
 
 		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
-			rdbmsInfo = OraRdbmsInfo.getInstance();
+			rdbmsInfo = new OraRdbmsInfo(connDictionary);
 			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, props.get("name"), this);
 

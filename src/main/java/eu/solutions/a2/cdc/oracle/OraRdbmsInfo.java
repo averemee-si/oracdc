@@ -60,13 +60,8 @@ public class OraRdbmsInfo {
 	private final static int PDB_MINING_BACKPORT_MINOR = 10;
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraRdbmsInfo.class);
 
-	private static OraRdbmsInfo instance;
 
 	public OraRdbmsInfo(final Connection connection) throws SQLException {
-		this(connection, true);
-	}
-
-	private OraRdbmsInfo(final Connection connection, final boolean initialCall) throws SQLException {
 		PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.RDBMS_VERSION_AND_MORE,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ResultSet rs = ps.executeQuery();
@@ -192,19 +187,6 @@ public class OraRdbmsInfo {
 		schemaBuilder.field("ts_ms", Schema.INT64_SCHEMA);
 		schema = schemaBuilder.build();
 
-		// It's No Good...
-		if (instance == null && initialCall)
-			instance = this;
-	}
-
-	public static OraRdbmsInfo getInstance() throws SQLException {
-		// It's No Good...
-		if (instance == null) {
-			final Connection connection = OraPoolConnectionFactory.getConnection();
-			instance = new OraRdbmsInfo(connection, false);
-			connection.close();
-		}
-		return instance;
 	}
 
 	public Struct getStruct(final String query, final String pdbName, final String owner,

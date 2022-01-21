@@ -70,11 +70,11 @@ public class OraCdcSourceTask extends SourceTask {
 		}
 		LOGGER.debug("topic set to {}.", topic);
 
-		try {
+		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
 			LOGGER.trace("Checking for stored offset...");
 			final String tableName = props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
 			final String tableOwner = props.get(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER); 
-			OraRdbmsInfo rdbmsInfo = OraRdbmsInfo.getInstance();
+			OraRdbmsInfo rdbmsInfo = new OraRdbmsInfo(connDictionary);
 			LOGGER.trace("Setting source partition name for processing snapshot log");
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName() + ":" +
 						tableName + "." + tableOwner;
