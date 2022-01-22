@@ -17,8 +17,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import eu.solutions.a2.cdc.oracle.OraConnectionObjects;
 import eu.solutions.a2.cdc.oracle.OraDictSqlTexts;
-import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import eu.solutions.a2.cdc.oracle.OraRdbmsInfo;
 import eu.solutions.a2.cdc.oracle.OraTable4LogMiner;
 import eu.solutions.a2.cdc.oracle.ParamConstants;
@@ -38,9 +38,13 @@ public class DatabaseObjects implements ActionListener {
 	private String tablePdb;
 	private String tableOwner;
 	private String tableName;
+	private final OraConnectionObjects oraConnections;
 
-	public DatabaseObjects() throws SQLException {
-		final Connection connection = OraPoolConnectionFactory.getConnection();
+	public DatabaseObjects(
+			final String jdbcUrl, final String username, final String password)
+					throws SQLException {
+		oraConnections = OraConnectionObjects.get4UserPassword("table-schema-editor", jdbcUrl, username, password);
+		final Connection connection = oraConnections.getConnection();
 		rdbmsInfo = new OraRdbmsInfo(connection);
 		final String protoValue = StringUtils.repeat("A", 31);
 		cbOwners = new JComboBox<>();
@@ -131,7 +135,7 @@ public class DatabaseObjects implements ActionListener {
 			return null;
 		}
 		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
-		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+		try (Connection connection = oraConnections.getConnection()) {
 			PreparedStatement statement = connection.prepareStatement(
 					isCdb ?
 						(OraDictSqlTexts.CHECK_TABLE_CDB + " and P.PDB_NAME = ? and O.OWNER = ? and O.OBJECT_NAME = ?") :
@@ -169,7 +173,7 @@ public class DatabaseObjects implements ActionListener {
 						processLobs, new OraCdcDefaultLobTransformationsImpl(), isCdb,
 						null, null, null,
 						ParamConstants.TOPIC_NAME_STYLE_INT_TABLE, ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,
-						rdbmsInfo);
+						rdbmsInfo, connection);
 				return new AbstractMap.SimpleImmutableEntry<Long, OraTable4LogMiner>(combinedDataObjectId, oraTable);
 			} else {
 				throw new SQLException(
@@ -184,7 +188,7 @@ public class DatabaseObjects implements ActionListener {
 	}
 
 	private void fillPdbTableOwners() {
-		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+		try (Connection connection = oraConnections.getConnection()) {
 			PreparedStatement statement = connection.prepareStatement(
 					"select USERNAME from CDB_USERS U, CDB_PDBS D where U.CON_ID = D.CON_ID and D.PDB_NAME = ?",
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -203,7 +207,7 @@ public class DatabaseObjects implements ActionListener {
 	}
 
 	private void fillTableNames() {
-		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+		try (Connection connection = oraConnections.getConnection()) {
 			PreparedStatement statement = connection.prepareStatement(
 					rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed() ?
 						"select TABLE_NAME from CDB_TABLES T, CDB_USERS U, CDB_PDBS D where U.CON_ID = D.CON_ID and T.OWNER = U.USERNAME and D.PDB_NAME = ? and U.USERNAME = ?" :

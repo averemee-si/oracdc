@@ -58,7 +58,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import eu.solutions.a2.cdc.oracle.OraColumn;
-import eu.solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import eu.solutions.a2.cdc.oracle.OraTable4LogMiner;
 import eu.solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
@@ -398,8 +397,7 @@ public class TableSchemaEditor extends JFrame {
 					// jdbc:oracle:thin@<HOST>:<PORT>:<SID>
 					final String jdbcUrl = "jdbc:oracle:thin:@//" + oracleHost + ":" + oraclePort + "/" + oracleSid;
 					try {
-						OraPoolConnectionFactory.init(jdbcUrl, username, password);
-						dbObjects = new DatabaseObjects();
+						dbObjects = new DatabaseObjects(jdbcUrl, username, password);
 						props.putOraParams(oracleHost, oraclePort, oracleSid, username);
 						connectedToDb = true;
 						if (fileInited) {
@@ -425,20 +423,11 @@ public class TableSchemaEditor extends JFrame {
 
 		menuItemDisconnect.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, ActionEvent.ALT_MASK));
 		menuItemDisconnect.addActionListener(event -> {
-			try {
-				OraPoolConnectionFactory.stopPool();
-				dbObjects = null;
-				connectedToDb = false;
-				menuItemDisconnect.setEnabled(false);
-				menuItemConnect.setEnabled(true);
-				btnAddTable.setEnabled(false);
-			} catch (SQLException sqle) {
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-				JOptionPane.showMessageDialog(null,
-						"Unable to stop database connection!\n" +
-								"Please check error log and/or console output!",
-						"Database Connection Error", JOptionPane.ERROR_MESSAGE); 
-			}
+			dbObjects = null;
+			connectedToDb = false;
+			menuItemDisconnect.setEnabled(false);
+			menuItemConnect.setEnabled(true);
+			btnAddTable.setEnabled(false);
 		});
 		menuItemDisconnect.setEnabled(false);
 		
