@@ -51,7 +51,7 @@ public class OraConnectionObjects {
 		pds.setMinPoolSize(INITIAL_SIZE);
 	}
 
-	public static OraConnectionObjects get4JdbcUrl(final String poolName,
+	public static OraConnectionObjects get4UserPassword(final String poolName,
 			final String dbUrl, final String dbUser, final String dbPassword)
 					throws SQLException {
 		OraConnectionObjects oco = new OraConnectionObjects(poolName, dbUrl);
@@ -63,7 +63,7 @@ public class OraConnectionObjects {
 			final String wallet, final String tnsAdmin, final String alias)
 					throws SQLException {
 		System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
-		System.setProperty("oracle.net.tns_admin", tnsAdmin);
+		System.setProperty(OracleConnection.CONNECTION_PROPERTY_TNS_ADMIN, tnsAdmin);
 		OraConnectionObjects oco = new OraConnectionObjects(poolName, "jdbc:oracle:thin:/@" + alias);
 		return oco;
 	}
@@ -97,7 +97,7 @@ public class OraConnectionObjects {
 		}
 		props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
 		System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
-		System.setProperty("oracle.net.tns_admin", tnsAdmin);
+		System.setProperty(OracleConnection.CONNECTION_PROPERTY_TNS_ADMIN, tnsAdmin);
 		auxWallet = wallet;
 		auxTnsAdmin = tnsAdmin;
 		auxAlias = alias;
