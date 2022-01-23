@@ -591,6 +591,10 @@ CDB: support connection to CDB$ROOT or to an individual PDB
 
 DDL operations support for LogMiner source
 
+#####0.9.9.1 (JAN-2022)
+
+ORA-1291 fixes and new non-static connection pool for LogMiner connector
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
