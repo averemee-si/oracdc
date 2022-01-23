@@ -393,10 +393,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												LOGGER.warn("Encontered an 'ORA-02396: exceeded maximum idle time, please connect again'");
 												LOGGER.warn("Attempting to reconnect...");
 												try {
+													try {
+														connDictionary.close();
+														connDictionary = null;
+													} catch(SQLException unimportant) {
+														LOGGER.warn("Unable to close inactive connection after 'ORA-02396'");
+													}
 													connDictionary = oraConnections.getConnection();
 													initDictionaryStatements();
-													psCheckTable = connDictionary.prepareStatement(
-															checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 												} catch (SQLException ucpe) {
 													LOGGER.error("SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables",
 															sqle.getErrorCode(), sqle.getSQLState());
