@@ -55,12 +55,32 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc '{}' logminer source connector", props.get("name"));
+		final String connectorName = props.get("name");
+		LOGGER.info("Starting oracdc '{}' logminer source connector", connectorName);
 		OraCdcSourceConnectorConfig config;
 		try {
 			config = new OraCdcSourceConnectorConfig(props);
 			connectorProperties = new HashMap<>();
-			connectorProperties.putAll(props);
+			connectorProperties.putAll(config.originalsStrings());
+			// Copy rest of params...
+			config.values().forEach((k, v) -> {
+				if (!connectorProperties.containsKey(k) && v != null) {
+					if (StringUtils.equals(k, ParamConstants.TABLE_EXCLUDE_PARAM) ||
+							StringUtils.equals(k, ParamConstants.TABLE_INCLUDE_PARAM)) {
+						connectorProperties.put(k, "");
+					} else if (v instanceof Boolean) {
+						connectorProperties.put(k, ((Boolean) v).toString());
+					} else if (v instanceof Short) {
+						connectorProperties.put(k, ((Short) v).toString());
+					} else if (v instanceof Integer) {
+						connectorProperties.put(k, ((Integer) v).toString());
+					} else if (v instanceof Long) {
+						connectorProperties.put(k, ((Long) v).toString());
+					} else {
+						connectorProperties.put(k, (String) v);
+					}
+				}
+			});
 		} catch (ConfigException ce) {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}

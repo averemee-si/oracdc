@@ -82,7 +82,8 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			final OraCdcLogMinerMgmtIntf metrics, final long firstChange,
 			final Map<String, String> props,
 			final CountDownLatch runLatch,
-			final OraRdbmsInfo rdbmsInfo) throws SQLException {
+			final OraRdbmsInfo rdbmsInfo,
+			final OraConnectionObjects oraConnections) throws SQLException {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
 
@@ -124,7 +125,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 		psOpenMode.close();
 		psOpenMode = null;
 		RedoTransportThread rtt = new RedoTransportThread(
-				firstChange, props, runLatch, redoFiles);
+				firstChange, props, runLatch, redoFiles, oraConnections);
 		rtt.start();
 		// It's time to init JMS metrics...
 		metrics.start(firstChange);
@@ -279,12 +280,13 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 				final long firstChange,
 				final Map<String, String> props,
 				final CountDownLatch runLatch,
-				final BlockingQueue<ArchivedRedoFile> redoFiles) throws SQLException {
+				final BlockingQueue<ArchivedRedoFile> redoFiles,
+				final OraConnectionObjects oraConnections) throws SQLException {
 			this.setName("OraCdcRedoTransportThread-" + System.nanoTime());
 			this.firstChange = firstChange;
 			this.runLatch = runLatch;
 			this.redoFiles = redoFiles;
-			OracleConnection connDictionary = (OracleConnection) OraPoolConnectionFactory.getConnection();
+			connDictionary = (OracleConnection) oraConnections.getConnection();
 			//TODO
 			oracleDbZoneId = TimeZone.getDefault().toZoneId();
 			if (this.firstChange == 0) {

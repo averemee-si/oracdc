@@ -78,7 +78,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private OracleResultSet rsLogMiner;
 	private final String mineDataSql;
 	private final String checkTableSql;
-	private final Connection connDictionary;
+	private Connection connDictionary;
 	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
@@ -96,6 +96,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
 	private final boolean traceSession;
+	private final OraConnectionObjects oraConnections;
 
 	private boolean fetchRsLogMinerNext;
 	private boolean isRsLogMinerRowAvailable;
@@ -118,7 +119,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final int topicNameStyle,
 			final Map<String, String> props,
 			final OraCdcLobTransformationsIntf transformLobs,
-			final OraRdbmsInfo rdbmsInfo) throws SQLException {
+			final OraRdbmsInfo rdbmsInfo,
+			final OraConnectionObjects oraConnections) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -146,14 +148,15 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.fetchSize = Integer.parseInt(props.get(ParamConstants.FETCH_SIZE_PARAM));
 		this.traceSession = Boolean.parseBoolean(props.get(ParamConstants.TRACE_LOGMINER_PARAM));
 		this.rdbmsInfo = rdbmsInfo;
+		this.oraConnections = oraConnections;
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
 
 		try {
-			connLogMiner = OraPoolConnectionFactory.getLogMinerConnection(traceSession);
-			connDictionary = OraPoolConnectionFactory.getConnection();
+			connLogMiner = oraConnections.getLogMinerConnection(traceSession);
+			connDictionary = oraConnections.getConnection();
 
 			final String archivedLogCatalogImplClass = props.get(ParamConstants.ARCHIVED_LOG_CAT_PARAM);
 			try {
@@ -164,9 +167,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						long.class,
 						Map.class,
 						CountDownLatch.class,
-						OraRdbmsInfo.class);
+						OraRdbmsInfo.class,
+						OraConnectionObjects.class);
 				logMiner = (OraLogMiner) constructor.newInstance(
-						connLogMiner, metrics, firstScn, props, runLatch, rdbmsInfo);
+						connLogMiner, metrics, firstScn, props, runLatch, rdbmsInfo, oraConnections);
 			} catch (ClassNotFoundException nfe) {
 				LOGGER.error("ClassNotFoundException while instantiating {}", archivedLogCatalogImplClass);
 				throw new ConnectException("ClassNotFoundException while instantiating " + archivedLogCatalogImplClass, nfe);
@@ -233,8 +237,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			psLogMiner.setRowPrefetch(fetchSize);
 			LOGGER.info("RowPrefetch size for accessing V$LOGMNR_CONTENTS set to {}.", fetchSize);
-			psCheckTable = connDictionary.prepareStatement(
-					checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			
+			initDictionaryStatements();
 			logMinerReady = logMiner.next();
 			if (processLobs) {
 				psReadLob = (OraclePreparedStatement) connLogMiner.prepareStatement(
@@ -242,10 +246,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								OraDictSqlTexts.MINE_LOB_NON_CDB,
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 				psReadLob.setRowPrefetch(fetchSize);
-				psCheckLob = connDictionary.prepareStatement(
-						isCdb ? OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_CDB :
-							OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_NON_CDB,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);						
 			}
 
 		} catch (SQLException e) {
@@ -393,8 +393,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												LOGGER.warn("Encontered an 'ORA-02396: exceeded maximum idle time, please connect again'");
 												LOGGER.warn("Attempting to reconnect...");
 												try {
-													OraPoolConnectionFactory.stopPool(false);
-													OraPoolConnectionFactory.reCreatePool(false);
+													connDictionary = oraConnections.getConnection();
+													initDictionaryStatements();
 													psCheckTable = connDictionary.prepareStatement(
 															checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 												} catch (SQLException ucpe) {
@@ -441,7 +441,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												schemaType, useOracdcSchemas,
 												processLobs, transformLobs, isCdb,
 												odd, partition, topic, topicNameStyle, topicNameDelimiter,
-												rdbmsInfo);
+												rdbmsInfo, connDictionary);
 											if (isPartition) {
 												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
 												metrics.addPartitionInProcessing();
@@ -656,7 +656,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
 				}
 				try {
-					connLogMiner = OraPoolConnectionFactory.getLogMinerConnection(traceSession);
+					connLogMiner = oraConnections.getLogMinerConnection(traceSession);
 					psLogMiner = (OraclePreparedStatement)connLogMiner.prepareStatement(
 							mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 					psLogMiner.setRowPrefetch(fetchSize);
@@ -952,6 +952,17 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			return sb.toString();
 		} else {
 			return rsLogMiner.getString("SQL_REDO");
+		}
+	}
+
+	private void initDictionaryStatements() throws SQLException {
+		psCheckTable = connDictionary.prepareStatement(
+				checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		if (processLobs) {
+			psCheckLob = connDictionary.prepareStatement(
+					isCdb ? OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_CDB :
+						OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_NON_CDB,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);						
 		}
 	}
 }

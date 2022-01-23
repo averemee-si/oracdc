@@ -561,10 +561,11 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 	}
 
 	public void readTableData(final Long asOfScn, final CountDownLatch runLatch,
-			final BlockingQueue<OraTable4InitialLoad> tablesQueue) {
+			final BlockingQueue<OraTable4InitialLoad> tablesQueue,
+			final OraConnectionObjects oraConnections) {
 		metrics.startSelectTable(tableFqn);
 		boolean success = false;
-		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+		try (Connection connection = oraConnections.getConnection()) {
 			connTzData = connection;
 			if (pdbName != null) {
 				Statement alterSession = connection.createStatement();

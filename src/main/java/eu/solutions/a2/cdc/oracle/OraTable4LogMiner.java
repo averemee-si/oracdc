@@ -123,6 +123,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param topicNameStyle
 	 * @param topicNameDelimiter
 	 * @param rdbmsInfo
+	 * @param connection
 	 */
 	public OraTable4LogMiner(
 			final String pdbName, final short conId, final String tableOwner,
@@ -132,14 +133,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final boolean isCdb, final OraDumpDecoder odd,
 			final Map<String, String> sourcePartition, final String topicParam,
 			final int topicNameStyle, final String topicNameDelimiter,
-			final OraRdbmsInfo rdbmsInfo) {
+			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
 		this(pdbName, tableOwner, tableName, schemaType, processLobs, transformLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(topicParam, topicNameStyle, topicNameDelimiter, odd, sourcePartition);
 		this.tableWithPk = true;
 		this.setRowLevelScn(rowLevelScnDependency);
 		this.rdbmsInfo = rdbmsInfo;
-		try (Connection connection = OraPoolConnectionFactory.getConnection()) {
+		try {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
 			}

@@ -65,7 +65,8 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			final OraCdcLogMinerMgmtIntf metrics, final long firstChange,
 			final Map<String, String> props,
 			final CountDownLatch runLatch,
-			final OraRdbmsInfo rdbmsInfo) throws SQLException {
+			final OraRdbmsInfo rdbmsInfo,
+			final OraConnectionObjects oraConnections) throws SQLException {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
 

@@ -101,6 +101,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private boolean lastRecordInTable = true;
 	private OraCdcInitialLoad initialLoadMetrics;
 	private OraCdcLobTransformationsIntf transformLobs;
+	private String connectorName; 
+	private OraConnectionObjects oraConnections;
 
 	@Override
 	public String version() {
@@ -109,15 +111,47 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc logminer source task");
+		connectorName = props.get("name");
+		LOGGER.info("Starting oracdc logminer source task for connector {}.", connectorName);
+
+		try {
+			if (StringUtils.isNotBlank(props.get(ParamConstants.CONNECTION_URL_PARAM))) {
+				oraConnections = OraConnectionObjects.get4UserPassword(
+					connectorName,
+					props.get(ParamConstants.CONNECTION_URL_PARAM),
+					props.get(ParamConstants.CONNECTION_USER_PARAM),
+					props.get(ParamConstants.CONNECTION_PASSWORD_PARAM));
+			}
+			if (StringUtils.isNotBlank(props.get(ParamConstants.CONNECTION_WALLET_PARAM))) {
+				oraConnections = OraConnectionObjects.get4OraWallet(
+						connectorName,
+						props.get(ParamConstants.CONNECTION_WALLET_PARAM),
+						props.get(ParamConstants.CONNECTION_TNS_ADMIN_PARAM),
+						props.get(ParamConstants.CONNECTION_TNS_ALIAS_PARAM));
+			}
+				
+		} catch(SQLException sqle) {
+			LOGGER.error("Unable to connect to RDBMS for connector '{}'!",
+					connectorName);
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error("Stopping connector '{}'", connectorName);
+			throw new ConnectException("Unable to connect to RDBMS");
+		}
 
 		batchSize = Integer.parseInt(props.get(ParamConstants.BATCH_SIZE_PARAM));
-		LOGGER.debug("batchSize = {} records.", batchSize);
 		pollInterval = Integer.parseInt(props.get(ParamConstants.POLL_INTERVAL_MS_PARAM));
-		LOGGER.debug("pollInterval = {} ms.", pollInterval);
-		schemaType = Integer.parseInt(props.get(ParamConstants.SCHEMA_TYPE_PARAM));
-		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+		useOracdcSchemas = Boolean.parseBoolean(props.get(ParamConstants.ORACDC_SCHEMAS_PARAM));
+		if (useOracdcSchemas) {
+			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
+		}
+
+		if (StringUtils.equalsIgnoreCase(
+				props.get(ParamConstants.SCHEMA_TYPE_PARAM),
+				ParamConstants.SCHEMA_TYPE_DEBEZIUM)) {
+			schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
+			topic = props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
+		} else {
+			schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
 			topic = props.get(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM);
 			switch (props.get(ParamConstants.TOPIC_NAME_STYLE_PARAM)) {
 			case ParamConstants.TOPIC_NAME_STYLE_TABLE:
@@ -131,14 +165,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 				break;
 			}
 			topicNameDelimiter = props.get(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
-		} else {
-			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-			topic = props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
-		}
-		LOGGER.debug("topic set to {}.", topic);
-		useOracdcSchemas = Boolean.parseBoolean(props.get(ParamConstants.ORACDC_SCHEMAS_PARAM));
-		if (useOracdcSchemas) {
-			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
 		}
 		processLobs = Boolean.parseBoolean(props.get(ParamConstants.PROCESS_LOBS_PARAM));
 		if (processLobs) {
@@ -170,8 +196,45 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 		}
 
-		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
+		try (Connection connDictionary = oraConnections.getConnection()) {
 			rdbmsInfo = new OraRdbmsInfo(connDictionary);
+
+			LOGGER.info("Connector {} connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.",
+					connectorName,
+					rdbmsInfo.getRdbmsEdition(), rdbmsInfo.getVersionString(),
+					rdbmsInfo.getInstanceName(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
+
+			if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot() && !rdbmsInfo.isPdbConnectionAllowed()) {
+				LOGGER.error(
+						"Connector {} must be connected to CDB$ROOT while using oracdc for mining data using LogMiner!",
+						connectorName);
+				throw new ConnectException("Unable to run oracdc without connection to CDB$ROOT!");
+			} else {
+				LOGGER.trace("Oracle connection information:\n{}", rdbmsInfo.toString());
+			}
+			if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
+				LOGGER.info("Connected to PDB {} (RDBMS 19.10+ Feature)", rdbmsInfo.getPdbName());
+			}
+
+			if (Boolean.parseBoolean(props.get(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM))) {
+				oraConnections.addStandbyConnection(
+						props.get(ParamConstants.STANDBY_WALLET_PARAM),
+						props.get(ParamConstants.STANDBY_TNS_ADMIN_PARAM),
+						props.get(ParamConstants.STANDBY_TNS_ALIAS_PARAM));
+				LOGGER.info(
+						"Connector {} will use connection to PHYSICAL STANDBY for LogMiner calls",
+						connectorName);
+			}
+			if (Boolean.parseBoolean(props.get(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM))) {
+				oraConnections.addStandbyConnection(
+						props.get(ParamConstants.DISTRIBUTED_WALLET_PARAM),
+						props.get(ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM),
+						props.get(ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM));
+				LOGGER.info(
+						"Connector {} will use remote database in distributed configuration for LogMiner calls",
+						connectorName);
+			}
+
 			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, props.get("name"), this);
 
@@ -229,7 +292,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			committedTransactions = new LinkedBlockingQueue<>();
 
 			boolean rewind = false;
-			final long firstAvailableScn = OraRdbmsInfo.firstScnFromArchivedLogs(OraPoolConnectionFactory.getLogMinerConnection());
+			final long firstAvailableScn = OraRdbmsInfo.firstScnFromArchivedLogs(oraConnections.getLogMinerConnection());
 			long firstScn = firstAvailableScn;
 			String firstRsId = null;
 			long firstSsn = 0;
@@ -237,7 +300,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 			stateFileName = props.get(ParamConstants.PERSISTENT_STATE_FILE_PARAM);
 			final Path stateFilePath = Paths.get(stateFileName);
 			// Initial load
-			if (ParamConstants.INITIAL_LOAD_EXECUTE.equals(props.get(ParamConstants.INITIAL_LOAD_PARAM))) {
+			if (StringUtils.equalsIgnoreCase(
+					ParamConstants.INITIAL_LOAD_EXECUTE,
+					props.get(ParamConstants.INITIAL_LOAD_PARAM))) {
 				execInitialLoad = true;
 				initialLoadStatus = ParamConstants.INITIAL_LOAD_EXECUTE;
 			}
@@ -262,7 +327,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				if (execInitialLoad) {
 					// Need to check state file value
 					final String initialLoadFromStateFile = persistentState.getInitialLoad();
-					if (ParamConstants.INITIAL_LOAD_COMPLETED.equals(initialLoadFromStateFile)) {
+					if (StringUtils.equalsIgnoreCase(ParamConstants.INITIAL_LOAD_COMPLETED, initialLoadFromStateFile)) {
 						execInitialLoad = false;
 						initialLoadStatus = ParamConstants.INITIAL_LOAD_COMPLETED;
 						LOGGER.info("Initial load set to {} (value from state file)", ParamConstants.INITIAL_LOAD_COMPLETED);
@@ -521,7 +586,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
 				// Do not process objects from CDB$ROOT and PDB$SEED
-				mineDataSql += rdbmsInfo.getConUidsList(OraPoolConnectionFactory.getLogMinerConnection());
+				mineDataSql += rdbmsInfo.getConUidsList(oraConnections.getLogMinerConnection());
 			}
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Mining SQL = {}", mineDataSql);
@@ -545,7 +610,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 					topicNameStyle,
 					props,
 					transformLobs,
-					rdbmsInfo);
+					rdbmsInfo,
+					oraConnections);
 			if (rewind) {
 				worker.rewind(firstScn, firstRsId, firstSsn);
 			}
@@ -562,7 +628,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 						queuesRoot,
 						rdbmsInfo,
 						initialLoadMetrics,
-						tablesQueue);
+						tablesQueue,
+						oraConnections);
 			}
 
 
@@ -636,7 +703,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 		} else {
 			// Load data from archived redo...
-			try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
+			try (Connection connDictionary = oraConnections.getConnection()) {
 				int recordCount = 0;
 				int parseTime = 0;
 				while (recordCount < batchSize) {
@@ -886,7 +953,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		} else {
 			return;
 		}
-		final Connection connection = OraPoolConnectionFactory.getConnection();
+		final Connection connection = oraConnections.getConnection();
 		final PreparedStatement psCheckTable;
 		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		if (isCdb) {
@@ -928,11 +995,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? rsCheckTable.getString("PDB_NAME") : null,
 							isCdb ? (short) conId : -1,
 							tableOwner, tableName,
-							"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
+							StringUtils.equalsIgnoreCase("ENABLED", rsCheckTable.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas,
 							processLobs, transformLobs,
 							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter,
-							rdbmsInfo);
+							rdbmsInfo, connection);
 					oraTable.setVersion(version);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
@@ -951,7 +1018,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	}
 
 	private void buildInitialLoadTableList(final String initialLoadSql) throws SQLException {
-		try (Connection connection = OraPoolConnectionFactory.getConnection();
+		try (Connection connection = oraConnections.getConnection();
 				PreparedStatement statement = connection.prepareStatement(initialLoadSql);
 				ResultSet resultSet = statement.executeQuery()) {
 			final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
@@ -966,11 +1033,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? resultSet.getString("PDB_NAME") : null,
 							isCdb ? (short) conId : -1,
 							resultSet.getString("OWNER"), tableName,
-							"ENABLED".equalsIgnoreCase(resultSet.getString("DEPENDENCIES")),
+							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas,
 							processLobs, transformLobs,
 							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter,
-							rdbmsInfo);
+							rdbmsInfo, connection);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

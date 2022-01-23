@@ -50,6 +50,7 @@ public class OraCdcInitialLoadThread extends Thread {
 	private final AtomicBoolean running;
 	private final int selectThreadCount;
 	private final OraRdbmsInfo rdbmsInfo;
+	private final OraConnectionObjects oraConnections;
 
 	public OraCdcInitialLoadThread(
 			final int waitInterval,
@@ -58,7 +59,8 @@ public class OraCdcInitialLoadThread extends Thread {
 			final Path queuesRoot,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraCdcInitialLoad metrics,
-			final BlockingQueue<OraTable4InitialLoad> tablesQueue) throws SQLException {
+			final BlockingQueue<OraTable4InitialLoad> tablesQueue,
+			OraConnectionObjects oraConnections) throws SQLException {
 		LOGGER.info("Initializing oracdc initial load thread");
 		this.setName("OraCdcInitialLoadThread-" + System.nanoTime());
 		this.waitInterval = waitInterval;
@@ -66,6 +68,7 @@ public class OraCdcInitialLoadThread extends Thread {
 		this.tablesInProcessing = tablesInProcessing;
 		this.queuesRoot = queuesRoot;
 		this.tablesQueue = tablesQueue;
+		this.oraConnections = oraConnections;
 		final int coreCount = Runtime.getRuntime().availableProcessors();
 		this.selectThreadCount = Math.min(coreCount, rdbmsInfo.getCpuCoreCount());
 		LOGGER.info("DB cores available {}, Kafka Cores available {}.", rdbmsInfo.getCpuCoreCount(), coreCount);
@@ -92,7 +95,7 @@ public class OraCdcInitialLoadThread extends Thread {
 					final OraTable4InitialLoad table4Load =
 						new OraTable4InitialLoad(queuesRoot, oraTable, metrics, rdbmsInfo);
 					threadPool.submit(() -> {
-						table4Load.readTableData(asOfScn, runLatch, tablesQueue);
+						table4Load.readTableData(asOfScn, runLatch, tablesQueue, oraConnections);
 					});
 				} catch (IOException ioe) {
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
