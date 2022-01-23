@@ -45,7 +45,7 @@ public class DatabaseObjects implements ActionListener {
 					throws SQLException {
 		oraConnections = OraConnectionObjects.get4UserPassword("table-schema-editor", jdbcUrl, username, password);
 		final Connection connection = oraConnections.getConnection();
-		rdbmsInfo = new OraRdbmsInfo(connection);
+		rdbmsInfo = new OraRdbmsInfo(connection, false);
 		final String protoValue = StringUtils.repeat("A", 31);
 		cbOwners = new JComboBox<>();
 		cbOwners.setPrototypeDisplayValue(protoValue);

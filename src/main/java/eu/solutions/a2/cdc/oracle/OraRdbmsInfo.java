@@ -60,8 +60,11 @@ public class OraRdbmsInfo {
 	private final static int PDB_MINING_BACKPORT_MINOR = 10;
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraRdbmsInfo.class);
 
-
 	public OraRdbmsInfo(final Connection connection) throws SQLException {
+		this(connection, true);
+	}
+
+	public OraRdbmsInfo(final Connection connection, final boolean includeSchema) throws SQLException {
 		PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.RDBMS_VERSION_AND_MORE,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		ResultSet rs = ps.executeQuery();
@@ -163,30 +166,33 @@ public class OraRdbmsInfo {
 		ps.close();
 		ps = null;
 
-		SchemaBuilder schemaBuilder = SchemaBuilder
+		if (includeSchema) {
+			SchemaBuilder schemaBuilder = SchemaBuilder
 				.struct()
 				.name("eu.solutions.a2.cdc.oracle.Source");
-		schemaBuilder.field("instance_number", Schema.INT16_SCHEMA);
-		schemaBuilder.field("version", Schema.STRING_SCHEMA);
-		schemaBuilder.field("instance_name", Schema.STRING_SCHEMA);
-		schemaBuilder.field("host_name", Schema.STRING_SCHEMA);
-		schemaBuilder.field("dbid", Schema.INT64_SCHEMA);
-		schemaBuilder.field("database_name", Schema.STRING_SCHEMA);
-		schemaBuilder.field("platform_name", Schema.STRING_SCHEMA);
-		//Operation specific
-		schemaBuilder.field("commit_scn", Schema.INT64_SCHEMA);
-		schemaBuilder.field("xid", Schema.STRING_SCHEMA);
-		// Table specific
-		schemaBuilder.field("query", Schema.OPTIONAL_STRING_SCHEMA);
-		schemaBuilder.field("pdb_name", Schema.OPTIONAL_STRING_SCHEMA);
-		schemaBuilder.field("owner", Schema.OPTIONAL_STRING_SCHEMA);
-		schemaBuilder.field("table", Schema.OPTIONAL_STRING_SCHEMA);
-		// Row specific
-		schemaBuilder.field("scn", Schema.INT64_SCHEMA);
-		schemaBuilder.field("row_id", Schema.STRING_SCHEMA);
-		schemaBuilder.field("ts_ms", Schema.INT64_SCHEMA);
-		schema = schemaBuilder.build();
-
+			schemaBuilder.field("instance_number", Schema.INT16_SCHEMA);
+			schemaBuilder.field("version", Schema.STRING_SCHEMA);
+			schemaBuilder.field("instance_name", Schema.STRING_SCHEMA);
+			schemaBuilder.field("host_name", Schema.STRING_SCHEMA);
+			schemaBuilder.field("dbid", Schema.INT64_SCHEMA);
+			schemaBuilder.field("database_name", Schema.STRING_SCHEMA);
+			schemaBuilder.field("platform_name", Schema.STRING_SCHEMA);
+			// Operation specific
+			schemaBuilder.field("commit_scn", Schema.INT64_SCHEMA);
+			schemaBuilder.field("xid", Schema.STRING_SCHEMA);
+			// Table specific
+			schemaBuilder.field("query", Schema.OPTIONAL_STRING_SCHEMA);
+			schemaBuilder.field("pdb_name", Schema.OPTIONAL_STRING_SCHEMA);
+			schemaBuilder.field("owner", Schema.OPTIONAL_STRING_SCHEMA);
+			schemaBuilder.field("table", Schema.OPTIONAL_STRING_SCHEMA);
+			// Row specific
+			schemaBuilder.field("scn", Schema.INT64_SCHEMA);
+			schemaBuilder.field("row_id", Schema.STRING_SCHEMA);
+			schemaBuilder.field("ts_ms", Schema.INT64_SCHEMA);
+			schema = schemaBuilder.build();
+		} else {
+			schema = null;
+		}
 	}
 
 	public Struct getStruct(final String query, final String pdbName, final String owner,
