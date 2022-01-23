@@ -43,10 +43,10 @@ public class OraConnectionObjects {
 	private String auxWallet, auxTnsAdmin, auxAlias;
 
 	private OraConnectionObjects(final String poolName, final String dbUrl) throws SQLException {
-		PoolDataSource pds = PoolDataSourceFactory.getPoolDataSource();
+		pds = PoolDataSourceFactory.getPoolDataSource();
 		pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
 		pds.setConnectionPoolName(poolName);
-		pds.setConnectionFactoryClassName(dbUrl);
+		pds.setURL(dbUrl);
 		pds.setInitialPoolSize(INITIAL_SIZE);
 		pds.setMinPoolSize(INITIAL_SIZE);
 	}
