@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleStatement;
 import oracle.jdbc.pool.OracleDataSource;
+import oracle.ucp.UniversalConnectionPoolException;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
 
@@ -37,12 +38,15 @@ public class OraConnectionObjects {
 	private static final int INITIAL_SIZE = 4;
 
 	private PoolDataSource pds;
+	private final String poolName;
 	private boolean standby = false;
 	private boolean distributed = false;
 	private Connection connection4LogMiner;
 	private String auxWallet, auxTnsAdmin, auxAlias;
+	private int version = 0;
 
 	private OraConnectionObjects(final String poolName, final String dbUrl) throws SQLException {
+		this.poolName = poolName;
 		pds = PoolDataSourceFactory.getPoolDataSource();
 		pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
 		pds.setConnectionPoolName(poolName);
@@ -158,11 +162,32 @@ public class OraConnectionObjects {
 	}
 
 	public Connection getConnection() throws SQLException {
-		Connection connection = pds.getConnection();
-		connection.setClientInfo("OCSID.MODULE","oracdc");
-		connection.setClientInfo("OCSID.CLIENTID","Generic R/W");
-		connection.setAutoCommit(false);
-		return connection;
+		try {
+			Connection connection = pds.getConnection();
+			connection.setClientInfo("OCSID.MODULE","oracdc");
+			connection.setClientInfo("OCSID.CLIENTID","Generic R/W");
+			connection.setAutoCommit(false);
+			return connection;
+		} catch(SQLException sqle) {
+			if (sqle.getCause() instanceof UniversalConnectionPoolException) {
+				UniversalConnectionPoolException ucpe = (UniversalConnectionPoolException) sqle.getCause();
+				// Try to handle UCP-45003 and UCP-45386
+				// Ref.: https://docs.oracle.com/en/database/oracle/oracle-database/21/jjucp/error-codes-reference.html
+				if (ucpe.getErrorCode() == 45003 || ucpe.getErrorCode() == 45386) {
+					LOGGER.error("Trying to handle UCP-{} with error message:\n{}",
+							ucpe.getErrorCode(), ucpe.getMessage());
+					final String newPoolName = poolName + "-" + (version++);
+					LOGGER.error("Renaming pool '{}' to '{}'",
+							pds.getConnectionPoolName(), newPoolName);
+					pds.setConnectionPoolName(newPoolName);
+					return getConnection();
+				} else {
+					throw sqle;
+				}
+			} else {
+				throw sqle;
+			}
+		}
 	}
 
 }
