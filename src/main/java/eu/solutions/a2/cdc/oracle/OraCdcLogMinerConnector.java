@@ -66,7 +66,8 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			config.values().forEach((k, v) -> {
 				if (!connectorProperties.containsKey(k) && v != null) {
 					if (StringUtils.equals(k, ParamConstants.TABLE_EXCLUDE_PARAM) ||
-							StringUtils.equals(k, ParamConstants.TABLE_INCLUDE_PARAM)) {
+							StringUtils.equals(k, ParamConstants.TABLE_INCLUDE_PARAM) ||
+							StringUtils.equals(k, ParamConstants.CONNECTION_PASSWORD_PARAM)) {
 						connectorProperties.put(k, "");
 					} else if (v instanceof Boolean) {
 						connectorProperties.put(k, ((Boolean) v).toString());
@@ -86,13 +87,14 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		}
 
 		if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_URL_PARAM))) {
-			if (StringUtils.isBlank(ParamConstants.CONNECTION_USER_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_USER_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
 						ParamConstants.CONNECTION_USER_PARAM,
 						ParamConstants.CONNECTION_URL_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (StringUtils.isBlank(ParamConstants.CONNECTION_PASSWORD_PARAM)) {
+			if (StringUtils.isBlank(
+					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value())) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
 						ParamConstants.CONNECTION_PASSWORD_PARAM,
 						ParamConstants.CONNECTION_URL_PARAM);
@@ -102,13 +104,13 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				LOGGER.debug("Connection to RDBMS will be performed using JDBC URL, username, and password.");
 			}
 		} else if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
-			if (StringUtils.isBlank(ParamConstants.CONNECTION_TNS_ADMIN_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_TNS_ADMIN_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
 						ParamConstants.CONNECTION_TNS_ADMIN_PARAM,
 						ParamConstants.CONNECTION_WALLET_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (StringUtils.isBlank(ParamConstants.CONNECTION_TNS_ALIAS_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_TNS_ALIAS_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
 						ParamConstants.CONNECTION_TNS_ALIAS_PARAM,
 						ParamConstants.CONNECTION_WALLET_PARAM);
@@ -125,19 +127,19 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		}
 
 		if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
-			if (StringUtils.isBlank(ParamConstants.STANDBY_WALLET_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.STANDBY_WALLET_PARAM,
 						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (StringUtils.isBlank(ParamConstants.STANDBY_TNS_ADMIN_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_TNS_ADMIN_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.STANDBY_TNS_ADMIN_PARAM,
 						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (StringUtils.isBlank(ParamConstants.STANDBY_TNS_ALIAS_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_TNS_ALIAS_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.STANDBY_TNS_ADMIN_PARAM,
 						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
@@ -150,19 +152,19 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			}
 		}
 		if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
-			if (StringUtils.isBlank(ParamConstants.DISTRIBUTED_WALLET_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.DISTRIBUTED_WALLET_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.DISTRIBUTED_WALLET_PARAM,
 						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (StringUtils.isBlank(ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM,
 						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (StringUtils.isAllBlank(ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM,
 						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
