@@ -843,6 +843,14 @@ public class OraCdcLogMinerTask extends SourceTask {
 				LOGGER.info("Check Connect log files for errors.");
 			}
 		}
+		if (oraConnections != null) {
+			try {
+				oraConnections.destroy();
+			} catch (SQLException sqle) {
+				LOGGER.error("Unable to close all RDBMS connections!");
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			}
+		}
 	}
 
 	/**
