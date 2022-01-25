@@ -423,6 +423,7 @@ public class TableSchemaEditor extends JFrame {
 
 		menuItemDisconnect.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_I, ActionEvent.ALT_MASK));
 		menuItemDisconnect.addActionListener(event -> {
+			dbObjects.destroy();
 			dbObjects = null;
 			connectedToDb = false;
 			menuItemDisconnect.setEnabled(false);

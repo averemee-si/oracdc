@@ -232,4 +232,13 @@ public class DatabaseObjects implements ActionListener {
 		}
 	}
 
+	public void destroy() {
+		try {
+			oraConnections.destroy();
+		} catch (SQLException sqle) {
+			LOGGER.error("Unable to close all RDBMS connections!");
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+		}
+	}
+
 }
