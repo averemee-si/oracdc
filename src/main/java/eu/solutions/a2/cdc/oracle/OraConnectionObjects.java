@@ -24,6 +24,8 @@ import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleStatement;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolException;
+import oracle.ucp.admin.UniversalConnectionPoolManager;
+import oracle.ucp.admin.UniversalConnectionPoolManagerImpl;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
 
@@ -187,6 +189,18 @@ public class OraConnectionObjects {
 			} else {
 				throw sqle;
 			}
+		}
+	}
+
+	public void destroy() throws SQLException {
+		try {
+			UniversalConnectionPoolManager mgr = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
+			mgr.destroyConnectionPool(poolName);
+			if (standby || distributed) {
+				connection4LogMiner.close();
+			}
+		} catch (UniversalConnectionPoolException ucpe) {
+			throw new SQLException(ucpe);
 		}
 	}
 
