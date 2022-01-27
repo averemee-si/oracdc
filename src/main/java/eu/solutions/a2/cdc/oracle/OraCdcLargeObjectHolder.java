@@ -41,7 +41,9 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 	 * Default constructor
 	 * 
 	 */
-	public OraCdcLargeObjectHolder() {}
+	public OraCdcLargeObjectHolder() {
+		holderSize = Long.BYTES;
+	}
 
 	/**
 	 * 
@@ -52,7 +54,7 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 		super();
 		this.lobId = lobId;
 		this.content = content;
-		holderSize = Long.BYTES + content.length;
+		holderSize += content.length;
 	}
 
 	/**
@@ -66,7 +68,7 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 		this.columnId = columnId;
 		this.content = content;
 		// ColumnId is always US7ASCII!
-		holderSize = Long.BYTES + content.length + columnId.length();
+		holderSize += (content.length + columnId.length());
 	}
 
 	public long getLobId() {
