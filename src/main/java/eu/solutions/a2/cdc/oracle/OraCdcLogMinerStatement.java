@@ -45,6 +45,8 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	private String rowId;
 	/** BLOB/CLOB count, default 0 */
 	private byte lobCount;
+	/** structure size */
+	private int holderSize;
 
 	/**
 	 * 
@@ -52,6 +54,10 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	 * 
 	 */
 	public OraCdcLogMinerStatement() {
+		// tableId(Long) + operation(Short) + ts(Long) + scn(Long) + ssn(Long) + lobCount(Byte)
+		// Need to add with data actual size of : sqlRedo, rsId, and rowId
+		holderSize = Long.BYTES + Short.BYTES + Long.BYTES + Long.BYTES + Long.BYTES + Byte.BYTES;
+				;
 	}
 
 	/**
@@ -67,7 +73,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	 */
 	public OraCdcLogMinerStatement(
 			long tableId, short operation, String sqlRedo, long ts, long scn, String rsId, long ssn, String rowId) {
-		super();
+		this();
 		this.tableId = tableId;
 		this.operation = operation;
 		this.sqlRedo = sqlRedo;
@@ -78,6 +84,9 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		this.rowId = rowId;
 		// No BLOB/CLOB initially
 		this.lobCount = 0;
+		// All strings are US7ASCII
+		holderSize += (
+				sqlRedo.length() + rsId.length() + rowId.length());
 	}
 
 	public long getTableId() {
@@ -150,6 +159,10 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 
 	public void setLobCount(byte lobCount) {
 		this.lobCount = lobCount;
+	}
+
+	public int size() {
+		return holderSize;
 	}
 
 	@Override
