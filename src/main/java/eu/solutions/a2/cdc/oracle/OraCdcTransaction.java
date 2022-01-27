@@ -50,6 +50,7 @@ public class OraCdcTransaction {
 	private ChronicleQueue lobs;
 	private ExcerptAppender lobsAppender;
 	private ExcerptTailer lobsTailer;
+	private long transSize;
 
 	/**
 	 * 
@@ -99,6 +100,7 @@ public class OraCdcTransaction {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new IOException(e);
 		}
+		transSize = 0;
 		LOGGER.trace("END: create OraCdcTransaction for new transaction");
 	}
 
@@ -189,6 +191,8 @@ public class OraCdcTransaction {
 				}
 			}
 		}
+		//TODO - additional manipulations are required
+		transSize = statements.lastIndex();
 
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Chronicle Queue Successfully restored in directory {} for transaction XID {} with {} records.",
@@ -222,6 +226,7 @@ public class OraCdcTransaction {
 		appender.writeDocument(oraSql);
 		nextChange = oraSql.getScn();
 		queueSize++;
+		transSize += oraSql.size();
 	}
 
 	public void addStatement(final OraCdcLogMinerStatement oraSql, final List<OraCdcLargeObjectHolder> lobs) {
@@ -240,6 +245,7 @@ public class OraCdcTransaction {
 		if (lobsExists) {
 			for (int i = 0; i < lobs.size(); i++) {
 				lobsAppender.writeDocument(lobs.get(i));
+				transSize += lobs.get(i).size();
 			}
 		}
 	}
@@ -414,6 +420,10 @@ public class OraCdcTransaction {
 
 	public Path getPath() {
 		return queueDirectory;
+	}
+
+	public long size() {
+		return transSize;
 	}
 
 	private static long valueAsLong(Object value) {
