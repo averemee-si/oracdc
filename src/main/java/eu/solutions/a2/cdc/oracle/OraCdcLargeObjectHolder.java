@@ -51,7 +51,7 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 	 * @param content
 	 */
 	public OraCdcLargeObjectHolder(final long lobId, final byte[] content) {
-		super();
+		this();
 		this.lobId = lobId;
 		this.content = content;
 		holderSize += content.length;
@@ -63,7 +63,7 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 	 * @param content
 	 */
 	public OraCdcLargeObjectHolder(final String columnId, final byte[] content) {
-		super();
+		this();
 		this.lobId = 0;
 		this.columnId = columnId;
 		this.content = content;
