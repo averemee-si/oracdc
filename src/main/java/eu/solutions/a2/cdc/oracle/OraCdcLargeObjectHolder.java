@@ -33,6 +33,8 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 	private byte[] content;
 	/** SYS.XMLTYPE column name without dictionary i.e. "COL 2" */
 	private String columnId;
+	/** Size of this structure */
+	private int holderSize = 0;
 
 	/**
 	 * 
@@ -50,6 +52,7 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 		super();
 		this.lobId = lobId;
 		this.content = content;
+		holderSize = Long.BYTES + content.length;
 	}
 
 	/**
@@ -62,6 +65,8 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 		this.lobId = 0;
 		this.columnId = columnId;
 		this.content = content;
+		// ColumnId is always US7ASCII!
+		holderSize = Long.BYTES + content.length + columnId.length();
 	}
 
 	public long getLobId() {
@@ -74,6 +79,10 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 
 	public String getColumnId() {
 		return columnId;
+	}
+
+	public int size() {
+		return holderSize;
 	}
 
 	@Override
