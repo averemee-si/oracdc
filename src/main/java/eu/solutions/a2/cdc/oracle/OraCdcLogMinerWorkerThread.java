@@ -327,7 +327,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								transaction.setCommitScn(lastScn);
 								committedTransactions.add(transaction);
 								activeTransactions.remove(xid);
-								metrics.addCommittedRecords(transaction.length());
+								metrics.addCommittedRecords(transaction.length(), transaction.size(),
+										committedTransactions.size(), activeTransactions.size());
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Performing commit at SCN {} for transaction XID {}", lastScn, xid);
 								}
@@ -343,7 +344,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									LOGGER.debug("Rolling back at SCN transaction XID {} with {} records.",
 											lastScn, xid, transaction.length());
 								}
-								metrics.addRolledBackRecords(transaction.length());
+								metrics.addRolledBackRecords(transaction.length(), transaction.size(),
+										activeTransactions.size() - 1);
 								transaction.close();
 								activeTransactions.remove(xid);
 							} else {

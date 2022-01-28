@@ -50,6 +50,12 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 	private int parsePerSecond = 0;
 	private int ddlColumnsCount = 0;
 	private long ddlTimeElapsed = 0;
+	private long bytesWrittenCQ = 0;
+	private long maxTransSizeBytes = 0;
+	private int currentTransSendCount = 0;
+	private int maxTransSendCount = 0;
+	private int currentTransProcessingCount = 0;
+	private int maxTransProcessingCount = 0;
 
 	private final OraCdcLogMinerTask task;
 
@@ -161,9 +167,23 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 		return totalRecordsCount;
 	}
 
-	public void addCommittedRecords(int committedRecords) {
+	public void addCommittedRecords(
+			final int committedRecords, final long transSize,
+			final int currentSentSize, final int currentProcessingSize) {
 		recordsCommittedCount += committedRecords;
 		transactionsCommittedCount++;
+		bytesWrittenCQ += transSize;
+		if (transSize > maxTransSizeBytes) {
+			maxTransSizeBytes = transSize;
+		}
+		currentTransSendCount = currentSentSize;
+		if (currentTransSendCount > maxTransSendCount) {
+			maxTransSendCount = currentTransSendCount;
+		}
+		currentTransProcessingCount = currentProcessingSize;
+		if (currentTransProcessingCount > maxTransProcessingCount) {
+			maxTransProcessingCount = currentTransProcessingCount;
+		}
 	}
 	@Override
 	public long getCommittedRecordsCount() {
@@ -174,9 +194,18 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 		return transactionsCommittedCount;
 	}
 
-	public void addRolledBackRecords(int rolledBackRecords) {
+	public void addRolledBackRecords(
+			final int rolledBackRecords, final long transSize, final int currentProcessingSize) {
 		recordsRolledBackCount += rolledBackRecords;
 		transactionsRolledBackCount++;
+		bytesWrittenCQ += transSize;
+		if (transSize > maxTransSizeBytes) {
+			maxTransSizeBytes = transSize;
+		}
+		currentTransProcessingCount = currentProcessingSize;
+		if (currentTransProcessingCount > maxTransProcessingCount) {
+			maxTransProcessingCount = currentTransProcessingCount;
+		}
 	}
 	@Override
 	public long getRolledBackRecordsCount() {
@@ -275,7 +304,50 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 		final Duration duration = Duration.ofMillis(ddlTimeElapsed);
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
-	
+
+	@Override
+	public long getNumBytesWrittenUsingChronicleQueue() {
+		return bytesWrittenCQ;
+	}
+	@Override
+	public float getGiBWrittenUsingChronicleQueue() {
+		if (bytesWrittenCQ == 0) {
+			return 0;
+		} else {
+			return Precision.round((bytesWrittenCQ / (1024 * 1024 * 1024)), 3);
+		}
+	}
+
+	@Override
+	public long getMaxTransactionSizeBytes() {
+		return maxTransSizeBytes;
+	}
+	@Override
+	public float getMaxTransactionSizeMiB() {
+		if (maxTransSizeBytes == 0) {
+			return 0;
+		} else {
+			return Precision.round((maxTransSizeBytes / (1024 * 1024)), 3);
+		}
+	}
+
+	@Override
+	public int getMaxNumberOfTransInSendQueue() {
+		return maxTransSendCount;
+	}
+	@Override
+	public int getCurrentNumberOfTransInSendQueue() {
+		return currentTransSendCount;
+	}
+	@Override
+	public int getMaxNumberOfTransInProcessingQueue() {
+		return maxTransProcessingCount;
+	}
+	@Override
+	public int getCurrentNumberOfTransInProcessingQueue() {
+		return currentTransProcessingCount;
+	}
+
 	@Override
 	public void saveCurrentState() {
 		if (task != null) {

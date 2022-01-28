@@ -57,6 +57,15 @@ public interface OraCdcLogMinerMgmtMBean {
 	public long getDdlElapsedMillis();
 	public String getDdlElapsed();
 
+	public long getNumBytesWrittenUsingChronicleQueue();
+	public float getGiBWrittenUsingChronicleQueue();
+	public long getMaxTransactionSizeBytes();
+	public float getMaxTransactionSizeMiB();
+	public int getMaxNumberOfTransInSendQueue();
+	public int getCurrentNumberOfTransInSendQueue();
+	public int getMaxNumberOfTransInProcessingQueue();
+	public int getCurrentNumberOfTransInProcessingQueue();
+
 	public void saveCurrentState();
 	public void saveCurrentTablesSchema();
 
