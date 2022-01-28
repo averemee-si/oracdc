@@ -193,7 +193,14 @@ grep nsconneg `lsnrctl show trc_file | grep "set to" | awk {'print $6'}`
 7. Use **oracdc** JMX performance [metrics]((doc/LOGMINER-METRICS.md)
 8. Depending on structure of your data try increasing value of `a2.fetch.size` parameter (default fetch size - 32 rows)
 9. Although some documents recommend changing setting of _log_read_buffers & _log_read_buffer_size hidden parameters we didn't see serious improvement or degradation using different combinations of these parameters. For more information please read [LogMiner Tuning: _log_read_buffers & _log_read_buffer_size](https://github.com/averemee-si/oracdc/wiki/LogMiner-Tuning:-_log_read_buffers-&-_log_read_buffer_size)
+10. **oracdc** uses off-heap storage [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) developed by the [Chronicle Software](https://chronicle.software/). To determine required disk space, or size of [Docker's](https://www.docker.com/) [tmpfs mounts](https://docs.docker.com/storage/tmpfs/), or size of k8s's [emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/) needed to store memory allocated files use values of following [JMX metrics]((doc/LOGMINER-METRICS.md))
 
+```
+MaxTransactionSizeMiB
+MaxNumberOfTransInProcessingQueue
+GiBWrittenUsingChronicleQueue
+```
+When setting the JVM parameters , pay attention to the Linux kernel parameter `vm.max_map_count` and to JVM parameter `-XX:MaxDirectMemorySize`. (Ref.: [I have issue with memory](https://github.com/averemee-si/oracdc/issues/8#issuecomment-725227858))
 
 ## eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
 This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
