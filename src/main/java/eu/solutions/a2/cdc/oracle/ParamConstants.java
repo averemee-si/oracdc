@@ -161,4 +161,16 @@ public class ParamConstants {
 	public static final String LOB_TRANSFORM_CLASS_DOC = "name of class which implements eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf interface. Default - eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation";
 	public static final String LOB_TRANSFORM_CLASS_DEFAULT = "eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl";
 
+	public static final String RESILENCY_TYPE_PARAM = "a2.resilency.type";
+	public static final String RESILENCY_TYPE_DOC = "How restarts and crashes are handled: " + 
+			"In ``legacy`` mode (the default), all information is stored in the file system, " + 
+			"delivery of all changes is guaranteed with exactly-once semantics, " + 
+			"but this mode does not protect against file system failures. " + 
+			"When set to ``fault-tolerant``, all restart data stored on Kafka topics, " + 
+			"the connector depends only on Kafka cluster, " + 
+			"but if an error occurs in the middle of sending a Oracle transaction to the Kafka broker, " +
+			"that transaction will be sent to the Kafka broker again (at-least-once semantics)";
+	public static final String RESILENCY_TYPE_LEGACY = "legacy";
+	public static final String RESILENCY_TYPE_FAULT_TOLERANT = "fault-tolerant";
+
 }
