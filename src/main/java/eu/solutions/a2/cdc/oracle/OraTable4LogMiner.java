@@ -350,16 +350,28 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final String xid,
 			final long commitScn,
 			final Connection connection) throws SQLException {
+		// Old resilience model - RBA as offset
+		Map<String, Object> offset = new HashMap<>();
+		offset.put("SCN", stmt.getScn());
+		offset.put("RS_ID", stmt.getRsId());
+		offset.put("SSN", stmt.getSsn());
+
+		return parseRedoRecord(stmt, lobs, xid, commitScn, offset, connection);
+	}
+
+
+	public SourceRecord parseRedoRecord(
+			final OraCdcLogMinerStatement stmt,
+			final List<OraCdcLargeObjectHolder> lobs,
+			final String xid,
+			final long commitScn,
+			final Map<String, Object> offset,
+			final Connection connection) throws SQLException {
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("BEGIN: parseRedoRecord()");
 		}
 		final Struct keyStruct = new Struct(keySchema);
 		final Struct valueStruct = new Struct(valueSchema);
-
-		Map<String, Object> offset = new HashMap<>(3);
-		offset.put("SCN", stmt.getScn());
-		offset.put("RS_ID", stmt.getRsId());
-		offset.put("SSN", stmt.getSsn());
 
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("Parsing REDO record for table {}", tableFqn);
