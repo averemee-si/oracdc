@@ -23,15 +23,18 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +84,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private Connection connDictionary;
 	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
+	private final boolean legacyResiliencyModel;
+	private final TreeMap<String, Triple<Long, String, Long>> sortedByFirstScn;
+	private final ActiveTransComparator activeTransComparator;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
 	private final boolean useOracdcSchemas;
 	private long lastScn;
@@ -150,6 +156,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.rdbmsInfo = rdbmsInfo;
 		this.oraConnections = oraConnections;
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
+		legacyResiliencyModel = task.isLegacyResiliencyModel();
+		if (legacyResiliencyModel) {
+			activeTransComparator = null;
+			sortedByFirstScn = null;
+		} else {
+			activeTransComparator = new ActiveTransComparator(activeTransactions);
+			sortedByFirstScn = new TreeMap<>(activeTransComparator);
+		}
 
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
@@ -268,20 +282,24 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			lastSsn = firstSsn;
 			while (rewindNeeded) {
 				if (rsLogMiner.next()) {
-					final long scn = rsLogMiner.getLong("SCN");
-					if (recordCount == 0 && scn > firstScn) {
+					lastScn = rsLogMiner.getLong("SCN");
+					lastRsId = rsLogMiner.getString("RS_ID");
+					lastSsn = rsLogMiner.getLong("SSN");
+					if (recordCount == 0 && lastScn > firstScn) {
 						// Hit this with 10.2.0.5
 						rewindNeeded = false;
 						// Need to reopen cursor
 						rsLogMiner.close();
 						rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
+						break;
 					} else {
 						recordCount++;
-						if (firstScn == scn &&
-							firstRsId.equals(rsLogMiner.getString("RS_ID")) &&
-							firstSsn == rsLogMiner.getLong("SSN") &&
+						if (firstScn == lastScn &&
+							(firstRsId == null || StringUtils.equals(firstRsId, lastRsId)) &&
+							(firstSsn == -1 || firstSsn == lastSsn) &&
 							!rsLogMiner.getBoolean("CSF")) {
 							rewindNeeded = false;
+							break;
 						}
 					}
 				} else {
@@ -302,6 +320,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	public void run()  {
 		LOGGER.info("BEGIN: OraCdcLogMinerWorkerThread.run()");
 		running.set(true);
+		boolean firstTransaction = true;
 		while (runLatch.getCount() > 0) {
 			long lastGuaranteedScn = 0;
 			String lastGuaranteedRsId = null;
@@ -327,6 +346,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								transaction.setCommitScn(lastScn);
 								committedTransactions.add(transaction);
 								activeTransactions.remove(xid);
+								if (!legacyResiliencyModel) {
+									sortedByFirstScn.remove(xid);
+									if (!sortedByFirstScn.isEmpty()) {
+										task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+									} else {
+										firstTransaction = true;
+									}
+								}
 								metrics.addCommittedRecords(transaction.length(), transaction.size(),
 										committedTransactions.size(), activeTransactions.size());
 								if (LOGGER.isDebugEnabled()) {
@@ -344,10 +371,18 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									LOGGER.debug("Rolling back at SCN transaction XID {} with {} records.",
 											lastScn, xid, transaction.length());
 								}
-								metrics.addRolledBackRecords(transaction.length(), transaction.size(),
-										activeTransactions.size() - 1);
 								transaction.close();
 								activeTransactions.remove(xid);
+								if (!legacyResiliencyModel) {
+									sortedByFirstScn.remove(xid);
+									if (!sortedByFirstScn.isEmpty()) {
+										task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+									} else {
+										firstTransaction = true;
+									}
+								}
+								metrics.addRolledBackRecords(transaction.length(), transaction.size(),
+										activeTransactions.size() - 1);
 							} else {
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Skipping rollback at SCN {} for transaction XID {}", lastScn, xid);
@@ -448,6 +483,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												processLobs, transformLobs, isCdb,
 												odd, partition, topic, topicNameStyle, topicNameDelimiter,
 												rdbmsInfo, connDictionary);
+											if (!legacyResiliencyModel) {
+												task.putTableAndVersion(combinedDataObjectId, 1);
+											}
+
 											if (isPartition) {
 												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
 												metrics.addPartitionInProcessing();
@@ -491,6 +530,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									}
 									transaction = new OraCdcTransaction(processLobs, queuesRoot, xid);
 									activeTransactions.put(xid, transaction);
+									if (!legacyResiliencyModel) {
+										sortedByFirstScn.put(xid,
+												Triple.of(lastScn, lastRsId, lastSsn));
+										if (firstTransaction) {
+											firstTransaction = false;
+											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+										}
+									}
 								}
 								if (processLobs) {
 									transaction.addStatement(lmStmt, lobs);
@@ -563,6 +610,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					logMiner.stop();
 					rsLogMiner.close();
 					rsLogMiner = null;
+					if (!legacyResiliencyModel && activeTransactions.isEmpty()) {
+						// Update restart point in time
+						task.putReadRestartScn(Triple.of(lastGuaranteedScn, lastGuaranteedRsId, lastGuaranteedSsn));
+					}
 					if (runLatch.getCount() > 0) {
 						try {
 							logMinerReady = logMiner.next();
@@ -971,4 +1022,28 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);						
 		}
 	}
+
+	private static class ActiveTransComparator implements Comparator<String> {
+
+		private final Map<String, OraCdcTransaction> activeTransactions;
+
+		ActiveTransComparator(final Map<String, OraCdcTransaction> activeTransactions) {
+			this.activeTransactions = activeTransactions;
+		}
+
+		@Override
+		public int compare(String first, String second) {
+			if (StringUtils.equals(first, second)) {
+				// A transaction ID is unique to a transaction and represents the undo segment number, slot, and sequence number.
+				// https://docs.oracle.com/en/database/oracle/oracle-database/21/cncpt/transactions.html#GUID-E3FB3DC3-3317-4589-BADD-D89A3547F87D
+				return 0;
+			} else if (activeTransactions.get(first).getFirstChange() >= activeTransactions.get(second).getFirstChange()) {
+				return 1;
+			} else {
+				return -1;
+			}
+		}
+
+	}
+
 }
