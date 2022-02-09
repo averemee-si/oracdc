@@ -155,6 +155,9 @@ To ensure compatibility with [Schema Evolution](https://docs.confluent.io/curren
 ### RDBMS errors resiliency and connection retry back-off
 **oracdc** resilent to Oracle database shutdown and/or restart while performing [DBMS_LOGMNR.ADD_LOGFILE](https://docs.oracle.com/en/database/oracle/oracle-database/21/arpls/DBMS_LOGMNR.html#GUID-30C5D959-C0A0-4591-9FBA-F57BC72BBE2F) call or waiting for new archived redo log. ORA-17410 ("No more data read from socket") is intercepted and an attempt to reconnect is made after fixed backoff time specified by parameter `a2.connection.backoff`
 
+### Kafka Connect distributed mode
+Fully compatible from 0.9.9.2+, when `a2.resiliency.type` set to ``fault-tolerant``. `In this case all offset (SCN, RBA, COMMIT_SCN for rows and transactions, versions for table definitions) information is stored only on standard Kafka Connect offsets
+
 ### Known issues
 1. **INTERVAL** data types family not supported yet
 
@@ -201,6 +204,10 @@ MaxNumberOfTransInProcessingQueue
 GiBWrittenUsingChronicleQueue
 ```
 When setting the JVM parameters , pay attention to the Linux kernel parameter `vm.max_map_count` and to JVM parameter `-XX:MaxDirectMemorySize`. (Ref.: [I have issue with memory](https://github.com/averemee-si/oracdc/issues/8#issuecomment-725227858))
+
+### Distribution
+1. [GitHub](https://github.com/averemee-si/oracdc/)
+2. [Confluent Hub](https://www.confluent.io/hub/a2solutions/oracdc-kafka)
 
 ## eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
 This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
@@ -601,6 +608,10 @@ DDL operations support for LogMiner source
 #####0.9.9.1 (JAN-2022)
 
 ORA-1291 fixes and new non-static connection pool for LogMiner connector
+
+#####0.9.9.2 (FEB-2022)
+
+`a2.resiliency.type` = ``fault-tolerant`` to ensure 100% compatibility with Kafka Connect distributed mode
 
 ## Authors
 

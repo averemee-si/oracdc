@@ -572,6 +572,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 										}
 										transaction = new OraCdcTransaction(processLobs, queuesRoot, xid);
 										activeTransactions.put(xid, transaction);
+										if (!legacyResiliencyModel) {
+											sortedByFirstScn.put(xid,
+													Triple.of(lastScn, lastRsId, lastSsn));
+											if (firstTransaction) {
+												firstTransaction = false;
+												task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+											}
+										}
 									}
 									transaction.addStatement(lmStmt);
 									metrics.addRecord();
