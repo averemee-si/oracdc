@@ -77,7 +77,7 @@ alter session set events '10046 trace name context forever, level 8';
 
 ```
 
-`a2.resiliency.type` - How restarts and crashes are handled: In ``legacy`` mode (the default), all information is stored in the file system, delivery of all changes is guaranteed with exactly-once semantics, but this mode does not protect against file system failures. When set to ``fault-tolerant``, all restart data stored on Kafka topics, the connector depends only on Kafka cluster, but if an error occurs in the middle of sending a Oracle transaction to the Kafka broker, that transaction will be sent to the Kafka broker again (at-least-once semantics)
+`a2.resiliency.type` - How restarts and crashes are handled: In ``legacy`` mode (the default), all information is stored in the file system, delivery of all changes is guaranteed with exactly-once semantics, but this mode does not protect against file system failures. When set to ``fault-tolerant``, all restart data stored on Kafka topics, the connector depends only on Kafka cluster, but if an error occurs in the middle of sending a Oracle transaction to the Kafka broker, that transaction will be re-read from archived redo and sending to Kafka will continue after last successfully processed record to maintain exactly-once semantics
 
 #### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
