@@ -208,6 +208,7 @@ When setting the JVM parameters , pay attention to the Linux kernel parameter `v
 ### Distribution
 1. [GitHub](https://github.com/averemee-si/oracdc/)
 2. [Confluent Hub](https://www.confluent.io/hub/a2solutions/oracdc-kafka)
+3. [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=07173d1d-0e5c-4e97-8db7-5c701176865c)
 
 ## eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
 This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
