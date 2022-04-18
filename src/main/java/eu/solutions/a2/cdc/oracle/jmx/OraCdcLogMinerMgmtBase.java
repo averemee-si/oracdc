@@ -61,16 +61,16 @@ public class OraCdcLogMinerMgmtBase {
 
 	public OraCdcLogMinerMgmtBase(
 			final OraRdbmsInfo rdbmsInfo, final String connectorName, final String jmxTypeName) {
+		final StringBuilder sb = new StringBuilder(96);
+		sb.append("eu.solutions.a2.oracdc:type=");
+		sb.append(jmxTypeName);
+		sb.append(",name=");
+		sb.append(connectorName);
+		sb.append(",database=");
+		sb.append(rdbmsInfo.getInstanceName());
+		sb.append("_");
+		sb.append(rdbmsInfo.getHostName());
 		try {
-			final StringBuilder sb = new StringBuilder(96);
-			sb.append("eu.solutions.a2.oracdc:type=");
-			sb.append(jmxTypeName);
-			sb.append(",name=");
-			sb.append(connectorName);
-			sb.append(",database=");
-			sb.append(rdbmsInfo.getInstanceName());
-			sb.append("_");
-			sb.append(rdbmsInfo.getHostName());
 			final ObjectName name = new ObjectName(sb.toString());
 			final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 			if (mbs.isRegistered(name)) {
@@ -85,7 +85,7 @@ public class OraCdcLogMinerMgmtBase {
 			}
 			mbs.registerMBean(this, name);
 		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
-			LOGGER.error("Unable to register MBean {} !!! ", e.getMessage());
+			LOGGER.error("Unable to register MBean {} !!! ", sb.toString());
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
 		}

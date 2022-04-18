@@ -52,12 +52,12 @@ public class OraCdcRedoShipment implements OraCdcRedoShipmentMBean {
 	private LimitedSizeQueue<String> lastHundredProcessed;
 
 	public OraCdcRedoShipment(final String targetServer, final int targetPort) {
+		final StringBuilder sb = new StringBuilder(64);
+		sb.append("eu.solutions.a2.oracdc:type=Shipment-metrics,targetServer=");
+		sb.append(targetServer);
+		sb.append("-");
+		sb.append(targetPort);
 		try {
-			final StringBuilder sb = new StringBuilder(64);
-			sb.append("eu.solutions.a2.oracdc:type=Shipment-metrics,targetServer=");
-			sb.append(targetServer);
-			sb.append("-");
-			sb.append(targetPort);
 			final ObjectName name = new ObjectName(sb.toString());
 			final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 			if (mbs.isRegistered(name)) {
@@ -71,9 +71,9 @@ public class OraCdcRedoShipment implements OraCdcRedoShipmentMBean {
 				}
 			}
 			mbs.registerMBean(this, name);
-			LOGGER.debug("MBean {} registered.", sb.toString());
+			LOGGER.debug("MBean {} registered.", name.getCanonicalName());
 		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
-			LOGGER.error("Unable to register MBean {} !!! ", e.getMessage());
+			LOGGER.error("Unable to register MBean {} !!! ", sb.toString());
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
 		}

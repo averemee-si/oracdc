@@ -56,10 +56,10 @@ public class OraCdcSinkTableInfo implements OraCdcSinkTableInfoMBean {
 		this.upsertRecordsCount = 0;
 		this.elapsedDeleteNanos = 0;
 		this.deleteRecordsCount = 0;
+		final StringBuilder sb = new StringBuilder(64);
+		sb.append("eu.solutions.a2.oracdc:type=Sink-metrics,tableName=");
+		sb.append(tableName);
 		try {
-			final StringBuilder sb = new StringBuilder(64);
-			sb.append("eu.solutions.a2.oracdc:type=Sink-metrics,tableName=");
-			sb.append(tableName);
 			final ObjectName name = new ObjectName(sb.toString());
 			final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 			if (mbs.isRegistered(name)) {
@@ -73,9 +73,9 @@ public class OraCdcSinkTableInfo implements OraCdcSinkTableInfoMBean {
 				}
 			}
 			mbs.registerMBean(this, name);
-			LOGGER.debug("MBean {} registered.", sb.toString());
+			LOGGER.debug("MBean {} registered.", name.getCanonicalName());
 		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
-			LOGGER.error("Unable to register MBean {} !!! ", e.getMessage());
+			LOGGER.error("Unable to register MBean {} !!! ", sb.toString());
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
 		}

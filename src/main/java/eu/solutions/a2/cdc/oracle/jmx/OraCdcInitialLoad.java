@@ -73,14 +73,14 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 		this.sendNanos = new AtomicLong(0);
 		this.sendRows = new AtomicLong(0);
 		this.sendRowsColumns = new AtomicLong(0);
+		final StringBuilder sb = new StringBuilder(96);
+		sb.append("eu.solutions.a2.oracdc:type=Initial-Load-metrics,name=");
+		sb.append(connectorName);
+		sb.append(",database=");
+		sb.append(rdbmsInfo.getInstanceName());
+		sb.append("_");
+		sb.append(rdbmsInfo.getHostName());
 		try {
-			final StringBuilder sb = new StringBuilder(96);
-			sb.append("eu.solutions.a2.oracdc:type=Initial-Load-metrics,name=");
-			sb.append(connectorName);
-			sb.append(",database=");
-			sb.append(rdbmsInfo.getInstanceName());
-			sb.append("_");
-			sb.append(rdbmsInfo.getHostName());
 			final ObjectName name = new ObjectName(sb.toString());
 			final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
 			if (mbs.isRegistered(name)) {
@@ -96,7 +96,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 			mbs.registerMBean(this, name);
 			LOGGER.debug("MBean {} registered.", sb.toString());
 		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
-			LOGGER.error("Unable to register MBean {} !!! ", e.getMessage());
+			LOGGER.error("Unable to register MBean {} !!! ", sb.toString());
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
 		}
