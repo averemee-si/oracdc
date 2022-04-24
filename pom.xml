@@ -20,13 +20,13 @@
 	<packaging>jar</packaging>
 
 	<name>oracdc-kafka</name>
-	<url>http://a2-solutions.eu/#oracdc</url>
+	<url>https://a2-solutions.eu/#oracdc</url>
 	<description>
 		Oracle CDC Source Connectors (LogMiner and Snapshot Logs as source) for Kafka Connect
 	</description>
 	<organization>
 		<name>A2 Rešitve, d.o.o.</name>
-		<url>http://a2-solutions.eu/</url>
+		<url>https://a2-solutions.eu/</url>
 	</organization>
 	<issueManagement>
 		<url>https://github.com/averemee-si/oracdc/issues</url>
@@ -36,7 +36,7 @@
 	<licenses>
 		<license>
 			<name>Apache License</name>
-			<url>http://a2-solutions.eu/licenses/apache/LICENSE.txt</url>
+			<url>https://a2-solutions.eu/licenses/apache/LICENSE.txt</url>
 			<distribution>repo</distribution>
 		</license>
 	</licenses>
@@ -223,13 +223,13 @@
 
 							<supportProviderName>A2 Rešitve, d.o.o.</supportProviderName>
 							<supportSummary>Includes installation, and configuration assistance</supportSummary>
-							<supportUrl>http://a2-solutions.eu/</supportUrl>
+							<supportUrl>https://a2-solutions.eu/</supportUrl>
 							<supportLogo>logos/a2-solutions.png</supportLogo>
 
 							<ownerUsername>a2solutions</ownerUsername>
 							<ownerType>organization</ownerType>
 							<ownerName>A2 Rešitve, d.o.o.</ownerName>
-							<ownerUrl>http://a2-solutions.eu/</ownerUrl>
+							<ownerUrl>https://a2-solutions.eu/</ownerUrl>
 							<ownerLogo>logos/a2-solutions.png</ownerLogo>
 
 							<dockerNamespace></dockerNamespace>
