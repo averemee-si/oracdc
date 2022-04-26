@@ -10,7 +10,7 @@ This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database
 1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. **V$DATABASE.OPEN_MODE = READ WRITE** 
 2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = READ ONLY**
 3. Physical Standby Database of Oracle **DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = MOUNTED**. In this mode, a physical standby database is used to retrieve data using LogMiner and connection to primary database is used to perform strictly limited number of queries to data dictionary (ALL|CDB_OBJECTS, ALL|CDB_TABLES, and ALL|CDB_TAB_COLUMNS). This option allows you to promote a physical standby database to source of replication, eliminates LogMiner overhead from primary database, and  decreases TCO of Oracle Database.
-4. Running in distributed configuration when source database generates redo log files and also contain dictionary and target database is compatible mining database (see Figure 22-1 in [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html)). **N.B.** Currently only non-CDB distributed database configuration has tested, tests for CDB distributed database configuration are in progress now.
+4. Running in distributed configuration when the source database generates redo log files and also contains a dictionary and target database is a compatible mining database (see Figure 22-1 in [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html)). **N.B.** Currently only non-CDB distributed database configuration has been tested, tests for CDB distributed database configuration are in progress now.
 
 ### Monitoring
 _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
@@ -24,7 +24,7 @@ For processing LOB's and SYS.XMLTYPE please do not forget to set Apache Kafka pa
 By default CLOB, NCLOB, and SYS.XMLTYPE data are compressed using [LZ4](https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)) compression algorithm.
 
 #### Large objects (BLOB/CLOB/NCLOB/XMLTYPE) transformation feature (oracdc 0.9.8.3+)
-Apache Kafka is not isn't meant to handle large messages with size over 1MB. But Oracle RDBMS often is used as storage for unstructured information too. For breaking this barrier we designed LOB transformation feature.
+Apache Kafka is not meant to handle large messages with size over 1MB. But Oracle RDBMS often is used as storage for unstructured information too. For breaking this barrier we designed LOB transformation features.
 Imagine that you have a table with following structure
 
 ```
@@ -87,7 +87,7 @@ public class TransformScannedDataInBlobs implements OraCdcLobTransformationsIntf
 										.build();
 				final PutObjectRequest por = PutObjectRequest
 										.builder()
-										.bucket(<VALID_S3_BACKET>)
+										.bucket(<VALID_S3_BUCKET>)
 										.key(s3ObjectKey)
 										.build();
 				s3Client.putObject(por, RequestBody.fromBytes(content));
@@ -153,7 +153,7 @@ To ensure compatibility with [Schema Evolution](https://docs.confluent.io/curren
 2. After successful parsing of [DDL](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) and comparison of columns definition before and after, value schema gets an incremented version number.
 
 ### RDBMS errors resiliency and connection retry back-off
-**oracdc** resilent to Oracle database shutdown and/or restart while performing [DBMS_LOGMNR.ADD_LOGFILE](https://docs.oracle.com/en/database/oracle/oracle-database/21/arpls/DBMS_LOGMNR.html#GUID-30C5D959-C0A0-4591-9FBA-F57BC72BBE2F) call or waiting for new archived redo log. ORA-17410 ("No more data read from socket") is intercepted and an attempt to reconnect is made after fixed backoff time specified by parameter `a2.connection.backoff`
+**oracdc** is resilient to Oracle database shutdown and/or restart while performing [DBMS_LOGMNR.ADD_LOGFILE](https://docs.oracle.com/en/database/oracle/oracle-database/21/arpls/DBMS_LOGMNR.html#GUID-30C5D959-C0A0-4591-9FBA-F57BC72BBE2F) call or waiting for a new archived redo log. ORA-17410 ("No more data read from socket") is intercepted and an attempt to reconnect is made after fixed backoff time specified by parameter `a2.connection.backoff`
 
 ### Kafka Connect distributed mode
 Fully compatible from 0.9.9.2+, when `a2.resiliency.type` set to ``fault-tolerant``. `In this case all offset (SCN, RBA, COMMIT_SCN for rows and transactions, versions for table definitions) information is stored only on standard Kafka Connect offsets
@@ -164,10 +164,10 @@ Fully compatible from 0.9.9.2+, when `a2.resiliency.type` set to ``fault-toleran
 ### Performance tips
 1. If you do not use archivelogs as a source of database user activity audit information, consider setting Oracle RDBMS hidden parameter **_transaction_auditing** to **false** after consulting a [Oracle Support Services](https://www.oracle.com/support/)
 2. Always try to set up **supplemental logging** at the table level, and not for all database objects
-3. Proper file system parameters and sizing for path where [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) objects resides.
+3. Proper file system parameters and sizing for path where [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) objects reside.
 4. Proper open files hard and soft limits for OS user running **oracdc**
 5. To determine source of bottleneck set parameter `a2.logminer.trace` to true and analyze waits at Oracle RDBMS side using data from trace file (**tracefile_identifier='oracdc'**)
-6. For optimizing network transfer consider increase SDU (Ref.: [Database Net Services Administrator's Guide, Chapter 14 "Optimizing Performance"](https://docs.oracle.com/en/database/oracle/oracle-database/21/netag/optimizing-performance.html)). Also review Oracle Support Services Note 2652240.1[SDU Ignored By The JDBC Thin Client Connection](https://support.oracle.com/epmos/faces/DocumentDisplay?id=2652240.1).
+6. For optimizing network transfer consider increasing SDU (Ref.: [Database Net Services Administrator's Guide, Chapter 14 "Optimizing Performance"](https://docs.oracle.com/en/database/oracle/oracle-database/21/netag/optimizing-performance.html)). Also review Oracle Support Services Note 2652240.1[SDU Ignored By The JDBC Thin Client Connection](https://support.oracle.com/epmos/faces/DocumentDisplay?id=2652240.1).
 Example listener.ora with SDU set:
 
 ```
@@ -195,7 +195,7 @@ grep nsconneg `lsnrctl show trc_file | grep "set to" | awk {'print $6'}`
 
 7. Use **oracdc** JMX performance [metrics]((doc/LOGMINER-METRICS.md)
 8. Depending on structure of your data try increasing value of `a2.fetch.size` parameter (default fetch size - 32 rows)
-9. Although some documents recommend changing setting of _log_read_buffers & _log_read_buffer_size hidden parameters we didn't see serious improvement or degradation using different combinations of these parameters. For more information please read [LogMiner Tuning: _log_read_buffers & _log_read_buffer_size](https://github.com/averemee-si/oracdc/wiki/LogMiner-Tuning:-_log_read_buffers-&-_log_read_buffer_size)
+9. Although some documents recommend changing the setting of _log_read_buffers & _log_read_buffer_size hidden parameters we didn't see serious improvement or degradation using different combinations of these parameters. For more information please read [LogMiner Tuning: _log_read_buffers & _log_read_buffer_size](https://github.com/averemee-si/oracdc/wiki/LogMiner-Tuning:-_log_read_buffers-&-_log_read_buffer_size)
 10. **oracdc** uses off-heap storage [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) developed by the [Chronicle Software](https://chronicle.software/). To determine required disk space, or size of [Docker's](https://www.docker.com/) [tmpfs mounts](https://docs.docker.com/storage/tmpfs/), or size of k8s's [emptyDir](https://kubernetes.io/docs/concepts/storage/volumes/) needed to store memory allocated files use values of following [JMX metrics]((doc/LOGMINER-METRICS.md))
 
 ```
@@ -209,6 +209,7 @@ When setting the JVM parameters , pay attention to the Linux kernel parameter `v
 1. [GitHub](https://github.com/averemee-si/oracdc/)
 2. [Confluent Hub](https://www.confluent.io/hub/a2solutions/oracdc-kafka)
 3. [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=07173d1d-0e5c-4e97-8db7-5c701176865c)
+4. [DockerHub](https://hub.docker.com/r/averemee/oracdc)
 
 ## eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
 This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
