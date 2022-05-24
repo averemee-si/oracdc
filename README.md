@@ -133,7 +133,7 @@ Wherein
 ```
 alter system dump logfile '/path-to-archived-log-file' scn min XXXXXXXXX scn max YYYYYYYYY;
 ```
-shows correct values in redo block.
+shows correct values in redo block. This checked using all available Oracle RDBMS 21c patchsets (21.3, 21.4, 21.5, and 21.6).
 Unfortunately, JSON data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html#GUID-BA995486-041E-4C83-83EA-D7BC2A866DE3), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
 We are watching the status of this issue.
 
