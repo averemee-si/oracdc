@@ -13,7 +13,7 @@
 
 package eu.solutions.a2.cdc.oracle;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.SQLException;
 import java.sql.Types;
@@ -26,10 +26,15 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
+/**
+ *  
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
+ */
 public class OraCdcTransformNestedSchemaTest {
 
 	@Test

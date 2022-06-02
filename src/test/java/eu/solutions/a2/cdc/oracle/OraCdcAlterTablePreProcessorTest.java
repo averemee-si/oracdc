@@ -13,83 +13,91 @@
 
 package eu.solutions.a2.cdc.oracle;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
 
+/**
+ *  
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
+ */
 public class OraCdcAlterTablePreProcessorTest {
 
 	@Test
 	public void test() {
 
-		assertEquals("Unexpected results",
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
 				OraSqlUtils.alterTablePreProcessor("alter table dept rename column DESCRIPTION to COMMENTARY"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" +
-					"DESCRIPTION;COMMENTARY");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT.DEPT rename column DESCRIPTION to COMMENTARY"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" +
-					"DESCRIPTION;COMMENTARY");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
 				OraSqlUtils.alterTablePreProcessor("alter table scott. DEPT rename column DESCRIPTION to COMMENTARY"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" +
-					"DESCRIPTION;COMMENTARY");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT .dept rename column DESCRIPTION to COMMENTARY"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" +
-					"DESCRIPTION;COMMENTARY");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
 				OraSqlUtils.alterTablePreProcessor("alter table scott . dept rename column DESCRIPTION to COMMENTARY"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" +
-					"DESCRIPTION;COMMENTARY");
+				"Unexpected results");
 
-		assertEquals("Unexpected results",
+
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" + "AMOUNT number(5|2) default 0",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT . EMP add column AMOUNT number(5,2) default 0"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" +
-					"AMOUNT number(5|2) default 0");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" + "DESCRIPTION varchar2(255)",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT.DEPT add DESCRIPTION varchar2(255)"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" +
-					"DESCRIPTION varchar2(255)");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" + "jcol JSON;AMOUNT number(5|2) default -1",
 				OraSqlUtils.alterTablePreProcessor("ALTER TABLE SCOTT . EMP ADD (jcol JSON, AMOUNT number(5,2) default -1)"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" +
-					"jcol JSON;AMOUNT number(5|2) default -1");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" + "AMOUNT number(5|2)",
 				OraSqlUtils.alterTablePreProcessor("ALTER TABLE SCOTT . EMP ADD AMOUNT number(5,2)"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_ADD + "\n" +
-						"AMOUNT number(5|2)");
+				"Unexpected results");
 
-		assertEquals("Unexpected results",
+
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY + "\n" + "REF_NO number(9) default 0",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT . EMP modify REF_NO number(9) default 0"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY + "\n" +
-					"REF_NO number(9) default 0");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY + "\n" + "DESCRIPTION varchar2(1000)",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT.DEPT modify column DESCRIPTION varchar2(1000)"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY + "\n" +
-					"DESCRIPTION varchar2(1000)");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY + "\n" + "REF_NO number(9) default 0;AMOUNT number(5|2) default -1",
 				OraSqlUtils.alterTablePreProcessor("ALTER TABLE SCOTT . EMP MODIFY (REF_NO number(9) default 0, AMOUNT number(5,2) default -1)"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY + "\n" +
-					"REF_NO number(9) default 0;AMOUNT number(5|2) default -1");
+				"Unexpected results");
 
-		assertEquals("Unexpected results",
+
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "SALGRADE",
 				OraSqlUtils.alterTablePreProcessor("alter table SALARY drop column SALGRADE"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" +
-					"SALGRADE");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "SALGRADE;BONUS",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT.SALARY drop (SALGRADE, BONUS)"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" +
-					"SALGRADE;BONUS");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "SALGRADE",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT. EMP set unused (SALGRADE)"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" +
-					"SALGRADE");
-		assertEquals("Unexpected results",
+				"Unexpected results");
+		assertEquals(
+				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "BONUS;SALGRADE",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT .EMP set unused (BONUS, SALGRADE)"),
-				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" +
-					"BONUS;SALGRADE");
+				"Unexpected results");
 	}
 }

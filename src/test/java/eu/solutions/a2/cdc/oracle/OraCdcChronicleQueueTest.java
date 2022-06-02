@@ -13,14 +13,19 @@
 
 package eu.solutions.a2.cdc.oracle;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
+/**
+ *  
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
+ */
 public class OraCdcChronicleQueueTest {
 
 	@Test
@@ -37,9 +42,9 @@ public class OraCdcChronicleQueueTest {
 		transaction.getStatement(updOut);
 		transaction.close();
 
-		assertEquals("Not same strings!", updIn.getRsId(), updOut.getRsId());
-		assertEquals("Not same strings!", updIn.getSqlRedo(), updOut.getSqlRedo());
-		assertEquals("Not same longs!", updIn.getScn(), updOut.getScn());
-		assertEquals("Not same longs!", updIn.getTs(), updOut.getTs());
+		assertEquals(updIn.getRsId(), updOut.getRsId(), "Not same strings!");
+		assertEquals(updIn.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
+		assertEquals(updIn.getScn(), updOut.getScn(), "Not same longs!");
+		assertEquals(updIn.getTs(), updOut.getTs(), "Not same longs!");
 	}
 }

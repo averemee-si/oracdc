@@ -13,9 +13,9 @@
 
 package eu.solutions.a2.cdc.oracle;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
@@ -24,8 +24,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
+/**
+ *  
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
+ */
 public class OraCdcCQLobPersistenceTest {
 
 	private final static OraCdcLogMinerStatement updIn1 =  new  OraCdcLogMinerStatement(
@@ -111,17 +116,17 @@ public class OraCdcCQLobPersistenceTest {
 		List<OraCdcLargeObjectHolder> updOutLobs2 = new ArrayList<>();
 		// We expect updIn2
 		assertTrue(transaction.getStatement(updOut, updOutLobs2));
-		assertEquals("Not same strings!", updIn2.getSqlRedo(), updOut.getSqlRedo());
-		assertEquals("transaction.offset() should return 2!", 2, transaction.offset());
-		assertEquals("updOutLobs2.get(0).getLobId() should return 21!", 21, updOutLobs2.get(0).getLobId());
-		assertEquals("updOutLobs2.get(1).getLobId() should return 22!", 22, updOutLobs2.get(1).getLobId());
+		assertEquals(updIn2.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
+		assertEquals(2, transaction.offset(), "transaction.offset() should return 2!");
+		assertEquals(21, updOutLobs2.get(0).getLobId(), "updOutLobs2.get(0).getLobId() should return 21!");
+		assertEquals(22, updOutLobs2.get(1).getLobId(), "updOutLobs2.get(1).getLobId() should return 22!");
 		
 		// We expect updIn3
 		List<OraCdcLargeObjectHolder> updOutLobs3 = new ArrayList<>();
 		assertTrue(transaction.getStatement(updOut, updOutLobs3));
-		assertEquals("Not same strings!", updIn3.getSqlRedo(), updOut.getSqlRedo());
-		assertEquals("transaction.offset() should return 3!", 3, transaction.offset());
-		assertEquals("updOutLobs3.get(2).getLobId() should return 33!", 33, updOutLobs3.get(2).getLobId());
+		assertEquals(updIn3.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
+		assertEquals(3, transaction.offset(), "transaction.offset() should return 3!");
+		assertEquals(33, updOutLobs3.get(2).getLobId(), "updOutLobs3.get(2).getLobId() should return 33!");
 
 		// No more records in queue
 		assertFalse(transaction.getStatement(updOut));

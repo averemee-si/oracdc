@@ -13,16 +13,21 @@
 
 package eu.solutions.a2.cdc.oracle;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
+/**
+ *  
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
+ */
 public class OraCdcCQPersistenceTest {
 
 	private final static OraCdcLogMinerStatement updIn1 =  new  OraCdcLogMinerStatement(
@@ -95,13 +100,13 @@ public class OraCdcCQPersistenceTest {
 		OraCdcLogMinerStatement updOut = new OraCdcLogMinerStatement();
 		// We expect updIn2
 		assertTrue(transaction.getStatement(updOut));
-		assertEquals("Not same strings!", updIn2.getSqlRedo(), updOut.getSqlRedo());
-		assertEquals("transaction.offset() should return 2!", 2, transaction.offset());
+		assertEquals(updIn2.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
+		assertEquals(2, transaction.offset(), "transaction.offset() should return 2!");
 		
 		// We expect updIn3
 		assertTrue(transaction.getStatement(updOut));
-		assertEquals("Not same strings!", updIn3.getSqlRedo(), updOut.getSqlRedo());
-		assertEquals("transaction.offset() should return 3!", 3, transaction.offset());
+		assertEquals(updIn3.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
+		assertEquals(3, transaction.offset(), "transaction.offset() should return 3!");
 
 		// No more records in queue
 		assertFalse(transaction.getStatement(updOut));
