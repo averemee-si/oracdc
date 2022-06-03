@@ -759,7 +759,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								columnName, this.fqn());
 						LOGGER.error("Current value={}. Data scale from redo={}, data scale in current dictionary={}",
 								bdValue, bdValue.scale(), oraColumn.getDataScale());
-						columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_EVEN);
+						columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
 					} else {
 						columnValue = bdValue.setScale(oraColumn.getDataScale());
 					}
