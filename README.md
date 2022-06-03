@@ -4,16 +4,16 @@
 Starting from Oracle RDBMS 12c various Oracle tools for [CDC](https://en.wikipedia.org/wiki/Change_data_capture) and/or replication are [deprecated and desupported](https://docs.oracle.com/database/121/UPGRD/deprecated.htm) and replaced by [Oracle Golden Gate](https://www.oracle.com/middleware/technologies/goldengate.html). This project is not intended to be 100% replacement of [expensive](https://www.oracle.com/assets/technology-price-list-070617.pdf) Oracle Golden Gate licenses however may help in many practical cases. Project was tested using [Oracle E-Business Suite](https://www.oracle.com/applications/ebusiness/) customer instance for transferring various information (mostly INV, ONT, WSH, GL & XLA tables) to further reporting and analytics in [PostgreSQL](https://www.postgresql.org/) database. We tested both short transactions (human data entry) and long transactions (various accounting programs) changing millions of rows in dozens of tables (description of some tables used: [WSH_NEW_DELIVERIES](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_NEW_DELIVERIES_tbl.htm), [WSH_DELIVERY_ASSIGNMENTS](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_DELIVERY_ASSIGNMENTS_tbl.htm), [WSH_DELIVERY_DETAILS](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_DELIVERY_DETAILS_tbl.htm)).
 **oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, 19c, and 21c. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 
-## eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector
+## solutions.a2.cdc.oracle.OraCdcLogMinerConnector
 This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. When restarting, all in progress transactions, records, and objects are saved, their status is written to the file defined by parameter `a2.persistent.state.file` . An example `oracdc.state` file is located in `etc` directory.
-**oracdc**'s _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ connects to the following configurations of Oracle RDBMS:
+**oracdc**'s _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ connects to the following configurations of Oracle RDBMS:
 1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. **V$DATABASE.OPEN_MODE = READ WRITE** 
 2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = READ ONLY**
 3. Physical Standby Database of Oracle **DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = MOUNTED**. In this mode, a physical standby database is used to retrieve data using LogMiner and connection to primary database is used to perform strictly limited number of queries to data dictionary (ALL|CDB_OBJECTS, ALL|CDB_TABLES, and ALL|CDB_TAB_COLUMNS). This option allows you to promote a physical standby database to source of replication, eliminates LogMiner overhead from primary database, and  decreases TCO of Oracle Database.
 4. Running in distributed configuration when the source database generates redo log files and also contains a dictionary and target database is a compatible mining database (see Figure 22-1 in [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html)). **N.B.** Currently only non-CDB distributed database configuration has been tested, tests for CDB distributed database configuration are in progress now.
 
 ### Monitoring
-_eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
+_solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
 
 ### Oracle Database SecureFiles and Large Objects including SYS.XMLTYPE
 Oracle Database SecureFiles and Large Objects i.e. LOB's are supported from v0.9.7 when parameter `a2.process.lobs` set to true. CLOB type supported only for columns with **DBA_LOBS.FORMAT='ENDIAN NEUTRAL'**. If you need support for CLOB columns with **DBA_LOBS.FORMAT='ENDIAN SPECIFIC'** or **XMLTYPE** please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
@@ -49,7 +49,7 @@ and you need the data in this table including BLOB column `FILE_DATA` in the rep
 ```
 package com.example.oracdc;
 
-import eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
+import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 // more imports required
 
 public class TransformScannedDataInBlobs implements OraCdcLobTransformationsIntf {
@@ -213,17 +213,17 @@ When setting the JVM parameters , pay attention to the Linux kernel parameter `v
 4.1. [x86_64 AMI](https://aws.amazon.com/marketplace/pp/prodview-gf53ckulna4ba)
 4.2. [amd64 Container](https://aws.amazon.com/marketplace/pp/prodview-me6ugntrriqeg
 
-## eu.solutions.a2.cdc.oracle.OraCdcSourceConnector
-This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+## solutions.a2.cdc.oracle.OraCdcSourceConnector
+This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 
 
 # Getting Started
 
-These instructions will get you a copy of the project up and running on any platform with JDK8+ support.
+These instructions will get you a copy of the project up and running on any platform with JDK11+ support.
 
 ## Prerequisites
 
-Before using **oracdc** please check that required Java8+ is installed with
+Before using **oracdc** please check that required Java11+ is installed with
 
 ```
 echo "Checking Java version"
@@ -262,7 +262,7 @@ mkstore -wrl $A2_CDC_HOME/wallets/ -createCredential R1229 SCOTT
 
 # Running 
 
-## Oracle LogMiner as CDC source (eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector)
+## Oracle LogMiner as CDC source (solutions.a2.cdc.oracle.OraCdcLogMinerConnector)
 The following steps need to be performed in order to prepare the Oracle database so the **oracdc** Connector can be used.
 ### Enabling Oracle RDBMS ARCHIVELOG mode
 Log in to SQL*Plus as SYSDBA and check results of query
@@ -374,19 +374,19 @@ To run **oracdc** in this mode parameter `a2.standby.activate` must set to `true
 ### Additional configuration for distributed database
 
 1. Copy *oracdc-kafka-<VERSION>-standalone.jar* or *a2solutions-oracdc-kafka-<VERSION>.zip* to source and target (mining) database servers.
-2. On source database server start _eu.solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_ with _--bind-address_ (IP address or hostname to listen for incoming requests from mining database server agent, default **0.0.0.0**) and _--port_ (TCP port to listen for incoming requests from mining database server agent, default **21521**) parameters, for instance
+2. On source database server start _solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_ with _--bind-address_ (IP address or hostname to listen for incoming requests from mining database server agent, default **0.0.0.0**) and _--port_ (TCP port to listen for incoming requests from mining database server agent, default **21521**) parameters, for instance
 
 ```
 java -cp oracdc-kafka-0.9.8-standalone.jar \
-    eu.solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent \
+    solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent \
         --port 21521 \
         --bind-address 192.168.7.101
 ```
-3. On target (mining) database server start _eu.solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ with _--bind-address_ (IP address or hostname to listen for incoming requests from **oracdc** connector, default **0.0.0.0**), _--port_ (TCP port to listen for incoming requests from **oracdc** connector, default **21521**) parameters, _--source-host_ (IP address or hostname of _eu.solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_), _--source-port_ (TCP port of _eu.solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_), and _--file-destination_ (existing directory to store redo log files) for instance
+3. On target (mining) database server start _solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ with _--bind-address_ (IP address or hostname to listen for incoming requests from **oracdc** connector, default **0.0.0.0**), _--port_ (TCP port to listen for incoming requests from **oracdc** connector, default **21521**) parameters, _--source-host_ (IP address or hostname of _solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_), _--source-port_ (TCP port of _solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_), and _--file-destination_ (existing directory to store redo log files) for instance
 
 ```
 java -cp oracdc-kafka-0.9.8-standalone.jar \
-    eu.solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent
+    solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent
         --port 21521
         --bind-address 192.168.7.102
         --source-host 192.168.7.101
@@ -394,9 +394,9 @@ java -cp oracdc-kafka-0.9.8-standalone.jar \
         --file-destination /d00/oradata/archive
 ```
 4. Configure **oracdc** connector with parameter `a2.distributed.activate` set to true.
-Set `a2.jdbc.url`/`a2.jdbc.username`/`a2.jdbc.password` or `a2.wallet.location`/`a2.tns.admin`/`a2.tns.alias`/`a2.tns.alias` parameters to valid values for connecting to source database. Set `a2.distributed.wallet.location`/`a2.distributed.tns.admin`/`a2.distributed.tns.alias` to valid values for connecting to target (mining) database. Set `a2.distributed.target.host` and `a2.distributed.target.port` to IP address/hostname and port where _eu.solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ runs. Example parameter settings is in [logminer-source-distributed-db.properties](config/logminer-source-distributed-db.properties) file
+Set `a2.jdbc.url`/`a2.jdbc.username`/`a2.jdbc.password` or `a2.wallet.location`/`a2.tns.admin`/`a2.tns.alias`/`a2.tns.alias` parameters to valid values for connecting to source database. Set `a2.distributed.wallet.location`/`a2.distributed.tns.admin`/`a2.distributed.tns.alias` to valid values for connecting to target (mining) database. Set `a2.distributed.target.host` and `a2.distributed.target.port` to IP address/hostname and port where _solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ runs. Example parameter settings is in [logminer-source-distributed-db.properties](config/logminer-source-distributed-db.properties) file
 
-## Materialized View logs as CDC source (eu.solutions.a2.cdc.oracle.OraCdcSourceConnector)
+## Materialized View logs as CDC source (solutions.a2.cdc.oracle.OraCdcSourceConnector)
 
 Create materialized view log's over replicated tables. These materialized view logs _must_ be created _with_ following options - **with primary key**, _and/or_ **with rowid**, **sequence**, **excluding new values** and _without_ **commit scn** option. You do not need to specify _column list_ while creating materialized view log for using with **oracdc**. **oracdc** reads from materialized view log only primary key value and/or rowid of row in master table.  Table below describes how **oracdc** operates depending on the materialized view log settings
 
@@ -475,9 +475,9 @@ By default (when `a2.oracdc.schemas` set to false) **oracdc** Source connector's
 |VARCHAR2         |string   |                                                              |
 |NVARCHAR2        |string   |                                                              |
 
-When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Oracle **NUMBER** (**eu.solutions.a2.cdc.oracle.data.OraNumber**) and  **TIMESTAMP WITH [LOCAL] TIMEZONE** (**eu.solutions.a2.cdc.oracle.data.OraTimestamp**) datatypes.
+When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Oracle **NUMBER** (**solutions.a2.cdc.oracle.data.OraNumber**) and  **TIMESTAMP WITH [LOCAL] TIMEZONE** (**solutions.a2.cdc.oracle.data.OraTimestamp**) datatypes.
 
-When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle **BLOB** (**eu.solutions.a2.cdc.oracle.data.OraBlob**), **CLOB** (**eu.solutions.a2.cdc.oracle.data.OraClob**),   **NCLOB** (**eu.solutions.a2.cdc.oracle.data.OraNClob**), and **SYS.XMLTYPE** (**eu.solutions.a2.cdc.oracle.data.OraXmlBinary**) datatypes.
+When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle **BLOB** (**solutions.a2.cdc.oracle.data.OraBlob**), **CLOB** (**solutions.a2.cdc.oracle.data.OraClob**),   **NCLOB** (**solutions.a2.cdc.oracle.data.OraNClob**), and **SYS.XMLTYPE** (**solutions.a2.cdc.oracle.data.OraXmlBinary**) datatypes.
 
 
 ## Built With
@@ -527,7 +527,7 @@ CDB fixes/20c readiness
 
 ####0.9.5 (APR-2020)
 
-Schema Editor GUI preview (java -cp <> eu.solutions.a2.cdc.oracle.schema.TableSchemaEditor). This GUI required for more precise mapping between Oracle and Kafka Connect datatypes. See also `a2.dictionary.file` parameter
+Schema Editor GUI preview (java -cp <> solutions.a2.cdc.oracle.schema.TableSchemaEditor). This GUI required for more precise mapping between Oracle and Kafka Connect datatypes. See also `a2.dictionary.file` parameter
 
 ####0.9.6 (MAY-2020)
 
