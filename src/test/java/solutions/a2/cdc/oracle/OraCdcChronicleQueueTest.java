@@ -21,9 +21,6 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.cdc.oracle.OraCdcLogMinerStatement;
-import solutions.a2.cdc.oracle.OraCdcTransaction;
-
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>

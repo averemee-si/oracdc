@@ -19,8 +19,6 @@ import java.sql.SQLException;
 
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.cdc.oracle.OraDumpDecoder;
-
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>

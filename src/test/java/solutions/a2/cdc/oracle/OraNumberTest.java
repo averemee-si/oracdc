@@ -22,7 +22,6 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.cdc.oracle.OraDumpDecoder;
 import solutions.a2.cdc.oracle.data.OraNumber;
 
 /**

@@ -25,8 +25,6 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.cdc.oracle.OraCdcJdbcSinkConnectionPool;
-import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraXmlBinary;
 import solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
