@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.Types;
 
 import org.junit.jupiter.api.Test;
+
+import eu.solutions.a2.cdc.oracle.OraColumn;
+import eu.solutions.a2.cdc.oracle.UnsupportedColumnDataTypeException;
 
 /**
  *  

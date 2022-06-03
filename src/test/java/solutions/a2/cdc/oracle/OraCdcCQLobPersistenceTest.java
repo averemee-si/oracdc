@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package eu.solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -25,6 +25,10 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+
+import eu.solutions.a2.cdc.oracle.OraCdcLargeObjectHolder;
+import eu.solutions.a2.cdc.oracle.OraCdcLogMinerStatement;
+import eu.solutions.a2.cdc.oracle.OraCdcTransaction;
 
 /**
  *  
