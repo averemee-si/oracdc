@@ -14,6 +14,7 @@
 package solutions.a2.cdc.oracle;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -758,7 +759,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								columnName, this.fqn());
 						LOGGER.error("Current value={}. Data scale from redo={}, data scale in current dictionary={}",
 								bdValue, bdValue.scale(), oraColumn.getDataScale());
-						columnValue = bdValue.setScale(oraColumn.getDataScale(), BigDecimal.ROUND_HALF_DOWN);
+						columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_EVEN);
 					} else {
 						columnValue = bdValue.setScale(oraColumn.getDataScale());
 					}
