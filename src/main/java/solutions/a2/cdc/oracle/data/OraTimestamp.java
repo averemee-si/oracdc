@@ -36,7 +36,7 @@ import solutions.a2.cdc.oracle.OraDumpDecoder;
  */
 public class OraTimestamp {
 
-	public static final String LOGICAL_NAME = "eu.solutions.a2.cdc.oracle.data.OraTimestamp";
+	public static final String LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraTimestamp";
 	public static final DateTimeFormatter ISO_8601_FMT = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
 	public static SchemaBuilder builder() {

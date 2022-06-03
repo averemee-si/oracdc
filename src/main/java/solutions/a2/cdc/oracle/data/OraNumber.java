@@ -42,7 +42,7 @@ public class OraNumber {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraNumber.class);
 
-	public static final String LOGICAL_NAME = "eu.solutions.a2.cdc.oracle.data.OraNumber";
+	public static final String LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraNumber";
 
 	public static SchemaBuilder builder() {
 		return SchemaBuilder.bytes()

@@ -169,7 +169,7 @@ public class OraRdbmsInfo {
 		if (includeSchema) {
 			SchemaBuilder schemaBuilder = SchemaBuilder
 				.struct()
-				.name("eu.solutions.a2.cdc.oracle.Source");
+				.name("solutions.a2.cdc.oracle.Source");
 			schemaBuilder.field("instance_number", Schema.INT16_SCHEMA);
 			schemaBuilder.field("version", Schema.STRING_SCHEMA);
 			schemaBuilder.field("instance_name", Schema.STRING_SCHEMA);

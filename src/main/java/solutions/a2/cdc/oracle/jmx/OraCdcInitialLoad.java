@@ -74,7 +74,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 		this.sendRows = new AtomicLong(0);
 		this.sendRowsColumns = new AtomicLong(0);
 		final StringBuilder sb = new StringBuilder(96);
-		sb.append("eu.solutions.a2.oracdc:type=Initial-Load-metrics,name=");
+		sb.append("solutions.a2.oracdc:type=Initial-Load-metrics,name=");
 		sb.append(connectorName);
 		sb.append(",database=");
 		sb.append(rdbmsInfo.getInstanceName());

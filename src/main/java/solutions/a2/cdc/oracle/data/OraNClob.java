@@ -26,7 +26,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
  */
 public class OraNClob {
 
-	public static final String LOGICAL_NAME = "eu.solutions.a2.cdc.oracle.data.OraNClob";
+	public static final String LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraNClob";
 
 	public static SchemaBuilder builder() {
 		return SchemaBuilder.bytes()

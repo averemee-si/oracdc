@@ -62,7 +62,7 @@ public class OraCdcLogMinerMgmtBase {
 	public OraCdcLogMinerMgmtBase(
 			final OraRdbmsInfo rdbmsInfo, final String connectorName, final String jmxTypeName) {
 		final StringBuilder sb = new StringBuilder(96);
-		sb.append("eu.solutions.a2.oracdc:type=");
+		sb.append("solutions.a2.oracdc:type=");
 		sb.append(jmxTypeName);
 		sb.append(",name=");
 		sb.append(connectorName);

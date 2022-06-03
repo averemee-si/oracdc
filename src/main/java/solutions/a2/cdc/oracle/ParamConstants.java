@@ -128,8 +128,8 @@ public class ParamConstants {
 	public static final int CONNECTION_BACKOFF_DEFAULT = 30000;
 
 	public static final String ARCHIVED_LOG_CAT_PARAM = "a2.archived.log.catalog";
-	public static final String ARCHIVED_LOG_CAT_DOC = "name of class which implements eu.solutions.a2.cdc.oracle.OraLogMiner interface. Default - eu.solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl which reads archived log information from V$ARCHIVED_LOG fixed view";
-	public static final String ARCHIVED_LOG_CAT_DEFAULT = "eu.solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl";
+	public static final String ARCHIVED_LOG_CAT_DOC = "name of class which implements solutions.a2.cdc.oracle.OraLogMiner interface. Default - solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl which reads archived log information from V$ARCHIVED_LOG fixed view";
+	public static final String ARCHIVED_LOG_CAT_DEFAULT = "solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl";
 
 	public static final String FETCH_SIZE_PARAM = "a2.fetch.size";
 	public static final String FETCH_SIZE_DOC = "number of rows fetched with each RDBMS round trip for access V$LOGMNR_CONTENTS. Default 32";
@@ -158,8 +158,8 @@ public class ParamConstants {
 	public static final int DISTRIBUTED_TARGET_PORT_DEFAULT = 21521;
 
 	public static final String LOB_TRANSFORM_CLASS_PARAM = "a2.lob.transformation.class";
-	public static final String LOB_TRANSFORM_CLASS_DOC = "name of class which implements eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf interface. Default - eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation";
-	public static final String LOB_TRANSFORM_CLASS_DEFAULT = "eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl";
+	public static final String LOB_TRANSFORM_CLASS_DOC = "name of class which implements solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf interface. Default - solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation";
+	public static final String LOB_TRANSFORM_CLASS_DEFAULT = "solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl";
 
 	public static final String RESILIENCY_TYPE_PARAM = "a2.resiliency.type";
 	public static final String RESILIENCY_TYPE_DOC = "How restarts and crashes are handled: " + 

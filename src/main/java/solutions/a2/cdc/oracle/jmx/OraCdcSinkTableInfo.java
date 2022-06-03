@@ -57,7 +57,7 @@ public class OraCdcSinkTableInfo implements OraCdcSinkTableInfoMBean {
 		this.elapsedDeleteNanos = 0;
 		this.deleteRecordsCount = 0;
 		final StringBuilder sb = new StringBuilder(64);
-		sb.append("eu.solutions.a2.oracdc:type=Sink-metrics,tableName=");
+		sb.append("solutions.a2.oracdc:type=Sink-metrics,tableName=");
 		sb.append(tableName);
 		try {
 			final ObjectName name = new ObjectName(sb.toString());
