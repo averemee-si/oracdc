@@ -1,6 +1,6 @@
-#### Metrics for eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector
+#### Metrics for solutions.a2.cdc.oracle.OraCdcLogMinerConnector
 
-**MBean:eu.solutions.a2.oracdc:type=LogMiner-metrics,name=<Connector-Name>,database=$ORACLE_SID_<hostname>**
+**MBean:solutions.a2.oracdc:type=LogMiner-metrics,name=<Connector-Name>,database=$ORACLE_SID_<hostname>**
 
 |Attribute Name                        |Type     |Description                                                                                       |
 |:-------------------------------------|:--------|:-------------------------------------------------------------------------------------------------|

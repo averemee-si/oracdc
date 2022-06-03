@@ -22,8 +22,8 @@ import java.sql.Types;
 
 import org.junit.jupiter.api.Test;
 
-import eu.solutions.a2.cdc.oracle.OraColumn;
-import eu.solutions.a2.cdc.oracle.UnsupportedColumnDataTypeException;
+import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.UnsupportedColumnDataTypeException;
 
 /**
  *  

@@ -28,9 +28,9 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.junit.jupiter.api.Test;
 
-import eu.solutions.a2.cdc.oracle.OraCdcJdbcSinkConnectionPool;
-import eu.solutions.a2.cdc.oracle.OraColumn;
-import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
+import solutions.a2.cdc.oracle.OraCdcJdbcSinkConnectionPool;
+import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 /**
  *  

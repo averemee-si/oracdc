@@ -312,7 +312,7 @@
 					</descriptors>
 					<archive>
 						<manifest>
-							<mainClass>eu.solutions.a2.cdc.oracle.schema.TableSchemaEditor</mainClass>
+							<mainClass>solutions.a2.cdc.oracle.schema.TableSchemaEditor</mainClass>
 						</manifest>
 					</archive>
 				</configuration>

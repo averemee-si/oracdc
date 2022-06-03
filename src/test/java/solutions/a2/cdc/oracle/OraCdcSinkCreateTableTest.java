@@ -25,11 +25,11 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.jupiter.api.Test;
 
-import eu.solutions.a2.cdc.oracle.OraCdcJdbcSinkConnectionPool;
-import eu.solutions.a2.cdc.oracle.OraColumn;
-import eu.solutions.a2.cdc.oracle.data.OraBlob;
-import eu.solutions.a2.cdc.oracle.data.OraXmlBinary;
-import eu.solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
+import solutions.a2.cdc.oracle.OraCdcJdbcSinkConnectionPool;
+import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.data.OraBlob;
+import solutions.a2.cdc.oracle.data.OraXmlBinary;
+import solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 /**
  *  

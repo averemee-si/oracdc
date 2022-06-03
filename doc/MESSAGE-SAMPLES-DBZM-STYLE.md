@@ -98,7 +98,7 @@
         "field" : "ts_ms"
       } ],
       "optional" : false,
-      "name" : "eu.solutions.a2.cdc.oracle.Source",
+      "name" : "solutions.a2.cdc.oracle.Source",
       "field" : "source"
     } ],
     "optional" : false,
@@ -233,7 +233,7 @@
         "field" : "ts_ms"
       } ],
       "optional" : false,
-      "name" : "eu.solutions.a2.cdc.oracle.Source",
+      "name" : "solutions.a2.cdc.oracle.Source",
       "field" : "source"
     } ],
     "optional" : false,
@@ -368,7 +368,7 @@
         "field" : "ts_ms"
       } ],
       "optional" : false,
-      "name" : "eu.solutions.a2.cdc.oracle.Source",
+      "name" : "solutions.a2.cdc.oracle.Source",
       "field" : "source"
     } ],
     "optional" : false,

@@ -23,8 +23,8 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 
-import eu.solutions.a2.cdc.oracle.OraCdcLogMinerStatement;
-import eu.solutions.a2.cdc.oracle.OraCdcTransaction;
+import solutions.a2.cdc.oracle.OraCdcLogMinerStatement;
+import solutions.a2.cdc.oracle.OraCdcTransaction;
 
 /**
  *  

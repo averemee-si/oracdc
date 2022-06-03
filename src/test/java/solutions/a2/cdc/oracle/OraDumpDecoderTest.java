@@ -19,7 +19,7 @@ import java.sql.SQLException;
 
 import org.junit.jupiter.api.Test;
 
-import eu.solutions.a2.cdc.oracle.OraDumpDecoder;
+import solutions.a2.cdc.oracle.OraDumpDecoder;
 
 /**
  *  

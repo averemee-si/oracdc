@@ -35,7 +35,7 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.autocreate`- _Sink Connector_ only: default _false_, when set to true **oracdc** creates missing table automatically
 
-### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector specific parameters
+### solutions.a2.cdc.oracle.OraCdcLogMinerConnector specific parameters
 `a2.redo.count` - Quantity of archived logs to process during each DBMS_LOGMNR.START_LOGMNR call, default _1_
 
 `a2.redo.size` - Minimal size of archived logs to process during each DBMS_LOGMNR.START_LOGMNR call. When set value of `a2.redo.count` is ignored
@@ -46,9 +46,9 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.persistent.state.file` - Name of file to store oracdc state between restart. Default `$TMPDIR/oracdc.state`
 
-`a2.oracdc.schemas` - Use oracdc schemas (**eu.solutions.a2.cdc.oracle.data.OraNumber** and **eu.solutions.a2.cdc.oracle.data.OraTimestamp**) for Oracle datatypes (NUMBER, TIMESTAMP WITH [LOCAL] TIMEZONE). Default false.
+`a2.oracdc.schemas` - Use oracdc schemas (**solutions.a2.cdc.oracle.data.OraNumber** and **solutions.a2.cdc.oracle.data.OraTimestamp**) for Oracle datatypes (NUMBER, TIMESTAMP WITH [LOCAL] TIMEZONE). Default false.
 
-`a2.dictionary.file` - File with stored columns data type mapping. For more details contact us at oracle@a2-solutions.eu. This file can be prepared using Schema Editor GUI (eu.solutions.a2.cdc.oracle.schema.TableSchemaEditor)
+`a2.dictionary.file` - File with stored columns data type mapping. For more details contact us at oracle@a2-solutions.eu. This file can be prepared using Schema Editor GUI (solutions.a2.cdc.oracle.schema.TableSchemaEditor)
 
 `a2.initial.load` - A mode for performing initial load of data from tables when set to `EXECUTE`. Record the successful completion of the initial load in the offset file. Default value - `IGNORE`. 
 
@@ -60,11 +60,11 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.process.lobs` - process Oracle BLOB, CLOB, NCLOB, and [XMLType](https://docs.oracle.com/en/database/oracle/oracle-database/21/adxdb/intro-to-XML-DB.html#GUID-02592188-AC38-4D00-A2FD-9E53604065C8) columns. Default - _false_
 
-`a2.lob.transformation.class` - name of class which implements _eu.solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf_ interface. Default - _eu.solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl_ which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation
+`a2.lob.transformation.class` - name of class which implements _solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf_ interface. Default - _solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl_ which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation
 
 `a2.connection.backoff` - Backoff time in milliseconds between reconnectoion attempts. Default - _30000ms_
 
-`a2.archived.log.catalog` - name of class which implements _eu.solutions.a2.cdc.oracle.OraLogMiner_ interface. Default - _eu.solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl_ which reads archived log information and information about next available archived redo log from [V$ARCHIVED_LOG](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-ARCHIVED_LOG.html) fixed view
+`a2.archived.log.catalog` - name of class which implements _solutions.a2.cdc.oracle.OraLogMiner_ interface. Default - _solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl_ which reads archived log information and information about next available archived redo log from [V$ARCHIVED_LOG](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-ARCHIVED_LOG.html) fixed view
 
 `a2.fetch.size` - number of rows fetched with each RDBMS round trip for accessing [V$LOGMNR_CONTENTS](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-LOGMNR_CONTENTS.html) fixed view. Default 32
 
@@ -79,7 +79,7 @@ alter session set events '10046 trace name context forever, level 8';
 
 `a2.resiliency.type` - How restarts and crashes are handled: In ``legacy`` mode (the default), all information is stored in the file system, delivery of all changes is guaranteed with exactly-once semantics, but this mode does not protect against file system failures. When set to ``fault-tolerant``, all restart data stored on Kafka topics, the connector depends only on Kafka cluster, but if an error occurs in the middle of sending a Oracle transaction to the Kafka broker, that transaction will be re-read from archived redo and sending to Kafka will continue after last successfully processed record to maintain exactly-once semantics
 
-#### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
+#### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
 
@@ -89,7 +89,7 @@ alter session set events '10046 trace name context forever, level 8';
 
 `a2.standby.tns.alias` - Connection TNS alias for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-DATABASE.html)
 
-#### eu.solutions.a2.cdc.oracle.OraCdcLogMinerConnector distributed mode parameters
+#### solutions.a2.cdc.oracle.OraCdcLogMinerConnector distributed mode parameters
 
 `a2.distributed.activate` - Use **oracdc** in distributed configuration (redo logs are generated at source RDBMS server and then transferred to compatible target RDBMS server for processing with LogMiner. For description of this configuration please look at _Figure 22-1_ at [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html). Default - _false_
 

@@ -20,7 +20,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import eu.solutions.a2.cdc.oracle.utils.OraSqlUtils;
+import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 
 /**
  *  
