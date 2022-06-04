@@ -46,6 +46,15 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 	private static final String DB_PARAM_MUST_SET_WHEN_TRUE = "Parameter '{}' must be set when '{}' set to true!";
 	private static final String VALUE_SET_TO = "Value of parameter '{}' is set to '{}'";
 
+	// Generated using 	https://patorjk.com/software/taag/#p=display&f=Ogre&t=A2%20oracdc
+	private static final String LOGO =
+		"\n" +
+		"   _   ____                            _      \n" +
+		"  /_\\ |___ \\    ___  _ __ __ _  ___ __| | ___ \n" +
+		" //_\\\\  __) |  / _ \\| '__/ _` |/ __/ _` |/ __|\n" +
+		"/  _  \\/ __/  | (_) | | | (_| | (_| (_| | (__ \n" +
+		"\\_/ \\_/_____|  \\___/|_|  \\__,_|\\___\\__,_|\\___|\n\n";
+
 	private Map<String, String> connectorProperties;
 
 	@Override
@@ -56,6 +65,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 	@Override
 	public void start(Map<String, String> props) {
 		final String connectorName = props.get("name");
+		LOGGER.info(LOGO);
 		LOGGER.info("Starting oracdc '{}' logminer source connector", connectorName);
 		OraCdcSourceConnectorConfig config;
 		try {
