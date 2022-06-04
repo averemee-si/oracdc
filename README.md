@@ -204,6 +204,21 @@ MaxNumberOfTransInProcessingQueue
 GiBWrittenUsingChronicleQueue
 ```
 When setting the JVM parameters , pay attention to the Linux kernel parameter `vm.max_map_count` and to JVM parameter `-XX:MaxDirectMemorySize`. (Ref.: [I have issue with memory](https://github.com/averemee-si/oracdc/issues/8#issuecomment-725227858))
+11. Run oracdc using [Java 17 LTS](https://www.oracle.com/java/technologies/java-se-support-roadmap.html), which provides numerous improvements over older versions of Java, such as improved [performance](https://chronicle.software/which-is-the-fastest-jvm/), stability, and security. For this you need to pass additional command line arguments to java command using (Ref.: [How to run Chronicle Libraries Under Java 17](https://chronicle.software/chronicle-support-java-17/))
+
+```
+export KAFKA_OPTS="\
+--add-exports java.base/jdk.internal.ref=ALL-UNNAMED \
+--add-exports java.base/sun.nio.ch=ALL-UNNAMED \
+--add-exports jdk.unsupported/sun.misc=ALL-UNNAMED \
+--add-exports jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+--add-opens jdk.compiler/com.sun.tools.javac=ALL-UNNAMED \
+--add-opens java.base/java.lang=ALL-UNNAMED \
+--add-opens java.base/java.lang.reflect=ALL-UNNAMED \
+--add-opens java.base/java.io=ALL-UNNAMED \
+--add-opens java.base/java.util=ALL-UNNAMED"
+```
+
 
 ### Distribution
 1. [GitHub](https://github.com/averemee-si/oracdc/)
@@ -616,6 +631,10 @@ ORA-1291 fixes and new non-static connection pool for LogMiner connector
 #####0.9.9.2 (FEB-2022)
 
 `a2.resiliency.type` = ``fault-tolerant`` to ensure 100% compatibility with Kafka Connect distributed mode
+
+####1.0.0 (JUN-2022)
+Min Java version -> Java11, Java 17 LTS - recommended
+Package name change: eu.solutions.a2 -> solutions.a2
 
 ## Authors
 
