@@ -226,7 +226,7 @@ export KAFKA_OPTS="\
 3. [DockerHub](https://hub.docker.com/r/averemee/oracdc)
 4. [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=07173d1d-0e5c-4e97-8db7-5c701176865c) - optimized for [Amazon MSK](https://aws.amazon.com/msk/) and [AWS Glue Schema Registry](https://docs.aws.amazon.com/glue/latest/dg/schema-registry.html)
 4.1. [x86_64 AMI](https://aws.amazon.com/marketplace/pp/prodview-gf53ckulna4ba)
-4.2. [amd64 Container](https://aws.amazon.com/marketplace/pp/prodview-me6ugntrriqeg
+4.2. [amd64 Container](https://aws.amazon.com/marketplace/pp/prodview-me6ugntrriqeg)
 
 ## solutions.a2.cdc.oracle.OraCdcSourceConnector
 This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
