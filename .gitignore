@@ -1,4 +1,4 @@
 /target/
 /lib/
 .classpath
-.settings
+.settings/
