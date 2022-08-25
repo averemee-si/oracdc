@@ -147,6 +147,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						ConfigDef.ValidString.in(ParamConstants.RESILIENCY_TYPE_LEGACY,
 								ParamConstants.RESILIENCY_TYPE_FAULT_TOLERANT),
 						Importance.LOW, ParamConstants.RESILIENCY_TYPE_DOC)
+				.define(ParamConstants.USE_RAC_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, ParamConstants.USE_RAC_DOC)
 				;
 	}
 
