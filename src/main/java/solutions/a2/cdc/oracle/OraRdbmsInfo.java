@@ -53,6 +53,7 @@ public class OraRdbmsInfo {
 	private final String dbCharset;
 	private final String dbNCharCharset;
 	private final String dbUniqueName;
+	private final int redoThread;
 
 	private final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -74,6 +75,7 @@ public class OraRdbmsInfo {
 			instanceName = rs.getString("INSTANCE_NAME");
 			hostName = rs.getString("HOST_NAME");
 			cpuCoreCount = rs.getInt("CPU_CORE_COUNT_CURRENT");
+			redoThread = rs.getInt("THREAD#");
 		} else {
 			throw new SQLException("Unable to read data from V$INSTANCE!");
 		}
@@ -480,6 +482,10 @@ public class OraRdbmsInfo {
 
 	public String getDbUniqueName() {
 		return dbUniqueName;
+	}
+
+	public int getRedoThread() {
+		return redoThread;
 	}
 
 	@Override
