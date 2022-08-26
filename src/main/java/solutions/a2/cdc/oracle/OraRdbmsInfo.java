@@ -292,9 +292,10 @@ public class OraRdbmsInfo {
 	 * @return           - first available SCN
 	 * @throws SQLException
 	 */
-	public static long firstScnFromArchivedLogs(final Connection connection) throws SQLException {
+	public long firstScnFromArchivedLogs(final Connection connection) throws SQLException {
 		PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.FIRST_AVAILABLE_SCN_IN_ARCHIVE,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		ps.setInt(1, redoThread);
 		long firstScn = -1;
 		ResultSet rs = ps.executeQuery();
 		if (rs.next())

@@ -308,7 +308,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			committedTransactions = new LinkedBlockingQueue<>();
 
 			boolean rewind = false;
-			final long firstAvailableScn = OraRdbmsInfo.firstScnFromArchivedLogs(oraConnections.getLogMinerConnection());
+			final long firstAvailableScn = rdbmsInfo.firstScnFromArchivedLogs(oraConnections.getLogMinerConnection());
 			long firstScn = firstAvailableScn;
 			String firstRsId = null;
 			long firstSsn = -1;

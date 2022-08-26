@@ -59,6 +59,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private long archLogsSize = 0;
 	private List<String> fileNames = new ArrayList<>();
 	private long readStartMillis;
+	private final OraRdbmsInfo rdbmsInfo;
 
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
@@ -69,6 +70,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			final OraConnectionObjects oraConnections) throws SQLException {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
+		this.rdbmsInfo = rdbmsInfo;
 
 		if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
 			// 19.10+ and connection to PDB
@@ -159,7 +161,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			if (firstChange == 0) {
 				// oracdc started without archived logs....
 				LOGGER.debug("Requerying V$ARCHIVED_LOG for FIRST_CHANGE# ...");
-				firstChange = OraRdbmsInfo.firstScnFromArchivedLogs(psGetArchivedLogs.getConnection());
+				firstChange = rdbmsInfo.firstScnFromArchivedLogs(psGetArchivedLogs.getConnection());
 				if (firstChange == 0) {
 					LOGGER.debug("Nothing found in V$ARCHIVED_LOG... Will retry");
 					return false;

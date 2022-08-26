@@ -74,7 +74,6 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 	private long readStartMillis;
 
 	private final BlockingQueue<ArchivedRedoFile> redoFiles;
-	final CountDownLatch runLatch;
 
 
 	public OraCdcDistributedV$ArchivedLogImpl(
@@ -88,8 +87,6 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 		this.metrics = metrics;
 
 		redoFiles = new LinkedBlockingQueue<>();
-		this.runLatch = runLatch;
-
 
 		if (props.containsKey(ParamConstants.REDO_FILES_SIZE_PARAM)) {
 			LOGGER.trace("Limit based of size in bytes of archived logs will be used");
@@ -125,7 +122,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 		psOpenMode.close();
 		psOpenMode = null;
 		RedoTransportThread rtt = new RedoTransportThread(
-				firstChange, props, runLatch, redoFiles, oraConnections);
+				firstChange, props, runLatch, redoFiles, oraConnections, rdbmsInfo);
 		rtt.start();
 		// It's time to init JMS metrics...
 		metrics.start(firstChange);
@@ -281,7 +278,8 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 				final Map<String, String> props,
 				final CountDownLatch runLatch,
 				final BlockingQueue<ArchivedRedoFile> redoFiles,
-				final OraConnectionObjects oraConnections) throws SQLException {
+				final OraConnectionObjects oraConnections,
+				final OraRdbmsInfo rdbmsInfo) throws SQLException {
 			this.setName("OraCdcRedoTransportThread-" + System.nanoTime());
 			this.firstChange = firstChange;
 			this.runLatch = runLatch;
@@ -291,7 +289,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			oracleDbZoneId = TimeZone.getDefault().toZoneId();
 			if (this.firstChange == 0) {
 				LOGGER.debug("Requerying V$ARCHIVED_LOG for FIRST_CHANGE# ...");
-				this.firstChange = OraRdbmsInfo.firstScnFromArchivedLogs(connDictionary);
+				this.firstChange = rdbmsInfo.firstScnFromArchivedLogs(connDictionary);
 				if (this.firstChange == 0) {
 					LOGGER.error("V$ARCHIVED_LOG is empty!");
 					LOGGER.error("Exiting");
