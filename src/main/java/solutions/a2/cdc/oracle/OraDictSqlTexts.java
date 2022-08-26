@@ -302,15 +302,14 @@ select OPEN_MODE, DBID from V$DATABASE;
 select min(FIRST_CHANGE#)
 from   V$ARCHIVED_LOG
 where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'
-and    THREAD#=1;
+  and  THREAD#=1;
 	 */
 	public static final String FIRST_AVAILABLE_SCN_IN_ARCHIVE =
 			"select min(FIRST_CHANGE#)\n" +
 			"from   V$ARCHIVED_LOG\n" +
 			"where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'\n" +
-			"and    THREAD#=?";
+			"  and  THREAD#=?";
 
-	/*
 
 	/*
 select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS*BLOCK_SIZE BYTES, FIRST_TIME, (SYSDATE-FIRST_TIME)*86400 ACTUAL_LAG_SECONDS
@@ -319,7 +318,8 @@ where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and (? >= FIRST_C
   and    SEQUENCE# >= 
           (select min(SEQUENCE#)
            from   V$ARCHIVED_LOG
-           where  ARCHIVED='YES' and STANDBY_DEST='NO' and ? between FIRST_CHANGE# and NEXT_CHANGE#)
+           where  ARCHIVED='YES' and STANDBY_DEST='NO' and ? between FIRST_CHANGE# and NEXT_CHANGE# and THREAD#=?)
+  and    THREAD#=?
 order by SEQUENCE#;
 	 */
 	public static final String ARCHIVED_LOGS =
@@ -329,7 +329,8 @@ order by SEQUENCE#;
 			"  and    SEQUENCE# >= \n" +
 			"          (select min(SEQUENCE#)\n" + 
 			"           from   V$ARCHIVED_LOG\n" +
-			"           where  ARCHIVED='YES' and STANDBY_DEST='NO' and ? between FIRST_CHANGE# and NEXT_CHANGE#)\n" + 
+			"           where  ARCHIVED='YES' and STANDBY_DEST='NO' and ? between FIRST_CHANGE# and NEXT_CHANGE# and THREAD#=?)\n" +
+			"  and    THREAD#=?\n" +
 			"order by SEQUENCE#";
 
 	/*

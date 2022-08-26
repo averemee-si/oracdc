@@ -272,6 +272,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 		private long firstChange;
 		private long lastSequence = -1;
 		private long nextChange = 0;
+		private final OraRdbmsInfo rdbmsInfo;
 
 		RedoTransportThread(
 				final long firstChange,
@@ -284,6 +285,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			this.firstChange = firstChange;
 			this.runLatch = runLatch;
 			this.redoFiles = redoFiles;
+			this.rdbmsInfo = rdbmsInfo;
 			connDictionary = (OracleConnection) oraConnections.getConnection();
 			//TODO
 			oracleDbZoneId = TimeZone.getDefault().toZoneId();
@@ -317,6 +319,8 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 					psGetArchivedLogs.setLong(1, firstChange);
 					psGetArchivedLogs.setLong(2, firstChange);
 					psGetArchivedLogs.setLong(3, firstChange);
+					psGetArchivedLogs.setInt(4, rdbmsInfo.getRedoThread());
+					psGetArchivedLogs.setInt(5, rdbmsInfo.getRedoThread());
 					final ResultSet rsArchivedLogFiles = psGetArchivedLogs.executeQuery();
 					while (rsArchivedLogFiles.next()) {
 						final long sequence = rsArchivedLogFiles.getLong("SEQUENCE#");

@@ -174,6 +174,8 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		psGetArchivedLogs.setLong(1, firstChange);
 		psGetArchivedLogs.setLong(2, firstChange);
 		psGetArchivedLogs.setLong(3, firstChange);
+		psGetArchivedLogs.setInt(4, rdbmsInfo.getRedoThread());
+		psGetArchivedLogs.setInt(5, rdbmsInfo.getRedoThread());
 		ResultSet rs = psGetArchivedLogs.executeQuery();
 		int lagSeconds = 0;
 		while (rs.next()) {
