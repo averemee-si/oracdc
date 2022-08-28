@@ -43,7 +43,6 @@ public class OraPoolConnectionFactory {
 
 	private static PoolDataSource pds = null;
 	private static String walletLocation = null;
-	private static String tnsAdminLocation = null;
 	private static String dbUrl = null;
 	private static String dbUser = null;
 	private static String dbPassword = null;
@@ -60,11 +59,10 @@ public class OraPoolConnectionFactory {
 		init();
 	}
 
-	public static synchronized void init4Wallet(final String wallet, final String tnsAdmin, final String alias) throws
+	public static synchronized void init(final String url, final String wallet) throws
 									SQLException {
 		walletLocation = wallet;
-		tnsAdminLocation = tnsAdmin;
-		dbUrl = "jdbc:oracle:thin:/@" + alias;
+		dbUrl = url;
 		dbUser = null;
 		dbPassword = null;
 		init();
@@ -83,13 +81,12 @@ public class OraPoolConnectionFactory {
 			}
 			if (walletLocation != null) {
 				System.setProperty("oracle.net.wallet_location", walletLocation);
-				System.setProperty("oracle.net.tns_admin", tnsAdminLocation);
 			}
 			pds = PoolDataSourceFactory.getPoolDataSource();
 			pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
 			pds.setConnectionPoolName(ORACDC_POOL_NAME);
 			pds.setURL(dbUrl);
-			if (dbUser != null) {
+			if (walletLocation == null && dbUser != null && dbPassword != null) {
 				pds.setUser(dbUser);
 				pds.setPassword(dbPassword);
 			}

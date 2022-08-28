@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -61,25 +62,32 @@ public class OraCdcSourceConnector extends SourceConnector {
 		LOGGER.info("Starting oracdc materialized view log source connector");
 		config = new OraCdcSourceConnectorConfig(props);
 
+		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_URL_PARAM))) {
+			LOGGER.error("Database connection parameters are not properly set!\n'{}' must be set for running connector!",
+					ParamConstants.CONNECTION_URL_PARAM);
+			throw new ConnectException("Database connection parameters are not properly set!");
+		}
+
 		// Initialize connection pool
 		try {
-			if (!"".equals(config.getString(ParamConstants.CONNECTION_URL_PARAM))) {
-				LOGGER.trace("Connecting to Oracle RDBMS using JDBC URL, username, and password.");
+			if (StringUtils.isNotBlank(ParamConstants.CONNECTION_WALLET_PARAM)) {
+				LOGGER.info("Connecting to Oracle RDBMS using Oracle Wallet");
+				OraPoolConnectionFactory.init(
+						config.getString(ParamConstants.CONNECTION_URL_PARAM),
+						config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+			} else if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_USER_PARAM)) &&
+					StringUtils.isNotBlank(config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value())) {
+				LOGGER.info("Connecting to Oracle RDBMS using JDBC URL, username, and password.");
 				OraPoolConnectionFactory.init(
 					config.getString(ParamConstants.CONNECTION_URL_PARAM),
 					config.getString(ParamConstants.CONNECTION_USER_PARAM),
 					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
-			} else if (!"".equals(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
-				LOGGER.trace("Connecting to Oracle RDBMS using Oracle Wallet");
-				OraPoolConnectionFactory.init4Wallet(
-						config.getString(ParamConstants.CONNECTION_WALLET_PARAM),
-						config.getString(ParamConstants.CONNECTION_TNS_ADMIN_PARAM),
-						config.getString(ParamConstants.CONNECTION_TNS_ALIAS_PARAM));
 			} else {
 				validConfig = false;
-				LOGGER.error("Database connection parameters are not properly set\n. Both {}, and {} are not set",
-						ParamConstants.CONNECTION_URL_PARAM,
-						ParamConstants.CONNECTION_WALLET_PARAM);
+				LOGGER.error("Database connection parameters are not properly set\n. Or {}, or pair of {}/{} are not set",
+						ParamConstants.CONNECTION_WALLET_PARAM,
+						ParamConstants.CONNECTION_USER_PARAM,
+						ParamConstants.CONNECTION_PASSWORD_PARAM);
 				throw new ConnectException("Database connection parameters are not properly set!");
 			}
 			LOGGER.trace("Oracle UCP successfully created.");
@@ -191,12 +199,12 @@ public class OraCdcSourceConnector extends SourceConnector {
 			final String message = 
 					"To run " + OraCdcSourceConnector.class.getName() +
 					" against " + (
-					"".equals(config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) ?
+					StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) ?
 								config.getString(ParamConstants.CONNECTION_URL_PARAM) +
 								" with username " +
 								config.getString(ParamConstants.CONNECTION_USER_PARAM)
 							:
-								config.getString(ParamConstants.CONNECTION_TNS_ALIAS_PARAM) +
+								config.getString(ParamConstants.CONNECTION_URL_PARAM) +
 								" using wallet " +
 								config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) +
 					" parameter tasks.max must set to " + tableCount;
