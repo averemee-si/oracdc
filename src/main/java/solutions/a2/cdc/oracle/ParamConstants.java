@@ -82,6 +82,9 @@ public class ParamConstants {
 	public static final String STANDBY_WALLET_PARAM = "a2.standby.wallet.location";
 	public static final String STANDBY_WALLET_DOC = "Location of Oracle Wallet for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
 
+	public static final String STANDBY_URL_PARAM = "a2.standby.jdbc.url";
+	public static final String STANDBY_URL_DOC = "JDBC connection URL for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
+
 	public static final String STANDBY_TNS_ADMIN_PARAM = "a2.standby.tns.admin";
 	public static final String STANDBY_TNS_ADMIN_DOC = "Location of tnsnames.ora file for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
 
@@ -143,6 +146,9 @@ public class ParamConstants {
 
 	public static final String DISTRIBUTED_WALLET_PARAM = "a2.distributed.wallet.location";
 	public static final String DISTRIBUTED_WALLET_DOC = "Location of Oracle Wallet for connecting to target database in distributed mode";
+
+	public static final String DISTRIBUTED_URL_PARAM = "a2.distributed.jdbc.url";
+	public static final String DISTRIBUTED_URL_DOC = "JDBC connection URL for connecting to target database in distributed mode";
 
 	public static final String DISTRIBUTED_TNS_ADMIN_PARAM = "a2.distributed.tns.admin";
 	public static final String DISTRIBUTED_TNS_ADMIN_DOC = "Location of tnsnames.ora file for connecting to target database in distributed mode";
