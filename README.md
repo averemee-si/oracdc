@@ -409,7 +409,7 @@ java -cp oracdc-kafka-0.9.8-standalone.jar \
         --file-destination /d00/oradata/archive
 ```
 4. Configure **oracdc** connector with parameter `a2.distributed.activate` set to true.
-Set `a2.jdbc.url`/`a2.jdbc.username`/`a2.jdbc.password` or `a2.wallet.location`/`a2.tns.admin`/`a2.tns.alias`/`a2.tns.alias` parameters to valid values for connecting to source database. Set `a2.distributed.wallet.location`/`a2.distributed.tns.admin`/`a2.distributed.tns.alias` to valid values for connecting to target (mining) database. Set `a2.distributed.target.host` and `a2.distributed.target.port` to IP address/hostname and port where _solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ runs. Example parameter settings is in [logminer-source-distributed-db.properties](config/logminer-source-distributed-db.properties) file
+Set `a2.jdbc.url`/`a2.wallet.location` or `a2.jdbc.url`/`a2.jdbc.username`/`a2.jdbc.password` parameters to valid values for connecting to source database. Set `a2.distributed.jdbc.url`/`a2.distributed.wallet.location` to valid values for connecting to target (mining) database. Set `a2.distributed.target.host` and `a2.distributed.target.port` to IP address/hostname and port where _solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ runs. Example parameter settings is in [logminer-source-distributed-db.properties](config/logminer-source-distributed-db.properties) file
 
 ## Materialized View logs as CDC source (solutions.a2.cdc.oracle.OraCdcSourceConnector)
 
@@ -635,6 +635,10 @@ ORA-1291 fixes and new non-static connection pool for LogMiner connector
 ####1.0.0 (JUN-2022)
 Min Java version -> Java11, Java 17 LTS - recommended
 Package name change: eu.solutions.a2 -> solutions.a2
+
+####1.1.0 (AUG-2022)
+Deprecation of parameters `a2.tns.admin`, `a2.tns.alias`, `a2.standby.tns.admin`, `a2.standby.tns.alias`, `a2.distributed.tns.admin`, and `a2.distributed.tns.alias`. Please use `a2.jdbc.url`, `a2.standby.jdbc.url`, and `a2.distributed.jdbc.url` respectively. Please see [KAFKA-CONNECT.md](https://github.com/averemee-si/oracdc/blob/master/doc/KAFKA-CONNECT.md) for parameter description and [Oracle® Database JDBC Java API Reference, Release 21c](https://docs.oracle.com/en/database/oracle/oracle-database/21/jajdb/) for more information about JDBC URL format.
+
 
 ## Authors
 

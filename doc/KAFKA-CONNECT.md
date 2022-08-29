@@ -2,17 +2,31 @@
 Please see the **etc** directory for sample configuration files
 ### Mandatory parameters
 
-`a2.jdbc.url` - JDBC connection URL. Not required when using Oracle Wallet
+`a2.jdbc.url` - JDBC connection URL. The following URL formats are supported:
+1. EZConnect Format
 
-`a2.jdbc.username` - JDBC connection username. Not required when using Oracle Wallet
+```
+jdbc:oracle:thin:@[[protocol:]//]host1[,host2,host3][:port1][,host4:port2] [/service_name][:server_mode][/instance_name][?connection properties]
+```
 
-`a2.jdbc.password` - JDBC connection password. Not required when using Oracle Wallet
+2. TNS URL Format
 
-`a2.wallet.location` - Location of Oracle Wallet. Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
+```
+jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS=(PROTOCOL=<protocol>) (HOST=<dbhost>)(PORT=<dbport>)) (CONNECT_DATA=(SERVICE_NAME=<service-name>))
+```
 
-`a2.tns.admin` - Location of tnsnames.ora file. Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
+3. TNS Alias Format
 
-`a2.tns.alias` - Connection TNS alias. Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
+```
+jdbc:oracle:thin:@<alias_name>
+```
+For more information and examples for JDBC URL format please see [Oracle® Database JDBC Java API Reference, Release 21c](https://docs.oracle.com/en/database/oracle/oracle-database/21/jajdb/)
+
+`a2.wallet.location` - Location of Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053). Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
+
+`a2.jdbc.username` - JDBC connection username. Not required when using Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) i.e. when `a2.wallet.location` set to proper value
+
+`a2.jdbc.password` - JDBC connection password. Not required when using Oracle Wallet[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) i.e. when `a2.wallet.location` set to proper value
 
 `a2.schema.type` - _Source Connector_ only: default _kafka_. This parameter tells **oracdc** which schema use, and which key & value converters use.
 When set to _kafka_ **oracdc**  produces Kafka Connect JDBC connector compatible messages [Confluent JDBC Sink Connector](https://docs.confluent.io/3.2.0/connect/connect-jdbc/docs/sink_connector.html).
@@ -44,7 +58,7 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.tmpdir` - Temporary directory for off-heap storage. Default - value of _java.io.tmpdir_ JVM property
 
-`a2.persistent.state.file` - Name of file to store oracdc state between restart. Default `$TMPDIR/oracdc.state`
+`a2.persistent.state.file` - Name of file to store oracdc state between restart. Default `$TMPDIR/oracdc.state`. Not used when `a2.resiliency.type` set to set to ``fault-tolerant``  (the default since v1.0.0)
 
 `a2.oracdc.schemas` - Use oracdc schemas (**solutions.a2.cdc.oracle.data.OraNumber** and **solutions.a2.cdc.oracle.data.OraTimestamp**) for Oracle datatypes (NUMBER, TIMESTAMP WITH [LOCAL] TIMEZONE). Default false.
 
@@ -90,21 +104,18 @@ Default - false.
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
 
-`a2.standby.wallet.location` - Location of Oracle Wallet for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-DATABASE.html)
+`a2.standby.wallet.location` - Location of Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-DATABASE.html)
 
-`a2.standby.tns.admin` - Location of tnsnames.ora file for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-DATABASE.html)
+`a2.standby.jdbc.url` - JDBC connection URL to connect to [Physical Standby Database](https://docs.oracle.com/en/database/oracle/oracle-database/21/sbydb/introduction-to-oracle-data-guard-concepts.html#GUID-C49AC6F4-C89B-4487-BC18-428D65865B9A). For information about syntax please see description of parameter `a2.jdbc.url` above
 
-`a2.standby.tns.alias` - Connection TNS alias for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-DATABASE.html)
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector distributed mode parameters
 
 `a2.distributed.activate` - Use **oracdc** in distributed configuration (redo logs are generated at source RDBMS server and then transferred to compatible target RDBMS server for processing with LogMiner. For description of this configuration please look at _Figure 22-1_ at [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html). Default - _false_
 
-`a2.distributed.wallet.location` - Location of Oracle Wallet for connecting to target database in distributed mode
+`a2.distributed.wallet.location` - Location of Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) for connecting to target database in distributed mode
 
-`a2.distributed.tns.admin` - Location of tnsnames.ora file for connecting to target database in distributed mode
-
-`a2.distributed.tns.alias` - Connection TNS alias for connecting to target database in distributed mode
+`a2.distributed.jdbc.url` - JDBC connection URL to connect to [Mining Database](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html#GUID-03892F75-767E-4462-9865-9843F1502AD5). For information about syntax please see description of parameter `a2.jdbc.url` above
 
 `a2.distributed.target.host` - hostname of the target (where dbms_logmnr runs) database on which the shipment agent is running
 

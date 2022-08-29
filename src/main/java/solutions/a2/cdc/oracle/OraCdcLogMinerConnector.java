@@ -96,7 +96,27 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
-		if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_URL_PARAM))) {
+		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_URL_PARAM))) {
+			LOGGER.error("Parameter '{}' must be set for running connector!",
+					ParamConstants.CONNECTION_URL_PARAM);
+					throw new ConnectException(DB_PARAM_ERROR_GENERIC);
+		}
+
+		// V1.1.0 - a2.jdbc.url is mandatory parameter! No more separate a2.tns.admin and a2.tns.alias!!!
+		checkDeprecatedTnsParameters(props,
+				ParamConstants.CONNECTION_TNS_ADMIN_PARAM,
+				ParamConstants.CONNECTION_TNS_ALIAS_PARAM,
+				ParamConstants.CONNECTION_URL_PARAM);
+		checkDeprecatedTnsParameters(props,
+				ParamConstants.STANDBY_TNS_ADMIN_PARAM,
+				ParamConstants.STANDBY_TNS_ALIAS_PARAM,
+				ParamConstants.STANDBY_URL_PARAM);
+		checkDeprecatedTnsParameters(props,
+				ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM,
+				ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM,
+				ParamConstants.DISTRIBUTED_URL_PARAM);
+
+		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
 			if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_USER_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
 						ParamConstants.CONNECTION_USER_PARAM,
@@ -110,48 +130,20 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 						ParamConstants.CONNECTION_URL_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("Connection to RDBMS will be performed using JDBC URL, username, and password.");
-			}
-		} else if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
-			if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_TNS_ADMIN_PARAM))) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
-						ParamConstants.CONNECTION_TNS_ADMIN_PARAM,
-						ParamConstants.CONNECTION_WALLET_PARAM);
-				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
-			}
-			if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_TNS_ALIAS_PARAM))) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
-						ParamConstants.CONNECTION_TNS_ALIAS_PARAM,
-						ParamConstants.CONNECTION_WALLET_PARAM);
-				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
-			}
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("Connection to RDBMS will be performed using Oracle Wallet.");
-			}
+			LOGGER.info("Connection to RDBMS will be performed using Oracle username '{}'",
+					config.getString(ParamConstants.CONNECTION_USER_PARAM));
 		} else {
-			LOGGER.error("Database connection parameters are not properly set!\nYou must set in connector properties or {} or {} parameter to connect to RDBMS!",
-					ParamConstants.CONNECTION_URL_PARAM,
-					ParamConstants.CONNECTION_WALLET_PARAM);
-			throw new ConnectException(DB_PARAM_ERROR_GENERIC);
+			LOGGER.info("Connection to RDBMS will be performed using Oracle Wallet '{}'",
+					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
 		}
+
+
+
 
 		if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
 			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.STANDBY_WALLET_PARAM,
-						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
-				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
-			}
-			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_TNS_ADMIN_PARAM))) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						ParamConstants.STANDBY_TNS_ADMIN_PARAM,
-						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
-				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
-			}
-			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_TNS_ALIAS_PARAM))) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						ParamConstants.STANDBY_TNS_ADMIN_PARAM,
 						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
@@ -165,18 +157,6 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			if (StringUtils.isBlank(config.getString(ParamConstants.DISTRIBUTED_WALLET_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.DISTRIBUTED_WALLET_PARAM,
-						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
-				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
-			}
-			if (StringUtils.isBlank(config.getString(ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM))) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM,
-						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
-				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
-			}
-			if (StringUtils.isBlank(config.getString(ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM))) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM,
 						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
@@ -274,6 +254,22 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 	@Override
 	public ConfigDef config() {
 		return OraCdcSourceConnectorConfig.config();
+	}
+
+	private void checkDeprecatedTnsParameters(final Map<String, String> props,
+			final String tnsAdminParam, final String tnsAliasParam, final String jdbcUrlParam) {
+		if (props.containsKey(tnsAdminParam) || props.containsKey(tnsAliasParam)) {
+			LOGGER.error("Parameters '{}' and '{}' are deprecated!!!",
+					tnsAdminParam, tnsAliasParam);
+			LOGGER.error("To connect using TNS alias please set '{}' with JDBC URL format below:", 
+					jdbcUrlParam);
+			LOGGER.error("\tjdbc:oracle:thin:@<alias_name>?TNS_ADMIN=<directory_with_tnsnames_sqlnet>");
+			LOGGER.error("For example:");
+			LOGGER.error("\tjdbc:oracle:thin:@prod_db?TNS_ADMIN=/u01/app/oracle/product/21.3.0/dbhome_1/network/admin/");
+			LOGGER.error("For more information on JDBC URL format please see Oracle® Database JDBC Java API Reference, Release 21c -");
+			LOGGER.error("\thttps://docs.oracle.com/en/database/oracle/oracle-database/21/jajdb/");
+			throw new ConnectException(DB_PARAM_ERROR_GENERIC);
+		}
 	}
 
 }

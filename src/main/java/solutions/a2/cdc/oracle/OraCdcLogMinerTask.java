@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
@@ -111,6 +112,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private long lastInProgressScn = 0;
 	private String lastInProgressRsId = null;
 	private long lastInProgressSsn = 0;
+	private OraCdcSourceConnectorConfig config;
 
 	@Override
 	public String version() {
@@ -123,21 +125,28 @@ public class OraCdcLogMinerTask extends SourceTask {
 		LOGGER.info("Starting oracdc logminer source task for connector {}.", connectorName);
 
 		try {
-			if (StringUtils.isNotBlank(props.get(ParamConstants.CONNECTION_URL_PARAM))) {
-				oraConnections = OraConnectionObjects.get4UserPassword(
-					connectorName,
-					props.get(ParamConstants.CONNECTION_URL_PARAM),
-					props.get(ParamConstants.CONNECTION_USER_PARAM),
-					props.get(ParamConstants.CONNECTION_PASSWORD_PARAM));
-			}
-			if (StringUtils.isNotBlank(props.get(ParamConstants.CONNECTION_WALLET_PARAM))) {
+			config = new OraCdcSourceConnectorConfig(props);
+		} catch (ConfigException ce) {
+			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
+		}
+
+
+		try {
+			if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
 				oraConnections = OraConnectionObjects.get4OraWallet(
 						connectorName,
-						props.get(ParamConstants.CONNECTION_WALLET_PARAM),
-						props.get(ParamConstants.CONNECTION_TNS_ADMIN_PARAM),
-						props.get(ParamConstants.CONNECTION_TNS_ALIAS_PARAM));
+						config.getString(ParamConstants.CONNECTION_URL_PARAM), 
+						config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+			} else if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_USER_PARAM)) &&
+					StringUtils.isNotBlank(config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value())) {
+				oraConnections = OraConnectionObjects.get4UserPassword(
+						connectorName,
+						config.getString(ParamConstants.CONNECTION_URL_PARAM),
+						config.getString(ParamConstants.CONNECTION_USER_PARAM),
+						config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
+			} else {
+				throw new SQLException("Wrong connection parameters!");
 			}
-				
 		} catch(SQLException sqle) {
 			LOGGER.error("Unable to connect to RDBMS for connector '{}'!",
 					connectorName);
@@ -146,22 +155,22 @@ public class OraCdcLogMinerTask extends SourceTask {
 			throw new ConnectException("Unable to connect to RDBMS");
 		}
 
-		batchSize = Integer.parseInt(props.get(ParamConstants.BATCH_SIZE_PARAM));
-		pollInterval = Integer.parseInt(props.get(ParamConstants.POLL_INTERVAL_MS_PARAM));
-		useOracdcSchemas = Boolean.parseBoolean(props.get(ParamConstants.ORACDC_SCHEMAS_PARAM));
+		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
+		pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
+		useOracdcSchemas = config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM);
 		if (useOracdcSchemas) {
 			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
 		}
 
 		if (StringUtils.equalsIgnoreCase(
-				props.get(ParamConstants.SCHEMA_TYPE_PARAM),
+				config.getString(ParamConstants.SCHEMA_TYPE_PARAM),
 				ParamConstants.SCHEMA_TYPE_DEBEZIUM)) {
 			schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
-			topic = props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
+			topic = config.getString(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
 		} else {
 			schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
-			topic = props.get(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM);
-			switch (props.get(ParamConstants.TOPIC_NAME_STYLE_PARAM)) {
+			topic = config.getString(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM);
+			switch (config.getString(ParamConstants.TOPIC_NAME_STYLE_PARAM)) {
 			case ParamConstants.TOPIC_NAME_STYLE_TABLE:
 				topicNameStyle = ParamConstants.TOPIC_NAME_STYLE_INT_TABLE;
 				break;
@@ -172,11 +181,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 				topicNameStyle = ParamConstants.TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE;
 				break;
 			}
-			topicNameDelimiter = props.get(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
+			topicNameDelimiter = config.getString(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
 		}
-		processLobs = Boolean.parseBoolean(props.get(ParamConstants.PROCESS_LOBS_PARAM));
+		processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
 		if (processLobs) {
-			final String transformLobsImplClass = props.get(ParamConstants.LOB_TRANSFORM_CLASS_PARAM);
+			final String transformLobsImplClass = config.getString(ParamConstants.LOB_TRANSFORM_CLASS_PARAM);
 			LOGGER.info("oracdc will process Oracle LOBs using {} LOB transformations implementation",
 					transformLobsImplClass);
 			try {
@@ -204,7 +213,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 		}
 		if (StringUtils.equalsIgnoreCase(
-				props.get(ParamConstants.RESILIENCY_TYPE_PARAM),
+				config.getString(ParamConstants.RESILIENCY_TYPE_PARAM),
 				ParamConstants.RESILIENCY_TYPE_LEGACY)) {
 			legacyResiliencyModel = true;
 			offset = new HashMap<>();
@@ -232,20 +241,18 @@ public class OraCdcLogMinerTask extends SourceTask {
 				LOGGER.info("Connected to PDB {} (RDBMS 19.10+ Feature)", rdbmsInfo.getPdbName());
 			}
 
-			if (Boolean.parseBoolean(props.get(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM))) {
+			if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
 				oraConnections.addStandbyConnection(
-						props.get(ParamConstants.STANDBY_WALLET_PARAM),
-						props.get(ParamConstants.STANDBY_TNS_ADMIN_PARAM),
-						props.get(ParamConstants.STANDBY_TNS_ALIAS_PARAM));
+						config.getString(ParamConstants.STANDBY_URL_PARAM),
+						config.getString(ParamConstants.STANDBY_WALLET_PARAM));
 				LOGGER.info(
 						"Connector {} will use connection to PHYSICAL STANDBY for LogMiner calls",
 						connectorName);
 			}
-			if (Boolean.parseBoolean(props.get(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM))) {
-				oraConnections.addStandbyConnection(
-						props.get(ParamConstants.DISTRIBUTED_WALLET_PARAM),
-						props.get(ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM),
-						props.get(ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM));
+			if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
+				oraConnections.addDistributedConnection(
+						config.getString(ParamConstants.DISTRIBUTED_URL_PARAM),
+						config.getString(ParamConstants.DISTRIBUTED_WALLET_PARAM));
 				LOGGER.info(
 						"Connector {} will use remote database in distributed configuration for LogMiner calls",
 						connectorName);

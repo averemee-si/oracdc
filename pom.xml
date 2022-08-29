@@ -16,7 +16,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>solutions.a2.oracle.oracdc</groupId>
 	<artifactId>oracdc-kafka</artifactId>
-	<version>1.0.0</version>
+	<version>1.1.0</version>
 	<packaging>jar</packaging>
 
 	<name>oracdc-kafka</name>
@@ -293,6 +293,9 @@
 								<requirement>Oracle 18c</requirement>
 								<requirement>Oracle 19c</requirement>
 								<requirement>Oracle 21c</requirement>
+								<requirement>Oracle DataGuard</requirement>
+								<requirement>Oracle Active DataGuard</requirement>
+								<requirement>Oracle Standby Database</requirement>
 							</requirements>
 
 							<deliveryGuarantee>

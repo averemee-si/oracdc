@@ -52,10 +52,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.HIGH, ParamConstants.CONNECTION_PASSWORD_DOC)
 				.define(ParamConstants.CONNECTION_WALLET_PARAM, Type.STRING, "",
 						Importance.HIGH, ParamConstants.CONNECTION_WALLET_DOC)
-				.define(ParamConstants.CONNECTION_TNS_ADMIN_PARAM, Type.STRING, "",
-						Importance.HIGH, ParamConstants.CONNECTION_TNS_ADMIN_DOC)
-				.define(ParamConstants.CONNECTION_TNS_ALIAS_PARAM, Type.STRING, "",
-						Importance.HIGH, ParamConstants.CONNECTION_TNS_ALIAS_DOC)
 				.define(KAFKA_TOPIC_PARAM, Type.STRING, KAFKA_TOPIC_PARAM_DEFAULT,
 						Importance.HIGH, KAFKA_TOPIC_PARAM_DOC)
 				.define(ParamConstants.POLL_INTERVAL_MS_PARAM, Type.INT, ParamConstants.POLL_INTERVAL_MS_DEFAULT,
@@ -86,10 +82,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.MAKE_STANDBY_ACTIVE_DOC)
 				.define(ParamConstants.STANDBY_WALLET_PARAM, Type.STRING, "",
 						Importance.LOW, ParamConstants.STANDBY_WALLET_DOC)
-				.define(ParamConstants.STANDBY_TNS_ADMIN_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.STANDBY_TNS_ADMIN_DOC)
-				.define(ParamConstants.STANDBY_TNS_ALIAS_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.STANDBY_TNS_ALIAS_DOC)
+				.define(ParamConstants.STANDBY_URL_PARAM, Type.STRING, "",
+						Importance.LOW, ParamConstants.STANDBY_URL_DOC)
 				.define(ParamConstants.PERSISTENT_STATE_FILE_PARAM, Type.STRING, "",
 						Importance.MEDIUM, ParamConstants.PERSISTENT_STATE_FILE_DOC)
 				.define(ParamConstants.ORACDC_SCHEMAS_PARAM, Type.BOOLEAN, false,
@@ -132,10 +126,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.MAKE_DISTRIBUTED_ACTIVE_DOC)
 				.define(ParamConstants.DISTRIBUTED_WALLET_PARAM, Type.STRING, "",
 						Importance.LOW, ParamConstants.DISTRIBUTED_WALLET_DOC)
-				.define(ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.DISTRIBUTED_TNS_ADMIN_DOC)
-				.define(ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.DISTRIBUTED_TNS_ALIAS_DOC)
+				.define(ParamConstants.DISTRIBUTED_URL_PARAM, Type.STRING, "",
+						Importance.LOW, ParamConstants.DISTRIBUTED_URL_DOC)
 				.define(ParamConstants.DISTRIBUTED_TARGET_HOST, Type.STRING, "",
 						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_HOST_DOC)
 				.define(ParamConstants.DISTRIBUTED_TARGET_PORT, Type.INT, ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT,

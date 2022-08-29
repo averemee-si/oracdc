@@ -38,13 +38,14 @@ public class OraConnectionObjects {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraConnectionObjects.class);
 	private static final int INITIAL_SIZE = 4;
+	private static final String JDBC_ORA_PREFIX = "jdbc:oracle:thin:@";
 
 	private PoolDataSource pds;
 	private final String poolName;
 	private boolean standby = false;
 	private boolean distributed = false;
 	private Connection connection4LogMiner;
-	private String auxWallet, auxTnsAdmin, auxAlias;
+	private String auxDbUrl, auxWallet;
 	private int version = 0;
 
 	private OraConnectionObjects(final String poolName, final String dbUrl) throws SQLException {
@@ -66,11 +67,10 @@ public class OraConnectionObjects {
 	}
 
 	public static OraConnectionObjects get4OraWallet(final String poolName,
-			final String wallet, final String tnsAdmin, final String alias)
+			final String wallet, final String dbUrl)
 					throws SQLException {
 		System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
-		System.setProperty(OracleConnection.CONNECTION_PROPERTY_TNS_ADMIN, tnsAdmin);
-		OraConnectionObjects oco = new OraConnectionObjects(poolName, "jdbc:oracle:thin:/@" + alias);
+		OraConnectionObjects oco = new OraConnectionObjects(poolName, dbUrl);
 		return oco;
 	}
 
@@ -79,34 +79,30 @@ public class OraConnectionObjects {
 		pds.setPassword(dbPassword);
 	}
 
-	public void addStandbyConnection(
-			final String wallet, final String tnsAdmin, final String alias)
+	public void addStandbyConnection(final String dbUrl, final String wallet)
 					throws SQLException {
-		initConnection4LogMiner(true, wallet, tnsAdmin, alias);
+		initConnection4LogMiner(true, dbUrl, wallet);
 	}
 
-	public void addDistributedConnection(
-			final String wallet, final String tnsAdmin, final String alias)
+	public void addDistributedConnection(final String dbUrl, final String wallet)
 					throws SQLException {
-		initConnection4LogMiner(false, wallet, tnsAdmin, alias);
+		initConnection4LogMiner(false, dbUrl, wallet);
 	}
 
 	private void initConnection4LogMiner(
-			final boolean init4Standby,
-			final String wallet, final String tnsAdmin, final String alias)
+			final boolean init4Standby, final String dbUrl, final String wallet)
 					throws SQLException {
 		final String dbType = init4Standby ? "standby" : "target mining";
-		final String dbUrl = "jdbc:oracle:thin:/@" + alias;
 		final Properties props = new Properties();
 		if (init4Standby) {
 			props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysdba");
 		}
 		props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
 		System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
-		System.setProperty(OracleConnection.CONNECTION_PROPERTY_TNS_ADMIN, tnsAdmin);
-		auxWallet = wallet;
-		auxTnsAdmin = tnsAdmin;
-		auxAlias = alias;
+		if (auxDbUrl == null || auxWallet == null) {
+			auxDbUrl = dbUrl;
+			auxWallet = wallet;
+		}
 		LOGGER.info("Initializing connection to {} database {}...", dbType, dbUrl);
 		final OracleDataSource ods = new OracleDataSource();
 		ods.setConnectionProperties(props);
@@ -140,7 +136,7 @@ public class OraConnectionObjects {
 				//TODO
 				//TODO - better error handling required here!!!
 				//TODO
-				initConnection4LogMiner(standby, auxWallet, auxTnsAdmin, auxAlias);
+				initConnection4LogMiner(standby, auxDbUrl, auxWallet);
 			}
 			logMinerConnection = connection4LogMiner;
 		} else {
