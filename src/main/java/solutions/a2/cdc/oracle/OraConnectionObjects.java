@@ -16,8 +16,6 @@ package solutions.a2.cdc.oracle;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Properties;
 
 import org.apache.commons.lang3.StringUtils;
@@ -192,7 +190,7 @@ public class OraConnectionObjects {
 		}
 	}
 
-	public Connection getConnection(OraCdcSourceConnectorConfig config) throws SQLException {
+	public static Connection getConnection(OraCdcSourceConnectorConfig config) throws SQLException {
 		final Properties props = new Properties();
 		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
 			System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION,
