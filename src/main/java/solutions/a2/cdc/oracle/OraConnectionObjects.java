@@ -14,9 +14,13 @@
 package solutions.a2.cdc.oracle;
 
 import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,14 +35,14 @@ import oracle.ucp.jdbc.PoolDataSourceFactory;
 
 /**
  * 
+ * OraConnectionObjects: OracleUCP pool container
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
 public class OraConnectionObjects {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraConnectionObjects.class);
 	private static final int INITIAL_SIZE = 4;
-	private static final String JDBC_ORA_PREFIX = "jdbc:oracle:thin:@";
 
 	private PoolDataSource pds;
 	private final String poolName;
@@ -186,6 +190,21 @@ public class OraConnectionObjects {
 				throw sqle;
 			}
 		}
+	}
+
+	public Connection getConnection(OraCdcSourceConnectorConfig config) throws SQLException {
+		final Properties props = new Properties();
+		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
+			System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION,
+					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+		} else {
+			props.put(OracleConnection.CONNECTION_PROPERTY_USER_NAME,
+					config.getString(ParamConstants.CONNECTION_USER_PARAM));
+			props.put(OracleConnection.CONNECTION_PROPERTY_PASSWORD,
+					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
+		}
+		final Connection connection = DriverManager.getConnection(config.getString(ParamConstants.CONNECTION_URL_PARAM), props);
+		return connection;
 	}
 
 	public void destroy() throws SQLException {
