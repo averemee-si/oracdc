@@ -192,7 +192,7 @@ public class OraConnectionObjects {
 
 	public static Connection getConnection(OraCdcSourceConnectorConfig config) throws SQLException {
 		final Properties props = new Properties();
-		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
+		if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
 			System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION,
 					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
 		} else {
