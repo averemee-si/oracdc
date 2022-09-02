@@ -548,4 +548,14 @@ where  O.OBJECT_TYPE='TABLE'
 		"  and  O.OWNER=T.OWNER\n" +
 		"  and  O.OBJECT_NAME=T.TABLE_NAME";
 
-}
+/*
+select I$.INSTANCE_NAME
+from   V$ACTIVE_INSTANCES A$, GV$INSTANCE I$
+where  A$.INST_NUMBER = I$.INSTANCE_NUMBER
+ */
+	public static final String RAC_INSTANCES = 
+			"select I$.INSTANCE_NAME\n" +
+			"from   V$ACTIVE_INSTANCES A$, GV$INSTANCE I$\n" +
+			"where  A$.INST_NUMBER = I$.INSTANCE_NUMBER";
+
+	}
