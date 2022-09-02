@@ -17,7 +17,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -27,10 +29,13 @@ import org.apache.kafka.connect.data.Struct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import oracle.jdbc.OracleConnection;
+
 /**
  * 
- * @author averemee
- *
+ * OraRdbmsInfo: Various Oracle Database routines
+ * 
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
 public class OraRdbmsInfo {
 
@@ -59,6 +64,7 @@ public class OraRdbmsInfo {
 	private final static int PDB_MINING_INTRODUCED = 21;
 	private final static int PDB_MINING_BACKPORT_MAJOR = 19;
 	private final static int PDB_MINING_BACKPORT_MINOR = 10;
+	private static final String JDBC_ORA_PREFIX = "jdbc:oracle:thin:@";
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraRdbmsInfo.class);
 
 	public OraRdbmsInfo(final Connection connection) throws SQLException {
@@ -284,6 +290,148 @@ public class OraRdbmsInfo {
 		}
 		return result;
 	}
+
+	/**
+	 * 
+	 * Returns list of JDBC URLs for connecting to every RAC instance specified
+	 *  in instances list
+	 * 
+	 * @param url        initial connection URL
+	 * @param instances  list of available instances in RAC
+	 * @return           list of JDBC URLs
+	 */
+	public static List<String> generateRacJdbcUrls(final String url, List<String> instances) {
+		final List<String> changedUrls = new ArrayList<>();
+		if (StringUtils.startsWith(StringUtils.trim(url), "(")) {
+			// Parse "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)....(CONNECT_DATA=(SERVICE_NAME=.....)))"
+			int instanceNameStartPos = StringUtils.indexOfIgnoreCase(url, "INSTANCE_NAME");
+			if (instanceNameStartPos < 0) {
+				// Add (INSTANCE_NAME=<>) to connect URL...
+				int connectDataStartPos = StringUtils.indexOfIgnoreCase(url, "CONNECT_DATA");
+				for (int i = connectDataStartPos - 1; i > -1; i--) {
+					if (url.charAt(i) == '(') {
+						connectDataStartPos = i;
+						break;
+					}
+				}
+				int connectDataEndPos = connectDataStartPos;
+				int count = 1;
+				while (count > 0) {
+					char c = url.charAt(++connectDataEndPos);
+					if (c == '(') {
+						count++;
+					} else if (c == ')') {
+						count--;
+					}
+				}
+				final String original = StringUtils.substring(url, connectDataStartPos, connectDataEndPos + 1);
+				for (String instanceName : instances) {
+					changedUrls.add(
+							JDBC_ORA_PREFIX +
+							StringUtils.replace(url, original,
+									StringUtils.substring(url, connectDataStartPos, connectDataEndPos) + "(INSTANCE_NAME=" + 
+																	instanceName + "))"));
+				}
+			} else {
+				// Replace instance name in connect URL...
+				for (int i = instanceNameStartPos - 1; i > -1; i--) {
+					if (url.charAt(i) == '(') {
+						instanceNameStartPos = i;
+						break;
+					}
+				}
+				int instanceNameEndPos = instanceNameStartPos;
+				int count = 1;
+				while (count > 0) {
+					char c = url.charAt(++instanceNameEndPos);
+					if (c == '(') {
+						count++;
+					} else if (c == ')') {
+						count--;
+					}
+				}
+				final String original = StringUtils.substring(url, instanceNameStartPos, instanceNameEndPos + 1);
+				for (String instanceName : instances) {
+					changedUrls.add(
+							JDBC_ORA_PREFIX +
+							StringUtils.replace(url, original,
+									"(INSTANCE_NAME=" + instanceName + ")"));
+				}
+			}
+		} else  {
+			// Parse "//.......:1521/INSTANCE" or ".......:1521/INSTANCE"
+			int semicolonPos = StringUtils.indexOf(url, ":");
+			if (url.charAt(semicolonPos + 1) == '/') {
+				// tcps://.......
+				semicolonPos = StringUtils.indexOf(StringUtils.substring(url, semicolonPos + 2), ":");
+			}
+			// find next slash
+			int slashPos = semicolonPos + StringUtils.indexOf(StringUtils.substring(url, semicolonPos), "/");
+			boolean hasInstanceName = false;
+			boolean hasParams = false;
+			int instanceNameSlashPos = -1;
+			int paramStartPos = -1;
+			for (int i = slashPos + 1; i < url.length(); i++) {
+				if (url.charAt(i) == '/') {
+					hasInstanceName = true;
+					instanceNameSlashPos = i;
+				}
+				if (url.charAt(i) == '?') {
+					hasParams = true;
+					paramStartPos = i;
+					break;
+				}
+			}
+			if (!hasInstanceName && !hasParams) {
+				for (String instanceName : instances) {
+					changedUrls.add(
+							JDBC_ORA_PREFIX +
+							url + "/" + instanceName);
+				}
+			} else {
+				if (hasInstanceName) {
+					final String original;
+					if (hasParams) {
+						original = StringUtils.substring(url, instanceNameSlashPos, paramStartPos);
+					} else {
+						original = StringUtils.substring(url, instanceNameSlashPos);
+					}
+					for (String instanceName : instances) {
+						changedUrls.add(
+								JDBC_ORA_PREFIX +
+								StringUtils.replace(
+										url, original, "/" + instanceName));
+					}
+				} else {
+					// Just params - need to add INSTANCE_NAME
+					final String original = StringUtils.substring(url, paramStartPos);
+					for (String instanceName : instances) {
+						changedUrls.add(
+								JDBC_ORA_PREFIX +
+								StringUtils.replace(url,
+										original,
+										"/" + instanceName + original));
+					}
+				}
+			}
+		}
+		return changedUrls;
+	}
+
+	public static List<String> getInstances(OracleConnection connection) throws SQLException {
+		try (PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.RAC_INSTANCES);
+				ResultSet rs = ps.executeQuery()) {
+			final List<String> instances = new ArrayList<>();
+			while (rs.next()) {
+				instances.add(rs.getString("INSTANCE_NAME"));
+			}
+			return instances;
+		} catch (SQLException sqle) {
+			throw sqle;
+		}
+	}
+
+
 
 	/**
 	 * Returns first available SCN from V$ARCHIVED_LOG
