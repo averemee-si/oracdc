@@ -123,7 +123,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcLogMinerMgmt metrics,
 			final int topicNameStyle,
-			final Map<String, String> props,
+			final OraCdcSourceConnectorConfig config,
 			final OraCdcLobTransformationsIntf transformLobs,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraConnectionObjects oraConnections) throws SQLException {
@@ -145,14 +145,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
 		this.topicNameStyle = topicNameStyle;
-		this.processLobs = Boolean.parseBoolean(props.get(ParamConstants.PROCESS_LOBS_PARAM));
+		this.processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
 		this.transformLobs = transformLobs;
-		this.pollInterval = Integer.parseInt(props.get(ParamConstants.POLL_INTERVAL_MS_PARAM));
-		this.useOracdcSchemas = Boolean.parseBoolean(props.get(ParamConstants.ORACDC_SCHEMAS_PARAM));
-		this.topicNameDelimiter = props.get(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
-		this.connectionRetryBackoff = Integer.parseInt(props.get(ParamConstants.CONNECTION_BACKOFF_PARAM));
-		this.fetchSize = Integer.parseInt(props.get(ParamConstants.FETCH_SIZE_PARAM));
-		this.traceSession = Boolean.parseBoolean(props.get(ParamConstants.TRACE_LOGMINER_PARAM));
+		this.pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
+		this.useOracdcSchemas = config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM);
+		this.topicNameDelimiter = config.getString(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
+		this.connectionRetryBackoff = config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM);
+		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
+		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
 		this.rdbmsInfo = rdbmsInfo;
 		this.oraConnections = oraConnections;
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
@@ -172,7 +172,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			connLogMiner = oraConnections.getLogMinerConnection(traceSession);
 			connDictionary = oraConnections.getConnection();
 
-			final String archivedLogCatalogImplClass = props.get(ParamConstants.ARCHIVED_LOG_CAT_PARAM);
+			final String archivedLogCatalogImplClass = config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM);
 			try {
 				final Class<?> classLogMiner = Class.forName(archivedLogCatalogImplClass);
 				final Constructor<?> constructor = classLogMiner.getConstructor(
@@ -184,7 +184,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						OraRdbmsInfo.class,
 						OraConnectionObjects.class);
 				logMiner = (OraLogMiner) constructor.newInstance(
-						connLogMiner, metrics, firstScn, props, runLatch, rdbmsInfo, oraConnections);
+						connLogMiner, metrics, firstScn, config, runLatch, rdbmsInfo, oraConnections);
 			} catch (ClassNotFoundException nfe) {
 				LOGGER.error("ClassNotFoundException while instantiating {}", archivedLogCatalogImplClass);
 				throw new ConnectException("ClassNotFoundException while instantiating " + archivedLogCatalogImplClass, nfe);

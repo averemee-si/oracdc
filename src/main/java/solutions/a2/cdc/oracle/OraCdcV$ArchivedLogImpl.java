@@ -20,7 +20,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 import org.slf4j.Logger;
@@ -64,7 +63,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
 			final OraCdcLogMinerMgmtIntf metrics, final long firstChange,
-			final Map<String, String> props,
+			final OraCdcSourceConnectorConfig config,
 			final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraConnectionObjects oraConnections) throws SQLException {
@@ -79,14 +78,14 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			callDbmsLogmnrAddLogFile = true;
 		}
 
-		if (props.containsKey(ParamConstants.REDO_FILES_SIZE_PARAM)) {
-			LOGGER.trace("Limit based of size in bytes of archived logs will be used");
+		if (config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM) > 0) {
 			useNumOfArchLogs = false;
-			this.sizeOfArchLogs = Long.parseLong(props.get(ParamConstants.REDO_FILES_SIZE_PARAM));
+			sizeOfArchLogs = config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM);
+			LOGGER.debug("The redo log read size limit will be set to '{}' bytes.", sizeOfArchLogs);
 		} else {
-			LOGGER.trace("Limit based of number of archived logs will be used");
 			useNumOfArchLogs = true;
-			this.numArchLogs = Integer.parseInt(props.get(ParamConstants.REDO_FILES_COUNT_PARAM));
+			numArchLogs = config.getInt(ParamConstants.REDO_FILES_COUNT_PARAM);
+			LOGGER.debug("The redo log read size limit will be set to '{}' files", numArchLogs);
 		}
 
 		this.firstChange = firstChange;

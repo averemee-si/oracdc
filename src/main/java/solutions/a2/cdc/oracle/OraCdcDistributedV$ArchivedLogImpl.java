@@ -28,7 +28,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -79,7 +78,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 	public OraCdcDistributedV$ArchivedLogImpl(
 			final Connection connLogMiner,
 			final OraCdcLogMinerMgmtIntf metrics, final long firstChange,
-			final Map<String, String> props,
+			final OraCdcSourceConnectorConfig config,
 			final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraConnectionObjects oraConnections) throws SQLException {
@@ -88,14 +87,14 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 
 		redoFiles = new LinkedBlockingQueue<>();
 
-		if (props.containsKey(ParamConstants.REDO_FILES_SIZE_PARAM)) {
-			LOGGER.trace("Limit based of size in bytes of archived logs will be used");
+		if (config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM) > 0) {
 			useNumOfArchLogs = false;
-			this.sizeOfArchLogs = Long.parseLong(props.get(ParamConstants.REDO_FILES_SIZE_PARAM));
+			sizeOfArchLogs = config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM);
+			LOGGER.debug("The redo log read size limit will be set to '{}' bytes.", sizeOfArchLogs);
 		} else {
-			LOGGER.trace("Limit based of number of archived logs will be used");
 			useNumOfArchLogs = true;
-			this.numArchLogs = Integer.parseInt(props.get(ParamConstants.REDO_FILES_COUNT_PARAM));
+			numArchLogs = config.getInt(ParamConstants.REDO_FILES_COUNT_PARAM);
+			LOGGER.debug("The redo log read size limit will be set to '{}' files", numArchLogs);
 		}
 
 		createStatements(connLogMiner);
@@ -122,7 +121,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 		psOpenMode.close();
 		psOpenMode = null;
 		RedoTransportThread rtt = new RedoTransportThread(
-				firstChange, props, runLatch, redoFiles, oraConnections, rdbmsInfo);
+				firstChange, config, runLatch, redoFiles, oraConnections, rdbmsInfo);
 		rtt.start();
 		// It's time to init JMS metrics...
 		metrics.start(firstChange);
@@ -276,7 +275,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 
 		RedoTransportThread(
 				final long firstChange,
-				final Map<String, String> props,
+				final OraCdcSourceConnectorConfig config,
 				final CountDownLatch runLatch,
 				final BlockingQueue<ArchivedRedoFile> redoFiles,
 				final OraConnectionObjects oraConnections,
@@ -300,13 +299,11 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			}
 			psGetArchivedLogs = connDictionary.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			final String targetHost = props.getOrDefault(
-					ParamConstants.DISTRIBUTED_TARGET_HOST, "");
-			if ("".equals(targetHost)) {
+			final String targetHost = config.getString(ParamConstants.DISTRIBUTED_TARGET_HOST);
+			if (StringUtils.isBlank(targetHost)) {
 				throw new SQLException("Parameter {} must be set", ParamConstants.DISTRIBUTED_TARGET_HOST);
 			}
-			final int targetPort = Integer.valueOf(
-					props.get(ParamConstants.DISTRIBUTED_TARGET_PORT));
+			final int targetPort = config.getInt(ParamConstants.DISTRIBUTED_TARGET_PORT);
 			metrics = new OraCdcRedoShipment(targetHost, targetPort);
 			targetServerAddress = new InetSocketAddress(targetHost, targetPort);
 		}

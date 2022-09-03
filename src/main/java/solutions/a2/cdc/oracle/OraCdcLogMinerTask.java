@@ -130,7 +130,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
-
 		try {
 			if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
 				oraConnections = OraConnectionObjects.get4OraWallet(
@@ -259,7 +258,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 
 			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
-			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, props.get("name"), this);
+			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
 
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName();
 			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, rdbmsInfo.getDbId());
@@ -276,7 +275,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 						Arrays.asList(props.get(ParamConstants.TABLE_INCLUDE_PARAM).split("\\s*,\\s*"));
 			}
 			final boolean tableListGenerationStatic;
-			if (ParamConstants.TABLE_LIST_STYLE_STATIC.equalsIgnoreCase(props.get(ParamConstants.TABLE_LIST_STYLE_PARAM))) {
+			if (StringUtils.equalsIgnoreCase(
+					ParamConstants.TABLE_LIST_STYLE_STATIC, config.getString(ParamConstants.TABLE_LIST_STYLE_PARAM))) {
 				// ParamConstants.TABLE_LIST_STYLE_STATIC
 				tableListGenerationStatic = true;
 			} else {
@@ -285,12 +285,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 
 			final Path queuesRoot = FileSystems.getDefault().getPath(
-					props.get(ParamConstants.TEMP_DIR_PARAM));
+					config.getString(ParamConstants.TEMP_DIR_PARAM));
 
 			if (useOracdcSchemas) {
 				// Use stored schema only in this mode
-				final String schemaFileName = props.get(ParamConstants.DICTIONARY_FILE_PARAM);
-				if (!StringUtils.isEmpty(schemaFileName)) {
+				final String schemaFileName = config.getString(ParamConstants.DICTIONARY_FILE_PARAM);
+				if (StringUtils.isNotBlank(schemaFileName)) {
 					try {
 						LOGGER.info("Loading stored schema definitions from file {}.", schemaFileName);
 						tablesInProcessing = FileUtils.readDictionaryFile(schemaFileName, schemaType, transformLobs, rdbmsInfo);
@@ -320,11 +320,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 			String firstRsId = null;
 			long firstSsn = -1;
 			final boolean startScnFromProps = props.containsKey(ParamConstants.LGMNR_START_SCN_PARAM) &&
-									Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM)) > 0;
+									config.getLong(ParamConstants.LGMNR_START_SCN_PARAM) > 0;
 			// Initial load
 			if (StringUtils.equalsIgnoreCase(
 					ParamConstants.INITIAL_LOAD_EXECUTE,
-					props.get(ParamConstants.INITIAL_LOAD_PARAM))) {
+					config.getString(ParamConstants.INITIAL_LOAD_PARAM))) {
 				execInitialLoad = true;
 				initialLoadStatus = ParamConstants.INITIAL_LOAD_EXECUTE;
 			}
@@ -332,7 +332,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 			if (legacyResiliencyModel) {
 				// Legacy code to restore state from state file
-				stateFileName = props.get(ParamConstants.PERSISTENT_STATE_FILE_PARAM);
+				stateFileName = config.getString(ParamConstants.PERSISTENT_STATE_FILE_PARAM);
 				final Path stateFilePath = Paths.get(stateFileName);
 				if (stateFilePath.toFile().exists()) {
 					// File with stored state exists
@@ -364,7 +364,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 					if (startScnFromProps) {
 						// a2.first.change set in parameters, ignore stored state, rename file
-						firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
+						firstScn = config.getLong(ParamConstants.LGMNR_START_SCN_PARAM);
 						if (firstScn < firstAvailableScn) {
 							LOGGER.warn(
 									"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
@@ -711,7 +711,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					committedTransactions,
 					metrics,
 					topicNameStyle,
-					props,
+					config,
 					transformLobs,
 					rdbmsInfo,
 					oraConnections);
@@ -723,7 +723,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				LOGGER.debug("Initial load table list SQL {}", initialLoadSql);
 				tablesQueue = new LinkedBlockingQueue<>();
 				buildInitialLoadTableList(initialLoadSql);
-				initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, props.get("name"));
+				initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, connectorName);
 				initialLoadWorker = new OraCdcInitialLoadThread(
 						WAIT_FOR_WORKER_MILLIS,
 						firstScn,
