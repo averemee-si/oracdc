@@ -170,7 +170,7 @@ public class DatabaseObjects implements ActionListener {
 						isCdb ? (short) conId : -1,
 						tableOwner, tableName, "ENABLED".equalsIgnoreCase(rs.getString("DEPENDENCIES")),
 						ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD, true,
-						processLobs, new OraCdcDefaultLobTransformationsImpl(), isCdb,
+						processLobs, new OraCdcDefaultLobTransformationsImpl(), isCdb, 0,
 						null, null, null,
 						ParamConstants.TOPIC_NAME_STYLE_INT_TABLE, ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,
 						rdbmsInfo, connection);

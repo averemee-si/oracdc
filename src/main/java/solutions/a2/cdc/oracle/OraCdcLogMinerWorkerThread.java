@@ -103,6 +103,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final int fetchSize;
 	private final boolean traceSession;
 	private final OraConnectionObjects oraConnections;
+	private final int topicPartition;
 
 	private boolean fetchRsLogMinerNext;
 	private boolean isRsLogMinerRowAvailable;
@@ -117,6 +118,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final Set<Long> tablesOutOfScope,
 			final int schemaType,
 			final String topic,
+			final int topicPartition,
 			final OraDumpDecoder odd,
 			final Path queuesRoot,
 			final Map<String, OraCdcTransaction> activeTransactions,
@@ -141,6 +143,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.odd = odd;
 		this.schemaType = schemaType;
 		this.topic = topic;
+		this.topicPartition = topicPartition;
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
@@ -480,7 +483,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												tableOwner, tableName,
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 												schemaType, useOracdcSchemas,
-												processLobs, transformLobs, isCdb,
+												processLobs, transformLobs, isCdb, topicPartition,
 												odd, partition, topic, topicNameStyle, topicNameDelimiter,
 												rdbmsInfo, connDictionary);
 											if (!legacyResiliencyModel) {

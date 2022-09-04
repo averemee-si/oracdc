@@ -81,6 +81,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private Map<String, Schema> lobColumnSchemas;
 	private boolean withLobs = false;
 	private int maxColumnId;
+	private int topicPartition;
 
 	/**
 	 * 
@@ -118,6 +119,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param processLobs
 	 * @param transformLobs
 	 * @param isCdb
+	 * @param topicPartition
 	 * @param odd
 	 * @param sourcePartition
 	 * @param topicParam
@@ -131,7 +133,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final String tableName, final boolean rowLevelScnDependency,
 			final int schemaType, final boolean useOracdcSchemas,
 			final boolean processLobs, final OraCdcLobTransformationsIntf transformLobs,
-			final boolean isCdb, final OraDumpDecoder odd,
+			final boolean isCdb, final int topicPartition, final OraDumpDecoder odd,
 			final Map<String, String> sourcePartition, final String topicParam,
 			final int topicNameStyle, final String topicNameDelimiter,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
@@ -141,6 +143,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.tableWithPk = true;
 		this.setRowLevelScn(rowLevelScnDependency);
 		this.rdbmsInfo = rdbmsInfo;
+		this.topicPartition = topicPartition;
 		try {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -686,6 +689,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						sourcePartition,
 						offset,
 						kafkaTopic,
+						topicPartition,
 						keySchema,
 						keyStruct,
 						null,
@@ -695,6 +699,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					sourcePartition,
 					offset,
 					kafkaTopic,
+					topicPartition,
 					keySchema,
 					keyStruct,
 					valueSchema,

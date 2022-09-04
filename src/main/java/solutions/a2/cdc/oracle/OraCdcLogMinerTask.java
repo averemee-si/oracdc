@@ -113,6 +113,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private String lastInProgressRsId = null;
 	private long lastInProgressSsn = 0;
 	private OraCdcSourceConnectorConfig config;
+	private int topicPartition;
 
 	@Override
 	public String version() {
@@ -222,6 +223,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 		}
 		try (Connection connDictionary = oraConnections.getConnection()) {
 			rdbmsInfo = new OraRdbmsInfo(connDictionary);
+			if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
+				topicPartition = rdbmsInfo.getRedoThread() - 1;
+			} else {
+				topicPartition = 0;
+			}
 
 			LOGGER.info("Connector {} connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.",
 					connectorName,
@@ -705,6 +711,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					tablesOutOfScope,
 					schemaType,
 					topic,
+					topicPartition,
 					odd,
 					queuesRoot,
 					activeTransactions,
@@ -1170,7 +1177,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							StringUtils.equalsIgnoreCase("ENABLED", rsCheckTable.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas,
 							processLobs, transformLobs,
-							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter,
+							isCdb, topicPartition, 
+							odd, partition, topic, topicNameStyle, topicNameDelimiter,
 							rdbmsInfo, connection);
 					oraTable.setVersion(version);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
@@ -1238,7 +1246,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 								StringUtils.equalsIgnoreCase("ENABLED", rsCheckTable.getString("DEPENDENCIES")),
 								schemaType, useOracdcSchemas,
 								processLobs, transformLobs,
-								isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter,
+								isCdb, topicPartition, 
+								odd, partition, topic, topicNameStyle, topicNameDelimiter,
 								rdbmsInfo, connection);
 						oraTable.setVersion(version);
 						tablesInProcessing.put(combinedDataObjectId, oraTable);
@@ -1278,7 +1287,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
 							schemaType, useOracdcSchemas,
 							processLobs, transformLobs,
-							isCdb, odd, partition, topic, topicNameStyle, topicNameDelimiter,
+							isCdb, topicPartition, 
+							odd, partition, topic, topicNameStyle, topicNameDelimiter,
 							rdbmsInfo, connection);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
