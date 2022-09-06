@@ -32,7 +32,7 @@ import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
  * Wrapper for LogMiner operations (V$ARCHIVED_LOG as source) implementation
  * 
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
 public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
@@ -84,7 +84,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			LOGGER.debug("The redo log read size limit will be set to '{}' bytes.", sizeOfArchLogs);
 		} else {
 			useNumOfArchLogs = true;
-			numArchLogs = config.getInt(ParamConstants.REDO_FILES_COUNT_PARAM);
+			numArchLogs = config.getShort(ParamConstants.REDO_FILES_COUNT_PARAM);
 			LOGGER.debug("The redo log read size limit will be set to '{}' files", numArchLogs);
 		}
 

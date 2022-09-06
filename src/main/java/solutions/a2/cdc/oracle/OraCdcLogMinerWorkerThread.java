@@ -50,7 +50,7 @@ import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraCdcLogMinerWorkerThread extends Thread {
@@ -182,7 +182,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						Connection.class,
 						OraCdcLogMinerMgmtIntf.class,
 						long.class,
-						Map.class,
+						OraCdcSourceConnectorConfig.class,
 						CountDownLatch.class,
 						OraRdbmsInfo.class,
 						OraConnectionObjects.class);
@@ -615,13 +615,17 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						lastGuaranteedRsId = lastRsId;
 						lastGuaranteedSsn = lastSsn;
 						if (fetchRsLogMinerNext) {
+							//TODO
+							//TODO Add try-catch block with exponential backoff here!!!
+							//TODO hit SQL errorCode = 17002, SQL state = '08006'
+							//TODO
 							isRsLogMinerRowAvailable = rsLogMiner.next();
 						}
 					}
 					logMiner.stop();
 					rsLogMiner.close();
 					rsLogMiner = null;
-					if (!legacyResiliencyModel && activeTransactions.isEmpty()) {
+					if (!legacyResiliencyModel && activeTransactions.isEmpty() && lastGuaranteedScn > 0) {
 						// Update restart point in time
 						task.putReadRestartScn(Triple.of(lastGuaranteedScn, lastGuaranteedRsId, lastGuaranteedSsn));
 					}

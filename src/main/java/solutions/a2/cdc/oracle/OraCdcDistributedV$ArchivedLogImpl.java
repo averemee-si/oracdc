@@ -50,7 +50,7 @@ import solutions.a2.cdc.oracle.utils.ExceptionUtils;
  * https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html
  * Figure 22-1 and it description https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/img_text/remote_config.html
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
 public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 
@@ -93,7 +93,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			LOGGER.debug("The redo log read size limit will be set to '{}' bytes.", sizeOfArchLogs);
 		} else {
 			useNumOfArchLogs = true;
-			numArchLogs = config.getInt(ParamConstants.REDO_FILES_COUNT_PARAM);
+			numArchLogs = config.getShort(ParamConstants.REDO_FILES_COUNT_PARAM);
 			LOGGER.debug("The redo log read size limit will be set to '{}' files", numArchLogs);
 		}
 

@@ -936,7 +936,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 										this.tableOwner + topicNameDelimiter + this.tableName;
 				}
 			}
-			if (!StringUtils.isEmpty(topicParam)) {
+			if (StringUtils.isNotBlank(topicParam)) {
 				this.kafkaTopic = topicParam + topicNameDelimiter + this.kafkaTopic;
 			}
 			if (!KafkaUtils.validTopicName(this.kafkaTopic)) {

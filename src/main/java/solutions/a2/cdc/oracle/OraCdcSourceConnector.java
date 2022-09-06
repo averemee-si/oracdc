@@ -257,12 +257,12 @@ public class OraCdcSourceConnector extends SourceConnector {
 					Integer.toString(schemaType));
 
 				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-					taskParam.put(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM,
-							config.getString(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM));
+					taskParam.put(ParamConstants.TOPIC_PREFIX_PARAM,
+							config.getString(ParamConstants.TOPIC_PREFIX_PARAM));
 				} else {
 					// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-					taskParam.put(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM,
-							config.getString(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM));
+					taskParam.put(ParamConstants.KAFKA_TOPIC_PARAM,
+							config.getString(ParamConstants.KAFKA_TOPIC_PARAM));
 				}
 
 				configs.add(taskParam);

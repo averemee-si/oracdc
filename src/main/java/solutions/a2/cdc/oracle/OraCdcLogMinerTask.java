@@ -64,7 +64,7 @@ import solutions.a2.cdc.oracle.utils.Version;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraCdcLogMinerTask extends SourceTask {
@@ -133,17 +133,32 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 		try {
 			if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
-				oraConnections = OraConnectionObjects.get4OraWallet(
-						connectorName,
-						config.getString(ParamConstants.CONNECTION_URL_PARAM), 
-						config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+				if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
+					oraConnections = OraConnectionObjects.get4OraWallet(
+							connectorName,
+							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
+							config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+				} else {
+					oraConnections = OraConnectionObjects.get4OraWallet(
+							connectorName,
+							config.getString(ParamConstants.CONNECTION_URL_PARAM), 
+							config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+				}
 			} else if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_USER_PARAM)) &&
 					StringUtils.isNotBlank(config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value())) {
-				oraConnections = OraConnectionObjects.get4UserPassword(
-						connectorName,
-						config.getString(ParamConstants.CONNECTION_URL_PARAM),
-						config.getString(ParamConstants.CONNECTION_USER_PARAM),
-						config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
+				if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
+					oraConnections = OraConnectionObjects.get4UserPassword(
+							connectorName,
+							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
+							config.getString(ParamConstants.CONNECTION_USER_PARAM),
+							config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());					
+				} else {
+					oraConnections = OraConnectionObjects.get4UserPassword(
+							connectorName,
+							config.getString(ParamConstants.CONNECTION_URL_PARAM),
+							config.getString(ParamConstants.CONNECTION_USER_PARAM),
+							config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
+				}
 			} else {
 				throw new SQLException("Wrong connection parameters!");
 			}
@@ -166,10 +181,10 @@ public class OraCdcLogMinerTask extends SourceTask {
 				config.getString(ParamConstants.SCHEMA_TYPE_PARAM),
 				ParamConstants.SCHEMA_TYPE_DEBEZIUM)) {
 			schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
-			topic = config.getString(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
+			topic = config.getString(ParamConstants.KAFKA_TOPIC_PARAM);
 		} else {
 			schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
-			topic = config.getString(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM);
+			topic = config.getString(ParamConstants.TOPIC_PREFIX_PARAM);
 			switch (config.getString(ParamConstants.TOPIC_NAME_STYLE_PARAM)) {
 			case ParamConstants.TOPIC_NAME_STYLE_TABLE:
 				topicNameStyle = ParamConstants.TOPIC_NAME_STYLE_INT_TABLE;
@@ -226,7 +241,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
 				topicPartition = rdbmsInfo.getRedoThread() - 1;
 			} else {
-				topicPartition = 0;
+				topicPartition = config.getShort(ParamConstants.TOPIC_PARTITION_PARAM);
 			}
 
 			LOGGER.info("Connector {} connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.",

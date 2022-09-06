@@ -11,6 +11,7 @@ This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database
 2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = READ ONLY**
 3. Physical Standby Database of Oracle **DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = MOUNTED**. In this mode, a physical standby database is used to retrieve data using LogMiner and connection to primary database is used to perform strictly limited number of queries to data dictionary (ALL|CDB_OBJECTS, ALL|CDB_TABLES, and ALL|CDB_TAB_COLUMNS). This option allows you to promote a physical standby database to source of replication, eliminates LogMiner overhead from primary database, and  decreases TCO of Oracle Database.
 4. Running in distributed configuration when the source database generates redo log files and also contains a dictionary and target database is a compatible mining database (see Figure 22-1 in [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html)). **N.B.** Currently only non-CDB distributed database configuration has been tested, tests for CDB distributed database configuration are in progress now.
+5. [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) Database. For a detailed description of how to configure **oracdc** to work with [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) please see [What about Oracle RAC?](https://github.com/averemee-si/oracdc/wiki/What-about-Oracle-RAC%3F).
 
 ### Monitoring
 _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
@@ -639,6 +640,8 @@ Package name change: eu.solutions.a2 -> solutions.a2
 ####1.1.0 (AUG-2022)
 Deprecation of parameters `a2.tns.admin`, `a2.tns.alias`, `a2.standby.tns.admin`, `a2.standby.tns.alias`, `a2.distributed.tns.admin`, and `a2.distributed.tns.alias`. Please use `a2.jdbc.url`, `a2.standby.jdbc.url`, and `a2.distributed.jdbc.url` respectively. Please see [KAFKA-CONNECT.md](https://github.com/averemee-si/oracdc/blob/master/doc/KAFKA-CONNECT.md) for parameter description and [Oracle® Database JDBC Java API Reference, Release 21c](https://docs.oracle.com/en/database/oracle/oracle-database/21/jajdb/) for more information about JDBC URL format.
 
+####1.2.0 (SEP-2022)
+Oracle RAC support, for more information please see [What about Oracle RAC?](https://github.com/averemee-si/oracdc/wiki/What-about-Oracle-RAC%3F)
 
 ## Authors
 

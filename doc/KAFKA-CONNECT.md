@@ -28,16 +28,18 @@ For more information and examples for JDBC URL format please see [Oracle® Datab
 
 `a2.jdbc.password` - JDBC connection password. Not required when using Oracle Wallet[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) i.e. when `a2.wallet.location` set to proper value
 
+
+### Optional parameters
+
 `a2.schema.type` - _Source Connector_ only: default _kafka_. This parameter tells **oracdc** which schema use, and which key & value converters use.
 When set to _kafka_ **oracdc**  produces Kafka Connect JDBC connector compatible messages [Confluent JDBC Sink Connector](https://docs.confluent.io/3.2.0/connect/connect-jdbc/docs/sink_connector.html).
 When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/documentation/reference/0.10/configuration/avro.html) like messages. Messages in this mode can be consumed with internal **oracdc** sink connector. 
 
 `a2.topic.prefix` - _Source Connector_ only: default _<EMPTYSTRING>_ prefix to prepend table names to generate name of Kafka topic. This parameter is used when **oracdc** configured with `a2.schema.type`=_kafka_ 
 
-`a2.kafka.topic` - _Source Connector_ only: default _oracdc-topic_ topic to send data. This parameter is used when **oracdc** configured with `a2.schema.type`=_debezium_ 
+`a2.kafka.topic` - _Source Connector_ only: topic to send data, default _oracdc-topic_ . This parameter is used when **oracdc** configured with `a2.schema.type`=_debezium_ 
 
-
-### Optional parameters
+`a2.topic.partition` - Kafka [topic partition](https://kafka.apache.org/documentation/#intro_concepts_and_terms) to write data. Default - 0.
 
 `a2.batch.size` - default _1000_, maximum number of rows to include in a single batch when polling for new data in _Source Connector_ or  consuming in _Sink Connector_
 

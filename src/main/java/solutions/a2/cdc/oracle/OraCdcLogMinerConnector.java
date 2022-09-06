@@ -16,6 +16,7 @@ package solutions.a2.cdc.oracle;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,11 +31,13 @@ import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import oracle.jdbc.OracleConnection;
+import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Version;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraCdcLogMinerConnector extends SourceConnector {
@@ -56,6 +59,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		"\\_/ \\_/_____|  \\___/|_|  \\__,_|\\___\\__,_|\\___|\n\n";
 
 	private Map<String, String> connectorProperties;
+	private OraCdcSourceConnectorConfig config;
 
 	@Override
 	public String version() {
@@ -67,7 +71,6 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		final String connectorName = props.get("name");
 		LOGGER.info(LOGO);
 		LOGGER.info("Starting oracdc '{}' logminer source connector", connectorName);
-		OraCdcSourceConnectorConfig config;
 		try {
 			config = new OraCdcSourceConnectorConfig(props);
 			connectorProperties = new HashMap<>();
@@ -77,7 +80,8 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				if (!connectorProperties.containsKey(k) && v != null) {
 					if (StringUtils.equals(k, ParamConstants.TABLE_EXCLUDE_PARAM) ||
 							StringUtils.equals(k, ParamConstants.TABLE_INCLUDE_PARAM) ||
-							StringUtils.equals(k, ParamConstants.CONNECTION_PASSWORD_PARAM)) {
+							StringUtils.equals(k, ParamConstants.CONNECTION_PASSWORD_PARAM) ||
+							StringUtils.equals(k, ParamConstants.INTERNAL_RAC_URLS_PARAM)) {
 						connectorProperties.put(k, "");
 					} else if (v instanceof Boolean) {
 						connectorProperties.put(k, ((Boolean) v).toString());
@@ -246,8 +250,48 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 
 	@Override
 	public List<Map<String, String>> taskConfigs(int maxTasks) {
-		final List<Map<String, String>> configs = new ArrayList<>(1);
-		configs.add(connectorProperties);
+		final List<Map<String, String>> configs = new ArrayList<>();
+		List<String> instances = null;
+		List<String> urls = null;
+		boolean isRac = false;
+		if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
+			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getConnection(config)) {
+				instances = OraRdbmsInfo.getInstances(connection);
+				if (instances.size() > 0) {
+					if (instances.size() > maxTasks) {
+						LOGGER.error("Number of Oracle RAC instances for connection '{}'\n\tis {}, but Kafka Connect 'tasks.max' parameter is set to {}!",
+								config.getString(ParamConstants.CONNECTION_URL_PARAM), instances.size(), maxTasks);
+						LOGGER.error("Please set value of 'tasks.max' parameter to {} and restart connector!",
+								instances.size());
+						throw new ConnectException("Please increase value of 'tasks.max' parameter!");
+					}
+					LOGGER.info("'{}' instances of Oracle RAC found.", instances.size());
+					isRac = true;
+					urls = OraRdbmsInfo.generateRacJdbcUrls(
+							(String )connection.getProperties().get(OracleConnection.CONNECTION_PROPERTY_DATABASE),
+							instances);
+				} else {
+					LOGGER.warn("Parameter '{}' is set to 'true', but no Oracle RAC is detected!",
+							ParamConstants.USE_RAC_PARAM);
+					LOGGER.warn("Connector continues operations with parameter '{}'='false'",
+							ParamConstants.USE_RAC_PARAM);
+					connectorProperties.put(ParamConstants.USE_RAC_PARAM, Boolean.FALSE.toString());
+				}
+			} catch (SQLException sqle) {
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				throw new ConnectException(sqle);
+			}
+		}
+		if (isRac) {
+			// We need to replace JDBC URL...
+			connectorProperties.put(ParamConstants.INTERNAL_RAC_URLS_PARAM, String.join(",", urls));
+			for (int i = 0; i < instances.size(); i++) {
+				configs.add(connectorProperties);
+				LOGGER.info("Done with configuration of task for Oracle RAC instance '{}'", instances.get(i));
+			}
+		} else {
+			configs.add(connectorProperties);
+		}
 		return configs;
 	}
 

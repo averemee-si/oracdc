@@ -62,11 +62,11 @@ public class OraCdcSourceTask extends SourceTask {
 		schemaType = Integer.parseInt(props.get(ParamConstants.SCHEMA_TYPE_PARAM));
 		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
 		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			topic = props.get(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM) + 
+			topic = props.get(ParamConstants.TOPIC_PREFIX_PARAM) + 
 					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
 		} else {
 			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-			topic = props.get(OraCdcSourceConnectorConfig.KAFKA_TOPIC_PARAM);
+			topic = props.get(ParamConstants.KAFKA_TOPIC_PARAM);
 		}
 		LOGGER.debug("topic set to {}.", topic);
 
