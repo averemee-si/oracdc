@@ -16,9 +16,13 @@ package solutions.a2.cdc.oracle;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +45,8 @@ public class OraConnectionObjects {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraConnectionObjects.class);
 	private static final int INITIAL_SIZE = 4;
+	private static final AtomicBoolean state = new AtomicBoolean(true);
+	private static final AtomicInteger taskId = new AtomicInteger(0);
 
 	private PoolDataSource pds;
 	private final String poolName;
@@ -69,10 +75,54 @@ public class OraConnectionObjects {
 	}
 
 	public static OraConnectionObjects get4OraWallet(final String poolName,
-			final String wallet, final String dbUrl)
+			final String dbUrl, final String wallet)
 					throws SQLException {
 		System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
 		OraConnectionObjects oco = new OraConnectionObjects(poolName, dbUrl);
+		return oco;
+	}
+
+	public static OraConnectionObjects get4UserPassword(final String poolName,
+			final List<String> dbUrls, final String dbUser, final String dbPassword)
+					throws SQLException {
+		return get4Rac(poolName, dbUrls, dbUser, dbPassword, null);
+	}
+
+	public static OraConnectionObjects get4OraWallet(final String poolName,
+			final List<String> dbUrls, final String wallet)
+					throws SQLException {
+		return get4Rac(poolName, dbUrls, null, null, wallet);
+	}
+
+	private static OraConnectionObjects get4Rac(final String poolName,
+			final List<String> dbUrls, final String dbUser, final String dbPassword,
+			final String wallet) throws SQLException {
+		while (!state.compareAndSet(true, false)) {
+			try {
+				Thread.sleep(1);
+			} catch (InterruptedException e) {
+			}
+		}
+		final int index = taskId.getAndAdd(1);
+		if (index > (dbUrls.size() - 1)) {
+			LOGGER.error("Errors while processing following array of Oracle RAC URLs:");
+			dbUrls.forEach(v -> LOGGER.error("\t{}", v));
+			LOGGER.error("Size equals {}, but current index equals {} !", dbUrls.size(), index);
+			throw new ConnectException("Unable to build connections to Oracle RAC!");
+		} else if (index == (dbUrls.size() - 1)) {
+			// Last element - reset back to 0
+			taskId.set(0);
+		}
+		LOGGER.debug("Processing URL array element {} with value {}.",
+				index, dbUrls.get(index));
+		if (wallet != null) {
+			System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
+		}
+		OraConnectionObjects oco = new OraConnectionObjects(poolName + "-" + index, dbUrls.get(index));
+		if (wallet == null) {
+			oco.setUserPassword(dbUser, dbPassword);
+		}
+		state.set(true);
 		return oco;
 	}
 
