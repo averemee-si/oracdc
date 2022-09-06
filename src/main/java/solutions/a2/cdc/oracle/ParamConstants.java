@@ -15,7 +15,7 @@ package solutions.a2.cdc.oracle;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class ParamConstants {
@@ -106,6 +106,16 @@ public class ParamConstants {
 	public static final String INITIAL_LOAD_EXECUTE = "EXECUTE";
 	public static final String INITIAL_LOAD_COMPLETED = "COMPLETED";
 
+	public static final String KAFKA_TOPIC_PARAM = "a2.kafka.topic";
+	public static final String KAFKA_TOPIC_PARAM_DOC = "Target topic to send data";
+	public static final String KAFKA_TOPIC_PARAM_DEFAULT = "oracdc-topic";
+
+	public static final String TOPIC_PREFIX_PARAM = "a2.topic.prefix";
+	public static final String TOPIC_PREFIX_DOC = "Prefix to prepend table names to generate name of Kafka topic.";
+
+	public static final String TOPIC_PARTITION_PARAM = "a2.topic.partition";
+	public static final String TOPIC_PARTITION_DOC = "Kafka topic partition to write data. Default - 0";
+
 	public static final String TOPIC_NAME_STYLE_PARAM = "a2.topic.name.style";
 	public static final String TOPIC_NAME_STYLE_DOC = "Kafka topic naming convention when a2.schema.type=kafka. Valid values - TABLE (default), SCHEMA_TABLE, PDB_SCHEMA_TABLE";
 	public static final String TOPIC_NAME_STYLE_TABLE = "TABLE";
@@ -188,4 +198,7 @@ public class ParamConstants {
 			"If oracdc is connected to Oracle RAC additional checks are performed and oracdc starts a separate task for each redo thread/RAC instance. " +
 			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
 	
+	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
+	public static final String INTERNAL_RAC_URLS_DOC = "Internal. Do not set!"; 
+
 }

@@ -22,17 +22,10 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraCdcSourceConnectorConfig extends AbstractConfig {
-
-	public static final String KAFKA_TOPIC_PARAM = "a2.kafka.topic";
-	private static final String KAFKA_TOPIC_PARAM_DOC = "Target topic to send data";
-	public static final String KAFKA_TOPIC_PARAM_DEFAULT = "oracdc-topic";
-
-	public static final String TOPIC_PREFIX_PARAM = "a2.topic.prefix";
-	private static final String TOPIC_PREFIX_DOC = "Prefix to prepend table names to generate name of Kafka topic.";
 
 	public static final String TASK_PARAM_MASTER = "master";
 	public static final String TASK_PARAM_MV_LOG = "mv.log";
@@ -52,8 +45,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.HIGH, ParamConstants.CONNECTION_PASSWORD_DOC)
 				.define(ParamConstants.CONNECTION_WALLET_PARAM, Type.STRING, "",
 						Importance.HIGH, ParamConstants.CONNECTION_WALLET_DOC)
-				.define(KAFKA_TOPIC_PARAM, Type.STRING, KAFKA_TOPIC_PARAM_DEFAULT,
-						Importance.HIGH, KAFKA_TOPIC_PARAM_DOC)
+				.define(ParamConstants.KAFKA_TOPIC_PARAM, Type.STRING, ParamConstants.KAFKA_TOPIC_PARAM_DEFAULT,
+						Importance.HIGH, ParamConstants.KAFKA_TOPIC_PARAM_DOC)
 				.define(ParamConstants.POLL_INTERVAL_MS_PARAM, Type.INT, ParamConstants.POLL_INTERVAL_MS_DEFAULT,
 						Importance.LOW, ParamConstants.POLL_INTERVAL_MS_DOC)
 				.define(ParamConstants.BATCH_SIZE_PARAM, Type.INT,
@@ -64,8 +57,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA,
 								ParamConstants.SCHEMA_TYPE_DEBEZIUM),
 						Importance.LOW, ParamConstants.SCHEMA_TYPE_DOC)
-				.define(TOPIC_PREFIX_PARAM, Type.STRING, "",
-						Importance.MEDIUM, TOPIC_PREFIX_DOC)
+				.define(ParamConstants.TOPIC_PREFIX_PARAM, Type.STRING, "",
+						Importance.MEDIUM, ParamConstants.TOPIC_PREFIX_DOC)
+				.define(ParamConstants.TOPIC_PARTITION_PARAM, Type.SHORT, (short) 0,
+						Importance.MEDIUM, ParamConstants.TOPIC_PARTITION_DOC)
 				.define(ParamConstants.TABLE_EXCLUDE_PARAM, Type.LIST, "",
 						Importance.MEDIUM, ParamConstants.TABLE_EXCLUDE_DOC)
 				.define(ParamConstants.TABLE_INCLUDE_PARAM, Type.LIST, "",
@@ -141,6 +136,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.RESILIENCY_TYPE_DOC)
 				.define(ParamConstants.USE_RAC_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.USE_RAC_DOC)
+				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
+						Importance.LOW, ParamConstants.INTERNAL_RAC_URLS_DOC)
 				;
 	}
 
