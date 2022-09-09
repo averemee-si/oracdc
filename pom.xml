@@ -16,7 +16,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>solutions.a2.oracle.oracdc</groupId>
 	<artifactId>oracdc-kafka</artifactId>
-	<version>1.2.0</version>
+	<version>1.2.1</version>
 	<packaging>jar</packaging>
 
 	<name>oracdc-kafka</name>
@@ -54,7 +54,7 @@
 		<ora.jdbc.version>21.6.0.0.1</ora.jdbc.version>
 		<HikariCP.version>4.0.3</HikariCP.version>
 		<jackson.version>2.13.3</jackson.version>
-		<slf4j.version>1.7.32</slf4j.version>
+		<slf4j.version>2.0.0</slf4j.version>
 		<lz4.version>1.6.0</lz4.version>
 		<kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
 		<surefire.plugin.version>2.22.2</surefire.plugin.version>
@@ -173,15 +173,15 @@
 			<version>${jackson.version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api/ -->
-		<dependency>
+ 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>slf4j-api</artifactId>
 			<version>${slf4j.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-log4j12/ -->
-		<dependency>
+		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-reload4j/ -->
+ 		<dependency>
 			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-log4j12</artifactId>
+			<artifactId>slf4j-reload4j</artifactId>
 			<version>${slf4j.version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.lz4/lz4-java/ -->

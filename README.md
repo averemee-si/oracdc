@@ -643,6 +643,9 @@ Deprecation of parameters `a2.tns.admin`, `a2.tns.alias`, `a2.standby.tns.admin`
 ####1.2.0 (SEP-2022)
 Oracle RAC support, for more information please see [What about Oracle RAC?](https://github.com/averemee-si/oracdc/wiki/What-about-Oracle-RAC%3F)
 
+#####1.2.1 (SEP-2022)
+replace log4j with reload4j (CVE-2022-23305, CVE-2019-17571, CVE-2022-23302, CVE-2022-23307, CVE-2020-9488)
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
