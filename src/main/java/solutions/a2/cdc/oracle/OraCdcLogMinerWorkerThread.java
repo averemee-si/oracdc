@@ -605,9 +605,12 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							break;
 						default:
 							// SELECT_LOB_LOCATOR must be processed in inner loop before!!!
-							LOGGER.error("Unknown operation {} at SCN {}, RS_ID '{}' for object ID {}",
-									operation, lastScn, rsLogMiner.getString("RS_ID"), rsLogMiner.getLong("DATA_OBJ#"));
-							LOGGER.error("Current query is:\n{}", mineDataSql);
+							LOGGER.error("Unknown operation {} at SCN {}, RS_ID '{}' for object ID '{}', transaction XID '{}'",
+									operation, lastScn,
+									rsLogMiner.getString("RS_ID"),
+									rsLogMiner.getLong("DATA_OBJ#"),
+									rsLogMiner.getString("XID"));
+							LOGGER.error("Current query is:\n{}\n", mineDataSql);
 							throw new SQLException("Unknown operation in OraCdcLogMinerWorkerThread.run()");
 						}
 						// Copy again, to protect from exception...
