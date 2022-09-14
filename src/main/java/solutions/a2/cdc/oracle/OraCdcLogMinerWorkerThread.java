@@ -328,6 +328,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			long lastGuaranteedScn = 0;
 			String lastGuaranteedRsId = null;
 			long lastGuaranteedSsn = 0;
+			String xid = null;
 			try {
 				if (logMinerReady) {
 					if (rsLogMiner == null) {
@@ -337,7 +338,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					while (isRsLogMinerRowAvailable && runLatch.getCount() > 0) {
 						fetchRsLogMinerNext = true;
 						final short operation = rsLogMiner.getShort("OPERATION_CODE");
-						final String xid = rsLogMiner.getString("XID");
+						xid = rsLogMiner.getString("XID");
 						lastScn = rsLogMiner.getLong("SCN");
 						lastRsId = rsLogMiner.getString("RS_ID");
 						lastSsn = rsLogMiner.getLong("SSN");
@@ -675,6 +676,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					SQLException sqle = (SQLException) e;
 					LOGGER.error("SQL errorCode = {}, SQL state = '{}'",
 							sqle.getErrorCode(), sqle.getSQLState());
+					if (isRsLogMinerRowAvailable) {
+						LOGGER.error("Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'",
+								lastScn, lastRsId, lastSsn, xid);
+					}
 				}
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 				lastScn = lastGuaranteedScn;
