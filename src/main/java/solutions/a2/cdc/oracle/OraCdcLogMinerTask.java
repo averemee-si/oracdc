@@ -598,13 +598,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 					 3 - UPDATE
 					 5 - DDL
 					 9 - SELECT_LOB_LOCATOR
-					11 - LOB_TRIM
-					29 - LOB_ERASE
 					68 - XML DOC BEGIN
 					70 - XML DOC WRITE
 					*/
 					if (processLobs) {
-						mineDataSql += "where ((OPERATION_CODE in (1,2,3,5,9,11,29,68,70) " +  objectList + ")";
+						mineDataSql += "where ((OPERATION_CODE in (1,2,3,5,9,68,70) " +  objectList + ")";
 					} else {
 						mineDataSql += "where ((OPERATION_CODE in (1,2,3,5) " +  objectList + ")";
 					}
@@ -623,20 +621,18 @@ public class OraCdcLogMinerTask extends SourceTask {
 					 3 - UPDATE
 					 5 - DDL
 					 9 - SELECT_LOB_LOCATOR
-					11 - LOB_TRIM
-					29 - LOB_ERASE
 					68 - XML DOC BEGIN
 					70 - XML DOC WRITE
 					*/
 					if (includeList != null) {
 						if (processLobs) {
-							mineDataSql += " and (OPERATION_CODE in (1,2,3,5,9,11,29,68,70) ";
+							mineDataSql += " and (OPERATION_CODE in (1,2,3,5,9,68,70) ";
 						} else {
 							mineDataSql += " and (OPERATION_CODE in (1,2,3,5) ";
 						}
 					} else {
 						if (processLobs) {
-							mineDataSql += " where ((OPERATION_CODE in (1,2,3,5,9,11,29,68,70) ";
+							mineDataSql += " where ((OPERATION_CODE in (1,2,3,5,9,68,70) ";
 						} else {
 							mineDataSql += " where ((OPERATION_CODE in (1,2,3,5) ";
 						}
@@ -666,13 +662,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 					 3 - UPDATE
 					 5 - DDL
 					 9 - SELECT_LOB_LOCATOR
-					11 - LOB_TRIM
-					29 - LOB_ERASE
 					68 - XML DOC BEGIN
 					70 - XML DOC WRITE
 					*/
 					if (processLobs) {
-						mineDataSql += "where (OPERATION_CODE in (1,2,3,5,9,11,29,68,70) ";
+						mineDataSql += "where (OPERATION_CODE in (1,2,3,5,9,68,70) ";
 					} else {
 						mineDataSql += "where (OPERATION_CODE in (1,2,3,5) ";
 					}
@@ -705,13 +699,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 				 7 - COMMIT
 				36 - ROLLBACK
 				 9 - SELECT_LOB_LOCATOR
-				11 - LOB_TRIM
-				29 - LOB_ERASE
 				68 - XML DOC BEGIN
 				70 - XML DOC WRITE
 				*/
 				if (processLobs) {
-					mineDataSql += "where OPERATION_CODE in (1,2,3,5,7,36,9,11,29,68,70) or (OPERATION_CODE=0 and DATA_OBJ#=DATA_OBJD# and DATA_OBJ#!=0)";
+					mineDataSql += "where OPERATION_CODE in (1,2,3,5,7,36,9,68,70) or (OPERATION_CODE=0 and DATA_OBJ#=DATA_OBJD# and DATA_OBJ#!=0)";
 				} else {
 					mineDataSql += "where OPERATION_CODE in (1,2,3,5,7,36) ";
 				}
