@@ -563,7 +563,7 @@ select decode(OBJECT_TYPE, 'LOB', 1, 0) IS_LOB
 from   DBA_OBJECTS
 where  OBJECT_ID = ?
 	 */
-	public static final String LOB_CHECK =
+	public static final String LOB_CHECK_NON_CDB =
 			"select decode(OBJECT_TYPE, 'LOB', 1, 0) IS_LOB\n" +
 			"from   DBA_OBJECTS\n" +
 			"where  OBJECT_ID = ?\n";
