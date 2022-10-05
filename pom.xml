@@ -51,7 +51,7 @@
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<commons.cli.version>1.4</commons.cli.version>
 		<chronicle.queue.version>5.21.99</chronicle.queue.version>
-		<ora.jdbc.version>21.6.0.0.1</ora.jdbc.version>
+		<ora.jdbc.version>21.7.0.0</ora.jdbc.version>
 		<HikariCP.version>4.0.3</HikariCP.version>
 		<jackson.version>2.13.3</jackson.version>
 		<slf4j.version>2.0.0</slf4j.version>
