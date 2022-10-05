@@ -558,4 +558,24 @@ where  A$.INST_NUMBER = I$.INSTANCE_NUMBER
 			"from   V$ACTIVE_INSTANCES A$, GV$INSTANCE I$\n" +
 			"where  A$.INST_NUMBER = I$.INSTANCE_NUMBER";
 
+	/*
+select decode(OBJECT_TYPE, 'LOB', 1, 0) IS_LOB
+from   DBA_OBJECTS
+where  OBJECT_ID = ?
+	 */
+	public static final String LOB_CHECK =
+			"select decode(OBJECT_TYPE, 'LOB', 1, 0) IS_LOB\n" +
+			"from   DBA_OBJECTS\n" +
+			"where  OBJECT_ID = ?\n";
+
+	/*
+select decode(OBJECT_TYPE, 'LOB', 1, 0) IS_LOB
+from   CDB_OBJECTS
+where  OBJECT_ID = ? and CON_ID = ?
+	 */
+	public static final String LOB_CHECK_CDB =
+			"select decode(OBJECT_TYPE, 'LOB', 1, 0) IS_LOB\n" +
+			"from   CDB_OBJECTS\n" +
+			"where  OBJECT_ID = ? and CON_ID = ?\n";
+
 	}
