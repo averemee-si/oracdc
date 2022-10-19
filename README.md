@@ -24,6 +24,9 @@ For processing LOB's and SYS.XMLTYPE please do not forget to set Apache Kafka pa
 2. For broker: _replica.fetch.max.bytes_ and _message.max.bytes_
 By default CLOB, NCLOB, and SYS.XMLTYPE data are compressed using [LZ4](https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)) compression algorithm.
 
+#### Large objects (BLOB/CLOB/NCLOB/XMLTYPE) operations LOB_TRIM and LOB_ERASE
+[Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html) generate unparseable (at moment) output when operates without connection to dictionary. Currently **oracdc** ignores these operations. Starting from **oracdc** v1.2.2 additional debug information about these operations is printed to log. If you need support for these operations please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu)
+
 #### Large objects (BLOB/CLOB/NCLOB/XMLTYPE) transformation feature (oracdc 0.9.8.3+)
 Apache Kafka is not meant to handle large messages with size over 1MB. But Oracle RDBMS often is used as storage for unstructured information too. For breaking this barrier we designed LOB transformation features.
 Imagine that you have a table with following structure
@@ -645,6 +648,9 @@ Oracle RAC support, for more information please see [What about Oracle RAC?](htt
 
 #####1.2.1 (SEP-2022)
 replace log4j with reload4j (CVE-2022-23305, CVE-2019-17571, CVE-2022-23302, CVE-2022-23307, CVE-2020-9488)
+
+#####1.2.2 (OCT-2022)
+LOB_TRIM/LOB_ERASE output to log & Jackson Databind version change (fix for [CVE-2022-42004](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-42004))
 
 ## Authors
 
