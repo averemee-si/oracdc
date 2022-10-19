@@ -25,6 +25,7 @@ import java.sql.SQLRecoverableException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -77,6 +78,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private OraclePreparedStatement psLogMiner;
 	private PreparedStatement psCheckTable;
 	private PreparedStatement psCheckLob;
+	private PreparedStatement psIsDataObjLob;
 	private OraclePreparedStatement psReadLob;
 	private OracleResultSet rsLogMiner;
 	private final String mineDataSql;
@@ -107,6 +109,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private boolean fetchRsLogMinerNext;
 	private boolean isRsLogMinerRowAvailable;
+
+	private final Set<Long> lobObjects;
+	private final Set<Long> nonLobObjects;
+	private String lastRealRowId;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -170,6 +176,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
+
+		if (processLobs) {
+			lobObjects = new HashSet<>();
+			nonLobObjects = new HashSet<>();
+		} else {
+			lobObjects = null;
+			nonLobObjects = null;
+		}
 
 		try {
 			connLogMiner = oraConnections.getLogMinerConnection(traceSession);
@@ -599,13 +613,81 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							}
 							break;
 						case OraCdcV$LogmnrContents.INTERNAL:
-							if (LOGGER.isDebugEnabled()) {
-								LOGGER.debug("Skipping internal operation at SCN {} for object ID {}",
-										lastScn, rsLogMiner.getLong("DATA_OBJ#"));
+							if (processLobs) {
+								// Only in this case...
+								if (LOGGER.isDebugEnabled()) {
+									LOGGER.debug("Skipping internal operation at SCN '{}', RS_ID '{}' for object ID '{}'",
+											lastScn, rsLogMiner.getString("RS_ID"), rsLogMiner.getLong("DATA_OBJ#"));
+								}
+								final long internalOpObjectId = rsLogMiner.getLong("DATA_OBJ#");
+								final int containerInternalOpObjectId;
+								final long combinedInternalOpObjectId;
+								if (isCdb) {
+									containerInternalOpObjectId = rsLogMiner.getInt("CON_ID");
+									combinedInternalOpObjectId = (containerInternalOpObjectId << 32) | (internalOpObjectId & 0xFFFFFFFFL); 
+								} else {
+									containerInternalOpObjectId = 0;
+									combinedInternalOpObjectId = internalOpObjectId;
+								}
+								boolean readRowId = false;
+								if (!lobObjects.contains(combinedInternalOpObjectId)) {
+									if (nonLobObjects.contains(combinedInternalOpObjectId)) {
+										readRowId = true;
+									} else {
+										if (isCdb) {
+											psIsDataObjLob.setLong(1, internalOpObjectId);
+											psIsDataObjLob.setInt(2, containerInternalOpObjectId);
+										} else {
+											psIsDataObjLob.setLong(1, internalOpObjectId);
+										}
+										ResultSet rsIsDataObjLob = psIsDataObjLob.executeQuery();
+										if (rsIsDataObjLob.next()) {
+											if (rsIsDataObjLob.getBoolean("IS_LOB")) {
+												lobObjects.add(combinedInternalOpObjectId);
+											} else {
+												nonLobObjects.add(combinedInternalOpObjectId);
+												readRowId = true;
+											}
+										} else {
+											if (isCdb) {
+												LOGGER.error("Data dictionary corruption for OBJECT_ID '{}', CON_ID = '{}'",
+														internalOpObjectId, containerInternalOpObjectId);
+											} else {
+												LOGGER.error("Data dictionary corruption for OBJECT_ID '{}'",
+														internalOpObjectId);
+											}
+											throw new SQLException("Data dictionary corruption!");
+										}
+										rsIsDataObjLob.close();
+										rsIsDataObjLob = null;
+									}
+								}
+								if (readRowId) {
+									lastRealRowId = rsLogMiner.getString("ROW_ID");
+									if (LOGGER.isDebugEnabled()) {
+										LOGGER.debug("ROWID for skipped operaion - '{}'", lastRealRowId);
+									}
+								}
 							}
 							break;
+						case OraCdcV$LogmnrContents.SELECT_LOB_LOCATOR:
+							// SELECT_LOB_LOCATOR is processed in inner loop before,
+							// except for LOB_TRIM and LOB_ERASE
+							LOGGER.warn("Unexpected SELECT_LOB_LOCATOR operation at SCN {}, RS_ID '{}' for object ID '{}', ROWID '{}', transaction XID '{}'",
+									lastScn,
+									rsLogMiner.getString("RS_ID"),
+									rsLogMiner.getLong("DATA_OBJ#"),
+									lastRealRowId == null ? rsLogMiner.getString("ROW_ID") : lastRealRowId,
+									rsLogMiner.getString("XID"));
+							LOGGER.warn("Possibly ignored LOB_ERASE or LOB_TRIM operation.");
+							final String checkSql =
+									"\tselect SCN, RS_ID,OPERATION_CODE, DATA_OBJ#, DATA_OBJD#\n" +
+									"\tfrom   V$LOGMNR_CONTENTS\n" +
+									"\twhere  XID = '" + rsLogMiner.getString("XID") + "' and SCN >= " + lastScn;
+							LOGGER.warn("Please check using following SQL:\n{}", checkSql);
+							break;
 						default:
-							// SELECT_LOB_LOCATOR must be processed in inner loop before!!!
+							// Just for diag purpose...
 							LOGGER.error("Unknown operation {} at SCN {}, RS_ID '{}' for object ID '{}', transaction XID '{}'",
 									operation, lastScn,
 									rsLogMiner.getString("RS_ID"),
@@ -680,6 +762,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						LOGGER.error("Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'",
 								lastScn, lastRsId, lastSsn, xid);
 					}
+					LOGGER.error("Current query is:\n{}\n", mineDataSql);
 				}
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 				lastScn = lastGuaranteedScn;
@@ -1042,7 +1125,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			psCheckLob = connDictionary.prepareStatement(
 					isCdb ? OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_CDB :
 						OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_NON_CDB,
-				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);						
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			psIsDataObjLob = connDictionary.prepareStatement(
+					isCdb ? OraDictSqlTexts.LOB_CHECK_CDB :
+						OraDictSqlTexts.LOB_CHECK_NON_CDB,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		}
 	}
 
