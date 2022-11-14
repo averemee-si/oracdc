@@ -1147,11 +1147,15 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				// A transaction ID is unique to a transaction and represents the undo segment number, slot, and sequence number.
 				// https://docs.oracle.com/en/database/oracle/oracle-database/21/cncpt/transactions.html#GUID-E3FB3DC3-3317-4589-BADD-D89A3547F87D
 				return 0;
-			} else if (activeTransactions.get(first).getFirstChange() >= activeTransactions.get(second).getFirstChange()) {
-				return 1;
-			} else {
-				return -1;
 			}
+
+			OraCdcTransaction firstOraTran = activeTransactions.get(first);
+			OraCdcTransaction secondOraTran = activeTransactions.get(second);
+			if (firstOraTran != null && secondOraTran != null && firstOraTran.getFirstChange() >= secondOraTran.getFirstChange()) {
+				return 1;
+			}
+
+			return -1;
 		}
 
 	}
