@@ -47,17 +47,17 @@ public class OraRdbmsInfo {
 	private final String instanceName;
 	private final String hostName;
 	private final int cpuCoreCount;
-	private final long dbId;
-	private final String databaseName;
-	private final String platformName;
-	private final boolean cdb;
-	private final boolean cdbRoot;
-	private final boolean pdbConnectionAllowed;
-	private final String pdbName;
+	private long dbId;
+	private String databaseName;
+	private String platformName;
+	private boolean cdb;
+	private boolean cdbRoot;
+	private boolean pdbConnectionAllowed;
+	private String pdbName;
 	private final Schema schema;
-	private final String dbCharset;
-	private final String dbNCharCharset;
-	private final String dbUniqueName;
+	private String dbCharset;
+	private String dbNCharCharset;
+	private String dbUniqueName;
 	private final int redoThread;
 
 	private final static int CDB_INTRODUCED = 12;
@@ -72,24 +72,32 @@ public class OraRdbmsInfo {
 	}
 
 	public OraRdbmsInfo(final Connection connection, final boolean includeSchema) throws SQLException {
-		PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.RDBMS_VERSION_AND_MORE,
+		try (final PreparedStatement psInstance = connection.prepareStatement(OraDictSqlTexts.RDBMS_VERSION_AND_MORE,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		ResultSet rs = ps.executeQuery();
-		if (rs.next()) {
-			versionString = rs.getString("VERSION");
-			instanceNumber = rs.getShort("INSTANCE_NUMBER");
-			instanceName = rs.getString("INSTANCE_NAME");
-			hostName = rs.getString("HOST_NAME");
-			cpuCoreCount = rs.getInt("CPU_CORE_COUNT_CURRENT");
-			redoThread = rs.getInt("THREAD#");
-		} else {
-			throw new SQLException("Unable to read data from V$INSTANCE!");
+				final ResultSet rsInstance = psInstance.executeQuery()) {			
+			if (rsInstance.next()) {
+				versionString = rsInstance.getString("VERSION");
+				instanceNumber = rsInstance.getShort("INSTANCE_NUMBER");
+				instanceName = rsInstance.getString("INSTANCE_NAME");
+				hostName = rsInstance.getString("HOST_NAME");
+				cpuCoreCount = rsInstance.getInt("CPU_CORE_COUNT_CURRENT");
+				redoThread = rsInstance.getInt("THREAD#");
+			} else {
+				throw new SQLException("Unable to read data from V$INSTANCE!");
+			}
+		} catch (SQLException sqle) {
+			if (sqle.getErrorCode() == 942) {
+				// ORA-00942: table or view does not exist
+				LOGGER.error("Please run as SYSDBA:");
+				LOGGER.error("\tgrant select on V_$INSTANCE to {};", connection.getSchema());
+				LOGGER.error("\tgrant select on V_$LICENSE to {};", connection.getSchema());
+				LOGGER.error("And restart connector!");
+			}
+			throw sqle;
 		}
-		rs.close();
-		rs = null;
-		ps.close();
-		ps = null;
 
+		PreparedStatement ps = null;
+		ResultSet rs = null;
 		boolean versionFullPresent = true;
 		try {
 			ps = connection.prepareStatement(OraDictSqlTexts.RDBMS_PRODUCT_VERSION,
@@ -122,57 +130,70 @@ public class OraRdbmsInfo {
 		versionMajor = Integer.parseInt(StringUtils.substringBefore(versionString, "."));
 		versionMinor = Integer.parseInt(StringUtils.substringBetween(versionString, ".", "."));
 
-		if (versionMajor < CDB_INTRODUCED) {
-			cdb = false;
-			cdbRoot = false;
-			pdbConnectionAllowed = false;
-			pdbName = null;
-			ps = connection.prepareStatement(OraDictSqlTexts.DB_INFO_PRE12C,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			rs = ps.executeQuery();
-			if (!rs.next()) {
-				throw new SQLException("Unable to read data from V$DATABASE!");
-			}
-		} else {
-			ps = connection.prepareStatement(OraDictSqlTexts.DB_CDB_PDB_INFO,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			rs = ps.executeQuery();
-			if (rs.next()) {
-				pdbName = rs.getString("CON_NAME");
-				if ("YES".equalsIgnoreCase(rs.getString("CDB"))) {
-					cdb = true;
-					if ("CDB$ROOT".equalsIgnoreCase(pdbName)) {
-						cdbRoot = true;
-						pdbConnectionAllowed = false;
-					} else {
-						cdbRoot = false;
-						// LogMiner works with PDB only from 19.10+ 
-						if (versionMajor >= PDB_MINING_INTRODUCED ||
-								(versionMajor == PDB_MINING_BACKPORT_MAJOR && versionMinor >= PDB_MINING_BACKPORT_MINOR)) {
-							pdbConnectionAllowed = true;
-						} else {
+		try {
+			if (versionMajor < CDB_INTRODUCED) {
+				cdb = false;
+				cdbRoot = false;
+				pdbConnectionAllowed = false;
+				pdbName = null;
+				ps = connection.prepareStatement(OraDictSqlTexts.DB_INFO_PRE12C,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				rs = ps.executeQuery();
+				if (!rs.next()) {
+					throw new SQLException("Unable to read data from V$DATABASE!");
+				}
+			} else {
+				ps = connection.prepareStatement(OraDictSqlTexts.DB_CDB_PDB_INFO,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				rs = ps.executeQuery();
+				if (rs.next()) {
+					pdbName = rs.getString("CON_NAME");
+					if ("YES".equalsIgnoreCase(rs.getString("CDB"))) {
+						cdb = true;
+						if ("CDB$ROOT".equalsIgnoreCase(pdbName)) {
+							cdbRoot = true;
 							pdbConnectionAllowed = false;
+						} else {
+							cdbRoot = false;
+							// LogMiner works with PDB only from 19.10+ 
+							if (versionMajor >= PDB_MINING_INTRODUCED ||
+									(versionMajor == PDB_MINING_BACKPORT_MAJOR && versionMinor >= PDB_MINING_BACKPORT_MINOR)) {
+								pdbConnectionAllowed = true;
+							} else {
+								pdbConnectionAllowed = false;
+							}
 						}
+					} else {
+						cdb = false;
+						cdbRoot = false;
+						pdbConnectionAllowed = false;
 					}
 				} else {
-					cdb = false;
-					cdbRoot = false;
-					pdbConnectionAllowed = false;
+					throw new SQLException("Unable to read data from V$DATABASE!");
 				}
-			} else
-				throw new SQLException("Unable to read data from V$DATABASE!");
+			}
+
+			dbId = rs.getLong("DBID");
+			databaseName = rs.getString("NAME");
+			dbUniqueName = rs.getString("DB_UNIQUE_NAME");
+			platformName = rs.getString("PLATFORM_NAME");
+			dbCharset = rs.getString("NLS_CHARACTERSET");
+			dbNCharCharset = rs.getString("NLS_NCHAR_CHARACTERSET");
+			rs.close();
+			rs = null;
+			ps.close();
+			ps = null;
+
+		} catch (SQLException sqle) {
+			if (sqle.getErrorCode() == 942) {
+				// ORA-00942: table or view does not exist
+				LOGGER.error("Please run as SYSDBA:");
+				LOGGER.error("\tgrant select on V_$DATABASE to {};", connection.getSchema());
+				LOGGER.error("And restart connector!");
+			}
+			throw sqle;
 		}
 
-		dbId = rs.getLong("DBID");
-		databaseName = rs.getString("NAME");
-		dbUniqueName = rs.getString("DB_UNIQUE_NAME");
-		platformName = rs.getString("PLATFORM_NAME");
-		dbCharset = rs.getString("NLS_CHARACTERSET");
-		dbNCharCharset = rs.getString("NLS_NCHAR_CHARACTERSET");
-		rs.close();
-		rs = null;
-		ps.close();
-		ps = null;
 
 		if (includeSchema) {
 			SchemaBuilder schemaBuilder = SchemaBuilder
