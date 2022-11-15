@@ -651,13 +651,17 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											}
 										} else {
 											if (isCdb) {
-												LOGGER.error("Data dictionary corruption for OBJECT_ID '{}', CON_ID = '{}'",
+												LOGGER.error("Data dictionary corruption for LOB with OBJECT_ID '{}', CON_ID = '{}'",
 														internalOpObjectId, containerInternalOpObjectId);
 											} else {
-												LOGGER.error("Data dictionary corruption for OBJECT_ID '{}'",
+												LOGGER.error("Data dictionary corruption for LOB with OBJECT_ID '{}'",
 														internalOpObjectId);
 											}
-											throw new SQLException("Data dictionary corruption!");
+											if (isRsLogMinerRowAvailable) {
+												LOGGER.error("Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'",
+														lastScn, lastRsId, lastSsn, xid);
+											}
+											LOGGER.error("Current query is:\n{}\n", mineDataSql);
 										}
 										rsIsDataObjLob.close();
 										rsIsDataObjLob = null;
