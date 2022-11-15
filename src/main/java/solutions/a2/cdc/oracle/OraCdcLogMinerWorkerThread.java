@@ -59,6 +59,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
 	private static final int ORA_17410 = 17410;
 	private static final int ORA_2396 = 2396;
+	private static final int ORA_17008 = 17008;
 
 	private final OraCdcLogMinerTask task;
 	private final int pollInterval;
@@ -444,15 +445,15 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											wait4CheckTableCursor = false;
 											break;
 										} catch (SQLException sqle) {
-											if (sqle.getErrorCode() == ORA_2396) {
-												LOGGER.warn("Encontered an 'ORA-02396: exceeded maximum idle time, please connect again'");
+											if (sqle.getErrorCode() == ORA_2396 || sqle.getErrorCode() == ORA_17008) {
+												LOGGER.warn("Encontered an 'ORA-{}: exceeded maximum idle time, please connect again'", sqle.getErrorCode());
 												LOGGER.warn("Attempting to reconnect...");
 												try {
 													try {
 														connDictionary.close();
 														connDictionary = null;
 													} catch(SQLException unimportant) {
-														LOGGER.warn("Unable to close inactive connection after 'ORA-02396'");
+														LOGGER.warn("Unable to close inactive connection after 'ORA-{}'", sqle.getErrorCode());
 													}
 													connDictionary = oraConnections.getConnection();
 													initDictionaryStatements();
