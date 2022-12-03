@@ -198,7 +198,8 @@ public class ParamConstants {
 			"If oracdc is connected to Oracle RAC additional checks are performed and oracdc starts a separate task for each redo thread/RAC instance. " +
 			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
 	
+	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
-	public static final String INTERNAL_RAC_URLS_DOC = "Internal. Do not set!"; 
+	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.dg4rac.single.instance.thread";
 
 }
