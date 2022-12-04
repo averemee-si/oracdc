@@ -200,6 +200,6 @@ public class ParamConstants {
 	
 	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
-	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.dg4rac.single.instance.thread";
+	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
 
 }
