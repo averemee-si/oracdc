@@ -58,7 +58,7 @@ public class OraRdbmsInfo {
 	private String dbCharset;
 	private String dbNCharCharset;
 	private String dbUniqueName;
-	private final int redoThread;
+	private int redoThread;
 
 	private final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -656,6 +656,10 @@ public class OraRdbmsInfo {
 
 	public int getRedoThread() {
 		return redoThread;
+	}
+
+	public void setRedoThread(int redoThread) {
+		this.redoThread = redoThread;
 	}
 
 	@Override
