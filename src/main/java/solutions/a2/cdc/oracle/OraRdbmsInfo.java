@@ -440,18 +440,37 @@ public class OraRdbmsInfo {
 	}
 
 	public static List<String> getInstances(OracleConnection connection) throws SQLException {
+		final List<String> instances = new ArrayList<>();
 		try (PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.RAC_INSTANCES);
 				ResultSet rs = ps.executeQuery()) {
-			final List<String> instances = new ArrayList<>();
 			while (rs.next()) {
 				instances.add(rs.getString("INSTANCE_NAME"));
 			}
-			return instances;
 		} catch (SQLException sqle) {
 			throw sqle;
 		}
+		return instances;
 	}
 
+	/**
+	 * 
+	 * Returns list of threads in physical standby
+	 * 
+	 * @param url        initial connection URL
+	 * @return           list of threads
+	 */
+	public static List<String> getStandbyThreads(OracleConnection connection) throws SQLException {
+		final List<String> threads = new ArrayList<>();
+		try (PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.DG4RAC_THREADS);
+				ResultSet rs = ps.executeQuery()) {
+			while (rs.next()) {
+				threads.add(Integer.toString(rs.getInt("THREAD#")));
+			}
+		} catch (SQLException sqle) {
+			throw sqle;
+		}
+		return threads;
+	}
 
 
 	/**
