@@ -44,6 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
@@ -71,6 +72,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerTask.class);
 	private static final int WAIT_FOR_WORKER_MILLIS = 50;
+
+	private static final AtomicBoolean state = new AtomicBoolean(true);
+	private static final AtomicInteger taskId = new AtomicInteger(0);
 
 	private int batchSize;
 	private int pollInterval;
@@ -131,9 +135,39 @@ public class OraCdcLogMinerTask extends SourceTask {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
+		final boolean useRac = config.getBoolean(ParamConstants.USE_RAC_PARAM);
+		final boolean useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
+		final boolean dg4RacSingleInst = useStandby &&
+				config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM) != null &&
+						config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM).size() > 1;
+		int threadNo = 1;
+		if (dg4RacSingleInst) {
+			// Single instance DataGuard for RAC
+			final List<String> standbyThreads = config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM);
+			while (!state.compareAndSet(true, false)) {
+				try {
+					Thread.sleep(1);
+				} catch (InterruptedException e) {
+				}
+			}
+			final int index = taskId.getAndAdd(1);
+			if (index > (standbyThreads.size() - 1)) {
+				LOGGER.error("Errors while processing following array of Oracle Signgle Instance DataGuard for RAC threads:");
+				standbyThreads.forEach(v -> LOGGER.error("\t{}", v));
+				LOGGER.error("Size equals {}, but current index equals {} !", standbyThreads.size(), index);
+				throw new ConnectException("Unable to properly assign Kafka tasks to Oracle Single Instance DataGuard for RAC!");
+			} else if (index == (standbyThreads.size() - 1)) {
+				// Last element - reset back to 0
+				taskId.set(0);
+			}
+			LOGGER.debug("Processing redo thread array element {} with value {}.",
+					index, standbyThreads.get(index));
+			threadNo = Integer.parseInt(standbyThreads.get(index));
+			state.set(true);
+		}
 		try {
 			if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
-				if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
+				if (useRac) {
 					oraConnections = OraConnectionObjects.get4OraWallet(
 							connectorName,
 							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
@@ -146,7 +180,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				}
 			} else if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_USER_PARAM)) &&
 					StringUtils.isNotBlank(config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value())) {
-				if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
+				if (useRac) {
 					oraConnections = OraConnectionObjects.get4UserPassword(
 							connectorName,
 							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
@@ -238,7 +272,10 @@ public class OraCdcLogMinerTask extends SourceTask {
 		}
 		try (Connection connDictionary = oraConnections.getConnection()) {
 			rdbmsInfo = new OraRdbmsInfo(connDictionary);
-			if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
+			if (dg4RacSingleInst) {
+				rdbmsInfo.setRedoThread(threadNo);
+			}
+			if (useRac || dg4RacSingleInst) {
 				topicPartition = rdbmsInfo.getRedoThread() - 1;
 			} else {
 				topicPartition = config.getShort(ParamConstants.TOPIC_PARTITION_PARAM);
@@ -261,7 +298,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				LOGGER.info("Connected to PDB {} (RDBMS 19.10+ Feature)", rdbmsInfo.getPdbName());
 			}
 
-			if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
+			if (useStandby) {
 				oraConnections.addStandbyConnection(
 						config.getString(ParamConstants.STANDBY_URL_PARAM),
 						config.getString(ParamConstants.STANDBY_WALLET_PARAM));
