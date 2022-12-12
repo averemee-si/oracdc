@@ -581,4 +581,14 @@ where  OBJECT_ID = ? and CON_ID = ?
 			"from   CDB_OBJECTS\n" +
 			"where  OBJECT_ID = ? and CON_ID = ?\n";
 
+	/*
+select THREAD#
+from   V$THREAD
+where  STATUS = 'OPEN' and ENABLED = 'PUBLIC'
+	 */
+	public static final String DG4RAC_THREADS =
+			"select THREAD#\n" +
+			"from   V$THREAD\n" +
+			"where  STATUS = 'OPEN' and ENABLED = 'PUBLIC'\n";
+
 	}

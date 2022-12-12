@@ -136,6 +136,18 @@ public class OraConnectionObjects {
 		initConnection4LogMiner(true, dbUrl, wallet);
 	}
 
+	public static Connection getStandbyConnection(final String dbUrl, final String wallet)
+			throws SQLException {
+		final Properties props = new Properties();
+		props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysdba");
+		props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
+		System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
+		final OracleDataSource ods = new OracleDataSource();
+		ods.setConnectionProperties(props);
+		ods.setURL(dbUrl);
+		return ods.getConnection();
+	}
+
 	public void addDistributedConnection(final String dbUrl, final String wallet)
 					throws SQLException {
 		initConnection4LogMiner(false, dbUrl, wallet);

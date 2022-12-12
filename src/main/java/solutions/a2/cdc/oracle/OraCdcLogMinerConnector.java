@@ -141,10 +141,13 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
 		}
 
-
-
-
 		if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
+			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_URL_PARAM))) {
+				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
+						ParamConstants.STANDBY_URL_PARAM,
+						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
+				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
+			}
 			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.STANDBY_WALLET_PARAM,
@@ -253,7 +256,9 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		final List<Map<String, String>> configs = new ArrayList<>();
 		List<String> instances = null;
 		List<String> urls = null;
+		List<String> threads = null;
 		boolean isRac = false;
+		boolean isSingleInstDg4Rac = false;
 		if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
 			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getConnection(config)) {
 				instances = OraRdbmsInfo.getInstances(connection);
@@ -281,13 +286,41 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 				throw new ConnectException(sqle);
 			}
+		} else if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
+			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getStandbyConnection(
+					config.getString(ParamConstants.STANDBY_URL_PARAM),
+					config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {
+				threads = OraRdbmsInfo.getStandbyThreads(connection);
+				isSingleInstDg4Rac = threads.size() > 1; 
+				if (isSingleInstDg4Rac) {
+					if (threads.size() > maxTasks) {
+						LOGGER.error("Number of Oracle standby database redo threads for connection '{}'\n\tis {}, but Kafka Connect 'tasks.max' parameter is set to {}!",
+								config.getString(ParamConstants.STANDBY_URL_PARAM), threads.size(), maxTasks);
+						LOGGER.error("Please set value of 'tasks.max' parameter to {} and restart connector!",
+								threads.size());
+						throw new ConnectException("Please increase value of 'tasks.max' parameter!");
+					}
+					LOGGER.info("'{}' redo threads of Oracle Sigle Instance DataGuard for RAC are found.", threads.size());
+				}
+			} catch (SQLException sqle) {
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				throw new ConnectException(sqle);
+			}
 		}
 		if (isRac) {
 			// We need to replace JDBC URL...
 			connectorProperties.put(ParamConstants.INTERNAL_RAC_URLS_PARAM, String.join(",", urls));
 			for (int i = 0; i < instances.size(); i++) {
 				configs.add(connectorProperties);
-				LOGGER.info("Done with configuration of task for Oracle RAC instance '{}'", instances.get(i));
+				LOGGER.info("Done with configuration of task #{} for Oracle RAC instance '{}'",
+						i, instances.get(i));
+			}
+		} else if (isSingleInstDg4Rac) {
+			connectorProperties.put(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, String.join(",", threads));
+			for (int i = 0; i < instances.size(); i++) {
+				configs.add(connectorProperties);
+				LOGGER.info("Done with configuration of task#{} for Oracle Single Instance DataGuard for RAC thread# '{}'",
+						i, threads.get(i));
 			}
 		} else {
 			configs.add(connectorProperties);
