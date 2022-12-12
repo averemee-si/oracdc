@@ -9,7 +9,7 @@ This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database
 **oracdc**'s _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ connects to the following configurations of Oracle RDBMS:
 1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. **V$DATABASE.OPEN_MODE = READ WRITE** 
 2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = READ ONLY**
-3. Physical Standby Database of Oracle **DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = MOUNTED**. In this mode, a physical standby database is used to retrieve data using LogMiner and connection to primary database is used to perform strictly limited number of queries to data dictionary (ALL|CDB_OBJECTS, ALL|CDB_TABLES, and ALL|CDB_TAB_COLUMNS). This option allows you to promote a physical standby database to source of replication, eliminates LogMiner overhead from primary database, and  decreases TCO of Oracle Database.
+3. Physical Standby Database of Oracle **DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = MOUNTED**. In this mode, a physical standby database is used to retrieve data using LogMiner and connection to primary database is used to perform strictly limited number of queries to data dictionary (ALL|CDB_OBJECTS, ALL|CDB_TABLES, and ALL|CDB_TAB_COLUMNS). When running against single instance physical standby for Oracle RAC connector automatically detects opened redo threads and starts required number of connector tasks (max.tasks parameter must be equal to or greater than the number of redo threads). This option allows you to promote a physical standby database to source of replication, eliminates LogMiner overhead from primary database, and  decreases TCO of Oracle Database.
 4. Running in distributed configuration when the source database generates redo log files and also contains a dictionary and target database is a compatible mining database (see Figure 22-1 in [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html)). **N.B.** Currently only non-CDB distributed database configuration has been tested, tests for CDB distributed database configuration are in progress now.
 5. [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) Database. For a detailed description of how to configure **oracdc** to work with [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) please see [What about Oracle RAC?](https://github.com/averemee-si/oracdc/wiki/What-about-Oracle-RAC%3F).
 
@@ -658,6 +658,9 @@ replace log4j with reload4j (CVE-2022-23305, CVE-2019-17571, CVE-2022-23302, CVE
 
 #####1.2.2 (OCT-2022)
 LOB_TRIM/LOB_ERASE output to log & Jackson Databind version change (fix for [CVE-2022-42004](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-42004))
+
+####1.3.0 (DEC-2022)
+Single instance physical standby for Oracle RAC support
 
 ## Authors
 
