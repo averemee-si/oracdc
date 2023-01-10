@@ -279,14 +279,14 @@ from   V$INSTANCE;
 /*
 select PRODUCT, VERSION_FULL
 from   PRODUCT_COMPONENT_VERSION
-where  PRODUCT like '%Database%Edition%' and rownum=1;
+where  (PRODUCT like '%Database%Edition%' or upper(PRODUCT) like '%ORACLE%DATABASE%') and rownum=1;
  */
 	public static final String RDBMS_PRODUCT_VERSION =
 			"select PRODUCT, VERSION_FULL\n" +
 			"from   PRODUCT_COMPONENT_VERSION\n" +
-			"where  PRODUCT like '%Database%Edition%' and rownum=1";
+			"where  (PRODUCT like '%Database%Edition%' or upper(PRODUCT) like '%ORACLE%DATABASE%') and rownum=1";
 /*
-select PRODUCT, VERSION_FULL
+select PRODUCT
 from   PRODUCT_COMPONENT_VERSION
 where  PRODUCT like '%Database%Edition%' and rownum=1;
  */
