@@ -662,6 +662,9 @@ LOB_TRIM/LOB_ERASE output to log & Jackson Databind version change (fix for [CVE
 ####1.3.0 (DEC-2022)
 Single instance physical standby for Oracle RAC support
 
+#####1.3.1 (JAN-2023)
+fix for OCI DBCS product name like "Oracle Database 19c EE Extreme Perf"
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
