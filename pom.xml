@@ -53,8 +53,7 @@
 		<chronicle.queue.version>5.21.99</chronicle.queue.version>
 		<ora.jdbc.version>21.7.0.0</ora.jdbc.version>
 		<HikariCP.version>4.0.3</HikariCP.version>
-		<jackson.version>2.13.4</jackson.version>
-		<jackson.databind.version>2.13.4.2</jackson.databind.version>
+		<jackson.version>2.13.5</jackson.version>
 		<slf4j.version>2.0.0</slf4j.version>
 		<lz4.version>1.6.0</lz4.version>
 		<kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
@@ -171,7 +170,7 @@
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
-			<version>${jackson.databind.version}</version>
+			<version>${jackson.version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api/ -->
  		<dependency>
