@@ -81,7 +81,8 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					if (StringUtils.equals(k, ParamConstants.TABLE_EXCLUDE_PARAM) ||
 							StringUtils.equals(k, ParamConstants.TABLE_INCLUDE_PARAM) ||
 							StringUtils.equals(k, ParamConstants.CONNECTION_PASSWORD_PARAM) ||
-							StringUtils.equals(k, ParamConstants.INTERNAL_RAC_URLS_PARAM)) {
+							StringUtils.equals(k, ParamConstants.INTERNAL_RAC_URLS_PARAM) ||
+							StringUtils.equals(k, ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM)) {
 						connectorProperties.put(k, "");
 					} else if (v instanceof Boolean) {
 						connectorProperties.put(k, ((Boolean) v).toString());
