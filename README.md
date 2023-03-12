@@ -668,6 +668,9 @@ fix for OCI DBCS product name like "Oracle Database 19c EE Extreme Perf"
 #####1.3.2 (FEB-2023)
 fix for https://github.com/averemee-si/oracdc/issues/40 & jackson library update
 
+#####1.3.3 (MAR-2023)
+techstack/dependent libraries (JUnit/commons-cli/OJDBC/SL4J) version updates
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
