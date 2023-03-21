@@ -175,19 +175,19 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					ParamConstants.TEMP_DIR_PARAM,
 					System.getProperty("java.io.tmpdir"));
 		}
-		if (Files.isDirectory(Paths.get(config.getString(ParamConstants.TEMP_DIR_PARAM)))) {
-			if (!Files.isWritable(Paths.get(config.getString(ParamConstants.TEMP_DIR_PARAM)))) {
+		if (Files.isDirectory(Paths.get(connectorProperties.get(ParamConstants.TEMP_DIR_PARAM)))) {
+			if (!Files.isWritable(Paths.get(connectorProperties.get(ParamConstants.TEMP_DIR_PARAM)))) {
 				LOGGER.error(
 						"Parameter '{}' points to non-writable directory '{}'.",
 						ParamConstants.TEMP_DIR_PARAM,
-						config.getString(ParamConstants.TEMP_DIR_PARAM));
+						connectorProperties.get(ParamConstants.TEMP_DIR_PARAM));
 				throw new ConnectException(TMP_PARAM_ERROR_GENERIC);
 			}
 		} else {
 			LOGGER.error(
 					"Parameter {} set to non-existent or invalid directory {}.",
 					ParamConstants.TEMP_DIR_PARAM,
-					config.getString(ParamConstants.TEMP_DIR_PARAM));
+					connectorProperties.get(ParamConstants.TEMP_DIR_PARAM));
 			throw new ConnectException(TMP_PARAM_ERROR_GENERIC);
 		}
 

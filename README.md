@@ -671,6 +671,9 @@ fix for https://github.com/averemee-si/oracdc/issues/40 & jackson library update
 #####1.3.3 (MAR-2023)
 techstack/dependent libraries (JUnit/commons-cli/OJDBC/SL4J) version updates
 
+######1.3.3.1 (MAR-2023)
+fix temporary dir check error when `a2.tmpdir` is not specified
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
