@@ -136,6 +136,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.RESILIENCY_TYPE_DOC)
 				.define(ParamConstants.USE_RAC_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.USE_RAC_DOC)
+				.define(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, ParamConstants.PROTOBUF_SCHEMA_NAMING_DOC)
 				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",

@@ -51,6 +51,8 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.autocreate`- _Sink Connector_ only: default _false_, when set to true **oracdc** creates missing table automatically
 
+`a2.protobuf.schema.naming` - _Source Connector_ only: Default - false. When set to true oracdc generates schema names as valid Protocol Buffers identifiers using underscore as separator. When set to false (default) oracdc generates schema names using dot as separator.
+
 ### solutions.a2.cdc.oracle.OraCdcLogMinerConnector specific parameters
 `a2.redo.count` - Quantity of archived logs to process during each DBMS_LOGMNR.START_LOGMNR call, default _1_
 

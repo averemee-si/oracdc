@@ -198,6 +198,12 @@ public class ParamConstants {
 			"If oracdc is connected to Oracle RAC additional checks are performed and oracdc starts a separate task for each redo thread/RAC instance. " +
 			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
 	
+	public static final String PROTOBUF_SCHEMA_NAMING_PARAM = "a2.protobuf.schema.naming";
+	public static final String PROTOBUF_SCHEMA_NAMING_DOC = 
+			"Default - false.\n" +
+			"When set to true oracdc generates schema names as valid Protocol Buffers identifiers using underscore as separator.\n" + 
+			"When set to false (default) oracdc generates schema names using dot as separator.\n";
+	
 	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
