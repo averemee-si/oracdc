@@ -1231,7 +1231,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							processLobs, transformLobs,
 							isCdb, topicPartition, 
 							odd, partition, topic, topicNameStyle, topicNameDelimiter,
-							rdbmsInfo, connection);
+							rdbmsInfo, connection, config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM));
 					oraTable.setVersion(version);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
@@ -1300,7 +1300,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 								processLobs, transformLobs,
 								isCdb, topicPartition, 
 								odd, partition, topic, topicNameStyle, topicNameDelimiter,
-								rdbmsInfo, connection);
+								rdbmsInfo, connection, config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM));
 						oraTable.setVersion(version);
 						tablesInProcessing.put(combinedDataObjectId, oraTable);
 						metrics.addTableInProcessing(oraTable.fqn());
@@ -1341,7 +1341,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							processLobs, transformLobs,
 							isCdb, topicPartition, 
 							odd, partition, topic, topicNameStyle, topicNameDelimiter,
-							rdbmsInfo, connection);
+							rdbmsInfo, connection, config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM));
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

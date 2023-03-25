@@ -44,6 +44,7 @@ public class OraCdcSourceTask extends SourceTask {
 	private int pollInterval;
 	private int schemaType;
 	private String topic;
+	private boolean protobufSchemaNames;
 
 	@Override
 	public String version() {
@@ -68,6 +69,7 @@ public class OraCdcSourceTask extends SourceTask {
 			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
 			topic = props.get(ParamConstants.KAFKA_TOPIC_PARAM);
 		}
+		protobufSchemaNames = Boolean.parseBoolean(props.get(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM));
 		LOGGER.debug("topic set to {}.", topic);
 
 		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
@@ -96,7 +98,7 @@ public class OraCdcSourceTask extends SourceTask {
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID)),
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK)),
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE)),
-					batchSize, schemaType, partition, offset, rdbmsInfo);
+					batchSize, schemaType, partition, offset, rdbmsInfo, protobufSchemaNames);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));

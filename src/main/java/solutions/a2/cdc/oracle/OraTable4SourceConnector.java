@@ -85,7 +85,8 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			final StringBuilder snapshotDelete,
 			final boolean logWithRowIds,
 			final boolean logWithPrimaryKey,
-			final boolean logWithSequence
+			final boolean logWithSequence,
+			final boolean protobufSchemaNames
 			) throws SQLException {
 		boolean mViewFirstColumn = true;
 		boolean masterFirstColumn = true;
@@ -113,12 +114,14 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 		final SchemaBuilder keySchemaBuilder = SchemaBuilder
 					.struct()
 					.required()
-					.name(tableFqn + ".Key")
+					.name(protobufSchemaNames ?
+							tableOwner + "_" + tableName + "_Key" : tableFqn + ".Key")
 					.version(version);
 		final SchemaBuilder valueSchemaBuilder = SchemaBuilder
 					.struct()
 					.optional()
-					.name(tableFqn + ".Value")
+					.name(protobufSchemaNames ?
+							tableOwner + "_" + tableName + "_Value" : tableFqn + ".Value")
 					.version(version);
 		// Substitute missing primary key with ROWID value
 		if (!logWithPrimaryKey && logWithRowIds) {

@@ -136,7 +136,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final boolean isCdb, final int topicPartition, final OraDumpDecoder odd,
 			final Map<String, String> sourcePartition, final String topicParam,
 			final int topicNameStyle, final String topicNameDelimiter,
-			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
+			final OraRdbmsInfo rdbmsInfo, final Connection connection,
+			final boolean protobufSchemaNames) {
 		this(pdbName, tableOwner, tableName, schemaType, processLobs, transformLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(topicParam, topicNameStyle, topicNameDelimiter, odd, sourcePartition);
@@ -173,12 +174,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final SchemaBuilder keySchemaBuilder = SchemaBuilder
 						.struct()
 						.required()
-						.name(tableFqn + ".Key")
+						.name(protobufSchemaNames ?
+								tableOwner + "_" + tableName + "_Key" : tableFqn + ".Key")
 						.version(1);
 			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
 						.struct()
 						.optional()
-						.name(tableFqn + ".Value")
+						.name(protobufSchemaNames ?
+								tableOwner + "_" + tableName + "_Value" : tableFqn + ".Value")
 						.version(version);
 
 			if (!tableWithPk) {

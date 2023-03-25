@@ -114,6 +114,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Set<Long> lobObjects;
 	private final Set<Long> nonLobObjects;
 	private String lastRealRowId;
+	private final boolean protobufSchemaNames; 
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -185,6 +186,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			lobObjects = null;
 			nonLobObjects = null;
 		}
+		this.protobufSchemaNames = config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM);
 
 		try {
 			connLogMiner = oraConnections.getLogMinerConnection(traceSession);
@@ -501,7 +503,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												schemaType, useOracdcSchemas,
 												processLobs, transformLobs, isCdb, topicPartition,
 												odd, partition, topic, topicNameStyle, topicNameDelimiter,
-												rdbmsInfo, connDictionary);
+												rdbmsInfo, connDictionary, protobufSchemaNames);
 											if (!legacyResiliencyModel) {
 												task.putTableAndVersion(combinedDataObjectId, 1);
 											}
