@@ -20,7 +20,7 @@ jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS=(PROTOCOL=<protocol>) (HOST=<dbhost>)(PO
 ```
 jdbc:oracle:thin:@<alias_name>
 ```
-For more information and examples for JDBC URL format please see [Oracle® Database JDBC Java API Reference, Release 21c](https://docs.oracle.com/en/database/oracle/oracle-database/21/jajdb/)
+For more information and examples for JDBC URL format please see [Oracle® Database JDBC Java API Reference, Release 23c](https://docs.oracle.com/en/database/oracle/oracle-database/23/jajdb/)
 
 `a2.wallet.location` - Location of Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053). Not required when `a2.jdbc.url` & `a2.jdbc.username` & `a2.jdbc.password` are set
 
