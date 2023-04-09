@@ -137,10 +137,35 @@ Wherein
 ```
 alter system dump logfile '/path-to-archived-log-file' scn min XXXXXXXXX scn max YYYYYYYYY;
 ```
-shows correct values in redo block. This checked using all available Oracle RDBMS 21c patchsets (21.3, 21.4, 21.5, and 21.6).
-Unfortunately, JSON data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html#GUID-BA995486-041E-4C83-83EA-D7BC2A866DE3), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
+shows correct values in redo block. This checked using all available Oracle RDBMS 21c patchsets and Oracle RDBMS 23c (21.3, 21.4, 21.5, 21.6, and 23,2).
+Unfortunately, JSON data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-D11CC6EF-D94C-426F-B244-96CE2403924A), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
 We are watching the status of this issue.
 
+
+#### BOOLEAN Datatype support for Oracle RDBMS 23c +
+Unfortunately, for operations on the BOOLEAN data type, the result is returned as (below is results for transaction which includes BOOLEAN datatype)
+
+```
+select SQL_REDO from V$LOGMNR_CONTENTS where XID='0600200038020000';
+
+SQL_REDO
+--------------------------------------------------------------------------------
+set transaction read write
+Unsupported
+Unsupported
+commit
+
+6 rows selected.
+
+```
+Wherein
+
+```
+alter system dump logfile '/path-to-archived-log-file' scn min XXXXXXXXX scn max YYYYYYYYY;
+```
+shows correct values in redo block. This checked using Oracle RDBMS 23c (23,2).
+Unfortunately, JSON data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-D11CC6EF-D94C-426F-B244-96CE2403924A), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
+We are watching the status of this issue.
 
 ### DDL Support and schema evolution
 The following [Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) clauses of [ALTER TABLE](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/ALTER-TABLE.html#GUID-552E7373-BF93-477D-9DA3-B2C9386F2877) command are currently supported:
