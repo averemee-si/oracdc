@@ -5,12 +5,12 @@ Starting from Oracle RDBMS 12c various Oracle tools for [CDC](https://en.wikiped
 **oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, 19c, and 21c. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 
 ## solutions.a2.cdc.oracle.OraCdcLogMinerConnector
-This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. When restarting, all in progress transactions, records, and objects are saved, their status is written to the file defined by parameter `a2.persistent.state.file` . An example `oracdc.state` file is located in `etc` directory.
+This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. When restarting, all in progress transactions, records, and objects are saved, their status is written to the file defined by parameter `a2.persistent.state.file` . An example `oracdc.state` file is located in `etc` directory.
 **oracdc**'s _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ connects to the following configurations of Oracle RDBMS:
 1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. **V$DATABASE.OPEN_MODE = READ WRITE** 
 2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = READ ONLY**
 3. Physical Standby Database of Oracle **DataGuard** cluster, i.e. **V$DATABASE.OPEN_MODE = MOUNTED**. In this mode, a physical standby database is used to retrieve data using LogMiner and connection to primary database is used to perform strictly limited number of queries to data dictionary (ALL|CDB_OBJECTS, ALL|CDB_TABLES, and ALL|CDB_TAB_COLUMNS). When running against single instance physical standby for Oracle RAC connector automatically detects opened redo threads and starts required number of connector tasks (max.tasks parameter must be equal to or greater than the number of redo threads). This option allows you to promote a physical standby database to source of replication, eliminates LogMiner overhead from primary database, and  decreases TCO of Oracle Database.
-4. Running in distributed configuration when the source database generates redo log files and also contains a dictionary and target database is a compatible mining database (see Figure 22-1 in [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html)). **N.B.** Currently only non-CDB distributed database configuration has been tested, tests for CDB distributed database configuration are in progress now.
+4. Running in distributed configuration when the source database generates redo log files and also contains a dictionary and target database is a compatible mining database (see Figure 22-1 in [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html)). **N.B.** Currently only non-CDB distributed database configuration has been tested, tests for CDB distributed database configuration are in progress now.
 5. [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) Database. For a detailed description of how to configure **oracdc** to work with [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) please see [What about Oracle RAC?](https://github.com/averemee-si/oracdc/wiki/What-about-Oracle-RAC%3F).
 
 ### Monitoring
@@ -25,7 +25,7 @@ For processing LOB's and SYS.XMLTYPE please do not forget to set Apache Kafka pa
 By default CLOB, NCLOB, and SYS.XMLTYPE data are compressed using [LZ4](https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)) compression algorithm.
 
 #### Large objects (BLOB/CLOB/NCLOB/XMLTYPE) operations LOB_TRIM and LOB_ERASE
-[Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html) generate unparseable (at moment) output when operates without connection to dictionary. Currently **oracdc** ignores these operations. Starting from **oracdc** v1.2.2 additional debug information about these operations is printed to log. If you need support for these operations please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu)
+[Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) generate unparseable (at moment) output when operates without connection to dictionary. Currently **oracdc** ignores these operations. Starting from **oracdc** v1.2.2 additional debug information about these operations is printed to log. If you need support for these operations please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu)
 
 #### Large objects (BLOB/CLOB/NCLOB/XMLTYPE) transformation feature (oracdc 0.9.8.3+)
 Apache Kafka is not meant to handle large messages with size over 1MB. But Oracle RDBMS often is used as storage for unstructured information too. For breaking this barrier we designed LOB transformation features.
@@ -164,11 +164,11 @@ Wherein
 alter system dump logfile '/path-to-archived-log-file' scn min XXXXXXXXX scn max YYYYYYYYY;
 ```
 shows correct values in redo block. This checked using Oracle RDBMS 23c (23,2).
-Unfortunately, JSON data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-D11CC6EF-D94C-426F-B244-96CE2403924A), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
+Unfortunately, BOOLEAN data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-D11CC6EF-D94C-426F-B244-96CE2403924A), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
 We are watching the status of this issue.
 
 ### DDL Support and schema evolution
-The following [Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) clauses of [ALTER TABLE](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/ALTER-TABLE.html#GUID-552E7373-BF93-477D-9DA3-B2C9386F2877) command are currently supported:
+The following [Data Definition Language (DDL)](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) clauses of [ALTER TABLE](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-TABLE.html#GUID-552E7373-BF93-477D-9DA3-B2C9386F2877) command are currently supported:
 
 ```
 1. add column(s)
@@ -178,11 +178,11 @@ The following [Data Definition Language (DDL)](https://docs.oracle.com/en/databa
 5. set unused column(s)
 ```
 To ensure compatibility with [Schema Evolution](https://docs.confluent.io/current/schema-registry/avro.html#schema-evolution) the following algorithm is used:
-1. When **oracdc** first encounters an operation on a table in the redo logs, information about the table is read from the [data dictionary](https://docs.oracle.com/en/database/oracle/oracle-database/21/cncpt/data-dictionary-and-dynamic-performance-views.html#GUID-9B9ABE1C-A1E3-464F-8936-978250DC3E1F) or from the JSON file specified by the  `a2.dictionary.file` parameter. Two schemas are created: immutable key schema with unique identifier **[PDB_NAME:]OWNER.TABLE_NAME.Key**, **version=1** and mutable value schema with unique identifier **[PDB_NAME:]OWNER.TABLE_NAME.Value**, **version=1**. 
-2. After successful parsing of [DDL](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) and comparison of columns definition before and after, value schema gets an incremented version number.
+1. When **oracdc** first encounters an operation on a table in the redo logs, information about the table is read from the [data dictionary](https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-dictionary-and-dynamic-performance-views.html#GUID-9B9ABE1C-A1E3-464F-8936-978250DC3E1F) or from the JSON file specified by the  `a2.dictionary.file` parameter. Two schemas are created: immutable key schema with unique identifier **[PDB_NAME:]OWNER.TABLE_NAME.Key**, **version=1** and mutable value schema with unique identifier **[PDB_NAME:]OWNER.TABLE_NAME.Value**, **version=1**. 
+2. After successful parsing of [DDL](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88) and comparison of columns definition before and after, value schema gets an incremented version number.
 
 ### RDBMS errors resiliency and connection retry back-off
-**oracdc** is resilient to Oracle database shutdown and/or restart while performing [DBMS_LOGMNR.ADD_LOGFILE](https://docs.oracle.com/en/database/oracle/oracle-database/21/arpls/DBMS_LOGMNR.html#GUID-30C5D959-C0A0-4591-9FBA-F57BC72BBE2F) call or waiting for a new archived redo log. ORA-17410 ("No more data read from socket") is intercepted and an attempt to reconnect is made after fixed backoff time specified by parameter `a2.connection.backoff`
+**oracdc** is resilient to Oracle database shutdown and/or restart while performing [DBMS_LOGMNR.ADD_LOGFILE](https://docs.oracle.com/en/database/oracle/oracle-database/23/arpls/DBMS_LOGMNR.html#GUID-30C5D959-C0A0-4591-9FBA-F57BC72BBE2F) call or waiting for a new archived redo log. ORA-17410 ("No more data read from socket") is intercepted and an attempt to reconnect is made after fixed backoff time specified by parameter `a2.connection.backoff`
 
 ### Kafka Connect distributed mode
 Fully compatible from 0.9.9.2+, when `a2.resiliency.type` set to ``fault-tolerant``. `In this case all offset (SCN, RBA, COMMIT_SCN for rows and transactions, versions for table definitions) information is stored only on standard Kafka Connect offsets
@@ -196,7 +196,7 @@ Fully compatible from 0.9.9.2+, when `a2.resiliency.type` set to ``fault-toleran
 3. Proper file system parameters and sizing for path where [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) objects reside.
 4. Proper open files hard and soft limits for OS user running **oracdc**
 5. To determine source of bottleneck set parameter `a2.logminer.trace` to true and analyze waits at Oracle RDBMS side using data from trace file (**tracefile_identifier='oracdc'**)
-6. For optimizing network transfer consider increasing SDU (Ref.: [Database Net Services Administrator's Guide, Chapter 14 "Optimizing Performance"](https://docs.oracle.com/en/database/oracle/oracle-database/21/netag/optimizing-performance.html)). Also review Oracle Support Services Note 2652240.1[SDU Ignored By The JDBC Thin Client Connection](https://support.oracle.com/epmos/faces/DocumentDisplay?id=2652240.1).
+6. For optimizing network transfer consider increasing SDU (Ref.: [Database Net Services Administrator's Guide, Chapter 14 "Optimizing Performance"](https://docs.oracle.com/en/database/oracle/oracle-database/23/netag/optimizing-performance.html)). Also review Oracle Support Services Note 2652240.1[SDU Ignored By The JDBC Thin Client Connection](https://support.oracle.com/epmos/faces/DocumentDisplay?id=2652240.1).
 Example listener.ora with SDU set:
 
 ```
@@ -258,7 +258,7 @@ export KAFKA_OPTS="\
 4.2. [amd64 Container](https://aws.amazon.com/marketplace/pp/prodview-me6ugntrriqeg)
 
 ## solutions.a2.cdc.oracle.OraCdcSourceConnector
-This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 In addition to read privileges on the underlying base tables and materialized view logs, the user running connector must have access to
 
 ```
@@ -366,7 +366,7 @@ from DBA_LOG_GROUPS;
 
 ### Creating non-privileged Oracle user for running LogMiner
 
-Instructions below are for CDB, for non-CDB ([depreciated in 12c](https://docs.oracle.com/en/database/oracle/oracle-database/21/nfcon/details-using-non-cdbs-and-cdbs-282450945.html), desupported in 21c) you can use role and user names without **c##** prefix.
+Instructions below are for CDB, for non-CDB ([deprecated in 12c](https://support.oracle.com/epmos/faces/DocumentDisplay?id=2808317.1), desupported in 21c) you can use role and user names without **c##** prefix.
 Log in as sysdba and enter the following commands to create a user with the privileges required for running **oracdc** with LogMiner as CDC source. For CDB:
 
 ```
@@ -404,7 +404,7 @@ to ORACDC;
 ```
 
 ### Options for connecting to Oracle Database
-In CDB Architecture **oracdc** must connected to [CDB$ROOT](https://docs.oracle.com/en/database/oracle/oracle-database/21/multi/introduction-to-the-multitenant-architecture.html), but starting from Oracle Database [19c RU 10](https://updates.oracle.com/download/32218454.html) and Oracle Database 21c you can chose to connect either to the [CDB$ROOT](https://docs.oracle.com/en/database/oracle/oracle-database/21/multi/introduction-to-the-multitenant-architecture.html), or to an individual PDB.
+In CDB Architecture **oracdc** must connected to [CDB$ROOT](https://docs.oracle.com/en/database/oracle/oracle-database/23/multi/introduction-to-the-multitenant-architecture.html), but starting from Oracle Database [19c RU 10](https://updates.oracle.com/download/32218454.html) and Oracle Database 21c you can chose to connect either to the [CDB$ROOT](https://docs.oracle.com/en/database/oracle/oracle-database/23/multi/introduction-to-the-multitenant-architecture.html), or to an individual PDB.
 
 ### Additional configuration for physical standby database (V$DATABASE.OPEN_MODE = MOUNTED)
 
@@ -557,7 +557,7 @@ Oracle Wallet support for storing database credentials
 
 ####0.9.3 (FEB-2020)
 
-[Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html) as CDC source
+[Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) as CDC source
 Removed AWS Kinesis support
 New class hierarchy
 
@@ -568,7 +568,7 @@ Removing dynamic invocation of Oracle JDBC. Ref.: [Oracle Database client librar
 
 ####0.9.4 (MAR-2020)
 
-Ability to run [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html) on the physical database when V$DATABASE.OPEN_MODE = MOUNTED to reduce TCO
+Ability to run [Oracle Log Miner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) on the physical database when V$DATABASE.OPEN_MODE = MOUNTED to reduce TCO
 
 #####0.9.4.1 (MAR-2020)
 
@@ -673,7 +673,7 @@ Min Java version -> Java11, Java 17 LTS - recommended
 Package name change: eu.solutions.a2 -> solutions.a2
 
 ####1.1.0 (AUG-2022)
-Deprecation of parameters `a2.tns.admin`, `a2.tns.alias`, `a2.standby.tns.admin`, `a2.standby.tns.alias`, `a2.distributed.tns.admin`, and `a2.distributed.tns.alias`. Please use `a2.jdbc.url`, `a2.standby.jdbc.url`, and `a2.distributed.jdbc.url` respectively. Please see [KAFKA-CONNECT.md](https://github.com/averemee-si/oracdc/blob/master/doc/KAFKA-CONNECT.md) for parameter description and [Oracle® Database JDBC Java API Reference, Release 21c](https://docs.oracle.com/en/database/oracle/oracle-database/21/jajdb/) for more information about JDBC URL format.
+Deprecation of parameters `a2.tns.admin`, `a2.tns.alias`, `a2.standby.tns.admin`, `a2.standby.tns.alias`, `a2.distributed.tns.admin`, and `a2.distributed.tns.alias`. Please use `a2.jdbc.url`, `a2.standby.jdbc.url`, and `a2.distributed.jdbc.url` respectively. Please see [KAFKA-CONNECT.md](https://github.com/averemee-si/oracdc/blob/master/doc/KAFKA-CONNECT.md) for parameter description and [Oracle® Database JDBC Java API Reference, Release 23c](https://docs.oracle.com/en/database/oracle/oracle-database/23/jajdb/) for more information about JDBC URL format.
 
 ####1.2.0 (SEP-2022)
 Oracle RAC support, for more information please see [What about Oracle RAC?](https://github.com/averemee-si/oracdc/wiki/What-about-Oracle-RAC%3F)

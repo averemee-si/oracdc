@@ -76,15 +76,15 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.table.list.style` - When set to `static` (default) **oracdc** reads tables and partition list to process only at startup according to values of `a2.include` and `a2.exclude` parameters. When set to `dynamic` **oracdc** builds list of objects to process on the fly
 
-`a2.process.lobs` - process Oracle BLOB, CLOB, NCLOB, and [XMLType](https://docs.oracle.com/en/database/oracle/oracle-database/21/adxdb/intro-to-XML-DB.html#GUID-02592188-AC38-4D00-A2FD-9E53604065C8) columns. Default - _false_
+`a2.process.lobs` - process Oracle BLOB, CLOB, NCLOB, and [XMLType](https://docs.oracle.com/en/database/oracle/oracle-database/23/adxdb/intro-to-XML-DB.html#GUID-02592188-AC38-4D00-A2FD-9E53604065C8) columns. Default - _false_
 
 `a2.lob.transformation.class` - name of class which implements _solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf_ interface. Default - _solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl_ which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation
 
 `a2.connection.backoff` - Backoff time in milliseconds between reconnectoion attempts. Default - _30000ms_
 
-`a2.archived.log.catalog` - name of class which implements _solutions.a2.cdc.oracle.OraLogMiner_ interface. Default - _solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl_ which reads archived log information and information about next available archived redo log from [V$ARCHIVED_LOG](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-ARCHIVED_LOG.html) fixed view
+`a2.archived.log.catalog` - name of class which implements _solutions.a2.cdc.oracle.OraLogMiner_ interface. Default - _solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl_ which reads archived log information and information about next available archived redo log from [V$ARCHIVED_LOG](https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-ARCHIVED_LOG.html) fixed view
 
-`a2.fetch.size` - number of rows fetched with each RDBMS round trip for accessing [V$LOGMNR_CONTENTS](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-LOGMNR_CONTENTS.html) fixed view. Default 32
+`a2.fetch.size` - number of rows fetched with each RDBMS round trip for accessing [V$LOGMNR_CONTENTS](https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-LOGMNR_CONTENTS.html) fixed view. Default 32
 
 `a2.logminer.trace` - trace with 'event 10046 level 8' LogMiner calls? Default - false. To enable tracing the following statements are executed at RDBMS session
 
@@ -97,7 +97,7 @@ alter session set events '10046 trace name context forever, level 8';
 
 `a2.resiliency.type` - How restarts and crashes are handled: In ``legacy`` mode, all information is stored in the file system, delivery of all changes is guaranteed with exactly-once semantics, but this mode does not protect against file system failures. When set to ``fault-tolerant``  (the default since v1.0.0), all restart data stored on Kafka topics, the connector depends only on Kafka cluster, but if an error occurs in the middle of sending a Oracle transaction to the Kafka broker, that transaction will be re-read from archived redo and sending to Kafka will continue after last successfully processed record to maintain exactly-once semantics
 
-`a2.use.rac` - When set to true **oracdc** first tried to detect is this connection to [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) by querying the fixed table [V$ACTIVE_INSTANCES](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-ACTIVE_INSTANCES.html). If database is not RAC, only the warning message is printed. If **oracdc** is connected to [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) by querying the fixed table [V$ACTIVE_INSTANCES](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-ACTIVE_INSTANCES.html) additional checks are performed and **oracdc** starts a separate task for each redo thread/RAC instance. Changes for the same table from different redo threads/RAC instances are delivered to the same topic but to different partition where
+`a2.use.rac` - When set to true **oracdc** first tried to detect is this connection to [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) by querying the fixed table [V$ACTIVE_INSTANCES](https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-ACTIVE_INSTANCES.html). If database is not RAC, only the warning message is printed. If **oracdc** is connected to [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) by querying the fixed table [V$ACTIVE_INSTANCES](https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-ACTIVE_INSTANCES.html) additional checks are performed and **oracdc** starts a separate task for each redo thread/RAC instance. Changes for the same table from different redo threads/RAC instances are delivered to the same topic but to different partition where
 
 ```
  <KAFKA_PARTITION_NUMBER> = <THREAD#> - 1
@@ -108,7 +108,7 @@ Default - false.
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
 
-`a2.standby.wallet.location` - Location of Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-DATABASE.html)
+`a2.standby.wallet.location` - Location of Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-DATABASE.html)
 
 `a2.standby.jdbc.url` - JDBC connection URL to connect to [Physical Standby Database](https://docs.oracle.com/en/database/oracle/oracle-database/21/sbydb/introduction-to-oracle-data-guard-concepts.html#GUID-C49AC6F4-C89B-4487-BC18-428D65865B9A). For information about syntax please see description of parameter `a2.jdbc.url` above
 
@@ -119,7 +119,7 @@ Default - false.
 
 `a2.distributed.wallet.location` - Location of Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) for connecting to target database in distributed mode
 
-`a2.distributed.jdbc.url` - JDBC connection URL to connect to [Mining Database](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html#GUID-03892F75-767E-4462-9865-9843F1502AD5). For information about syntax please see description of parameter `a2.jdbc.url` above
+`a2.distributed.jdbc.url` - JDBC connection URL to connect to [Mining Database](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-03892F75-767E-4462-9865-9843F1502AD5). For information about syntax please see description of parameter `a2.jdbc.url` above
 
 `a2.distributed.target.host` - hostname of the target (where dbms_logmnr runs) database on which the shipment agent is running
 
