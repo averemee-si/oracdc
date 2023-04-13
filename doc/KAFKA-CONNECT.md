@@ -115,7 +115,7 @@ Default - false.
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector distributed mode parameters
 
-`a2.distributed.activate` - Use **oracdc** in distributed configuration (redo logs are generated at source RDBMS server and then transferred to compatible target RDBMS server for processing with LogMiner. For description of this configuration please look at _Figure 22-1_ at [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/21/sutil/oracle-logminer-utility.html). Default - _false_
+`a2.distributed.activate` - Use **oracdc** in distributed configuration (redo logs are generated at source RDBMS server and then transferred to compatible target RDBMS server for processing with LogMiner. For description of this configuration please look at _Figure 25-1_ at [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html). Default - _false_
 
 `a2.distributed.wallet.location` - Location of Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) for connecting to target database in distributed mode
 
