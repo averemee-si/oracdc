@@ -149,11 +149,29 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
 			}
+			// Schema init - keySchema is immutable and always 1
+			final SchemaBuilder keySchemaBuilder = SchemaBuilder
+						.struct()
+						.required()
+						.name(protobufSchemaNames ?
+								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + "_Key" :
+								tableFqn + ".Key")
+						.version(1);
+			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
+						.struct()
+						.optional()
+						.name(protobufSchemaNames ?
+								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + "_Value" :
+								tableFqn + ".Value")
+						.version(version);
+
 			// Detect PK column list...
 			Set<String> pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
 					isCdb ? conId : -1, this.tableOwner, this.tableName);
 			if (pkColsSet == null) {
 				this.tableWithPk = false;
+				addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
+				LOGGER.warn("No primary key detected for table {}. ROWID will be used as PK", tableFqn);
 			}
 
 			if (isCdb) {
@@ -170,23 +188,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 			ResultSet rsColumns = statement.executeQuery();
 
-			// Schema init - keySchema is immutable and always 1
-			final SchemaBuilder keySchemaBuilder = SchemaBuilder
-						.struct()
-						.required()
-						.name(protobufSchemaNames ?
-								tableOwner + "_" + tableName + "_Key" : tableFqn + ".Key")
-						.version(1);
-			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
-						.struct()
-						.optional()
-						.name(protobufSchemaNames ?
-								tableOwner + "_" + tableName + "_Value" : tableFqn + ".Value")
-						.version(version);
-
-			if (!tableWithPk) {
-				addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
-			}
 			maxColumnId = 0;
 			while (rsColumns.next()) {
 				boolean columnAdded = false;
@@ -242,7 +243,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					if (column.getColumnId() > maxColumnId) {
 						maxColumnId = column.getColumnId();
 					}
-					LOGGER.debug("New column {} added to table definition {}.", column.getColumnName(), tableFqn);
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("New{}column {}({}) added to table definition {}.",
+								column.isPartOfPk() ? " PK " : " ", column.getColumnName(), 
+								JdbcTypes.getTypeName(column.getJdbcType()), tableFqn);
+					}
 				}
 
 				if (column.isPartOfPk()) {
