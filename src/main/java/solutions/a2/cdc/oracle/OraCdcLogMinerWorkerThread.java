@@ -569,6 +569,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									metrics.addRecord();
 								} else {
 									LOGGER.error(
+											"\n" +
 											"=====================\n" +
 											"Supplemental logging for table '{}' is not configured correctly!\n" +
 											"Please set it according to the oracdc documentation!\n" +
