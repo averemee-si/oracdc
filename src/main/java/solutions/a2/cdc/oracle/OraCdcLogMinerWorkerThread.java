@@ -758,6 +758,13 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
 							}
 							try {
+								if (rdbmsInfo.isWindows()) {
+									if (LOGGER.isDebugEnabled()) {
+										LOGGER.debug("Recreating LogMiner connections to unlock archived log files on Windows.");
+									}
+									closeOraConnection();
+									restoreOraConnection();
+								}
 								logMinerReady = logMiner.next();
 							} catch (SQLException sqle) {
 								if (sqle instanceof SQLRecoverableException) {
@@ -836,20 +843,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
 				}
 				try {
-					connLogMiner = oraConnections.getLogMinerConnection(traceSession);
-					psLogMiner = (OraclePreparedStatement)connLogMiner.prepareStatement(
-							mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-					psLogMiner.setRowPrefetch(fetchSize);
-					psCheckTable = connDictionary.prepareStatement(
-							checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-					if (processLobs) {
-						psReadLob = (OraclePreparedStatement) connLogMiner.prepareStatement(
-								isCdb ? OraDictSqlTexts.MINE_LOB_CDB :
-										OraDictSqlTexts.MINE_LOB_NON_CDB,
-								ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-						psReadLob.setRowPrefetch(fetchSize);
-					}
-					logMiner.createStatements(connLogMiner);
+					restoreOraConnection();
 					ready = true;
 				} catch (SQLException getConnException) {
 					LOGGER.error("Error '{}' when restoring connection, SQL errorCode = {}, SQL state = '{}'",
@@ -859,6 +853,31 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		}
 	}
 
+	private void restoreOraConnection() throws SQLException {
+		connLogMiner = oraConnections.getLogMinerConnection(traceSession);
+		psLogMiner = (OraclePreparedStatement)connLogMiner.prepareStatement(
+				mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		psLogMiner.setRowPrefetch(fetchSize);
+		psCheckTable = connDictionary.prepareStatement(
+				checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		if (processLobs) {
+			psReadLob = (OraclePreparedStatement) connLogMiner.prepareStatement(
+					isCdb ? OraDictSqlTexts.MINE_LOB_CDB :
+							OraDictSqlTexts.MINE_LOB_NON_CDB,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			psReadLob.setRowPrefetch(fetchSize);
+		}
+		logMiner.createStatements(connLogMiner);
+	}
+
+	private void closeOraConnection() throws SQLException {
+		if (processLobs) {
+			psReadLob.close(); psReadLob = null;
+		}
+		psCheckTable.close(); psCheckTable = null;
+		psLogMiner.close(); psLogMiner = null;
+		connLogMiner.close(); connLogMiner = null;
+	}
 
 	private List<OraCdcLargeObjectHolder> catchTheLob(
 			final short operation, final String xid,

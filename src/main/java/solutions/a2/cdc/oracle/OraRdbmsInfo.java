@@ -62,6 +62,7 @@ public class OraRdbmsInfo {
 	private final String supplementalLogDataAll;
 	private final String supplementalLogDataMin;
 	private final boolean checkSupplementalLogData4Table;
+	private final boolean windows;
 
 	private final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -180,6 +181,11 @@ public class OraRdbmsInfo {
 			databaseName = rs.getString("NAME");
 			dbUniqueName = rs.getString("DB_UNIQUE_NAME");
 			platformName = rs.getString("PLATFORM_NAME");
+			if (StringUtils.startsWithAny(platformName, "Microsoft Windows", "Windows")) {
+				windows = true;
+			} else {
+				windows = false;
+			}
 			supplementalLogDataAll = rs.getString("SUPPLEMENTAL_LOG_DATA_ALL");
 			supplementalLogDataMin = rs.getString("SUPPLEMENTAL_LOG_DATA_MIN");
 			if (StringUtils.equalsIgnoreCase(supplementalLogDataAll, "YES")) {
@@ -729,6 +735,10 @@ public class OraRdbmsInfo {
 
 	public boolean isCheckSupplementalLogData4Table() {
 		return checkSupplementalLogData4Table;
+	}
+
+	public boolean isWindows() {
+		return windows;
 	}
 
 	@Override
