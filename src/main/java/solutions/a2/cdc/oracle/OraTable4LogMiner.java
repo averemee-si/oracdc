@@ -82,6 +82,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private boolean withLobs = false;
 	private int maxColumnId;
 	private int topicPartition;
+	private boolean checkSupplementalLogData = false;
 
 	/**
 	 * 
@@ -145,6 +146,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.setRowLevelScn(rowLevelScnDependency);
 		this.rdbmsInfo = rdbmsInfo;
 		this.topicPartition = topicPartition;
+		this.checkSupplementalLogData = rdbmsInfo.isCheckSupplementalLogData4Table();
 		try {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -164,6 +166,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + "_Value" :
 								tableFqn + ".Value")
 						.version(version);
+			if (!checkSupplementalLogData) {
+				this.checkSupplementalLogData = OraRdbmsInfo.supplementalLoggingSet(connection,
+					isCdb ? conId : -1, this.tableOwner, this.tableName);
+			}
 
 			// Detect PK column list...
 			Set<String> pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
@@ -1206,6 +1212,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		LOGGER.error("\tROW_ID = {}", stmt.getRowId());
 		LOGGER.error("\tOPERATION_CODE = {}", stmt.getOperation());
 		LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
+	}
+
+	public boolean isCheckSupplementalLogData() {
+		return checkSupplementalLogData;
 	}
 
 }

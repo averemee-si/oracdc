@@ -262,6 +262,34 @@ public class OraRdbmsInfo {
 		return struct;
 	}
 
+	public static boolean supplementalLoggingSet(
+			final Connection connection,
+			final short conId,
+			final String owner,
+			final String tableName) throws SQLException {
+		final boolean isCdb = (conId > -1);
+		boolean result = false;
+		PreparedStatement ps = connection.prepareStatement(
+				(isCdb) ?
+						OraDictSqlTexts.SUPPLEMENTAL_LOGGING_CDB :
+						OraDictSqlTexts.SUPPLEMENTAL_LOGGING_NON_CDB,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		ps.setString(1, owner);
+		ps.setString(2, tableName);
+		if (isCdb) {
+			ps.setShort(3, conId);			
+		}
+		ResultSet rs = ps.executeQuery();
+		if (rs.next()) {
+			if (StringUtils.equalsIgnoreCase(rs.getString("ALWAYS"), "ALWAYS")) {
+				result = true;
+			}
+		}
+		rs.close(); rs = null;
+		ps.close(); ps = null;
+		return result;
+	}
+
 	/**
 	 * Returns set of column names for primary key or it equivalent (unique with all non-null)
 	 * 
