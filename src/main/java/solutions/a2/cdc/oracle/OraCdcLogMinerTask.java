@@ -315,6 +315,32 @@ public class OraCdcLogMinerTask extends SourceTask {
 						connectorName);
 			}
 
+			if (StringUtils.equalsIgnoreCase(rdbmsInfo.getSupplementalLogDataAll(), "YES")) {
+				LOGGER.info(
+						"V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'YES'.\n" +
+						"\tNo additional checks for supplemental logging will performed at the table level.");
+			} else {
+				if (StringUtils.equalsIgnoreCase(rdbmsInfo.getSupplementalLogDataMin(), "NO")) {
+					LOGGER.error(
+							"=====================\n" +
+							"Both V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL and V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN are set to 'NO'!\n" +
+							"For the connector to work properly, you need to set connecting Oracle RDBMS as SYSDBA:\n" +
+							"alter database add supplemental log data (ALL) columns;\n" +
+							"OR recommended but more time consuming settings\n" +
+							"alter database add supplemental log data;\n" +
+							"and then enable supplemental only for required tables:\n" +
+							"alter table <OWNER>.<TABLE_NAME> add supplemental log data (ALL) columns;\n" +
+							"=====================");
+					throw new ConnectException("Must set SUPPLEMENTAL LOGGING settings!");
+				} else {
+					LOGGER.info(
+							"V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'NO'.\n" +
+							"V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN is set to '{}'.\n" + 
+							"\tAdditional checks for supplemental logging will performed at the table level.",
+							rdbmsInfo.getSupplementalLogDataMin());
+				}
+			}
+
 			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
 
