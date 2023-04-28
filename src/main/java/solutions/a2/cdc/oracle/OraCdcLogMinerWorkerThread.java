@@ -527,45 +527,55 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							}
 
 							if (oraTable != null) {
-								final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
-								final String rowId = rsLogMiner.getString("ROW_ID");
 								String sqlRedo = readSqlRedo();
-								// squeeze it!
-								sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
-								if (operation == OraCdcV$LogmnrContents.INSERT) {
-									sqlRedo = StringUtils.replace(sqlRedo, "')", "'");
-								} else {
-									sqlRedo = StringUtils.replace(sqlRedo, ")", "");
-								}
-								final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
-										combinedDataObjectId, operation, sqlRedo, timestamp, lastScn, lastRsId, lastSsn, rowId);
-
-								// Catch the LOBs!!!
-								List<OraCdcLargeObjectHolder> lobs = 
-										catchTheLob(operation, xid, dataObjectId, oraTable, sqlRedo);
-
-								if (transaction == null) {
-									if (LOGGER.isDebugEnabled()) {
-										LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
-												xid, timestamp, lastScn);
+								if (oraTable.isCheckSupplementalLogData()) {
+									final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
+									final String rowId = rsLogMiner.getString("ROW_ID");
+									// squeeze it!
+									sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
+									if (operation == OraCdcV$LogmnrContents.INSERT) {
+										sqlRedo = StringUtils.replace(sqlRedo, "')", "'");
+									} else {
+										sqlRedo = StringUtils.replace(sqlRedo, ")", "");
 									}
-									transaction = new OraCdcTransaction(processLobs, queuesRoot, xid);
-									activeTransactions.put(xid, transaction);
-									if (!legacyResiliencyModel) {
-										sortedByFirstScn.put(xid,
-												Triple.of(lastScn, lastRsId, lastSsn));
-										if (firstTransaction) {
-											firstTransaction = false;
-											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
+											combinedDataObjectId, operation, sqlRedo, timestamp, lastScn, lastRsId, lastSsn, rowId);
+
+									// Catch the LOBs!!!
+									List<OraCdcLargeObjectHolder> lobs = 
+											catchTheLob(operation, xid, dataObjectId, oraTable, sqlRedo);
+
+									if (transaction == null) {
+										if (LOGGER.isDebugEnabled()) {
+											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
+													xid, timestamp, lastScn);
+										}
+										transaction = new OraCdcTransaction(processLobs, queuesRoot, xid);
+										activeTransactions.put(xid, transaction);
+										if (!legacyResiliencyModel) {
+											sortedByFirstScn.put(xid,
+													Triple.of(lastScn, lastRsId, lastSsn));
+											if (firstTransaction) {
+												firstTransaction = false;
+												task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+											}
 										}
 									}
-								}
-								if (processLobs) {
-									transaction.addStatement(lmStmt, lobs);
+									if (processLobs) {
+										transaction.addStatement(lmStmt, lobs);
+									} else {
+										transaction.addStatement(lmStmt);
+									}
+									metrics.addRecord();
 								} else {
-									transaction.addStatement(lmStmt);
+									LOGGER.error(
+											"=====================\n" +
+											"Supplemental logging for table '{}' is not configured correctly!\n" +
+											"Please set it according to the oracdc documentation!\n" +
+											"Redo record is skipped for OPERATION={}, SCN={}, RBA='{}', XID='{}',\n\tREDO_DATA='{}'\n" +
+											"=====================\n",
+											oraTable.fqn(), operation, lastScn, StringUtils.trim(lastRsId), xid, sqlRedo);
 								}
-								metrics.addRecord();
 							}
 							break;
 						case OraCdcV$LogmnrContents.DDL:
@@ -843,7 +853,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					ready = true;
 				} catch (SQLException getConnException) {
 					LOGGER.error("Error '{}' when restoring connection, SQL errorCode = {}, SQL state = '{}'",
-							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+							getConnException.getMessage(), getConnException.getErrorCode(), getConnException.getSQLState());
 				}
 			}
 		}
