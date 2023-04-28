@@ -59,6 +59,9 @@ public class OraRdbmsInfo {
 	private String dbNCharCharset;
 	private String dbUniqueName;
 	private int redoThread;
+	private final String supplementalLogDataAll;
+	private final String supplementalLogDataMin;
+	private final boolean checkSupplementalLogData4Table;
 
 	private final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -177,6 +180,13 @@ public class OraRdbmsInfo {
 			databaseName = rs.getString("NAME");
 			dbUniqueName = rs.getString("DB_UNIQUE_NAME");
 			platformName = rs.getString("PLATFORM_NAME");
+			supplementalLogDataAll = rs.getString("SUPPLEMENTAL_LOG_DATA_ALL");
+			supplementalLogDataMin = rs.getString("SUPPLEMENTAL_LOG_DATA_MIN");
+			if (StringUtils.equalsIgnoreCase(supplementalLogDataAll, "YES")) {
+				checkSupplementalLogData4Table = true;
+			} else {
+				checkSupplementalLogData4Table = false;
+			}
 			dbCharset = rs.getString("NLS_CHARACTERSET");
 			dbNCharCharset = rs.getString("NLS_NCHAR_CHARACTERSET");
 			rs.close();
@@ -679,6 +689,18 @@ public class OraRdbmsInfo {
 
 	public void setRedoThread(int redoThread) {
 		this.redoThread = redoThread;
+	}
+
+	public String getSupplementalLogDataAll() {
+		return supplementalLogDataAll;
+	}
+
+	public String getSupplementalLogDataMin() {
+		return supplementalLogDataMin;
+	}
+
+	public boolean isCheckSupplementalLogData4Table() {
+		return checkSupplementalLogData4Table;
 	}
 
 	@Override
