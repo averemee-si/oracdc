@@ -22,6 +22,7 @@ public class ParamConstants {
 
 	public static final int SCHEMA_TYPE_INT_DEBEZIUM = 1;
 	public static final int SCHEMA_TYPE_INT_KAFKA_STD = 2;
+	public static final int SCHEMA_TYPE_INT_SINGLE = 3;
 
 	public static final int TOPIC_NAME_STYLE_INT_TABLE = 1;
 	public static final int TOPIC_NAME_STYLE_INT_SCHEMA_TABLE = 2;
@@ -54,9 +55,10 @@ public class ParamConstants {
 	public static final int BATCH_SIZE_DEFAULT = 1000;
 
 	public static final String SCHEMA_TYPE_PARAM = "a2.schema.type";
-	public static final String SCHEMA_TYPE_DOC = "Type of schema used by oracdc: Kafka Connect JDBC compatible (default) or Debezium";
+	public static final String SCHEMA_TYPE_DOC = "Type of schema used by oracdc: kafka (default) with separate schemas for key and value, single - single schema for all fields or Debezium";
 	public static final String SCHEMA_TYPE_KAFKA = "kafka";
 	public static final String SCHEMA_TYPE_DEBEZIUM = "debezium";
+	public static final String SCHEMA_TYPE_SINGLE = "single";
 
 	public static final String TABLE_EXCLUDE_PARAM = "a2.exclude";
 	public static final String TABLE_EXCLUDE_DOC = "List of tables to exclude from processing";
