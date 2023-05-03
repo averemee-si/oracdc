@@ -2,7 +2,7 @@
 
 **oracdc** is a software package for near real-time data integration and replication in heterogeneous IT environments. **oracdc** consist of two  [Apache Kafka](http://kafka.apache.org/) Source Connector's and JDBC sink connector. **oracdc** provides data integration, [transactional change data capture](https://en.wikipedia.org/wiki/Change_data_capture), and data replication between operational and analytical IT systems. 
 Starting from Oracle RDBMS 12c various Oracle tools for [CDC](https://en.wikipedia.org/wiki/Change_data_capture) and/or replication are [deprecated and desupported](https://docs.oracle.com/database/121/UPGRD/deprecated.htm) and replaced by [Oracle Golden Gate](https://www.oracle.com/middleware/technologies/goldengate.html). This project is not intended to be 100% replacement of [expensive](https://www.oracle.com/assets/technology-price-list-070617.pdf) Oracle Golden Gate licenses however may help in many practical cases. Project was tested using [Oracle E-Business Suite](https://www.oracle.com/applications/ebusiness/) customer instance for transferring various information (mostly INV, ONT, WSH, GL & XLA tables) to further reporting and analytics in [PostgreSQL](https://www.postgresql.org/) database. We tested both short transactions (human data entry) and long transactions (various accounting programs) changing millions of rows in dozens of tables (description of some tables used: [WSH_NEW_DELIVERIES](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_NEW_DELIVERIES_tbl.htm), [WSH_DELIVERY_ASSIGNMENTS](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_DELIVERY_ASSIGNMENTS_tbl.htm), [WSH_DELIVERY_DETAILS](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_DELIVERY_DETAILS_tbl.htm)).
-**oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, 19c, and 21c. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+**oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, 19c, 21c, and 23c. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 
 ## solutions.a2.cdc.oracle.OraCdcLogMinerConnector
 This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. When restarting, all in progress transactions, records, and objects are saved, their status is written to the file defined by parameter `a2.persistent.state.file` . An example `oracdc.state` file is located in `etc` directory.
@@ -137,7 +137,7 @@ Wherein
 ```
 alter system dump logfile '/path-to-archived-log-file' scn min XXXXXXXXX scn max YYYYYYYYY;
 ```
-shows correct values in redo block. This checked using all available Oracle RDBMS 21c patchsets and Oracle RDBMS 23c (21.3, 21.4, 21.5, 21.6, and 23,2).
+shows correct values in redo block. This checked using all available Oracle RDBMS 21c patchsets and Oracle RDBMS 23c (21.3, 21.4, 21.5, 21.6, and 23.2).
 Unfortunately, JSON data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-D11CC6EF-D94C-426F-B244-96CE2403924A), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
 We are watching the status of this issue.
 
@@ -163,7 +163,7 @@ Wherein
 ```
 alter system dump logfile '/path-to-archived-log-file' scn min XXXXXXXXX scn max YYYYYYYYY;
 ```
-shows correct values in redo block. This checked using Oracle RDBMS 23c (23,2).
+shows correct values in redo block. This checked using Oracle RDBMS 23c (23.2).
 Unfortunately, BOOLEAN data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-D11CC6EF-D94C-426F-B244-96CE2403924A), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
 We are watching the status of this issue.
 
@@ -291,7 +291,7 @@ mvn install
 
 ### Oracle JDBC drivers
 
-**oracdc** is shipped with Oracle JDBC 21.3.0.0, or you can copy drivers from Oracle RDBMS server
+**oracdc** is shipped with Oracle JDBC 21.9.0.0, or you can copy drivers from Oracle RDBMS server
 
 ```
 cp $ORACLE_HOME/jdbc/lib/ojdbc8.jar <JDBC directory> 
@@ -701,6 +701,9 @@ fix temporary dir check error when `a2.tmpdir` is not specified
 
 ######1.3.3.2 (MAR-2023)
 parameter `a2.protobuf.schema.naming` for fixing issue with prtobuf identifiers
+
+#####1.4.0 (MAY-2023)
+Oracle 23c readiness, supplemental logging checks, fixes for Oracle RDBMS on Microsoft Windows
 
 ## Authors
 
