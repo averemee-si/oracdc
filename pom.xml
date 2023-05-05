@@ -293,6 +293,7 @@
 								<requirement>Oracle 18c</requirement>
 								<requirement>Oracle 19c</requirement>
 								<requirement>Oracle 21c</requirement>
+								<requirement>Oracle 23c</requirement>
 								<requirement>Oracle DataGuard</requirement>
 								<requirement>Oracle Active DataGuard</requirement>
 								<requirement>Oracle Standby Database</requirement>
