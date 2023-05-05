@@ -95,7 +95,7 @@ public class OraCdcInitialLoadThread extends Thread {
 					final OraTable4InitialLoad table4Load =
 						new OraTable4InitialLoad(queuesRoot, oraTable, metrics, rdbmsInfo);
 					threadPool.submit(() -> {
-						table4Load.readTableData(asOfScn, runLatch, tablesQueue, oraConnections);
+						table4Load.readTableData(asOfScn, runLatch, running, tablesQueue, oraConnections);
 					});
 				} catch (IOException ioe) {
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
@@ -121,5 +121,15 @@ public class OraCdcInitialLoadThread extends Thread {
 	public boolean isRunning() {
 		return running.get();
 	}
+
+	public void shutdown() {
+		LOGGER.info("Stopping oracdc initial load thread...");
+		running.set(false);
+		while (runLatch.getCount() > 0) {
+			runLatch.countDown();
+		}
+		LOGGER.debug("call to shutdown() completed");
+	}
+
 
 }

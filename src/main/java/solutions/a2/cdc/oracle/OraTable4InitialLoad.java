@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Struct;
@@ -561,7 +562,10 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		return ReadMarshallable.super.usesSelfDescribingMessage();
 	}
 
-	public void readTableData(final Long asOfScn, final CountDownLatch runLatch,
+	public void readTableData(
+			final Long asOfScn,
+			final CountDownLatch runLatch,
+			final AtomicBoolean running,
 			final BlockingQueue<OraTable4InitialLoad> tablesQueue,
 			final OraConnectionObjects oraConnections) {
 		metrics.startSelectTable(tableFqn);
@@ -584,31 +588,35 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			}
 			final long startTime = System.nanoTime();
 			rsMaster = (OracleResultSet) statement.executeQuery();
-			while (rsMaster.next()) {
+			while (rsMaster.next() && running.get()) {
 				appender.writeDocument(this);
 				queueSize++;
 			}
-			rsMaster.close();
-			rsMaster = null;
-			statement.close();
-			statement = null;
-			metrics.finishSelectTable(tableFqn,
-					queueSize, queueSize * this.allColumns.size(), (System.nanoTime() - startTime));
-			success = true;
-			LOGGER.info("Table {} initial load (read phase) completed. {} rows read.", tableFqn, queueSize);
-			if (pdbName != null) {
-				Statement alterSession = connection.createStatement();
-				alterSession.execute("alter session set CONTAINER=" + rdbmsInfo.getPdbName());
-				alterSession.close();
-				alterSession = null;
+			if (running.get()) {
+				rsMaster.close();
+				rsMaster = null;
+				statement.close();
+				statement = null;
+				metrics.finishSelectTable(tableFqn,
+						queueSize, queueSize * this.allColumns.size(), (System.nanoTime() - startTime));
+				success = true;
+				LOGGER.info("Table {} initial load (read phase) completed. {} rows read.", tableFqn, queueSize);
+				if (pdbName != null) {
+					Statement alterSession = connection.createStatement();
+					alterSession.execute("alter session set CONTAINER=" + rdbmsInfo.getPdbName());
+					alterSession.close();
+					alterSession = null;
+				}
 			}
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == ORA_942) {
 				LOGGER.error("ORA-942!\nPlease grant select on table {} for user running connector!", tableFqn);
-			} else {
+			} else if (running.get()) {
 				LOGGER.error("Error while performing initial load of {}!", tableFqn);
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 				throw new ConnectException(sqle);
+			} else {
+				success = false;
 			}
 		}
 		if (success) {
@@ -618,6 +626,9 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
 				throw new ConnectException(ie);
 			}
+		} else {
+			LOGGER.warn("Incomplete initial load data for {} are removed.", tableFqn);
+			this.close();
 		}
 		runLatch.countDown();
 	}

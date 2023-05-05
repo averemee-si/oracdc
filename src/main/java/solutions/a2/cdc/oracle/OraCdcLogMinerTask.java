@@ -1112,11 +1112,31 @@ public class OraCdcLogMinerTask extends SourceTask {
 				LOGGER.info("Check Connect log files for errors.");
 			}
 		}
+		if (initialLoadWorker != null && initialLoadWorker.isRunning()) {
+			initialLoadWorker.shutdown();
+		}
 		if (!legacyResiliencyModel && activeTransactions.isEmpty()) {
 			putReadRestartScn(Triple.of(
 					worker.getLastScn(),
 					worker.getLastRsId(),
 					worker.getLastSsn()));
+		}
+		if (!activeTransactions.isEmpty()) {
+			// Clean it!
+			activeTransactions.forEach((name, transaction) -> {
+				LOGGER.warn("Removing uncompleted transaction{}", name);
+				transaction.close();
+			});
+		}
+		if (!committedTransactions.isEmpty()) {
+			committedTransactions.forEach(transaction -> {
+				if (isPollRunning.get()) {
+					LOGGER.error("Unable to remove directory {}, please remove it manually",
+							transaction.getPath().toString());
+				} else {
+					transaction.close();
+				}
+			});
 		}
 		if (oraConnections != null) {
 			try {
