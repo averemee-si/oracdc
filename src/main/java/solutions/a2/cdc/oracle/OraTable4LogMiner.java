@@ -152,13 +152,18 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
 			}
 			// Schema init - keySchema is immutable and always 1
-			final SchemaBuilder keySchemaBuilder = SchemaBuilder
+			final SchemaBuilder keySchemaBuilder;
+			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+				keySchemaBuilder = null;
+			} else {
+				keySchemaBuilder = SchemaBuilder
 						.struct()
 						.required()
 						.name(protobufSchemaNames ?
 								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + "_Key" :
 								tableFqn + ".Key")
 						.version(1);
+			}
 			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
 						.struct()
 						.optional()
@@ -176,8 +181,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					isCdb ? conId : -1, this.tableOwner, this.tableName);
 			if (pkColsSet == null) {
 				this.tableWithPk = false;
-				addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
-				LOGGER.warn("No primary key detected for table {}. ROWID will be used as PK", tableFqn);
+				if (schemaType != ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+					addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
+				}
+				LOGGER.warn("No primary key detected for table {}.{}",
+						tableFqn, 
+						schemaType != ParamConstants.SCHEMA_TYPE_INT_SINGLE ? " ROWID will be used as PK" : "");
 			}
 
 			if (isCdb) {
@@ -240,7 +249,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						allColumns.add(column);
 						idToNameMap.put(column.getNameFromId(), column);
 						// Just add to value schema
-						if (!column.isPartOfPk()) {
+						if (!column.isPartOfPk() || 
+								schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
 							valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 						}
 					}
@@ -259,7 +269,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
 					// Schema addition
-					keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+					if (schemaType != ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+						keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+					}
 					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 					}
@@ -372,8 +384,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("BEGIN: parseRedoRecord()");
 		}
-		final Struct keyStruct = new Struct(keySchema);
+		final Struct keyStruct;
+		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+			keyStruct = null;
+		} else {
+			keyStruct = new Struct(keySchema);
+		}
 		final Struct valueStruct = new Struct(valueSchema);
+		boolean skipDelete = false;
 
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("Parsing REDO record for table {}", tableFqn);
@@ -388,7 +406,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			LOGGER.trace("\tOPERATION_CODE = {}", stmt.getOperation());
 			LOGGER.trace("\tSQL_REDO = {}", stmt.getSqlRedo());
 		}
-		if (!tableWithPk) {
+		if (!tableWithPk && schemaType != ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("Do primary key substitution for table {}", tableFqn);
 			}
@@ -443,7 +461,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 										}
 									}
 								} else {
-									LOGGER.warn("Null or zero length data for overload for column {} in table {}.",
+									LOGGER.warn(
+											"\n" +
+											"=====================\n" +
+											"Null or zero length data for overload for LOB column {} with inline value in table {}.\n" +
+											"=====================",
 											oraColumn.getColumnName(), this.fqn());
 								}
 							}
@@ -479,6 +501,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						}
 					}
 				}
+			} else {
+				skipDelete = true;
+				LOGGER.warn(
+						"\n" +
+						"=====================\n" +
+						"Unable to perform delete operation on table {}, SCN={}, RBA='{}' without primary key!\n" +
+						"SQL_REDO:\n\t{}\n" +
+						"=====================",
+						this.fqn(), stmt.getScn(), stmt.getRsId(), stmt.getSqlRedo());
 			}
 		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
 			if (LOGGER.isTraceEnabled()) {
@@ -554,11 +585,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								if (oraColumn.getDefaultValuePresent()) {
 									final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
 									if (columnDefaultValue != null) {
-										LOGGER.warn("Substituting NULL value for column {}, table {} with DEFAULT value {}",
-												oraColumn.getColumnName(), this.tableFqn, columnDefaultValue);
-										LOGGER.warn("\tRedo record information:");
-										LOGGER.warn("\t\tSCN = {},\tRS_ID = {},\tSSN = {}",
-												stmt.getScn(), stmt.getRsId(), stmt.getSsn());
+										LOGGER.warn(
+												"\n" +
+												"=====================\n" +
+												"Substituting NULL value for column {}, table {} with DEFAULT value {}\n" +
+												"SCN={}, RBA='{}', SQL_REDO:\n\t{}\n" +
+												"=====================",
+												oraColumn.getColumnName(), this.tableFqn, columnDefaultValue,
+												stmt.getScn(), stmt.getRsId(), stmt.getSqlRedo());
 										valueStruct.put(oraColumn.getColumnName(), columnDefaultValue);
 										throwDataException = false;
 									}
@@ -677,49 +711,59 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 
 		SourceRecord sourceRecord = null;
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-			final Struct struct = new Struct(schema);
-			final Struct source = rdbmsInfo.getStruct(
-					stmt.getSqlRedo(),
-					pdbName, tableOwner, tableName,
-					stmt.getScn(), stmt.getTs(),
-					xid, commitScn, stmt.getRowId());
-			struct.put("source", source);
-			struct.put("before", keyStruct);
-			if (stmt.getOperation() != OraCdcV$LogmnrContents.DELETE) {
-				struct.put("after", valueStruct);
-			}
-			struct.put("op", opType);
-			struct.put("ts_ms", System.currentTimeMillis());
-			sourceRecord = new SourceRecord(
-					sourcePartition,
-					offset,
-					kafkaTopic,
-					schema,
-					struct);
-		} else if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) {
+		if (!skipDelete) {
+			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+				final Struct struct = new Struct(schema);
+				final Struct source = rdbmsInfo.getStruct(
+						stmt.getSqlRedo(),
+						pdbName, tableOwner, tableName,
+						stmt.getScn(), stmt.getTs(),
+						xid, commitScn, stmt.getRowId());
+				struct.put("source", source);
+				struct.put("before", keyStruct);
+				if (stmt.getOperation() != OraCdcV$LogmnrContents.DELETE) {
+					struct.put("after", valueStruct);
+				}
+				struct.put("op", opType);
+				struct.put("ts_ms", System.currentTimeMillis());
 				sourceRecord = new SourceRecord(
+						sourcePartition,
+						offset,
+						kafkaTopic,
+						schema,
+						struct);
+			} else if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+				if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) {
+					sourceRecord = new SourceRecord(
+							sourcePartition,
+							offset,
+							kafkaTopic,
+							topicPartition,
+							keySchema,
+							keyStruct,
+							null,
+							null);
+				} else {
+					sourceRecord = new SourceRecord(
 						sourcePartition,
 						offset,
 						kafkaTopic,
 						topicPartition,
 						keySchema,
 						keyStruct,
-						null,
-						null);
-			} else {
+						valueSchema,
+						valueStruct);
+				}
+				sourceRecord.headers().addString("op", opType);
+			} else if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
 				sourceRecord = new SourceRecord(
-					sourcePartition,
-					offset,
-					kafkaTopic,
-					topicPartition,
-					keySchema,
-					keyStruct,
-					valueSchema,
-					valueStruct);
+						sourcePartition,
+						offset,
+						kafkaTopic,
+						topicPartition,
+						valueSchema,
+						valueStruct);
 			}
-			sourceRecord.headers().addString("op", opType);
 		}
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("END: parseRedoRecord()");
@@ -841,10 +885,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					break;
 			}
 			if (pkColumns.containsKey(columnName)) {
-				keyStruct.put(columnName, columnValue);
-			}
-			if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
-				schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+					valueStruct.put(columnName, columnValue);
+				} else {
+					keyStruct.put(columnName, columnValue);
+					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+						valueStruct.put(columnName, columnValue);
+					}
+				}
+			} else {
 				if ((oraColumn.getJdbcType() == Types.BLOB ||
 						oraColumn.getJdbcType() == Types.CLOB ||
 						oraColumn.getJdbcType() == Types.NCLOB ||
@@ -861,6 +910,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					valueStruct.put(columnName, columnValue);
 				}
 			}
+
 		} catch (SQLException sqle) {
 			LOGGER.error(
 					"{}! While decoding redo values for table {}\n\t\tcolumn {}\n\t\tJDBC Type {}\n\t\tdump value (hex) '{}'",
@@ -934,7 +984,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	public void setTopicDecoderPartition(final String topicParam,
 			final int topicNameStyle, final String topicNameDelimiter,
 			final OraDumpDecoder odd, final Map<String, String> sourcePartition) {
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
+				this.schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
 			if (topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_TABLE) {
 				this.kafkaTopic = this.tableName;
 			} else if (topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE) {

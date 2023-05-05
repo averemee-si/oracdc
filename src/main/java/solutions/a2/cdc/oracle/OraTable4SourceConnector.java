@@ -223,7 +223,11 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 
 	protected void schemaEiplogue(final String tableFqn,
 			final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) throws SQLException {
-		keySchema = keySchemaBuilder.build();
+		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+			keySchema = null;
+		} else {
+			keySchema = keySchemaBuilder.build();
+		}
 		schemaEiplogue(tableFqn, valueSchemaBuilder);
 	}
 
@@ -415,6 +419,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 			}
 			// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
 			if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
+					schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ||
 					schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 				valueStruct.put(columnName, columnValue);
 			}

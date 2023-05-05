@@ -211,13 +211,17 @@ public class OraCdcLogMinerTask extends SourceTask {
 			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
 		}
 
-		if (StringUtils.equalsIgnoreCase(
-				config.getString(ParamConstants.SCHEMA_TYPE_PARAM),
-				ParamConstants.SCHEMA_TYPE_DEBEZIUM)) {
+		if (StringUtils.equalsIgnoreCase(ParamConstants.SCHEMA_TYPE_DEBEZIUM,
+				config.getString(ParamConstants.SCHEMA_TYPE_PARAM))) {
 			schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
 			topic = config.getString(ParamConstants.KAFKA_TOPIC_PARAM);
 		} else {
-			schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
+			if (StringUtils.equalsIgnoreCase(ParamConstants.SCHEMA_TYPE_SINGLE,
+					config.getString(ParamConstants.SCHEMA_TYPE_PARAM))) {
+				schemaType = ParamConstants.SCHEMA_TYPE_INT_SINGLE;
+			} else {
+				schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
+			}
 			topic = config.getString(ParamConstants.TOPIC_PREFIX_PARAM);
 			switch (config.getString(ParamConstants.TOPIC_NAME_STYLE_PARAM)) {
 			case ParamConstants.TOPIC_NAME_STYLE_TABLE:
@@ -281,7 +285,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 				topicPartition = config.getShort(ParamConstants.TOPIC_PARTITION_PARAM);
 			}
 
-			LOGGER.info("Connector {} connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.",
+			LOGGER.info(
+					"\n" +
+					"=====================\n" +
+					"Connector {} connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.\n" +
+					"=====================",
 					connectorName,
 					rdbmsInfo.getRdbmsEdition(), rdbmsInfo.getVersionString(),
 					rdbmsInfo.getInstanceName(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
@@ -295,7 +303,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 				LOGGER.trace("Oracle connection information:\n{}", rdbmsInfo.toString());
 			}
 			if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
-				LOGGER.info("Connected to PDB {} (RDBMS 19.10+ Feature)", rdbmsInfo.getPdbName());
+				LOGGER.info(
+						"\n" +
+						"=====================\n" +
+						"Connected to PDB {} (RDBMS 19.10+ Feature)\n" +
+						"=====================",
+						rdbmsInfo.getPdbName());
 			}
 
 			if (useStandby) {
@@ -303,7 +316,10 @@ public class OraCdcLogMinerTask extends SourceTask {
 						config.getString(ParamConstants.STANDBY_URL_PARAM),
 						config.getString(ParamConstants.STANDBY_WALLET_PARAM));
 				LOGGER.info(
-						"Connector {} will use connection to PHYSICAL STANDBY for LogMiner calls",
+						"\n" +
+						"=====================\n" +
+						"Connector {} will use connection to PHYSICAL STANDBY for LogMiner calls\n" +
+						"=====================",
 						connectorName);
 			}
 			if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
@@ -311,7 +327,10 @@ public class OraCdcLogMinerTask extends SourceTask {
 						config.getString(ParamConstants.DISTRIBUTED_URL_PARAM),
 						config.getString(ParamConstants.DISTRIBUTED_WALLET_PARAM));
 				LOGGER.info(
-						"Connector {} will use remote database in distributed configuration for LogMiner calls",
+						"\n" +
+						"=====================\n" +
+						"Connector {} will use remote database in distributed configuration for LogMiner calls\n" +
+						"=====================",
 						connectorName);
 			}
 

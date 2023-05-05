@@ -533,6 +533,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 				}
 				// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
 				if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
+						schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ||
 						schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 					valueStruct.put(columnName, columnValue);
 				}
@@ -623,7 +624,9 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 
 	public SourceRecord getSourceRecord() {
 		final long startNanos = System.nanoTime();
-		keyStruct = new Struct(keySchema);
+		if (schemaType != ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+			keyStruct = new Struct(keySchema);
+		}
 		valueStruct = new Struct(valueSchema);
 		final boolean result = tailer.readDocument(this);
 		tailerOffset++;
@@ -653,16 +656,25 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						kafkaTopic,
 						schema,
 						struct);
-			} else if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-				sourceRecord = new SourceRecord(
-						sourcePartition,
-						offset,
-						kafkaTopic,
-						keySchema,
-						keyStruct,
-						valueSchema,
-						valueStruct);
-					sourceRecord.headers().addString("op", "c");
+			} else {
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+					sourceRecord = new SourceRecord(
+							sourcePartition,
+							offset,
+							kafkaTopic,
+							keySchema,
+							keyStruct,
+							valueSchema,
+							valueStruct);
+				} else if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+					sourceRecord = new SourceRecord(
+							sourcePartition,
+							offset,
+							kafkaTopic,
+							valueSchema,
+							valueStruct);
+				}
+				sourceRecord.headers().addString("op", "c");
 			}
 			metrics.addSendInfo(allColumns.size(), System.nanoTime() - startNanos);
 			return sourceRecord;
