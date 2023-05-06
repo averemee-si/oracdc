@@ -168,8 +168,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						.struct()
 						.optional()
 						.name(protobufSchemaNames ?
-								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + "_Value" :
-								tableFqn + ".Value")
+								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + 
+										(schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ? "" : "_Value") :
+								tableFqn + (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ? "" : ".Value"))
 						.version(version);
 			if (!checkSupplementalLogData) {
 				this.checkSupplementalLogData = OraRdbmsInfo.supplementalLoggingSet(connection,
