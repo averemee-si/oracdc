@@ -241,6 +241,9 @@ public class OraConnectionObjects {
 					final String newPoolName = poolName + "-" + (version++);
 					LOGGER.error("Renaming pool '{}' to '{}'",
 							pds.getConnectionPoolName(), newPoolName);
+					try {
+						Thread.sleep(5);
+					} catch (InterruptedException ie) {}
 					pds.setConnectionPoolName(newPoolName);
 					return getConnection();
 				} else {
