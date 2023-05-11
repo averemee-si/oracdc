@@ -269,11 +269,11 @@ public class OraConnectionObjects {
 
 	public void destroy() throws SQLException {
 		try {
-			UniversalConnectionPoolManager mgr = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
-			mgr.destroyConnectionPool(poolName);
 			if (standby || distributed) {
 				connection4LogMiner.close();
 			}
+			UniversalConnectionPoolManager mgr = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
+			mgr.destroyConnectionPool(poolName);
 		} catch (UniversalConnectionPoolException ucpe) {
 			throw new SQLException(ucpe);
 		}
