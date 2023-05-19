@@ -705,6 +705,9 @@ parameter `a2.protobuf.schema.naming` for fixing issue with prtobuf identifiers
 #####1.4.0 (MAY-2023)
 Oracle 23c readiness, supplemental logging checks, fixes for Oracle RDBMS on Microsoft Windows
 
+#####1.4.1 (MAY-2023)
+New `a2.schema.type=single` - schema type to store all columns from database row in one message with just value schema
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
