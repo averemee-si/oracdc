@@ -157,7 +157,6 @@ public class OraColumn {
 	 *   It is assumed that the LOB column is SECUREFILE
 	 * 
 	 * @param useOracdcSchemas    true for extended schemas
-	 * @param processLobs         when true and useOracdcSchemas eq true BLOB/CLOB/NCLOB columns are processed
 	 * @param columnName
 	 * @param columnAttributes
 	 * @param originalDdl
@@ -166,7 +165,6 @@ public class OraColumn {
 	 */
 	public OraColumn(
 			final boolean useOracdcSchemas,
-			final boolean procesLobs,
 			final String columnName,
 			final String columnAttributes,
 			final String originalDdl,

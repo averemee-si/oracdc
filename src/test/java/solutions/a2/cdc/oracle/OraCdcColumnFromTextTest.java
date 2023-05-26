@@ -31,70 +31,70 @@ public class OraCdcColumnFromTextTest {
 
 	@Test
 	public void test() throws UnsupportedColumnDataTypeException {
-		OraColumn colDname = new OraColumn(true, true, "DNAME", "varchar2(100) null default 'SALES'",
+		OraColumn colDname = new OraColumn(true, "DNAME", "varchar2(100) null default 'SALES'",
 				"alter table dept add DNAME varchar2(100) null default 'SALES'",
 				4);
 		assertTrue(colDname.isNullable());
 		assertEquals(colDname.getDefaultValue(), "'SALES'");
 		assertEquals(colDname.getJdbcType(), Types.VARCHAR);
 
-		OraColumn colDnameSimple = new OraColumn(true, true, "DNAME", "varchar2(100)",
+		OraColumn colDnameSimple = new OraColumn(true, "DNAME", "varchar2(100)",
 				"alter table dept add DNAME varchar2(100)",
 				4);
 		assertTrue(colDnameSimple.isNullable());
 		assertNull(colDnameSimple.getDefaultValue());
 		assertEquals(colDnameSimple.getJdbcType(), Types.VARCHAR);
 
-		OraColumn colDloc = new OraColumn(true, true, "DLOC", "varchar2(10) not null default 'NY'",
+		OraColumn colDloc = new OraColumn(true, "DLOC", "varchar2(10) not null default 'NY'",
 				"alter table dept add DLOC varchar2(10) not null default 'NY'",
 				5);
 		assertFalse(colDloc.isNullable());
 		assertEquals(colDloc.getDefaultValue(), "'NY'");
 		assertEquals(colDloc.getJdbcType(), Types.VARCHAR);
 
-		OraColumn colDeptDate = new OraColumn(true, true, "DEPT_FOUNDED", "date not null default SYSDATE",
+		OraColumn colDeptDate = new OraColumn(true, "DEPT_FOUNDED", "date not null default SYSDATE",
 				"alter table dept add DEPT_FOUNDED date not null default SYSDATE",
 				6);
 		assertFalse(colDeptDate.isNullable());
 		assertEquals(colDeptDate.getDefaultValue(), "SYSDATE");
 		assertEquals(colDeptDate.getJdbcType(), Types.TIMESTAMP);
 
-		OraColumn colDeptDateSimple = new OraColumn(true, true, "DEPT_FOUNDED", "date",
+		OraColumn colDeptDateSimple = new OraColumn(true, "DEPT_FOUNDED", "date",
 				"alter table dept add DEPT_FOUNDED date",
 				6);
 		assertTrue(colDeptDateSimple.isNullable());
 		assertNull(colDeptDateSimple.getDefaultValue());
 		assertEquals(colDeptDateSimple.getJdbcType(), Types.TIMESTAMP);
 
-		OraColumn colDeptNumberTinyInt = new OraColumn(true, true, "SOME_NUMBER", "NUMBER(2)",
+		OraColumn colDeptNumberTinyInt = new OraColumn(true, "SOME_NUMBER", "NUMBER(2)",
 				"alter table dept add SOME_NUMBER number(2)",
 				7);
 		assertTrue(colDeptNumberTinyInt.isNullable());
 		assertNull(colDeptNumberTinyInt.getDefaultValue());
 		assertEquals(colDeptNumberTinyInt.getJdbcType(), Types.TINYINT);
 
-		OraColumn colDeptNumberSmallInt = new OraColumn(true, true, "SOME_NUMBER", "NUMBER(4)",
+		OraColumn colDeptNumberSmallInt = new OraColumn(true, "SOME_NUMBER", "NUMBER(4)",
 				"alter table dept add SOME_NUMBER NUMBER(4)",
 				7);
 		assertTrue(colDeptNumberSmallInt.isNullable());
 		assertNull(colDeptNumberSmallInt.getDefaultValue());
 		assertEquals(colDeptNumberSmallInt.getJdbcType(), Types.SMALLINT);
 
-		OraColumn colDeptNumberInteger = new OraColumn(true, true, "SOME_NUMBER", "NUMBER(8)",
+		OraColumn colDeptNumberInteger = new OraColumn(true, "SOME_NUMBER", "NUMBER(8)",
 				"alter table dept add SOME_NUMBER NUMBER(8)",
 				7);
 		assertTrue(colDeptNumberInteger.isNullable());
 		assertNull(colDeptNumberInteger.getDefaultValue());
 		assertEquals(colDeptNumberInteger.getJdbcType(), Types.INTEGER);
 
-		OraColumn colDeptNumberBigInt = new OraColumn(true, true, "SOME_NUMBER", "NUMBER(18) not null",
+		OraColumn colDeptNumberBigInt = new OraColumn(true, "SOME_NUMBER", "NUMBER(18) not null",
 				"alter table dept add SOME_NUMBER NUMBER(18) not null",
 				7);
 		assertFalse(colDeptNumberBigInt.isNullable());
 		assertNull(colDeptNumberBigInt.getDefaultValue());
 		assertEquals(colDeptNumberBigInt.getJdbcType(), Types.BIGINT);
 
-		OraColumn colDeptNumber = new OraColumn(true, true, "SOME_NUMBER", "NUMBER not null",
+		OraColumn colDeptNumber = new OraColumn(true, "SOME_NUMBER", "NUMBER not null",
 				"alter table dept add SOME_NUMBER NUMBER not null",
 				7);
 		assertFalse(colDeptNumber.isNullable());

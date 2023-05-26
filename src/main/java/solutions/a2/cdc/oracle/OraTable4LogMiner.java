@@ -1066,7 +1066,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				} else {
 					try {
 						OraColumn newColumn = new OraColumn(
-								useOracdcSchemas, processLobs,
+								useOracdcSchemas,
 								newColumnName, columnAttributes, originalDdl,
 								maxColumnId + 1);
 						allColumns.add(newColumn);
@@ -1127,7 +1127,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				} else {
 					try {
 						OraColumn changedColumn = new OraColumn(
-								useOracdcSchemas, processLobs,
+								useOracdcSchemas,
 								changedColumnName, columnAttributes, originalDdl,
 								allColumns.get(columnIndex).getColumnId());
 						if (changedColumn.equals(allColumns.get(columnIndex))) {
