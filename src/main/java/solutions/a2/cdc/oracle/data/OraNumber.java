@@ -29,13 +29,12 @@ import oracle.sql.NUMBER;
  * Representation of Oracle NUMBER for Kafka Connect
  * 
  * For more information about Oracle NUMBER format:
- *	   https://gotodba.com/2015/03/24/how-are-numbers-saved-in-oracle/
- *	   https://www.orafaq.com/wiki/Number
- *     https://support.oracle.com/rs?type=doc&id=1031902.6
- *       How Does Oracle Store Internal Numeric Data? (Doc ID 1031902.6)
- *     https://docs.oracle.com/en/database/oracle/oracle-database/12.2/jajdb/index.html?oracle/sql/NUMBER.html
+ *	   <a href="https://gotodba.com/2015/03/24/how-are-numbers-saved-in-oracle/">How are Numbers Saved in Oracle?</a>
+ *	   <a href="https://www.orafaq.com/wiki/Number">Number</a>
+ *     <a href="https://support.oracle.com/rs?type=doc&id=1031902.6">How Does Oracle Store Internal Numeric Data? (Doc ID 1031902.6)</a>
+ *     <a href="https://docs.oracle.com/en/database/oracle/oracle-database/12.2/jajdb/index.html?oracle/sql/NUMBER.html">Class NUMBER</a>
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraNumber {

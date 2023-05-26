@@ -459,7 +459,7 @@ public class OraColumn {
 	/**
 	 * Used in Sink connector
 	 * 
-	 * @param avroSchema
+	 * @param field
 	 * @param partOfPk
 	 */
 	public OraColumn(final Field field, final boolean partOfPk) throws SQLException {

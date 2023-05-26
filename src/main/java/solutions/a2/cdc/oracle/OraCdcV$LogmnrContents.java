@@ -17,7 +17,7 @@ package solutions.a2.cdc.oracle;
  * 
  * V$LOGMNR_CONTENTS.OPERATION_CODE
  * 
- * See {@link <a href="https://docs.oracle.com/en/database/oracle/oracle-database/21/refrn/V-LOGMNR_CONTENTS.html">V$LOGMNR_CONTENTS</a>}
+ * For description please see <a href="https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-LOGMNR_CONTENTS.html">V$LOGMNR_CONTENTS</a>
  * 
  * @author averemee
  */

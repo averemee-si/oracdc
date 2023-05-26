@@ -62,7 +62,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 
 	/**
 	 * 
-	 * @param tableId     (((long)V$LOGMNR_CONTENTS.CON_ID) << 32) | (V$LOGMNR_CONTENTS.DATA_OBJ# & 0xFFFFFFFFL)
+	 * @param tableId     (((long)V$LOGMNR_CONTENTS.CON_ID) {@literal <}{@literal <} 32) | (V$LOGMNR_CONTENTS.DATA_OBJ# {@literal &} 0xFFFFFFFFL)
 	 * @param operation   V$LOGMNR_CONTENTS.OPERATION_CODE
 	 * @param sqlRedo     V$LOGMNR_CONTENTS.SQL_REDO (concatenated!)
 	 * @param ts          V$LOGMNR_CONTENTS.TIMESTAMP (in millis)

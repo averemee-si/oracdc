@@ -27,7 +27,7 @@ public class ExceptionUtils {
 	 * Display the stacktrace contained in an exception.
 	 * @param exception Exception
 	 * @return String with the output from printStackTrace
-	 * @see Exception.printStackTrace()
+	 * @see java.lang.Exception#printStackTrace()
 	 **/
 	public static String getExceptionStackTrace(Exception exception) {
 		final StringBuilder sb = new StringBuilder(1024);

@@ -500,7 +500,7 @@ public class OraRdbmsInfo {
 	 * 
 	 * Returns list of threads in physical standby
 	 * 
-	 * @param url        initial connection URL
+	 * @param connection connection to database
 	 * @return           list of threads
 	 */
 	public static List<String> getStandbyThreads(OracleConnection connection) throws SQLException {
@@ -542,7 +542,6 @@ public class OraRdbmsInfo {
 	/**
 	 * Returns part of WHERE with OBJECT_ID's to exclude or include
 	 * 
-	 * @param isCdb
 	 * @param connection - Connection to dictionary database
 	 * @param exclude
 	 * @param where
