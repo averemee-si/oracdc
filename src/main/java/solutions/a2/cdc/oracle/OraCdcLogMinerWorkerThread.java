@@ -447,8 +447,20 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											wait4CheckTableCursor = false;
 											break;
 										} catch (SQLException sqle) {
-											if (sqle.getErrorCode() == ORA_2396 || sqle.getErrorCode() == ORA_17008) {
-												LOGGER.warn("Encontered an 'ORA-{}: exceeded maximum idle time, please connect again'", sqle.getErrorCode());
+											if (sqle.getErrorCode() == ORA_2396 ||
+													sqle.getErrorCode() == ORA_17008 ||
+													sqle.getErrorCode() == ORA_17410) {
+												switch (sqle.getErrorCode()) {
+												case ORA_2396:
+													LOGGER.warn("Encontered an 'ORA-02396: exceeded maximum idle time, please connect again'");
+													break;
+												case ORA_17008:
+													LOGGER.warn("Encontered an 'ORA-17008: Closed connection'");
+													break;
+												case ORA_17410:
+													LOGGER.warn("Encontered an 'ORA-17410: No more data to read from socket'");
+													break;
+												}
 												LOGGER.warn("Attempting to reconnect...");
 												try {
 													try {
@@ -457,8 +469,27 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 													} catch(SQLException unimportant) {
 														LOGGER.warn("Unable to close inactive connection after 'ORA-{}'", sqle.getErrorCode());
 													}
-													connDictionary = oraConnections.getConnection();
-													initDictionaryStatements();
+													boolean ready = false;
+													int retries = 0;
+													while (runLatch.getCount() > 0 && !ready) {
+														try {
+															connDictionary = oraConnections.getConnection();
+															initDictionaryStatements();
+														} catch(SQLException sqleRestore) {
+															if (retries > 63) {
+																LOGGER.error("Unable to restore connection after {} retries!", retries);
+																throw sqleRestore;
+															}
+														}
+														ready = true;
+														if (!ready) {
+															long waitTime = (long) Math.pow(2, retries++) + connectionRetryBackoff;
+															LOGGER.debug("Waiting {} ms for RDBMS connection restore...", waitTime);
+															try {
+																this.wait(waitTime);
+															} catch (InterruptedException ie) {}
+														}
+													}
 												} catch (SQLException ucpe) {
 													LOGGER.error("SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables",
 															sqle.getErrorCode(), sqle.getSQLState());
