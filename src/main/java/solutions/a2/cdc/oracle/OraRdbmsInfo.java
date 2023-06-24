@@ -189,9 +189,9 @@ public class OraRdbmsInfo {
 			supplementalLogDataAll = rs.getString("SUPPLEMENTAL_LOG_DATA_ALL");
 			supplementalLogDataMin = rs.getString("SUPPLEMENTAL_LOG_DATA_MIN");
 			if (StringUtils.equalsIgnoreCase(supplementalLogDataAll, "YES")) {
-				checkSupplementalLogData4Table = true;
-			} else {
 				checkSupplementalLogData4Table = false;
+			} else {
+				checkSupplementalLogData4Table = true;
 			}
 			dbCharset = rs.getString("NLS_CHARACTERSET");
 			dbNCharCharset = rs.getString("NLS_NCHAR_CHARACTERSET");
