@@ -709,6 +709,10 @@ Oracle 23c readiness, supplemental logging checks, fixes for Oracle RDBMS on Mic
 #####1.4.1 (MAY-2023)
 New `a2.schema.type=single` - schema type to store all columns from database row in one message with just value schema
 
+#####1.4.2 (JUN-2023)
+fix unhandled ORA-17410 running 12c on Windows and more strict checks for supplemental logging settings
+
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
