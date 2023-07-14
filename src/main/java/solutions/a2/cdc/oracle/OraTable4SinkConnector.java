@@ -197,8 +197,32 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			}
 			ResultSet resultSet = metaData.getTables(null, null, tableNameCaseConv, null);
 			if (resultSet.next()) {
-				LOGGER.debug("Table {} already exist.", tableNameCaseConv);
+				LOGGER.info(
+						"\n" +
+						"=====================\n" +
+						"Table '{}' already exists with type '{}' in catalog '{}', schema '{}'.\n" +
+						"=====================",
+						resultSet.getString("TABLE_NAME"),
+						resultSet.getString("TABLE_TYPE"),
+						resultSet.getString("TABLE_CAT"),
+						resultSet.getString("TABLE_SCHEM"));
 				ready4Ops = true;
+			} else {
+				if (autoCreateTable) {
+					LOGGER.info(
+							"\n" +
+							"=====================\n" +
+							"Table '{}' will be created in the target database.\n" +
+							"=====================",
+							tableNameCaseConv);
+				} else {
+					LOGGER.error(
+							"\n" +
+							"=====================\n" +
+							"Table '{}' does not exist in the target database and a2.autocreate=false!\n" +
+							"=====================",
+							tableNameCaseConv);
+				}
 			}
 			resultSet.close();
 			resultSet = null;
