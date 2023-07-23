@@ -28,7 +28,10 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 
 	public static final String AUTO_CREATE_PARAM = "a2.autocreate";
 	private static final String AUTO_CREATE_DOC = "Automatically create the destination table if missed";
-	public static final String AUTO_CREATE_DEFAULT = "false";
+
+	public static final String PK_STRING_LENGTH_PARAM = "a2.pk.string.length";
+	private static final String PK_STRING_LENGTH_DOC = "The length of the string by default when it is used as a part of primary key. Derfault - 15";
+
 
 	public static ConfigDef config() {
 		return new ConfigDef()
@@ -45,8 +48,11 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 						ParamConstants.SCHEMA_TYPE_KAFKA,
 						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA, ParamConstants.SCHEMA_TYPE_DEBEZIUM),
 						Importance.HIGH, ParamConstants.SCHEMA_TYPE_DOC)
-				.define(AUTO_CREATE_PARAM, Type.BOOLEAN, AUTO_CREATE_DEFAULT,
-						Importance.HIGH, AUTO_CREATE_DOC);
+				.define(AUTO_CREATE_PARAM, Type.BOOLEAN, false,
+						Importance.HIGH, AUTO_CREATE_DOC)
+				.define(PK_STRING_LENGTH_PARAM, Type.INT, 15,
+						Importance.LOW, PK_STRING_LENGTH_DOC)
+				;
 	}
 
 	public OraCdcJdbcSinkConnectorConfig(Map<?, ?> originals) {
