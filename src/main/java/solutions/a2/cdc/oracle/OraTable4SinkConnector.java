@@ -235,7 +235,6 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			LOGGER.debug("Prepare to create table {}", this.tableName);
 			List<String> sqlCreateTexts = TargetDbSqlUtils.createTableSql(
 					tableName, dbType, pkColumns, allColumns, lobColumns);
-			LOGGER.debug("Creating table with:\n{}", sqlCreateTexts.get(0));
 			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
 					sqlCreateTexts.size() > 1) {
 				for (int i = 1; i < sqlCreateTexts.size(); i++) {
@@ -246,6 +245,12 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			try (Connection connection = sinkPool.getConnection()) {
 				Statement statement = connection.createStatement();
 				statement.executeUpdate(sqlCreateTexts.get(0));
+				LOGGER.info(
+						"\n" +
+						"=====================\n" +
+						"Table '{}' created in the target database using:\n{}" +
+						"=====================",
+						tableName, sqlCreateTexts.get(0));
 				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
 						sqlCreateTexts.size() > 1) {
 					for (int i = 1; i < sqlCreateTexts.size(); i++) {
