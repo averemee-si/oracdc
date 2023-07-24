@@ -206,6 +206,15 @@ public class ParamConstants {
 			"When set to true oracdc generates schema names as valid Protocol Buffers identifiers using underscore as separator.\n" + 
 			"When set to false (default) oracdc generates schema names using dot as separator.\n";
 	
+	public static final String ORA_TRANSACTION_IMPL_PARAM = "a2.transaction.implementation";
+	public static final String ORA_TRANSACTION_IMPL_DOC = 
+			"Queue implementation for processing SQL statements within transactions.\n" +
+			"Allowed values: ChronicleQueue and ConcurrentLinkedQueue.\n" + 
+			"Default - ChronicleQueue.\n" + 
+			"LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue.\n";
+	public static final String ORA_TRANSACTION_IMPL_CHRONICLE = "ChronicleQueue";
+	public static final String ORA_TRANSACTION_IMPL_JVM = "ConcurrentLinkedQueue";
+	
 	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";

@@ -105,6 +105,9 @@ alter session set events '10046 trace name context forever, level 8';
  ```
 Default - false.
 
+`a2.transaction.implementation` - 	Queue implementation for processing SQL statements within transactions. Allowed values: ``ChronicleQueue`` and ``ConcurrentLinkedQueue``. Default - ``ChronicleQueue``. LOB processing is only possible if `a2.transaction.implementation` is set to ``ChronicleQueue``.
+
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
