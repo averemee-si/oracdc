@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang3.StringUtils;
+
 import solutions.a2.cdc.oracle.OraCdcJdbcSinkConnectionPool;
 import solutions.a2.cdc.oracle.OraColumn;
 
@@ -125,11 +127,20 @@ public class TargetDbSqlUtils {
 				put(Types.NCLOB, "nvarchar(max)");
 				put(Types.SQLXML, "xml");
 			}});
+	@SuppressWarnings("serial")
+	private static final Map<Integer, String> PK_STRING_MAPPING =
+			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
+				put(OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, "varchar($)");
+				put(OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, "varchar($)");
+				put(OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, "VARCHAR2($)");
+				put(OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL, "nvarchar($)");
+			}});
 
 	/**
 	 * 
 	 * @param tableName
 	 * @param dbType
+	 * @param pkStringLength
 	 * @param pkColumns
 	 * @param allColumns
 	 * @param lobColumns
@@ -140,6 +151,7 @@ public class TargetDbSqlUtils {
 	public static List<String> createTableSql(
 			final String tableName,
 			final int dbType,
+			final int pkStringLength,
 			final Map<String, OraColumn> pkColumns,
 			final List<OraColumn> allColumns,
 			final Map<String, Object> lobColumns) {
@@ -175,7 +187,7 @@ public class TargetDbSqlUtils {
 		while (pkIterator.hasNext()) {
 			OraColumn column = pkIterator.next().getValue();
 			sbCreateTable.append("  ");
-			sbCreateTable.append(getTargetDbColumn(dbType, dataTypesMap, column));
+			sbCreateTable.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column));
 			sbCreateTable.append(" not null");
 
 			sbPrimaryKey.append(column.getColumnName());
@@ -191,7 +203,7 @@ public class TargetDbSqlUtils {
 		for (int i = 0; i < nonPkColumnCount; i++) {
 			OraColumn column = allColumns.get(i);
 			sbCreateTable.append(",\n  ");
-			sbCreateTable.append(getTargetDbColumn(dbType, dataTypesMap, column));
+			sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 			if (!column.isNullable()) {
 				sbCreateTable.append(" not null");
 			}
@@ -205,7 +217,7 @@ public class TargetDbSqlUtils {
 				if (columnObject instanceof OraColumn) {
 					final OraColumn column = (OraColumn) columnObject;
 					sbCreateTable.append("  ");
-					sbCreateTable.append(getTargetDbColumn(dbType, dataTypesMap, column));
+					sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 
 					if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
 							column.getJdbcType() == Types.BLOB) {
@@ -227,7 +239,7 @@ public class TargetDbSqlUtils {
 					for (int i = 0; i < columnList.size(); i++) {
 						final OraColumn column = columnList.get(i);
 						sbCreateTable.append("  ");
-						sbCreateTable.append(getTargetDbColumn(dbType, dataTypesMap, column));
+						sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 
 						if (i < (columnList.size() -1)) {
 							sbCreateTable.append(",\n");
@@ -246,12 +258,17 @@ public class TargetDbSqlUtils {
 		return sqlStrings;
 	}
 
-	private static String getTargetDbColumn(final int dbType, final Map<Integer, String> dataTypesMap, final OraColumn column) {
+	private static String getTargetDbColumn(final int dbType, final int pkStringLength, final Map<Integer, String> dataTypesMap, final OraColumn column) {
 		final StringBuilder sb = new StringBuilder(64);
 		sb.append(column.getColumnName());
 		sb.append(" ");
 		if (column.getJdbcType() != Types.DECIMAL)
-			sb.append(dataTypesMap.get(column.getJdbcType()));
+			if (column.getJdbcType() == Types.VARCHAR && pkStringLength > -1) {
+				sb.append(
+						StringUtils.replace(PK_STRING_MAPPING.get(dbType), "$", Integer.toString(pkStringLength)));
+			} else {
+				sb.append(dataTypesMap.get(column.getJdbcType()));
+			}
 		else {
 			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL || 
 					dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE ||

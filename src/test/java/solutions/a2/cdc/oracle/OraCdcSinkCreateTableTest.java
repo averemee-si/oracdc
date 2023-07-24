@@ -40,8 +40,10 @@ public class OraCdcSinkCreateTableTest {
 	public void test() {
 
 		final Field deptNo = new Field("DEPTNO", 0, Schema.INT8_SCHEMA);
+		final Field deptKey = new Field("DEPT_KEY", 0, Schema.STRING_SCHEMA);
 		final List<Field> keyFields = new ArrayList<>();
 		keyFields.add(deptNo);
+		keyFields.add(deptKey);
 
 		final Field dName = new Field("DNAME", 0, Schema.OPTIONAL_STRING_SCHEMA);
 		final Field loc = new Field("LOC", 1, Schema.OPTIONAL_STRING_SCHEMA);
@@ -91,15 +93,19 @@ public class OraCdcSinkCreateTableTest {
 
 		List<String> createScottDeptOra = TargetDbSqlUtils.createTableSql(
 				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE,
+				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns); 
 		List<String> createScottDeptPg = TargetDbSqlUtils.createTableSql(
 				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL,
+				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns); 
 		List<String> createScottDeptMySql = TargetDbSqlUtils.createTableSql(
 				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL,
+				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns);
 		List<String> createScottDeptMsSql = TargetDbSqlUtils.createTableSql(
 				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL,
+				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns);
 
 		System.out.println("++++++++++ Oracle ++++++++++++++++++++++++");

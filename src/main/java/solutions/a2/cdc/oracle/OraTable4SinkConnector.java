@@ -77,13 +77,15 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	 * @param sinkPool
 	 * @param tableName
 	 * @param record
+	 * @param pkStringLength
 	 * @param autoCreateTable
 	 * @param schemaType
 	 * @throws SQLException 
 	 */
 	public OraTable4SinkConnector(
 			final OraCdcJdbcSinkConnectionPool sinkPool, final String tableName,
-			final SinkRecord record, final boolean autoCreateTable, final int schemaType) throws SQLException {
+			final SinkRecord record, final int pkStringLength, final boolean autoCreateTable,
+			final int schemaType) throws SQLException {
 		super(schemaType);
 		dbType = sinkPool.getDbType();
 		LOGGER.trace("Creating OraTable object from Kafka connect SinkRecord...");
@@ -151,7 +153,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			onlyPkColumns = false;
 		}
 		metrics = new OraCdcSinkTableInfo(this.tableName);
-		prepareSql(sinkPool, autoCreateTable);
+		prepareSql(sinkPool, pkStringLength, autoCreateTable);
 		upsertCount = 0;
 		deleteCount = 0;
 		upsertTime = 0;
@@ -160,6 +162,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 
 
 	private void prepareSql(final OraCdcJdbcSinkConnectionPool sinkPool,
+							final int pkStringLength,
 							final boolean autoCreateTable) throws SQLException {
 		// Prepare UPDATE/INSERT/DELETE statements...
 		LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
@@ -234,7 +237,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			// Create table in target database
 			LOGGER.debug("Prepare to create table {}", this.tableName);
 			List<String> sqlCreateTexts = TargetDbSqlUtils.createTableSql(
-					tableName, dbType, pkColumns, allColumns, lobColumns);
+					tableName, dbType, pkStringLength, pkColumns, allColumns, lobColumns);
 			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
 					sqlCreateTexts.size() > 1) {
 				for (int i = 1; i < sqlCreateTexts.size(); i++) {

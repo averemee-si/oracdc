@@ -113,15 +113,19 @@ public class OraCdcTransformNestedSchemaTest {
 
 		List<String> createScottDeptOra = TargetDbSqlUtils.createTableSql(
 				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE,
+				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns); 
 		List<String> createScottDeptPg = TargetDbSqlUtils.createTableSql(
 				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL,
+				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns); 
 		List<String> createScottDeptMySql = TargetDbSqlUtils.createTableSql(
 				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL,
+				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns);
 		List<String> createScottDeptMsSql = TargetDbSqlUtils.createTableSql(
 				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL,
+				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns);
 
 		System.out.println("++++++++++ Oracle ++++++++++++++++++++++++");

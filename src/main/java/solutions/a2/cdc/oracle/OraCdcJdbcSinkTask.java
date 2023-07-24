@@ -48,6 +48,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 	private boolean autoCreateTable = false;
 	private int schemaType;
 	private OraCdcJdbcSinkConnectionPool sinkPool;
+	private int pkStringLength;
 
 	@Override
 	public String version() {
@@ -83,6 +84,8 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 			schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
 		else
 			schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
+		pkStringLength = config.getInt(OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_PARAM);
+		LOGGER.debug("{} is set to {}.", OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_PARAM, pkStringLength);
 	}
 
 	@Override
@@ -105,7 +108,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 				if (oraTable == null) {
 					LOGGER.debug("Create new table definition for {} and add it to processing map,", tableName);
 					oraTable = new OraTable4SinkConnector(
-								sinkPool, tableName, record, autoCreateTable, schemaType);
+								sinkPool, tableName, record, pkStringLength, autoCreateTable, schemaType);
 					tablesInProcessing.put(tableName, oraTable);
 				}
 				if (!tablesInProcess.contains(tableName)) {
