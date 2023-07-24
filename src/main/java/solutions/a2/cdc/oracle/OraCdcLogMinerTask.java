@@ -237,6 +237,18 @@ public class OraCdcLogMinerTask extends SourceTask {
 			topicNameDelimiter = config.getString(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
 		}
 		processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
+		if (processLobs && !StringUtils.equalsIgnoreCase(
+					config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
+					ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE)) {
+			LOGGER.error(
+					"\n" +
+					"=====================\n" +
+					"LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!\n" +
+					"Please set a2.process.lobs to false if a2.transaction.implementation is set to ConcurrentLinkedQueue\n" +
+					"and restart connector!!!\n" +
+					"=====================");
+			throw new ConnectException("LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!");
+		}
 		if (processLobs) {
 			final String transformLobsImplClass = config.getString(ParamConstants.LOB_TRANSFORM_CLASS_PARAM);
 			LOGGER.info("oracdc will process Oracle LOBs using {} LOB transformations implementation",
