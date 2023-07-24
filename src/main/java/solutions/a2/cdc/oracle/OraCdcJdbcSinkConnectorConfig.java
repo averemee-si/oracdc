@@ -31,6 +31,7 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 
 	public static final String PK_STRING_LENGTH_PARAM = "a2.pk.string.length";
 	private static final String PK_STRING_LENGTH_DOC = "The length of the string by default when it is used as a part of primary key. Derfault - 15";
+	public static final int PK_STRING_LENGTH_DEFAULT = 15;
 
 
 	public static ConfigDef config() {
@@ -50,7 +51,7 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 						Importance.HIGH, ParamConstants.SCHEMA_TYPE_DOC)
 				.define(AUTO_CREATE_PARAM, Type.BOOLEAN, false,
 						Importance.HIGH, AUTO_CREATE_DOC)
-				.define(PK_STRING_LENGTH_PARAM, Type.INT, 15,
+				.define(PK_STRING_LENGTH_PARAM, Type.INT, PK_STRING_LENGTH_DEFAULT,
 						Importance.LOW, PK_STRING_LENGTH_DOC)
 				;
 	}
