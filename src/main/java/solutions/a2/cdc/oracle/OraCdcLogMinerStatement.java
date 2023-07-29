@@ -196,6 +196,19 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		return sb.toString();
 	}
 
+	public void clone(final OraCdcLogMinerStatement other) {
+		other.tableId = this.tableId;
+		other.operation = this.operation;
+		other.sqlRedo = this.sqlRedo;
+		other.ts = this.ts;
+		other.scn = this.scn;
+		other.rsId = this.rsId;
+		other.ssn = this.ssn;
+		other.rowId = this.rowId;
+		other.lobCount = this.lobCount;
+		other.holderSize = this.holderSize;
+	}
+
 	@Override
 	public void writeMarshallable(WireOut wire) {
 		wire.bytes()
