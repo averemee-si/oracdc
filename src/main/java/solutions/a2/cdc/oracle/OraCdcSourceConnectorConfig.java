@@ -141,7 +141,7 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				.define(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.PROTOBUF_SCHEMA_NAMING_DOC)
 				.define(ParamConstants.ORA_TRANSACTION_IMPL_PARAM, Type.STRING,
-						ParamConstants.TABLE_LIST_STYLE_STATIC,
+						ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
 						ConfigDef.ValidString.in(ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
 								ParamConstants.ORA_TRANSACTION_IMPL_JVM),
 						Importance.LOW, ParamConstants.ORA_TRANSACTION_IMPL_DOC)
