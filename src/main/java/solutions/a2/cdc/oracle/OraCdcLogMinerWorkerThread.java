@@ -60,6 +60,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private static final int ORA_17410 = 17410;
 	private static final int ORA_2396 = 2396;
 	private static final int ORA_17008 = 17008;
+	private static final int ORA_17002 = 17002;
+	private static final int MAX_RETRIES = 63;
 
 	private final OraCdcLogMinerTask task;
 	private final int pollInterval;
@@ -452,26 +454,29 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											break;
 										} catch (SQLException sqle) {
 											if (sqle.getErrorCode() == ORA_2396 ||
+													sqle.getErrorCode() == ORA_17002 ||
 													sqle.getErrorCode() == ORA_17008 ||
-													sqle.getErrorCode() == ORA_17410) {
-												switch (sqle.getErrorCode()) {
-												case ORA_2396:
-													LOGGER.warn("Encontered an 'ORA-02396: exceeded maximum idle time, please connect again'");
-													break;
-												case ORA_17008:
-													LOGGER.warn("Encontered an 'ORA-17008: Closed connection'");
-													break;
-												case ORA_17410:
-													LOGGER.warn("Encontered an 'ORA-17410: No more data to read from socket'");
-													break;
-												}
-												LOGGER.warn("Attempting to reconnect...");
+													sqle.getErrorCode() == ORA_17410 || 
+													sqle instanceof SQLRecoverableException ||
+													(sqle.getCause() != null && sqle.getCause() instanceof SQLRecoverableException)) {
+												LOGGER.warn(
+														"\n" +
+														"=====================\n" +
+														"Encontered an 'ORA-{}: {}'\n" +
+														"Attempting to reconnect to dictionary...\n" +
+														"=====================",
+														sqle.getErrorCode(), sqle.getMessage());
 												try {
 													try {
 														connDictionary.close();
 														connDictionary = null;
 													} catch(SQLException unimportant) {
-														LOGGER.warn("Unable to close inactive connection after 'ORA-{}'", sqle.getErrorCode());
+														LOGGER.warn(
+																"\n" +
+																"=====================\n" +
+																"Unable to close inactive dictionary connection after 'ORA-{}'\n" +
+																"=====================",
+																sqle.getErrorCode());
 													}
 													boolean ready = false;
 													int retries = 0;
@@ -480,31 +485,43 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 															connDictionary = oraConnections.getConnection();
 															initDictionaryStatements();
 														} catch(SQLException sqleRestore) {
-															if (retries > 63) {
-																LOGGER.error("Unable to restore connection after {} retries!", retries);
+															if (retries > MAX_RETRIES) {
+																LOGGER.error(
+																		"\n" +
+																		"=====================\n" +
+																		"Unable to restore dictionary connection after {} retries!\n" +
+																		"=====================",
+																		retries);
 																throw sqleRestore;
 															}
 														}
 														ready = true;
 														if (!ready) {
 															long waitTime = (long) Math.pow(2, retries++) + connectionRetryBackoff;
-															LOGGER.debug("Waiting {} ms for RDBMS connection restore...", waitTime);
+															LOGGER.warn("Waiting {} ms for dictionary connection to restore...", waitTime);
 															try {
 																this.wait(waitTime);
 															} catch (InterruptedException ie) {}
 														}
 													}
 												} catch (SQLException ucpe) {
-													LOGGER.error("SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables",
-															sqle.getErrorCode(), sqle.getSQLState());
+													LOGGER.error(
+															"\n" +
+															"=====================\n" +
+															"SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables\n" +
+															"SQL error message = {}\n" +
+															"=====================",
+															ucpe.getErrorCode(), ucpe.getSQLState(), ucpe.getMessage());
 													throw new SQLException(sqle);
 												}
 											} else {
-												//TODO
-												//TODO Check for more SQL errors.....
-												//TODO
-												LOGGER.error("SQL errorCode = {}, SQL state = '{}' while trying to connect to dictionary tables",
-														sqle.getErrorCode(), sqle.getSQLState());
+												LOGGER.error(
+														"\n" +
+														"=====================\n" +
+														"SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dictionary tables\n" +
+														"SQL error message = {}\n" +
+														"=====================",
+														sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
 												throw new SQLException(sqle);
 											}
 										}
