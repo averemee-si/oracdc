@@ -92,6 +92,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final ActiveTransComparator activeTransComparator;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
 	private final boolean useOracdcSchemas;
+	private final boolean useChronicleQueue;
 	private long lastScn;
 	private String lastRsId;
 	private long lastSsn;
@@ -187,6 +188,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			nonLobObjects = null;
 		}
 		this.protobufSchemaNames = config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM);
+		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
+				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
+				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
 
 		try {
 			connLogMiner = oraConnections.getLogMinerConnection(traceSession);
@@ -581,7 +585,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
 													xid, timestamp, lastScn);
 										}
-										transaction = new OraCdcTransaction(processLobs, queuesRoot, xid);
+										if (useChronicleQueue) {
+											transaction = new OraCdcTransactionChronicleQueue(processLobs, queuesRoot, xid);
+										} else {
+											transaction = new OraCdcTransactionArrayList(xid);
+										}
 										activeTransactions.put(xid, transaction);
 										if (!legacyResiliencyModel) {
 											sortedByFirstScn.put(xid,
@@ -593,7 +601,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 										}
 									}
 									if (processLobs) {
-										transaction.addStatement(lmStmt, lobs);
+										((OraCdcTransactionChronicleQueue) transaction).addStatement(lmStmt, lobs);
 									} else {
 										transaction.addStatement(lmStmt);
 									}
@@ -633,7 +641,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
 													xid, timestamp, lastScn);
 										}
-										transaction = new OraCdcTransaction(processLobs, queuesRoot, xid);
+										if (useChronicleQueue) {
+											transaction = new OraCdcTransactionChronicleQueue(processLobs, queuesRoot, xid);
+										} else {
+											transaction = new OraCdcTransactionArrayList(xid);
+										}
 										activeTransactions.put(xid, transaction);
 										if (!legacyResiliencyModel) {
 											sortedByFirstScn.put(xid,

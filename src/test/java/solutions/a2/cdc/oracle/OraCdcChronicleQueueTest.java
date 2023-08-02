@@ -37,7 +37,7 @@ public class OraCdcChronicleQueueTest {
 				System.currentTimeMillis(),275168436063l," 0x000098.000001b5.0010 ",
 				0, "AAAWbzAAEAAAB6FAAA");
 		String xid = "0000270016000000";
-		OraCdcTransaction transaction = new OraCdcTransaction(queuesRoot, xid, updIn);
+		OraCdcTransaction transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, updIn);
 		OraCdcLogMinerStatement updOut = new OraCdcLogMinerStatement();
 		transaction.getStatement(updOut);
 		transaction.close();

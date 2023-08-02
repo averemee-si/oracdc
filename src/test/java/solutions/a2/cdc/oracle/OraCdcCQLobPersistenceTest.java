@@ -72,18 +72,18 @@ public class OraCdcCQLobPersistenceTest {
 		final String xid = "0000270016000000";
 
 		// Add some statements.....
-		final OraCdcTransaction transaction = new OraCdcTransaction(true, queuesRoot, xid);
-		transaction.addStatement(updIn1, updInLobs1);
-		transaction.addStatement(updIn2, updInLobs2);
-		transaction.addStatement(updIn3, updInLobs3);
+		final OraCdcTransaction transaction = new OraCdcTransactionChronicleQueue(true, queuesRoot, xid);
+		((OraCdcTransactionChronicleQueue) transaction).addStatement(updIn1, updInLobs1);
+		((OraCdcTransactionChronicleQueue) transaction).addStatement(updIn2, updInLobs2);
+		((OraCdcTransactionChronicleQueue) transaction).addStatement(updIn3, updInLobs3);
 
 		// Read just one.....
 		OraCdcLogMinerStatement updOut = new OraCdcLogMinerStatement();
 		List<OraCdcLargeObjectHolder> updOutLobs = new ArrayList<>();
-		transaction.getStatement(updOut, updOutLobs);
+		((OraCdcTransactionChronicleQueue) transaction).getStatement(updOut, updOutLobs);
 
 		// Stop of processing and store value to static variables.....
-		persistenceQueuePath = transaction.getPath();
+		persistenceQueuePath = ((OraCdcTransactionChronicleQueue) transaction).getPath();
 		persistenceXid = transaction.getXid();
 		persistenceFirstChange = transaction.getFirstChange();
 		persistenceNextChange = transaction.getNextChange();
@@ -102,7 +102,7 @@ public class OraCdcCQLobPersistenceTest {
 		qt.processQueueBeforeRestart();
 
 		// Restore transaction object from file...
-		final OraCdcTransaction transaction = new OraCdcTransaction(
+		final OraCdcTransaction transaction = new OraCdcTransactionChronicleQueue(
 				true,
 				persistenceQueuePath,
 				persistenceXid,
@@ -115,7 +115,7 @@ public class OraCdcCQLobPersistenceTest {
 		OraCdcLogMinerStatement updOut = new OraCdcLogMinerStatement();
 		List<OraCdcLargeObjectHolder> updOutLobs2 = new ArrayList<>();
 		// We expect updIn2
-		assertTrue(transaction.getStatement(updOut, updOutLobs2));
+		assertTrue(((OraCdcTransactionChronicleQueue) transaction).getStatement(updOut, updOutLobs2));
 		assertEquals(updIn2.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
 		assertEquals(2, transaction.offset(), "transaction.offset() should return 2!");
 		assertEquals(21, updOutLobs2.get(0).getLobId(), "updOutLobs2.get(0).getLobId() should return 21!");
@@ -123,7 +123,7 @@ public class OraCdcCQLobPersistenceTest {
 		
 		// We expect updIn3
 		List<OraCdcLargeObjectHolder> updOutLobs3 = new ArrayList<>();
-		assertTrue(transaction.getStatement(updOut, updOutLobs3));
+		assertTrue(((OraCdcTransactionChronicleQueue) transaction).getStatement(updOut, updOutLobs3));
 		assertEquals(updIn3.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
 		assertEquals(3, transaction.offset(), "transaction.offset() should return 3!");
 		assertEquals(33, updOutLobs3.get(2).getLobId(), "updOutLobs3.get(2).getLobId() should return 33!");

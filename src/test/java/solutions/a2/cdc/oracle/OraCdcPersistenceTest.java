@@ -60,14 +60,14 @@ public class OraCdcPersistenceTest {
 
 		final String tmpDir = System.getProperty("java.io.tmpdir");
 		final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
-		final OraCdcTransaction trans1 = new OraCdcTransaction(queuesRoot, xid1, updIn1);
+		final OraCdcTransaction trans1 = new OraCdcTransactionChronicleQueue(queuesRoot, xid1, updIn1);
 		trans1.setCommitScn(275168436063l);
-		final OraCdcTransaction trans2 = new OraCdcTransaction(queuesRoot, xid2, updIn2);
+		final OraCdcTransaction trans2 = new OraCdcTransactionChronicleQueue(queuesRoot, xid2, updIn2);
 		List<Map<String, Object>> inProgress = new ArrayList<>();
-		inProgress.add(trans2.attrsAsMap());
-		final OraCdcTransaction trans3 = new OraCdcTransaction(queuesRoot, xid3, updIn3);
+		inProgress.add(((OraCdcTransactionChronicleQueue)trans2).attrsAsMap());
+		final OraCdcTransaction trans3 = new OraCdcTransactionChronicleQueue(queuesRoot, xid3, updIn3);
 		List<Map<String, Object>> committed = new ArrayList<>();
-		committed.add(trans3.attrsAsMap());
+		committed.add(((OraCdcTransactionChronicleQueue)trans3).attrsAsMap());
 
 		OraCdcPersistentState ops = new OraCdcPersistentState();
 		ops.setDbId(710804450l);
@@ -77,7 +77,7 @@ public class OraCdcPersistenceTest {
 		ops.setLastScn(275168436063l);
 		ops.setLastRsId(" 0x000098.000001b5.0030 ");
 		ops.setLastSsn(0l);
-		ops.setCurrentTransaction(trans1.attrsAsMap());
+		ops.setCurrentTransaction(((OraCdcTransactionChronicleQueue)trans1).attrsAsMap());
 		ops.setInProgressTransactions(inProgress);
 		ops.setCommittedTransactions(committed);
 

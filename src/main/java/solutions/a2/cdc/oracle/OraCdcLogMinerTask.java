@@ -97,6 +97,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private boolean needToStoreState = false;
 	private boolean useOracdcSchemas = false;
 	private boolean processLobs = false;
+	private boolean useChronicleQueue = true;
 	private CountDownLatch runLatch;
 	private AtomicBoolean isPollRunning;
 	private boolean execInitialLoad = false;
@@ -236,20 +237,21 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 			topicNameDelimiter = config.getString(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
 		}
+		useChronicleQueue = StringUtils.equalsIgnoreCase(
+				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
+				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
 		processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
-		if (processLobs && !StringUtils.equalsIgnoreCase(
-					config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
-					ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE)) {
-			LOGGER.error(
-					"\n" +
-					"=====================\n" +
-					"LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!\n" +
-					"Please set a2.process.lobs to false if a2.transaction.implementation is set to ConcurrentLinkedQueue\n" +
-					"and restart connector!!!\n" +
-					"=====================");
-			throw new ConnectException("LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!");
-		}
 		if (processLobs) {
+			if (!useChronicleQueue) {
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!\n" +
+						"Please set a2.process.lobs to false if a2.transaction.implementation is set to ConcurrentLinkedQueue\n" +
+						"and restart connector!!!\n" +
+						"=====================");
+				throw new ConnectException("LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!");
+			}
 			final String transformLobsImplClass = config.getString(ParamConstants.LOB_TRANSFORM_CLASS_PARAM);
 			LOGGER.info("oracdc will process Oracle LOBs using {} LOB transformations implementation",
 					transformLobsImplClass);
@@ -515,14 +517,14 @@ public class OraCdcLogMinerTask extends SourceTask {
 							}
 							
 							if (persistentState.getCurrentTransaction() != null) {
-								transaction = OraCdcTransaction.restoreFromMap(persistentState.getCurrentTransaction());
+								transaction = OraCdcTransactionChronicleQueue.restoreFromMap(persistentState.getCurrentTransaction());
 								// To prevent committedTransactions.poll() in this.poll()
 								lastStatementInTransaction = false;
 								LOGGER.debug("Restored current transaction {}", transaction.toString());
 							}
 							if (persistentState.getCommittedTransactions() != null) {
 								for (int i = 0; i < persistentState.getCommittedTransactions().size(); i++) {
-									final OraCdcTransaction oct = OraCdcTransaction.restoreFromMap(
+									final OraCdcTransaction oct = OraCdcTransactionChronicleQueue.restoreFromMap(
 											persistentState.getCommittedTransactions().get(i));
 									committedTransactions.add(oct);
 									LOGGER.debug("Restored committed transaction {}", oct.toString());
@@ -530,7 +532,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							}
 							if (persistentState.getInProgressTransactions() != null) {
 								for (int i = 0; i < persistentState.getInProgressTransactions().size(); i++) {
-									final OraCdcTransaction oct = OraCdcTransaction.restoreFromMap(
+									final OraCdcTransaction oct = OraCdcTransactionChronicleQueue.restoreFromMap(
 											persistentState.getInProgressTransactions().get(i));
 									activeTransactions.put(oct.getXid(), oct);
 									LOGGER.debug("Restored in progress transaction {}", oct.toString());
@@ -966,7 +968,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 									processTransaction = transaction.getStatement(stmt);
 									if (processLobs && processTransaction && stmt.getLobCount() > 0) {
 										lobs.clear();
-										transaction.getLobs(stmt.getLobCount(), lobs);
+										((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
 									}
 									lastStatementInTransaction = !processTransaction;
 									if (stmt.getScn() == lastInProgressScn &&
@@ -992,7 +994,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							processTransaction = transaction.getStatement(stmt);
 							if (processLobs && processTransaction && stmt.getLobCount() > 0) {
 								lobs.clear();
-								transaction.getLobs(stmt.getLobCount(), lobs);
+								((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
 							}
 							lastStatementInTransaction = !processTransaction;
 
@@ -1140,11 +1142,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 				transaction.close();
 			});
 		}
-		if (!committedTransactions.isEmpty()) {
+		if (useChronicleQueue && !committedTransactions.isEmpty()) {
+			// Clean only when we use ChronicleQueue
 			committedTransactions.forEach(transaction -> {
 				if (isPollRunning.get()) {
 					LOGGER.error("Unable to remove directory {}, please remove it manually",
-							transaction.getPath().toString());
+							((OraCdcTransactionChronicleQueue) transaction).getPath().toString());
 				} else {
 					transaction.close();
 				}
@@ -1180,24 +1183,24 @@ public class OraCdcLogMinerTask extends SourceTask {
 		ops.setLastRsId(worker.getLastRsId());
 		ops.setLastSsn(worker.getLastSsn());
 		ops.setInitialLoad(initialLoadStatus);
-		if (saveFinalState) {
+		if (saveFinalState && useChronicleQueue) {
 			if (transaction != null) {
-				ops.setCurrentTransaction(transaction.attrsAsMap());
+				ops.setCurrentTransaction(((OraCdcTransactionChronicleQueue) transaction).attrsAsMap());
 				LOGGER.debug("Added to state file transaction {}", transaction.toString());
 			}
 			if (!committedTransactions.isEmpty()) {
 				final List<Map<String, Object>> committed = new ArrayList<>();
 				committedTransactions.stream().forEach(trans -> {
-					committed.add(trans.attrsAsMap());
+					committed.add(((OraCdcTransactionChronicleQueue) trans).attrsAsMap());
 					LOGGER.debug("Added to state file committed transaction {}", trans.toString());
 				});
 				ops.setCommittedTransactions(committed);
 			}
 		}
-		if (!activeTransactions.isEmpty()) {
+		if (!activeTransactions.isEmpty() && useChronicleQueue) {
 			final List<Map<String, Object>> wip = new ArrayList<>();
 			activeTransactions.forEach((xid, trans) -> {
-				wip.add(trans.attrsAsMap());
+				wip.add(((OraCdcTransactionChronicleQueue) trans).attrsAsMap());
 				LOGGER.debug("Added to state file in progress transaction {}", trans.toString());
 			});
 			ops.setInProgressTransactions(wip);

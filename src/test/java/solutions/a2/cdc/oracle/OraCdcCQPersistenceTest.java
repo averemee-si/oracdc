@@ -60,7 +60,7 @@ public class OraCdcCQPersistenceTest {
 		final String xid = "0000270016000000";
 
 		// Add some statements.....
-		final OraCdcTransaction transaction = new OraCdcTransaction(queuesRoot, xid, updIn1);
+		final OraCdcTransaction transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, updIn1);
 		transaction.addStatement(updIn2);
 		transaction.addStatement(updIn3);
 
@@ -69,7 +69,7 @@ public class OraCdcCQPersistenceTest {
 		transaction.getStatement(updOut);
 
 		// Stop of processing and store value to static variables.....
-		persistenceQueuePath = transaction.getPath();
+		persistenceQueuePath = ((OraCdcTransactionChronicleQueue) transaction).getPath();
 		persistenceXid = transaction.getXid();
 		persistenceFirstChange = transaction.getFirstChange();
 		persistenceNextChange = transaction.getNextChange();
@@ -88,7 +88,7 @@ public class OraCdcCQPersistenceTest {
 		qt.processQueueBeforeRestart();
 
 		// Restore transaction object from file...
-		final OraCdcTransaction transaction = new OraCdcTransaction(
+		final OraCdcTransaction transaction = new OraCdcTransactionChronicleQueue(
 				persistenceQueuePath,
 				persistenceXid,
 				persistenceFirstChange,
