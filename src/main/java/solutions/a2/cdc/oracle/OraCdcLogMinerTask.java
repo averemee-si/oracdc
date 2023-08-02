@@ -632,7 +632,10 @@ public class OraCdcLogMinerTask extends SourceTask {
 						}
 						if (firstScn < firstAvailableScn) {
 							LOGGER.warn(
-									"Ignoring Point in time {}:{}:{} from offset, and setting it {} to first available SCN in V$ARCHIVED_LOG {}.",
+									"\n" +
+									"=====================\n" +
+									"Ignoring Point in time {}:{}:{} from offset, and setting it to first available SCN in V$ARCHIVED_LOG {}.\n" +
+									"=====================",
 									firstScn, firstRsId, firstSsn, firstAvailableScn);
 							firstScn = firstAvailableScn;
 						} else {
