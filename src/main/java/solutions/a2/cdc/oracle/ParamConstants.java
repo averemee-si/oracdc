@@ -209,7 +209,7 @@ public class ParamConstants {
 	public static final String ORA_TRANSACTION_IMPL_PARAM = "a2.transaction.implementation";
 	public static final String ORA_TRANSACTION_IMPL_DOC = 
 			"Queue implementation for processing SQL statements within transactions.\n" +
-			"Allowed values: ChronicleQueue and ConcurrentLinkedQueue.\n" + 
+			"Allowed values: ChronicleQueue and ArrayList.\n" + 
 			"Default - ChronicleQueue.\n" + 
 			"LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue.\n";
 	public static final String ORA_TRANSACTION_IMPL_CHRONICLE = "ChronicleQueue";
