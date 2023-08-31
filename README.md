@@ -210,6 +210,12 @@ LISTENER =
   )
 )
 ```
+
+Example sqlnet.ora with SDU set:
+
+```
+DEFAULT_SDU_SIZE = 2097152
+```
 Example jdbc connect string with SDU set:
 
 ```
