@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
+import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 /**
  * 
@@ -738,6 +739,23 @@ public class OraRdbmsInfo {
 
 	public boolean isWindows() {
 		return windows;
+	}
+
+	public int getNegotiatedSDU(final Connection connection) {
+		try {
+			final oracle.jdbc.internal.OracleConnection ora =
+					(oracle.jdbc.internal.OracleConnection) connection;
+			return ora.getNegotiatedSDU();
+		} catch (SQLException sqle) {
+			LOGGER.error(
+					"\n" +
+					"=====================\n" +
+					"Unable to obtain negotiated SDU!\n" +
+					ExceptionUtils.getExceptionStackTrace(sqle) + 
+					"\n" +
+					"=====================\n");
+		}
+		return 0;
 	}
 
 	@Override
