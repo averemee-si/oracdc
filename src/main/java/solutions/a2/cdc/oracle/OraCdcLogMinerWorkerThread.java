@@ -198,6 +198,19 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			connLogMiner = oraConnections.getLogMinerConnection(traceSession);
 			connDictionary = oraConnections.getConnection();
 
+			final int negotiatedSDU =  rdbmsInfo.getNegotiatedSDU(connLogMiner);
+			if (negotiatedSDU > 0 && negotiatedSDU <= 8192) {
+				LOGGER.warn(
+						"\n" +
+						"=====================\n" +
+						"The negotiated SDU between connector and mining instance is set to {}.\n" +
+						"\tWe recommend increasing it to achieve better performance.\n" + 
+						"\tInstructions on how to do this can be found at\n" +
+						"\t\t\thttps://github.com/averemee-si/oracdc#performance-tips\n" +
+						"=====================",
+						negotiatedSDU);
+			}
+
 			final String archivedLogCatalogImplClass = config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM);
 			try {
 				final Class<?> classLogMiner = Class.forName(archivedLogCatalogImplClass);
