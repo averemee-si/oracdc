@@ -24,14 +24,14 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
 
 import oracle.sql.TIMESTAMPLTZ;
-import oracle.sql.TIMESTAMPTZ;
 import solutions.a2.cdc.oracle.OraDumpDecoder;
+import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
 
 /**
  * 
  * Representation of Oracle TIMESTAMP% for Kafka Connect
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraTimestamp {
@@ -56,6 +56,11 @@ public class OraTimestamp {
 		final OffsetDateTime odt;
 		if (isLocal) {
 			try {
+				//TODO
+				//TODO
+				//TODO
+				//TODO
+				//TODO
 				odt = TIMESTAMPLTZ.toOffsetDateTime(connection, dumpValue);
 			} catch (SQLException sqle) {
 				throw new DataException("Unable to convert " +
@@ -63,8 +68,8 @@ public class OraTimestamp {
 							" to oracle.sql.TIMESTAMPLTZ !", sqle);
 			}
 		} else {
-			try {
-				odt = TIMESTAMPTZ.toOffsetDateTime(connection, dumpValue);
+			try {				
+				odt = TimestampWithTimeZone.toOffsetDateTime(dumpValue);
 			} catch (SQLException sqle) {
 				throw new DataException("Unable to convert " +
 							OraDumpDecoder.toHexString(dumpValue) +
