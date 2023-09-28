@@ -17,6 +17,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -64,6 +65,8 @@ public class OraRdbmsInfo {
 	private final String supplementalLogDataMin;
 	private final boolean checkSupplementalLogData4Table;
 	private final boolean windows;
+	private ZoneId dbTimeZone;
+	private ZoneId sessionTimeZone;
 
 	private final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -200,6 +203,30 @@ public class OraRdbmsInfo {
 			rs = null;
 			ps.close();
 			ps = null;
+
+			try {
+				dbTimeZone = ZoneId.of(
+						((oracle.jdbc.internal.OracleConnection) connection).getDatabaseTimeZone());
+			} catch (SQLException tze) {
+				dbTimeZone = ZoneId.systemDefault();
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"Database timezone is set to {}\n" +
+						"Unable to determine database timezone!\n" +
+						ExceptionUtils.getExceptionStackTrace(tze) + 
+						"\n" +
+						"=====================\n", dbTimeZone);
+			}
+			LOGGER.debug("Database timezone is set to {}", dbTimeZone);
+
+			final String sessionTZName = ((OracleConnection)connection).getSessionTimeZone();
+			if (sessionTZName != null) {
+				sessionTimeZone = ZoneId.of(sessionTZName);
+			} else {
+				sessionTimeZone = ZoneId.systemDefault();
+			}
+			LOGGER.debug("Session timezone is set to {}", sessionTimeZone);
 
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == 942) {
@@ -739,6 +766,14 @@ public class OraRdbmsInfo {
 
 	public boolean isWindows() {
 		return windows;
+	}
+
+	public ZoneId getDbTimeZone() {
+		return dbTimeZone;
+	}
+
+	public ZoneId getSessionTimeZone() {
+		return sessionTimeZone;
 	}
 
 	public int getNegotiatedSDU(final Connection connection) {
