@@ -18,12 +18,14 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.Calendar;
 import java.util.Hashtable;
 
 import oracle.sql.BINARY_DOUBLE;
 import oracle.sql.BINARY_FLOAT;
 import oracle.sql.NUMBER;
+import solutions.a2.oracle.jdbc.types.OracleDate;
+import solutions.a2.oracle.jdbc.types.OracleTimestamp;
+import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
 
 
 /**
@@ -44,8 +46,6 @@ public class OraDumpDecoder {
 	private final String nlsNcharCharacterSet;
 
 	private final static Hashtable<String, String> charsetMap = new Hashtable<>(131);
-	private final static int TS_OFFSET_HOUR = 20;
-	private final static int TS_OFFSET_MINUTE = 60;
 	private static final char[] HEX_CHARS_UPPER = new char[]
 			{0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46};
 
@@ -180,37 +180,12 @@ public class OraDumpDecoder {
 	 */
 	public static Timestamp toTimestamp(String hex) throws SQLException {
 		int[] data = hexStringToIntArray(hex);
-		int year = (data[0] - 100) *100 +			// 1st byte century - 100
-				(data[1] - 100);					// 2nd byte year - 100
-		if (data.length == 7 || data.length == 11) {
-			final Calendar calendar = Calendar.getInstance();
-			// Oracle Type 12 (7 byte) or Oracle Type 180 (11 byte)
-			calendar.set(year, data[2] - 1, data[3], data[4] - 1, data[5] - 1, data[6] - 1);
-			Timestamp ts = new Timestamp(calendar.getTime().getTime());
-			if (data.length == 11) {
-				ts.setNanos(getOraTsNanos(data));
-			} else {
-				ts.setNanos(0);
-			}
-			return ts;
-		} else if (data.length == 13) {
-			// Oracle Type 181
-			final Calendar calendar = Calendar.getInstance();
-			calendar.set(year, data[2] - 1, data[3], data[4] - 1, data[5] - 1, data[6] - 1);
-			if ((data[11] & 0x80) == 0x0) {
-				calendar.add(Calendar.HOUR, data[11] - TS_OFFSET_HOUR);
-				calendar.add(Calendar.MINUTE, data[12] - TS_OFFSET_MINUTE);
-			} else {
-				//TODO
-				//TODO
-				//TODO Need to handle this & DST!!!
-				//TODO
-				//TODO
-				throw new SQLException("TIMESTAMP WITH TIME ZONE with TZ name currently unsupported!!!");
-			}
-			Timestamp ts = new Timestamp(calendar.getTime().getTime());
-			ts.setNanos(getOraTsNanos(data));
-			return ts;
+		if (data.length == OracleDate.DATA_LENGTH) {
+			return OracleDate.toTimestamp(data);
+		} else if (data.length == OracleTimestamp.DATA_LENGTH) {
+			return OracleTimestamp.toTimestamp(data);
+		} else if (data.length == TimestampWithTimeZone.DATA_LENGTH) {
+			return TimestampWithTimeZone.toTimestamp(data);
 		} else {
 			throw new SQLException("Invalid Oracle HEX value DATE/TIMESTAMP - " + hex + "!");
 		}
@@ -243,10 +218,6 @@ public class OraDumpDecoder {
 							Character.digit(hex.charAt(i+1), 16));
 		}
 		return data;
-	}
-
-	private static int getOraTsNanos(int[] ts) {
-		return ts[7] << 24 | ts[8] << 16 | ts[9] << 8 | ts[10];
 	}
 
 	static {

@@ -41,10 +41,6 @@ public class OraDumpDecoderTest {
 		//	Typ=96 Len=14: d0,a1,d0,bf,d0,b0,d1,81,d0,b8,d0,b1,d0,be
 		String sCyrillic = "d0a1d0bfd0b0d181d0b8d0b1d0be";
 
-		// 2020-02-04T13:59:23,000000000
-		// Typ=180 Len=7: Typ=180 Len=7: 78,78,02,04,0e,3c,18
-		String sDatTsTyp180 = "787802040e3c18";
-
 		/*
 			create table NUMBER_TEST(ID NUMBER, BF BINARY_FLOAT, BD BINARY_DOUBLE, NN117 NUMBER(11,7));
 			insert into NUMBER_TEST values(-.1828, SQRT(3),SQRT(3),SQRT(3));
@@ -80,8 +76,6 @@ public class OraDumpDecoderTest {
 			System.out.println(odd.fromVarchar2(sTrChinese));
 			System.out.println(odd.fromVarchar2(sGreek));
 			System.out.println(odd.fromVarchar2(sCyrillic));
-
-			System.out.println(OraDumpDecoder.toTimestamp(sDatTsTyp180));
 
 			System.out.println(OraDumpDecoder.toBigDecimal(bdNegative));
 			System.out.println(OraDumpDecoder.toFloat(bdNegative));
