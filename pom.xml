@@ -74,7 +74,7 @@
 		<jackson.version>2.13.5</jackson.version>
 		<slf4j.version>2.0.7</slf4j.version>
 		<lz4.version>1.6.0</lz4.version>
-		<ojdbc.types.version>0.7.0</ojdbc.types.version>
+		<ojdbc.types.version>0.7.1</ojdbc.types.version>
 		<kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
 		<surefire.plugin.version>2.22.2</surefire.plugin.version>
 		<source.plugin.version>3.3.0</source.plugin.version>

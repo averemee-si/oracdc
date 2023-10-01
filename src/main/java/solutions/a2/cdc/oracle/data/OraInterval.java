@@ -52,7 +52,7 @@ public class OraInterval {
 		if (dumpValue == null) {
 			throw new DataException("oracle.sql.INTERVALYM/oracle.sql.INTERVALDS representation is null!");
 		}
-		if (dumpValue.length == 5) {
+		if (dumpValue.length == IntervalYearToMonth.DATA_LENGTH) {
 			// oracle.sql.INTERVALYM
 			try {
 				return IntervalYearToMonth.toString(dumpValue);
@@ -60,7 +60,7 @@ public class OraInterval {
 				throw new DataException("Unable to convert " +
 						OraDumpDecoder.toHexString(dumpValue) + " to oracle.sql.INTERVALYM");
 			}
-		} else if (dumpValue.length == 11) {
+		} else if (dumpValue.length == IntervalDayToSecond.DATA_LENGTH) {
 			// oracle.sql.INTERVALDS
 			try {
 				return IntervalDayToSecond.toString(dumpValue);

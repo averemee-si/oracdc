@@ -13,9 +13,10 @@
 
 package solutions.a2.cdc.oracle.data;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
@@ -23,8 +24,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
 
-import oracle.sql.TIMESTAMPLTZ;
 import solutions.a2.cdc.oracle.OraDumpDecoder;
+import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
 
 /**
@@ -49,19 +50,14 @@ public class OraTimestamp {
 		return builder().build();
 	}
 
-	public static String fromLogical(final byte[] dumpValue, final boolean isLocal, Connection connection) {
+	public static String fromLogical(final byte[] dumpValue, final boolean isLocal, ZoneId dbTimeZone) {
 		if (dumpValue == null) {
 			throw new DataException("oracle.sql.TIMESTAMPTZ/oracle.sql.TIMESTAMPTZ representation is null!");
 		}
-		final OffsetDateTime odt;
+		final ZonedDateTime zdt;
 		if (isLocal) {
 			try {
-				//TODO
-				//TODO
-				//TODO
-				//TODO
-				//TODO
-				odt = TIMESTAMPLTZ.toOffsetDateTime(connection, dumpValue);
+				zdt = OracleTimestamp.toZonedDateTime(dumpValue, dbTimeZone);
 			} catch (SQLException sqle) {
 				throw new DataException("Unable to convert " +
 							OraDumpDecoder.toHexString(dumpValue) +
@@ -69,20 +65,20 @@ public class OraTimestamp {
 			}
 		} else {
 			try {				
-				odt = TimestampWithTimeZone.toOffsetDateTime(dumpValue);
+				zdt = TimestampWithTimeZone.toZonedDateTime(dumpValue);
 			} catch (SQLException sqle) {
 				throw new DataException("Unable to convert " +
 							OraDumpDecoder.toHexString(dumpValue) +
 							" to oracle.sql.TIMESTAMPTZ !", sqle);
 			}
 		}
-		return ISO_8601_FMT.format(odt);
+		return ISO_8601_FMT.format(zdt);
 	}
 
 	public static OffsetDateTime toLogical(final String serialized) {
 		final OffsetDateTime odt;
 		try {
-			odt = OffsetDateTime.parse(serialized, ISO_8601_FMT);
+			odt = ZonedDateTime.parse(serialized, ISO_8601_FMT).toOffsetDateTime();
 		} catch (DateTimeParseException  dtpe) {
 			throw new DataException(dtpe);
 		}

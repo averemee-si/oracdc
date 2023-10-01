@@ -796,7 +796,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					break;
 				case Types.TIMESTAMP_WITH_TIMEZONE:
 					columnValue = OraTimestamp.fromLogical(
-						OraDumpDecoder.toByteArray(hex), oraColumn.isLocalTimeZone(), connection);
+						OraDumpDecoder.toByteArray(hex), oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
 					break;
 				case Types.TINYINT:
 					columnValue = OraDumpDecoder.toByte(hex);
