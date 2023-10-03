@@ -40,6 +40,9 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import oracle.sql.NUMBER;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
+import solutions.a2.cdc.oracle.data.OraInterval;
+import solutions.a2.cdc.oracle.data.OraIntervalDS;
+import solutions.a2.cdc.oracle.data.OraIntervalYM;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
@@ -49,8 +52,7 @@ import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
 /**
  * 
- * @author averemee
- *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
 @JsonInclude(Include.NON_EMPTY)
 public class OraColumn {
@@ -60,6 +62,11 @@ public class OraColumn {
 	public static final String ROWID_KEY = "ORA_ROW_ID";
 	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";
 	public static final String ORA_ROWSCN = "ORA_ROWSCN";
+
+	public static final int JAVA_SQL_TYPE_INTERVALYM_STRING = -2_000_000_001;
+	public static final int JAVA_SQL_TYPE_INTERVALYM_BINARY = -2_000_000_002;
+	public static final int JAVA_SQL_TYPE_INTERVALDS_STRING = -2_000_000_003;
+	public static final int JAVA_SQL_TYPE_INTERVALDS_BINARY = -2_000_000_004;
 
 	private static final String TYPE_VARCHAR2 = "VARCHAR2";
 	private static final String TYPE_NVARCHAR2 = "NVARCHAR2";
@@ -335,6 +342,32 @@ public class OraColumn {
 				jdbcType = Types.TIMESTAMP;
 				timestampField();
 			}
+		} else if (StringUtils.startsWith(oraType, "INTERVAL")) {
+			if (StringUtils.contains(oraType, "TO MONTH")) {
+				if (useOracdcSchemas) {
+					jdbcType = JAVA_SQL_TYPE_INTERVALYM_BINARY;
+					if (partOfPk || !nullable) {
+						schema = OraIntervalYM.builder().required().build();
+					} else {
+						schema = OraIntervalYM.builder().optional().build();
+					}
+				} else {
+					jdbcType = JAVA_SQL_TYPE_INTERVALYM_STRING;
+					oraIntervalField();				}
+			} else {
+				// 'TO SECOND'
+				if (useOracdcSchemas) {
+					jdbcType = JAVA_SQL_TYPE_INTERVALDS_BINARY;
+					if (partOfPk || !nullable) {
+						schema = OraIntervalDS.builder().required().build();
+					} else {
+						schema = OraIntervalDS.builder().optional().build();
+					}
+				} else {
+					jdbcType = JAVA_SQL_TYPE_INTERVALDS_STRING;
+					oraIntervalField();
+				}
+			}
 		} else {
 			switch (oraType) {
 				case TYPE_FLOAT:
@@ -521,6 +554,12 @@ public class OraColumn {
 				case OraXmlBinary.LOGICAL_NAME:
 					jdbcType = Types.SQLXML;
 					break;
+				case OraIntervalYM.LOGICAL_NAME:
+					jdbcType = JAVA_SQL_TYPE_INTERVALYM_BINARY;
+					break;
+				case OraIntervalDS.LOGICAL_NAME:
+					jdbcType = JAVA_SQL_TYPE_INTERVALDS_BINARY;
+					break;
 				default:
 					LOGGER.error("Unknown logical name {} for BYTES Schema.", field.schema().name());
 					LOGGER.error("Setting column {} JDBC type to binary.", field.name());
@@ -534,8 +573,19 @@ public class OraColumn {
 			}
 			break;
 		case "STRING":
-			if (field.schema().name() != null && OraTimestamp.LOGICAL_NAME.equals(field.schema().name())) {
-				jdbcType = Types.TIMESTAMP_WITH_TIMEZONE;
+			if (field.schema().name() != null) {
+				switch (field.schema().name()) {
+				case  OraTimestamp.LOGICAL_NAME:
+					jdbcType = Types.TIMESTAMP_WITH_TIMEZONE;
+					break;
+				case OraInterval.LOGICAL_NAME:
+					jdbcType = JAVA_SQL_TYPE_INTERVALDS_STRING;
+					break;
+				default:
+					LOGGER.error("Unknown logical name {} for STRING Schema.", field.schema().name());
+					LOGGER.error("Setting column {} JDBC type to varchar.", field.name());
+					jdbcType = Types.VARCHAR;
+				}
 			} else {
 				jdbcType = Types.VARCHAR;
 			}
@@ -1164,6 +1214,14 @@ public class OraColumn {
 			} else {
 				valueSchema.field(this.columnName, OraTimestamp.builder().required().build());
 			}
+		}
+	}
+
+	private void oraIntervalField() {
+		if (partOfPk || !nullable) {
+			schema = OraInterval.builder().required().build();
+		} else {
+			schema = OraInterval.builder().optional().build();
 		}
 	}
 

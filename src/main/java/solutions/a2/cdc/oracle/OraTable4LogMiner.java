@@ -35,6 +35,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.source.SourceRecord;
+import org.slf4j.event.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,6 +43,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
+import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
@@ -160,7 +162,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"=====================\n" +
 							"Supplemental logging for table '{}' is not configured correctly!\n" +
 							"Please set it according to the oracdc documentation!\n" +
-							"=====================", tableFqn);
+							"=====================\n", tableFqn);
 				}
 			}
 			// Schema init - keySchema is immutable and always 1
@@ -403,17 +405,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		boolean skipDelete = false;
 
 		if (LOGGER.isTraceEnabled()) {
-			LOGGER.trace("Parsing REDO record for table {}", tableFqn);
-			LOGGER.trace("Redo record information:");
-			LOGGER.trace("\tSCN = {}", stmt.getScn());
-			LOGGER.trace("\tCOMMIT_SCN = {}", commitScn);
-			LOGGER.trace("\tXID = {}", xid);
-			LOGGER.trace("\tTIMESTAMP = {}", stmt.getTs());
-			LOGGER.trace("\tRS_ID = {}", stmt.getRsId());
-			LOGGER.trace("\tSSN = {}", stmt.getSsn());
-			LOGGER.trace("\tROW_ID = {}", stmt.getRowId());
-			LOGGER.trace("\tOPERATION_CODE = {}", stmt.getOperation());
-			LOGGER.trace("\tSQL_REDO = {}", stmt.getSqlRedo());
+			printErrorMessage(
+					Level.TRACE,
+					"Parsing REDO record for table {}\nRedo record information:\n",
+					stmt, xid, commitScn);
 		}
 		if (!tableWithPk && schemaType != ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
 			if (LOGGER.isTraceEnabled()) {
@@ -474,7 +469,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 											"\n" +
 											"=====================\n" +
 											"Null or zero length data for overload for LOB column {} with inline value in table {}.\n" +
-											"=====================",
+											"=====================\n",
 											oraColumn.getColumnName(), this.fqn());
 								}
 							}
@@ -491,6 +486,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("parseRedoRecord() processing DELETE");
 			}
+
 			opType = "d";
 			if (tableWithPk) {
 				final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
@@ -507,6 +503,22 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 									idToNameMap.get(columnName),
 									StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
 									keyStruct, valueStruct, connection);
+						} else {
+							// Handle ORA-1 in Source DB.....
+							if (StringUtils.equalsIgnoreCase("ROWID", columnName) &&
+									whereClause.length == 1) {
+								printErrorMessage(
+										Level.ERROR,
+										"Unable to parse delete record for table {} after INSERT with ORA-1 error.\nRedo record information:\n",
+										stmt, xid, commitScn);
+								skipDelete = true;
+							} else {
+								printErrorMessage(
+										Level.ERROR,
+										"Unknown error while parsing delete record for table {}.\nRedo record information:\n",
+										stmt, xid, commitScn);
+								skipDelete = true;
+							}
 						}
 					}
 				}
@@ -517,7 +529,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						"=====================\n" +
 						"Unable to perform delete operation on table {}, SCN={}, RBA='{}' without primary key!\n" +
 						"SQL_REDO:\n\t{}\n" +
-						"=====================",
+						"=====================\n",
 						this.fqn(), stmt.getScn(), stmt.getRsId(), stmt.getSqlRedo());
 			}
 		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
@@ -599,7 +611,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 												"=====================\n" +
 												"Substituting NULL value for column {}, table {} with DEFAULT value {}\n" +
 												"SCN={}, RBA='{}', SQL_REDO:\n\t{}\n" +
-												"=====================",
+												"=====================\n",
 												oraColumn.getColumnName(), this.tableFqn, columnDefaultValue,
 												stmt.getScn(), stmt.getRsId(), stmt.getSqlRedo());
 										valueStruct.put(oraColumn.getColumnName(), columnDefaultValue);
@@ -662,25 +674,20 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						// We assume EXPLICIT null here
 						valueStruct.put(oraColumn.getColumnName(), null);					}
 				} else {
-					LOGGER.error("Can't detect column with name '{}' during parsing!", columnName);
-					printInvalidFieldValue(false, columnName, stmt, xid, commitScn);
+					printErrorMessage(
+							Level.ERROR,
+							"Can't detect column with name '{}' during parsing!\nRedo record information for table:\n",
+							columnName, stmt, xid, commitScn);
 					throw new DataException(
 							"Can't detect column with name " + columnName + " during parsing!");
 				}
 			}
 		} else {
 			// We expect here only 1,2,3 as valid values for OPERATION_CODE (and 68 for special cases)
-			LOGGER.error("Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:",
-					tableFqn);
-			LOGGER.error("\tSCN = {}", stmt.getScn());
-			LOGGER.error("\tCOMMIT_SCN = {}", commitScn);
-			LOGGER.error("\tXID = {}", xid);
-			LOGGER.error("\tTIMESTAMP = {}", stmt.getTs());
-			LOGGER.error("\tRS_ID = {}", stmt.getRsId());
-			LOGGER.error("\tSSN = {}", stmt.getSsn());
-			LOGGER.error("\tROW_ID = {}", stmt.getRowId());
-			LOGGER.error("\tOPERATION_CODE = {}", stmt.getOperation());
-			LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
+			printErrorMessage(
+					Level.ERROR,
+					"Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:\n",
+					stmt, xid, commitScn);
 			throw new SQLException("Unknown OPERATION_CODE while parsing redo record!");
 		}
 
@@ -835,11 +842,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						columnValue = bdValue.setScale(oraColumn.getDataScale());
 					}
 					break;
-				case Types.NUMERIC:
-					// do not need to call OraNumber.fromLogical()
-					columnValue = OraDumpDecoder.toByteArray(hex);
-					break;
 				case Types.BINARY:
+				case Types.NUMERIC:
+				case OraColumn.JAVA_SQL_TYPE_INTERVALYM_BINARY:
+				case OraColumn.JAVA_SQL_TYPE_INTERVALDS_BINARY:
+					// do not need to perform data type conversion here!
 					columnValue = OraDumpDecoder.toByteArray(hex);
 					break;
 				case Types.CHAR:
@@ -887,6 +894,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					// We not expect SYS.XMLTYPE data here!!!
 					// Set it to 'Not touch at Sink!!!'
 					columnValue = null;
+					break;
+				case OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING:
+				case OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING:
+					columnValue = OraInterval.fromLogical(OraDumpDecoder.toByteArray(hex));
 					break;
 				default:
 					columnValue = oraColumn.unsupportedTypeValue();
@@ -1251,26 +1262,55 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private void printInvalidFieldValue(final OraColumn oraColumn,
 			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
-		printInvalidFieldValue(
-				!oraColumn.isNullable(), oraColumn.getColumnName(), stmt, xid, commitScn);
+		if (oraColumn.isNullable()) {
+			printErrorMessage(Level.ERROR,
+					"Redo record information for table {}:\n",
+					stmt, xid, commitScn);
+		} else {
+			printErrorMessage(Level.ERROR,
+					"NULL value for NON NULL column {}!\nRedo record information for table {}:\n",
+					oraColumn.getColumnName(), stmt, xid, commitScn);
+		}
 	}
 
-	private void printInvalidFieldValue(final boolean printNullMessage, final String columnName,
+	private void printErrorMessage(final Level level, final String message,
 			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
-		if (printNullMessage) {
-			LOGGER.error("NULL value for NON NULL column {}, table {}",
-				columnName, tableFqn);
+		printErrorMessage(level, message, null, stmt, xid, commitScn);
+	}
+
+	private void printErrorMessage(final Level level, final String message, final String columnName,
+			final OraCdcLogMinerStatement stmt, final String xid, final long commitScn) {
+		final StringBuilder sb = new StringBuilder(256);
+		sb
+			.append("\n=====================\n")
+			.append(message)
+			.append("\tSCN = {}\n")
+			.append("\tCOMMIT_SCN = {}\n")
+			.append("\tXID = {}\n")
+			.append("\tTIMESTAMP = {}\n")
+			.append("\tRS_ID = {}\n")
+			.append("\tSSN = {}\n")
+			.append("\tROW_ID = {}\n")
+			.append("\tOPERATION_CODE = {}\n")
+			.append("\tSQL_REDO = {}\n")
+			.append("=====================\n");
+		if (level == Level.ERROR) {
+			if (columnName == null) {
+				LOGGER.error(sb.toString(),
+					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
+					stmt.getSsn(), stmt.getRowId(), stmt.getOperation(), stmt.getSqlRedo());
+			} else {
+				LOGGER.error(sb.toString(),
+						columnName, tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
+						stmt.getSsn(), stmt.getRowId(), stmt.getOperation(), stmt.getSqlRedo());
+				
+			}
+		} else {
+			// Currently - only Level.TRACE
+			LOGGER.trace(sb.toString(),
+					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
+					stmt.getSsn(), stmt.getRowId(), stmt.getOperation(), stmt.getSqlRedo());
 		}
-		LOGGER.error("Redo record information for table {}:", tableFqn);
-		LOGGER.error("\tSCN = {}", stmt.getScn());
-		LOGGER.error("\tCOMMIT_SCN = {}", commitScn);
-		LOGGER.error("\tXID = {}", xid);
-		LOGGER.error("\tTIMESTAMP = {}", stmt.getTs());
-		LOGGER.error("\tRS_ID = {}", stmt.getRsId());
-		LOGGER.error("\tSSN = {}", stmt.getSsn());
-		LOGGER.error("\tROW_ID = {}", stmt.getRowId());
-		LOGGER.error("\tOPERATION_CODE = {}", stmt.getOperation());
-		LOGGER.error("\tSQL_REDO = {}", stmt.getSqlRedo());
 	}
 
 	public boolean isCheckSupplementalLogData() {

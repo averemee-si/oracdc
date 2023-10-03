@@ -518,6 +518,8 @@ By default (when `a2.oracdc.schemas` set to false) **oracdc** Source connector's
 |:----------------|:--------|:-------------------------------------------------------------|
 |DATE             |int32    |org.apache.kafka.connect.data.Date                            |
 |TIMESTAMP%       |int64    |org.apache.kafka.connect.data.Timestamp                       |
+|INTERVALYM       |string   |solutions.a2.cdc.oracle.data.OraInterval                      |
+|INTERVALDS       |string   |solutions.a2.cdc.oracle.data.OraInterval                      |
 |NUMBER           |int8     |NUMBER(1,0) & NUMBER(2,0)                                     |
 |NUMBER           |int16    |NUMBER(3,0) & NUMBER(4,0)                                     |
 |NUMBER           |int32    |NUMBER(5,0) & NUMBER(6,0) & NUMBER(7,0) & NUMBER(8,0)         |
@@ -534,7 +536,7 @@ By default (when `a2.oracdc.schemas` set to false) **oracdc** Source connector's
 |VARCHAR2         |string   |                                                              |
 |NVARCHAR2        |string   |                                                              |
 
-When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Oracle **NUMBER** (**solutions.a2.cdc.oracle.data.OraNumber**) and  **TIMESTAMP WITH [LOCAL] TIMEZONE** (**solutions.a2.cdc.oracle.data.OraTimestamp**) datatypes.
+When `a2.oracdc.schemas` set to true **oracdc** uses its own extensions for Oracle **NUMBER** (**solutions.a2.cdc.oracle.data.OraNumber**), **TIMESTAMP WITH [LOCAL] TIMEZONE** (**solutions.a2.cdc.oracle.data.OraTimestamp**), **INTERVALYM(INTERVAL YEAR TO MONTH)** (**solutions.a2.cdc.oracle.data.OraIntervalYM**), and **INTERVALDS(INTERVAL DAY TO SECOND)** (**solutions.a2.cdc.oracle.data.OraIntervalDS**) datatypes.
 
 When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle **BLOB** (**solutions.a2.cdc.oracle.data.OraBlob**), **CLOB** (**solutions.a2.cdc.oracle.data.OraClob**),   **NCLOB** (**solutions.a2.cdc.oracle.data.OraNClob**), and **SYS.XMLTYPE** (**solutions.a2.cdc.oracle.data.OraXmlBinary**) datatypes.
 
