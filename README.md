@@ -715,10 +715,10 @@ parameter `a2.protobuf.schema.naming` for fixing issue with prtobuf identifiers
 #####1.4.0 (MAY-2023)
 Oracle 23c readiness, supplemental logging checks, fixes for Oracle RDBMS on Microsoft Windows
 
-#####1.4.1 (MAY-2023)
+######1.4.1 (MAY-2023)
 New `a2.schema.type=single` - schema type to store all columns from database row in one message with just value schema
 
-#####1.4.2 (JUN-2023)
+######1.4.2 (JUN-2023)
 fix unhandled ORA-17410 running 12c on Windows and more strict checks for supplemental logging settings
 
 #####1.5.0 (AUG-2023)
@@ -726,6 +726,11 @@ New `a2.pk.string.length` parameter for Sink Connector and other Sink Connector 
 New `a2.transaction.implementation` parameter for LogMiner Source Connector: when set to `ChronicleQueue` (default) **oracdc** uses [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) to store information about SQL statements in Oracle transaction and uses off-heap memory and needs disk space to store memory mapped files; when set to `ArrayList` **oracdc** uses ArrayList to store information about SQL statements in Oracle transaction and uses JVM heap (no disk space needed).
 Fix for ORA-17002 while querying data dictionary
 Better handling for SQLRecoverableException while querying data dictionary
+
+#####1.6.0 (OCT-2023)
+Support for INTERVALYM/INTERVALDS
+TIMESTAMP enhancements
+SDU hint in log
 
 ## Authors
 
