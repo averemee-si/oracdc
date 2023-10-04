@@ -189,7 +189,6 @@ To ensure compatibility with [Schema Evolution](https://docs.confluent.io/curren
 Fully compatible from 0.9.9.2+, when `a2.resiliency.type` set to ``fault-tolerant``. `In this case all offset (SCN, RBA, COMMIT_SCN for rows and transactions, versions for table definitions) information is stored only on standard Kafka Connect offsets
 
 ### Known issues
-1. **INTERVAL** data types family not supported yet
 
 ### Performance tips
 1. If you do not use archivelogs as a source of database user activity audit information, consider setting Oracle RDBMS hidden parameter **_transaction_auditing** to **false** after consulting a [Oracle Support Services](https://www.oracle.com/support/)
