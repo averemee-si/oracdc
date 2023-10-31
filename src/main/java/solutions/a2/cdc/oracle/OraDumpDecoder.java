@@ -142,18 +142,26 @@ public class OraDumpDecoder {
 	}
 
 	public String fromVarchar2(String hex) throws SQLException {
-		try {
-			return new String(toByteArray(hex), nlsCharacterSet);
-		} catch (UnsupportedEncodingException e) {
-			throw new SQLException("Invalid encoding " + nlsCharacterSet + " for HEXTORAW " + hex +  ".", e);
+		if (hex == null) {
+			return null;
+		} else {
+			try {
+				return new String(toByteArray(hex), nlsCharacterSet);
+			} catch (UnsupportedEncodingException e) {
+				throw new SQLException("Invalid encoding " + nlsCharacterSet + " for HEXTORAW " + hex +  ".", e);
+			}
 		}
 	}
 
 	public String fromNvarchar2(String hex) throws SQLException {
-		try {
-			return new String(toByteArray(hex), nlsNcharCharacterSet);
-		} catch (UnsupportedEncodingException e) {
-			throw new SQLException("Invalid encoding " + nlsNcharCharacterSet + " for HEXTORAW " + hex +  ".", e);
+		if (hex == null) {
+			return null;
+		} else {
+			try {
+				return new String(toByteArray(hex), nlsNcharCharacterSet);
+			} catch (UnsupportedEncodingException e) {
+				throw new SQLException("Invalid encoding " + nlsNcharCharacterSet + " for HEXTORAW " + hex +  ".", e);
+			}
 		}
 	}
 
