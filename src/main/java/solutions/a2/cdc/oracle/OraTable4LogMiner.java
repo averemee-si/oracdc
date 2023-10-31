@@ -637,7 +637,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 									oraColumn,
 									columnValue,
 									keyStruct, valueStruct, connection);
-							} catch (DataException de) {
+							} catch (DataException | SQLException de) {
 								LOGGER.error("Invalid value {} for column {} in table {}",
 										columnValue, oraColumn.getColumnName(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
