@@ -512,7 +512,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 										"Unable to parse delete record for table {} after INSERT with ORA-1 error.\nRedo record information:\n",
 										stmt, xid, commitScn);
 								skipDelete = true;
-							} else {
+							} else if (whereClause.length == 1) {
 								printErrorMessage(
 										Level.ERROR,
 										"Unknown error while parsing delete record for table {}.\nRedo record information:\n",
