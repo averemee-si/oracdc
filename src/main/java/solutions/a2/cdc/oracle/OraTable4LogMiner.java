@@ -528,7 +528,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						}
 					}
 				}
-			} else {
+			} else if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+				// skip delete operation only when schema type set to 'single'
 				skipDelete = true;
 				LOGGER.warn(
 						"\n" +
