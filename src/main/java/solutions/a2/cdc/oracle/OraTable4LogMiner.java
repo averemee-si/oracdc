@@ -452,16 +452,22 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							if (oraColumn.getJdbcType() != Types.SQLXML) {
 								if (columnValue != null && columnValue.length() > 0) {
 									try {
-										parseRedoRecordValues(oraColumn, columnValue, keyStruct, valueStruct, connection);
+										parseRedoRecordValues(
+												oraColumn, columnValue,
+												keyStruct, valueStruct);
 									} catch (SQLException sqle) {
-										LOGGER.error("Invalid value {} for column {} in table {}",
-												columnValue, oraColumn.getColumnName(), tableFqn);
-										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
-										if (!oraColumn.isNullable()) {
-											throw new SQLException(sqle);
+										if (oraColumn.isNullable()) {
+											LOGGER.warn(
+													"\n" +
+													"=====================\n" +
+													"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
+													"=====================\n",
+													columnValue, oraColumn.getColumnName(), tableFqn, stmt.getScn(), stmt.getRsId());
 										} else {
-											LOGGER.error("Value of column {} in table is set to NULL.",
-													oraColumn.getColumnName(), this.fqn());
+											LOGGER.error("Invalid value {} for column {} in table {}",
+													columnValue, oraColumn.getColumnName(), tableFqn);
+											printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+											throw new SQLException(sqle);
 										}
 									}
 								} else {
@@ -502,7 +508,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							parseRedoRecordValues(
 									idToNameMap.get(columnName),
 									StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
-									keyStruct, valueStruct, connection);
+									keyStruct, valueStruct);
 						} else {
 							// Handle ORA-1 in Source DB.....
 							if (StringUtils.equalsIgnoreCase("ROWID", columnName) &&
@@ -527,10 +533,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				LOGGER.warn(
 						"\n" +
 						"=====================\n" +
-						"Unable to perform delete operation on table {}, SCN={}, RBA='{}' without primary key!\n" +
+						"Unable to perform delete operation on table {}, SCN={}, RBA='{}', ROWID='{}' without primary key!\n" +
 						"SQL_REDO:\n\t{}\n" +
 						"=====================\n",
-						this.fqn(), stmt.getScn(), stmt.getRsId(), stmt.getSqlRedo());
+						this.fqn(), stmt.getScn(), stmt.getRsId(), stmt.getRowId(), stmt.getSqlRedo());
 			}
 		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
 			if (LOGGER.isTraceEnabled()) {
@@ -540,8 +546,20 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final Set<String> setColumns = new HashSet<>();
 			final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 			final int setClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_SET);
-			String[] setClause = StringUtils.split(
-					StringUtils.substring(stmt.getSqlRedo(), setClauseStart + 5, whereClauseStart), ",");
+			final String[] setClause;
+			if (whereClauseStart > 0) {
+				setClause = StringUtils.split(
+						StringUtils.substring(stmt.getSqlRedo(), setClauseStart + 5, whereClauseStart), ",");
+			} else {
+				setClause = StringUtils.split(
+						StringUtils.substring(stmt.getSqlRedo(), setClauseStart + 5), ",");
+				LOGGER.warn(
+						"\n" +
+						"=====================\n" +
+						"UPDATE statement without WHERE clause for table {} at SCN='{}' and RS_ID='{}'!\n" +
+						"=====================\n",
+						this.fqn(), stmt.getScn(), stmt.getRsId());
+			}
 			for (int i = 0; i < setClause.length; i++) {
 				final String currentExpr = StringUtils.trim(setClause[i]);
 				final String columnName;
@@ -579,9 +597,26 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							valueStruct.put(oraColumn.getColumnName(), new byte[0]);
 							continue;
 						} else {
-							parseRedoRecordValues(oraColumn, columnValue,
-									keyStruct, valueStruct, connection);
-							setColumns.add(columnName);
+							try {
+								parseRedoRecordValues(
+										oraColumn, columnValue,
+										keyStruct, valueStruct);
+								setColumns.add(columnName);
+							} catch (SQLException sqle ) {
+								if (oraColumn.isNullable()) {
+									LOGGER.warn(
+											"\n" +
+											"=====================\n" +
+											"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
+											"=====================\n",
+											columnValue, oraColumn.getColumnName(), tableFqn, stmt.getScn(), stmt.getRsId());
+								} else {
+									LOGGER.error("Invalid value {} for column {} in table {}",
+											columnValue, oraColumn.getColumnName(), tableFqn);
+									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+									throw new SQLException(sqle);
+								}
+							}
 						}
 					}
 				}
@@ -634,14 +669,27 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							final String columnValue = StringUtils.trim(StringUtils.substringAfter(currentExpr, "="));
 							try {
 								parseRedoRecordValues(
-									oraColumn,
-									columnValue,
-									keyStruct, valueStruct, connection);
-							} catch (DataException | SQLException de) {
+									oraColumn, columnValue,
+									keyStruct, valueStruct);
+							} catch (DataException de) {
 								LOGGER.error("Invalid value {} for column {} in table {}",
 										columnValue, oraColumn.getColumnName(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw new DataException(de);
+							} catch (SQLException sqle) {
+								if (oraColumn.isNullable()) {
+									LOGGER.warn(
+											"\n" +
+											"=====================\n" +
+											"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
+											"=====================\n",
+											columnValue, oraColumn.getColumnName(), tableFqn, stmt.getScn(), stmt.getRsId());
+								} else {
+									LOGGER.error("Invalid value {} for column {} in table {}",
+											columnValue, oraColumn.getColumnName(), tableFqn);
+									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+									throw new SQLException(sqle);
+								}
 							}
 						}
 					}
@@ -669,7 +717,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						parseRedoRecordValues(
 								idToNameMap.get(columnName),
 								StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
-								keyStruct, valueStruct, connection);
+								keyStruct, valueStruct);
 					} else {
 						// We assume EXPLICIT null here
 						valueStruct.put(oraColumn.getColumnName(), null);					}
@@ -789,152 +837,143 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private void parseRedoRecordValues(
 			final OraColumn oraColumn, final String hexValue,
-			final Struct keyStruct, final Struct valueStruct,
-			final Connection connection) throws SQLException {
+			final Struct keyStruct, final Struct valueStruct) throws SQLException {
 		final String columnName = oraColumn.getColumnName();
 		//final String hex = StringUtils.substring(hexValue, 1, hexValue.length() - 1);
 		final String hex = StringUtils.substringBetween(hexValue, "'");
 		final Object columnValue;
-		try {
-			switch (oraColumn.getJdbcType()) {
-				case Types.DATE:
-				case Types.TIMESTAMP:
-					columnValue = OraDumpDecoder.toTimestamp(hex);
-					break;
-				case Types.TIMESTAMP_WITH_TIMEZONE:
-					columnValue = OraTimestamp.fromLogical(
-						OraDumpDecoder.toByteArray(hex), oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
-					break;
-				case Types.TINYINT:
-					columnValue = OraDumpDecoder.toByte(hex);
-					break;
-				case Types.SMALLINT:
-					columnValue = OraDumpDecoder.toShort(hex);
-					break;
-				case Types.INTEGER:
-					columnValue = OraDumpDecoder.toInt(hex);
-					break;
-				case Types.BIGINT:
-					columnValue = OraDumpDecoder.toLong(hex);
-					break;
-				case Types.FLOAT:
-					if (oraColumn.isBinaryFloatDouble()) {
-						columnValue = OraDumpDecoder.fromBinaryFloat(hex);
-					} else {
-						columnValue = OraDumpDecoder.toFloat(hex);
-					}
-					break;
-				case Types.DOUBLE:
-					if (oraColumn.isBinaryFloatDouble()) {
-						columnValue = OraDumpDecoder.fromBinaryDouble(hex);
-					} else {
-						columnValue = OraDumpDecoder.toDouble(hex);
-					}
-					break;
-				case Types.DECIMAL:
-					BigDecimal bdValue = OraDumpDecoder.toBigDecimal(hex);
-					if (bdValue.scale() != oraColumn.getDataScale()) {
-						LOGGER.warn(
+		switch (oraColumn.getJdbcType()) {
+			case Types.DATE:
+			case Types.TIMESTAMP:
+				columnValue = OraDumpDecoder.toTimestamp(hex);
+				break;
+			case Types.TIMESTAMP_WITH_TIMEZONE:
+				columnValue = OraTimestamp.fromLogical(
+					OraDumpDecoder.toByteArray(hex), oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
+				break;
+			case Types.TINYINT:
+				columnValue = OraDumpDecoder.toByte(hex);
+				break;
+			case Types.SMALLINT:
+				columnValue = OraDumpDecoder.toShort(hex);
+				break;
+			case Types.INTEGER:
+				columnValue = OraDumpDecoder.toInt(hex);
+				break;
+			case Types.BIGINT:
+				columnValue = OraDumpDecoder.toLong(hex);
+				break;
+			case Types.FLOAT:
+				if (oraColumn.isBinaryFloatDouble()) {
+					columnValue = OraDumpDecoder.fromBinaryFloat(hex);
+				} else {
+					columnValue = OraDumpDecoder.toFloat(hex);
+				}
+				break;
+			case Types.DOUBLE:
+				if (oraColumn.isBinaryFloatDouble()) {
+					columnValue = OraDumpDecoder.fromBinaryDouble(hex);
+				} else {
+					columnValue = OraDumpDecoder.toDouble(hex);
+				}
+				break;
+			case Types.DECIMAL:
+				BigDecimal bdValue = OraDumpDecoder.toBigDecimal(hex);
+				if (bdValue.scale() != oraColumn.getDataScale()) {
+					LOGGER.warn(
 								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
 								columnName, this.fqn(), bdValue, bdValue.scale(), oraColumn.getDataScale());
-						columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
+					columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
+				} else {
+					columnValue = bdValue.setScale(oraColumn.getDataScale());
+				}
+				break;
+			case Types.BINARY:
+			case Types.NUMERIC:
+			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_BINARY:
+			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_BINARY:
+				// do not need to perform data type conversion here!
+				columnValue = OraDumpDecoder.toByteArray(hex);
+				break;
+			case Types.CHAR:
+			case Types.VARCHAR:
+				columnValue = odd.fromVarchar2(hex);
+				break;
+			case Types.NCHAR:
+			case Types.NVARCHAR:
+				columnValue = odd.fromNvarchar2(hex);
+				break;
+			case Types.CLOB:
+			case Types.NCLOB:
+				final String clobValue;
+				if (oraColumn.getSecureFile()) {
+					if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
+						clobValue = "";
 					} else {
-						columnValue = bdValue.setScale(oraColumn.getDataScale());
+						clobValue = OraDumpDecoder.fromClobNclob(StringUtils.substring(hex,
+							LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
 					}
-					break;
-				case Types.BINARY:
-				case Types.NUMERIC:
-				case OraColumn.JAVA_SQL_TYPE_INTERVALYM_BINARY:
-				case OraColumn.JAVA_SQL_TYPE_INTERVALDS_BINARY:
-					// do not need to perform data type conversion here!
-					columnValue = OraDumpDecoder.toByteArray(hex);
-					break;
-				case Types.CHAR:
-				case Types.VARCHAR:
-					columnValue = odd.fromVarchar2(hex);
-					break;
-				case Types.NCHAR:
-				case Types.NVARCHAR:
-					columnValue = odd.fromNvarchar2(hex);
-					break;
-				case Types.CLOB:
-				case Types.NCLOB:
-					final String clobValue;
-					if (oraColumn.getSecureFile()) {
-						if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
-							clobValue = "";
-						} else {
-							clobValue = OraDumpDecoder.fromClobNclob(StringUtils.substring(hex,
-								LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
-						}
-					} else {
-						clobValue = OraDumpDecoder.fromClobNclob(
+				} else {
+					clobValue = OraDumpDecoder.fromClobNclob(
 								StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
-					}
-					if (clobValue.length() == 0) {
+				}
+				if (clobValue.length() == 0) {
+					columnValue = new byte[0];
+				} else {
+					columnValue = Lz4Util.compress(clobValue);
+				}
+				break;
+			case Types.BLOB:
+				if (oraColumn.getSecureFile()) {
+					if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
 						columnValue = new byte[0];
 					} else {
-						columnValue = Lz4Util.compress(clobValue);
-					}
-					break;
-				case Types.BLOB:
-					if (oraColumn.getSecureFile()) {
-						if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
-							columnValue = new byte[0];
-						} else {
-							columnValue = OraDumpDecoder.toByteArray(StringUtils.substring(hex,
+						columnValue = OraDumpDecoder.toByteArray(StringUtils.substring(hex,
 								LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
-						}
-					} else {
-						columnValue = OraDumpDecoder.toByteArray(
-								StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
 					}
-					break;
-				case Types.SQLXML:
-					// We not expect SYS.XMLTYPE data here!!!
-					// Set it to 'Not touch at Sink!!!'
-					columnValue = null;
-					break;
-				case OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING:
-				case OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING:
-					columnValue = OraInterval.fromLogical(OraDumpDecoder.toByteArray(hex));
-					break;
-				default:
-					columnValue = oraColumn.unsupportedTypeValue();
-					break;
-			}
-			if (pkColumns.containsKey(columnName)) {
-				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
-					valueStruct.put(columnName, columnValue);
 				} else {
-					keyStruct.put(columnName, columnValue);
-					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-						valueStruct.put(columnName, columnValue);
-					}
+					columnValue = OraDumpDecoder.toByteArray(
+								StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
 				}
+				break;
+			case Types.SQLXML:
+				// We not expect SYS.XMLTYPE data here!!!
+				// Set it to 'Not touch at Sink!!!'
+				columnValue = null;
+				break;
+			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING:
+			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING:
+				columnValue = OraInterval.fromLogical(OraDumpDecoder.toByteArray(hex));
+				break;
+			default:
+				columnValue = oraColumn.unsupportedTypeValue();
+				break;
+		}
+		if (pkColumns.containsKey(columnName)) {
+			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+				valueStruct.put(columnName, columnValue);
 			} else {
-				if ((oraColumn.getJdbcType() == Types.BLOB ||
+				keyStruct.put(columnName, columnValue);
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+					valueStruct.put(columnName, columnValue);
+				}
+			}
+		} else {
+			if ((oraColumn.getJdbcType() == Types.BLOB ||
 						oraColumn.getJdbcType() == Types.CLOB ||
 						oraColumn.getJdbcType() == Types.NCLOB ||
 						oraColumn.getJdbcType() == Types.SQLXML) &&
 							(lobColumnSchemas != null &&
 							lobColumnSchemas.containsKey(columnName))) {
-					// Data are overloaded
-					valueStruct.put(columnName,
+				// Data are overloaded
+				valueStruct.put(columnName,
 							transformLobs.transformData(
 									pdbName, tableOwner, tableName, oraColumn,
 									(byte[]) columnValue, keyStruct,
 									lobColumnSchemas.get(columnName)));
-				} else {
-					valueStruct.put(columnName, columnValue);
-				}
+			} else {
+				valueStruct.put(columnName, columnValue);
 			}
-
-		} catch (SQLException sqle) {
-			LOGGER.error(
-					"{}! While decoding redo values for table {}\n\t\tcolumn {}\n\t\tJDBC Type {}\n\t\tdump value (hex) '{}'",
-					sqle.getMessage(), this.tableFqn, columnName, JdbcTypes.getTypeName(oraColumn.getJdbcType()), hex);
-			throw new SQLException(sqle);
 		}
 	}
 
