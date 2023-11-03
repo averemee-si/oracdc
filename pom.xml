@@ -70,6 +70,7 @@
 		<commons.cli.version>1.5.0</commons.cli.version>
 		<chronicle.queue.version>5.21.99</chronicle.queue.version>
 		<ora.jdbc.version>21.10.0.0</ora.jdbc.version>
+		<pg.jdbc.version>42.6.0</pg.jdbc.version>
 		<HikariCP.version>4.0.3</HikariCP.version>
 		<jackson.version>2.13.5</jackson.version>
 		<slf4j.version>2.0.7</slf4j.version>
@@ -181,6 +182,12 @@
 			<groupId>com.oracle.database.xml</groupId>
 			<artifactId>xmlparserv2</artifactId>
 			<version>${ora.jdbc.version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.postgresql/postgresql/42.6.0/ -->
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>${pg.jdbc.version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.zaxxer/HikariCP/ -->
 		<dependency>
