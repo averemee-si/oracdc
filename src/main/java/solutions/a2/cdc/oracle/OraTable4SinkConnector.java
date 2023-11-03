@@ -198,7 +198,24 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				// Also look at https://stackoverflow.com/questions/43111996/why-postgresql-does-not-like-uppercase-table-names
 				tableNameCaseConv = tableName.toLowerCase();
 			}
-			ResultSet resultSet = metaData.getTables(null, null, tableNameCaseConv, null);
+			final String schema;
+			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+				final PreparedStatement psSchema = connection.prepareStatement("select CURRENT_SCHEMA",
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				final ResultSet rsSchema = psSchema.executeQuery();
+				if (rsSchema.next()) {
+					schema = rsSchema.getString(1);
+				} else {
+					throw new SQLException("Unable to execute 'select CURRENT_SCHEMA'!");
+				}
+				rsSchema.close();
+				psSchema.close();
+			} else {
+				//TODO - Microsoft SQL Server!
+				schema = null;
+			}
+			final String[] tableTypes = {"TABLE"};
+			ResultSet resultSet = metaData.getTables(null, schema, tableNameCaseConv, tableTypes);
 			if (resultSet.next()) {
 				LOGGER.info(
 						"\n" +
