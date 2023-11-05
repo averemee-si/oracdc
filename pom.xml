@@ -72,7 +72,7 @@
 		<ora.jdbc.version>21.10.0.0</ora.jdbc.version>
 		<pg.jdbc.version>42.6.0</pg.jdbc.version>
 		<HikariCP.version>4.0.3</HikariCP.version>
-		<jackson.version>2.13.5</jackson.version>
+		<jackson.version>2.15.3</jackson.version>
 		<slf4j.version>2.0.7</slf4j.version>
 		<lz4.version>1.6.0</lz4.version>
 		<ojdbc.types.version>0.7.1</ojdbc.types.version>
