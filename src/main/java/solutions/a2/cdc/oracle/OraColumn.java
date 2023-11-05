@@ -816,10 +816,6 @@ public class OraColumn {
 		return defaultValuePresent;
 	}
 
-	public void setDefaultValuePresent(Boolean defaultValuePresent) {
-		this.defaultValuePresent = defaultValuePresent;
-	}
-
 	public String getDefaultValue() {
 		return defaultValue;
 	}
