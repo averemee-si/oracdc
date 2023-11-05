@@ -65,7 +65,7 @@
 		<maven.compiler.target>11</maven.compiler.target>
 		<junit.version>5.9.2</junit.version>
 		<kafka.version>3.5.1</kafka.version>
-		<commons.lang3.version>3.12.0</commons.lang3.version>
+		<commons.lang3.version>3.13.0</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<commons.cli.version>1.5.0</commons.cli.version>
 		<chronicle.queue.version>5.21.99</chronicle.queue.version>
