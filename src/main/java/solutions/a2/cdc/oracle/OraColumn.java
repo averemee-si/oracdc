@@ -812,7 +812,7 @@ public class OraColumn {
 		this.secureFile = secureFile;
 	}
 
-	public Boolean getDefaultValuePresent() {
+	public Boolean isDefaultValuePresent() {
 		return defaultValuePresent;
 	}
 

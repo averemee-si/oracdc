@@ -583,7 +583,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							//TODO
 							//TODO Check for column value in WHERE clause
 							//TODO
-							if (!oraColumn.getDefaultValuePresent()) {
+							if (!oraColumn.isDefaultValuePresent()) {
 								// throw error only if we don't expect to get value from WHERE clause
 								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw new DataException(de);
@@ -639,7 +639,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								// Check again for column default value...
 								// This is due "SUPPLEMENTAL LOG DATA (ALL) COLUMNS"
 								boolean throwDataException = true;
-								if (oraColumn.getDefaultValuePresent()) {
+								if (oraColumn.isDefaultValuePresent()) {
 									final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
 									if (columnDefaultValue != null) {
 										LOGGER.warn(
