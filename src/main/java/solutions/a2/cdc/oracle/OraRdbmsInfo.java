@@ -400,7 +400,7 @@ public class OraRdbmsInfo {
 						"\n" +
 						"=====================\n" +
 						"Table {}.{} does not have a primary key constraint.\n" +
-						"Unique index {}.{} with NON-NULL columns will be used instead of the missing primary key.\n" +
+						"Unique index {}.{} with NON-NULL column(s) will be used instead of the missing primary key.\n" +
 						"Some database versions generate incomplete information about changes in this case and we recommend\nthat you do the following:\n" +
 						"1. Stop connector\n" +
 						"2. Create a primary key for the table {}.{} using the existing index {}.{} with the command\n" +
