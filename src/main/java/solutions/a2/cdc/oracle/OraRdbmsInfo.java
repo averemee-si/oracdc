@@ -329,7 +329,7 @@ public class OraRdbmsInfo {
 	 * 
 	 * @param connection - Connection to data dictionary (db in 'OPEN' state)
 	 * @param conId      - CON_ID, if -1 we working with non CDB or pre-12c Oracle Database
-	 * @param owner      - Table owner
+	 * @param tableOwner - Table owner
 	 * @param tableName  - Table name
 	 * @return           - Set with names of primary key columns. null if nothing found
 	 * @throws SQLException
@@ -337,7 +337,7 @@ public class OraRdbmsInfo {
 	public static Set<String> getPkColumnsFromDict(
 			final Connection connection,
 			final short conId,
-			final String owner,
+			final String tableOwner,
 			final String tableName) throws SQLException {
 		final boolean isCdb = (conId > -1);
 		Set<String> result = null;
@@ -346,7 +346,7 @@ public class OraRdbmsInfo {
 						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_CDB :
 						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_NON_CDB,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		ps.setString(1, owner);
+		ps.setString(1, tableOwner);
 		ps.setString(2, tableName);
 		if (isCdb) {
 			ps.setShort(3, conId);			
@@ -358,8 +358,10 @@ public class OraRdbmsInfo {
 				result = new HashSet<>();
 			result.add(rs.getString("COLUMN_NAME"));
 		}
-		rs.close(); rs = null;
-		ps.close(); ps = null;
+		rs.close();
+		rs = null;
+		ps.close();
+		ps = null;
 		if (result == null) {
 			// Try to find unique index with non-null columns only
 			ps = connection.prepareStatement(
@@ -367,19 +369,53 @@ public class OraRdbmsInfo {
 							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_CDB :
 							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_NON_CDB,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			ps.setString(1, owner);
+			ps.setString(1, tableOwner);
 			ps.setString(2, tableName);
 			if (isCdb) {
 				ps.setShort(3, conId);			
 			}
 			rs = ps.executeQuery();
+			String indexOwner = null;
+			String indexName = null;
 			while (rs.next()) {
-				if (result == null)
+				if (result == null) {
 					result = new HashSet<>();
+					indexOwner = rs.getString("INDEX_OWNER");
+					indexName = rs.getString("INDEX_NAME");
+				}
 				result.add(rs.getString("COLUMN_NAME"));
 			}
-			rs.close(); rs = null;
-			ps.close(); ps = null;
+			if (result != null) {
+				final StringBuilder sb = new StringBuilder(128);
+				boolean firstCol = true;
+				for (String columnName : result) {
+					if (firstCol) {
+						firstCol = false;
+					} else {
+						sb.append(",");
+					}
+					sb.append(columnName);
+				}
+				LOGGER.warn(
+						"\n" +
+						"=====================\n" +
+						"Table {}.{} does not have a primary key constraint.\n" +
+						"Unique index {}.{} with NON-NULL columns will be used instead of the missing primary key.\n" +
+						"Some database versions generate incomplete information about changes in this case and we recommend\nthat you do the following:\n" +
+						"1. Stop connector\n" +
+						"2. Create a primary key for the table {}.{} using the existing index {}.{} with the command\n" +
+						"\talter table {}.{} add constraint {}_PK primary key({}) using index {}.{};\n" +
+						"3. Start connector\n" +
+						"=====================\n",
+						tableOwner, tableName,
+						indexOwner, indexName,
+						tableOwner, tableName, indexOwner, indexName,
+						tableOwner, tableName, tableName, sb.toString(), indexOwner, indexName);
+			}
+			rs.close();
+			rs = null;
+			ps.close();
+			ps = null;
 		}
 		return result;
 	}
