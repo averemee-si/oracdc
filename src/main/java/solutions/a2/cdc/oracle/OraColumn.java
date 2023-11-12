@@ -824,6 +824,10 @@ public class OraColumn {
 		this.defaultValue = defaultValue;
 	}
 
+	//TODO
+	//TODO This will be splitted to appropriate type handler.....
+	//TODO and this will be replaced with simple getter and setter for typedDefaultValue
+	//TODO
 	public Object getTypedDefaultValue() {
 		if (!defaultValuePresent) {
 			return null;
@@ -949,8 +953,23 @@ public class OraColumn {
 				statement.setBigDecimal(columnNo, (BigDecimal) columnValue);
 				break;
 			case Types.NUMERIC:
-				BigDecimal bd = OraNumber.toLogical(((ByteBuffer) columnValue).array());
-				if (bd == null) {
+				boolean setNull = false;
+				BigDecimal bd = null;
+				try {
+					bd = OraNumber.toLogical((byte[]) columnValue);
+					if (bd == null) {
+						setNull = true;
+					}
+				} catch (Exception e) {
+					LOGGER.error(
+							"\n" +
+							"=====================\n" +
+							"Exception {} while converting {} to byte[] for column {}, bind # {}! \n" +
+							"=====================\n",
+							e.getClass().getName(), columnValue.getClass().getName(), columnName, columnNo);
+					setNull = true;
+				}
+				if (setNull) {
 					statement.setNull(columnNo, Types.NUMERIC);
 				} else {
 					statement.setBigDecimal(columnNo, bd);
@@ -985,18 +1004,41 @@ public class OraColumn {
 		return sb.toString();
 	}
 
-	private void stringField() {
+	private Schema optionalOrRequired(SchemaBuilder builder) {
 		if (partOfPk || !nullable) {
-			schema = Schema.STRING_SCHEMA;
+			return builder.required().build();
 		} else {
-			schema = Schema.OPTIONAL_STRING_SCHEMA;
+			return builder.optional().build();
 		}
 	}
+
+	private void stringField() {
+		SchemaBuilder builder = SchemaBuilder.string();
+		if (defaultValuePresent) {
+			if (StringUtils.startsWith(defaultValue, "'") &&
+							StringUtils.endsWith(defaultValue, "'")) {
+				typedDefaultValue = StringUtils.substringBetween(defaultValue, "'", "'");
+				builder = builder.defaultValue(typedDefaultValue);
+				LOGGER.trace("Setting default value of column '{}' to '{}'",
+						columnName, typedDefaultValue);
+			} else {
+				typedDefaultValue = defaultValue;
+				LOGGER.warn(
+						"\n" +
+						"=====================\n" +
+						"Default value for CHAR/NCHAR/VARCHAR2/NVARCHAR2 must be inside single quotes!" +
+						"Setting default value (DATA_DEFAULT) of column '{}' to \"{}\"\n" +
+						"=====================\n",
+						columnName, typedDefaultValue);
+			}
+		}
+		schema = optionalOrRequired(builder);
+	}
 	private void stringField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
+		if (partOfPk) {
 			keySchema.field(this.columnName, Schema.STRING_SCHEMA);
 		} else {
-			if (this.nullable) {
+			if (nullable) {
 				valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
 			} else {
 				valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
@@ -1024,11 +1066,16 @@ public class OraColumn {
 	}
 
 	private void byteField() {
-		if (partOfPk || !nullable) {
-			schema = Schema.INT8_SCHEMA;
-		} else {
-			schema = Schema.OPTIONAL_INT8_SCHEMA;
+		SchemaBuilder builder = SchemaBuilder.int8();
+		if (defaultValuePresent) {
+			try {
+				typedDefaultValue = Byte.parseByte(defaultValue);
+				builder.defaultValue(typedDefaultValue);
+			} catch (NumberFormatException nfe) {
+				logDefaultValueError("byte");
+			}
 		}
+		schema = optionalOrRequired(builder);
 	}
 	private void byteField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.partOfPk) {
@@ -1043,11 +1090,16 @@ public class OraColumn {
 	}
 
 	private void shortField() {
-		if (partOfPk || !nullable) {
-			schema = Schema.INT16_SCHEMA;
-		} else {
-			schema = Schema.OPTIONAL_INT16_SCHEMA;
+		SchemaBuilder builder = SchemaBuilder.int16();
+		if (defaultValuePresent) {
+			try {
+				typedDefaultValue = Short.parseShort(defaultValue);
+				builder.defaultValue(typedDefaultValue);
+			} catch (NumberFormatException nfe) {
+				logDefaultValueError("short");
+			}
 		}
+		schema = optionalOrRequired(builder);
 	}
 	private void shortField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.partOfPk) {
@@ -1062,11 +1114,16 @@ public class OraColumn {
 	}
 
 	private void intField() {
-		if (partOfPk || !nullable) {
-			schema = Schema.INT32_SCHEMA;
-		} else {
-			schema = Schema.OPTIONAL_INT32_SCHEMA;
+		SchemaBuilder builder = SchemaBuilder.int32();
+		if (defaultValuePresent) {
+			try {
+				typedDefaultValue = Integer.parseInt(defaultValue);
+				builder.defaultValue(typedDefaultValue);
+			} catch (NumberFormatException nfe) {
+				logDefaultValueError("int");
+			}
 		}
+		schema = optionalOrRequired(builder);
 	}
 	private void intField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.partOfPk) {
@@ -1081,11 +1138,16 @@ public class OraColumn {
 	}
 
 	private void longField() {
-		if (partOfPk || !nullable) {
-			schema = Schema.INT64_SCHEMA;
-		} else {
-			schema = Schema.OPTIONAL_INT64_SCHEMA;
+		SchemaBuilder builder = SchemaBuilder.int64();
+		if (defaultValuePresent) {
+			try {
+				typedDefaultValue = Long.parseLong(defaultValue);
+				builder.defaultValue(typedDefaultValue);
+			} catch (NumberFormatException nfe) {
+				logDefaultValueError("long");
+			}
 		}
+		schema = optionalOrRequired(builder);
 	}
 	private void longField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.partOfPk) {
@@ -1100,11 +1162,16 @@ public class OraColumn {
 	}
 
 	private void decimalField(final int scale) {
-		if (partOfPk || !nullable) {
-			schema = Decimal.builder(scale).required().build();
-		} else {
-			schema = Decimal.builder(scale).optional().build();
+		SchemaBuilder builder = Decimal.builder(scale);
+		if (defaultValuePresent) {
+			try {
+				typedDefaultValue = (new BigDecimal(defaultValue)).setScale(scale);
+				builder.defaultValue(typedDefaultValue);
+			} catch (NumberFormatException nfe) {
+				logDefaultValueError("java.math.BigDecimal");
+			}
 		}
+		schema = optionalOrRequired(builder);
 	}
 	private void decimalField(final int scale, final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.partOfPk) {
@@ -1119,11 +1186,16 @@ public class OraColumn {
 	}
 
 	private void doubleField() {
-		if (partOfPk || !nullable) {
-			schema = Schema.FLOAT64_SCHEMA;
-		} else {
-			schema = Schema.OPTIONAL_FLOAT64_SCHEMA;
+		SchemaBuilder builder = SchemaBuilder.float64();
+		if (defaultValuePresent) {
+			try {
+				typedDefaultValue = Double.parseDouble(defaultValue);
+				builder.defaultValue(typedDefaultValue);
+			} catch (NumberFormatException nfe) {
+				logDefaultValueError("double");
+			}
 		}
+		schema = optionalOrRequired(builder);
 	}
 	private void doubleField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.partOfPk) {
@@ -1138,11 +1210,16 @@ public class OraColumn {
 	}
 
 	private void floatField() {
-		if (partOfPk || !nullable) {
-			schema = Schema.FLOAT32_SCHEMA;
-		} else {
-			schema = Schema.OPTIONAL_FLOAT32_SCHEMA;
+		SchemaBuilder builder = SchemaBuilder.float32();
+		if (defaultValuePresent) {
+			try {
+				typedDefaultValue = Float.parseFloat(defaultValue);
+				builder.defaultValue(typedDefaultValue);
+			} catch (NumberFormatException nfe) {
+				logDefaultValueError("float");
+			}
 		}
+		schema = optionalOrRequired(builder);
 	}
 	private void floatField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.partOfPk) {
@@ -1157,11 +1234,24 @@ public class OraColumn {
 	}
 
 	private void oraNumberField() {
-		if (partOfPk || !nullable) {
-			schema = OraNumber.builder().required().build();
-		} else {
-			schema = OraNumber.builder().optional().build();
+		SchemaBuilder builder = OraNumber.builder();
+		if (defaultValuePresent) {
+			try {
+				typedDefaultValue = (new NUMBER(defaultValue, 10)).getBytes();
+				builder.defaultValue(typedDefaultValue);
+			} catch (SQLException sqle) {
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"Unable to convert default value (DATA_DEFAULT) '{}' of column '{}' to oracle.sql.NUMBER!\n" +
+						"=====================\n",
+						defaultValue, columnName);
+				throw new NumberFormatException(sqle.getMessage());
+			} catch (NumberFormatException nfe) {
+				logDefaultValueError("oracle.sql.NUMBER");
+			}
 		}
+		schema = optionalOrRequired(builder);
 	}
 	private void oraNumberField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
 		if (this.partOfPk) {
@@ -1219,6 +1309,16 @@ public class OraColumn {
 		} else {
 			schema = OraInterval.builder().optional().build();
 		}
+	}
+
+	private void logDefaultValueError(final String dataTypeName) {
+		LOGGER.error(
+				"\n" +
+				"=====================\n" +
+				"Unable to convert default value (DATA_DEFAULT) \"{}\" of column '{}' to '{}'!\n" +
+				"This default value \"{}\" will be ignored!\n" + 
+				"=====================\n",
+				defaultValue, columnName, dataTypeName, defaultValue);
 	}
 
 	@Override

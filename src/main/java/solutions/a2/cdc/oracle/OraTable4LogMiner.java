@@ -71,6 +71,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private static final int LOB_SECUREFILES_DATA_BEGINS = 60;
 
 	private final Map<String, OraColumn> idToNameMap;
+//	private final List<OraColumn> defaultValueColumns;
 	private String pdbName;
 	private String kafkaTopic;
 	private OraDumpDecoder odd;
@@ -265,16 +266,16 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 						}
 					}
-				}
-				if (columnAdded) {
+
 					if (column.getColumnId() > maxColumnId) {
 						maxColumnId = column.getColumnId();
 					}
 					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("New{}column {}({}) added to table definition {}.",
+						LOGGER.debug("New {} column {}({}) added to table definition {}.",
 								column.isPartOfPk() ? " PK " : " ", column.getColumnName(), 
 								JdbcTypes.getTypeName(column.getJdbcType()), tableFqn);
 					}
+
 				}
 
 				if (column.isPartOfPk()) {
