@@ -41,6 +41,8 @@ import solutions.a2.cdc.oracle.utils.ExceptionUtils;
  */
 public class OraRdbmsInfo {
 
+	public static final int ORA_942 = 942;
+
 	private String versionString;
 	private final String rdbmsEdition;
 	private final int versionMajor;
@@ -94,7 +96,7 @@ public class OraRdbmsInfo {
 				throw new SQLException("Unable to read data from V$INSTANCE!");
 			}
 		} catch (SQLException sqle) {
-			if (sqle.getErrorCode() == 942) {
+			if (sqle.getErrorCode() == ORA_942) {
 				// ORA-00942: table or view does not exist
 				LOGGER.error("Please run as SYSDBA:");
 				LOGGER.error("\tgrant select on V_$INSTANCE to {};", connection.getSchema());
