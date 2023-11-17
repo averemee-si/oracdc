@@ -29,6 +29,7 @@ import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
+import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
@@ -1015,14 +1017,14 @@ public class OraColumn {
 	private void stringField() {
 		SchemaBuilder builder = SchemaBuilder.string();
 		if (defaultValuePresent) {
-			if (StringUtils.startsWith(defaultValue, "'") &&
-							StringUtils.endsWith(defaultValue, "'")) {
-				typedDefaultValue = StringUtils.substringBetween(defaultValue, "'", "'");
-				builder = builder.defaultValue(typedDefaultValue);
+			final String trimmedDefault = StringUtils.trim(defaultValue); 
+			if (StringUtils.startsWith(trimmedDefault, "'") &&
+							StringUtils.endsWith(trimmedDefault, "'")) {
+				typedDefaultValue = StringUtils.substringBetween(trimmedDefault, "'", "'");
 				LOGGER.trace("Setting default value of column '{}' to '{}'",
 						columnName, typedDefaultValue);
 			} else {
-				typedDefaultValue = defaultValue;
+				typedDefaultValue = trimmedDefault;
 				LOGGER.warn(
 						"\n" +
 						"=====================\n" +
@@ -1031,6 +1033,7 @@ public class OraColumn {
 						"=====================\n",
 						columnName, typedDefaultValue);
 			}
+			builder = builder.defaultValue(typedDefaultValue);
 		}
 		schema = optionalOrRequired(builder);
 	}
@@ -1362,6 +1365,58 @@ public class OraColumn {
 		} else {
 			// Uppercase it!
 			return StringUtils.upperCase(rawColumnName);
+		}
+	}
+
+	
+	//TODO
+	//TODO Improvement required!
+	//TODO
+	public void setValueFromResultSet(
+			final Struct struct, final ResultSet resultSet) throws SQLException  {
+		switch (jdbcType) {
+		case Types.DATE:
+		case Types.TIMESTAMP:
+		case Types.TIMESTAMP_WITH_TIMEZONE:
+			struct.put(columnName, resultSet.getTimestamp(columnName));
+			break;
+		case Types.BOOLEAN:
+			struct.put(columnName, resultSet.getBoolean(columnName));
+			break;
+		case Types.TINYINT:
+			struct.put(columnName, resultSet.getByte(columnName));
+			break;
+		case Types.SMALLINT:
+			struct.put(columnName, resultSet.getShort(columnName));
+			break;
+		case Types.INTEGER:
+			struct.put(columnName, resultSet.getInt(columnName));
+			break;
+		case Types.BIGINT:
+			struct.put(columnName, resultSet.getLong(columnName));
+			break;
+		case Types.FLOAT:
+			struct.put(columnName, resultSet.getFloat(columnName));
+			break;
+		case Types.DOUBLE:
+			struct.put(columnName, resultSet.getDouble(columnName));
+			break;
+		case Types.DECIMAL:
+			struct.put(columnName, resultSet.getBigDecimal(columnName));
+			break;
+		case Types.NUMERIC:
+			struct.put(columnName, ((OracleResultSet) resultSet).getNUMBER(columnName).getBytes());
+			break;
+		case Types.BINARY:
+			struct.put(columnName, resultSet.getBytes(columnName));
+			break;
+		case Types.VARCHAR:
+			struct.put(columnName, resultSet.getString(columnName));
+			break;
+		default:
+			LOGGER.error("Unsupported data type {} for column {}.",
+					JdbcTypes.getTypeName(jdbcType), columnName);
+			throw new SQLException("Unsupported data type: " + JdbcTypes.getTypeName(jdbcType));
 		}
 	}
 

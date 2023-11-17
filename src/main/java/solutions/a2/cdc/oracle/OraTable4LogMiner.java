@@ -86,6 +86,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private int maxColumnId;
 	private int topicPartition;
 	private boolean checkSupplementalLogData = true;
+	private String sqlGetKeysUsingRowId = null;
+	private boolean printSqlForMissedWhereInUpdate = true;
 
 	/**
 	 * 
@@ -294,6 +296,26 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			rsColumns = null;
 			statement.close();
 			statement = null;
+
+			// Handle empty WHERE for update
+			if (tableWithPk) {
+				final StringBuilder sb = new StringBuilder(128);
+				sb.append("select ");
+				boolean firstColumn = true;
+				for (final Map.Entry<String, OraColumn> entry : pkColumns.entrySet()) {
+					if (firstColumn) {
+						firstColumn = false;
+					} else {
+						sb.append(", ");
+					}
+					sb.append(entry.getKey());
+				}
+				sb
+					.append("\nfrom ")
+					.append(tableFqn)
+					.append("\nwhere ROWID = CHARTOROWID(?)");
+				sqlGetKeysUsingRowId = sb.toString();
+			}
 
 			// Schema
 			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
@@ -549,18 +571,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 			final int setClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_SET);
 			final String[] setClause;
+			final boolean processWhereFromRow;
 			if (whereClauseStart > 0) {
 				setClause = StringUtils.split(
 						StringUtils.substring(stmt.getSqlRedo(), setClauseStart + 5, whereClauseStart), ",");
+				processWhereFromRow = false;
 			} else {
 				setClause = StringUtils.split(
 						StringUtils.substring(stmt.getSqlRedo(), setClauseStart + 5), ",");
-				LOGGER.warn(
-						"\n" +
-						"=====================\n" +
-						"UPDATE statement without WHERE clause for table {} at SCN='{}' and RS_ID='{}'!\n" +
-						"=====================\n",
-						this.fqn(), stmt.getScn(), stmt.getRsId());
+				processWhereFromRow = true;
 			}
 			for (int i = 0; i < setClause.length; i++) {
 				final String currentExpr = StringUtils.trim(setClause[i]);
@@ -623,80 +642,103 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 				}
 			}
-			String[] whereClause = StringUtils.splitByWholeSeparator(
-					StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
-			for (int i = 0; i < whereClause.length; i++) {
-				final String currentExpr = StringUtils.trim(whereClause[i]);
-				final String columnName;
-				if (StringUtils.endsWith(currentExpr, "L")) {
-					columnName = StringUtils.substringBefore(currentExpr, SQL_REDO_IS);
-					if (!setColumns.contains(columnName)) {
-						final OraColumn oraColumn = idToNameMap.get(columnName);
-						if (oraColumn != null) {
-							// Column can be excluded
-							try {
-								valueStruct.put(oraColumn.getColumnName(), null);
-							} catch (DataException de) {
-								// Check again for column default value...
-								// This is due "SUPPLEMENTAL LOG DATA (ALL) COLUMNS"
-								boolean throwDataException = true;
-								if (oraColumn.isDefaultValuePresent()) {
-									final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
-									if (columnDefaultValue != null) {
-										LOGGER.warn(
-												"\n" +
-												"=====================\n" +
-												"Substituting NULL value for column {}, table {} with DEFAULT value {}\n" +
-												"SCN={}, RBA='{}', SQL_REDO:\n\t{}\n" +
-												"=====================\n",
-												oraColumn.getColumnName(), this.tableFqn, columnDefaultValue,
-												stmt.getScn(), stmt.getRsId(), stmt.getSqlRedo());
-										valueStruct.put(oraColumn.getColumnName(), columnDefaultValue);
-										throwDataException = false;
+			//BEGIN: where clause processing...
+			if (processWhereFromRow) {
+				if (printSqlForMissedWhereInUpdate) {
+					LOGGER.info(
+							"\n" +
+							"=====================\n" +
+							"{}\n" +
+							"Will be used to handle UPDATE statements without WHERE clause for table {}.\n" +
+							"=====================\n",
+							sqlGetKeysUsingRowId, fqn());
+					printSqlForMissedWhereInUpdate = false;
+				}
+				LOGGER.warn(
+						"\n" +
+						"=====================\n" +
+						"UPDATE statement without WHERE clause for table {} at SCN='{}' and RS_ID='{}' for ROWID='{}'!\n" +
+						"We will try to get primary key values from table {} at ROWID='{}'!\n" +
+						"=====================\n",
+						fqn(), stmt.getScn(), stmt.getRsId(), stmt.getRowId(), fqn(), stmt.getRowId());
+				getMissedColumnValues(connection, stmt.getRowId(), keyStruct);
+			} else {
+				String[] whereClause = StringUtils.splitByWholeSeparator(
+						StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
+				for (int i = 0; i < whereClause.length; i++) {
+					final String currentExpr = StringUtils.trim(whereClause[i]);
+					final String columnName;
+					if (StringUtils.endsWith(currentExpr, "L")) {
+						columnName = StringUtils.substringBefore(currentExpr, SQL_REDO_IS);
+						if (!setColumns.contains(columnName)) {
+							final OraColumn oraColumn = idToNameMap.get(columnName);
+							if (oraColumn != null) {
+								// Column can be excluded
+								try {
+									valueStruct.put(oraColumn.getColumnName(), null);
+								} catch (DataException de) {
+									// Check again for column default value...
+									// This is due "SUPPLEMENTAL LOG DATA (ALL) COLUMNS"
+									boolean throwDataException = true;
+									if (oraColumn.isDefaultValuePresent()) {
+										final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
+										if (columnDefaultValue != null) {
+											LOGGER.warn(
+													"\n" +
+													"=====================\n" +
+													"Substituting NULL value for column {}, table {} with DEFAULT value {}\n" +
+													"SCN={}, RBA='{}', SQL_REDO:\n\t{}\n" +
+													"=====================\n",
+													oraColumn.getColumnName(), this.tableFqn, columnDefaultValue,
+													stmt.getScn(), stmt.getRsId(), stmt.getSqlRedo());
+											valueStruct.put(oraColumn.getColumnName(), columnDefaultValue);
+											throwDataException = false;
+										}
 									}
-								}
-								if (throwDataException) {
-									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
-									throw new DataException(de);
+									if (throwDataException) {
+										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+										throw new DataException(de);
+									}
 								}
 							}
 						}
-					}
-				} else {
-					columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
-					if (!setColumns.contains(columnName)) {
-						final OraColumn oraColumn = idToNameMap.get(columnName);
-						if (oraColumn != null) {
-							// Column can be excluded
-							final String columnValue = StringUtils.trim(StringUtils.substringAfter(currentExpr, "="));
-							try {
-								parseRedoRecordValues(
-									oraColumn, columnValue,
-									keyStruct, valueStruct);
-							} catch (DataException de) {
-								LOGGER.error("Invalid value {} for column {} in table {}",
-										columnValue, oraColumn.getColumnName(), tableFqn);
-								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
-								throw new DataException(de);
-							} catch (SQLException sqle) {
-								if (oraColumn.isNullable()) {
-									LOGGER.warn(
-											"\n" +
-											"=====================\n" +
-											"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
-											"=====================\n",
-											columnValue, oraColumn.getColumnName(), tableFqn, stmt.getScn(), stmt.getRsId());
-								} else {
+					} else {
+						columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
+						if (!setColumns.contains(columnName)) {
+							final OraColumn oraColumn = idToNameMap.get(columnName);
+							if (oraColumn != null) {
+								// Column can be excluded
+								final String columnValue = StringUtils.trim(StringUtils.substringAfter(currentExpr, "="));
+								try {
+									parseRedoRecordValues(
+										oraColumn, columnValue,
+										keyStruct, valueStruct);
+								} catch (DataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											columnValue, oraColumn.getColumnName(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
-									throw new SQLException(sqle);
+									throw new DataException(de);
+								} catch (SQLException sqle) {
+									if (oraColumn.isNullable()) {
+										LOGGER.warn(
+												"\n" +
+												"=====================\n" +
+												"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
+												"=====================\n",
+												columnValue, oraColumn.getColumnName(), tableFqn, stmt.getScn(), stmt.getRsId());
+									} else {
+										LOGGER.error("Invalid value {} for column {} in table {}",
+												columnValue, oraColumn.getColumnName(), tableFqn);
+										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+										throw new SQLException(sqle);
+									}
 								}
 							}
 						}
 					}
 				}
 			}
+			//END: where clause processing...
 		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("parseRedoRecord() processing XML_DOC_BEGIN (for XMLTYPE update)");
@@ -1356,6 +1398,41 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	public boolean isCheckSupplementalLogData() {
 		return checkSupplementalLogData;
+	}
+
+	private void getMissedColumnValues(final Connection connection, final String rowId, final Struct keyStruct) throws SQLException {
+		try {
+			final PreparedStatement statement = connection .prepareStatement(sqlGetKeysUsingRowId,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			statement.setString(1, rowId);
+			final ResultSet resultSet = statement.executeQuery();
+			if (resultSet.next()) {
+				for (final Map.Entry<String, OraColumn> entry : pkColumns.entrySet()) {
+					final OraColumn oraColumn = entry.getValue();
+					oraColumn.setValueFromResultSet(keyStruct, resultSet);
+				}
+			} else {
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"Unable to find row in table {} with ROWID '{}'!\n" +
+						"=====================\n",
+						fqn(), rowId);
+			}
+		} catch (SQLException sqle) {
+			if (sqle.getErrorCode() == OraRdbmsInfo.ORA_942) {
+				// ORA-00942: table or view does not exist
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"Please run as SYSDBA:\n" +
+						"\tgrant select on {} to {};\n" +
+						"And restart connector!\n" +
+						"=====================\n",
+						fqn(), connection.getSchema());
+			}
+			throw sqle;
+		}
 	}
 
 }
