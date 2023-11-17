@@ -118,6 +118,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Set<Long> nonLobObjects;
 	private String lastRealRowId;
 	private final boolean protobufSchemaNames; 
+	private final boolean printInvalidHexValueWarning;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -190,6 +191,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			nonLobObjects = null;
 		}
 		this.protobufSchemaNames = config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM);
+		this.printInvalidHexValueWarning = config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM);
 		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
@@ -568,7 +570,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												schemaType, useOracdcSchemas,
 												processLobs, transformLobs, isCdb, topicPartition,
 												odd, partition, topic, topicNameStyle, topicNameDelimiter,
-												rdbmsInfo, connDictionary, protobufSchemaNames);
+												rdbmsInfo, connDictionary, protobufSchemaNames, printInvalidHexValueWarning);
 											if (!legacyResiliencyModel) {
 												task.putTableAndVersion(combinedDataObjectId, 1);
 											}

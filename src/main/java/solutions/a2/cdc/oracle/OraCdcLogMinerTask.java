@@ -1321,7 +1321,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 							processLobs, transformLobs,
 							isCdb, topicPartition, 
 							odd, partition, topic, topicNameStyle, topicNameDelimiter,
-							rdbmsInfo, connection, config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM));
+							rdbmsInfo, connection,
+							config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM),
+							config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM));
 					oraTable.setVersion(version);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
@@ -1390,7 +1392,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 								processLobs, transformLobs,
 								isCdb, topicPartition, 
 								odd, partition, topic, topicNameStyle, topicNameDelimiter,
-								rdbmsInfo, connection, config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM));
+								rdbmsInfo, connection,
+								config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM),
+								config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM));
 						oraTable.setVersion(version);
 						tablesInProcessing.put(combinedDataObjectId, oraTable);
 						metrics.addTableInProcessing(oraTable.fqn());
@@ -1431,7 +1435,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 							processLobs, transformLobs,
 							isCdb, topicPartition, 
 							odd, partition, topic, topicNameStyle, topicNameDelimiter,
-							rdbmsInfo, connection, config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM));
+							rdbmsInfo, connection,
+							config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM),
+							config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM));
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

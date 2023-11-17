@@ -145,6 +145,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						ConfigDef.ValidString.in(ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
 								ParamConstants.ORA_TRANSACTION_IMPL_JVM),
 						Importance.LOW, ParamConstants.ORA_TRANSACTION_IMPL_DOC)
+				.define(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, ParamConstants.PRINT_INVALID_HEX_WARNING_DOC)
 				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",

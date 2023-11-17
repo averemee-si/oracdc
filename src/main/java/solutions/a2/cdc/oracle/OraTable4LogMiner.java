@@ -71,7 +71,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private static final int LOB_SECUREFILES_DATA_BEGINS = 60;
 
 	private final Map<String, OraColumn> idToNameMap;
-//	private final List<OraColumn> defaultValueColumns;
 	private String pdbName;
 	private String kafkaTopic;
 	private OraDumpDecoder odd;
@@ -88,6 +87,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private boolean checkSupplementalLogData = true;
 	private String sqlGetKeysUsingRowId = null;
 	private boolean printSqlForMissedWhereInUpdate = true;
+	private boolean printInvalidHexValueWarning = false;
 
 	/**
 	 * 
@@ -133,6 +133,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param topicNameDelimiter
 	 * @param rdbmsInfo
 	 * @param connection
+	 * @param protobufSchemaNames
+	 * @param printInvalidHexValueWarning
 	 */
 	public OraTable4LogMiner(
 			final String pdbName, final short conId, final String tableOwner,
@@ -143,7 +145,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final Map<String, String> sourcePartition, final String topicParam,
 			final int topicNameStyle, final String topicNameDelimiter,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection,
-			final boolean protobufSchemaNames) {
+			final boolean protobufSchemaNames, final boolean printInvalidHexValueWarning) {
 		this(pdbName, tableOwner, tableName, schemaType, processLobs, transformLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(topicParam, topicNameStyle, topicNameDelimiter, odd, sourcePartition);
@@ -151,6 +153,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.setRowLevelScn(rowLevelScnDependency);
 		this.rdbmsInfo = rdbmsInfo;
 		this.topicPartition = topicPartition;
+		this.printInvalidHexValueWarning = printInvalidHexValueWarning;
 		try {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -479,7 +482,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 												oraColumn, columnValue,
 												keyStruct, valueStruct);
 									} catch (SQLException sqle) {
-										if (oraColumn.isNullable()) {
+										if (oraColumn.isNullable() && printInvalidHexValueWarning) {
 											LOGGER.warn(
 													"\n" +
 													"=====================\n" +

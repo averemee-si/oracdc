@@ -215,6 +215,11 @@ public class ParamConstants {
 	public static final String ORA_TRANSACTION_IMPL_CHRONICLE = "ChronicleQueue";
 	public static final String ORA_TRANSACTION_IMPL_JVM = "ArrayList";
 	
+	public static final String PRINT_INVALID_HEX_WARNING_PARAM = "a2.print.invalid.hex.value.warning";
+	public static final String PRINT_INVALID_HEX_WARNING_DOC = 
+			"Default - false.\n" +
+			"When set to true oracdc prints information about invalid hex values (like single byte value for DATE/TIMESTAMP/TIMESTAMPTZ) in log.";
+	
 	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";

@@ -107,6 +107,7 @@ Default - false.
 
 `a2.transaction.implementation` - 	Queue implementation for processing SQL statements within transactions. Allowed values: ``ChronicleQueue`` and ``ArrayList``. Default - ``ChronicleQueue``. LOB processing is only possible if `a2.transaction.implementation` is set to ``ChronicleQueue``.
 
+`a2.print.invalid.hex.value.warning` - When set to true oracdc prints information about invalid hex values (like single byte value for DATE/TIMESTAMP/TIMESTAMPTZ) in log. Default - false.
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
