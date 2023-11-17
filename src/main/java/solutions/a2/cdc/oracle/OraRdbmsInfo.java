@@ -403,21 +403,14 @@ public class OraRdbmsInfo {
 					}
 					sb.append(columnName);
 				}
-				LOGGER.warn(
+				LOGGER.info(
 						"\n" +
 						"=====================\n" +
 						"Table {}.{} does not have a primary key constraint.\n" +
 						"Unique index {}.{} with NON-NULL column(s) will be used instead of the missing primary key.\n" +
-						"Some database versions generate incomplete information about changes in this case and we recommend\nthat you do the following:\n" +
-						"1. Stop connector\n" +
-						"2. Create a primary key for the table {}.{} using the existing index {}.{} with the command\n" +
-						"\talter table {}.{} add constraint {}_PK primary key({}) using index {}.{};\n" +
-						"3. Start connector\n" +
 						"=====================\n",
 						tableOwner, tableName,
-						indexOwner, indexName,
-						tableOwner, tableName, indexOwner, indexName,
-						tableOwner, tableName, tableName, sb.toString(), indexOwner, indexName);
+						indexOwner, indexName);
 			}
 			rs.close();
 			rs = null;
