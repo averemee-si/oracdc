@@ -109,6 +109,10 @@ Default - false.
 
 `a2.print.invalid.hex.value.warning` - When set to true oracdc prints information about invalid hex values (like single byte value for DATE/TIMESTAMP/TIMESTAMPTZ) in log. Default - false.
 
+`a2.process.online.redo.logs` - When set to true oracdc process online redo logs. Default - false.
+
+`a2.scn.query.interval.ms` - Minimum time in milliseconds to determine the current SCN during online redo log processing. Used when `a2.process.online.redo.logs` is set true. Default - 60_000.
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_

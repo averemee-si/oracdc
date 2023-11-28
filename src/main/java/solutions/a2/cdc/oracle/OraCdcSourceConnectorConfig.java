@@ -147,6 +147,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.ORA_TRANSACTION_IMPL_DOC)
 				.define(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.PRINT_INVALID_HEX_WARNING_DOC)
+				.define(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, ParamConstants.PROCESS_ONLINE_REDO_LOGS_DOC)
+				.define(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM, Type.INT, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DEFAULT,
+						Importance.LOW, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DOC)
 				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",

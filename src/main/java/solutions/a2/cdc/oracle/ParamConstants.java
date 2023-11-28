@@ -220,6 +220,17 @@ public class ParamConstants {
 			"Default - false.\n" +
 			"When set to true oracdc prints information about invalid hex values (like single byte value for DATE/TIMESTAMP/TIMESTAMPTZ) in log.";
 	
+	public static final String PROCESS_ONLINE_REDO_LOGS_PARAM = "a2.process.online.redo.logs";
+	public static final String PROCESS_ONLINE_REDO_LOGS_DOC = 
+			"Default - false.\n" +
+			"When set to true oracdc process online redo logs.";
+	
+	public static final String CURRENT_SCN_QUERY_INTERVAL_PARAM = "a2.scn.query.interval.ms";
+	public static final String CURRENT_SCN_QUERY_INTERVAL_DOC = 
+			"Default - 60_000.\n" +
+			"Minimum time in milliseconds to determine the current SCN during online redo log processing.";
+	public static final int CURRENT_SCN_QUERY_INTERVAL_DEFAULT = 60_000;
+	
 	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
