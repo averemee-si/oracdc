@@ -42,6 +42,7 @@ import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 public class OraRdbmsInfo {
 
 	public static final int ORA_942 = 942;
+	public static final int ORA_1291 = 1291;
 
 	private String versionString;
 	private final String rdbmsEdition;
