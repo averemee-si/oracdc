@@ -641,7 +641,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 						} else {
 							rewind = true;
 						}
-						restoreTableInfoFromDictionary(offsetFromKafka);
 					}
 				} else {
 					LOGGER.info("No data present in connector's offset storage for {}:{}",
@@ -1351,67 +1350,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 				}
 			});
 		}
-	}
-
-	private void restoreTableInfoFromDictionary(final Map<String, Object> offsetFromKafka) throws SQLException {
-		final Connection connection = oraConnections.getConnection();
-		final PreparedStatement psCheckTable;
-		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
-		if (isCdb) {
-			psCheckTable = connection.prepareStatement(
-					OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		} else {
-			psCheckTable = connection.prepareStatement(
-					OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		}
-		for (String id : offsetFromKafka.keySet()) {
-			if (StringUtils.isNumeric(id)) {
-				final long combinedDataObjectId = Long.parseLong(id);
-				final int version = Integer.parseInt((String) offsetFromKafka.get(id));
-				if (!tablesInProcessing.containsKey(combinedDataObjectId)) {
-					final int tableId = (int) combinedDataObjectId;
-					final int conId = (int) (combinedDataObjectId >> 32);
-					psCheckTable.setInt(1, tableId);
-					if (isCdb) {
-						psCheckTable.setInt(2, conId);
-					}
-					LOGGER.debug("Adding from database dictionary for internal id {}: OBJECT_ID = {}, CON_ID = {}",
-							combinedDataObjectId, tableId, conId);
-					final ResultSet rsCheckTable = psCheckTable.executeQuery();
-					if (rsCheckTable.next()) {
-						final String tableName = rsCheckTable.getString("TABLE_NAME");
-						final String tableOwner = rsCheckTable.getString("OWNER");
-						OraTable4LogMiner oraTable = new OraTable4LogMiner(
-								isCdb ? rsCheckTable.getString("PDB_NAME") : null,
-								isCdb ? (short) conId : -1,
-								tableOwner, tableName,
-								StringUtils.equalsIgnoreCase("ENABLED", rsCheckTable.getString("DEPENDENCIES")),
-								schemaType, useOracdcSchemas,
-								processLobs, transformLobs,
-								isCdb, topicPartition, 
-								odd, partition, topic, topicNameStyle, topicNameDelimiter,
-								rdbmsInfo, connection,
-								config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM),
-								config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM));
-						oraTable.setVersion(version);
-						tablesInProcessing.put(combinedDataObjectId, oraTable);
-						metrics.addTableInProcessing(oraTable.fqn());
-						LOGGER.debug("Restored metadata for table {}, OBJECT_ID={}, CON_ID={}",
-								oraTable.fqn(), tableId, conId);
-					} else {
-						throw new SQLException("Data corruption detected!\n" +
-								"OBJECT_ID=" + tableId + ", CON_ID=" + conId + 
-								" exist in offset but not in database!!!");
-					}
-					rsCheckTable.close();
-					psCheckTable.clearParameters();
-				}
-			}
-		}
-		psCheckTable.close();
-		connection.close();	
 	}
 
 	private void buildInitialLoadTableList(final String initialLoadSql) throws SQLException {
