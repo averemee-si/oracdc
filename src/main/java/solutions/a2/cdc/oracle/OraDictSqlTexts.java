@@ -605,4 +605,21 @@ where  STATUS = 'OPEN' and ENABLED = 'PUBLIC'
 			"from   V$THREAD\n" +
 			"where  STATUS = 'OPEN' and ENABLED = 'PUBLIC'\n";
 
+	/*
+select CURRENT_SCN, (SYSDATE - CAST(SCN_TO_TIMESTAMP(CURRENT_SCN) as DATE)) * 86400,
+       L.SEQUENCE#, F.MEMBER
+from   V$DATABASE D, V$LOG L, V$LOGFILE F
+where  L.STATUS = 'CURRENT'
+  and  L.GROUP# = F.GROUP#
+  and  F.STATUS is null
+  and  rownum = 1
+	 */
+	public static final String UP_TO_CURRENT_SCN =
+			"select CURRENT_SCN, (SYSDATE - CAST(SCN_TO_TIMESTAMP(?) as DATE)) * 86400,\n" +
+	        "       L.SEQUENCE#, F.MEMBER\n" +
+			"from   V$DATABASE D, V$LOG L, V$LOGFILE F\n" +
+	        "where  L.STATUS = 'CURRENT'\n" +
+			"  and  L.GROUP# = F.GROUP#\n" +
+	        "  and  F.STATUS is null\n" +
+			"  and  rownum = 1";
 	}
