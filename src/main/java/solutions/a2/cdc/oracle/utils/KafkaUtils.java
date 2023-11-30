@@ -18,20 +18,30 @@ import org.apache.commons.lang3.StringUtils;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class KafkaUtils {
 
 	private static final String CHARS_TO_REPLACE = "[^a-zA-Z0-9._\\-]+";
+	private static final String COL_NAME_CHARS_TO_REPLACE = "[^a-zA-Z0-9_]+";
 	private static final String TOPIC_NAME_VALID_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ._-";
+	private static final String AVRO_FIELD_VALID_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 
-	public static boolean validTopicName(String topicName) {
+	public static boolean validTopicName(final String topicName) {
 		return StringUtils.containsOnly(topicName, TOPIC_NAME_VALID_CHARS);
 	}
 
-	public static String fixTopicName(String topicName, String replacement) {
+	public static String fixTopicName(final String topicName, final String replacement) {
 		return RegExUtils.replaceAll(topicName, CHARS_TO_REPLACE, replacement);
+	}
+
+	public static boolean validAvroFieldName(final String name) {
+		return StringUtils.containsOnly(name, AVRO_FIELD_VALID_CHARS);
+	}
+
+	public static String fixAvroFieldName(final String name, final String replacement) {
+		return RegExUtils.replaceAll(name, COL_NAME_CHARS_TO_REPLACE, replacement);
 	}
 
 }

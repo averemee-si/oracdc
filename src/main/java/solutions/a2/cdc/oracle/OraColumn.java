@@ -51,6 +51,7 @@ import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.data.OraXmlBinary;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import solutions.a2.cdc.oracle.utils.KafkaUtils;
 
 /**
  * 
@@ -120,7 +121,18 @@ public class OraColumn {
 			final boolean processLobs,
 			final ResultSet resultSet,
 			final Set<String> pkColsSet) throws SQLException, UnsupportedColumnDataTypeException {
-		this.columnName = resultSet.getString("COLUMN_NAME");
+		columnName = resultSet.getString("COLUMN_NAME");
+		if (!KafkaUtils.validAvroFieldName(columnName)) {
+			final String fixedName = KafkaUtils.fixAvroFieldName(columnName, "_");
+			LOGGER.warn(
+					"\n" +
+					"=====================\n" +
+					"Column name '{}' is incompatible with Avro/Protobuf naming standard.\n" +
+					"This column name is changed to '{}'.\n" + 
+					"=====================",
+					columnName, fixedName);
+			columnName = fixedName;
+		}
 		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
 		this.setColumnId(resultSet.getInt("COLUMN_ID"));
 
