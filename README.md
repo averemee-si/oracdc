@@ -732,7 +732,7 @@ Support for INTERVALYM/INTERVALDS
 TIMESTAMP enhancements
 SDU hint in log
 
-####2.0.0 (NOV-2023)
+####2.0.0 (DEC-2023)
 ######Online redo logs processing
 Online redo logs are processed when parameter `a2.process.online.redo.logs` is set to **true** (Default - **false**). To control the lag between data processing in Oracle, the parameter `a2.scn.query.interval.ms` is used, which sets the lag in milliseconds for processing data in online logs.
 This expands the range of connector tasks and makes its use possible where minimal and managed latency is required.
