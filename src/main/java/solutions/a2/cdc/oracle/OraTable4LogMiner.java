@@ -482,13 +482,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 												oraColumn, columnValue,
 												keyStruct, valueStruct);
 									} catch (SQLException sqle) {
-										if (oraColumn.isNullable() && printInvalidHexValueWarning) {
-											LOGGER.warn(
-													"\n" +
-													"=====================\n" +
-													"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
-													"=====================\n",
-													columnValue, oraColumn.getColumnName(), tableFqn, stmt.getScn(), stmt.getRsId());
+										if (oraColumn.isNullable()) {
+											printToLogInvalidHexValueWarning(
+													columnValue, oraColumn.getColumnName(), stmt);
 										} else {
 											LOGGER.error("Invalid value {} for column {} in table {}",
 													columnValue, oraColumn.getColumnName(), tableFqn);
@@ -628,12 +624,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								setColumns.add(columnName);
 							} catch (SQLException sqle ) {
 								if (oraColumn.isNullable()) {
-									LOGGER.warn(
-											"\n" +
-											"=====================\n" +
-											"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
-											"=====================\n",
-											columnValue, oraColumn.getColumnName(), tableFqn, stmt.getScn(), stmt.getRsId());
+									printToLogInvalidHexValueWarning(
+											columnValue, oraColumn.getColumnName(), stmt);
 								} else {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											columnValue, oraColumn.getColumnName(), tableFqn);
@@ -723,12 +715,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 									throw new DataException(de);
 								} catch (SQLException sqle) {
 									if (oraColumn.isNullable()) {
-										LOGGER.warn(
-												"\n" +
-												"=====================\n" +
-												"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
-												"=====================\n",
-												columnValue, oraColumn.getColumnName(), tableFqn, stmt.getScn(), stmt.getRsId());
+										printToLogInvalidHexValueWarning(
+												columnValue, oraColumn.getColumnName(), stmt);
 									} else {
 										LOGGER.error("Invalid value {} for column {} in table {}",
 												columnValue, oraColumn.getColumnName(), tableFqn);
@@ -1435,6 +1423,20 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						fqn(), connection.getSchema());
 			}
 			throw sqle;
+		}
+	}
+
+	private void printToLogInvalidHexValueWarning(
+			final String columnValue,
+			final String columnName,
+			final OraCdcLogMinerStatement stmt) {
+		if (printInvalidHexValueWarning) {
+			LOGGER.warn(
+					"\n" +
+					"=====================\n" +
+					"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
+					"=====================\n",
+					columnValue, columnName, tableFqn, stmt.getScn(), stmt.getRsId());
 		}
 	}
 

@@ -37,6 +37,7 @@ import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcV$ArchivedLogImpl.class);
+//	private final static int ONLINE_REDO_THRESHOLD_MS = 60_000;
 
 	private long firstChange;
 	private long sessionFirstChange;
@@ -47,6 +48,8 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private final boolean useNumOfArchLogs;
 	private final boolean dictionaryAvailable;
 	private final boolean callDbmsLogmnrAddLogFile;
+	private final boolean processOnlineRedoLogs;
+	private final int onlineRedoQueryMsMin;
 	private final long dbId;
 	private final String dbUniqueName;
 	private final OraCdcLogMinerMgmtIntf metrics;
@@ -54,11 +57,13 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private CallableStatement csAddArchivedLogs;
 	private CallableStatement csStartLogMiner;
 	private CallableStatement csStopLogMiner;
+	private PreparedStatement psUpToCurrentScn;
 	private int archLogsAvailable = 0;
 	private long archLogsSize = 0;
 	private List<String> fileNames = new ArrayList<>();
 	private long readStartMillis;
 	private final OraRdbmsInfo rdbmsInfo;
+	private long lastOnlineRedoTime = 0;
 
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
@@ -72,10 +77,22 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		this.rdbmsInfo = rdbmsInfo;
 
 		if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
-			// 19.10+ and connection to PDB
+			// 19.10+ with connection to PDB
 			callDbmsLogmnrAddLogFile = false;
+			processOnlineRedoLogs = false;
+			onlineRedoQueryMsMin = Integer.MIN_VALUE;
+			if (config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM)) {
+				LOGGER.warn(
+						"\n" +
+						"=====================\n" +
+						"Cannot process online redo logs using connection to PDB!\n" +
+						"Value TRUE of the parameter 'a2.process.online.redo.logs' is ignored!\n" +
+						"=====================\n");
+			}
 		} else {
 			callDbmsLogmnrAddLogFile = true;
+			processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
+			onlineRedoQueryMsMin = config.getInt(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM);
 		}
 
 		if (config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM) > 0) {
@@ -125,6 +142,10 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		csStopLogMiner = connLogMiner.prepareCall(OraDictSqlTexts.STOP_LOGMINER);
 		if (callDbmsLogmnrAddLogFile) {
 			csAddArchivedLogs = connLogMiner.prepareCall(OraDictSqlTexts.ADD_ARCHIVED_LOG);
+			if (processOnlineRedoLogs) {
+				psUpToCurrentScn = connLogMiner.prepareStatement(OraDictSqlTexts.UP_TO_CURRENT_SCN,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+			}
 		}
 	}
 
@@ -197,9 +218,10 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 					}
 					// #25 END - hole in SEQUENCE# numbering  in V$ARCHIVED_LOG
 					lastSequence = sequence;
-					fileNames.add(archLogsAvailable, rs.getString("NAME"));
-					LOGGER.info("Adding archived log {} thread# {} sequence# {} first change number {} next log first change {}",
-							rs.getString("NAME"), rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"), nextChange);
+					final String fileName = rs.getString("NAME");
+					fileNames.add(archLogsAvailable, fileName);
+					printRedoLogInfo(true,
+							fileName, rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"));
 					archLogsAvailable++;
 					archLogsSize += rs.getLong("BYTES"); 
 					if (useNumOfArchLogs) {
@@ -218,50 +240,101 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		rs = null;
 		psGetArchivedLogs.clearParameters();
 
+		boolean processOnlineRedo = false;
 		if (archLogsAvailable == 0) {
-			LOGGER.trace("END: {} return false", functionName);
-			return false;
-		} else {
-			// Set current processing in JMX
-			metrics.setNowProcessed(
-					fileNames, nextLogs ? firstChange : sessionFirstChange, nextChange, lagSeconds);
-			if (callDbmsLogmnrAddLogFile) {
-				LOGGER.trace("Adding files to LogMiner session and starting it");
-				for (int fileNum = 0; fileNum < fileNames.size(); fileNum++) {
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("Adding {} to LogMiner processing list.", fileNames.get(fileNum));
-					}
-					csAddArchivedLogs.setInt(1, fileNum);
-					csAddArchivedLogs.setString(2, fileNames.get(fileNum));
-					csAddArchivedLogs.addBatch();
+			if (!callDbmsLogmnrAddLogFile || !processOnlineRedoLogs) {
+				LOGGER.debug("END: {} no archived redo yet, return false", functionName);
+				return false;
+			} else {
+				// Both callDbmsLogmnrAddLogFile and processOnlineRedoLogs are TRUE
+				if (lastOnlineRedoTime != 0 && 
+						((int)(System.currentTimeMillis() - lastOnlineRedoTime) < onlineRedoQueryMsMin)) {
+					LOGGER.debug("END: {} time is below threshold, return false", functionName);
+					return false;
 				}
-				csAddArchivedLogs.executeBatch();
-				csAddArchivedLogs.clearBatch();
+				processOnlineRedo = true;
+				psUpToCurrentScn.setLong(1, firstChange);
+				long onlineSequence = 0;
+				final String onlineRedoMember;
+				ResultSet rsUpToCurrentScn = psUpToCurrentScn.executeQuery();
+				if (rsUpToCurrentScn.next()) {
+					nextChange =  rsUpToCurrentScn.getLong(1);
+					lagSeconds = rsUpToCurrentScn.getInt(2);
+					onlineSequence = rsUpToCurrentScn.getLong(3);
+					onlineRedoMember = rsUpToCurrentScn.getString(4);
+				} else {
+					throw new SQLException("Unable to execute\n" + OraDictSqlTexts.UP_TO_CURRENT_SCN + "\n!!!");
+				}
+				rsUpToCurrentScn.close();
+				rsUpToCurrentScn = null;
+				if ((nextChange - 1) < firstChange) {
+					LOGGER.trace("END: {} no new data in online redo, return false", functionName);
+					return false;
+				}
+				fileNames.add(onlineRedoMember);
+				printRedoLogInfo(false, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
+				// This must be here as additional warranty against ORA-1291
+				lastOnlineRedoTime = System.currentTimeMillis();
 			}
-
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("Attempting to start LogMiner for SCN range from {} to {}.",
-						nextLogs ? firstChange : sessionFirstChange, nextChange);
-			}
-			try {
-				csStartLogMiner.setLong(1, nextLogs ? firstChange : sessionFirstChange); 
-				csStartLogMiner.setLong(2, nextChange); 
-				csStartLogMiner.execute();
-				csStartLogMiner.clearParameters();
-			} catch(SQLException sqle) {
-				LOGGER.error("Unable to execute\n\t{}\n\tusing STARTSCN={} and ENDSCN={}",
-						OraDictSqlTexts.START_LOGMINER, nextLogs ? firstChange : sessionFirstChange, nextChange);
-				throw new SQLException(sqle);
-			}
-			if (nextLogs) {
-				// Set sessionFirstChange only in call to next()
-				sessionFirstChange = firstChange;
-			}
-			firstChange = nextChange;
-			readStartMillis = System.currentTimeMillis();
-			LOGGER.trace("END: {} returns true", functionName);
-			return true;
 		}
+
+		// Set current processing in JMX
+		metrics.setNowProcessed(
+				fileNames, nextLogs ? firstChange : sessionFirstChange, nextChange, lagSeconds);
+		if (callDbmsLogmnrAddLogFile || processOnlineRedo) {
+			LOGGER.trace("Adding files to LogMiner session and starting it");
+			for (int fileNum = 0; fileNum < fileNames.size(); fileNum++) {
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Adding {} to LogMiner processing list.", fileNames.get(fileNum));
+				}
+				csAddArchivedLogs.setInt(1, fileNum);
+				csAddArchivedLogs.setString(2, fileNames.get(fileNum));
+				csAddArchivedLogs.addBatch();
+			}
+			csAddArchivedLogs.executeBatch();
+			csAddArchivedLogs.clearBatch();
+		}
+
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Attempting to start LogMiner for SCN range from {} to {}.",
+					nextLogs ? firstChange : sessionFirstChange, nextChange);
+		}
+		try {
+			csStartLogMiner.setLong(1, nextLogs ? firstChange : sessionFirstChange); 
+			csStartLogMiner.setLong(2, processOnlineRedo ? nextChange - 1 : nextChange);
+			csStartLogMiner.execute();
+			csStartLogMiner.clearParameters();
+		} catch(SQLException sqle) {
+			if (sqle.getErrorCode() == OraRdbmsInfo.ORA_1291 &&
+					processOnlineRedo) {
+				LOGGER.debug("ORA-1291 while processing online redo log {}.", fileNames.get(0));
+				return false;
+			} else {
+				final StringBuilder sb = new StringBuilder(256);
+				fileNames.forEach(fileName -> {
+					sb
+						.append(fileName)
+						.append("\n");
+				});
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"Unable to execute\\n\\t{}\\n\\tusing STARTSCN={} and ENDSCN={}!\n" +
+						"\tLogMiner redo files:\n{}" +
+						"=====================\n",
+							OraDictSqlTexts.START_LOGMINER,
+							nextLogs ? firstChange : sessionFirstChange, nextChange, sb);
+				throw sqle;
+			}
+		}
+		if (nextLogs) {
+			// Set sessionFirstChange only in call to next()
+			sessionFirstChange = firstChange;
+		}
+		firstChange = nextChange;
+		readStartMillis = System.currentTimeMillis();
+		LOGGER.trace("END: {} returns true", functionName);
+		return true;
 	}
 
 	@Override
@@ -287,6 +360,12 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	@Override
 	public String getDbUniqueName() {
 		return dbUniqueName;
+	}
+
+	private void printRedoLogInfo(final boolean archived,
+			final String fileName, final int thread, final long sequence, final long logFileFirstChange) {
+		LOGGER.info("Adding {} log {} thread# {} sequence# {} first change number {} next log first change {}",
+				archived ? "archived" : "online", fileName, thread, sequence, logFileFirstChange, nextChange);
 	}
 
 }
