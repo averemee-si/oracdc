@@ -5,7 +5,7 @@ Starting from Oracle RDBMS 12c various Oracle tools for [CDC](https://en.wikiped
 **oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, 19c, 21c, and 23c. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
 
 ## solutions.a2.cdc.oracle.OraCdcLogMinerConnector
-This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. Starting from version **1.5** in addition to [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue), the use of Java Heap Structures is also supported. Large object operations are not supported in this mode, but you do not need any disk space to store the [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) in memory-mapped files. To enable this mode you need to set `a2.transaction.implementation=ArrayList` and also you need to set Java heap size to the appropriate value using JVM [-Xmx](https://docs.oracle.com/en/java/javase/17/docs/specs/man/java.html) option.
+This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. Since version **2.0**, the connector supports online redo log processing when `a2.process.online.redo.logs` is set to **true**. Starting from version **1.5** in addition to [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue), the use of Java Heap Structures is also supported. Large object operations are not supported in this mode, but you do not need any disk space to store the [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) in memory-mapped files. To enable this mode you need to set `a2.transaction.implementation=ArrayList` and also you need to set Java heap size to the appropriate value using JVM [-Xmx](https://docs.oracle.com/en/java/javase/17/docs/specs/man/java.html) option.
 
 **oracdc**'s _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ connects to the following configurations of Oracle RDBMS:
 1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. **V$DATABASE.OPEN_MODE = READ WRITE** 
@@ -731,6 +731,23 @@ Better handling for SQLRecoverableException while querying data dictionary
 Support for INTERVALYM/INTERVALDS
 TIMESTAMP enhancements
 SDU hint in log
+
+####2.0.0 (NOV-2023)
+######Online redo logs processing
+Online redo logs are processed when parameter `a2.process.online.redo.logs` is set to **true** (Default - **false**). To control the lag between data processing in Oracle, the parameter `a2.scn.query.interval.ms` is used, which sets the lag in milliseconds for processing data in online logs.
+This expands the range of connector tasks and makes its use possible where minimal and managed latency is required.
+
+######default values:
+Column default values are now part of table schema
+
+######19c enhancements:
+1) HEX('59') (and some other **single** byte values) for DATE/TIMESTAMP/TIMESTAMPTZ are treated as NULL
+2) HEX('787b0b06113b0d')/HEX('787b0b0612013a')/HEX('787b0b0612090c')/etc (2.109041558E-115,2.1090416E-115,2.109041608E-115) for NUMBER(N)/NUMBER(P,S) are treated as NULL
+information about such values is not printed by default in the log; to print messages you need to set the parameter `a2.print.invalid.hex.value.warning` value to **true**
+
+######solution for incomplete redo information:
+Solution for problem described in [LogMiner REDO_SQL missing WHERE clause](https://asktom.oracle.com/pls/apex/f?p=100:11:::::P11_QUESTION_ID:9544753100346374249) and [LogMiner Redo SQL w/o WHERE-clause](https://groups.google.com/g/debezium/c/0cTC-dQrxW8)
+
 
 ## Authors
 
