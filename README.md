@@ -294,7 +294,7 @@ java -version
 Build with
 
 ```
-mvn install
+mvn clean install -Dgpg.skip
 ```
 
 ### Oracle JDBC drivers
