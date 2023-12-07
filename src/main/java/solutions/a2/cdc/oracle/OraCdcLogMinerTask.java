@@ -1031,8 +1031,10 @@ public class OraCdcLogMinerTask extends SourceTask {
 													transaction.getCommitScn(),
 													offset,
 													connDictionary);
-											result.add(record);
-											recordCount++;
+											if (record != null) {
+												result.add(record);
+												recordCount++;
+											}
 											parseTime += (System.currentTimeMillis() - startParseTs);
 										}
 									} catch (SQLException e) {
