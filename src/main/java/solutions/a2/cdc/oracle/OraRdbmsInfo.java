@@ -44,6 +44,8 @@ public class OraRdbmsInfo {
 	public static final int ORA_942 = 942;
 	public static final int ORA_1291 = 1291;
 
+	public static final String CDB_ROOT = "CDB$ROOT";
+
 	private String versionString;
 	private final String rdbmsEdition;
 	private final int versionMajor;
@@ -164,9 +166,9 @@ public class OraRdbmsInfo {
 				rs = ps.executeQuery();
 				if (rs.next()) {
 					pdbName = rs.getString("CON_NAME");
-					if ("YES".equalsIgnoreCase(rs.getString("CDB"))) {
+					if (StringUtils.equalsIgnoreCase(rs.getString("CDB"), "YES")) {
 						cdb = true;
-						if ("CDB$ROOT".equalsIgnoreCase(pdbName)) {
+						if (StringUtils.equalsIgnoreCase(pdbName, CDB_ROOT)) {
 							cdbRoot = true;
 							pdbConnectionAllowed = false;
 						} else {
