@@ -33,6 +33,7 @@ import java.util.Map.Entry;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -66,9 +67,12 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	private int deleteCount;
 	private long upsertTime;
 	private long deleteTime;
-	private final boolean onlyPkColumns;
+	private boolean onlyPkColumns;
 	private final Map<String, Object> lobColumns = new HashMap<>();
 	private Map<String, LobSqlHolder> lobColsSqlMap;
+	private boolean needToCreateTable = false;
+	private boolean delayedObjectsCreation = false;
+	private final int pkStringLength;
 
 
 	/**
@@ -87,22 +91,16 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			final SinkRecord record, final int pkStringLength, final boolean autoCreateTable,
 			final int schemaType) throws SQLException {
 		super(schemaType);
+		LOGGER.debug("Creating OraTable object from Kafka connect SinkRecord...");
+		this.pkStringLength = pkStringLength;
 		dbType = sinkPool.getDbType();
-		LOGGER.trace("Creating OraTable object from Kafka connect SinkRecord...");
+		final char opType = getOpType(record);
+		if (opType == 'd') {
+			delayedObjectsCreation = true;
+		}
 		final List<Field> keyFields;
 		final List<Field> valueFields;
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			LOGGER.debug("Schema type set to Kafka Connect.");
-			this.tableOwner = "oracdc";
-			this.tableName = tableName;
-			keyFields = record.keySchema().fields();
-			if (record.valueSchema() != null) {
-				valueFields = record.valueSchema().fields();
-			} else {
-				LOGGER.warn("Value schema is NULL for table {}.", this.tableName);
-				valueFields = new ArrayList<>();
-			}
-		} else {	// if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
+		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 			LOGGER.debug("Schema type set to Debezium style.");
 			Struct source = (Struct)((Struct) record.value()).get("source");
 			this.tableOwner = source.getString("owner");
@@ -113,6 +111,21 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			}
 			keyFields = record.valueSchema().field("before").schema().fields();
 			valueFields = record.valueSchema().field("after").schema().fields();
+		} else {
+			//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
+			//ParamConstants.SCHEMA_TYPE_INT_SINGLE
+			LOGGER.debug("Schema type set to Kafka Connect.");
+			this.tableOwner = "oracdc";
+			this.tableName = tableName;
+			keyFields = record.keySchema().fields();
+			if (record.valueSchema() != null) {
+				valueFields = record.valueSchema().fields();
+			} else {
+				if (opType != 'd') {
+					LOGGER.warn("Value schema is NULL for table {}.", this.tableName);
+				}
+				valueFields = new ArrayList<>();
+			}
 		}
 		LOGGER.debug("tableOwner = {}, tableName = {}.", this.tableOwner, this.tableName);
 		for (Field field : keyFields) {
@@ -120,40 +133,10 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			pkColumns.put(column.getColumnName(), column);
 		}
 		// Only non PK columns!!!
-		for (Field field : valueFields) {
-			if (!pkColumns.containsKey(field.name())) {
-				if (StringUtils.equals("struct", field.schema().type().getName())) {
-					final List<OraColumn> transformation = new ArrayList<>();
-					for (Field unnestField : field.schema().fields()) {
-						transformation.add(new OraColumn(unnestField, true));
-					}
-					lobColumns.put(field.name(), transformation);
-				} else {
-					final OraColumn column = new OraColumn(field, false);
-					if (column.getJdbcType() == Types.BLOB ||
-						column.getJdbcType() == Types.CLOB ||
-						column.getJdbcType() == Types.NCLOB ||
-						column.getJdbcType() == Types.SQLXML) {
-						lobColumns.put(column.getColumnName(), column);
-					} else {
-						allColumns.add(column);
-					}
-				}
-			}
-		}
-		if (allColumns.size() == 0) {
-			onlyPkColumns = true;
-			LOGGER.warn("Table {} contains only primary key column(s)!", this.tableName);
-			LOGGER.warn("Column list for {}:", this.tableName);
-			pkColumns.forEach((k, oraColumn) -> {
-				LOGGER.warn("\t{},\t JDBC Type -> {}",
-						oraColumn.getColumnName(), JdbcTypes.getTypeName(oraColumn.getJdbcType()));
-			});
-		} else {
-			onlyPkColumns = false;
-		}
+		buildNonPkColsList(opType, valueFields);
+
 		metrics = new OraCdcSinkTableInfo(this.tableName);
-		prepareSql(sinkPool, pkStringLength, autoCreateTable);
+		prepareSql(sinkPool, autoCreateTable);
 		upsertCount = 0;
 		deleteCount = 0;
 		upsertTime = 0;
@@ -162,30 +145,22 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 
 
 	private void prepareSql(final OraCdcJdbcSinkConnectionPool sinkPool,
-							final int pkStringLength,
 							final boolean autoCreateTable) throws SQLException {
 		// Prepare UPDATE/INSERT/DELETE statements...
 		LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
 		final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
 				tableName, dbType, pkColumns, allColumns, lobColumns);
-		sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.UPSERT);
+		if (!delayedObjectsCreation) {
+			sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.UPSERT);
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
+			}
+		}
 		sinkDeleteSql = sqlTexts.get(TargetDbSqlUtils.DELETE);
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
 			LOGGER.debug("Table name -> {}, DELETE statement ->\n{}", this.tableName, sinkDeleteSql);
 		}
-		if (lobColumns.size() > 0) {
-			lobColsSqlMap = new HashMap<>();
-			lobColumns.forEach((columnName, v) -> {
-				LobSqlHolder holder = new LobSqlHolder();
-				holder.COLUMN = columnName;
-				holder.EXEC_COUNT = 0;
-				holder.SQL_TEXT = sqlTexts.get(columnName);
-				lobColsSqlMap.put(columnName, holder);
-				LOGGER.debug("\tLOB column {}.{}, UPDATE statement ->\n{}",
-						this.tableName, columnName, holder.SQL_TEXT);
-			});
-		}
+		buildLobColsSql(sqlTexts);
 
 		// Check for table existence
 		try (Connection connection = sinkPool.getConnection()) {
@@ -221,7 +196,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 						"\n" +
 						"=====================\n" +
 						"Table '{}' already exists with type '{}' in catalog '{}', schema '{}'.\n" +
-						"=====================",
+						"=====================\n",
 						resultSet.getString("TABLE_NAME"),
 						resultSet.getString("TABLE_TYPE"),
 						resultSet.getString("TABLE_CAT"),
@@ -233,15 +208,16 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 							"\n" +
 							"=====================\n" +
 							"Table '{}' will be created in the target database.\n" +
-							"=====================",
+							"=====================\n",
 							tableNameCaseConv);
 				} else {
 					LOGGER.error(
 							"\n" +
 							"=====================\n" +
 							"Table '{}' does not exist in the target database and a2.autocreate=false!\n" +
-							"=====================",
+							"=====================\n",
 							tableNameCaseConv);
+					throw new ConnectException("Table does not exists!");
 				}
 			}
 			resultSet.close();
@@ -251,53 +227,14 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 		}
 		if (!ready4Ops && autoCreateTable) {
-			// Create table in target database
-			LOGGER.debug("Prepare to create table {}", this.tableName);
-			List<String> sqlCreateTexts = TargetDbSqlUtils.createTableSql(
-					tableName, dbType, pkStringLength, pkColumns, allColumns, lobColumns);
-			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
-					sqlCreateTexts.size() > 1) {
-				for (int i = 1; i < sqlCreateTexts.size(); i++) {
-					LOGGER.debug("\tPostgreSQL lo trigger:\n\t{}", sqlCreateTexts.get(i));
-				}
-			}
-			boolean createLoTriggerFailed = false;
-			try (Connection connection = sinkPool.getConnection()) {
-				Statement statement = connection.createStatement();
-				statement.executeUpdate(sqlCreateTexts.get(0));
-				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"Table '{}' created in the target database using:\n{}" +
-						"=====================",
-						tableName, sqlCreateTexts.get(0));
-				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
-						sqlCreateTexts.size() > 1) {
-					for (int i = 1; i < sqlCreateTexts.size(); i++) {
-						try {
-							statement.executeUpdate(sqlCreateTexts.get(i));
-						} catch (SQLException pge) {
-							createLoTriggerFailed = true;
-							LOGGER.error("Trigger creation has failed! Failed creation statement:\n");
-							LOGGER.error(sqlCreateTexts.get(i));
-							LOGGER.error(ExceptionUtils.getExceptionStackTrace(pge));
-							throw new SQLException(pge);
-						}
-					}
-				}
-				connection.commit();
-				ready4Ops = true;
-			} catch (SQLException sqle) {
-				ready4Ops = false;
-				if (!createLoTriggerFailed) {
-					LOGGER.error("Table creation has failed! Failed creation statement:\n");
-					LOGGER.error(sqlCreateTexts.get(0));
-					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-				}
-				throw new SQLException(sqle);
+			if (delayedObjectsCreation) {
+				needToCreateTable = true;
+			} else {
+				// Create table in target database
+				createTable(sinkPool.getConnection(), pkStringLength);
 			}
 		}
-		LOGGER.trace("End of SQL and DB preparation for table {}.", this.tableName);
+		LOGGER.debug("End of SQL and DB preparation for table {}.", this.tableName);
 	}
 
 	public String getTableFqn() {
@@ -305,35 +242,59 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	}
 
 	public void putData(final Connection connection, final SinkRecord record) throws SQLException {
-		LOGGER.trace("BEGIN: putData");
-		String opType = "";
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			Iterator<Header> iterator = record.headers().iterator();
-			while (iterator.hasNext()) {
-				Header header = iterator.next();
-				if ("op".equals(header.key())) {
-					opType = (String) header.value();
-					break;
-				}
-			}
-			LOGGER.debug("Operation type set from headers to {}.", opType);
-		} else { // if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
-			opType = ((Struct) record.value()).getString("op");
-			LOGGER.debug("Operation type set payload to {}.", opType);
-		}
+		LOGGER.debug("BEGIN: putData");
+		final char opType = getOpType(record);
 		final long nanosStart = System.nanoTime();
-		if ("d".equals(opType)) {
-			processDelete(connection, record);
-			deleteTime += System.nanoTime() - nanosStart;
+		if ('d' == opType) {
+			if (needToCreateTable) {
+				LOGGER.info(
+						"Skipping the delete operation because the table {} has not yet been created",
+						tableName);
+			} else {
+				processDelete(connection, record);
+				deleteTime += System.nanoTime() - nanosStart;
+			}
 		} else {
+			if (delayedObjectsCreation) {
+				final List<Field> valueFields;
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+					valueFields = record.valueSchema().field("after").schema().fields();
+				} else {
+					//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
+					//ParamConstants.SCHEMA_TYPE_INT_SINGLE
+					if (record.valueSchema() != null) {
+						valueFields = record.valueSchema().fields();
+					} else {
+						LOGGER.warn("Value schema is NULL for table {}.", this.tableName);
+						valueFields = new ArrayList<>();
+					}
+				}
+				buildNonPkColsList(opType, valueFields);
+
+				if (needToCreateTable) {
+					createTable(connection, pkStringLength);
+					needToCreateTable = false;
+				}
+
+				LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
+				final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
+						tableName, dbType, pkColumns, allColumns, lobColumns);
+				sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.UPSERT);
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
+				}
+				buildLobColsSql(sqlTexts);
+
+				delayedObjectsCreation = false;
+			}
 			processUpsert(connection, record);
 			upsertTime += System.nanoTime() - nanosStart;
 		}
-		LOGGER.trace("END: putData");
+		LOGGER.debug("END: putData");
 	}
 
 	public void exec() throws SQLException {
-		LOGGER.trace("BEGIN: exec()");
+		LOGGER.debug("BEGIN: exec()");
 		final long nanosStart = System.nanoTime();
 		if (sinkUpsert != null && upsertCount > 0) {
 			execUpsert();
@@ -352,11 +313,11 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			deleteCount = 0;
 			deleteTime = 0;
 		}
-		LOGGER.trace("END: exec()");
+		LOGGER.debug("END: exec()");
 	}
 
 	public void execAndCloseCursors() throws SQLException {
-		LOGGER.trace("BEGIN: closeCursors()");
+		LOGGER.debug("BEGIN: closeCursors()");
 		final long nanosStart = System.nanoTime();
 		if (sinkUpsert != null) {
 			if (upsertCount > 0) {
@@ -382,7 +343,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			deleteCount = 0;
 			deleteTime = 0;
 		}
-		LOGGER.trace("END: closeCursors()");
+		LOGGER.debug("END: closeCursors()");
 	}
 
 	private void execUpsert() throws SQLException {
@@ -407,7 +368,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			}
 			if (raiseException) {
 				LOGGER.error("Error while executing UPSERT statement {}", sinkUpsertSql);
-				throw new SQLException(sqle);
+				throw sqle;
 			}
 		}
 	}
@@ -416,8 +377,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		try {
 			sinkDelete.executeBatch();
 		} catch(SQLException sqle) {
-			LOGGER.error("Error while executing DELETE statement {}", sinkUpsertSql);
-			throw new SQLException(sqle);
+			LOGGER.error("Error while executing DELETE statement {}", sinkDeleteSql);
+			throw sqle;
 		}
 	}
 
@@ -644,6 +605,128 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		sb.append(this.tableName);
 		sb.append("\"");
 		return sb.toString();
+	}
+
+	private char getOpType(final SinkRecord record) {
+		char opType = 'c';
+		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+			opType = ((Struct) record.value())
+							.getString("op")
+							.charAt(0);
+			LOGGER.debug("Operation type set payload to {}.", opType);
+		} else {
+			//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
+			//ParamConstants.SCHEMA_TYPE_INT_SINGLE
+			Iterator<Header> iterator = record.headers().iterator();
+			while (iterator.hasNext()) {
+				Header header = iterator.next();
+				if ("op".equals(header.key())) {
+					opType = ((String) header.value())
+							.charAt(0);
+					break;
+				}
+			}
+			LOGGER.debug("Operation type set from headers to {}.", opType);
+		}
+		return opType;
+	}
+
+	private void buildNonPkColsList(final char opType,
+			final List<Field> valueFields) throws SQLException {
+		for (final Field field : valueFields) {
+			if (!pkColumns.containsKey(field.name())) {
+				if (StringUtils.equals("struct", field.schema().type().getName())) {
+					final List<OraColumn> transformation = new ArrayList<>();
+					for (Field unnestField : field.schema().fields()) {
+						transformation.add(new OraColumn(unnestField, true));
+					}
+					lobColumns.put(field.name(), transformation);
+				} else {
+					final OraColumn column = new OraColumn(field, false);
+					if (column.getJdbcType() == Types.BLOB ||
+						column.getJdbcType() == Types.CLOB ||
+						column.getJdbcType() == Types.NCLOB ||
+						column.getJdbcType() == Types.SQLXML) {
+						lobColumns.put(column.getColumnName(), column);
+					} else {
+						allColumns.add(column);
+					}
+				}
+			}
+		}
+		if (allColumns.size() == 0 && opType != 'd') {
+			onlyPkColumns = true;
+			LOGGER.warn("Table {} contains only primary key column(s)!", this.tableName);
+			LOGGER.warn("Column list for {}:", this.tableName);
+			pkColumns.forEach((k, oraColumn) -> {
+				LOGGER.warn("\t{},\t JDBC Type -> {}",
+						oraColumn.getColumnName(), JdbcTypes.getTypeName(oraColumn.getJdbcType()));
+			});
+		} else {
+			onlyPkColumns = false;
+		}
+	}
+
+	private void buildLobColsSql(final Map<String, String> sqlTexts) {
+		if (lobColumns.size() > 0) {
+			lobColsSqlMap = new HashMap<>();
+			lobColumns.forEach((columnName, v) -> {
+				LobSqlHolder holder = new LobSqlHolder();
+				holder.COLUMN = columnName;
+				holder.EXEC_COUNT = 0;
+				holder.SQL_TEXT = sqlTexts.get(columnName);
+				lobColsSqlMap.put(columnName, holder);
+				LOGGER.debug("\tLOB column {}.{}, UPDATE statement ->\n{}",
+						this.tableName, columnName, holder.SQL_TEXT);
+			});
+		}
+	}
+
+	private void createTable(final Connection connection, final int pkStringLength) throws SQLException {
+		LOGGER.debug("Prepare to create table {}", this.tableName);
+		List<String> sqlCreateTexts = TargetDbSqlUtils.createTableSql(
+				tableName, dbType, pkStringLength, pkColumns, allColumns, lobColumns);
+		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
+				sqlCreateTexts.size() > 1) {
+			for (int i = 1; i < sqlCreateTexts.size(); i++) {
+				LOGGER.debug("\tPostgreSQL lo trigger:\n\t{}", sqlCreateTexts.get(i));
+			}
+		}
+		boolean createLoTriggerFailed = false;
+		try {
+			Statement statement = connection.createStatement();
+			statement.executeUpdate(sqlCreateTexts.get(0));
+			LOGGER.info(
+					"\n" +
+					"=====================\n" +
+					"Table '{}' created in the target database using:\n{}" +
+					"=====================",
+					tableName, sqlCreateTexts.get(0));
+			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
+					sqlCreateTexts.size() > 1) {
+				for (int i = 1; i < sqlCreateTexts.size(); i++) {
+					try {
+						statement.executeUpdate(sqlCreateTexts.get(i));
+					} catch (SQLException pge) {
+						createLoTriggerFailed = true;
+						LOGGER.error("Trigger creation has failed! Failed creation statement:\n");
+						LOGGER.error(sqlCreateTexts.get(i));
+						LOGGER.error(ExceptionUtils.getExceptionStackTrace(pge));
+						throw pge;
+					}
+				}
+			}
+			connection.commit();
+			ready4Ops = true;
+		} catch (SQLException sqle) {
+			ready4Ops = false;
+			if (!createLoTriggerFailed) {
+				LOGGER.error("Table creation has failed! Failed creation statement:\n");
+				LOGGER.error(sqlCreateTexts.get(0));
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			}
+			throw sqle;
+		}
 	}
 
 	private class LobSqlHolder {
