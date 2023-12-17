@@ -119,6 +119,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private long lastInProgressSsn = 0;
 	private OraCdcSourceConnectorConfig config;
 	private int topicPartition;
+	private int incompleteDataTolerance;
 
 	@Override
 	public String version() {
@@ -205,6 +206,17 @@ public class OraCdcLogMinerTask extends SourceTask {
 			throw new ConnectException("Unable to connect to RDBMS");
 		}
 
+		switch (config.getString(ParamConstants.INCOMPLETE_REDO_TOLERANCE_PARAM)) {
+		case ParamConstants.INCOMPLETE_REDO_TOLERANCE_ERROR:
+			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_ERROR;
+			break;
+		case ParamConstants.INCOMPLETE_REDO_TOLERANCE_SKIP:
+			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_SKIP;
+			break;
+		default:
+			//INCOMPLETE_REDO_TOLERANCE_RESTORE
+			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_RESTORE;
+		}
 		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
 		pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
 		useOracdcSchemas = config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM);
@@ -1324,7 +1336,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							odd, partition, topic, topicNameStyle, topicNameDelimiter,
 							rdbmsInfo, connection,
 							config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM),
-							config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM));
+							config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM),
+							incompleteDataTolerance);
 					oraTable.setVersion(version);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
@@ -1377,7 +1390,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							odd, partition, topic, topicNameStyle, topicNameDelimiter,
 							rdbmsInfo, connection,
 							config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM),
-							config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM));
+							config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM),
+							incompleteDataTolerance);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

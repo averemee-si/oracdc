@@ -173,7 +173,7 @@ public class DatabaseObjects implements ActionListener {
 						processLobs, new OraCdcDefaultLobTransformationsImpl(), isCdb, 0,
 						null, null, null,
 						ParamConstants.TOPIC_NAME_STYLE_INT_TABLE, ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,
-						rdbmsInfo, connection, false, false);
+						rdbmsInfo, connection, false, false, ParamConstants.INCOMPLETE_REDO_INT_ERROR);
 				return new AbstractMap.SimpleImmutableEntry<Long, OraTable4LogMiner>(combinedDataObjectId, oraTable);
 			} else {
 				throw new SQLException(

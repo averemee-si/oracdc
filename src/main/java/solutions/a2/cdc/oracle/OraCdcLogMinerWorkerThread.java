@@ -119,6 +119,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private String lastRealRowId;
 	private final boolean protobufSchemaNames; 
 	private final boolean printInvalidHexValueWarning;
+	private final int incompleteDataTolerance;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -168,6 +169,17 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.connectionRetryBackoff = config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM);
 		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
 		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
+		switch (config.getString(ParamConstants.INCOMPLETE_REDO_TOLERANCE_PARAM)) {
+		case ParamConstants.INCOMPLETE_REDO_TOLERANCE_ERROR:
+			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_ERROR;
+			break;
+		case ParamConstants.INCOMPLETE_REDO_TOLERANCE_SKIP:
+			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_SKIP;
+			break;
+		default:
+			//INCOMPLETE_REDO_TOLERANCE_RESTORE
+			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_RESTORE;
+		}
 		this.rdbmsInfo = rdbmsInfo;
 		this.oraConnections = oraConnections;
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
@@ -570,7 +582,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												schemaType, useOracdcSchemas,
 												processLobs, transformLobs, isCdb, topicPartition,
 												odd, partition, topic, topicNameStyle, topicNameDelimiter,
-												rdbmsInfo, connDictionary, protobufSchemaNames, printInvalidHexValueWarning);
+												rdbmsInfo, connDictionary, protobufSchemaNames,
+												printInvalidHexValueWarning, incompleteDataTolerance);
 											if (!legacyResiliencyModel) {
 												task.putTableAndVersion(combinedDataObjectId, 1);
 											}
