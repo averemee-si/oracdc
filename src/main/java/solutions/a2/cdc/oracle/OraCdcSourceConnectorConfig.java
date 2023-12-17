@@ -151,6 +151,13 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.PROCESS_ONLINE_REDO_LOGS_DOC)
 				.define(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM, Type.INT, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DEFAULT,
 						Importance.LOW, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DOC)
+				.define(ParamConstants.INCOMPLETE_REDO_TOLERANCE_PARAM, Type.STRING,
+						ParamConstants.INCOMPLETE_REDO_TOLERANCE_ERROR,
+						ConfigDef.ValidString.in(
+								ParamConstants.INCOMPLETE_REDO_TOLERANCE_ERROR,
+								ParamConstants.INCOMPLETE_REDO_TOLERANCE_SKIP,
+								ParamConstants.INCOMPLETE_REDO_TOLERANCE_RESTORE),
+						Importance.LOW, ParamConstants.INCOMPLETE_REDO_TOLERANCE_DOC)
 				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",

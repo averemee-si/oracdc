@@ -28,6 +28,10 @@ public class ParamConstants {
 	public static final int TOPIC_NAME_STYLE_INT_SCHEMA_TABLE = 2;
 	public static final int TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE = 3;
 
+	public static final int INCOMPLETE_REDO_INT_ERROR = 1;
+	public static final int INCOMPLETE_REDO_INT_SKIP = 2;
+	public static final int INCOMPLETE_REDO_INT_RESTORE = 3;
+
 	public static final String CONNECTION_URL_PARAM = "a2.jdbc.url";
 	public static final String CONNECTION_URL_DOC = "JDBC connection URL";
 
@@ -230,7 +234,19 @@ public class ParamConstants {
 			"Default - 60_000.\n" +
 			"Minimum time in milliseconds to determine the current SCN during online redo log processing.";
 	public static final int CURRENT_SCN_QUERY_INTERVAL_DEFAULT = 60_000;
-	
+
+	public static final String INCOMPLETE_REDO_TOLERANCE_PARAM = "a2.incomplete.redo.tolerance";
+	public static final String INCOMPLETE_REDO_TOLERANCE_DOC =
+			"Connector behavior when processing an incomplete redo record.\n" +
+			"Allowed values: error, skip, and restore.\n" +
+			"Default - error.\nWhen set to:\n" +
+			"- 'error' oracdc prints information about incomplete redo record and stops connector.\n" +
+			"- 'skip' oracdc prints information about incomplete redo record and continue processing\n" + 
+			"- 'restore' oracdc tries to restore missed information from actual row incarnation from the table using ROWID from redo the record.";
+	public static final String INCOMPLETE_REDO_TOLERANCE_ERROR = "error";
+	public static final String INCOMPLETE_REDO_TOLERANCE_SKIP = "skip";
+	public static final String INCOMPLETE_REDO_TOLERANCE_RESTORE = "restore";
+
 	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";

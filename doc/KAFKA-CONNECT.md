@@ -113,6 +113,12 @@ Default - false.
 
 `a2.scn.query.interval.ms` - Minimum time in milliseconds to determine the current SCN during online redo log processing. Used when `a2.process.online.redo.logs` is set true. Default - 60_000.
 
+`a2.incomplete.redo.tolerance` - Connector behavior when processing an incomplete redo record. Allowed values are *error*, *skip*, and *restore*. Default - *error*. When set to:
+- *error* **oracdc** prints information about incomplete redo record and stops connector.
+- *skip* **oracdc** prints information about incomplete redo record and continue processing.
+- *restore* **oracdc** tries to restore missed information from actual row incarnation from the table using ROWID from redo the record.
+
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
