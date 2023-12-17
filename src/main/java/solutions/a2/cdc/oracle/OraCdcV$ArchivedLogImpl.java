@@ -64,6 +64,8 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private long readStartMillis;
 	private final OraRdbmsInfo rdbmsInfo;
 	private long lastOnlineRedoTime = 0;
+	private final boolean printAllOnlineScnRanges;
+	private long lastOnlineSequence = 0;
 
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
@@ -93,6 +95,11 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			callDbmsLogmnrAddLogFile = true;
 			processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
 			onlineRedoQueryMsMin = config.getInt(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM);
+		}
+		if (processOnlineRedoLogs) {
+			printAllOnlineScnRanges = config.getBoolean(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM);
+		} else {
+			printAllOnlineScnRanges = false;
 		}
 
 		if (config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM) > 0) {
@@ -220,7 +227,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 					lastSequence = sequence;
 					final String fileName = rs.getString("NAME");
 					fileNames.add(archLogsAvailable, fileName);
-					printRedoLogInfo(true,
+					printRedoLogInfo(true, true,
 							fileName, rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"));
 					archLogsAvailable++;
 					archLogsSize += rs.getLong("BYTES"); 
@@ -272,7 +279,14 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 					return false;
 				}
 				fileNames.add(onlineRedoMember);
-				printRedoLogInfo(false, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
+				if (printAllOnlineScnRanges) {
+					printRedoLogInfo(false, true, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
+				} else {
+					if (lastOnlineSequence != onlineSequence) {
+						lastOnlineSequence = onlineSequence;
+						printRedoLogInfo(false, false, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
+					}
+				}
 				// This must be here as additional warranty against ORA-1291
 				lastOnlineRedoTime = System.currentTimeMillis();
 			}
@@ -362,10 +376,28 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		return dbUniqueName;
 	}
 
-	private void printRedoLogInfo(final boolean archived,
+	private void printRedoLogInfo(final boolean archived, final boolean printNextChange,
 			final String fileName, final int thread, final long sequence, final long logFileFirstChange) {
-		LOGGER.info("Adding {} log {} thread# {} sequence# {} first change number {} next log first change {}",
-				archived ? "archived" : "online", fileName, thread, sequence, logFileFirstChange, nextChange);
+		final StringBuilder sb = new StringBuilder(512);
+		if (archived) {
+			sb.append("Adding archived log ");
+		} else {
+			sb.append("Processing online log ");
+		}
+		sb
+			.append(fileName)
+			.append(" thread# ")
+			.append(thread)
+			.append(" sequence# ")
+			.append(sequence)
+			.append(" first change number ")
+			.append(logFileFirstChange);
+		if (printNextChange) {
+			sb
+				.append(" next log first change ")
+				.append(nextChange);
+		}
+		LOGGER.info(sb.toString());
 	}
 
 }
