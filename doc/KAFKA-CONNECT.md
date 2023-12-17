@@ -118,6 +118,8 @@ Default - false.
 - *skip* **oracdc** prints information about incomplete redo record and continue processing.
 - *restore* **oracdc** tries to restore missed information from actual row incarnation from the table using ROWID from redo the record.
 
+`a2.print.all.online.scn.ranges` - If set to true **oracdc** prints detailed information about SCN ranges when working with the online log every time interval specified by the `a2.scn.query.interval.ms` parameter. If set to false **oracdc** prints information about current online redo only when **SEQUENCE#** is changed.
+Default - true.
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 

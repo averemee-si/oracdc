@@ -247,6 +247,12 @@ public class ParamConstants {
 	public static final String INCOMPLETE_REDO_TOLERANCE_SKIP = "skip";
 	public static final String INCOMPLETE_REDO_TOLERANCE_RESTORE = "restore";
 
+	public static final String PRINT_ALL_ONLINE_REDO_RANGES_PARAM = "a2.print.all.online.scn.ranges";
+	public static final String PRINT_ALL_ONLINE_REDO_RANGES_DOC =
+			"Default - true.\n" +
+			"If set to true oracdc prints detailed information about SCN ranges when working with the online log every time interval specified by the a2.scn.query.interval.ms parameter.\n" +
+			"If set to false oracdc prints information about current online redo only when SEQUENCE# is changed.";
+
 	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
