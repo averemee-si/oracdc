@@ -947,8 +947,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
 								columnName, this.fqn(), bdValue, bdValue.scale(), oraColumn.getDataScale());
 					columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
-				} else {
+				} else if (bdValue.scale() !=  oraColumn.getDataScale()) {
 					columnValue = bdValue.setScale(oraColumn.getDataScale());
+				} else {
+					columnValue = bdValue;
 				}
 				break;
 			case Types.BINARY:
