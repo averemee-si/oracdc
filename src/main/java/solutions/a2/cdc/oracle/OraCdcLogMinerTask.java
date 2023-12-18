@@ -326,7 +326,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 						connectorName);
 				throw new ConnectException("Unable to run oracdc without connection to CDB$ROOT!");
 			} else {
-				LOGGER.trace("Oracle connection information:\n{}", rdbmsInfo.toString());
+				LOGGER.debug("Oracle connection information:\n{}", rdbmsInfo.toString());
 			}
 			if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
 				LOGGER.info(
@@ -1146,10 +1146,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 			initialLoadWorker.shutdown();
 		}
 		if (!legacyResiliencyModel && activeTransactions.isEmpty()) {
-			putReadRestartScn(Triple.of(
-					worker.getLastScn(),
-					worker.getLastRsId(),
-					worker.getLastSsn()));
+			if (worker.getLastRsId() != null && worker.getLastScn() > 0) {
+				putReadRestartScn(Triple.of(
+						worker.getLastScn(),
+						worker.getLastRsId(),
+						worker.getLastSsn()));
+			}
 		}
 		if (!activeTransactions.isEmpty()) {
 			// Clean it!
@@ -1405,11 +1407,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 	}
 
 	protected void putReadRestartScn(final Triple<Long, String, Long> transData) {
-		if (transData != null) {
-			offset.put("S:SCN", transData.getLeft());
-			offset.put("S:RS_ID", transData.getMiddle());
-			offset.put("S:SSN", transData.getRight());
-		}
+		offset.put("S:SCN", transData.getLeft());
+		offset.put("S:RS_ID", transData.getMiddle());
+		offset.put("S:SSN", transData.getRight());
 	}
 
 	protected void putTableAndVersion(final long combinedDataObjectId, final int version) {
