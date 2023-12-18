@@ -317,16 +317,26 @@ select OPEN_MODE, DBID from V$DATABASE;
 			"select OPEN_MODE, DBID, DB_UNIQUE_NAME from V$DATABASE";
 
 	/*
-select min(FIRST_CHANGE#)
-from   V$ARCHIVED_LOG
-where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'
-  and  THREAD#=1;
+select nvl(A.SCN, O.SCN)
+from (select min(FIRST_CHANGE#) SCN
+      from   V$ARCHIVED_LOG
+      where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'
+      and    THREAD#=1) A,
+     (select FIRST_CHANGE# SCN
+      from  V$LOG
+      where STATUS = 'CURRENT'
+        and THREAD#=1) O
 	 */
 	public static final String FIRST_AVAILABLE_SCN_IN_ARCHIVE =
-			"select min(FIRST_CHANGE#)\n" +
-			"from   V$ARCHIVED_LOG\n" +
-			"where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'\n" +
-			"  and  THREAD#=?";
+			"select nvl(A.SCN, O.SCN)\n" +
+			"from (select min(FIRST_CHANGE#) SCN\n" +
+			"      from   V$ARCHIVED_LOG\n" +
+			"      where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'\n" +
+			"      and    THREAD#=?) A,\n" +
+			"     (select FIRST_CHANGE# SCN\n" +
+			"      from  V$LOG\n" +
+			"      where STATUS = 'CURRENT'\n" +
+			"        and THREAD#=?) O";
 
 
 	/*
