@@ -942,7 +942,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				break;
 			case Types.DECIMAL:
 				BigDecimal bdValue = OraDumpDecoder.toBigDecimal(hex);
-				if (bdValue.scale() != oraColumn.getDataScale()) {
+				if (bdValue.scale() > oraColumn.getDataScale()) {
 					LOGGER.warn(
 								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
 								columnName, this.fqn(), bdValue, bdValue.scale(), oraColumn.getDataScale());
