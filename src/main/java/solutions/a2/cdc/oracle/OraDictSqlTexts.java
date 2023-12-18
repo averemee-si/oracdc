@@ -15,8 +15,9 @@ package solutions.a2.cdc.oracle;
 
 /**
  * 
- * @author averemee
- *
+ * OraDictSqlTexts: Just container for SQL Statements
+ * 
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
 public class OraDictSqlTexts {
 
@@ -620,6 +621,7 @@ where  L.STATUS = 'CURRENT'
 			"from   V$DATABASE D, V$LOG L, V$LOGFILE F\n" +
 	        "where  L.STATUS = 'CURRENT'\n" +
 			"  and  L.GROUP# = F.GROUP#\n" +
+	        "  and  L.THREAD#=?\n" +
 	        "  and  F.STATUS is null\n" +
 			"  and  rownum = 1";
 	}

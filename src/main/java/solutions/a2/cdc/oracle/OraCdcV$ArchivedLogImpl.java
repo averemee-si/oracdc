@@ -37,7 +37,6 @@ import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcV$ArchivedLogImpl.class);
-//	private final static int ONLINE_REDO_THRESHOLD_MS = 60_000;
 
 	private long firstChange;
 	private long sessionFirstChange;
@@ -261,6 +260,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 				}
 				processOnlineRedo = true;
 				psUpToCurrentScn.setLong(1, firstChange);
+				psUpToCurrentScn.setInt(2, rdbmsInfo.getRedoThread());
 				long onlineSequence = 0;
 				final String onlineRedoMember;
 				ResultSet rsUpToCurrentScn = psUpToCurrentScn.executeQuery();
