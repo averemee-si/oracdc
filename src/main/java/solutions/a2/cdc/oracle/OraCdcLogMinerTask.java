@@ -1405,9 +1405,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 	}
 
 	protected void putReadRestartScn(final Triple<Long, String, Long> transData) {
-		offset.put("S:SCN", transData.getLeft());
-		offset.put("S:RS_ID", transData.getMiddle());
-		offset.put("S:SSN", transData.getRight());
+		if (offset != null) {
+			offset.put("S:SCN", transData.getLeft());
+			offset.put("S:RS_ID", transData.getMiddle());
+			offset.put("S:SSN", transData.getRight());
+		}
 	}
 
 	protected void putTableAndVersion(final long combinedDataObjectId, final int version) {
