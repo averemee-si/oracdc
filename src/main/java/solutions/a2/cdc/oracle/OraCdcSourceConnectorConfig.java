@@ -160,6 +160,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.INCOMPLETE_REDO_TOLERANCE_DOC)
 				.define(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM, Type.BOOLEAN, true,
 						Importance.LOW, ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_DOC)
+				.define(ParamConstants.LM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, Long.MAX_VALUE,
+						Importance.LOW, ParamConstants.LM_RECONNECT_INTERVAL_MS_DOC)
 				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
