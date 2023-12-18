@@ -120,6 +120,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final boolean protobufSchemaNames; 
 	private final boolean printInvalidHexValueWarning;
 	private final int incompleteDataTolerance;
+	private final long logMinerReconnectIntervalMs;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -207,6 +208,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
+		this.logMinerReconnectIntervalMs = config.getLong(ParamConstants.LM_RECONNECT_INTERVAL_MS_PARAM);
 
 		try {
 			connLogMiner = oraConnections.getLogMinerConnection(traceSession);
@@ -374,6 +376,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		LOGGER.info("BEGIN: OraCdcLogMinerWorkerThread.run()");
 		running.set(true);
 		boolean firstTransaction = true;
+		long logMinerSessionStartMs = System.currentTimeMillis();
 		while (runLatch.getCount() > 0) {
 			long lastGuaranteedScn = 0;
 			String lastGuaranteedRsId = null;
@@ -847,10 +850,23 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
 							}
 							try {
+								boolean doReconnect = false;
 								if (rdbmsInfo.isWindows()) {
 									if (LOGGER.isDebugEnabled()) {
 										LOGGER.debug("Recreating LogMiner connections to unlock archived log files on Windows.");
 									}
+									doReconnect = true;
+								} else {
+									long currentSysMs = System.currentTimeMillis();
+									if ((currentSysMs - logMinerSessionStartMs) > logMinerReconnectIntervalMs) {
+										if (LOGGER.isDebugEnabled()) {
+											LOGGER.debug("Recreating LogMiner connections to prevent PGA growth.");
+										}
+										logMinerSessionStartMs = currentSysMs;
+										doReconnect = true;
+									}
+								}
+								if (doReconnect) {
 									closeOraConnection();
 									restoreOraConnection();
 								}
@@ -961,11 +977,15 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private void closeOraConnection() throws SQLException {
 		if (processLobs) {
-			psReadLob.close(); psReadLob = null;
+			psReadLob.close();
+			psReadLob = null;
 		}
-		psCheckTable.close(); psCheckTable = null;
-		psLogMiner.close(); psLogMiner = null;
-		connLogMiner.close(); connLogMiner = null;
+		psCheckTable.close();
+		psCheckTable = null;
+		psLogMiner.close();
+		psLogMiner = null;
+		connLogMiner.close();
+		connLogMiner = null;
 	}
 
 	private List<OraCdcLargeObjectHolder> catchTheLob(
