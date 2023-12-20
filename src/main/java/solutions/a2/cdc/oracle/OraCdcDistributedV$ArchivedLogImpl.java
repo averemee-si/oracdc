@@ -288,15 +288,6 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			connDictionary = (OracleConnection) oraConnections.getConnection();
 			//TODO
 			oracleDbZoneId = TimeZone.getDefault().toZoneId();
-			if (this.firstChange == 0) {
-				LOGGER.debug("Requerying V$ARCHIVED_LOG for FIRST_CHANGE# ...");
-				this.firstChange = rdbmsInfo.firstScnFromArchivedLogs(connDictionary);
-				if (this.firstChange == 0) {
-					LOGGER.error("V$ARCHIVED_LOG is empty!");
-					LOGGER.error("Exiting");
-					throw new SQLException("V$ARCHIVED_LOG is empty!");
-				}
-			}
 			psGetArchivedLogs = connDictionary.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			final String targetHost = config.getString(ParamConstants.DISTRIBUTED_TARGET_HOST);

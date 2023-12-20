@@ -198,15 +198,6 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		archLogsSize = 0;
 
 		if (nextLogs) {
-			if (firstChange == 0) {
-				// oracdc started without archived logs....
-				LOGGER.debug("Requerying V$ARCHIVED_LOG for FIRST_CHANGE# ...");
-				firstChange = rdbmsInfo.firstScnFromArchivedLogs(psGetArchivedLogs.getConnection());
-				if (firstChange == 0) {
-					LOGGER.debug("Nothing found in V$ARCHIVED_LOG... Will retry");
-					return false;
-				}
-			}
 			// Initialize list of files only for "next()"
 			fileNames = new ArrayList<>();
 		}
