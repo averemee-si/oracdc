@@ -314,7 +314,7 @@ where  PRODUCT like '%Database%Edition%' and rownum=1;
 select OPEN_MODE, DBID from V$DATABASE;
  */
 	public static final String RDBMS_OPEN_MODE =
-			"select OPEN_MODE, DBID, DB_UNIQUE_NAME from V$DATABASE";
+			"select OPEN_MODE, DBID, DB_UNIQUE_NAME, CONTROLFILE_TYPE from V$DATABASE";
 
 	/*
 select nvl(A.SCN, O.SCN)

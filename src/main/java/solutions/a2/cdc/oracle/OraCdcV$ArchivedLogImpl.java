@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -118,16 +119,29 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		ResultSet rsOpenMode = psOpenMode.executeQuery();
 		if (rsOpenMode.next()) {
 			final String openMode = rsOpenMode.getString(1);
-			if ("MOUNTED".equals(openMode)) {
-				LOGGER.trace("LogMiner connection database is in MOUNTED state, no dictionary available.");
-				dictionaryAvailable = false;
-			} else {
-				LOGGER.trace("LogMiner connection database is in {} state, dictionary is available.", openMode);
-				dictionaryAvailable = true;
-			}
-			LOGGER.info("LogMiner will start from SCN {}", firstChange);
 			dbId = rsOpenMode.getLong(2);
 			dbUniqueName = rsOpenMode.getString(3);
+			final String controlFileType = rsOpenMode.getString(4);
+			final StringBuilder sb = new StringBuilder(512);
+			sb.append("\n=====================\n");
+			if (StringUtils.equals("STANDBY", controlFileType)) {
+				if (StringUtils.equals("MOUNTED", openMode)) {
+					sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state to call LogMiner.\n");
+					dictionaryAvailable = false;
+				} else {
+					sb.append("oracdc will use connection to Oracle Active DataGuard Database with a unique name {} in {} state to call LogMiner.\n");
+					dictionaryAvailable = true;
+				}
+			} else {
+				sb.append("oracdc will use connection to Oracle Database with a unique name {} in {} state to call LogMiner and query the dictionary.\n");
+				dictionaryAvailable = true;
+			}
+			sb
+				.append("Oracle Database DBID is {}, LogMiner will start from SCN {}.")
+				.append("\n=====================\n");
+			
+			LOGGER.info(sb.toString(),
+					dbUniqueName, openMode, dbId, firstChange);
 		} else {
 			throw new SQLException("Unable to detect RDBMS open mode");
 		}
