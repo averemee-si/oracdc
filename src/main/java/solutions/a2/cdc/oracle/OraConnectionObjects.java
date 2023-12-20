@@ -141,7 +141,7 @@ public class OraConnectionObjects {
 		final Properties props = new Properties();
 		props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysdba");
 		props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
-		System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
+		props.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
 		final OracleDataSource ods = new OracleDataSource();
 		ods.setConnectionProperties(props);
 		ods.setURL(dbUrl);
@@ -162,7 +162,7 @@ public class OraConnectionObjects {
 			props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysdba");
 		}
 		props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
-		System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
+		props.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
 		if (auxDbUrl == null || auxWallet == null) {
 			auxDbUrl = dbUrl;
 			auxWallet = wallet;
@@ -258,7 +258,7 @@ public class OraConnectionObjects {
 	public static Connection getConnection(OraCdcSourceConnectorConfig config) throws SQLException {
 		final Properties props = new Properties();
 		if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
-			System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION,
+			props.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION,
 					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
 		} else {
 			props.put(OracleConnection.CONNECTION_PROPERTY_USER_NAME,
