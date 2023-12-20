@@ -304,7 +304,17 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					LOGGER.info("'{}' redo threads of Oracle Sigle Instance DataGuard for RAC are found.", threads.size());
 				}
 			} catch (SQLException sqle) {
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				if (sqle.getErrorCode() == OraRdbmsInfo.ORA_12514) {
+					//ORA-12514, TNS:listener does not currently know of service requested in connect descriptor
+					LOGGER.error(
+							"\n=====================\n" +
+							"{}\n" +
+							"Unable to connect to:\n\t{}!\n Please check Oracle DataGuard connection parameters!\n" +
+							"=====================\n",
+							sqle.getMessage(), config.getString(ParamConstants.STANDBY_URL_PARAM));
+				} else {
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				}
 				throw new ConnectException(sqle);
 			}
 		}
