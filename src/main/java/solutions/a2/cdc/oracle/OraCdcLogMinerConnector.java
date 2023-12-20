@@ -309,9 +309,22 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					LOGGER.error(
 							"\n=====================\n" +
 							"{}\n" +
-							"Unable to connect to:\n\t{}!\n Please check Oracle DataGuard connection parameters!\n" +
+							"Unable to connect to:\n\t{}!\nPlease check Oracle DataGuard connection parameters!\n" +
 							"=====================\n",
 							sqle.getMessage(), config.getString(ParamConstants.STANDBY_URL_PARAM));
+				} else if (sqle.getErrorCode() == OraRdbmsInfo.ORA_1017) {
+					//ORA-01017: invalid username/password; logon denied
+					LOGGER.error(
+							"\n=====================\n" +
+							"{}\n" +
+							"Unable to connect to:\n\t{} using wallet at '{}'!\n" +
+							"Please review Oracle Support Services Note \"java.sql.SQLException: ORA-01017: invalid username/password; logon denied\" While Trying To Run The Program With Stored Credentials In The Wallet (Doc ID 2438265.1)!\n" +
+							"on https://support.oracle.com/rs?type=doc&id=2438265.1\n" +
+							"=====================\n",
+							sqle.getMessage(),
+							config.getString(ParamConstants.STANDBY_URL_PARAM),
+							config.getString(ParamConstants.STANDBY_WALLET_PARAM));
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 				} else {
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 				}

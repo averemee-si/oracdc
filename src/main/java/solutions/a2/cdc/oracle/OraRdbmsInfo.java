@@ -44,6 +44,7 @@ public class OraRdbmsInfo {
 	public static final int ORA_942 = 942;
 	public static final int ORA_1291 = 1291;
 	public static final int ORA_12514 = 12514;
+	public static final int ORA_1017 = 1017;
 
 	public static final String CDB_ROOT = "CDB$ROOT";
 
