@@ -3,6 +3,7 @@ package solutions.a2.cdc.oracle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
@@ -317,6 +318,8 @@ public class OraCdcTransactionChronicleQueue implements OraCdcTransaction {
 				.sorted(Comparator.reverseOrder())
 				.map(Path::toFile)
 				.forEach(File::delete);
+		} catch (NoSuchFileException nsf) {
+			LOGGER.error(nsf.getMessage());
 		} catch (IOException ioe) {
 			LOGGER.error("Unable to delete Cronicle Queue files.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
