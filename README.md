@@ -211,6 +211,13 @@ export KAFKA_OPTS="-Dchronicle.disk.monitor.disable=true ${KAFKA_OPTS}"
  export KAFKA_OPTS="-Dchronicle.disk.monitor.warn.threshold.us=500 ${KAFKA_OPTS}"
  ```
 
+2. The default **oracdc** option [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) for processing Oracle transaction information [collects statistics](https://github.com/OpenHFT/Chronicle-Queue/blob/ea/DISCLAIMER.adoc). If you do not consent you can do either of the following:
+
+A) Switch from using [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) to use Java Heap Structures by setting `a2.transaction.implementation=ArrayList` together with proper sizing of Java Heap Size using JVM [-Xmx](https://docs.oracle.com/en/java/javase/17/docs/specs/man/java.html) option.
+**OR**
+B) Follow [instructions from Chronicle](https://github.com/OpenHFT/Chronicle-Queue/blob/ea/DISCLAIMER.adoc)
+
+
 ### Performance tips
 1. If you do not use archivelogs as a source of database user activity audit information, consider setting Oracle RDBMS hidden parameter **_transaction_auditing** to **false** after consulting a [Oracle Support Services](https://www.oracle.com/support/)
 2. Always try to set up **supplemental logging** at the table level, and not for all database objects
@@ -770,6 +777,18 @@ information about such values is not printed by default in the log; to print mes
 ######solution for incomplete redo information:
 Solution for problem described in [LogMiner REDO_SQL missing WHERE clause](https://asktom.oracle.com/pls/apex/f?p=100:11:::::P11_QUESTION_ID:9544753100346374249) and [LogMiner Redo SQL w/o WHERE-clause](https://groups.google.com/g/debezium/c/0cTC-dQrxW8)
 
+#####2.1.0 (JAN-2024)
+######Sink Connector
+fix for SQL statements creation when first statement in topic is "incomplete" (delete operation for instance)
+
+######LogMiner Connector
+1) Now **oracdc** now also checks for first available SCN in V$LOG
+2) Reducing the output about scale differences between redo and dictionary
+
+######New parameters
+`a2.incomplete.redo.tolerance` - to manage connector behavior when processing an incomplete redo record. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md)
+`a2.print.all.online.scn.ranges` - to control output when processing online redo logs. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md)
+`a2.log.miner.reconnect.ms` - to manage reconnect interval for LogMiner for Unix/Linux. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md) 
 
 ## Authors
 
