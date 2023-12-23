@@ -214,8 +214,13 @@ export KAFKA_OPTS="-Dchronicle.disk.monitor.disable=true ${KAFKA_OPTS}"
 2. The default **oracdc** option [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) for processing Oracle transaction information [collects statistics](https://github.com/OpenHFT/Chronicle-Queue/blob/ea/DISCLAIMER.adoc). If you do not consent you can do either of the following:
 
 A) Switch from using [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) to use Java Heap Structures by setting `a2.transaction.implementation=ArrayList` together with proper sizing of Java Heap Size using JVM [-Xmx](https://docs.oracle.com/en/java/javase/17/docs/specs/man/java.html) option.
+
 **OR**
+
 B) Follow [instructions from Chronicle](https://github.com/OpenHFT/Chronicle-Queue/blob/ea/DISCLAIMER.adoc)
+
+
+3. Excessive LogMiner output in alert.log - please see Oracle Support Services Notes [LOGMINER: Summary For Session# = nnn in 11g (Doc ID 1632209.1)](https://support.oracle.com/rs?type=doc&id=1632209.1) and [Alert.log Messages 'LOGMINER: krvxpsr summary' (Doc ID 1485217.1)](https://support.oracle.com/rs?type=doc&id=1485217.1)
 
 
 ### Performance tips
