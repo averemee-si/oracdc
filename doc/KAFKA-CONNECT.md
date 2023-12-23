@@ -121,6 +121,8 @@ Default - false.
 `a2.print.all.online.scn.ranges` - If set to true **oracdc** prints detailed information about SCN ranges when working with the online log every time interval specified by the `a2.scn.query.interval.ms` parameter. If set to false **oracdc** prints information about current online redo only when **SEQUENCE#** is changed.
 Default - true.
 
+`a2.log.miner.reconnect.ms` - The time interval in milliseconds after which a reconnection to LogMiner occurs, including the re-creation of the Oracle connection. Unix/Linux only, on Windows **oracdc** creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called. Default - [Long.MAX_VALUE](https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Long.html#MAX_VALUE)
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - _false_
