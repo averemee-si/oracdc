@@ -15,7 +15,9 @@ package solutions.a2.cdc.oracle;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLTransientConnectionException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,17 +60,37 @@ public class OraCdcJdbcSinkConnectionPool {
 		//TODO - ???
 		dataSource.setMaximumPoolSize(INITIAL_SIZE);
 		if (url.startsWith("jdbc:mariadb:") || url.startsWith("jdbc:mysql:")) {
-			dataSource.addDataSourceProperty("cachePrepStmts", "true");
-			dataSource.addDataSourceProperty("prepStmtCacheSize", "256");
-			dataSource.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-			dataSource.addDataSourceProperty("useServerPrepStmts", "true");
-			dataSource.addDataSourceProperty("tcpKeepAlive", "true");
-			dataSource.addDataSourceProperty("maintainTimeStats", "false");
+			if (!StringUtils.contains(url, "cachePrepStmts")) {
+				dataSource.addDataSourceProperty("cachePrepStmts", "true");
+			}
+			if (!StringUtils.contains(url, "prepStmtCacheSize")) {
+				dataSource.addDataSourceProperty("prepStmtCacheSize", "256");
+			}
+			if (!StringUtils.contains(url, "prepStmtCacheSqlLimit")) {
+				dataSource.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+			}
+			if (!StringUtils.contains(url, "useServerPrepStmts")) {
+				dataSource.addDataSourceProperty("useServerPrepStmts", "true");
+			}
+			if (!StringUtils.contains(url, "tcpKeepAlive")) {
+				dataSource.addDataSourceProperty("tcpKeepAlive", "true");
+			}
+			if (!StringUtils.contains(url, "maintainTimeStats")) {
+				dataSource.addDataSourceProperty("maintainTimeStats", "false");
+			}
 		} else if (url.startsWith("jdbc:postgresql:")) {
-			dataSource.addDataSourceProperty("prepareThreshold", "1");
-			dataSource.addDataSourceProperty("preparedStatementCacheSizeMiB", "16");
-			dataSource.addDataSourceProperty("tcpKeepAlive", "true");
-			dataSource.addDataSourceProperty("ApplicationName", "oracdc");
+			if (!StringUtils.contains(url, "ApplicationName")) {
+				dataSource.addDataSourceProperty("ApplicationName", "oracdc");
+			}
+			if (!StringUtils.contains(url, "prepareThreshold")) {
+				dataSource.addDataSourceProperty("prepareThreshold", "1");
+			}
+			if (!StringUtils.contains(url, "preparedStatementCacheSizeMiB")) {
+				dataSource.addDataSourceProperty("preparedStatementCacheSizeMiB", "16");
+			}
+			if (!StringUtils.contains(url, "tcpKeepAlive")) {
+				dataSource.addDataSourceProperty("tcpKeepAlive", "true");
+			}
 		}
 
 		// Detect database type
@@ -92,7 +114,36 @@ public class OraCdcJdbcSinkConnectionPool {
 	}
 
 	public Connection getConnection() throws SQLException {
-		Connection connection = dataSource.getConnection();
+		Connection connection = null;
+		int attempt = 0;
+		long waitTimeMillis = 0;
+		while (true) {
+			try {
+				connection = dataSource.getConnection();
+				break;
+			} catch (SQLException sqle) {
+				if (sqle instanceof SQLTransientConnectionException) {
+					//TODO - parameterize it!
+					if (waitTimeMillis > 300_000) {
+						LOGGER.error(
+								"\n=====================\n" +
+								"Unable to get connection to after {} milliseconds!.\n" +
+								"=====================\n",
+								dataSource.getJdbcUrl(), waitTimeMillis);
+						throw sqle;
+					} else {
+						long currentWait = (long) Math.pow(10, ++attempt);
+						waitTimeMillis += currentWait;
+						try {
+							LOGGER.debug("Waiting [] ms for connection", currentWait);
+							Thread.sleep(currentWait);
+						} catch (InterruptedException ie) {}
+					}
+				} else {
+					throw sqle;
+				}
+			}
+		}
 		if (connection.getAutoCommit()) {
 			connection.setAutoCommit(false);
 		}
