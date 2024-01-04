@@ -468,7 +468,27 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (oraColumn != null) {
 					// Column can be excluded
 					if (StringUtils.startsWith(columnValue, "N")) {
-						valueStruct.put(oraColumn.getColumnName(), null);
+						try {
+							valueStruct.put(oraColumn.getColumnName(), null);
+						} catch (DataException de) {
+							if (StringUtils.containsIgnoreCase(de.getMessage(), "null used for required field")) {
+								if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_ERROR) {
+									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+									throw de;
+								} else if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_SKIP) {
+									printSkippingRedoRecordMessage(stmt, xid, commitScn);
+									return null;
+								} else {
+									//INCOMPLETE_REDO_INT_RESTORE
+									if (missedColumns == null) {
+										missedColumns = new ArrayList<>();
+									}
+									missedColumns.add(oraColumn);
+								}
+							} else {
+								throw de;
+							}
+						}
 					} else if ("''".equals(columnValue) &&
 							(oraColumn.getJdbcType() == Types.BLOB ||
 							oraColumn.getJdbcType() == Types.CLOB ||
@@ -698,7 +718,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 									if (throwDataException) {
 										if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_ERROR) {
 											printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
-											throw new DataException(de);
+											throw de;
 										} else if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_SKIP) {
 											printSkippingRedoRecordMessage(stmt, xid, commitScn);
 											return null;
