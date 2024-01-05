@@ -848,7 +848,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 		if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_RESTORE &&
 				missedColumns != null) {
-			if (getMissedColumnValues(connection, stmt.getRowId(), missedColumns, valueStruct)) {
+			if (getMissedColumnValues(connection, stmt, missedColumns, valueStruct, xid, commitScn)) {
 				printRedoRecordRecoveredMessage(stmt, xid, commitScn);
 			} else {
 				printSkippingRedoRecordMessage(stmt, xid, commitScn);
@@ -1496,8 +1496,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	}
 
 	private boolean getMissedColumnValues(
-			final Connection connection, final String rowId,
-			final List<OraColumn> missedColumns, final Struct valueStruct) throws SQLException {
+			final Connection connection, final OraCdcLogMinerStatement stmt,
+			final List<OraColumn> missedColumns, final Struct valueStruct,
+			String xid, long commitScn) throws SQLException {
 		boolean result = false;
 		final StringBuilder readData = new StringBuilder(128);
 		readData.append("select ");
@@ -1535,7 +1536,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug(
 					"The following statement will be used to get missed data from {} using ROWID {}:\n{}\n",
-					fqn(), rowId, readData.toString());
+					fqn(), stmt.getRowId(), readData.toString());
 		}
 
 		if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
@@ -1544,7 +1545,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		try {
 			final PreparedStatement statement = connection .prepareStatement(readData.toString(),
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			statement.setString(1, rowId);
+			statement.setString(1, stmt.getRowId());
 			final ResultSet resultSet = statement.executeQuery();
 			if (resultSet.next()) {
 				for (OraColumn oraColumn : missedColumns) {
@@ -1557,7 +1558,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						"=====================\n" +
 						"Unable to find row in table {} with ROWID '{}' using SQL statement\n{}\n" +
 						"=====================\n",
-						fqn(), rowId, readData.toString());
+						fqn(), stmt.getRowId(), readData.toString());
 			}
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == OraRdbmsInfo.ORA_942) {
@@ -1570,6 +1571,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						"And restart connector!\n" +
 						"=====================\n",
 						fqn(), connection.getSchema());
+			} else {
+				printErrorMessage(Level.ERROR,
+						"Redo record information for table {}:\n",
+						stmt, xid, commitScn);
 			}
 			throw sqle;
 		}
