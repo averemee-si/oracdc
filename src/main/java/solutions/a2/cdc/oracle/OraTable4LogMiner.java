@@ -486,6 +486,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 									missedColumns.add(oraColumn);
 								}
 							} else {
+								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw de;
 							}
 						}
