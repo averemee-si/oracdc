@@ -38,6 +38,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
+import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
 import solutions.a2.cdc.oracle.data.OraBlob;
@@ -991,26 +992,31 @@ public class OraColumn {
 				statement.setBigDecimal(columnNo, (BigDecimal) columnValue);
 				break;
 			case Types.NUMERIC:
-				boolean setNull = false;
-				BigDecimal bd = null;
-				try {
-					bd = OraNumber.toLogical((byte[]) columnValue);
-					if (bd == null) {
+				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+					((OraclePreparedStatement) statement)
+							.setNUMBER(columnNo, new NUMBER((byte[]) columnValue));
+				} else {
+					boolean setNull = false;
+					BigDecimal bd = null;
+					try {
+						bd = OraNumber.toLogical((byte[]) columnValue);
+						if (bd == null) {
+							setNull = true;
+						}
+					} catch (Exception e) {
+						LOGGER.error(
+								"\n" +
+								"=====================\n" +
+								"Exception {} while converting {} to byte[] for column {}, bind # {}! \n" +
+								"=====================\n",
+								e.getClass().getName(), columnValue.getClass().getName(), columnName, columnNo);
 						setNull = true;
 					}
-				} catch (Exception e) {
-					LOGGER.error(
-							"\n" +
-							"=====================\n" +
-							"Exception {} while converting {} to byte[] for column {}, bind # {}! \n" +
-							"=====================\n",
-							e.getClass().getName(), columnValue.getClass().getName(), columnName, columnNo);
-					setNull = true;
-				}
-				if (setNull) {
-					statement.setNull(columnNo, Types.NUMERIC);
-				} else {
-					statement.setBigDecimal(columnNo, bd);
+					if (setNull) {
+						statement.setNull(columnNo, Types.NUMERIC);
+					} else {
+						statement.setBigDecimal(columnNo, bd);
+					}
 				}
 				break;
 			case Types.BINARY:
