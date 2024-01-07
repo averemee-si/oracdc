@@ -590,12 +590,20 @@ public class OraRdbmsInfo {
 	 * Returns first available SCN from V$ARCHIVED_LOG/V$LOG
 	 * 
 	 * @param connection         - Connection to mining database
+	 * @param primary            - primary or standby?
 	 * @return                   - first available SCN
 	 * @throws SQLException
 	 */
-	public long firstScnFromArchivedLogs(final Connection connection) throws SQLException {
-		PreparedStatement ps = connection.prepareStatement(OraDictSqlTexts.FIRST_AVAILABLE_SCN_IN_ARCHIVE,
-				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+	public long firstScnFromArchivedLogs(
+			final Connection connection, final boolean primary) throws SQLException {
+		PreparedStatement ps = null;
+		if (primary ) {
+			ps = connection.prepareStatement(OraDictSqlTexts.FIRST_AVAILABLE_SCN_IN_ARCHIVE,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		} else {
+			ps = connection.prepareStatement(OraDictSqlTexts.FIRST_AVAILABLE_SCN_IN_ARCHIVE_STBY,
+					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		}
 		ps.setInt(1, redoThread);
 		ps.setInt(2, redoThread);
 		long firstScn = -1;

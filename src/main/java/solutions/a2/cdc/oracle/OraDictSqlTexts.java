@@ -338,6 +338,27 @@ from (select min(FIRST_CHANGE#) SCN
 			"      where STATUS = 'CURRENT'\n" +
 			"        and THREAD#=?) O";
 
+	/*
+select nvl(least(A.SCN, O.SCN), O.SCN)
+from (select min(FIRST_CHANGE#) SCN
+      from   V$ARCHIVED_LOG
+      where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'
+      and    THREAD#=1) A,
+     (select min(FIRST_CHANGE#) SCN
+      from  V$STANDBY_LOG
+      where STATUS = 'ACTIVE'
+        and THREAD#=1) O
+	 */
+	public static final String FIRST_AVAILABLE_SCN_IN_ARCHIVE_STBY =
+			"select nvl(least(A.SCN, O.SCN), O.SCN)\n" +
+			"from (select min(FIRST_CHANGE#) SCN\n" +
+			"      from   V$ARCHIVED_LOG\n" +
+			"      where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'\n" +
+			"      and    THREAD#=?) A,\n" +
+			"     (select min(FIRST_CHANGE#) SCN\n" +
+			"      from  V$STANDBY_LOG\n" +
+			"      where STATUS = 'ACTIVE'\n" +
+			"        and THREAD#=?) O";
 
 	/*
 select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS*BLOCK_SIZE BYTES, FIRST_TIME, (SYSDATE-FIRST_TIME)*86400 ACTUAL_LAG_SECONDS
@@ -360,6 +381,30 @@ order by SEQUENCE#;
 			"           where  ARCHIVED='YES' and STANDBY_DEST='NO' and ? between FIRST_CHANGE# and NEXT_CHANGE# and THREAD#=?)\n" +
 			"  and    THREAD#=?\n" +
 			"order by SEQUENCE#";
+
+	/*
+
+ARCHIVED_LOGS_STBY - impossible due to exclusive lock from MRPn
+
+select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS*BLOCK_SIZE BYTES, FIRST_TIME, (SYSDATE-FIRST_TIME)*86400 ACTUAL_LAG_SECONDS
+from     V$ARCHIVED_LOG
+where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and (? >= FIRST_CHANGE# or ? <= NEXT_CHANGE#)
+  and    SEQUENCE# >= 
+          (select min(SEQUENCE#)
+           from   V$ARCHIVED_LOG
+           where  ARCHIVED='YES' and STANDBY_DEST='NO' and ? between FIRST_CHANGE# and NEXT_CHANGE# and THREAD#=?)
+  and    THREAD#=?
+union all
+select   F.MEMBER NAME, L.THREAD#, L.SEQUENCE#, L.FIRST_CHANGE#, L.NEXT_CHANGE#, L.USED BYTES, L.FIRST_TIME, (SYSDATE-L.FIRST_TIME)*86400 ACTUAL_LAG_SECONDS
+from     V$STANDBY_LOG L, V$LOGFILE F
+where    L.STATUS = 'ACTIVE'
+  and    L.NEXT_CHANGE# is not null
+  and    L.GROUP# = F.GROUP#
+  and    L.THREAD#=?
+  and    F.STATUS is null
+  and    F.TYPE='STANDBY'
+order by SEQUENCE#;
+	 */
 
 	/*
 declare
@@ -622,6 +667,7 @@ select CURRENT_SCN, (SYSDATE - CAST(SCN_TO_TIMESTAMP(CURRENT_SCN) as DATE)) * 86
 from   V$DATABASE D, V$LOG L, V$LOGFILE F
 where  L.STATUS = 'CURRENT'
   and  L.GROUP# = F.GROUP#
+  and  L.THREAD#=?
   and  F.STATUS is null
   and  rownum = 1
 	 */
@@ -634,4 +680,21 @@ where  L.STATUS = 'CURRENT'
 	        "  and  L.THREAD#=?\n" +
 	        "  and  F.STATUS is null\n" +
 			"  and  rownum = 1";
-	}
+	/*
+
+UP_TO_CURRENT_SCN_STBY - impossible due to exclusive lock from MRPn
+
+select L.LAST_CHANGE#, (SYSDATE - L.LAST_TIME) * 86400,
+       L.SEQUENCE#, F.MEMBER
+from   V$STANDBY_LOG L, V$LOGFILE F
+where  L.STATUS = 'ACTIVE'
+  and  L.SEQUENCE# = (select max(SEQUENCE#) from V$STANDBY_LOG where STATUS='ACTIVE')
+  and  L.GROUP# = F.GROUP#
+  and  L.THREAD#=?
+  and  F.STATUS is null
+  and  rownum = 1
+	*/
+
+}
+
+

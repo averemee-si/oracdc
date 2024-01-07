@@ -451,7 +451,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 			committedTransactions = new LinkedBlockingQueue<>();
 
 			boolean rewind = false;
-			final long firstAvailableScn = rdbmsInfo.firstScnFromArchivedLogs(oraConnections.getLogMinerConnection());
+			final long firstAvailableScn = rdbmsInfo.firstScnFromArchivedLogs(
+					oraConnections.getLogMinerConnection(), !useStandby);
 			long firstScn = firstAvailableScn;
 			String firstRsId = null;
 			long firstSsn = -1;
@@ -1145,7 +1146,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		if (initialLoadWorker != null && initialLoadWorker.isRunning()) {
 			initialLoadWorker.shutdown();
 		}
-		if (!legacyResiliencyModel && activeTransactions.isEmpty()) {
+		if (!legacyResiliencyModel && activeTransactions != null && activeTransactions.isEmpty()) {
 			if (worker.getLastRsId() != null && worker.getLastScn() > 0) {
 				putReadRestartScn(Triple.of(
 						worker.getLastScn(),
@@ -1153,14 +1154,14 @@ public class OraCdcLogMinerTask extends SourceTask {
 						worker.getLastSsn()));
 			}
 		}
-		if (!activeTransactions.isEmpty()) {
+		if (activeTransactions != null && !activeTransactions.isEmpty()) {
 			// Clean it!
 			activeTransactions.forEach((name, transaction) -> {
 				LOGGER.warn("Removing uncompleted transaction{}", name);
 				transaction.close();
 			});
 		}
-		if (useChronicleQueue && !committedTransactions.isEmpty()) {
+		if (useChronicleQueue && committedTransactions!= null && !committedTransactions.isEmpty()) {
 			// Clean only when we use ChronicleQueue
 			committedTransactions.forEach(transaction -> {
 				if (isPollRunning.get()) {
