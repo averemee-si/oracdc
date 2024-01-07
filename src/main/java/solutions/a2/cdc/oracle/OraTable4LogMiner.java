@@ -848,7 +848,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 		if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_RESTORE &&
 				missedColumns != null) {
-			if (getMissedColumnValues(connection, stmt, missedColumns, valueStruct, xid, commitScn)) {
+			if (getMissedColumnValues(connection, stmt, missedColumns, keyStruct, valueStruct, xid, commitScn)) {
 				printRedoRecordRecoveredMessage(stmt, xid, commitScn);
 			} else {
 				printSkippingRedoRecordMessage(stmt, xid, commitScn);
@@ -1497,89 +1497,139 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private boolean getMissedColumnValues(
 			final Connection connection, final OraCdcLogMinerStatement stmt,
-			final List<OraColumn> missedColumns, final Struct valueStruct,
+			final List<OraColumn> missedColumns, final Struct keyStruct, final Struct valueStruct,
 			String xid, long commitScn) throws SQLException {
 		boolean result = false;
-		final StringBuilder readData = new StringBuilder(128);
-		readData.append("select ");
-		boolean firstColumn = true;
-		for (final OraColumn oraColumn : missedColumns) {
-			if (firstColumn) {
-				firstColumn = false;
-			} else {
-				readData.append(", ");
-			}
-			readData
-				.append("\"")
-				.append(oraColumn.getOracleName())
-				.append("\"");
-		}
-		// Special processing based on case with
-		// <a href="https://etrm.live/etrm-12.2.2/etrm.oracle.com/pls/trm1222/etrm_pnav57bb.html?c_name=HR_ALL_ORGANIZATION_UNITS&c_owner=HR&c_type=TABLE">HR.HR_ALL_ORGANIZATION_UNITS</a>
-		// and 19.13 LogMiner - we need to restore latest incarnation of text data too...
-		for (final OraColumn oraColumn : allColumns) {
-			if (!pkColumns.containsKey(oraColumn.getColumnName()) &&
-					!oraColumn.isNullable() &&
-					oraColumn.getJdbcType() == Types.VARCHAR) {
+		if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE ||
+				stmt.getOperation() == OraCdcV$LogmnrContents.INSERT) {
+			final StringBuilder readData = new StringBuilder(128);
+			readData.append("select ");
+			boolean firstColumn = true;
+			for (final OraColumn oraColumn : missedColumns) {
+				if (firstColumn) {
+					firstColumn = false;
+				} else {
+					readData.append(", ");
+				}
 				readData
-					.append(", \"")
+					.append("\"")
 					.append(oraColumn.getOracleName())
 					.append("\"");
 			}
-		}
-		readData
-			.append("\nfrom ")
-			.append(tableOwner)
-			.append(".")
-			.append(tableName)
-			.append("\nwhere ROWID = CHARTOROWID(?)");
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug(
-					"The following statement will be used to get missed data from {} using ROWID {}:\n{}\n",
-					fqn(), stmt.getRowId(), readData.toString());
-		}
-
-		if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
-			alterSessionSetContainer(connection, pdbName);
-		}
-		try {
-			final PreparedStatement statement = connection .prepareStatement(readData.toString(),
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			statement.setString(1, stmt.getRowId());
-			final ResultSet resultSet = statement.executeQuery();
-			if (resultSet.next()) {
-				for (OraColumn oraColumn : missedColumns) {
-					oraColumn.setValueFromResultSet(valueStruct, resultSet);
+			// Special processing based on case with
+			// <a href="https://etrm.live/etrm-12.2.2/etrm.oracle.com/pls/trm1222/etrm_pnav57bb.html?c_name=HR_ALL_ORGANIZATION_UNITS&c_owner=HR&c_type=TABLE">HR.HR_ALL_ORGANIZATION_UNITS</a>
+			// and 19.13 LogMiner - we need to restore latest incarnation of text data too...
+			if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
+				for (final OraColumn oraColumn : allColumns) {
+					if (!pkColumns.containsKey(oraColumn.getColumnName()) &&
+							!oraColumn.isNullable() &&
+							oraColumn.getJdbcType() == Types.VARCHAR) {
+						readData
+							.append(", \"")
+							.append(oraColumn.getOracleName())
+							.append("\"");
+					}
 				}
-				result = true;
+			}
+			readData
+				.append("\nfrom ")
+				.append(tableOwner)
+				.append(".")
+				.append(tableName)
+				.append("\nwhere ");
+			if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
+				readData.append("ROWID = CHARTOROWID(?)");
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug(
+							"The following statement will be used to get missed data from {} using ROWID {}:\n{}\n",
+							fqn(), stmt.getRowId(), readData.toString());
+				}
 			} else {
+				//OraCdcV$LogmnrContents.INSERT
+				firstColumn = true;
+				for (final String pkColumnName : pkColumns.keySet()) {
+					if (firstColumn) {
+						firstColumn = false;
+					} else {
+						readData.append(", ");
+					}
+					readData
+						.append(pkColumnName)
+						.append(" = ?");
+				}
 				LOGGER.error(
 						"\n" +
 						"=====================\n" +
-						"Unable to find row in table {} with ROWID '{}' using SQL statement\n{}\n" +
+						"Missed non-null values for columns in table {} at SCN={}, RS_ID()RBA=' {} '!\n" +
+						"Please check supplemental logging settings for table {}!\n" +
 						"=====================\n",
-						fqn(), stmt.getRowId(), readData.toString());
+						tableFqn, stmt.getScn(), stmt.getRsId(), tableFqn);
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug(
+							"The following statement will be used to get missed data from {} using PK values:\n{}\n",
+							fqn(), readData.toString());
+				}
 			}
-		} catch (SQLException sqle) {
-			if (sqle.getErrorCode() == OraRdbmsInfo.ORA_942) {
-				// ORA-00942: table or view does not exist
-				LOGGER.error(
-						"\n" +
-						"=====================\n" +
-						"Please run as SYSDBA:\n" +
-						"\tgrant select on {} to {};\n" +
-						"And restart connector!\n" +
-						"=====================\n",
-						fqn(), connection.getSchema());
-			} else {
-				printErrorMessage(Level.ERROR,
-						"Redo record information for table {}:\n",
-						stmt, xid, commitScn);
+
+			if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
+				alterSessionSetContainer(connection, pdbName);
 			}
-			throw sqle;
-		}
-		if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
-			alterSessionSetContainer(connection, OraRdbmsInfo.CDB_ROOT);
+			try {
+				final PreparedStatement statement = connection .prepareStatement(readData.toString(),
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
+					statement.setString(1, stmt.getRowId());
+				} else {
+					//OraCdcV$LogmnrContents.INSERT
+					int bindNo = 0;
+					for (final String pkColumnName : pkColumns.keySet()) {
+						pkColumns.get(pkColumnName)
+							.bindWithPrepStmt(statement, ++bindNo, keyStruct.get(pkColumnName));
+					}
+				}
+				final ResultSet resultSet = statement.executeQuery();
+				if (resultSet.next()) {
+					for (OraColumn oraColumn : missedColumns) {
+						oraColumn.setValueFromResultSet(valueStruct, resultSet);
+					}
+					result = true;
+				} else {
+					LOGGER.error(
+							"\n" +
+							"=====================\n" +
+							"Unable to find row in table {} with ROWID '{}' using SQL statement\n{}\n" +
+							"=====================\n",
+							fqn(), stmt.getRowId(), readData.toString());
+				}
+			} catch (SQLException sqle) {
+				if (sqle.getErrorCode() == OraRdbmsInfo.ORA_942) {
+					// ORA-00942: table or view does not exist
+					LOGGER.error(
+							"\n" +
+							"=====================\n" +
+							"Please run as SYSDBA:\n" +
+							"\tgrant select on {} to {};\n" +
+							"And restart connector!\n" +
+							"=====================\n",
+							fqn(), connection.getSchema());
+				} else {
+					printErrorMessage(Level.ERROR,
+							"Unable to restore row! Redo record information for table {}:\n",
+							stmt, xid, commitScn);
+				}
+				throw sqle;
+			}
+			if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
+				alterSessionSetContainer(connection, OraRdbmsInfo.CDB_ROOT);
+			}
+		} else {
+			LOGGER.error(
+					"\n" +
+					"=====================\n" +
+					"Unable to restore redo record for operation {} on table {} at SCN = {}, RS_ID(RBA) = '{}'!\n" +
+					"Only UPDATE (OPERATION_CODE=3) and INSERT (OPERATION_CODE=1) are supported!\n" +
+					"=====================\n",
+					stmt.getOperation(), tableFqn, stmt.getScn(), stmt.getRsId());
 		}
 		return result;
 	}
