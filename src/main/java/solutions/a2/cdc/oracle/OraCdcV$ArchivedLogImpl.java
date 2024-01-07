@@ -66,6 +66,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private long lastOnlineRedoTime = 0;
 	private final boolean printAllOnlineScnRanges;
 	private long lastOnlineSequence = 0;
+	private final boolean useStandby;
 
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
@@ -77,6 +78,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
 		this.rdbmsInfo = rdbmsInfo;
+		this.useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
 
 		if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
 			// 19.10+ with connection to PDB
@@ -93,8 +95,13 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			}
 		} else {
 			callDbmsLogmnrAddLogFile = true;
-			processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
-			onlineRedoQueryMsMin = config.getInt(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM);
+			if (useStandby) {
+				processOnlineRedoLogs = false;
+				onlineRedoQueryMsMin = Integer.MIN_VALUE;
+			} else {
+				processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
+				onlineRedoQueryMsMin = config.getInt(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM);
+			}
 		}
 		if (processOnlineRedoLogs) {
 			printAllOnlineScnRanges = config.getBoolean(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM);
@@ -189,6 +196,8 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		final String functionName;
 		if (nextLogs) {
 			functionName = "next()";
+			// Initialize list of files only for "next()"
+			fileNames = new ArrayList<>();
 		} else {
 			functionName = "extend()";
 		}
@@ -196,11 +205,6 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
 		archLogsAvailable = 0;
 		archLogsSize = 0;
-
-		if (nextLogs) {
-			// Initialize list of files only for "next()"
-			fileNames = new ArrayList<>();
-		}
 
 		psGetArchivedLogs.setLong(1, firstChange);
 		psGetArchivedLogs.setLong(2, firstChange);
