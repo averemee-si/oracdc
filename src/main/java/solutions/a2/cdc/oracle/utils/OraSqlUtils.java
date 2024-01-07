@@ -22,7 +22,7 @@ import org.apache.commons.lang3.StringUtils;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraSqlUtils {

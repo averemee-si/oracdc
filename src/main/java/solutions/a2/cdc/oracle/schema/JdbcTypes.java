@@ -17,7 +17,7 @@ import java.sql.Types;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class JdbcTypes {

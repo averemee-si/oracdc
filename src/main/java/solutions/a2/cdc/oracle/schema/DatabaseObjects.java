@@ -1,3 +1,16 @@
+/**
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
+ * the License for the specific language governing permissions and limitations under the License.
+ */
+
 package solutions.a2.cdc.oracle.schema;
 
 import java.awt.event.ActionEvent;
@@ -7,6 +20,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.AbstractMap;
+import java.util.HashMap;
 
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
@@ -17,6 +31,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
@@ -25,6 +40,11 @@ import solutions.a2.cdc.oracle.ParamConstants;
 import solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
+/**
+ * 
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ *
+ */
 public class DatabaseObjects implements ActionListener {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(DatabaseObjects.class);
@@ -39,11 +59,13 @@ public class DatabaseObjects implements ActionListener {
 	private String tableOwner;
 	private String tableName;
 	private final OraConnectionObjects oraConnections;
+	private final OraCdcSourceConnectorConfig config;
 
 	public DatabaseObjects(
 			final String jdbcUrl, final String username, final String password)
 					throws SQLException {
 		oraConnections = OraConnectionObjects.get4UserPassword("table-schema-editor", jdbcUrl, username, password);
+		config = new OraCdcSourceConnectorConfig(new HashMap<String, String>()); 
 		final Connection connection = oraConnections.getConnection();
 		rdbmsInfo = new OraRdbmsInfo(connection, false);
 		final String protoValue = StringUtils.repeat("A", 31);
@@ -169,7 +191,7 @@ public class DatabaseObjects implements ActionListener {
 						isCdb ? tablePdb : null,
 						isCdb ? (short) conId : -1,
 						tableOwner, tableName, "ENABLED".equalsIgnoreCase(rs.getString("DEPENDENCIES")),
-						ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD, true,
+						ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD, config,
 						processLobs, new OraCdcDefaultLobTransformationsImpl(), isCdb, 0,
 						null, null, null,
 						ParamConstants.TOPIC_NAME_STYLE_INT_TABLE, ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,

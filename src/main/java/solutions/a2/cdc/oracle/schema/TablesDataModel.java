@@ -23,7 +23,7 @@ import javax.swing.event.ListDataListener;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class TablesDataModel implements ComboBoxModel<String> {

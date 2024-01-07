@@ -36,7 +36,7 @@ import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class FileUtils {
