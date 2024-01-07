@@ -924,6 +924,20 @@ public class OraColumn {
 
 	/**
 	 * 
+	 * @param statement
+	 * @param columnNo
+	 * @param columnValue
+	 * @throws SQLException
+	 */
+	public void bindWithPrepStmt(
+			final PreparedStatement statement,
+			final int columnNo,
+			final Object columnValue) throws SQLException  {
+		bindWithPrepStmt(OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, statement, columnNo, columnValue);
+	}
+
+	/**
+	 * 
 	 * @param dbType
 	 * @param statement
 	 * @param columnNo
