@@ -22,7 +22,7 @@ import javax.swing.table.TableCellEditor;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class ColumnJdbcTypeEditor extends AbstractCellEditor implements TableCellEditor {

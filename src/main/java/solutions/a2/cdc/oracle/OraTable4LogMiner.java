@@ -55,7 +55,7 @@ import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 @JsonInclude(Include.NON_EMPTY)
@@ -93,7 +93,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private String sqlGetKeysUsingRowId = null;
 	private boolean printSqlForMissedWhereInUpdate = true;
 	private boolean printInvalidHexValueWarning = false;
-	private int incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_ERROR;
+	private int incompleteDataTolerance = OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
 
 	/**
 	 * 
@@ -126,8 +126,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param tableOwner
 	 * @param tableName
 	 * @param rowLevelScnDependency
-	 * @param schemaType
-	 * @param useOracdcSchemas
+	 * @param config
 	 * @param processLobs
 	 * @param transformLobs
 	 * @param isCdb
@@ -135,33 +134,26 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param odd
 	 * @param sourcePartition
 	 * @param topicParam
-	 * @param topicNameStyle
-	 * @param topicNameDelimiter
 	 * @param rdbmsInfo
 	 * @param connection
-	 * @param protobufSchemaNames
-	 * @param printInvalidHexValueWarning
 	 */
 	public OraTable4LogMiner(
 			final String pdbName, final short conId, final String tableOwner,
 			final String tableName, final boolean rowLevelScnDependency,
-			final int schemaType, final boolean useOracdcSchemas,
+			final OraCdcSourceConnectorConfig config,
 			final boolean processLobs, final OraCdcLobTransformationsIntf transformLobs,
 			final boolean isCdb, final int topicPartition, final OraDumpDecoder odd,
-			final Map<String, String> sourcePartition, final String topicParam,
-			final int topicNameStyle, final String topicNameDelimiter,
-			final OraRdbmsInfo rdbmsInfo, final Connection connection,
-			final boolean protobufSchemaNames, final boolean printInvalidHexValueWarning,
-			final int incompleteDataTolerance) {
-		this(pdbName, tableOwner, tableName, schemaType, processLobs, transformLobs);
+			final Map<String, String> sourcePartition,
+			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
+		this(pdbName, tableOwner, tableName, config.getSchemaType(), processLobs, transformLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
-		setTopicDecoderPartition(topicParam, topicNameStyle, topicNameDelimiter, odd, sourcePartition);
+		setTopicDecoderPartition(config, odd, sourcePartition);
 		this.tableWithPk = true;
 		this.setRowLevelScn(rowLevelScnDependency);
 		this.rdbmsInfo = rdbmsInfo;
 		this.topicPartition = topicPartition;
-		this.printInvalidHexValueWarning = printInvalidHexValueWarning;
-		this.incompleteDataTolerance = incompleteDataTolerance;
+		this.printInvalidHexValueWarning = config.isPrintInvalidHexValueWarning();
+		this.incompleteDataTolerance = config.getIncompleteDataTolerance();
 		try {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -187,7 +179,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				keySchemaBuilder = SchemaBuilder
 						.struct()
 						.required()
-						.name(protobufSchemaNames ?
+						.name(config.useProtobufSchemaNaming() ?
 								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + "_Key" :
 								tableFqn + ".Key")
 						.version(1);
@@ -195,7 +187,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
 						.struct()
 						.optional()
-						.name(protobufSchemaNames ?
+						.name(config.useProtobufSchemaNaming() ?
 								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + 
 										(schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ? "" : "_Value") :
 								tableFqn + (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ? "" : ".Value"))
@@ -230,7 +222,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				boolean columnAdded = false;
 				OraColumn column = null;
 				try {
-					column = new OraColumn(false, useOracdcSchemas, processLobs, rsColumns, pkColsSet);
+					column = new OraColumn(false, config.useOracdcSchemas(), processLobs, rsColumns, pkColsSet);
 					columnAdded = true;
 				} catch (UnsupportedColumnDataTypeException ucdte) {
 					LOGGER.warn("Column {} not added to definition of table {}.{}",
@@ -472,10 +464,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							valueStruct.put(oraColumn.getColumnName(), null);
 						} catch (DataException de) {
 							if (StringUtils.containsIgnoreCase(de.getMessage(), "null used for required field")) {
-								if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_ERROR) {
+								if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
 									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 									throw de;
-								} else if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_SKIP) {
+								} else if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_SKIP) {
 									printSkippingRedoRecordMessage(stmt, xid, commitScn);
 									return null;
 								} else {
@@ -717,10 +709,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 										}
 									}
 									if (throwDataException) {
-										if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_ERROR) {
+										if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
 											printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 											throw de;
-										} else if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_SKIP) {
+										} else if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_SKIP) {
 											printSkippingRedoRecordMessage(stmt, xid, commitScn);
 											return null;
 										} else {
@@ -846,7 +838,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 		}
 
-		if (incompleteDataTolerance == ParamConstants.INCOMPLETE_REDO_INT_RESTORE &&
+		if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE &&
 				missedColumns != null) {
 			if (getMissedColumnValues(connection, stmt, missedColumns, keyStruct, valueStruct, xid, commitScn)) {
 				printRedoRecordRecoveredMessage(stmt, xid, commitScn);
@@ -1125,28 +1117,29 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 	}
 
-	public void setTopicDecoderPartition(final String topicParam,
-			final int topicNameStyle, final String topicNameDelimiter,
+	public void setTopicDecoderPartition(final OraCdcSourceConnectorConfig config,
 			final OraDumpDecoder odd, final Map<String, String> sourcePartition) {
+		final String topicParam = config.getTopicOrPrefix();
+		final int topicNameStyle = config.getTopicNameStyle();
 		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
 				this.schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
-			if (topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_TABLE) {
+			if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_TABLE) {
 				this.kafkaTopic = this.tableName;
-			} else if (topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE) {
-				this.kafkaTopic = this.tableOwner + topicNameDelimiter + this.tableName;
+			} else if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE) {
+				this.kafkaTopic = this.tableOwner + config.getTopicNameDelimiter() + this.tableName;
 			} else {
 				// topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE
 				if (this.pdbName == null) {
 					LOGGER.warn("Unable to use a2.topic.name.style=PDB_SCHEMA_TABLE in non-CDB database for table {}!",
 							this.fqn());
-					this.kafkaTopic = this.tableOwner + topicNameDelimiter + this.tableName;
+					this.kafkaTopic = this.tableOwner + config.getTopicNameDelimiter() + this.tableName;
 				} else {
-					this.kafkaTopic = this.pdbName + topicNameDelimiter +
-										this.tableOwner + topicNameDelimiter + this.tableName;
+					this.kafkaTopic = this.pdbName + config.getTopicNameDelimiter() +
+										this.tableOwner + config.getTopicNameDelimiter() + this.tableName;
 				}
 			}
 			if (StringUtils.isNotBlank(topicParam)) {
-				this.kafkaTopic = topicParam + topicNameDelimiter + this.kafkaTopic;
+				this.kafkaTopic = topicParam + config.getTopicNameDelimiter() + this.kafkaTopic;
 			}
 			if (!KafkaUtils.validTopicName(this.kafkaTopic)) {
 				this.kafkaTopic = KafkaUtils.fixTopicName(this.kafkaTopic, "zZ");
@@ -1156,7 +1149,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						this.fqn(), this.kafkaTopic);
 			}
 		} else {
-			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
+			// SCHEMA_TYPE_INT_DEBEZIUM
 			this.kafkaTopic = topicParam;
 		}
 		this.odd = odd;

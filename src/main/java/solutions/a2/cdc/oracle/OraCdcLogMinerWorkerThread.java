@@ -73,8 +73,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
 	private final Map<Long, Long> partitionsInProcessing;
 	private final Set<Long> tablesOutOfScope;
-	private final int schemaType;
-	private final String topic;
 	private final OraDumpDecoder odd;
 	private final OraLogMiner logMiner;
 	private Connection connLogMiner;
@@ -93,7 +91,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final TreeMap<String, Triple<Long, String, Long>> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
-	private final boolean useOracdcSchemas;
+	private final OraCdcSourceConnectorConfig config;
 	private final boolean useChronicleQueue;
 	private long lastScn;
 	private String lastRsId;
@@ -102,8 +100,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private boolean isCdb;
 	private final boolean processLobs;
 	private final OraCdcLobTransformationsIntf transformLobs;
-	private final int topicNameStyle;
-	private final String topicNameDelimiter;
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
@@ -117,9 +113,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Set<Long> lobObjects;
 	private final Set<Long> nonLobObjects;
 	private String lastRealRowId;
-	private final boolean protobufSchemaNames; 
-	private final boolean printInvalidHexValueWarning;
-	private final int incompleteDataTolerance;
 	private final long logMinerReconnectIntervalMs;
 
 	public OraCdcLogMinerWorkerThread(
@@ -130,15 +123,12 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final String checkTableSql,
 			final Map<Long, OraTable4LogMiner> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
-			final int schemaType,
-			final String topic,
 			final int topicPartition,
 			final OraDumpDecoder odd,
 			final Path queuesRoot,
 			final Map<String, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcLogMinerMgmt metrics,
-			final int topicNameStyle,
 			final OraCdcSourceConnectorConfig config,
 			final OraCdcLobTransformationsIntf transformLobs,
 			final OraRdbmsInfo rdbmsInfo,
@@ -146,6 +136,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
+		this.config = config;
 		this.partition = partition;
 		this.mineDataSql = mineDataSql;
 		this.checkTableSql = checkTableSql;
@@ -155,32 +146,16 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.tablesOutOfScope = tablesOutOfScope;
 		this.queuesRoot = queuesRoot;
 		this.odd = odd;
-		this.schemaType = schemaType;
-		this.topic = topic;
 		this.topicPartition = topicPartition;
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
-		this.topicNameStyle = topicNameStyle;
 		this.processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
 		this.transformLobs = transformLobs;
 		this.pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
-		this.useOracdcSchemas = config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM);
-		this.topicNameDelimiter = config.getString(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
 		this.connectionRetryBackoff = config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM);
 		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
 		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
-		switch (config.getString(ParamConstants.INCOMPLETE_REDO_TOLERANCE_PARAM)) {
-		case ParamConstants.INCOMPLETE_REDO_TOLERANCE_ERROR:
-			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_ERROR;
-			break;
-		case ParamConstants.INCOMPLETE_REDO_TOLERANCE_SKIP:
-			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_SKIP;
-			break;
-		default:
-			//INCOMPLETE_REDO_TOLERANCE_RESTORE
-			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_RESTORE;
-		}
 		this.rdbmsInfo = rdbmsInfo;
 		this.oraConnections = oraConnections;
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
@@ -203,8 +178,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			lobObjects = null;
 			nonLobObjects = null;
 		}
-		this.protobufSchemaNames = config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM);
-		this.printInvalidHexValueWarning = config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM);
 		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
@@ -582,11 +555,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												isCdb ? (short) conId : -1,
 												tableOwner, tableName,
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-												schemaType, useOracdcSchemas,
-												processLobs, transformLobs, isCdb, topicPartition,
-												odd, partition, topic, topicNameStyle, topicNameDelimiter,
-												rdbmsInfo, connDictionary, protobufSchemaNames,
-												printInvalidHexValueWarning, incompleteDataTolerance);
+												config, processLobs,
+												transformLobs, isCdb, topicPartition,
+												odd, partition, rdbmsInfo, connDictionary);
 											if (!legacyResiliencyModel) {
 												task.putTableAndVersion(combinedDataObjectId, 1);
 											}

@@ -27,6 +27,14 @@ import org.apache.kafka.common.config.ConfigDef.Type;
  */
 public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
+	public static final int INCOMPLETE_REDO_INT_ERROR = 1;
+	public static final int INCOMPLETE_REDO_INT_SKIP = 2;
+	public static final int INCOMPLETE_REDO_INT_RESTORE = 3;
+
+	public static final int TOPIC_NAME_STYLE_INT_TABLE = 1;
+	public static final int TOPIC_NAME_STYLE_INT_SCHEMA_TABLE = 2;
+	public static final int TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE = 3;
+
 	public static final String TASK_PARAM_MASTER = "master";
 	public static final String TASK_PARAM_MV_LOG = "mv.log";
 	public static final String TASK_PARAM_OWNER = "owner";
@@ -34,6 +42,51 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	public static final String TASK_PARAM_MV_ROWID = "mvlog.rowid";
 	public static final String TASK_PARAM_MV_PK = "mvlog.pk";
 	public static final String TASK_PARAM_MV_SEQUENCE = "mvlog.seq";
+
+	private static final String ORACDC_SCHEMAS_PARAM = "a2.oracdc.schemas";
+	private static final String ORACDC_SCHEMAS_DOC = "Use oracdc extensions for Oracle datatypes. Default false";
+
+	private static final String INCOMPLETE_REDO_TOLERANCE_PARAM = "a2.incomplete.redo.tolerance";
+	private static final String INCOMPLETE_REDO_TOLERANCE_DOC =
+			"Connector behavior when processing an incomplete redo record.\n" +
+			"Allowed values: error, skip, and restore.\n" +
+			"Default - error.\nWhen set to:\n" +
+			"- 'error' oracdc prints information about incomplete redo record and stops connector.\n" +
+			"- 'skip' oracdc prints information about incomplete redo record and continue processing\n" + 
+			"- 'restore' oracdc tries to restore missed information from actual row incarnation from the table using ROWID from redo the record.";
+	private static final String INCOMPLETE_REDO_TOLERANCE_ERROR = "error";
+	private static final String INCOMPLETE_REDO_TOLERANCE_SKIP = "skip";
+	private static final String INCOMPLETE_REDO_TOLERANCE_RESTORE = "restore";
+
+	private static final String PRINT_INVALID_HEX_WARNING_PARAM = "a2.print.invalid.hex.value.warning";
+	private static final String PRINT_INVALID_HEX_WARNING_DOC = 
+			"Default - false.\n" +
+			"When set to true oracdc prints information about invalid hex values (like single byte value for DATE/TIMESTAMP/TIMESTAMPTZ) in log.";
+	
+	private static final String PROTOBUF_SCHEMA_NAMING_PARAM = "a2.protobuf.schema.naming";
+	private static final String PROTOBUF_SCHEMA_NAMING_DOC = 
+			"Default - false.\n" +
+			"When set to true oracdc generates schema names as valid Protocol Buffers identifiers using underscore as separator.\n" + 
+			"When set to false (default) oracdc generates schema names using dot as separator.\n";
+	
+	private static final String TOPIC_NAME_DELIMITER_PARAM = "a2.topic.name.delimiter";
+	private static final String TOPIC_NAME_DELIMITER_DOC = "Kafka topic name delimiter when a2.schema.type=kafka and a2.topic.name.style set to SCHEMA_TABLE or PDB_SCHEMA_TABLE. Valid values - '_' (Default), '-', '.'";
+	private static final String TOPIC_NAME_DELIMITER_UNDERSCORE = "_";
+	private static final String TOPIC_NAME_DELIMITER_DASH = "-";
+	private static final String TOPIC_NAME_DELIMITER_DOT = ".";
+
+	private static final String TOPIC_NAME_STYLE_PARAM = "a2.topic.name.style";
+	private static final String TOPIC_NAME_STYLE_DOC = "Kafka topic naming convention when a2.schema.type=kafka. Valid values - TABLE (default), SCHEMA_TABLE, PDB_SCHEMA_TABLE";
+	private static final String TOPIC_NAME_STYLE_TABLE = "TABLE";
+	private static final String TOPIC_NAME_STYLE_SCHEMA_TABLE = "SCHEMA_TABLE";
+	private static final String TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE = "PDB_SCHEMA_TABLE";
+
+	static final String TOPIC_PREFIX_PARAM = "a2.topic.prefix";
+	private static final String TOPIC_PREFIX_DOC = "Prefix to prepend table names to generate name of Kafka topic.";
+
+	private int incompleteDataTolerance = -1;
+	private int topicNameStyle = -1;
+	private int schemaType = -1;
 
 	public static ConfigDef config() {
 		return new ConfigDef()
@@ -59,8 +112,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 								ParamConstants.SCHEMA_TYPE_SINGLE,
 								ParamConstants.SCHEMA_TYPE_DEBEZIUM),
 						Importance.LOW, ParamConstants.SCHEMA_TYPE_DOC)
-				.define(ParamConstants.TOPIC_PREFIX_PARAM, Type.STRING, "",
-						Importance.MEDIUM, ParamConstants.TOPIC_PREFIX_DOC)
+				.define(TOPIC_PREFIX_PARAM, Type.STRING, "",
+						Importance.MEDIUM, TOPIC_PREFIX_DOC)
 				.define(ParamConstants.TOPIC_PARTITION_PARAM, Type.SHORT, (short) 0,
 						Importance.MEDIUM, ParamConstants.TOPIC_PARTITION_DOC)
 				.define(ParamConstants.TABLE_EXCLUDE_PARAM, Type.LIST, "",
@@ -83,8 +136,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.STANDBY_URL_DOC)
 				.define(ParamConstants.PERSISTENT_STATE_FILE_PARAM, Type.STRING, "",
 						Importance.MEDIUM, ParamConstants.PERSISTENT_STATE_FILE_DOC)
-				.define(ParamConstants.ORACDC_SCHEMAS_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.ORACDC_SCHEMAS_DOC)
+				.define(ORACDC_SCHEMAS_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, ORACDC_SCHEMAS_DOC)
 				.define(ParamConstants.DICTIONARY_FILE_PARAM, Type.STRING, "",
 						Importance.LOW, ParamConstants.DICTIONARY_FILE_DOC)
 				.define(ParamConstants.INITIAL_LOAD_PARAM, Type.STRING,
@@ -92,18 +145,18 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						ConfigDef.ValidString.in(ParamConstants.INITIAL_LOAD_IGNORE,
 								ParamConstants.INITIAL_LOAD_EXECUTE),
 						Importance.LOW, ParamConstants.INITIAL_LOAD_DOC)
-				.define(ParamConstants.TOPIC_NAME_STYLE_PARAM, Type.STRING,
-						ParamConstants.TOPIC_NAME_STYLE_TABLE,
-						ConfigDef.ValidString.in(ParamConstants.TOPIC_NAME_STYLE_TABLE,
-								ParamConstants.TOPIC_NAME_STYLE_SCHEMA_TABLE,
-								ParamConstants.TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE),
-						Importance.LOW, ParamConstants.TOPIC_NAME_STYLE_DOC)
-				.define(ParamConstants.TOPIC_NAME_DELIMITER_PARAM, Type.STRING,
-						ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,
-						ConfigDef.ValidString.in(ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,
-								ParamConstants.TOPIC_NAME_DELIMITER_DASH,
-								ParamConstants.TOPIC_NAME_DELIMITER_DOT),
-						Importance.LOW, ParamConstants.TOPIC_NAME_DELIMITER_DOC)
+				.define(TOPIC_NAME_STYLE_PARAM, Type.STRING,
+						TOPIC_NAME_STYLE_TABLE,
+						ConfigDef.ValidString.in(TOPIC_NAME_STYLE_TABLE,
+								TOPIC_NAME_STYLE_SCHEMA_TABLE,
+								TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE),
+						Importance.LOW, TOPIC_NAME_STYLE_DOC)
+				.define(TOPIC_NAME_DELIMITER_PARAM, Type.STRING,
+						TOPIC_NAME_DELIMITER_UNDERSCORE,
+						ConfigDef.ValidString.in(TOPIC_NAME_DELIMITER_UNDERSCORE,
+								TOPIC_NAME_DELIMITER_DASH,
+								TOPIC_NAME_DELIMITER_DOT),
+						Importance.LOW, TOPIC_NAME_DELIMITER_DOC)
 				.define(ParamConstants.TABLE_LIST_STYLE_PARAM, Type.STRING,
 						ParamConstants.TABLE_LIST_STYLE_STATIC,
 						ConfigDef.ValidString.in(ParamConstants.TABLE_LIST_STYLE_STATIC,
@@ -138,26 +191,26 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.RESILIENCY_TYPE_DOC)
 				.define(ParamConstants.USE_RAC_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.USE_RAC_DOC)
-				.define(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.PROTOBUF_SCHEMA_NAMING_DOC)
+				.define(PROTOBUF_SCHEMA_NAMING_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, PROTOBUF_SCHEMA_NAMING_DOC)
 				.define(ParamConstants.ORA_TRANSACTION_IMPL_PARAM, Type.STRING,
 						ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
 						ConfigDef.ValidString.in(ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
 								ParamConstants.ORA_TRANSACTION_IMPL_JVM),
 						Importance.LOW, ParamConstants.ORA_TRANSACTION_IMPL_DOC)
-				.define(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.PRINT_INVALID_HEX_WARNING_DOC)
+				.define(PRINT_INVALID_HEX_WARNING_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, PRINT_INVALID_HEX_WARNING_DOC)
 				.define(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.PROCESS_ONLINE_REDO_LOGS_DOC)
 				.define(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM, Type.INT, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DEFAULT,
 						Importance.LOW, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DOC)
-				.define(ParamConstants.INCOMPLETE_REDO_TOLERANCE_PARAM, Type.STRING,
-						ParamConstants.INCOMPLETE_REDO_TOLERANCE_ERROR,
+				.define(INCOMPLETE_REDO_TOLERANCE_PARAM, Type.STRING,
+						INCOMPLETE_REDO_TOLERANCE_ERROR,
 						ConfigDef.ValidString.in(
-								ParamConstants.INCOMPLETE_REDO_TOLERANCE_ERROR,
-								ParamConstants.INCOMPLETE_REDO_TOLERANCE_SKIP,
-								ParamConstants.INCOMPLETE_REDO_TOLERANCE_RESTORE),
-						Importance.LOW, ParamConstants.INCOMPLETE_REDO_TOLERANCE_DOC)
+								INCOMPLETE_REDO_TOLERANCE_ERROR,
+								INCOMPLETE_REDO_TOLERANCE_SKIP,
+								INCOMPLETE_REDO_TOLERANCE_RESTORE),
+						Importance.LOW, INCOMPLETE_REDO_TOLERANCE_DOC)
 				.define(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM, Type.BOOLEAN, true,
 						Importance.LOW, ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_DOC)
 				.define(ParamConstants.LM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, Long.MAX_VALUE,
@@ -171,6 +224,81 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {
 		super(config(), originals);
+	}
+
+	public boolean useOracdcSchemas() {
+		return getBoolean(ORACDC_SCHEMAS_PARAM);
+	}
+
+	public int getIncompleteDataTolerance() {
+		if (incompleteDataTolerance == -1) {
+			switch (getString(INCOMPLETE_REDO_TOLERANCE_PARAM)) {
+			case INCOMPLETE_REDO_TOLERANCE_ERROR:
+				incompleteDataTolerance = INCOMPLETE_REDO_INT_ERROR;
+				break;
+			case INCOMPLETE_REDO_TOLERANCE_SKIP:
+				incompleteDataTolerance = INCOMPLETE_REDO_INT_SKIP;
+				break;
+			default:
+				//INCOMPLETE_REDO_TOLERANCE_RESTORE
+				incompleteDataTolerance = INCOMPLETE_REDO_INT_RESTORE;
+			}
+		}
+		return incompleteDataTolerance;
+	}
+
+	public boolean isPrintInvalidHexValueWarning() {
+		return getBoolean(PRINT_INVALID_HEX_WARNING_PARAM);
+	}
+
+	public boolean useProtobufSchemaNaming() {
+		return getBoolean(PROTOBUF_SCHEMA_NAMING_PARAM);
+	}
+
+	public String getTopicNameDelimiter() {
+		return getString(TOPIC_NAME_DELIMITER_PARAM);
+	}
+
+	public int getTopicNameStyle() {
+		if (topicNameStyle == -1) {
+			switch (getString(TOPIC_NAME_STYLE_PARAM)) {
+			case TOPIC_NAME_STYLE_TABLE:
+				topicNameStyle = TOPIC_NAME_STYLE_INT_TABLE;
+				break;
+			case TOPIC_NAME_STYLE_SCHEMA_TABLE:
+				topicNameStyle = TOPIC_NAME_STYLE_INT_SCHEMA_TABLE;
+				break;
+			case TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE:
+				topicNameStyle = TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE;
+				break;
+			}
+		}
+		return topicNameStyle;
+	}
+
+	public int getSchemaType() {
+		if (schemaType == -1) {
+			switch (getString(ParamConstants.SCHEMA_TYPE_PARAM)) {
+			case ParamConstants.SCHEMA_TYPE_KAFKA:
+				schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
+				break;
+			case ParamConstants.SCHEMA_TYPE_SINGLE:
+				schemaType = ParamConstants.SCHEMA_TYPE_INT_SINGLE;
+				break;
+			case ParamConstants.SCHEMA_TYPE_DEBEZIUM:
+				schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
+				break;
+			}
+		}
+		return schemaType;
+	}
+
+	public String getTopicOrPrefix() {
+		if (getSchemaType() != ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+			return getString(TOPIC_PREFIX_PARAM);
+		} else {
+			return getString(ParamConstants.KAFKA_TOPIC_PARAM);
+		}
 	}
 
 }

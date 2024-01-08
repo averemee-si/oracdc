@@ -24,14 +24,6 @@ public class ParamConstants {
 	public static final int SCHEMA_TYPE_INT_KAFKA_STD = 2;
 	public static final int SCHEMA_TYPE_INT_SINGLE = 3;
 
-	public static final int TOPIC_NAME_STYLE_INT_TABLE = 1;
-	public static final int TOPIC_NAME_STYLE_INT_SCHEMA_TABLE = 2;
-	public static final int TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE = 3;
-
-	public static final int INCOMPLETE_REDO_INT_ERROR = 1;
-	public static final int INCOMPLETE_REDO_INT_SKIP = 2;
-	public static final int INCOMPLETE_REDO_INT_RESTORE = 3;
-
 	public static final String CONNECTION_URL_PARAM = "a2.jdbc.url";
 	public static final String CONNECTION_URL_DOC = "JDBC connection URL";
 
@@ -100,9 +92,6 @@ public class ParamConstants {
 	public static final String PERSISTENT_STATE_FILE_PARAM = "a2.persistent.state.file";
 	public static final String PERSISTENT_STATE_FILE_DOC = "Name of file to store oracdc state between restart. Default $TMPDIR/oracdc.state";
 
-	public static final String ORACDC_SCHEMAS_PARAM = "a2.oracdc.schemas";
-	public static final String ORACDC_SCHEMAS_DOC = "Use oracdc extensions for Oracle datatypes. Default false";
-
 	public static final String DICTIONARY_FILE_PARAM = "a2.dictionary.file";
 	public static final String DICTIONARY_FILE_DOC = "File with stored columns data type mapping. For more details contact us at oracle@a2-solutions.eu";
 
@@ -116,23 +105,8 @@ public class ParamConstants {
 	public static final String KAFKA_TOPIC_PARAM_DOC = "Target topic to send data";
 	public static final String KAFKA_TOPIC_PARAM_DEFAULT = "oracdc-topic";
 
-	public static final String TOPIC_PREFIX_PARAM = "a2.topic.prefix";
-	public static final String TOPIC_PREFIX_DOC = "Prefix to prepend table names to generate name of Kafka topic.";
-
 	public static final String TOPIC_PARTITION_PARAM = "a2.topic.partition";
 	public static final String TOPIC_PARTITION_DOC = "Kafka topic partition to write data. Default - 0";
-
-	public static final String TOPIC_NAME_STYLE_PARAM = "a2.topic.name.style";
-	public static final String TOPIC_NAME_STYLE_DOC = "Kafka topic naming convention when a2.schema.type=kafka. Valid values - TABLE (default), SCHEMA_TABLE, PDB_SCHEMA_TABLE";
-	public static final String TOPIC_NAME_STYLE_TABLE = "TABLE";
-	public static final String TOPIC_NAME_STYLE_SCHEMA_TABLE = "SCHEMA_TABLE";
-	public static final String TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE = "PDB_SCHEMA_TABLE";
-
-	public static final String TOPIC_NAME_DELIMITER_PARAM = "a2.topic.name.delimiter";
-	public static final String TOPIC_NAME_DELIMITER_DOC = "Kafka topic name delimiter when a2.schema.type=kafka and a2.topic.name.style set to SCHEMA_TABLE or PDB_SCHEMA_TABLE. Valid values - '_' (Default), '-', '.'";
-	public static final String TOPIC_NAME_DELIMITER_UNDERSCORE = "_";
-	public static final String TOPIC_NAME_DELIMITER_DASH = "-";
-	public static final String TOPIC_NAME_DELIMITER_DOT = ".";
 
 	public static final String TABLE_LIST_STYLE_PARAM = "a2.table.list.style";
 	public static final String TABLE_LIST_STYLE_DOC = "When set to 'static' (default) oracdc reads tables and partition list to process only at startup according to values of a2.include and a2.exclude parameters. When set to 'dynamic' oracdc builds list of objects to process on the fly";
@@ -204,12 +178,6 @@ public class ParamConstants {
 			"If oracdc is connected to Oracle RAC additional checks are performed and oracdc starts a separate task for each redo thread/RAC instance. " +
 			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
 	
-	public static final String PROTOBUF_SCHEMA_NAMING_PARAM = "a2.protobuf.schema.naming";
-	public static final String PROTOBUF_SCHEMA_NAMING_DOC = 
-			"Default - false.\n" +
-			"When set to true oracdc generates schema names as valid Protocol Buffers identifiers using underscore as separator.\n" + 
-			"When set to false (default) oracdc generates schema names using dot as separator.\n";
-	
 	public static final String ORA_TRANSACTION_IMPL_PARAM = "a2.transaction.implementation";
 	public static final String ORA_TRANSACTION_IMPL_DOC = 
 			"Queue implementation for processing SQL statements within transactions.\n" +
@@ -218,11 +186,6 @@ public class ParamConstants {
 			"LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue.\n";
 	public static final String ORA_TRANSACTION_IMPL_CHRONICLE = "ChronicleQueue";
 	public static final String ORA_TRANSACTION_IMPL_JVM = "ArrayList";
-	
-	public static final String PRINT_INVALID_HEX_WARNING_PARAM = "a2.print.invalid.hex.value.warning";
-	public static final String PRINT_INVALID_HEX_WARNING_DOC = 
-			"Default - false.\n" +
-			"When set to true oracdc prints information about invalid hex values (like single byte value for DATE/TIMESTAMP/TIMESTAMPTZ) in log.";
 	
 	public static final String PROCESS_ONLINE_REDO_LOGS_PARAM = "a2.process.online.redo.logs";
 	public static final String PROCESS_ONLINE_REDO_LOGS_DOC = 
@@ -234,18 +197,6 @@ public class ParamConstants {
 			"Default - 60_000.\n" +
 			"Minimum time in milliseconds to determine the current SCN during online redo log processing.";
 	public static final int CURRENT_SCN_QUERY_INTERVAL_DEFAULT = 60_000;
-
-	public static final String INCOMPLETE_REDO_TOLERANCE_PARAM = "a2.incomplete.redo.tolerance";
-	public static final String INCOMPLETE_REDO_TOLERANCE_DOC =
-			"Connector behavior when processing an incomplete redo record.\n" +
-			"Allowed values: error, skip, and restore.\n" +
-			"Default - error.\nWhen set to:\n" +
-			"- 'error' oracdc prints information about incomplete redo record and stops connector.\n" +
-			"- 'skip' oracdc prints information about incomplete redo record and continue processing\n" + 
-			"- 'restore' oracdc tries to restore missed information from actual row incarnation from the table using ROWID from redo the record.";
-	public static final String INCOMPLETE_REDO_TOLERANCE_ERROR = "error";
-	public static final String INCOMPLETE_REDO_TOLERANCE_SKIP = "skip";
-	public static final String INCOMPLETE_REDO_TOLERANCE_RESTORE = "restore";
 
 	public static final String PRINT_ALL_ONLINE_REDO_RANGES_PARAM = "a2.print.all.online.scn.ranges";
 	public static final String PRINT_ALL_ONLINE_REDO_RANGES_DOC =

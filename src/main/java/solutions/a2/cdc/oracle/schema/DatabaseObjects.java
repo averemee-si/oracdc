@@ -36,7 +36,6 @@ import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraTable4LogMiner;
-import solutions.a2.cdc.oracle.ParamConstants;
 import solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 
@@ -183,19 +182,13 @@ public class DatabaseObjects implements ActionListener {
 					conId = 0;
 					combinedDataObjectId = dataObjectId;
 				}
-				//TODO
-				//TODO Do we need to pass LOB implementation class as parameter???
-				//TODO
 				final boolean processLobs = true;
 				OraTable4LogMiner oraTable = new OraTable4LogMiner(
 						isCdb ? tablePdb : null,
 						isCdb ? (short) conId : -1,
 						tableOwner, tableName, "ENABLED".equalsIgnoreCase(rs.getString("DEPENDENCIES")),
-						ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD, config,
-						processLobs, new OraCdcDefaultLobTransformationsImpl(), isCdb, 0,
-						null, null, null,
-						ParamConstants.TOPIC_NAME_STYLE_INT_TABLE, ParamConstants.TOPIC_NAME_DELIMITER_UNDERSCORE,
-						rdbmsInfo, connection, false, false, ParamConstants.INCOMPLETE_REDO_INT_ERROR);
+						config, processLobs, new OraCdcDefaultLobTransformationsImpl(),
+						isCdb, 0, null, null, rdbmsInfo, connection);
 				return new AbstractMap.SimpleImmutableEntry<Long, OraTable4LogMiner>(combinedDataObjectId, oraTable);
 			} else {
 				throw new SQLException(

@@ -73,6 +73,7 @@ public class OraTable extends OraTable4SourceConnector {
 	 * @param batchSize
 	 * @param schemaType type of schema
 	 * @param rdbmsInfo
+	 * @param config
 	 * @throws SQLException
 	 */
 	public OraTable(
@@ -80,7 +81,7 @@ public class OraTable extends OraTable4SourceConnector {
 			final boolean logWithRowIds, final boolean logWithPrimaryKey, final boolean logWithSequence,
 			final int batchSize, final int schemaType,
 			final Map<String, String> sourcePartition, final Map<String, Object> sourceOffset,
-			final OraRdbmsInfo rdbmsInfo, final boolean protobufSchemaNames) throws SQLException {
+			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceConnectorConfig config) throws SQLException {
 		super(tableOwner, masterTable, schemaType);
 		LOGGER.trace("Creating OraTable object for materialized view log...");
 		this.logWithRowIds = logWithRowIds;
@@ -116,7 +117,7 @@ public class OraTable extends OraTable4SourceConnector {
 			// We always process LOB's for snapshot logs - despite of value processLobs passed
 			buildColumnList(rsColumns, sourceOffset,
 					snapshotLog, mViewSelect, masterSelect, snapshotDelete,
-					logWithRowIds, logWithPrimaryKey, logWithSequence, protobufSchemaNames);
+					logWithRowIds, logWithPrimaryKey, logWithSequence, config.useProtobufSchemaNaming());
 
 			rsColumns.close();
 			rsColumns = null;
@@ -181,7 +182,7 @@ public class OraTable extends OraTable4SourceConnector {
 				Map<String, Object> offset = null;
 				if (kafkaConnectTopic != null) {
 					LOGGER.trace("BEGIN: Prepare Kafka Connect offset");
-					offset = new HashMap<>(2);
+					offset = new HashMap<>();
 					offset.put(OraColumn.ORA_ROWSCN, lastProcessedScn);
 					LOGGER.debug("Owner -> {}, table -> {}, last processed {} is {}.",
 							tableOwner, tableName, OraColumn.ORA_ROWSCN, lastProcessedScn);

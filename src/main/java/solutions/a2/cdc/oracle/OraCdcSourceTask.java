@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
@@ -44,7 +45,7 @@ public class OraCdcSourceTask extends SourceTask {
 	private int pollInterval;
 	private int schemaType;
 	private String topic;
-	private boolean protobufSchemaNames;
+	private OraCdcSourceConnectorConfig config;
 
 	@Override
 	public String version() {
@@ -56,26 +57,31 @@ public class OraCdcSourceTask extends SourceTask {
 
 		LOGGER.info("Starting oracdc Source Task for {}", props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
 
-		batchSize = Integer.parseInt(props.get(ParamConstants.BATCH_SIZE_PARAM));
+		try {
+			config = new OraCdcSourceConnectorConfig(props);
+		} catch (ConfigException ce) {
+			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
+		}
+
+		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
 		LOGGER.debug("batchSize = {} records.", batchSize);
-		pollInterval = Integer.parseInt(props.get(ParamConstants.POLL_INTERVAL_MS_PARAM));
+		pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
 		LOGGER.debug("pollInterval = {} ms.", pollInterval);
-		schemaType = Integer.parseInt(props.get(ParamConstants.SCHEMA_TYPE_PARAM));
+		schemaType = config.getInt(ParamConstants.SCHEMA_TYPE_PARAM);
 		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
 		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-			topic = props.get(ParamConstants.TOPIC_PREFIX_PARAM) + 
-					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
+			topic = config.getTopicOrPrefix() + 
+					config.getString(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
 		} else {
 			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-			topic = props.get(ParamConstants.KAFKA_TOPIC_PARAM);
+			topic = config.getString(ParamConstants.KAFKA_TOPIC_PARAM);
 		}
-		protobufSchemaNames = Boolean.parseBoolean(props.get(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM));
 		LOGGER.debug("topic set to {}.", topic);
 
 		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
 			LOGGER.trace("Checking for stored offset...");
-			final String tableName = props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
-			final String tableOwner = props.get(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER); 
+			final String tableName = config.getString(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
+			final String tableOwner = config.getString(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER); 
 			OraRdbmsInfo rdbmsInfo = new OraRdbmsInfo(connDictionary);
 			LOGGER.trace("Setting source partition name for processing snapshot log");
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName() + ":" +
@@ -98,7 +104,7 @@ public class OraCdcSourceTask extends SourceTask {
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID)),
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK)),
 					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE)),
-					batchSize, schemaType, partition, offset, rdbmsInfo, protobufSchemaNames);
+					batchSize, schemaType, partition, offset, rdbmsInfo, config);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));

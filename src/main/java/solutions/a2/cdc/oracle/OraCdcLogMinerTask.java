@@ -80,9 +80,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private int pollInterval;
 	private Map<String, String> partition;
 	private int schemaType;
-	private String topic;
-	private int topicNameStyle;
-	private String topicNameDelimiter;
 	private String stateFileName;
 	private OraRdbmsInfo rdbmsInfo;
 	private OraCdcLogMinerMgmt metrics;
@@ -95,7 +92,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private OraCdcTransaction transaction;
 	private boolean lastStatementInTransaction = true;
 	private boolean needToStoreState = false;
-	private boolean useOracdcSchemas = false;
 	private boolean processLobs = false;
 	private boolean useChronicleQueue = true;
 	private CountDownLatch runLatch;
@@ -119,7 +115,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private long lastInProgressSsn = 0;
 	private OraCdcSourceConnectorConfig config;
 	private int topicPartition;
-	private int incompleteDataTolerance;
 
 	@Override
 	public String version() {
@@ -206,49 +201,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 			throw new ConnectException("Unable to connect to RDBMS");
 		}
 
-		switch (config.getString(ParamConstants.INCOMPLETE_REDO_TOLERANCE_PARAM)) {
-		case ParamConstants.INCOMPLETE_REDO_TOLERANCE_ERROR:
-			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_ERROR;
-			break;
-		case ParamConstants.INCOMPLETE_REDO_TOLERANCE_SKIP:
-			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_SKIP;
-			break;
-		default:
-			//INCOMPLETE_REDO_TOLERANCE_RESTORE
-			incompleteDataTolerance = ParamConstants.INCOMPLETE_REDO_INT_RESTORE;
-		}
 		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
 		pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
-		useOracdcSchemas = config.getBoolean(ParamConstants.ORACDC_SCHEMAS_PARAM);
-		if (useOracdcSchemas) {
+		if (config.useOracdcSchemas()) {
 			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
 		}
 
-		if (StringUtils.equalsIgnoreCase(ParamConstants.SCHEMA_TYPE_DEBEZIUM,
-				config.getString(ParamConstants.SCHEMA_TYPE_PARAM))) {
-			schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
-			topic = config.getString(ParamConstants.KAFKA_TOPIC_PARAM);
-		} else {
-			if (StringUtils.equalsIgnoreCase(ParamConstants.SCHEMA_TYPE_SINGLE,
-					config.getString(ParamConstants.SCHEMA_TYPE_PARAM))) {
-				schemaType = ParamConstants.SCHEMA_TYPE_INT_SINGLE;
-			} else {
-				schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
-			}
-			topic = config.getString(ParamConstants.TOPIC_PREFIX_PARAM);
-			switch (config.getString(ParamConstants.TOPIC_NAME_STYLE_PARAM)) {
-			case ParamConstants.TOPIC_NAME_STYLE_TABLE:
-				topicNameStyle = ParamConstants.TOPIC_NAME_STYLE_INT_TABLE;
-				break;
-			case ParamConstants.TOPIC_NAME_STYLE_SCHEMA_TABLE:
-				topicNameStyle = ParamConstants.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE;
-				break;
-			case ParamConstants.TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE:
-				topicNameStyle = ParamConstants.TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE;
-				break;
-			}
-			topicNameDelimiter = config.getString(ParamConstants.TOPIC_NAME_DELIMITER_PARAM);
-		}
+		schemaType = config.getSchemaType();
 		useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
@@ -423,7 +382,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			final Path queuesRoot = FileSystems.getDefault().getPath(
 					config.getString(ParamConstants.TEMP_DIR_PARAM));
 
-			if (useOracdcSchemas) {
+			if (config.useOracdcSchemas()) {
 				// Use stored schema only in this mode
 				final String schemaFileName = config.getString(ParamConstants.DICTIONARY_FILE_PARAM);
 				if (StringUtils.isNotBlank(schemaFileName)) {
@@ -433,8 +392,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 						LOGGER.info("{} table schema definitions loaded from file {}.",
 								tablesInProcessing.size(), schemaFileName);
 						tablesInProcessing.forEach((key, table) -> {
-							table.setTopicDecoderPartition(
-									topic, topicNameStyle, topicNameDelimiter, odd, partition);
+							table.setTopicDecoderPartition(config, odd, partition);
 							metrics.addTableInProcessing(table.fqn());
 						});
 					} catch (IOException ioe) {
@@ -842,15 +800,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 					checkTableSql,
 					tablesInProcessing,
 					tablesOutOfScope,
-					schemaType,
-					topic,
 					topicPartition,
 					odd,
 					queuesRoot,
 					activeTransactions,
 					committedTransactions,
 					metrics,
-					topicNameStyle,
 					config,
 					transformLobs,
 					rdbmsInfo,
@@ -1025,7 +980,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 										if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
 											final long ddlStartTs = System.currentTimeMillis();
 											final int changedColumnCount = 
-													oraTable.processDdl(useOracdcSchemas, stmt, transaction.getXid(), transaction.getCommitScn());
+													oraTable.processDdl(config.useOracdcSchemas(), stmt, transaction.getXid(), transaction.getCommitScn());
 											if (!legacyResiliencyModel) {
 												putTableAndVersion(stmt.getTableId(), oraTable.getVersion());
 											}
@@ -1333,14 +1288,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? (short) conId : -1,
 							tableOwner, tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", rsCheckTable.getString("DEPENDENCIES")),
-							schemaType, useOracdcSchemas,
-							processLobs, transformLobs,
-							isCdb, topicPartition, 
-							odd, partition, topic, topicNameStyle, topicNameDelimiter,
-							rdbmsInfo, connection,
-							config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM),
-							config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM),
-							incompleteDataTolerance);
+							config, processLobs, transformLobs, isCdb, topicPartition, 
+							odd, partition, rdbmsInfo, connection);
 					oraTable.setVersion(version);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
@@ -1387,14 +1336,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? (short) conId : -1,
 							resultSet.getString("OWNER"), tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
-							schemaType, useOracdcSchemas,
-							processLobs, transformLobs,
-							isCdb, topicPartition, 
-							odd, partition, topic, topicNameStyle, topicNameDelimiter,
-							rdbmsInfo, connection,
-							config.getBoolean(ParamConstants.PROTOBUF_SCHEMA_NAMING_PARAM),
-							config.getBoolean(ParamConstants.PRINT_INVALID_HEX_WARNING_PARAM),
-							incompleteDataTolerance);
+							config, processLobs, transformLobs, isCdb, topicPartition, 
+							odd, partition, rdbmsInfo, connection);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}
