@@ -84,6 +84,13 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	static final String TOPIC_PREFIX_PARAM = "a2.topic.prefix";
 	private static final String TOPIC_PREFIX_DOC = "Prefix to prepend table names to generate name of Kafka topic.";
 
+	private static final String USE_FIRST_UNIQUE_AS_PK_PARAM = "a2.use.first.unique.as.pk";
+	private static final String USE_FIRST_UNIQUE_AS_PK_DOC = 
+			"Default - false.\n" +
+			"When set to false the key fields are the table's primary key columns or, if the table does not have a primary key, the table's unique key columns in which all columns are NOT NULL.\n" + 
+			"When set to true and the table does not have a primary key or a unique key with all NOT NULL columns, then the key fields will be the unique key columns which may have NULL columns.\n" +
+			"If there are no appropriate keys in the table, oracdc uses the a2.use.rowid.as.key parameter and generates a pseudo key based on the row's ROWID, or generates a schema without any key fields.";
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int schemaType = -1;
@@ -215,6 +222,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_DOC)
 				.define(ParamConstants.LM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, Long.MAX_VALUE,
 						Importance.LOW, ParamConstants.LM_RECONNECT_INTERVAL_MS_DOC)
+				.define(USE_FIRST_UNIQUE_AS_PK_PARAM, Type.BOOLEAN, false,
+						Importance.MEDIUM, USE_FIRST_UNIQUE_AS_PK_DOC)
 				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
@@ -299,6 +308,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 		} else {
 			return getString(ParamConstants.KAFKA_TOPIC_PARAM);
 		}
+	}
+
+	public boolean useFirstUniqueAsPK() {
+		return getBoolean(USE_FIRST_UNIQUE_AS_PK_PARAM);
 	}
 
 }

@@ -339,18 +339,20 @@ public class OraRdbmsInfo {
 	/**
 	 * Returns set of column names for primary key or it equivalent (unique with all non-null)
 	 * 
-	 * @param connection - Connection to data dictionary (db in 'OPEN' state)
-	 * @param conId      - CON_ID, if -1 we working with non CDB or pre-12c Oracle Database
-	 * @param tableOwner - Table owner
-	 * @param tableName  - Table name
-	 * @return           - Set with names of primary key columns. null if nothing found
+	 * @param connection         - Connection to data dictionary (db in 'OPEN' state)
+	 * @param conId              - CON_ID, if -1 we working with non CDB or pre-12c Oracle Database
+	 * @param tableOwner         - Table owner
+	 * @param tableName          - Table name
+	 * @param useFirstUniqueAsPK - use any unique as PK when PK or unique key with NOT NULL not found
+	 * @return                   - Set with names of primary key columns. null if nothing found
 	 * @throws SQLException
 	 */
 	public static Set<String> getPkColumnsFromDict(
 			final Connection connection,
 			final short conId,
 			final String tableOwner,
-			final String tableName) throws SQLException {
+			final String tableName,
+			final boolean useFirstUniqueAsPK) throws SQLException {
 		final boolean isCdb = (conId > -1);
 		Set<String> result = null;
 		PreparedStatement ps = connection.prepareStatement(
@@ -397,32 +399,67 @@ public class OraRdbmsInfo {
 				}
 				result.add(rs.getString("COLUMN_NAME"));
 			}
-			if (result != null) {
-				final StringBuilder sb = new StringBuilder(128);
-				boolean firstCol = true;
-				for (String columnName : result) {
-					if (firstCol) {
-						firstCol = false;
-					} else {
-						sb.append(",");
-					}
-					sb.append(columnName);
-				}
-				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"Table {}.{} does not have a primary key constraint.\n" +
-						"Unique index {}.{} with NON-NULL column(s) will be used instead of the missing primary key.\n" +
-						"=====================\n",
-						tableOwner, tableName,
-						indexOwner, indexName);
-			}
 			rs.close();
 			rs = null;
 			ps.close();
 			ps = null;
+			if (result != null) {
+				printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName);
+			} else if (useFirstUniqueAsPK) {
+				ps = connection.prepareStatement(
+						(isCdb) ?
+								OraDictSqlTexts.WELL_DEFINED_UNIQUE_COLUMNS_CDB :
+								OraDictSqlTexts.WELL_DEFINED_UNIQUE_COLUMNS_NON_CDB,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				ps.setString(1, tableOwner);
+				ps.setString(2, tableName);
+				if (isCdb) {
+					ps.setShort(3, conId);			
+				}
+				rs = ps.executeQuery();
+				while (rs.next()) {
+					if (result == null) {
+						result = new HashSet<>();
+						indexOwner = rs.getString("OWNER");
+						indexName = rs.getString("CONSTRAINT_NAME");
+					} else if (!StringUtils.equals(indexName, rs.getString("CONSTRAINT_NAME"))) {
+						break;
+					}
+					result.add(rs.getString("COLUMN_NAME"));
+				}
+				rs.close();
+				rs = null;
+				ps.close();
+				ps = null;
+				if (result != null) {
+					printPkWarning(result, false, tableOwner, tableName,indexOwner, indexName);
+				}
+			}
 		}
 		return result;
+	}
+
+	private static void printPkWarning(final Set<String> result, final boolean notNull,
+			final String tableOwner, final String tableName,
+			final String indexOwner, final String indexName) {
+		final StringBuilder sb = new StringBuilder(128);
+		boolean firstCol = true;
+		for (String columnName : result) {
+			if (firstCol) {
+				firstCol = false;
+			} else {
+				sb.append(",");
+			}
+			sb.append(columnName);
+		}
+		LOGGER.info(
+				"\n" +
+				"=====================\n" +
+				"Table {}.{} does not have a primary key constraint.\n" +
+				"Unique index {}.{} with {}column(s) '{}' will be used instead of the missing primary key.\n" +
+				"=====================\n",
+				tableOwner, tableName, indexOwner, indexName, 
+				(notNull ? "NOT NULL " : ""), sb.toString());
 	}
 
 	/**

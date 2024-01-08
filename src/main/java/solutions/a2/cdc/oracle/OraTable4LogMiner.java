@@ -133,7 +133,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param topicPartition
 	 * @param odd
 	 * @param sourcePartition
-	 * @param topicParam
 	 * @param rdbmsInfo
 	 * @param connection
 	 */
@@ -195,7 +194,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 			// Detect PK column list...
 			Set<String> pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
-					isCdb ? conId : -1, this.tableOwner, this.tableName);
+					isCdb ? conId : -1, this.tableOwner, this.tableName, config.useFirstUniqueAsPK());
 			if (pkColsSet == null) {
 				this.tableWithPk = false;
 				if (schemaType != ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
