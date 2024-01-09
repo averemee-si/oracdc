@@ -14,8 +14,11 @@
 package solutions.a2.cdc.oracle;
 
 import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.SQLTransientConnectionException;
+import java.util.Enumeration;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -27,6 +30,8 @@ public class OraCdcJdbcSinkConnectionPool {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkConnectionPool.class);
 	private static final int INITIAL_SIZE = 4;
+	private static final String DRIVER_POSTGRESQL = "org.postgresql.Driver";
+	private static final String URL_POSTGRESQL = "jdbc:postgresql:";
 
 	public static final int DB_TYPE_MYSQL = 1;
 	public static final int DB_TYPE_POSTGRESQL = 2;
@@ -46,7 +51,6 @@ public class OraCdcJdbcSinkConnectionPool {
 	 */
 	public OraCdcJdbcSinkConnectionPool(
 			String connectorName, String url, String user, String password) throws SQLException {
-		LOGGER.trace("Entered {}.init", OraCdcJdbcSinkConnectionPool.class.getName());
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("JDBC Url = {}", url);
 			LOGGER.debug("Initial pool size = {}", INITIAL_SIZE);
@@ -78,7 +82,12 @@ public class OraCdcJdbcSinkConnectionPool {
 			if (!StringUtils.contains(url, "maintainTimeStats")) {
 				dataSource.addDataSourceProperty("maintainTimeStats", "false");
 			}
-		} else if (url.startsWith("jdbc:postgresql:")) {
+		} else if (url.startsWith(URL_POSTGRESQL)) {
+			if (!isDriverLoaded(DRIVER_POSTGRESQL)) {
+				try {
+					Class.forName(DRIVER_POSTGRESQL);
+				} catch (ClassNotFoundException cnf) { }
+			}
 			if (!StringUtils.contains(url, "ApplicationName")) {
 				dataSource.addDataSourceProperty("ApplicationName", "oracdc");
 			}
@@ -159,6 +168,17 @@ public class OraCdcJdbcSinkConnectionPool {
 			dataSource.close();
 		}
 		dataSource = null;
+	}
+
+	private boolean isDriverLoaded(final String driverClass) {
+		final Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
+		while (availableDrivers.hasMoreElements()) {
+			final Driver driver = availableDrivers.nextElement();
+			if (StringUtils.equals(driverClass, driver.getClass().getCanonicalName())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 }

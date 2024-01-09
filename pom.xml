@@ -78,6 +78,7 @@
 		<ojdbc.types.version>0.7.1</ojdbc.types.version>
 		<kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
 		<jar.plugin.version>3.3.0</jar.plugin.version>
+		<assembly.plugin.version>3.6.0</assembly.plugin.version>
 		<surefire.plugin.version>2.22.2</surefire.plugin.version>
 		<source.plugin.version>3.3.0</source.plugin.version>
 		<javadoc.plugin.version>3.5.0</javadoc.plugin.version>
@@ -364,12 +365,13 @@
 				<version>${jar.plugin.version}</version>
 				<configuration>
 					<excludes>
-						<exclude>META-INF/services/java.sql.Driver</exclude>
 					</excludes>
 				</configuration>
 			</plugin>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-assembly-plugin</artifactId>
+				<version>${assembly.plugin.version}</version>
 				<configuration>
 					<descriptors>
 						<descriptor>src/assembly/standalone.xml</descriptor>
