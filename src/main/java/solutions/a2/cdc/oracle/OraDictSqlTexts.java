@@ -147,16 +147,16 @@ where  C.HIDDEN_COLUMN='NO'
 			"  and  L.OWNER=O.OWNER and L.SEGMENT_NAME=O.OBJECT_NAME and O.OBJECT_ID=?\n";
 
 	/*
-select ALWAYS from DBA_LOG_GROUPS where OWNER='SCOTT' and TABLE_NAME='DEPT';
+select ALWAYS from DBA_LOG_GROUPS where LOG_GROUP_TYPE='ALL COLUMN LOGGING' and OWNER='SCOTT' and TABLE_NAME='DEPT';
 	 */
 	public static final String SUPPLEMENTAL_LOGGING_NON_CDB =
-			"select ALWAYS from DBA_LOG_GROUPS where OWNER=? and TABLE_NAME=?";
+			"select ALWAYS from DBA_LOG_GROUPS where LOG_GROUP_TYPE='ALL COLUMN LOGGING' and OWNER=? and TABLE_NAME=?";
 
 	/*
-select ALWAYS from CDB_LOG_GROUPS where OWNER='SCOTT' and TABLE_NAME='DEPT' and CON_ID=0;
+select ALWAYS from CDB_LOG_GROUPS where LOG_GROUP_TYPE='ALL COLUMN LOGGING' and OWNER='SCOTT' and TABLE_NAME='DEPT' and CON_ID=0;
 	 */
 	public static final String SUPPLEMENTAL_LOGGING_CDB =
-			"select ALWAYS from CDB_LOG_GROUPS where OWNER=? and TABLE_NAME=? and CON_ID=?";
+			"select ALWAYS from CDB_LOG_GROUPS where LOG_GROUP_TYPE='ALL COLUMN LOGGING' and OWNER=? and TABLE_NAME=? and CON_ID=?";
 
 	/*
 select DCC.COLUMN_NAME
