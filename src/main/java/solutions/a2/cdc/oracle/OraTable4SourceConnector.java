@@ -223,7 +223,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 
 	protected void schemaEiplogue(final String tableFqn,
 			final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) throws SQLException {
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+		if (keySchemaBuilder == null) {
 			keySchema = null;
 		} else {
 			keySchema = keySchemaBuilder.build();

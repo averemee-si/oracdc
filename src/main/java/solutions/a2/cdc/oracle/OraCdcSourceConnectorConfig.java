@@ -91,6 +91,12 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			"When set to true and the table does not have a primary key or a unique key with all NOT NULL columns, then the key fields will be the unique key columns which may have NULL columns.\n" +
 			"If there are no appropriate keys in the table, oracdc uses the a2.use.rowid.as.key parameter and generates a pseudo key based on the row's ROWID, or generates a schema without any key fields.";
 
+	private static final String USE_ROWID_AS_KEY_PARAM = "a2.use.rowid.as.key";
+	private static final String USE_ROWID_AS_KEY_DOC =
+			"Default - true.\n" +
+			"When set to true and the table does not have a appropriate primary or unique key, oracdc adds surrogate key using the ROWID.\n" +
+			"When set to false and the table does not have a appropriate primary or unique key, oracdc generates schema for the table without any key fields.\n";
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int schemaType = -1;
@@ -224,6 +230,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.LM_RECONNECT_INTERVAL_MS_DOC)
 				.define(USE_FIRST_UNIQUE_AS_PK_PARAM, Type.BOOLEAN, false,
 						Importance.MEDIUM, USE_FIRST_UNIQUE_AS_PK_DOC)
+				.define(USE_ROWID_AS_KEY_PARAM, Type.BOOLEAN, true,
+						Importance.MEDIUM, USE_ROWID_AS_KEY_DOC)
 				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
@@ -312,6 +320,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public boolean useFirstUniqueAsPK() {
 		return getBoolean(USE_FIRST_UNIQUE_AS_PK_PARAM);
+	}
+
+	public boolean useRowidAsKey() {
+		return getBoolean(USE_ROWID_AS_KEY_PARAM);
 	}
 
 }
