@@ -31,7 +31,7 @@ public class OraCdcJdbcSinkConnectionPool {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkConnectionPool.class);
 	private static final int INITIAL_SIZE = 4;
 	private static final String DRIVER_POSTGRESQL = "org.postgresql.Driver";
-	private static final String URL_POSTGRESQL = "jdbc:postgresql:";
+	private static final String PREFIX_POSTGRESQL = "jdbc:postgresql:";
 
 	public static final int DB_TYPE_MYSQL = 1;
 	public static final int DB_TYPE_POSTGRESQL = 2;
@@ -61,9 +61,10 @@ public class OraCdcJdbcSinkConnectionPool {
 		dataSource.setPassword(password);
 		dataSource.setAutoCommit(false);
 		dataSource.setPoolName("oracdc-hikari-" + connectorName);
-		//TODO - ???
+		//TODO
 		dataSource.setMaximumPoolSize(INITIAL_SIZE);
-		if (url.startsWith("jdbc:mariadb:") || url.startsWith("jdbc:mysql:")) {
+		if (StringUtils.startsWith(url, "jdbc:mariadb:") ||
+				StringUtils.startsWith(url, "jdbc:mysql:")) {
 			if (!StringUtils.contains(url, "cachePrepStmts")) {
 				dataSource.addDataSourceProperty("cachePrepStmts", "true");
 			}
@@ -82,7 +83,7 @@ public class OraCdcJdbcSinkConnectionPool {
 			if (!StringUtils.contains(url, "maintainTimeStats")) {
 				dataSource.addDataSourceProperty("maintainTimeStats", "false");
 			}
-		} else if (url.startsWith(URL_POSTGRESQL)) {
+		} else if (StringUtils.startsWith(url, PREFIX_POSTGRESQL)) {
 			if (!isDriverLoaded(DRIVER_POSTGRESQL)) {
 				try {
 					Class.forName(DRIVER_POSTGRESQL);
