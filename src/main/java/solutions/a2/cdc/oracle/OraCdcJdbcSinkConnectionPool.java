@@ -101,6 +101,9 @@ public class OraCdcJdbcSinkConnectionPool {
 			if (!StringUtils.contains(url, "tcpKeepAlive")) {
 				dataSource.addDataSourceProperty("tcpKeepAlive", "true");
 			}
+			if (!StringUtils.contains(url, "reWriteBatchedInserts")) {
+				dataSource.addDataSourceProperty("reWriteBatchedInserts", "true");
+			}
 		}
 
 		// Detect database type
