@@ -49,7 +49,7 @@ import solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraTable4SinkConnector extends OraTableDefinition {
@@ -73,6 +73,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	private boolean needToCreateTable = false;
 	private boolean delayedObjectsCreation = false;
 	private final int pkStringLength;
+	private boolean onlyValue = false;
 
 
 	/**
@@ -117,7 +118,12 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			LOGGER.debug("Schema type set to Kafka Connect.");
 			this.tableOwner = "oracdc";
 			this.tableName = tableName;
-			keyFields = record.keySchema().fields();
+			if (record.keySchema() == null) {
+				keyFields = null;
+				onlyValue = true;
+			} else {
+				keyFields = record.keySchema().fields();
+			}
 			if (record.valueSchema() != null) {
 				valueFields = record.valueSchema().fields();
 			} else {
@@ -128,9 +134,11 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			}
 		}
 		LOGGER.debug("tableOwner = {}, tableName = {}.", this.tableOwner, this.tableName);
-		for (Field field : keyFields) {
-			final OraColumn column = new OraColumn(field, true);
-			pkColumns.put(column.getColumnName(), column);
+		if (!onlyValue) {
+			for (Field field : keyFields) {
+				final OraColumn column = new OraColumn(field, true);
+				pkColumns.put(column.getColumnName(), column);
+			}
 		}
 		// Only non PK columns!!!
 		buildNonPkColsList(opType, valueFields);
@@ -150,17 +158,24 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
 		final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
 				tableName, dbType, pkColumns, allColumns, lobColumns);
-		if (!delayedObjectsCreation) {
-			sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.UPSERT);
+		if (onlyValue) {
+			sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
 			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
+				LOGGER.debug("Table name -> {}, INSERT statement ->\n{}", this.tableName, sinkUpsertSql);
 			}
+		} else {
+			if (!delayedObjectsCreation) {
+				sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.UPSERT);
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
+				}
+			}
+			sinkDeleteSql = sqlTexts.get(TargetDbSqlUtils.DELETE);
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Table name -> {}, DELETE statement ->\n{}", this.tableName, sinkDeleteSql);
+			}
+			buildLobColsSql(sqlTexts);
 		}
-		sinkDeleteSql = sqlTexts.get(TargetDbSqlUtils.DELETE);
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Table name -> {}, DELETE statement ->\n{}", this.tableName, sinkDeleteSql);
-		}
-		buildLobColsSql(sqlTexts);
 
 		// Check for table existence
 		try (Connection connection = sinkPool.getConnection()) {
@@ -245,50 +260,55 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		LOGGER.debug("BEGIN: putData");
 		final char opType = getOpType(record);
 		final long nanosStart = System.nanoTime();
-		if ('d' == opType) {
-			if (needToCreateTable) {
-				LOGGER.info(
-						"Skipping the delete operation because the table {} has not yet been created",
-						tableName);
-			} else {
-				processDelete(connection, record);
-				deleteTime += System.nanoTime() - nanosStart;
-			}
-		} else {
-			if (delayedObjectsCreation) {
-				final List<Field> valueFields;
-				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-					valueFields = record.valueSchema().field("after").schema().fields();
-				} else {
-					//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
-					//ParamConstants.SCHEMA_TYPE_INT_SINGLE
-					if (record.valueSchema() != null) {
-						valueFields = record.valueSchema().fields();
-					} else {
-						LOGGER.warn("Value schema is NULL for table {}.", this.tableName);
-						valueFields = new ArrayList<>();
-					}
-				}
-				buildNonPkColsList(opType, valueFields);
-
-				if (needToCreateTable) {
-					createTable(connection, pkStringLength);
-					needToCreateTable = false;
-				}
-
-				LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
-				final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
-						tableName, dbType, pkColumns, allColumns, lobColumns);
-				sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.UPSERT);
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
-				}
-				buildLobColsSql(sqlTexts);
-
-				delayedObjectsCreation = false;
-			}
-			processUpsert(connection, record);
+		if (onlyValue) {
+			processInsert(connection, record);
 			upsertTime += System.nanoTime() - nanosStart;
+		} else {
+			if ('d' == opType) {
+				if (needToCreateTable) {
+					LOGGER.info(
+							"Skipping the delete operation because the table {} has not yet been created",
+							tableName);
+				} else {
+					processDelete(connection, record);
+					deleteTime += System.nanoTime() - nanosStart;
+				}
+			} else {
+				if (delayedObjectsCreation) {
+					final List<Field> valueFields;
+					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+						valueFields = record.valueSchema().field("after").schema().fields();
+					} else {
+						//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
+						//ParamConstants.SCHEMA_TYPE_INT_SINGLE
+						if (record.valueSchema() != null) {
+							valueFields = record.valueSchema().fields();
+						} else {
+							LOGGER.warn("Value schema is NULL for table {}.", this.tableName);
+							valueFields = new ArrayList<>();
+						}
+					}
+					buildNonPkColsList(opType, valueFields);
+
+					if (needToCreateTable) {
+						createTable(connection, pkStringLength);
+						needToCreateTable = false;
+					}
+
+					LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
+					final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
+							tableName, dbType, pkColumns, allColumns, lobColumns);
+					sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.UPSERT);
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
+					}
+					buildLobColsSql(sqlTexts);
+
+					delayedObjectsCreation = false;
+				}
+				processUpsert(connection, record);
+				upsertTime += System.nanoTime() - nanosStart;
+			}
 		}
 		LOGGER.debug("END: putData");
 	}
@@ -367,7 +387,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				}
 			}
 			if (raiseException) {
-				LOGGER.error("Error while executing UPSERT statement {}", sinkUpsertSql);
+				LOGGER.error("Error while executing UPSERT (with {} statements in batch) statement {}",
+						upsertCount, sinkUpsertSql);
 				throw sqle;
 			}
 		}
@@ -377,7 +398,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		try {
 			sinkDelete.executeBatch();
 		} catch(SQLException sqle) {
-			LOGGER.error("Error while executing DELETE statement {}", sinkDeleteSql);
+			LOGGER.error("Error while executing DELETE (with {} statements in batch) statement {}",
+					deleteCount, sinkDeleteSql);
 			throw sqle;
 		}
 	}
@@ -574,6 +596,50 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		sinkDelete.addBatch();
 		deleteCount++;
 		LOGGER.trace("END: processDelete()");
+	}
+
+	private void processInsert(
+			final Connection connection, final SinkRecord record) throws SQLException {
+		LOGGER.debug("BEGIN: processInsert()");
+		final Struct valueStruct;
+		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
+				schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+			valueStruct = (Struct) record.value();
+		} else { // if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
+			valueStruct = ((Struct) record.value()).getStruct("after");
+		}
+		if (sinkUpsert == null) {
+			sinkUpsert = connection.prepareStatement(sinkUpsertSql);
+			upsertCount = 0;
+			upsertTime = 0;
+		}
+		int columnNo = 1;
+		for (int i = 0; i < allColumns.size(); i++) {
+			final OraColumn oraColumn = allColumns.get(i);
+			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
+					schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ||
+					(schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
+				try {
+					oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, valueStruct.get(oraColumn.getColumnName()));
+					columnNo++;
+				} catch (DataException | SQLException de) {
+					LOGGER.error("Data error while performing upsert! Table={}, column={}, {}.",
+							tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, valueStruct));
+					LOGGER.error("SQL statement:\n\t{}", sinkUpsertSql);
+					LOGGER.error("PK value(s) for this row in table {} are", tableName);
+					int colNo = 1;
+					for (final OraColumn column : allColumns) {
+						LOGGER.error("\t{}) column {}, {}",
+								colNo, column.getColumnName(), structValueAsString(column, valueStruct));
+						colNo++;
+					}
+					throw new DataException(de);
+				}
+			}
+		}
+		sinkUpsert.addBatch();
+		upsertCount++;
+		LOGGER.debug("END: processInsert()");
 	}
 
 	public String structValueAsString(final OraColumn oraColumn, final Struct struct) {
