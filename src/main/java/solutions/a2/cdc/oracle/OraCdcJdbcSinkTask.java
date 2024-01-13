@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Struct;
@@ -97,7 +98,13 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 			final Map<TopicPartition, OffsetAndMetadata> currentOffsets = new HashMap<>();
 			for (SinkRecord record : records) {
 				final String tableName;
-				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+				//TODO
+				//TODO
+				//TODO Replace with SimpleNamingStrategy(record, config);
+				//TODO
+				//TODO
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
+						schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
 					tableName = record.topic();
 					LOGGER.debug("Table name from Kafka topic = {}.", tableName);
 				} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
@@ -114,6 +121,24 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 				if (!tablesInProcess.contains(tableName)) {
 					LOGGER.debug("Adding {} to current batch set.", tableName);
 					tablesInProcess.add(tableName);
+				}
+				if (oraTable.duplicatedKeyInBatch(record)) {
+					// Prevent from "ON CONFLICT DO UPDATE command cannot affect row a second time"
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Executing batch due to duplicate key for table {} .", oraTable.getTableName());
+					}
+					for (String tableInProgress : tablesInProcess) {
+						LOGGER.debug("Executing batch for table {}.", tableInProgress);
+						if (StringUtils.equals(tableInProgress, tableName)) {
+							oraTable.execAndCloseCursors();
+						} else {
+							tablesInProcessing.get(tableInProgress).exec();
+						}
+					}
+					this.flush(currentOffsets);
+					connection.commit();
+					currentOffsets.clear();
+					processedRecords = 0;
 				}
 				oraTable.putData(connection, record);
 				currentOffsets.put(

@@ -25,10 +25,12 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Field;
@@ -74,6 +76,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	private boolean delayedObjectsCreation = false;
 	private final int pkStringLength;
 	private boolean onlyValue = false;
+	private final Set<String> pkInUpsertBatch = new HashSet<>();
 
 
 	/**
@@ -319,6 +322,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		if (sinkUpsert != null && upsertCount > 0) {
 			execUpsert();
 			sinkUpsert.clearBatch();
+			pkInUpsertBatch.clear();
 			execLobUpdate(false);
 			upsertTime += System.nanoTime() - nanosStart;
 			metrics.addUpsert(upsertCount, upsertTime);
@@ -792,6 +796,41 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 			}
 			throw sqle;
+		}
+	}
+
+	public boolean duplicatedKeyInBatch(final SinkRecord record) {
+		if (onlyValue) {
+			// No keys at all...
+			return false;
+		} else {
+			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+				final StringBuilder keyString = new StringBuilder(256);
+				final Struct keyStruct;
+				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+					keyStruct = (Struct) record.key();
+				} else { // if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
+					keyStruct = ((Struct) record.value()).getStruct("before");
+				}
+				boolean firstColumn = true;
+				Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+				while (iterator.hasNext()) {
+					final OraColumn oraColumn = iterator.next().getValue();
+					if (firstColumn) {
+						firstColumn = false;
+					} else {
+						keyString.append("-");
+					}
+					keyString.append(keyStruct.get(oraColumn.getColumnName()).toString());
+				}
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Checking key {} for table {} with upsertCount={}",
+							keyString.toString(), tableName, upsertCount);
+				}
+				return !pkInUpsertBatch.add(keyString.toString());
+			} else {
+				return false;
+			}
 		}
 	}
 
