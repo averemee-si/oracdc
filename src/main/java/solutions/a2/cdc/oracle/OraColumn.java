@@ -104,6 +104,7 @@ public class OraColumn {
 	@JsonIgnore
 	private Schema schema;
 	private String oracleName;
+	private boolean partOfKeyStruct;
 
 	/**
 	 * 
@@ -511,12 +512,14 @@ public class OraColumn {
 	 * 
 	 * @param field
 	 * @param partOfPk
+	 * @param partOfKeyStruct
 	 */
-	public OraColumn(final Field field, final boolean partOfPk) throws SQLException {
+	public OraColumn(final Field field, final boolean partOfPk, final boolean partOfKeyStruct) throws SQLException {
 		this.columnName = field.name();
 		this.partOfPk = partOfPk;
 		this.nullable = field.schema().isOptional();
 		this.nameFromId = null;
+		this.partOfKeyStruct = partOfKeyStruct;
 		final String typeFromSchema = field.schema().type().getName().toUpperCase();
 		switch (typeFromSchema) {
 		case "INT8":
@@ -942,10 +945,29 @@ public class OraColumn {
 	 * @param dbType
 	 * @param statement
 	 * @param columnNo
-	 * @param columnValue
+	 * @param keyStruct
+	 * @param valueStruct
 	 * @throws SQLException
 	 */
 	public void bindWithPrepStmt(
+			final int dbType,
+			final PreparedStatement statement,
+			final int columnNo,
+			final Struct keyStruct,
+			final Struct valueStruct) throws SQLException  {
+		bindWithPrepStmt(dbType, statement, columnNo,
+				(partOfKeyStruct ? keyStruct.get(columnName) : valueStruct.get(columnName)));
+	}
+
+	/**
+	 * 
+	 * @param dbType
+	 * @param statement
+	 * @param columnNo
+	 * @param columnValue
+	 * @throws SQLException
+	 */
+	private void bindWithPrepStmt(
 			final int dbType,
 			final PreparedStatement statement,
 			final int columnNo,
@@ -1460,6 +1482,12 @@ public class OraColumn {
 					JdbcTypes.getTypeName(jdbcType), columnName);
 			throw new SQLException("Unsupported data type: " + JdbcTypes.getTypeName(jdbcType));
 		}
+	}
+
+	public String getValueAsString(final Struct keyStruct, final Struct valueStruct) {
+		return partOfKeyStruct ?
+					keyStruct.get(columnName).toString() :
+						valueStruct.get(columnName).toString();
 	}
 
 }

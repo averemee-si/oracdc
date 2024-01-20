@@ -73,7 +73,7 @@ public class OraCdcTransformNestedSchemaTest {
 
 		for (Field field : keySchema.fields()) {
 			try {
-				final OraColumn column = new OraColumn(field, true);
+				final OraColumn column = new OraColumn(field, true, true);
 				pkColumns.put(column.getColumnName(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();
@@ -85,7 +85,7 @@ public class OraCdcTransformNestedSchemaTest {
 				final List<OraColumn> transformation = new ArrayList<>();
 				for (Field unnestField : field.schema().fields()) {
 					try {
-						final OraColumn column = new OraColumn(unnestField, true);
+						final OraColumn column = new OraColumn(unnestField, true, false);
 						transformation.add(column);
 					} catch (SQLException sqle) {
 						sqle.printStackTrace();
@@ -95,7 +95,7 @@ public class OraCdcTransformNestedSchemaTest {
 			} else {
 				if (!pkColumns.containsKey(field.name())) {
 					try {
-						final OraColumn column = new OraColumn(field, true);
+						final OraColumn column = new OraColumn(field, true, false);
 						if (column.getJdbcType() == Types.BLOB ||
 								column.getJdbcType() == Types.CLOB ||
 								column.getJdbcType() == Types.NCLOB ||

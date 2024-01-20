@@ -65,7 +65,7 @@ public class OraCdcSinkSqlInsertTest {
 
 		for (Field field : keyFields) {
 			try {
-				final OraColumn column = new OraColumn(field, true);
+				final OraColumn column = new OraColumn(field, true, true);
 				pkColumns.put(column.getColumnName(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();
@@ -75,7 +75,7 @@ public class OraCdcSinkSqlInsertTest {
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
 				try {
-					final OraColumn column = new OraColumn(field, false);
+					final OraColumn column = new OraColumn(field, false, false);
 					allColumns.add(column);
 				} catch (SQLException sqle) {
 					sqle.printStackTrace();
@@ -84,7 +84,7 @@ public class OraCdcSinkSqlInsertTest {
 		}
 		for (Field field : lobFields) {
 			try {
-				final OraColumn column = new OraColumn(field, true);
+				final OraColumn column = new OraColumn(field, true, false);
 				lobColumns.put(column.getColumnName(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();

@@ -53,7 +53,7 @@ public class OraCdcSinkVOCreateTableTest {
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
 				try {
-					final OraColumn column = new OraColumn(field, false);
+					final OraColumn column = new OraColumn(field, false, false);
 					allColumns.add(column);
 				} catch (SQLException sqle) {
 					sqle.printStackTrace();
