@@ -196,14 +196,17 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		final Map<String, Field> topicKeys = new HashMap<>();
 		keyFields.forEach(f -> topicKeys.put(StringUtils.upperCase(f.name()), f));
 		final Map<String, Field> topicValues = new HashMap<>();
+		final Map<String, Field> unnestedValues = new HashMap<>();
+		final Map<String, String> unnestedParents = new HashMap<>();
+		final Map<String, List<Field>> unnestedColumns = new HashMap<>();
 		valueFields.forEach(f -> {
 			final String fieldName = StringUtils.upperCase(f.name());
 			if (StringUtils.equals("struct", f.schema().type().getName())) {
-				//TODO
-				//TODO
-				//TODO Unnesting will be done later...
-				//TODO
-				//TODO
+				for (Field unnestField : f.schema().fields()) {
+					final String unnestFieldName = StringUtils.upperCase(unnestField.name());
+					unnestedValues.put(unnestFieldName, unnestField);
+					unnestedParents.put(unnestFieldName, fieldName);
+				}
 			} else {
 				topicValues.put(fieldName, f);
 			}
@@ -215,12 +218,14 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				final boolean isKey;
 				final Field pkField;
 				final String dbPkColumn = rsPk.getString("COLUMN_NAME");
-				if (topicKeys.containsKey(StringUtils.upperCase(dbPkColumn))) {
+				//TODO - case sensitive!
+				final String dbPkColumn4M = StringUtils.upperCase(dbPkColumn);
+				if (topicKeys.containsKey(dbPkColumn4M)) {
 					isKey = true;
-					pkField = topicKeys.get(StringUtils.upperCase(dbPkColumn));
-				} else if (topicValues.containsKey(StringUtils.upperCase(dbPkColumn))) {
+					pkField = topicKeys.get(dbPkColumn4M);
+				} else if (topicValues.containsKey(dbPkColumn4M)) {
 					isKey = false;
-					pkField = topicValues.get(StringUtils.upperCase(dbPkColumn));
+					pkField = topicValues.get(dbPkColumn4M);
 				} else {
 					throw new ConnectException("Database primary key column '" +
 							tableName + "." + dbPkColumn + "' is not present in Kafka topic " +
@@ -236,18 +241,31 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			}
 		}
 
+		boolean unnestingRequired = false;
 		final ResultSet rsAllColumns = tableMetadata.getValue();
 		while (rsAllColumns.next()) {
 			final boolean isKey;
 			final Field valueField;
 			final String dbValueColumn = rsAllColumns.getString("COLUMN_NAME");
-			if (!pkColumns.containsKey(StringUtils.upperCase(dbValueColumn))) {
-				if (topicKeys.containsKey(StringUtils.upperCase(dbValueColumn))) {
+			//TODO - case sensitive!
+			final String dbValueColumn4M = StringUtils.upperCase(dbValueColumn);
+			if (!pkColumns.containsKey(dbValueColumn4M)) {
+				if (topicKeys.containsKey(dbValueColumn4M)) {
 					isKey = true;
-					valueField = topicKeys.get(StringUtils.upperCase(dbValueColumn));
-				} else if (topicValues.containsKey(StringUtils.upperCase(dbValueColumn))) {
+					valueField = topicKeys.get(dbValueColumn4M);
+				} else if (topicValues.containsKey(dbValueColumn4M)) {
 					isKey = false;
-					valueField = topicValues.get(StringUtils.upperCase(dbValueColumn));
+					valueField = topicValues.get(dbValueColumn4M);
+				} else if (unnestedValues.containsKey(dbValueColumn4M)) {
+					isKey = false;
+					unnestingRequired = true;
+					valueField = null;
+					final String parentField = unnestedParents.get(dbValueColumn4M);
+					if (!unnestedColumns.containsKey(parentField)) {
+						unnestedColumns.put(parentField, new ArrayList<>());
+					}
+					unnestedColumns.get(parentField)
+							.add(unnestedValues.get(dbValueColumn4M));
 				} else {
 					if (StringUtils.equalsIgnoreCase("YES", rsAllColumns.getString("IS_NULLABLE"))) {
 						LOGGER.warn(
@@ -260,16 +278,27 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 								record.topic() + "!");
 					}
 				}
-				final OraColumn column = new OraColumn(valueField, false, isKey);
-				//TODO - currently JDBCType only from Kafka Topic!!!
-				if (column.getJdbcType() == Types.BLOB ||
-						column.getJdbcType() == Types.CLOB ||
-						column.getJdbcType() == Types.NCLOB ||
-						column.getJdbcType() == Types.SQLXML) {
-					lobColumns.put(column.getColumnName(), column);
-				} else {
-						allColumns.add(column);
+				if (valueField != null) {
+					final OraColumn column = new OraColumn(valueField, false, isKey);
+					//TODO - currently JDBCType only from Kafka Topic!!!
+					if (column.getJdbcType() == Types.BLOB ||
+							column.getJdbcType() == Types.CLOB ||
+							column.getJdbcType() == Types.NCLOB ||
+							column.getJdbcType() == Types.SQLXML) {
+						lobColumns.put(column.getColumnName(), column);
+					} else {
+							allColumns.add(column);
+					}
 				}
+			}
+		}
+		if (unnestingRequired) {
+			for (final String parentName : unnestedColumns.keySet()) {
+				final List<OraColumn> transformation = new ArrayList<>();
+				for (final Field unnestField : unnestedColumns.get(parentName)) {
+					transformation.add(new OraColumn(unnestField, false, false));
+				}
+				lobColumns.put(parentName, transformation);
 			}
 		}
 
@@ -728,7 +757,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				if (StringUtils.equals("struct", field.schema().type().getName())) {
 					final List<OraColumn> transformation = new ArrayList<>();
 					for (Field unnestField : field.schema().fields()) {
-						transformation.add(new OraColumn(unnestField, true, false));
+						transformation.add(new OraColumn(unnestField, false, false));
 					}
 					lobColumns.put(field.name(), transformation);
 				} else {
