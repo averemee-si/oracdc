@@ -210,6 +210,13 @@ public class ParamConstants {
 			"Unix/Linux only, on Windows oracdc creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called.\n" +
 			"Default - Long.MAX_VALUE";
 
+	public static final String USE_ALL_COLUMNS_ON_DELETE_PARAM = "a2.use.all.columns.on.delete";
+	public static final String USE_ALL_COLUMNS_ON_DELETE_DOC =
+			"Default - false.\n" +
+			"When set to false (default) oracdc reads and processes only the PK columns from the redo record and sends only the key fields to the Kafka topic.\n" +
+			"When set to true oracdc reads and processes all table columns from the redo record.\n";
+	public static final boolean USE_ALL_COLUMNS_ON_DELETE_DEFAULT = false; 
+
 	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";

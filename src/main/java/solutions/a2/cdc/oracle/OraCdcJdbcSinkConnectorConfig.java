@@ -53,11 +53,18 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 						Importance.HIGH, AUTO_CREATE_DOC)
 				.define(PK_STRING_LENGTH_PARAM, Type.INT, PK_STRING_LENGTH_DEFAULT,
 						Importance.LOW, PK_STRING_LENGTH_DOC)
+				.define(ParamConstants.USE_ALL_COLUMNS_ON_DELETE_PARAM,
+						Type.BOOLEAN, ParamConstants.USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
+						Importance.MEDIUM, ParamConstants.USE_ALL_COLUMNS_ON_DELETE_DOC)
 				;
 	}
 
 	public OraCdcJdbcSinkConnectorConfig(Map<?, ?> originals) {
 		super(config(), originals);
+	}
+
+	public boolean useAllColsOnDelete() {
+		return getBoolean(ParamConstants.USE_ALL_COLUMNS_ON_DELETE_PARAM);
 	}
 
 }

@@ -232,6 +232,9 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.MEDIUM, USE_FIRST_UNIQUE_AS_PK_DOC)
 				.define(USE_ROWID_AS_KEY_PARAM, Type.BOOLEAN, true,
 						Importance.MEDIUM, USE_ROWID_AS_KEY_DOC)
+				.define(ParamConstants.USE_ALL_COLUMNS_ON_DELETE_PARAM,
+						Type.BOOLEAN, ParamConstants.USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
+						Importance.MEDIUM, ParamConstants.USE_ALL_COLUMNS_ON_DELETE_DOC)
 				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
@@ -324,6 +327,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public boolean useRowidAsKey() {
 		return getBoolean(USE_ROWID_AS_KEY_PARAM);
+	}
+
+	public boolean useAllColsOnDelete() {
+		return getBoolean(ParamConstants.USE_ALL_COLUMNS_ON_DELETE_PARAM);
 	}
 
 }

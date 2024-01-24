@@ -127,6 +127,8 @@ Default - *true*.
 
 `a2.use.rowid.as.key` - When set to _true_ and the table does not have a appropriate [primary](https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB) or [unique](https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A) key, **oracdc** adds surragate key using the [ROWID](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ROWID-Pseudocolumn.html). When set to _false_ and the table does not have a appropriate [primary](https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB) or [unique](https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A) key, **oracdc** generates schema for the table without any key fields and key schema. Default - *true*.
 
+`a2.use.all.columns.on.delete` - When set to _false_ (default) **oracdc** reads and processes only the [primary](https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB) key columns from the redo record and sends only the key fields to the Apache Kafka topic. When set to _true_ **oracdc** reads and processes all table columns from the redo record. Default - *false*.
+
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 

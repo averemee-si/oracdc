@@ -95,6 +95,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private boolean printInvalidHexValueWarning = false;
 	private int incompleteDataTolerance = OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
 	private boolean onlyValue = false;
+	private boolean useAllColsOnDelete = false; 
 
 	/**
 	 * 
@@ -154,12 +155,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.topicPartition = topicPartition;
 		this.printInvalidHexValueWarning = config.isPrintInvalidHexValueWarning();
 		this.incompleteDataTolerance = config.getIncompleteDataTolerance();
+		this.useAllColsOnDelete = config.useAllColsOnDelete();
 		try {
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("Preparing column list and mining SQL statements for table {}.", tableFqn);
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);
 			}
 			if (rdbmsInfo.isCheckSupplementalLogData4Table()) {
-				LOGGER.debug("Need to check supplemental logging settings for table {}.", tableFqn);
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Need to check supplemental logging settings for table {}.", tableFqn);
+				}
 				checkSupplementalLogData = OraRdbmsInfo.supplementalLoggingSet(connection,
 						isCdb ? conId : -1, this.tableOwner, this.tableName);
 				if (!checkSupplementalLogData) {
@@ -417,8 +421,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final long commitScn,
 			final Map<String, Object> offset,
 			final Connection connection) throws SQLException {
-		if (LOGGER.isTraceEnabled()) {
-			LOGGER.trace("BEGIN: parseRedoRecord()");
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("BEGIN: parseRedoRecord()");
 		}
 		final Struct keyStruct;
 		if (onlyValue) {
@@ -427,7 +431,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			keyStruct = new Struct(keySchema);
 		}
 		final Struct valueStruct = new Struct(valueSchema);
-		boolean skipDelete = false;
+		boolean skipRedoRecord = false;
 		List<OraColumn> missedColumns = null;
 
 		if (LOGGER.isTraceEnabled()) {
@@ -437,20 +441,23 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					stmt, xid, commitScn);
 		}
 		if (!tableWithPk && keyStruct != null) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Do primary key substitution for table {}", tableFqn);
+			}
 			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("Do primary key substitution for table {}", tableFqn);
+				LOGGER.trace("{} is used as primary key for table {}", stmt.getRowId(), tableFqn);
 			}
 			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 				valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
 			}
 		}
-		String opType = null;
+		final char opType;
 		if (stmt.getOperation() == OraCdcV$LogmnrContents.INSERT) {
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("parseRedoRecord() processing INSERT");
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("parseRedoRecord() processing INSERT");
 			}
-			opType = "c";
+			opType = 'c';
 			int valuedClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_VALUES);
 			String[] columnsList = StringUtils.split(StringUtils.substringBetween(
 					StringUtils.substring(stmt.getSqlRedo(), 0, valuedClauseStart), "(", ")"), ",");
@@ -532,48 +539,91 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				}
 			}
 		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) {
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("parseRedoRecord() processing DELETE");
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("parseRedoRecord() processing DELETE");
 			}
-
-			opType = "d";
+			opType = 'd';
 			if (tableWithPk) {
 				final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 				String[] whereClause = StringUtils.splitByWholeSeparator(
 						StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
 				for (int i = 0; i < whereClause.length; i++) {
 					final String currentExpr = StringUtils.trim(whereClause[i]);
-					if (!StringUtils.endsWith(currentExpr, "L")) {
-						// PK can't be null!!!
-						final String columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
-						final OraColumn oraColumn = idToNameMap.get(columnName);
-						if (oraColumn != null && oraColumn.isPartOfPk()) {
-							parseRedoRecordValues(
-									idToNameMap.get(columnName),
-									StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
-									keyStruct, valueStruct);
+					if (useAllColsOnDelete) {
+						final String columnName;
+						if (StringUtils.endsWith(currentExpr, "L")) {
+							columnName = StringUtils.substringBefore(currentExpr, SQL_REDO_IS);
+							final OraColumn oraColumn = idToNameMap.get(columnName);
+							try {
+								valueStruct.put(oraColumn.getColumnName(), null);
+							} catch (DataException de) {
+								//TODO
+								//TODO
+								//TODO
+								//TODO
+								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+								throw de;
+							}
 						} else {
-							// Handle ORA-1 in Source DB.....
-							if (StringUtils.equalsIgnoreCase("ROWID", columnName) &&
-									whereClause.length == 1) {
-								printErrorMessage(
-										Level.ERROR,
-										"Unable to parse delete record for table {} after INSERT with ORA-1 error.\nRedo record information:\n",
-										stmt, xid, commitScn);
-								skipDelete = true;
-							} else if (whereClause.length == 1) {
-								printErrorMessage(
-										Level.ERROR,
-										"Unknown error while parsing delete record for table {}.\nRedo record information:\n",
-										stmt, xid, commitScn);
-								skipDelete = true;
+							columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
+							final OraColumn oraColumn = idToNameMap.get(columnName);
+							if (oraColumn != null) {
+								// Column can be excluded
+								final String columnValue = StringUtils.trim(StringUtils.substringAfter(currentExpr, "="));
+								try {
+									parseRedoRecordValues(oraColumn,
+											columnValue, keyStruct, valueStruct);
+								} catch (DataException de) {
+									LOGGER.error("Invalid value {} for column {} in table {}",
+											columnValue, oraColumn.getColumnName(), tableFqn);
+									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+									throw new DataException(de);
+								} catch (SQLException sqle) {
+									if (oraColumn.isNullable()) {
+										printToLogInvalidHexValueWarning(
+												columnValue, oraColumn.getColumnName(), stmt);
+									} else {
+										LOGGER.error("Invalid value {} for column {} in table {}",
+												columnValue, oraColumn.getColumnName(), tableFqn);
+										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+										throw new SQLException(sqle);
+									}
+								}
+							}
+						}
+					} else {
+						if (!StringUtils.endsWith(currentExpr, "L")) {
+							// PK can't be null!!!
+							final String columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
+							final OraColumn oraColumn = idToNameMap.get(columnName);
+							if (oraColumn != null && oraColumn.isPartOfPk()) {
+								parseRedoRecordValues(
+										idToNameMap.get(columnName),
+										StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
+										keyStruct, valueStruct);
+							} else {
+								// Handle ORA-1 in Source DB.....
+								if (StringUtils.equalsIgnoreCase("ROWID", columnName) &&
+										whereClause.length == 1) {
+									printErrorMessage(
+											Level.ERROR,
+											"Unable to parse delete record for table {} after INSERT with ORA-1 error.\nRedo record information:\n",
+											stmt, xid, commitScn);
+									skipRedoRecord = true;
+								} else if (whereClause.length == 1) {
+									printErrorMessage(
+											Level.ERROR,
+											"Unknown error while parsing delete record for table {}.\nRedo record information:\n",
+											stmt, xid, commitScn);
+									skipRedoRecord = true;
+								}
 							}
 						}
 					}
 				}
 			} else if (onlyValue) {
 				// skip delete operation only when schema don't have key
-				skipDelete = true;
+				skipRedoRecord = true;
 				LOGGER.warn(
 						"\n" +
 						"=====================\n" +
@@ -583,10 +633,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						this.fqn(), stmt.getScn(), stmt.getRsId(), stmt.getRowId(), stmt.getSqlRedo());
 			}
 		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("parseRedoRecord() processing UPDATE");
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("parseRedoRecord() processing UPDATE");
 			}
-			opType = "u";
+			opType = 'u';
 			final Set<String> setColumns = new HashSet<>();
 			final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 			final int setClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_SET);
@@ -763,10 +813,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			//END: where clause processing...
 		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("parseRedoRecord() processing XML_DOC_BEGIN (for XMLTYPE update)");
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("parseRedoRecord() processing XML_DOC_BEGIN (for XMLTYPE update)");
 			}
-			opType = "u";
+			opType = 'u';
 			final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 			String[] whereClause = StringUtils.splitByWholeSeparator(
 					StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
@@ -850,14 +900,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 		}
 		SourceRecord sourceRecord = null;
-		if (!skipDelete) {
-			//TODO
-			//TODO
-			//TODO
-			//TODO
-			//TODO
-			//TODO
-			//TODO
+		if (!skipRedoRecord) {
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
 				final Struct struct = new Struct(schema);
 				final Struct source = rdbmsInfo.getStruct(
@@ -867,7 +910,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						xid, commitScn, stmt.getRowId());
 				struct.put("source", source);
 				struct.put("before", keyStruct);
-				if (stmt.getOperation() != OraCdcV$LogmnrContents.DELETE) {
+				if (stmt.getOperation() != OraCdcV$LogmnrContents.DELETE ||
+						((stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) && useAllColsOnDelete)) {
 					struct.put("after", valueStruct);
 				}
 				struct.put("op", opType);
@@ -889,7 +933,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							valueStruct);
 				} else {
 					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-						if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) {
+						if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE &&
+								(!useAllColsOnDelete)) {
 							sourceRecord = new SourceRecord(
 									sourcePartition,
 									offset,
@@ -913,12 +958,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 				}
 				if (sourceRecord != null) {
-					sourceRecord.headers().addString("op", opType);
+					sourceRecord.headers().addString("op", String.valueOf(opType));
 				}
 			}
 		}
-		if (LOGGER.isTraceEnabled()) {
-			LOGGER.trace("END: parseRedoRecord()");
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("END: parseRedoRecord()");
 		}
 		return sourceRecord;
 	}
