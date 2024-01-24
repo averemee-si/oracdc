@@ -585,6 +585,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								if (oraTable.isCheckSupplementalLogData()) {
 									final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
 									final String rowId = rsLogMiner.getString("ROW_ID");
+									//TODO
+									//TODO
+									//TODO add special case for where OPERATION_CODE=2 and ROLLBACK=1
+									//TODO
+									//TODO
 									// squeeze it!
 									sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
 									if (operation == OraCdcV$LogmnrContents.INSERT) {
