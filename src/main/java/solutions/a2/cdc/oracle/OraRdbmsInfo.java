@@ -343,7 +343,7 @@ public class OraRdbmsInfo {
 	 * @param conId              - CON_ID, if -1 we working with non CDB or pre-12c Oracle Database
 	 * @param tableOwner         - Table owner
 	 * @param tableName          - Table name
-	 * @param useFirstUniqueAsPK - use any unique as PK when PK or unique key with NOT NULL not found
+	 * @param pkType             - use any unique as PK when PK or unique key with NOT NULL not found
 	 * @return                   - Set with names of primary key columns. null if nothing found
 	 * @throws SQLException
 	 */
@@ -352,7 +352,7 @@ public class OraRdbmsInfo {
 			final short conId,
 			final String tableOwner,
 			final String tableName,
-			final boolean useFirstUniqueAsPK) throws SQLException {
+			final int pkType) throws SQLException {
 		final boolean isCdb = (conId > -1);
 		Set<String> result = null;
 		PreparedStatement ps = connection.prepareStatement(
@@ -405,7 +405,7 @@ public class OraRdbmsInfo {
 			ps = null;
 			if (result != null) {
 				printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName);
-			} else if (useFirstUniqueAsPK) {
+			} else if (pkType == OraCdcSourceConnectorConfig.PK_TYPE_INT_ANY_UNIQUE) {
 				ps = connection.prepareStatement(
 						(isCdb) ?
 								OraDictSqlTexts.WELL_DEFINED_UNIQUE_COLUMNS_CDB :

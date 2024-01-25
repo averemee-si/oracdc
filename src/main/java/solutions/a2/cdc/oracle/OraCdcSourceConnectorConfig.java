@@ -35,6 +35,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	public static final int TOPIC_NAME_STYLE_INT_SCHEMA_TABLE = 2;
 	public static final int TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE = 3;
 
+	public static final int PK_TYPE_INT_WELL_DEFINED = 1;
+	public static final int PK_TYPE_INT_ANY_UNIQUE = 2;
+
+
 	public static final String TASK_PARAM_MASTER = "master";
 	public static final String TASK_PARAM_MV_LOG = "mv.log";
 	public static final String TASK_PARAM_OWNER = "owner";
@@ -84,12 +88,15 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	static final String TOPIC_PREFIX_PARAM = "a2.topic.prefix";
 	private static final String TOPIC_PREFIX_DOC = "Prefix to prepend table names to generate name of Kafka topic.";
 
-	private static final String USE_FIRST_UNIQUE_AS_PK_PARAM = "a2.use.first.unique.as.pk";
-	private static final String USE_FIRST_UNIQUE_AS_PK_DOC = 
-			"Default - false.\n" +
-			"When set to false the key fields are the table's primary key columns or, if the table does not have a primary key, the table's unique key columns in which all columns are NOT NULL.\n" + 
-			"When set to true and the table does not have a primary key or a unique key with all NOT NULL columns, then the key fields will be the unique key columns which may have NULL columns.\n" +
+	private static final String PK_TYPE_PARAM = "a2.pk.type";
+	private static final String PK_TYPE_DOC =
+			"Default - well_defined.\n" +
+			"When set to well_defined the key fields are the table's primary key columns or, if the table does not have a primary key, the table's unique key columns in which all columns are NOT NULL. " +
+			"If there are no appropriate keys in the table, oracdc uses the a2.use.rowid.as.key parameter and generates a pseudo key based on the row's ROWID, or generates a schema without any key fields.\n" +
+			"When set to any_unique and the table does not have a primary key or a unique key with all NOT NULL columns, then the key fields will be the unique key columns which may have NULL columns. " +
 			"If there are no appropriate keys in the table, oracdc uses the a2.use.rowid.as.key parameter and generates a pseudo key based on the row's ROWID, or generates a schema without any key fields.";
+	private static final String PK_TYPE_WELL_DEFINED = "well_defined";
+	private static final String PK_TYPE_ANY_UNIQUE = "any_unique";
 
 	private static final String USE_ROWID_AS_KEY_PARAM = "a2.use.rowid.as.key";
 	private static final String USE_ROWID_AS_KEY_DOC =
@@ -100,6 +107,7 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int schemaType = -1;
+	private int pkType = -1;
 
 	public static ConfigDef config() {
 		return new ConfigDef()
@@ -228,8 +236,13 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_DOC)
 				.define(ParamConstants.LM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, Long.MAX_VALUE,
 						Importance.LOW, ParamConstants.LM_RECONNECT_INTERVAL_MS_DOC)
-				.define(USE_FIRST_UNIQUE_AS_PK_PARAM, Type.BOOLEAN, false,
-						Importance.MEDIUM, USE_FIRST_UNIQUE_AS_PK_DOC)
+				.define(PK_TYPE_PARAM, Type.STRING,
+						PK_TYPE_WELL_DEFINED,
+						ConfigDef.ValidString.in(
+								PK_TYPE_WELL_DEFINED,
+								PK_TYPE_ANY_UNIQUE
+						),
+						Importance.MEDIUM, PK_TYPE_DOC)
 				.define(USE_ROWID_AS_KEY_PARAM, Type.BOOLEAN, true,
 						Importance.MEDIUM, USE_ROWID_AS_KEY_DOC)
 				.define(ParamConstants.USE_ALL_COLUMNS_ON_DELETE_PARAM,
@@ -321,8 +334,18 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 		}
 	}
 
-	public boolean useFirstUniqueAsPK() {
-		return getBoolean(USE_FIRST_UNIQUE_AS_PK_PARAM);
+	public int getPkType() {
+		if (pkType == -1) {
+			switch (getString(PK_TYPE_PARAM)) {
+			case PK_TYPE_WELL_DEFINED:
+				schemaType = PK_TYPE_INT_WELL_DEFINED;
+				break;
+			case PK_TYPE_ANY_UNIQUE:
+				schemaType = PK_TYPE_INT_ANY_UNIQUE;
+				break;
+			}
+		}
+		return pkType;
 	}
 
 	public boolean useRowidAsKey() {

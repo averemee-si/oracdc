@@ -177,7 +177,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			// Detect PK column list...
 			final Set<String> pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
-					isCdb ? conId : -1, this.tableOwner, this.tableName, config.useFirstUniqueAsPK());
+					isCdb ? conId : -1, this.tableOwner, this.tableName, config.getPkType());
 
 			// Schema init - keySchema is immutable and always 1
 			final SchemaBuilder keySchemaBuilder;
