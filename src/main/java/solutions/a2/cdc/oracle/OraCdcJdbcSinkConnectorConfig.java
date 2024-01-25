@@ -21,18 +21,17 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 
-	public static final String AUTO_CREATE_PARAM = "a2.autocreate";
+	private static final String AUTO_CREATE_PARAM = "a2.autocreate";
 	private static final String AUTO_CREATE_DOC = "Automatically create the destination table if missed";
 
-	public static final String PK_STRING_LENGTH_PARAM = "a2.pk.string.length";
+	private static final String PK_STRING_LENGTH_PARAM = "a2.pk.string.length";
 	private static final String PK_STRING_LENGTH_DOC = "The length of the string by default when it is used as a part of primary key. Derfault - 15";
-	public static final int PK_STRING_LENGTH_DEFAULT = 15;
-
+	private static final int PK_STRING_LENGTH_DEFAULT = 15;
 
 	public static ConfigDef config() {
 		return new ConfigDef()
@@ -61,6 +60,14 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 
 	public OraCdcJdbcSinkConnectorConfig(Map<?, ?> originals) {
 		super(config(), originals);
+	}
+
+	public boolean autoCreateTable() {
+		return getBoolean(AUTO_CREATE_PARAM);
+	}
+
+	public int getPkStringLength() {
+		return getInt(PK_STRING_LENGTH_PARAM);
 	}
 
 	public boolean useAllColsOnDelete() {

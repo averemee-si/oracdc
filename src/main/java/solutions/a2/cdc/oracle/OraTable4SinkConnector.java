@@ -92,18 +92,17 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	 * @param sinkPool
 	 * @param tableName
 	 * @param record
-	 * @param pkStringLength
-	 * @param autoCreateTable
 	 * @param schemaType
+	 * @param config
 	 * @throws SQLException 
 	 */
 	public OraTable4SinkConnector(
 			final OraCdcJdbcSinkConnectionPool sinkPool, final String tableName,
-			final SinkRecord record, final int pkStringLength, final boolean autoCreateTable,
-			final int schemaType) throws SQLException {
+			final SinkRecord record, final int schemaType, 
+			final OraCdcJdbcSinkConnectorConfig config) throws SQLException {
 		super(schemaType);
 		LOGGER.debug("Creating OraTable object from Kafka connect SinkRecord...");
-		this.pkStringLength = pkStringLength;
+		this.pkStringLength = config.getPkStringLength();
 		dbType = sinkPool.getDbType();
 
 		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
@@ -116,8 +115,8 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 				this.tableName = tableName;
 			}
 		} else {
-			//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
-			//ParamConstants.SCHEMA_TYPE_INT_SINGLE
+			// ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
+			// ParamConstants.SCHEMA_TYPE_INT_SINGLE
 			LOGGER.debug("Schema type set to Kafka Connect.");
 			this.tableOwner = "oracdc";
 			this.tableName = tableName;
@@ -139,26 +138,28 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		try (Connection connection = sinkPool.getConnection()) {
 			final Entry<ResultSet, ResultSet> tableMetadata = checkPresence(connection);
 			if (exists) {
-				if (opType == 'd') {
+				if (opType == 'd' && (!config.useAllColsOnDelete())) {
+					LOGGER.warn("\n" +
+							"=====================\n" +
+							"data transfer tj the  existing table {} will begin after first non-delete operation for it!\n" +
+							"=====================\n",
+							tableName);
+					delayedObjectsCreation = true;
 					//TODO
-					//TODO
-					//TODO Create required structures for delete only!!!
-					//TODO add again needToCreateTable flag!!!!!!!
-					//TODO
+					//TODO Need code for performing DELETE only!!! And one more flag!
 					//TODO
 				} else {
-					// Everything is OK
 					prepareSql(record, tableMetadata);
 				}
 			} else {
-				if (autoCreateTable) {
+				if (config.autoCreateTable()) {
 					LOGGER.info(
 							"\n" +
 							"=====================\n" +
 							"Table '{}' will be created in the target database.\n" +
 							"=====================\n",
 							tableNameCaseConv);
-					if (opType == 'd') {
+					if (opType == 'd' && (!config.useAllColsOnDelete())) {
 						delayedObjectsCreation = true;
 					} else {
 						// Create table in target database

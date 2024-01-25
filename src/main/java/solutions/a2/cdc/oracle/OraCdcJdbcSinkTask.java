@@ -36,7 +36,7 @@ import solutions.a2.cdc.oracle.utils.Version;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraCdcJdbcSinkTask extends SinkTask {
@@ -46,10 +46,8 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 	private final Map<String, OraTable4SinkConnector> tablesInProcessing = new HashMap<>();
 	private OraCdcJdbcSinkConnectorConfig config;
 	private int batchSize = 1000;
-	private boolean autoCreateTable = false;
 	private int schemaType;
 	private OraCdcJdbcSinkConnectionPool sinkPool;
-	private int pkStringLength;
 
 	@Override
 	public String version() {
@@ -62,13 +60,13 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 		config = new OraCdcJdbcSinkConnectorConfig(props);
 
 		try {
-			LOGGER.trace("BEGIN: Hikari Connection Pool initialization.");
+			LOGGER.debug("BEGIN: Hikari Connection Pool initialization.");
 			sinkPool = new OraCdcJdbcSinkConnectionPool(
 					props.get("name"),
 					config.getString(ParamConstants.CONNECTION_URL_PARAM),
 					config.getString(ParamConstants.CONNECTION_USER_PARAM),
 					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
-			LOGGER.trace("END: Hikari Connection Pool initialization.");
+			LOGGER.debug("END: Hikari Connection Pool initialization.");
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to connect to {}", config.getString(ParamConstants.CONNECTION_URL_PARAM));
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
@@ -77,21 +75,17 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 
 		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
 		LOGGER.debug("batchSize = {} records.", batchSize);
-		autoCreateTable = config.getBoolean(OraCdcJdbcSinkConnectorConfig.AUTO_CREATE_PARAM);
-		LOGGER.debug("autoCreateTable set to {}.", autoCreateTable);
 		final String schemaTypeString = props.get(ParamConstants.SCHEMA_TYPE_PARAM);
 		LOGGER.debug("a2.schema.type set to {}.", schemaTypeString);
 		if (ParamConstants.SCHEMA_TYPE_DEBEZIUM.equals(schemaTypeString))
 			schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
 		else
 			schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
-		pkStringLength = config.getInt(OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_PARAM);
-		LOGGER.debug("{} is set to {}.", OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_PARAM, pkStringLength);
 	}
 
 	@Override
 	public void put(Collection<SinkRecord> records) {
-		LOGGER.trace("BEGIN: put()");
+		LOGGER.debug("BEGIN: put()");
 		final Set<String> tablesInProcess = new HashSet<>();
 		try (Connection connection = sinkPool.getConnection()) {
 			int processedRecords = 0;
@@ -115,7 +109,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 				if (oraTable == null) {
 					LOGGER.debug("Create new table definition for {} and add it to processing map,", tableName);
 					oraTable = new OraTable4SinkConnector(
-								sinkPool, tableName, record, pkStringLength, autoCreateTable, schemaType);
+								sinkPool, tableName, record, schemaType, config);
 					tablesInProcessing.put(tableName, oraTable);
 				}
 				if (!tablesInProcess.contains(tableName)) {
@@ -168,7 +162,7 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 			throw new ConnectException(sqle);
 		}
-		LOGGER.trace("BEGIN: put()");
+		LOGGER.debug("END: put()");
 	}
 
 	@Override

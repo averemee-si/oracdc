@@ -34,6 +34,8 @@ import solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
  */
 public class OraCdcSinkVOCreateTableTest {
 
+	private static final int PK_STRING_LENGTH_DEFAULT = 25;
+
 	@Test
 	public void test() {
 
@@ -63,19 +65,19 @@ public class OraCdcSinkVOCreateTableTest {
 
 		List<String> createScottSalgradeOra = TargetDbSqlUtils.createTableSql(
 				"SALGRADE", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE,
-				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
+				PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns); 
 		List<String> createScottSalgradePg = TargetDbSqlUtils.createTableSql(
 				"SALGRADE", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL,
-				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
+				PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns); 
 		List<String> createScottSalgradeMySql = TargetDbSqlUtils.createTableSql(
 				"SALGRADE", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL,
-				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
+				PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns);
 		List<String> createScottSalgradeMsSql = TargetDbSqlUtils.createTableSql(
 				"SALGRADE", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL,
-				OraCdcJdbcSinkConnectorConfig.PK_STRING_LENGTH_DEFAULT,
+				PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns);
 
 		System.out.println("++++++++++ Oracle ++++++++++++++++++++++++");
