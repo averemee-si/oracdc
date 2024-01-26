@@ -182,7 +182,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			// Schema init - keySchema is immutable and always 1
 			final SchemaBuilder keySchemaBuilder;
 			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ||
-					(pkColsSet == null && config.useRowidAsKey())) {
+					(pkColsSet == null && !config.useRowidAsKey())) {
 				keySchemaBuilder = null;
 				onlyValue = true;
 			} else {
