@@ -33,7 +33,7 @@ public class Env2Property {
 		if ((argv.length != 2 && argv.length != 3) ||
 				(argv.length == 3 && !"--append".equals(argv[2]))) {
 			System.err.println("Usage:");
-			System.err.println("java solutions.a2.aws.msk.config.Env2Property PREFIX PROPERTY_FILE [--append]");
+			System.err.println("java solutions.a2.cdc.oracle.utils.file.Env2Property PREFIX PROPERTY_FILE");
 			System.exit(1);
 		}
 		final String prefix = argv[0];
