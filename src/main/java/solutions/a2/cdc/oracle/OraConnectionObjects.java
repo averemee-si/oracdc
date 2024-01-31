@@ -47,6 +47,7 @@ public class OraConnectionObjects {
 	private static final int INITIAL_SIZE = 4;
 	private static final AtomicBoolean state = new AtomicBoolean(true);
 	private static final AtomicInteger taskId = new AtomicInteger(0);
+	private static final String TZ_AS_REGION = "oracle.jdbc.timezoneAsRegion";
 
 	private PoolDataSource pds;
 	private final String poolName;
@@ -245,6 +246,38 @@ public class OraConnectionObjects {
 						Thread.sleep(5);
 					} catch (InterruptedException ie) {}
 					pds.setConnectionPoolName(newPoolName);
+					return getConnection();
+				} else if (StringUtils.containsIgnoreCase(sqle.getMessage(), "ORA-01882") &&
+						(!StringUtils.equalsIgnoreCase(System.getProperty(TZ_AS_REGION), "false"))) {
+					final StringBuilder errMessage = new StringBuilder(256);
+					errMessage
+						.append("\n=====================\n")
+						.append(distributed)
+						.append("ORA-01882 while getting connection:\n")
+						.append(sqle.getMessage())
+						.append("\n")
+						.append("Oracle error code = ")
+						.append(sqle.getErrorCode())
+						.append("\n");
+					if (sqle.getCause() != null && sqle.getCause() instanceof SQLException) {
+						final SQLException oe =  (SQLException) ucpe.getCause();
+						errMessage
+							.append("\tCaused by:\n")
+							.append("\t")
+							.append(oe.getMessage())
+							.append("\n")
+							.append("\tOracle error code = ")
+							.append(oe.getErrorCode())
+							.append("\n");
+					}
+					errMessage
+						.append("oracdc will set the '")
+						.append(TZ_AS_REGION)
+						.append("' JVM system property to false.\n")
+						.append("For additional information please see https://support.oracle.com/rs?type=doc&id=2087294.1")
+						.append("\n=====================\n");
+					LOGGER.error(errMessage.toString());
+					System.setProperty(TZ_AS_REGION, "false");
 					return getConnection();
 				} else {
 					throw sqle;
