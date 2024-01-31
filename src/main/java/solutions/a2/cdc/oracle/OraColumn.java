@@ -1014,17 +1014,14 @@ public class OraColumn {
 				statement.setBigDecimal(columnNo, (BigDecimal) columnValue);
 				break;
 			case Types.NUMERIC:
-				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
-					((OraclePreparedStatement) statement)
-							.setNUMBER(columnNo, new NUMBER((byte[]) columnValue));
+				byte[] ba;
+				boolean setNull = false;
+				if (columnValue instanceof ByteBuffer) {
+					ba = new byte[((ByteBuffer)columnValue).remaining()];
+					((ByteBuffer)columnValue).get(ba);
 				} else {
-					boolean setNull = false;
-					BigDecimal bd = null;
 					try {
-						bd = OraNumber.toLogical((byte[]) columnValue);
-						if (bd == null) {
-							setNull = true;
-						}
+						ba = (byte[]) columnValue;
 					} catch (Exception e) {
 						LOGGER.error(
 								"\n" +
@@ -1032,6 +1029,16 @@ public class OraColumn {
 								"Exception {} while converting {} to byte[] for column {}, bind # {}! \n" +
 								"=====================\n",
 								e.getClass().getName(), columnValue.getClass().getName(), columnName, columnNo);
+						ba = null;
+						setNull = true;
+					}
+				}
+				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+					((OraclePreparedStatement) statement).setNUMBER(columnNo, new NUMBER(ba));
+				} else {
+					BigDecimal bd = null;
+					bd = OraNumber.toLogical(ba);
+					if (bd == null) {
 						setNull = true;
 					}
 					if (setNull) {
