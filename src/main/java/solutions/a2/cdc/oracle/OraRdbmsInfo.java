@@ -17,6 +17,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -234,14 +235,27 @@ public class OraRdbmsInfo {
 
 			final String sessionTZName = ((OracleConnection)connection).getSessionTimeZone();
 			if (sessionTZName != null) {
-				sessionTimeZone = ZoneId.of(sessionTZName);
+				try {
+					sessionTimeZone = ZoneId.of(sessionTZName);
+				} catch (DateTimeException dte) {
+					sessionTimeZone = ZoneId.systemDefault();
+					LOGGER.error(
+							"\n" +
+							"=====================\n" +
+							"'{}' while converting '{}' to ZoneId!\n" +
+							"'{}' will be used as sessionTimeZone!\n" +
+							ExceptionUtils.getExceptionStackTrace(dte) + 
+							"\n" +
+							"=====================\n",
+							dte.getMessage(), sessionTZName, sessionTimeZone);
+				}
 			} else {
 				sessionTimeZone = ZoneId.systemDefault();
 			}
 			LOGGER.debug("Session timezone is set to {}", sessionTimeZone);
 
 		} catch (SQLException sqle) {
-			if (sqle.getErrorCode() == 942) {
+			if (sqle.getErrorCode() == ORA_942) {
 				// ORA-00942: table or view does not exist
 				LOGGER.error("Please run as SYSDBA:");
 				LOGGER.error("\tgrant select on V_$DATABASE to {};", connection.getSchema());
