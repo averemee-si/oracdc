@@ -47,7 +47,7 @@ public class PgRdbmsInfo {
 			final Connection connection,
 			final String tableOwner,
 			final String tableName) throws SQLException {
-		Set<String> result = null;
+		final Set<String> result = new HashSet<>();
 		PreparedStatement ps = connection.prepareStatement(
 						PgDictSqlTexts.WELL_DEFINED_PK_COLUMNS,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -56,15 +56,13 @@ public class PgRdbmsInfo {
 
 		ResultSet rs = ps.executeQuery();
 		while (rs.next()) {
-			if (result == null)
-				result = new HashSet<>();
 			result.add(rs.getString("COLUMN_NAME"));
 		}
 		rs.close();
 		rs = null;
 		ps.close();
 		ps = null;
-		if (result == null) {
+		if (result.size() == 0) {
 			// Try to find unique index with non-null columns only
 			ps = connection.prepareStatement(
 							PgDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS,
@@ -75,10 +73,14 @@ public class PgRdbmsInfo {
 			String indexOwner = null;
 			String indexName = null;
 			while (rs.next()) {
-				if (result == null) {
-					result = new HashSet<>();
+				if (result.size() == 0) {
 					indexOwner = rs.getString("TABLE_SCHEMA");
 					indexName = rs.getString("INDEX_NAME");
+				} else {
+					if ((!StringUtils.equals(indexName, rs.getString("INDEX_NAME"))) || 
+							(!StringUtils.equals(indexOwner, rs.getString("TABLE_SCHEMA")))) {
+						break;
+					}
 				}
 				result.add(rs.getString("COLUMN_NAME"));
 			}
@@ -86,7 +88,7 @@ public class PgRdbmsInfo {
 			rs = null;
 			ps.close();
 			ps = null;
-			if (result != null) {
+			if (result.size() > 0) {
 				printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName);
 			} else  {
 				ps = connection.prepareStatement(
@@ -96,11 +98,11 @@ public class PgRdbmsInfo {
 				ps.setString(2, tableName);
 				rs = ps.executeQuery();
 				while (rs.next()) {
-					if (result == null) {
-						result = new HashSet<>();
+					if (result.size() == 0) {
 						indexOwner = rs.getString("TABLE_SCHEMA");
 						indexName = rs.getString("INDEX_NAME");
-					} else if (!StringUtils.equals(indexName, rs.getString("INDEX_NAME"))) {
+					} else if ((!StringUtils.equals(indexName, rs.getString("INDEX_NAME"))) || 
+							(!StringUtils.equals(indexOwner, rs.getString("TABLE_SCHEMA")))) {
 						break;
 					}
 					result.add(rs.getString("COLUMN_NAME"));
@@ -109,8 +111,16 @@ public class PgRdbmsInfo {
 				rs = null;
 				ps.close();
 				ps = null;
-				if (result != null) {
+				if (result.size() > 0) {
 					printPkWarning(result, false, tableOwner, tableName,indexOwner, indexName);
+				} else {
+					LOGGER.warn(
+							"\n" +
+							"=====================\n" +
+							"Table {}.{} does not have a primary or unique key constraint.\n" +
+							"Only INSERT operation will be performed for this table!\n" +
+							"=====================\n",
+							tableOwner, tableName);
 				}
 			}
 		}
@@ -139,6 +149,5 @@ public class PgRdbmsInfo {
 				tableOwner, tableName, indexOwner, indexName, 
 				(notNull ? "NOT NULL " : ""), sb.toString());
 	}
-
 
 }
