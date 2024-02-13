@@ -914,7 +914,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						((stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) && useAllColsOnDelete)) {
 					struct.put("after", valueStruct);
 				}
-				struct.put("op", opType);
+				struct.put("op", String.valueOf(opType));
 				struct.put("ts_ms", System.currentTimeMillis());
 				sourceRecord = new SourceRecord(
 						sourcePartition,
