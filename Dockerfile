@@ -16,8 +16,7 @@ LABEL  release="2.1.0"
 LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
-RUN    apk add --no-cache gcompat tzdata
-# hostname ping nc
+RUN    apk add --no-cache gcompat tzdata bash
 RUN    addgroup -S kafka && adduser -S kafka -G kafka
 ARG    BASEDIR=/opt
 
