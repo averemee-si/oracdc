@@ -338,10 +338,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 		if (pkType == -1) {
 			switch (getString(PK_TYPE_PARAM)) {
 			case PK_TYPE_WELL_DEFINED:
-				schemaType = PK_TYPE_INT_WELL_DEFINED;
+				pkType = PK_TYPE_INT_WELL_DEFINED;
 				break;
 			case PK_TYPE_ANY_UNIQUE:
-				schemaType = PK_TYPE_INT_ANY_UNIQUE;
+				pkType = PK_TYPE_INT_ANY_UNIQUE;
 				break;
 			}
 		}
