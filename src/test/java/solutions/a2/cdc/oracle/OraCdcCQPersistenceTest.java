@@ -33,17 +33,17 @@ public class OraCdcCQPersistenceTest {
 	private final static OraCdcLogMinerStatement updIn1 =  new  OraCdcLogMinerStatement(
 			74590, (short)3, "update DEPT set DNAME='SALES' where DEPTNO=10",
 			System.currentTimeMillis(),275168436063l," 0x000098.000001b5.0010 ",
-			0, "AAAWbzAAEAAAB6FAAA");
+			0, "AAAWbzAAEAAAB6FAAA", false);
 
 	private final static OraCdcLogMinerStatement updIn2 =  new  OraCdcLogMinerStatement(
 			74590, (short)3, "update DEPT set DNAME='OPERATIONS' where DEPTNO=20",
 			System.currentTimeMillis(),275168436122l," 0x000098.000001b5.0020 ",
-			0, "AAAWbzAAEAAAB6FABB");
+			0, "AAAWbzAAEAAAB6FABB", false);
 
 	private final static OraCdcLogMinerStatement updIn3 =  new  OraCdcLogMinerStatement(
 			74590, (short)3, "update DEPT set DNAME='ACCOUNTING' where DEPTNO=30",
 			System.currentTimeMillis(),275168436125l," 0x000098.000001b5.0030 ",
-			0, "AAAWbzAAEAAAB6FACC");
+			0, "AAAWbzAAEAAAB6FACC", false);
 
 	private static Path persistenceQueuePath;
 	private static String persistenceXid;
