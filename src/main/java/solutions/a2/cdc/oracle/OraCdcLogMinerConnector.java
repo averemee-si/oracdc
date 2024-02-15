@@ -14,6 +14,7 @@
 package solutions.a2.cdc.oracle;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.SQLException;
@@ -175,20 +176,25 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					ParamConstants.TEMP_DIR_PARAM,
 					System.getProperty("java.io.tmpdir"));
 		}
-		if (Files.isDirectory(Paths.get(connectorProperties.get(ParamConstants.TEMP_DIR_PARAM)))) {
-			if (!Files.isWritable(Paths.get(connectorProperties.get(ParamConstants.TEMP_DIR_PARAM)))) {
+		final String tempDir = connectorProperties.get(ParamConstants.TEMP_DIR_PARAM);
+		if (Files.isDirectory(Paths.get(tempDir))) {
+			if (!Files.isWritable(Paths.get(tempDir))) {
 				LOGGER.error(
 						"Parameter '{}' points to non-writable directory '{}'.",
 						ParamConstants.TEMP_DIR_PARAM,
-						connectorProperties.get(ParamConstants.TEMP_DIR_PARAM));
+						tempDir);
 				throw new ConnectException(TMP_PARAM_ERROR_GENERIC);
 			}
 		} else {
-			LOGGER.error(
-					"Parameter {} set to non-existent or invalid directory {}.",
-					ParamConstants.TEMP_DIR_PARAM,
-					connectorProperties.get(ParamConstants.TEMP_DIR_PARAM));
-			throw new ConnectException(TMP_PARAM_ERROR_GENERIC);
+			try {
+				Files.createDirectories(Paths.get(tempDir));
+			} catch (IOException | UnsupportedOperationException | SecurityException  e) {
+				LOGGER.error(
+						"Unable to create directory! Parameter {} points to non-existent or invalid directory {}.",
+						ParamConstants.TEMP_DIR_PARAM,
+						tempDir);
+				throw new ConnectException(e);
+			}
 		}
 
 		if (StringUtils.isBlank(config.getString(ParamConstants.PERSISTENT_STATE_FILE_PARAM))) {
