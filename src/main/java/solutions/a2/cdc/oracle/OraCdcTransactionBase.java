@@ -13,13 +13,13 @@
 
 package solutions.a2.cdc.oracle;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.openhft.chronicle.core.util.StringUtils;
 
 /**
  * 
@@ -30,32 +30,33 @@ public abstract class OraCdcTransactionBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionBase.class);
 
-	private final Map<String, Integer> rollbackInserts = new HashMap<>();
-	private final Map<String, Integer> rollbackUpdates = new HashMap<>();
-	private final Map<String, Integer> rollbackDeletes = new HashMap<>();
+	private final List<String> excludedRbas = new ArrayList<>();
 
 	private OraCdcLogMinerStatement lastSql;
 	private boolean firstStatement = true;
+	private int offset = 0;
 
-	boolean checkForRollback(final OraCdcLogMinerStatement oraSql, final int offset) {
+	boolean checkForRollback(final OraCdcLogMinerStatement oraSql) {
 		final boolean result;
 		if (firstStatement) {
 			firstStatement = false;
 			result = false;
 		} else {
 			if (oraSql.isRollback()) {
-				// Add previous record to exclusion list
+				// Add previous record to exclusion list for INSERT/UPDATE/DELETE
 				final String rowId = lastSql.getRowId();
 				if (lastSql.getTableId() == oraSql.getTableId() &&
-						StringUtils.isEqual(rowId, oraSql.getRowId())) {
-					if (lastSql.getOperation() == OraCdcV$LogmnrContents.INSERT) {
-						rollbackInserts.put(rowId, offset);
-					} else if (lastSql.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
-						rollbackUpdates.put(rowId, offset);
-					} else {
-						// OraCdcV$LogmnrContents.DELETE
-						rollbackDeletes.put(rowId, offset);
+						StringUtils.equals(rowId, oraSql.getRowId()) &&
+						(lastSql.getOperation() == OraCdcV$LogmnrContents.INSERT ||
+						lastSql.getOperation() == OraCdcV$LogmnrContents.UPDATE ||
+						lastSql.getOperation() == OraCdcV$LogmnrContents.DELETE)) {
+					excludedRbas.add(lastSql.getRsId());
+					if (LOGGER.isTraceEnabled()) {
+						LOGGER.trace(
+								"Redo record with RBA='{}' added to the list of rolled back entries.",
+								lastSql.getRsId());
 					}
+					result = true;
 				} else {
 					final StringBuilder sb = new StringBuilder(2048);
 					sb
@@ -85,8 +86,8 @@ public abstract class OraCdcTransactionBase {
 							oraSql.getScn(), oraSql.getTs(), oraSql.getRsId(),
 							oraSql.getSsn(), oraSql.getRowId(),
 							oraSql.getOperation(), oraSql.getSqlRedo());
+					result = false;
 				}
-				result = true;
 			} else {
 				result = false;
 			}
@@ -97,20 +98,22 @@ public abstract class OraCdcTransactionBase {
 		return result;
 	}
 
-	boolean willItRolledBack(final short opCode, final String rowId, final int offset) {
-		final Integer rollbackOffset;
-		if (opCode == OraCdcV$LogmnrContents.INSERT) {
-			rollbackOffset = rollbackInserts.get(rowId);
-		} else if (opCode == OraCdcV$LogmnrContents.UPDATE) {
-			rollbackOffset = rollbackUpdates.get(rowId);
+	boolean willItRolledBack(final OraCdcLogMinerStatement oraSql) {
+		if (excludedRbas.size() > 0 && offset < excludedRbas.size()) {
+			final String rba = oraSql.getRsId();
+			if (StringUtils.equals(rba, excludedRbas.get(offset))) {
+				if (LOGGER.isTraceEnabled()) {
+					LOGGER.trace(
+							"Redo record with RBA='{}' will be skipped.",
+							rba);
+				}
+				offset++;
+				return true;
+			} else {
+				return false;
+			}
 		} else {
-			// OraCdcV$LogmnrContents.DELETE
-			rollbackOffset = rollbackDeletes.get(rowId);
-		}
-		if (rollbackOffset == null) {
 			return false;
-		} else {
-			return (offset == rollbackOffset);
 		}
 	}
 

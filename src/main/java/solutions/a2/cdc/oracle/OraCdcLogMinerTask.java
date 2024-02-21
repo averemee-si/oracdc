@@ -678,11 +678,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 					70 - XML DOC WRITE
 					*/
 					if (processLobs) {
-						mineDataSql += "where ROLLBACK=0 and ((OPERATION_CODE in (1,2,3,5,9,68,70) " +  objectList + ")";
+						mineDataSql += "where ((OPERATION_CODE in (1,2,3,5,9,68,70) " +  objectList + ")";
 					} else {
-						mineDataSql += "where ROLLBACK=0 and ((OPERATION_CODE in (1,2,3,5) " +  objectList + ")";
+						mineDataSql += "where ((OPERATION_CODE in (1,2,3,5) " +  objectList + ")";
 					}
-				} 
+				}
 				checkTableSql += tableList;
 				if (execInitialLoad) {
 					initialLoadSql += tableList;
@@ -708,9 +708,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 						}
 					} else {
 						if (processLobs) {
-							mineDataSql += " where ROLLBACK=0 and ((OPERATION_CODE in (1,2,3,5,9,68,70) ";
+							mineDataSql += " where ((OPERATION_CODE in (1,2,3,5,9,68,70) ";
 						} else {
-							mineDataSql += " where ROLLBACK=0 and ((OPERATION_CODE in (1,2,3,5) ";
+							mineDataSql += " where ((OPERATION_CODE in (1,2,3,5) ";
 						}
 					}
 					final String objectList = rdbmsInfo.getMineObjectsIds(connDictionary, true,
@@ -742,9 +742,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 					70 - XML DOC WRITE
 					*/
 					if (processLobs) {
-						mineDataSql += "where ROLLBACK=0 and (OPERATION_CODE in (1,2,3,5,9,68,70) ";
+						mineDataSql += "where (OPERATION_CODE in (1,2,3,5,9,68,70) ";
 					} else {
-						mineDataSql += "where ROLLBACK=0 and (OPERATION_CODE in (1,2,3,5) ";
+						mineDataSql += "where (OPERATION_CODE in (1,2,3,5) ";
 					}
 				}
 				// Finally - COMMIT and ROLLBACK
@@ -779,9 +779,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 				70 - XML DOC WRITE
 				*/
 				if (processLobs) {
-					mineDataSql += "where ROLLBACK=0 and OPERATION_CODE in (1,2,3,5,7,36,9,68,70) or (OPERATION_CODE=0 and DATA_OBJ#=DATA_OBJD# and DATA_OBJ#!=0)";
+					mineDataSql += "where OPERATION_CODE in (1,2,3,5,7,36,9,68,70) or (OPERATION_CODE=0 and DATA_OBJ#=DATA_OBJD# and DATA_OBJ#!=0)";
 				} else {
-					mineDataSql += "where ROLLBACK=0 and OPERATION_CODE in (1,2,3,5,7,36) ";
+					mineDataSql += "where OPERATION_CODE in (1,2,3,5,7,36) ";
 				}
 			}
 			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {

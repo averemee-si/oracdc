@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcTransactionArrayList implements OraCdcTransaction {
+public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements OraCdcTransaction {
 
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
@@ -79,25 +79,28 @@ public class OraCdcTransactionArrayList implements OraCdcTransaction {
 		if (firstChange == 0) {
 			firstChange = oraSql.getScn();
 		}
-		statements.add(oraSql);
-		nextChange = oraSql.getScn();
-		queueSize++;
-		transSize += oraSql.size();
+		if (!checkForRollback(oraSql)) {
+			statements.add(oraSql);
+			nextChange = oraSql.getScn();
+			queueSize++;
+			transSize += oraSql.size();
+		}
 	}
 
 	@Override
 	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
-		if (tailerOffset < statements.size()) {
+		while (tailerOffset < statements.size()) {
 			final OraCdcLogMinerStatement fromQueue = statements.get(tailerOffset);
-			fromQueue.clone(oraSql);
-			firstChange = oraSql.getScn();
+			final boolean rollback = willItRolledBack(fromQueue);
 			tailerOffset++;
-			return true;
-		} else {
-			return false;
+			if (!rollback) {
+				firstChange = oraSql.getScn();
+				fromQueue.clone(oraSql);
+				return true;
+			}
 		}
+		return false;
 	}
-
 
 	@Override
 	public void close() {
