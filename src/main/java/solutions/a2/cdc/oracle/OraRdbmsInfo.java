@@ -257,9 +257,14 @@ public class OraRdbmsInfo {
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == ORA_942) {
 				// ORA-00942: table or view does not exist
-				LOGGER.error("Please run as SYSDBA:");
-				LOGGER.error("\tgrant select on V_$DATABASE to {};", connection.getSchema());
-				LOGGER.error("And restart connector!");
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"Please run as SYSDBA:\n" +
+						"\tgrant select on V_$DATABASE to {};\n" +
+						"And restart connector!\n" +
+						"=====================\n",
+						connection.getSchema());
 			}
 			throw sqle;
 		}
