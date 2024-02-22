@@ -46,10 +46,10 @@ public abstract class OraCdcTransactionBase {
 				// Add previous record to exclusion list for INSERT/UPDATE/DELETE
 				final String rowId = lastSql.getRowId();
 				if (lastSql.getTableId() == oraSql.getTableId() &&
-						StringUtils.equals(rowId, oraSql.getRowId()) &&
 						(lastSql.getOperation() == OraCdcV$LogmnrContents.INSERT ||
 						lastSql.getOperation() == OraCdcV$LogmnrContents.UPDATE ||
-						lastSql.getOperation() == OraCdcV$LogmnrContents.DELETE)) {
+						lastSql.getOperation() == OraCdcV$LogmnrContents.DELETE) &&
+						StringUtils.equals(rowId, oraSql.getRowId())) {
 					excludedRbas.add(lastSql.getRsId());
 					if (LOGGER.isTraceEnabled()) {
 						LOGGER.trace(
@@ -61,7 +61,7 @@ public abstract class OraCdcTransactionBase {
 					final StringBuilder sb = new StringBuilder(2048);
 					sb
 						.append("\n=====================\n")
-						.append("Partial rollback record ROWID does not match previous record ROWID!\nPlease send information below to oracle@a2-solutions.eu\n")
+						.append("Partial rollback record ROWID does not match previous record ROWID or unsupported operation code!\nPlease send information below to oracle@a2-solutions.eu\n")
 						.append("\nDetailed information about record with ROLLBACK=0")
 						.append("\tSCN = {}\n")
 						.append("\tTIMESTAMP = {}\n")
