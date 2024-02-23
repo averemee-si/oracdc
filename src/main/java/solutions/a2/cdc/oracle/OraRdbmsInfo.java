@@ -75,6 +75,7 @@ public class OraRdbmsInfo {
 	private final boolean windows;
 	private ZoneId dbTimeZone;
 	private ZoneId sessionTimeZone;
+	private final String logMode;
 
 	private final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -210,6 +211,7 @@ public class OraRdbmsInfo {
 			} else {
 				checkSupplementalLogData4Table = true;
 			}
+			logMode = rs.getString("LOG_MODE");
 			dbCharset = rs.getString("NLS_CHARACTERSET");
 			dbNCharCharset = rs.getString("NLS_NCHAR_CHARACTERSET");
 			rs.close();
@@ -898,6 +900,10 @@ public class OraRdbmsInfo {
 					"=====================\n");
 		}
 		return 0;
+	}
+
+	public String getLogMode() {
+		return logMode;
 	}
 
 	@Override
