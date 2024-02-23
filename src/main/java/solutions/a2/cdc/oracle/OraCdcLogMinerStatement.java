@@ -47,6 +47,8 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	private byte lobCount;
 	/** structure size */
 	private int holderSize;
+	/** is this partial rollback */
+	private boolean rollback;
 
 	/**
 	 * 
@@ -57,7 +59,6 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		// tableId(Long) + operation(Short) + ts(Long) + scn(Long) + ssn(Long) + lobCount(Byte)
 		// Need to add with data actual size of : sqlRedo, rsId, and rowId
 		holderSize = Long.BYTES + Short.BYTES + Long.BYTES + Long.BYTES + Long.BYTES + Byte.BYTES;
-				;
 	}
 
 	/**
@@ -70,9 +71,10 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	 * @param rsId        V$LOGMNR_CONTENTS.RS_ID
 	 * @param ssn         V$LOGMNR_CONTENTS.SSN
 	 * @param rowId       V$LOGMNR_CONTENTS.ROW_ID
+	 * @param rollback    V$LOGMNR_CONTENTS.ROLLBACK
 	 */
-	public OraCdcLogMinerStatement(
-			long tableId, short operation, String sqlRedo, long ts, long scn, String rsId, long ssn, String rowId) {
+	public OraCdcLogMinerStatement(long tableId, short operation,
+			String sqlRedo, long ts, long scn, String rsId, long ssn, String rowId, boolean rollback) {
 		this();
 		this.tableId = tableId;
 		this.operation = operation;
@@ -87,70 +89,39 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		// All strings are US7ASCII
 		holderSize += (
 				sqlRedo.length() + rsId.length() + rowId.length());
+		this.rollback = rollback;
 	}
 
 	public long getTableId() {
 		return tableId;
 	}
 
-	public void setTableId(long tableId) {
-		this.tableId = tableId;
-	}
-
 	public short getOperation() {
 		return operation;
-	}
-
-	public void setOperation(short operation) {
-		this.operation = operation;
 	}
 
 	public String getSqlRedo() {
 		return sqlRedo;
 	}
 
-	public void setSqlRedo(String sqlRedo) {
-		this.sqlRedo = sqlRedo;
-	}
-
 	public long getTs() {
 		return ts;
-	}
-
-	public void setTs(long ts) {
-		this.ts = ts;
 	}
 
 	public long getScn() {
 		return scn;
 	}
 
-	public void setScn(long scn) {
-		this.scn = scn;
-	}
-
 	public String getRsId() {
 		return rsId;
-	}
-
-	public void setRsId(String rsId) {
-		this.rsId = rsId;
 	}
 
 	public long getSsn() {
 		return ssn;
 	}
 
-	public void setSsn(long ssn) {
-		this.ssn = ssn;
-	}
-
 	public String getRowId() {
 		return rowId;
-	}
-
-	public void setRowId(String rowId) {
-		this.rowId = rowId;
 	}
 
 	public byte getLobCount() {
@@ -165,33 +136,40 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		return holderSize;
 	}
 
+	public boolean isRollback() {
+		return rollback;
+	}
+
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder(1024);
 		final int origTableId = (int) tableId;
 		final int conId = (int) (tableId >> 32);
-		sb.append("OraCdcLogMinerStatement [");
-		sb.append("CON_ID=");
-		sb.append(conId);
-		sb.append(", DATA_OBJ#=");
-		sb.append(origTableId);
-		sb.append(", OPERATION_CODE=");
-		sb.append(operation);
-		sb.append(", SQL_REDO=");
-		sb.append(sqlRedo);
-		sb.append(", TIMESTAMP=");
-		sb.append(ts);
-		sb.append(", SCN=");
-		sb.append(scn);
-		sb.append(", RS_ID=");
-		sb.append(rsId);
-		sb.append(", SSN=");
-		sb.append(ssn);
-		sb.append(", ROW_ID=");
-		sb.append(rowId);
-		sb.append(", LOB_COUNT=");
-		sb.append(lobCount);
-		sb.append("]");
+		sb
+			.append("OraCdcLogMinerStatement [")
+			.append("CON_ID=")
+			.append(conId)
+			.append(", DATA_OBJ#=")
+			.append(origTableId)
+			.append(", OPERATION_CODE=")
+			.append(operation)
+			.append(", SQL_REDO=")
+			.append(sqlRedo)
+			.append(", TIMESTAMP=")
+			.append(ts)
+			.append(", SCN=")
+			.append(scn)
+			.append(", RS_ID=")
+			.append(rsId)
+			.append(", SSN=")
+			.append(ssn)
+			.append(", ROW_ID=")
+			.append(rowId)
+			.append(", ROLLBACK=")
+			.append(rollback ? "1" : "0")
+			.append(", LOB_COUNT=")
+			.append(lobCount)
+			.append("]");
 
 		return sb.toString();
 	}

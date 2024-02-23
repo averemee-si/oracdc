@@ -1,3 +1,16 @@
+/**
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
+ * the License for the specific language governing permissions and limitations under the License.
+ */
+
 package solutions.a2.cdc.oracle;
 
 import java.util.ArrayList;
@@ -11,7 +24,7 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcTransactionArrayList implements OraCdcTransaction {
+public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements OraCdcTransaction {
 
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
@@ -66,25 +79,28 @@ public class OraCdcTransactionArrayList implements OraCdcTransaction {
 		if (firstChange == 0) {
 			firstChange = oraSql.getScn();
 		}
-		statements.add(oraSql);
-		nextChange = oraSql.getScn();
-		queueSize++;
-		transSize += oraSql.size();
+		if (!checkForRollback(oraSql)) {
+			statements.add(oraSql);
+			nextChange = oraSql.getScn();
+			queueSize++;
+			transSize += oraSql.size();
+		}
 	}
 
 	@Override
 	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
-		if (tailerOffset < statements.size()) {
+		while (tailerOffset < statements.size()) {
 			final OraCdcLogMinerStatement fromQueue = statements.get(tailerOffset);
-			fromQueue.clone(oraSql);
-			firstChange = oraSql.getScn();
+			final boolean rollback = willItRolledBack(fromQueue);
 			tailerOffset++;
-			return true;
-		} else {
-			return false;
+			if (!rollback) {
+				firstChange = oraSql.getScn();
+				fromQueue.clone(oraSql);
+				return true;
+			}
 		}
+		return false;
 	}
-
 
 	@Override
 	public void close() {

@@ -364,6 +364,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					while (isRsLogMinerRowAvailable && runLatch.getCount() > 0) {
 						fetchRsLogMinerNext = true;
 						final short operation = rsLogMiner.getShort("OPERATION_CODE");
+						final boolean partialRollback = rsLogMiner.getInt("ROLLBACK") > 0;
 						xid = rsLogMiner.getString("XID");
 						lastScn = rsLogMiner.getLong("SCN");
 						lastRsId = rsLogMiner.getString("RS_ID");
@@ -598,7 +599,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 										sqlRedo = StringUtils.replace(sqlRedo, ")", "");
 									}
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
-											combinedDataObjectId, operation, sqlRedo, timestamp, lastScn, lastRsId, lastSsn, rowId);
+											combinedDataObjectId, operation, sqlRedo, timestamp,
+											lastScn, lastRsId, lastSsn, rowId, partialRollback);
 
 									// Catch the LOBs!!!
 									List<OraCdcLargeObjectHolder> lobs = 
@@ -659,7 +661,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
 											combinedDdlDataObjectId, operation, 
 											preProcessedDdl + "\n" + originalDdl,
-											timestamp, lastScn, lastRsId, lastSsn, rowId);
+											timestamp, lastScn, lastRsId, lastSsn, rowId, false);
 									if (transaction == null) {
 										if (LOGGER.isDebugEnabled()) {
 											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",

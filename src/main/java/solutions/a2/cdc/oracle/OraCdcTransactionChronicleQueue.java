@@ -1,3 +1,16 @@
+/**
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
+ * the License for the specific language governing permissions and limitations under the License.
+ */
+
 package solutions.a2.cdc.oracle;
 
 import java.io.File;
@@ -24,7 +37,7 @@ import solutions.a2.cdc.oracle.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcTransactionChronicleQueue implements OraCdcTransaction {
+public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase implements OraCdcTransaction {
 
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionChronicleQueue.class);
@@ -221,32 +234,37 @@ public class OraCdcTransactionChronicleQueue implements OraCdcTransaction {
 		this(false, queueDirectory, xid, firstChange, nextChange, commitScn, queueSize, savedTailerOffset);
 	}
 
-
-	@Override
-	public void addStatement(final OraCdcLogMinerStatement oraSql) {
+	private boolean addStatementInt(final OraCdcLogMinerStatement oraSql) {
 		if (firstChange == 0) {
 			firstChange = oraSql.getScn();
 		}
-		appender.writeDocument(oraSql);
-		nextChange = oraSql.getScn();
-		queueSize++;
-		transSize += oraSql.size();
+		final boolean isRollback = checkForRollback(oraSql);
+		if (!isRollback) {
+			appender.writeDocument(oraSql);
+			nextChange = oraSql.getScn();
+			queueSize++;
+			transSize += oraSql.size();
+		}
+		return isRollback;
+	}
+	
+
+	@Override
+	public void addStatement(final OraCdcLogMinerStatement oraSql) {
+		addStatementInt(oraSql);
 	}
 
 	public void addStatement(final OraCdcLogMinerStatement oraSql, final List<OraCdcLargeObjectHolder> lobs) {
 		final boolean lobsExists;
 		if (lobs == null) {
 			lobsExists = false;
+			oraSql.setLobCount((byte) 0);
 		} else {
 			lobsExists = true;
-		}
-		if (lobsExists) {
 			oraSql.setLobCount((byte) lobs.size());
-		} else {
-			oraSql.setLobCount((byte) 0);
 		}
-		addStatement(oraSql);
-		if (lobsExists) {
+		final boolean isRollback = addStatementInt(oraSql); 
+		if (lobsExists && !isRollback) {
 			for (int i = 0; i < lobs.size(); i++) {
 				lobsAppender.writeDocument(lobs.get(i));
 				transSize += lobs.get(i).size();
@@ -256,23 +274,33 @@ public class OraCdcTransactionChronicleQueue implements OraCdcTransaction {
 
 	@Override
 	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
-		final boolean result = tailer.readDocument(oraSql);
-		firstChange = oraSql.getScn();
-		tailerOffset++;
+		boolean result;
+		boolean rollback = false;
+		do {
+			result = tailer.readDocument(oraSql);
+			if (result) {
+				rollback = willItRolledBack(oraSql);
+				if (!rollback) {
+					firstChange = oraSql.getScn();
+				}
+				tailerOffset++;
+			} else {
+				break;
+			}
+		} while (rollback);
 		return result;
 	}
 
 	public boolean getStatement(OraCdcLogMinerStatement oraSql, List<OraCdcLargeObjectHolder> lobs) {
-		boolean result = tailer.readDocument(oraSql);
-		firstChange = oraSql.getScn();
-		tailerOffset++;
-		for (int i = 0; i < oraSql.getLobCount(); i++) {
-			OraCdcLargeObjectHolder lobHolder = new OraCdcLargeObjectHolder();
-			result = result && lobsTailer.readDocument(lobHolder);
-			if (!result) {
-				break;
-			} else {
-				lobs.add(lobHolder);
+		boolean result = getStatement(oraSql);
+		if (result) {
+			for (int i = 0; i < oraSql.getLobCount(); i++) {
+				OraCdcLargeObjectHolder lobHolder = new OraCdcLargeObjectHolder();
+				if (!lobsTailer.readDocument(lobHolder)) {
+					break;
+				} else {
+					lobs.add(lobHolder);
+				}
 			}
 		}
 		return result;
