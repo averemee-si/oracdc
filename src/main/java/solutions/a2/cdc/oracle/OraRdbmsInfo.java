@@ -77,7 +77,7 @@ public class OraRdbmsInfo {
 	private ZoneId sessionTimeZone;
 	private final String logMode;
 
-	private final static int CDB_INTRODUCED = 12;
+	public final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
 	private final static int PDB_MINING_BACKPORT_MAJOR = 19;
 	private final static int PDB_MINING_BACKPORT_MINOR = 10;

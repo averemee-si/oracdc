@@ -13,6 +13,7 @@
 
 package solutions.a2.cdc.oracle.utils;
 
+import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -32,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.OraConnectionObjects;
+import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 
 /**
@@ -89,8 +91,8 @@ public class OracleSetupCheck {
 		}
 		LOGGER.info("Connected to Oracle database '{}' as user '{}'.", url, user);
 
-		try {
-			rdbmsInfo = new OraRdbmsInfo(dbPool.getConnection(), false);
+		try (final Connection connection = dbPool.getConnection()) {
+			rdbmsInfo = new OraRdbmsInfo(connection, false);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to collect Oracle database {} information as user {}!", url, user);
 			if (sqle.getErrorCode() != OraRdbmsInfo.ORA_942) {
@@ -137,8 +139,7 @@ public class OracleSetupCheck {
 		}
 
 		// STEP 3 - REQUIRED PRIVILEGES and ROLES
-		try {
-			final Connection connection = dbPool.getConnection();
+		try (final Connection connection = dbPool.getConnection()) {
 
 			PreparedStatement statement = connection.prepareStatement(
 					"select 1 from USER_ROLE_PRIVS where USERNAME=USER and GRANTED_ROLE='EXECUTE_CATALOG_ROLE'",
@@ -164,7 +165,7 @@ public class OracleSetupCheck {
 				checkSysPriv(statement, user, PRIV_SET_CONTAINER);
 			}
 
-			if (rdbmsInfo.getVersionMajor() >= 12) {
+			if (rdbmsInfo.getVersionMajor() >= OraRdbmsInfo.CDB_INTRODUCED) {
 				/*
 					From $ORACLE_HOME/rdbms/admin/e1102000.sql :
 					Rem LOGMINING privilege is new in 12.1
@@ -192,16 +193,92 @@ public class OracleSetupCheck {
 			statement = null;
 
 		} catch (SQLException sqle) {
+			errorCount++;
 			LOGGER.error("Unable to check required privileges in database {} for user {}!", rdbmsInfo.getDatabaseName(), user);
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-			System.exit(1);
 		}
 
 		if (errorCount > 0) {
 			sb.append("\n\n=====================\n");
 			LOGGER.error(sb.toString());
 		} else {
-			
+			try (final Connection connection = dbPool.getConnection()) {
+				//TODO - currently only primary database!
+				final long startScn = rdbmsInfo.firstScnFromArchivedLogs(connection, true);
+				LOGGER.info("Minimum available SCN = {}", startScn);
+				final String fileName;
+				final long firstChange;
+				final long nextChange;
+				PreparedStatement statement = connection.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				statement.setLong(1, startScn);
+				statement.setLong(2, startScn);
+				statement.setLong(3, startScn);
+				statement.setInt(4, rdbmsInfo.getRedoThread());
+				statement.setInt(5, rdbmsInfo.getRedoThread());
+				ResultSet rs = statement.executeQuery();
+				if (rs.next()) {
+					firstChange = rs.getLong("FIRST_CHANGE#");
+					nextChange = rs.getLong("NEXT_CHANGE#");
+					fileName = rs.getString("NAME"); 
+					LOGGER.info("LogMiner check will use archived redo log {}", fileName);
+				} else {
+					rs.close();
+					rs = null;
+					statement.close();
+					statement = null;
+					statement = connection.prepareStatement(OraDictSqlTexts.UP_TO_CURRENT_SCN,
+							ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+					statement.setLong(1, startScn);
+					statement.setInt(2, rdbmsInfo.getRedoThread());
+					rs = statement.executeQuery();
+					if (rs.next()) {
+						firstChange = startScn;
+						nextChange = rs.getLong("CURRENT_SCN");
+						fileName = rs.getString("MEMBER"); 
+						LOGGER.info("LogMiner check will use online redo log {}", fileName);
+					} else {
+						throw new SQLException("Data dictionary corruption!");
+					}
+				}
+				if (!rdbmsInfo.isPdbConnectionAllowed()) {
+					CallableStatement csAddLogs = connection.prepareCall(OraDictSqlTexts.ADD_ARCHIVED_LOG);
+					csAddLogs.setInt(1, 0);
+					csAddLogs.setString(2, fileName);
+					csAddLogs.execute();
+					LOGGER.info("Successfully completed call to DBMS_LOGMNR.ADD_LOGFILE");
+				}
+				CallableStatement csLogMiner = connection.prepareCall(OraDictSqlTexts.START_LOGMINER);
+				csLogMiner.setLong(1, firstChange); 
+				csLogMiner.setLong(2, nextChange);
+				csLogMiner.execute();
+				LOGGER.info("Successfully completed call to DBMS_LOGMNR.START_LOGMNR");
+				statement = connection.prepareStatement(rdbmsInfo.isCdb() ?
+						OraDictSqlTexts.MINE_DATA_CDB : OraDictSqlTexts.MINE_DATA_NON_CDB,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				rs = statement.executeQuery();
+				if (rs.next()) {
+					LOGGER.info(
+							"\n\n=====================\n\n" +
+							"The oracdc's setup check was completed successfully, everything is ready to start oracdc connector\n" +
+							"\n=====================\n\n");
+				} else {
+					throw new SQLException("Unable to start LogMiner!");
+				}
+
+				rs.close();
+				rs = null;
+				statement.close();
+				statement = null;
+
+				csLogMiner = connection.prepareCall(OraDictSqlTexts.STOP_LOGMINER);
+				csLogMiner.execute();
+				LOGGER.info("Successfully completed call to DBMS_LOGMNR.END_LOGMNR");
+			} catch (SQLException sqle) {
+				errorCount++;
+				LOGGER.error("Unable to use LogMiner!");
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			}
 		}
 
 		try {
