@@ -28,8 +28,6 @@ import org.junit.jupiter.api.Test;
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraXmlBinary;
-import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
-import solutions.a2.kafka.sink.TargetDbSqlUtils;
 
 /**
  *  
