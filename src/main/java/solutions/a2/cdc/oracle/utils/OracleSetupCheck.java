@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

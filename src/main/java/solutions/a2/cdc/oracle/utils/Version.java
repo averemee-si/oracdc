@@ -19,6 +19,8 @@ import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.utils.ExceptionUtils;
+
 public class Version {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Version.class);

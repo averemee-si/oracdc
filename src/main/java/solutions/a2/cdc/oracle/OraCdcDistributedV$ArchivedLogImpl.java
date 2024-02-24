@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
 import oracle.jdbc.OracleConnection;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.cdc.oracle.jmx.OraCdcRedoShipment;
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

@@ -31,8 +31,8 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
+import solutions.a2.utils.ExceptionUtils;
 import solutions.a2.utils.OraCdcMBeanUtils;
 
 /**

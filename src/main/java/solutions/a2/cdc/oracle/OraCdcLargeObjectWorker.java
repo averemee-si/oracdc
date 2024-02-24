@@ -24,8 +24,8 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.sql.NUMBER;
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

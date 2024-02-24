@@ -59,7 +59,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.OraTable4LogMiner;
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

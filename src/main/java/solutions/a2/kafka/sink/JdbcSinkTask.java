@@ -31,9 +31,9 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

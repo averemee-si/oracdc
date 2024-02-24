@@ -24,7 +24,7 @@ import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

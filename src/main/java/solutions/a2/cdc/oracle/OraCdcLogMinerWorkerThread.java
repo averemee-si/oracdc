@@ -45,9 +45,9 @@ import oracle.jdbc.OracleResultSet;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

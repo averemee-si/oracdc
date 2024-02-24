@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

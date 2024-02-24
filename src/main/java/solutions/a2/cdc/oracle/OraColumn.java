@@ -51,10 +51,10 @@ import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.data.OraXmlBinary;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

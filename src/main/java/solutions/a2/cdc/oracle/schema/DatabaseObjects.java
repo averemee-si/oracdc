@@ -37,7 +37,7 @@ import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraTable4LogMiner;
 import solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl;
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

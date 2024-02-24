@@ -46,13 +46,13 @@ import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 

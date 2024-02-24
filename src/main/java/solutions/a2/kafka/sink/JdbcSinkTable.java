@@ -47,11 +47,11 @@ import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.OraDumpDecoder;
 import solutions.a2.cdc.oracle.OraTableDefinition;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
-import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.postgres.PgRdbmsInfo;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.jmx.SinkTableInfo;
+import solutions.a2.utils.ExceptionUtils;
 
 
 /**
