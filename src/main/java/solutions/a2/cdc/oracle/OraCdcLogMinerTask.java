@@ -62,6 +62,7 @@ import solutions.a2.cdc.oracle.schema.FileUtils;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.cdc.oracle.utils.Version;
+import solutions.a2.kafka.ConnectorParams;
 
 /**
  * 
@@ -172,23 +173,23 @@ public class OraCdcLogMinerTask extends SourceTask {
 				} else {
 					oraConnections = OraConnectionObjects.get4OraWallet(
 							connectorName,
-							config.getString(ParamConstants.CONNECTION_URL_PARAM), 
+							config.getString(ConnectorParams.CONNECTION_URL_PARAM), 
 							config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
 				}
-			} else if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_USER_PARAM)) &&
-					StringUtils.isNotBlank(config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value())) {
+			} else if (StringUtils.isNotBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM)) &&
+					StringUtils.isNotBlank(config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
 				if (useRac) {
 					oraConnections = OraConnectionObjects.get4UserPassword(
 							connectorName,
 							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
-							config.getString(ParamConstants.CONNECTION_USER_PARAM),
-							config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());					
+							config.getString(ConnectorParams.CONNECTION_USER_PARAM),
+							config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());					
 				} else {
 					oraConnections = OraConnectionObjects.get4UserPassword(
 							connectorName,
-							config.getString(ParamConstants.CONNECTION_URL_PARAM),
-							config.getString(ParamConstants.CONNECTION_USER_PARAM),
-							config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
+							config.getString(ConnectorParams.CONNECTION_URL_PARAM),
+							config.getString(ConnectorParams.CONNECTION_USER_PARAM),
+							config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
 				}
 			} else {
 				throw new SQLException("Wrong connection parameters!");
@@ -201,7 +202,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			throw new ConnectException("Unable to connect to RDBMS");
 		}
 
-		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
+		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
 		pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
 		if (config.useOracdcSchemas()) {
 			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");

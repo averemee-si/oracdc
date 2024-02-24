@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleResultSet;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import solutions.a2.kafka.ConnectorParams;
 
 /**
  * 
@@ -195,7 +196,7 @@ public class OraTable extends OraTable4SourceConnector {
 					LOGGER.trace("END: Prepare Kafka Connect offset");
 				}
 
-				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 					final Struct struct = new Struct(schema);
 					final Struct source = rdbmsInfo.getStruct(
 							null,
@@ -219,7 +220,7 @@ public class OraTable extends OraTable4SourceConnector {
 							schema,
 							struct);
 					result.add(sourceRecord);
-				} else if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+				} else if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
 					final SourceRecord sourceRecord = new SourceRecord(
 							(kafkaConnectTopic == null) ? null : sourcePartition,
 							(kafkaConnectTopic == null) ? null : offset,
@@ -357,7 +358,7 @@ public class OraTable extends OraTable4SourceConnector {
 					stmtMaster.setString(bindNo, columnName);
 				break;
 			}
-			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM)
+			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM)
 				valueStruct.put(columnName, keyStruct.get(columnName));
 			bindNo++;
 		}

@@ -30,9 +30,9 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraTable4LogMiner;
-import solutions.a2.cdc.oracle.ParamConstants;
 import solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
+import solutions.a2.kafka.ConnectorParams;
 
 /**
  * 
@@ -78,7 +78,7 @@ public class FileUtils {
 						Long.parseLong(k),
 						new OraTable4LogMiner(
 								v, 
-								(schemaType == null) ? ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD : schemaType,
+								(schemaType == null) ? ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD : schemaType,
 								transformLobs,
 								rdbmsInfo));
 			});

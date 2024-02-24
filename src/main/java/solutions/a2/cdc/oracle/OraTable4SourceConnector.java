@@ -41,6 +41,7 @@ import oracle.sql.TIMESTAMPTZ;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
+import solutions.a2.kafka.ConnectorParams;
 
 
 /**
@@ -160,7 +161,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 					pkColumns.put(column.getColumnName(), column);
 					// Schema addition
 					keySchemaBuilder.field(column.getColumnName(), column.getSchema());
-					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+					if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 					}
 					if (mViewFirstColumn) {
@@ -234,7 +235,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	protected void schemaEiplogue(final String tableFqn,
 			final SchemaBuilder valueSchemaBuilder) throws SQLException {
 		valueSchema = valueSchemaBuilder.build();
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 			final SchemaBuilder schemaBuilder = SchemaBuilder
 					.struct()
 					.name(tableFqn + ".Envelope");
@@ -256,7 +257,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 		allColumns.add(rowIdColumn);
 		pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
 		keySchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 			valueSchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
 		}
 	}
@@ -418,9 +419,9 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 				keyStruct.put(columnName, columnValue);
 			}
 			// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
-			if ((schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
-					schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ||
-					schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+			if ((schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
+					schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
+					schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 				valueStruct.put(columnName, columnValue);
 			}
 		}

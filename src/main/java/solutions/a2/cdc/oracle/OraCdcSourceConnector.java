@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.cdc.oracle.utils.Version;
+import solutions.a2.kafka.ConnectorParams;
 
 /**
  * 
@@ -62,9 +63,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 		LOGGER.info("Starting oracdc materialized view log source connector");
 		config = new OraCdcSourceConnectorConfig(props);
 
-		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_URL_PARAM))) {
+		if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_URL_PARAM))) {
 			LOGGER.error("Database connection parameters are not properly set!\n'{}' must be set for running connector!",
-					ParamConstants.CONNECTION_URL_PARAM);
+					ConnectorParams.CONNECTION_URL_PARAM);
 			throw new ConnectException("Database connection parameters are not properly set!");
 		}
 
@@ -73,21 +74,21 @@ public class OraCdcSourceConnector extends SourceConnector {
 			if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
 				LOGGER.info("Connecting to Oracle RDBMS using Oracle Wallet");
 				OraPoolConnectionFactory.init(
-						config.getString(ParamConstants.CONNECTION_URL_PARAM),
+						config.getString(ConnectorParams.CONNECTION_URL_PARAM),
 						config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
-			} else if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_USER_PARAM)) &&
-					StringUtils.isNotBlank(config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value())) {
+			} else if (StringUtils.isNotBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM)) &&
+					StringUtils.isNotBlank(config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
 				LOGGER.info("Connecting to Oracle RDBMS using JDBC URL, username, and password.");
 				OraPoolConnectionFactory.init(
-					config.getString(ParamConstants.CONNECTION_URL_PARAM),
-					config.getString(ParamConstants.CONNECTION_USER_PARAM),
-					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
+					config.getString(ConnectorParams.CONNECTION_URL_PARAM),
+					config.getString(ConnectorParams.CONNECTION_USER_PARAM),
+					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
 			} else {
 				validConfig = false;
 				LOGGER.error("Database connection parameters are not properly set\n. Or {}, or pair of {}/{} are not set",
 						ParamConstants.CONNECTION_WALLET_PARAM,
-						ParamConstants.CONNECTION_USER_PARAM,
-						ParamConstants.CONNECTION_PASSWORD_PARAM);
+						ConnectorParams.CONNECTION_USER_PARAM,
+						ConnectorParams.CONNECTION_PASSWORD_PARAM);
 				throw new ConnectException("Database connection parameters are not properly set!");
 			}
 			LOGGER.trace("Oracle UCP successfully created.");
@@ -157,12 +158,12 @@ public class OraCdcSourceConnector extends SourceConnector {
 					throw new ConnectException(message);
 				}
 
-				final String schemaTypeString = config.getString(ParamConstants.SCHEMA_TYPE_PARAM);
+				final String schemaTypeString = config.getString(ConnectorParams.SCHEMA_TYPE_PARAM);
 				LOGGER.debug("a2.schema.type set to {}.", schemaTypeString);
-				if (ParamConstants.SCHEMA_TYPE_DEBEZIUM.equals(schemaTypeString))
-					schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
+				if (ConnectorParams.SCHEMA_TYPE_DEBEZIUM.equals(schemaTypeString))
+					schemaType = ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
 				else
-					schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
+					schemaType = ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
 
 			} catch (SQLException sqle) {
 				validConfig = false;
@@ -200,11 +201,11 @@ public class OraCdcSourceConnector extends SourceConnector {
 					"To run " + OraCdcSourceConnector.class.getName() +
 					" against " + (
 					StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) ?
-								config.getString(ParamConstants.CONNECTION_URL_PARAM) +
+								config.getString(ConnectorParams.CONNECTION_URL_PARAM) +
 								" with username " +
-								config.getString(ParamConstants.CONNECTION_USER_PARAM)
+								config.getString(ConnectorParams.CONNECTION_USER_PARAM)
 							:
-								config.getString(ParamConstants.CONNECTION_URL_PARAM) +
+								config.getString(ConnectorParams.CONNECTION_URL_PARAM) +
 								" using wallet " +
 								config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) +
 					" parameter tasks.max must set to " + tableCount;
@@ -237,8 +238,8 @@ public class OraCdcSourceConnector extends SourceConnector {
 				resultSet.next();
 				final Map<String, String> taskParam = new HashMap<>();
 
-				taskParam.put(ParamConstants.BATCH_SIZE_PARAM,
-					config.getInt(ParamConstants.BATCH_SIZE_PARAM).toString());
+				taskParam.put(ConnectorParams.BATCH_SIZE_PARAM,
+					config.getInt(ConnectorParams.BATCH_SIZE_PARAM).toString());
 				taskParam.put(ParamConstants.POLL_INTERVAL_MS_PARAM,
 					config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM).toString());
 				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER,
@@ -253,12 +254,12 @@ public class OraCdcSourceConnector extends SourceConnector {
 					resultSet.getString("PRIMARY_KEY"));
 				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE,
 					resultSet.getString("SEQUENCE"));
-				taskParam.put(ParamConstants.SCHEMA_TYPE_PARAM,
+				taskParam.put(ConnectorParams.SCHEMA_TYPE_PARAM,
 					Integer.toString(schemaType));
 
-				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
-					taskParam.put(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM,
-							config.getString(OraCdcSourceConnectorConfig.TOPIC_PREFIX_PARAM));
+				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
+					taskParam.put(ConnectorParams.TOPIC_PREFIX_PARAM,
+							config.getString(ConnectorParams.TOPIC_PREFIX_PARAM));
 				} else {
 					// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
 					taskParam.put(ParamConstants.KAFKA_TOPIC_PARAM,

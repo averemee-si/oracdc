@@ -20,19 +20,6 @@ package solutions.a2.cdc.oracle;
  */
 public class ParamConstants {
 
-	public static final int SCHEMA_TYPE_INT_DEBEZIUM = 1;
-	public static final int SCHEMA_TYPE_INT_KAFKA_STD = 2;
-	public static final int SCHEMA_TYPE_INT_SINGLE = 3;
-
-	public static final String CONNECTION_URL_PARAM = "a2.jdbc.url";
-	public static final String CONNECTION_URL_DOC = "JDBC connection URL";
-
-	public static final String CONNECTION_USER_PARAM = "a2.jdbc.username";
-	public static final String CONNECTION_USER_DOC = "JDBC connection user";
-
-	public static final String CONNECTION_PASSWORD_PARAM = "a2.jdbc.password";
-	public static final String CONNECTION_PASSWORD_DOC = "JDBC connection password";
-
 	public static final String CONNECTION_WALLET_PARAM = "a2.wallet.location";
 	public static final String CONNECTION_WALLET_DOC = "Location of Oracle Wallet. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
 
@@ -45,16 +32,6 @@ public class ParamConstants {
 	public static final String POLL_INTERVAL_MS_PARAM = "a2.poll.interval";
 	public static final String POLL_INTERVAL_MS_DOC = "Frequency in ms to poll for new data in each table";
 	public static final int POLL_INTERVAL_MS_DEFAULT = 1000;
-
-	public static final String BATCH_SIZE_PARAM = "a2.batch.size";
-	public static final String BATCH_SIZE_DOC = "Maximum number of statements to include in a single batch when inserting/updating/deleting data";
-	public static final int BATCH_SIZE_DEFAULT = 1000;
-
-	public static final String SCHEMA_TYPE_PARAM = "a2.schema.type";
-	public static final String SCHEMA_TYPE_DOC = "Type of schema used by oracdc: kafka (default) with separate schemas for key and value, single - single schema for all fields or Debezium";
-	public static final String SCHEMA_TYPE_KAFKA = "kafka";
-	public static final String SCHEMA_TYPE_DEBEZIUM = "debezium";
-	public static final String SCHEMA_TYPE_SINGLE = "single";
 
 	public static final String TABLE_EXCLUDE_PARAM = "a2.exclude";
 	public static final String TABLE_EXCLUDE_DOC = "List of tables to exclude from processing";
@@ -209,13 +186,6 @@ public class ParamConstants {
 			"The time interval in milleseconds after which a reconnection to LogMiner occurs, including the re-creation of the Oracle connection.\n" +
 			"Unix/Linux only, on Windows oracdc creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called.\n" +
 			"Default - Long.MAX_VALUE";
-
-	public static final String USE_ALL_COLUMNS_ON_DELETE_PARAM = "a2.use.all.columns.on.delete";
-	public static final String USE_ALL_COLUMNS_ON_DELETE_DOC =
-			"Default - false.\n" +
-			"When set to false (default) oracdc reads and processes only the PK columns from the redo record and sends only the key fields to the Kafka topic.\n" +
-			"When set to true oracdc reads and processes all table columns from the redo record.\n";
-	public static final boolean USE_ALL_COLUMNS_ON_DELETE_DEFAULT = false; 
 
 	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 

@@ -50,6 +50,7 @@ import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
+import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 
@@ -181,7 +182,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 			// Schema init - keySchema is immutable and always 1
 			final SchemaBuilder keySchemaBuilder;
-			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ||
+			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
 					(pkColsSet == null && !config.useRowidAsKey())) {
 				keySchemaBuilder = null;
 				onlyValue = true;
@@ -199,8 +200,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						.optional()
 						.name(config.useProtobufSchemaNaming() ?
 								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + 
-										(schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ? "" : "_Value") :
-								tableFqn + (schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ? "" : ".Value"))
+										(schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ? "" : "_Value") :
+								tableFqn + (schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ? "" : ".Value"))
 						.version(version);
 
 			if (pkColsSet == null) {
@@ -271,7 +272,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						idToNameMap.put(column.getNameFromId(), column);
 						// Just add to value schema
 						if (!column.isPartOfPk() || 
-								schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+								schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
 							valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 						}
 					}
@@ -290,10 +291,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
 					// Schema addition
-					if (schemaType != ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+					if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
 						keySchemaBuilder.field(column.getColumnName(), column.getSchema());
 					}
-					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+					if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 					}
 				}
@@ -448,7 +449,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				LOGGER.trace("{} is used as primary key for table {}", stmt.getRowId(), tableFqn);
 			}
 			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
-			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 				valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
 			}
 		}
@@ -901,7 +902,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 		SourceRecord sourceRecord = null;
 		if (!skipRedoRecord) {
-			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 				final Struct struct = new Struct(schema);
 				final Struct source = rdbmsInfo.getStruct(
 						stmt.getSqlRedo(),
@@ -932,7 +933,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							valueSchema,
 							valueStruct);
 				} else {
-					if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+					if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
 						if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE &&
 								(!useAllColsOnDelete)) {
 							sourceRecord = new SourceRecord(
@@ -1093,7 +1094,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		} else {
 			if (pkColumns.containsKey(columnName)) {
 				keyStruct.put(columnName, columnValue);
-				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 						valueStruct.put(columnName, columnValue);
 				}
 			} else {
@@ -1182,8 +1183,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final OraDumpDecoder odd, final Map<String, String> sourcePartition) {
 		final String topicParam = config.getTopicOrPrefix();
 		final int topicNameStyle = config.getTopicNameStyle();
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
-				this.schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD ||
+				this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
 			if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_TABLE) {
 				this.kafkaTopic = this.tableName;
 			} else if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE) {
@@ -1411,7 +1412,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 				} else {
 					if (!column.isPartOfPk() ||
-							schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+							schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 					}
 				}

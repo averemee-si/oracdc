@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 import oracle.jdbc.OracleConnection;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Version;
+import solutions.a2.kafka.ConnectorParams;
 
 /**
  * 
@@ -81,7 +82,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				if (!connectorProperties.containsKey(k) && v != null) {
 					if (StringUtils.equals(k, ParamConstants.TABLE_EXCLUDE_PARAM) ||
 							StringUtils.equals(k, ParamConstants.TABLE_INCLUDE_PARAM) ||
-							StringUtils.equals(k, ParamConstants.CONNECTION_PASSWORD_PARAM) ||
+							StringUtils.equals(k, ConnectorParams.CONNECTION_PASSWORD_PARAM) ||
 							StringUtils.equals(k, ParamConstants.INTERNAL_RAC_URLS_PARAM) ||
 							StringUtils.equals(k, ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM)) {
 						connectorProperties.put(k, "");
@@ -102,9 +103,9 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
-		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_URL_PARAM))) {
+		if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_URL_PARAM))) {
 			LOGGER.error("Parameter '{}' must be set for running connector!",
-					ParamConstants.CONNECTION_URL_PARAM);
+					ConnectorParams.CONNECTION_URL_PARAM);
 					throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 		}
 
@@ -112,7 +113,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		checkDeprecatedTnsParameters(props,
 				ParamConstants.CONNECTION_TNS_ADMIN_PARAM,
 				ParamConstants.CONNECTION_TNS_ALIAS_PARAM,
-				ParamConstants.CONNECTION_URL_PARAM);
+				ConnectorParams.CONNECTION_URL_PARAM);
 		checkDeprecatedTnsParameters(props,
 				ParamConstants.STANDBY_TNS_ADMIN_PARAM,
 				ParamConstants.STANDBY_TNS_ALIAS_PARAM,
@@ -123,21 +124,21 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				ParamConstants.DISTRIBUTED_URL_PARAM);
 
 		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
-			if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_USER_PARAM))) {
+			if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
-						ParamConstants.CONNECTION_USER_PARAM,
-						ParamConstants.CONNECTION_URL_PARAM);
+						ConnectorParams.CONNECTION_USER_PARAM,
+						ConnectorParams.CONNECTION_URL_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			if (StringUtils.isBlank(
-					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value())) {
+					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
-						ParamConstants.CONNECTION_PASSWORD_PARAM,
-						ParamConstants.CONNECTION_URL_PARAM);
+						ConnectorParams.CONNECTION_PASSWORD_PARAM,
+						ConnectorParams.CONNECTION_URL_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			LOGGER.info("Connection to RDBMS will be performed using Oracle username '{}'",
-					config.getString(ParamConstants.CONNECTION_USER_PARAM));
+					config.getString(ConnectorParams.CONNECTION_USER_PARAM));
 		} else {
 			LOGGER.info("Connection to RDBMS will be performed using Oracle Wallet '{}'",
 					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
@@ -272,7 +273,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				if (instances.size() > 0) {
 					if (instances.size() > maxTasks) {
 						LOGGER.error("Number of Oracle RAC instances for connection '{}'\n\tis {}, but Kafka Connect 'tasks.max' parameter is set to {}!",
-								config.getString(ParamConstants.CONNECTION_URL_PARAM), instances.size(), maxTasks);
+								config.getString(ConnectorParams.CONNECTION_URL_PARAM), instances.size(), maxTasks);
 						LOGGER.error("Please set value of 'tasks.max' parameter to {} and restart connector!",
 								instances.size());
 						throw new ConnectException("Please increase value of 'tasks.max' parameter!");

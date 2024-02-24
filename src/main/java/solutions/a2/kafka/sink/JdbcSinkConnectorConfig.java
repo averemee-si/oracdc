@@ -20,7 +20,8 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 
-import solutions.a2.cdc.oracle.ParamConstants;
+import solutions.a2.kafka.ConnectorParams;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -37,26 +38,26 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 
 	public static ConfigDef config() {
 		return new ConfigDef()
-				.define(ParamConstants.CONNECTION_URL_PARAM, Type.STRING,
-						Importance.HIGH, ParamConstants.CONNECTION_URL_DOC)
-				.define(ParamConstants.CONNECTION_USER_PARAM, Type.STRING,
-						Importance.HIGH, ParamConstants.CONNECTION_USER_DOC)
-				.define(ParamConstants.CONNECTION_PASSWORD_PARAM, Type.PASSWORD,
-						Importance.HIGH, ParamConstants.CONNECTION_PASSWORD_DOC)
-				.define(ParamConstants.BATCH_SIZE_PARAM, Type.INT,
-						ParamConstants.BATCH_SIZE_DEFAULT,
-						Importance.HIGH, ParamConstants.BATCH_SIZE_DOC)
-				.define(ParamConstants.SCHEMA_TYPE_PARAM, Type.STRING,
-						ParamConstants.SCHEMA_TYPE_KAFKA,
-						ConfigDef.ValidString.in(ParamConstants.SCHEMA_TYPE_KAFKA, ParamConstants.SCHEMA_TYPE_DEBEZIUM),
-						Importance.HIGH, ParamConstants.SCHEMA_TYPE_DOC)
+				.define(ConnectorParams.CONNECTION_URL_PARAM, Type.STRING,
+						Importance.HIGH, ConnectorParams.CONNECTION_URL_DOC)
+				.define(ConnectorParams.CONNECTION_USER_PARAM, Type.STRING,
+						Importance.HIGH, ConnectorParams.CONNECTION_USER_DOC)
+				.define(ConnectorParams.CONNECTION_PASSWORD_PARAM, Type.PASSWORD,
+						Importance.HIGH, ConnectorParams.CONNECTION_PASSWORD_DOC)
+				.define(ConnectorParams.BATCH_SIZE_PARAM, Type.INT,
+						ConnectorParams.BATCH_SIZE_DEFAULT,
+						Importance.HIGH, ConnectorParams.BATCH_SIZE_DOC)
+				.define(ConnectorParams.SCHEMA_TYPE_PARAM, Type.STRING,
+						ConnectorParams.SCHEMA_TYPE_KAFKA,
+						ConfigDef.ValidString.in(ConnectorParams.SCHEMA_TYPE_KAFKA, ConnectorParams.SCHEMA_TYPE_DEBEZIUM),
+						Importance.HIGH, ConnectorParams.SCHEMA_TYPE_DOC)
 				.define(AUTO_CREATE_PARAM, Type.BOOLEAN, false,
 						Importance.HIGH, AUTO_CREATE_DOC)
 				.define(PK_STRING_LENGTH_PARAM, Type.INT, PK_STRING_LENGTH_DEFAULT,
 						Importance.LOW, PK_STRING_LENGTH_DOC)
-				.define(ParamConstants.USE_ALL_COLUMNS_ON_DELETE_PARAM,
-						Type.BOOLEAN, ParamConstants.USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
-						Importance.MEDIUM, ParamConstants.USE_ALL_COLUMNS_ON_DELETE_DOC)
+				.define(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM,
+						Type.BOOLEAN, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
+						Importance.MEDIUM, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DOC)
 				;
 	}
 
@@ -73,7 +74,7 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 	}
 
 	public boolean useAllColsOnDelete() {
-		return getBoolean(ParamConstants.USE_ALL_COLUMNS_ON_DELETE_PARAM);
+		return getBoolean(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM);
 	}
 
 }

@@ -53,6 +53,7 @@ import solutions.a2.cdc.oracle.data.OraXmlBinary;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
+import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
 
 /**
@@ -717,7 +718,7 @@ public class OraColumn {
 	private void schemaEpilogue(
 			final SchemaBuilder keySchema, final SchemaBuilder valueSchema,
 			final int schemaType) {
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && this.partOfPk) {
+		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM && this.partOfPk) {
 			valueSchema.field(this.columnName,
 					keySchema.build().field(this.columnName).schema());
 		}

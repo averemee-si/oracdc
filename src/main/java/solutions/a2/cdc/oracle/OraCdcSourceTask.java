@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Version;
+import solutions.a2.kafka.ConnectorParams;
 
 /**
  * 
@@ -63,13 +64,13 @@ public class OraCdcSourceTask extends SourceTask {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
-		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
+		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
 		LOGGER.debug("batchSize = {} records.", batchSize);
 		pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
 		LOGGER.debug("pollInterval = {} ms.", pollInterval);
-		schemaType = config.getInt(ParamConstants.SCHEMA_TYPE_PARAM);
+		schemaType = config.getInt(ConnectorParams.SCHEMA_TYPE_PARAM);
 		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD) {
+		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
 			topic = config.getTopicOrPrefix() + 
 					config.getString(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
 		} else {

@@ -34,6 +34,7 @@ import oracle.ucp.admin.UniversalConnectionPoolManager;
 import oracle.ucp.admin.UniversalConnectionPoolManagerImpl;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
+import solutions.a2.kafka.ConnectorParams;
 
 /**
  * 
@@ -295,11 +296,11 @@ public class OraConnectionObjects {
 					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
 		} else {
 			props.put(OracleConnection.CONNECTION_PROPERTY_USER_NAME,
-					config.getString(ParamConstants.CONNECTION_USER_PARAM));
+					config.getString(ConnectorParams.CONNECTION_USER_PARAM));
 			props.put(OracleConnection.CONNECTION_PROPERTY_PASSWORD,
-					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
+					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
 		}
-		final Connection connection = DriverManager.getConnection(config.getString(ParamConstants.CONNECTION_URL_PARAM), props);
+		final Connection connection = DriverManager.getConnection(config.getString(ConnectorParams.CONNECTION_URL_PARAM), props);
 		return connection;
 	}
 

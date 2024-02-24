@@ -31,9 +31,9 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.ParamConstants;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Version;
+import solutions.a2.kafka.ConnectorParams;
 
 /**
  * 
@@ -64,24 +64,24 @@ public class JdbcSinkTask extends SinkTask {
 			LOGGER.debug("BEGIN: Hikari Connection Pool initialization.");
 			sinkPool = new JdbcSinkConnectionPool(
 					props.get("name"),
-					config.getString(ParamConstants.CONNECTION_URL_PARAM),
-					config.getString(ParamConstants.CONNECTION_USER_PARAM),
-					config.getPassword(ParamConstants.CONNECTION_PASSWORD_PARAM).value());
+					config.getString(ConnectorParams.CONNECTION_URL_PARAM),
+					config.getString(ConnectorParams.CONNECTION_USER_PARAM),
+					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
 			LOGGER.debug("END: Hikari Connection Pool initialization.");
 		} catch (SQLException sqle) {
-			LOGGER.error("Unable to connect to {}", config.getString(ParamConstants.CONNECTION_URL_PARAM));
+			LOGGER.error("Unable to connect to {}", config.getString(ConnectorParams.CONNECTION_URL_PARAM));
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 			throw new ConnectException("Unable to start oracdc Sink Connector Task.");
 		}
 
-		batchSize = config.getInt(ParamConstants.BATCH_SIZE_PARAM);
+		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
 		LOGGER.debug("batchSize = {} records.", batchSize);
-		final String schemaTypeString = props.get(ParamConstants.SCHEMA_TYPE_PARAM);
+		final String schemaTypeString = props.get(ConnectorParams.SCHEMA_TYPE_PARAM);
 		LOGGER.debug("a2.schema.type set to {}.", schemaTypeString);
-		if (ParamConstants.SCHEMA_TYPE_DEBEZIUM.equals(schemaTypeString))
-			schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
+		if (ConnectorParams.SCHEMA_TYPE_DEBEZIUM.equals(schemaTypeString))
+			schemaType = ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
 		else
-			schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
+			schemaType = ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
 	}
 
 	@Override
@@ -98,8 +98,8 @@ public class JdbcSinkTask extends SinkTask {
 				//TODO Replace with SimpleNamingStrategy(record, config);
 				//TODO
 				//TODO
-				if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
-						schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE) {
+				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD ||
+						schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
 					tableName = record.topic();
 					LOGGER.debug("Table name from Kafka topic = {}.", tableName);
 				} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM

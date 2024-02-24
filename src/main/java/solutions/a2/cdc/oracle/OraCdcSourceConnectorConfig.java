@@ -20,6 +20,8 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 
+import solutions.a2.kafka.ConnectorParams;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -85,9 +87,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	private static final String TOPIC_NAME_STYLE_SCHEMA_TABLE = "SCHEMA_TABLE";
 	private static final String TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE = "PDB_SCHEMA_TABLE";
 
-	static final String TOPIC_PREFIX_PARAM = "a2.topic.prefix";
-	private static final String TOPIC_PREFIX_DOC = "Prefix to prepend table names to generate name of Kafka topic.";
-
 	private static final String PK_TYPE_PARAM = "a2.pk.type";
 	private static final String PK_TYPE_DOC =
 			"Default - well_defined.\n" +
@@ -111,30 +110,30 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public static ConfigDef config() {
 		return new ConfigDef()
-				.define(ParamConstants.CONNECTION_URL_PARAM, Type.STRING, "",
-						Importance.HIGH, ParamConstants.CONNECTION_URL_DOC)
-				.define(ParamConstants.CONNECTION_USER_PARAM, Type.STRING, "",
-						Importance.HIGH, ParamConstants.CONNECTION_USER_DOC)
-				.define(ParamConstants.CONNECTION_PASSWORD_PARAM, Type.PASSWORD, "",
-						Importance.HIGH, ParamConstants.CONNECTION_PASSWORD_DOC)
+				.define(ConnectorParams.CONNECTION_URL_PARAM, Type.STRING, "",
+						Importance.HIGH, ConnectorParams.CONNECTION_URL_DOC)
+				.define(ConnectorParams.CONNECTION_USER_PARAM, Type.STRING, "",
+						Importance.HIGH, ConnectorParams.CONNECTION_USER_DOC)
+				.define(ConnectorParams.CONNECTION_PASSWORD_PARAM, Type.PASSWORD, "",
+						Importance.HIGH, ConnectorParams.CONNECTION_PASSWORD_DOC)
 				.define(ParamConstants.CONNECTION_WALLET_PARAM, Type.STRING, "",
 						Importance.HIGH, ParamConstants.CONNECTION_WALLET_DOC)
 				.define(ParamConstants.KAFKA_TOPIC_PARAM, Type.STRING, ParamConstants.KAFKA_TOPIC_PARAM_DEFAULT,
 						Importance.HIGH, ParamConstants.KAFKA_TOPIC_PARAM_DOC)
 				.define(ParamConstants.POLL_INTERVAL_MS_PARAM, Type.INT, ParamConstants.POLL_INTERVAL_MS_DEFAULT,
 						Importance.LOW, ParamConstants.POLL_INTERVAL_MS_DOC)
-				.define(ParamConstants.BATCH_SIZE_PARAM, Type.INT,
-						ParamConstants.BATCH_SIZE_DEFAULT,
-						Importance.LOW, ParamConstants.BATCH_SIZE_DOC)
-				.define(ParamConstants.SCHEMA_TYPE_PARAM, Type.STRING,
-						ParamConstants.SCHEMA_TYPE_KAFKA,
+				.define(ConnectorParams.BATCH_SIZE_PARAM, Type.INT,
+						ConnectorParams.BATCH_SIZE_DEFAULT,
+						Importance.LOW, ConnectorParams.BATCH_SIZE_DOC)
+				.define(ConnectorParams.SCHEMA_TYPE_PARAM, Type.STRING,
+						ConnectorParams.SCHEMA_TYPE_KAFKA,
 						ConfigDef.ValidString.in(
-								ParamConstants.SCHEMA_TYPE_KAFKA,
-								ParamConstants.SCHEMA_TYPE_SINGLE,
-								ParamConstants.SCHEMA_TYPE_DEBEZIUM),
-						Importance.LOW, ParamConstants.SCHEMA_TYPE_DOC)
-				.define(TOPIC_PREFIX_PARAM, Type.STRING, "",
-						Importance.MEDIUM, TOPIC_PREFIX_DOC)
+								ConnectorParams.SCHEMA_TYPE_KAFKA,
+								ConnectorParams.SCHEMA_TYPE_SINGLE,
+								ConnectorParams.SCHEMA_TYPE_DEBEZIUM),
+						Importance.LOW, ConnectorParams.SCHEMA_TYPE_DOC)
+				.define(ConnectorParams.TOPIC_PREFIX_PARAM, Type.STRING, "",
+						Importance.MEDIUM, ConnectorParams.TOPIC_PREFIX_DOC)
 				.define(ParamConstants.TOPIC_PARTITION_PARAM, Type.SHORT, (short) 0,
 						Importance.MEDIUM, ParamConstants.TOPIC_PARTITION_DOC)
 				.define(ParamConstants.TABLE_EXCLUDE_PARAM, Type.LIST, "",
@@ -245,9 +244,9 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.MEDIUM, PK_TYPE_DOC)
 				.define(USE_ROWID_AS_KEY_PARAM, Type.BOOLEAN, true,
 						Importance.MEDIUM, USE_ROWID_AS_KEY_DOC)
-				.define(ParamConstants.USE_ALL_COLUMNS_ON_DELETE_PARAM,
-						Type.BOOLEAN, ParamConstants.USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
-						Importance.MEDIUM, ParamConstants.USE_ALL_COLUMNS_ON_DELETE_DOC)
+				.define(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM,
+						Type.BOOLEAN, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
+						Importance.MEDIUM, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DOC)
 				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
@@ -311,15 +310,15 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public int getSchemaType() {
 		if (schemaType == -1) {
-			switch (getString(ParamConstants.SCHEMA_TYPE_PARAM)) {
-			case ParamConstants.SCHEMA_TYPE_KAFKA:
-				schemaType = ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD;
+			switch (getString(ConnectorParams.SCHEMA_TYPE_PARAM)) {
+			case ConnectorParams.SCHEMA_TYPE_KAFKA:
+				schemaType = ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
 				break;
-			case ParamConstants.SCHEMA_TYPE_SINGLE:
-				schemaType = ParamConstants.SCHEMA_TYPE_INT_SINGLE;
+			case ConnectorParams.SCHEMA_TYPE_SINGLE:
+				schemaType = ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
 				break;
-			case ParamConstants.SCHEMA_TYPE_DEBEZIUM:
-				schemaType = ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM;
+			case ConnectorParams.SCHEMA_TYPE_DEBEZIUM:
+				schemaType = ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
 				break;
 			}
 		}
@@ -327,8 +326,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	}
 
 	public String getTopicOrPrefix() {
-		if (getSchemaType() != ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
-			return getString(TOPIC_PREFIX_PARAM);
+		if (getSchemaType() != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+			return getString(ConnectorParams.TOPIC_PREFIX_PARAM);
 		} else {
 			return getString(ParamConstants.KAFKA_TOPIC_PARAM);
 		}
@@ -353,7 +352,7 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	}
 
 	public boolean useAllColsOnDelete() {
-		return getBoolean(ParamConstants.USE_ALL_COLUMNS_ON_DELETE_PARAM);
+		return getBoolean(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM);
 	}
 
 }

@@ -46,12 +46,12 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.OraDumpDecoder;
 import solutions.a2.cdc.oracle.OraTableDefinition;
-import solutions.a2.cdc.oracle.ParamConstants;
 import solutions.a2.cdc.oracle.jmx.OraCdcSinkTableInfo;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.postgres.PgRdbmsInfo;
+import solutions.a2.kafka.ConnectorParams;
 
 
 /**
@@ -109,7 +109,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 		this.pkStringLength = config.getPkStringLength();
 		dbType = sinkPool.getDbType();
 
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 			LOGGER.debug("Schema type set to Debezium style.");
 			Struct source = (Struct)((Struct) record.value()).get("source");
 			this.tableOwner = source.getString("owner");
@@ -552,8 +552,8 @@ public class JdbcSinkTable extends OraTableDefinition {
 		}
 		for (int i = 0; i < allColumns.size(); i++) {
 			final OraColumn oraColumn = allColumns.get(i);
-			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
-					(schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
+			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD ||
+					(schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
 				try {
 					oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;
@@ -689,9 +689,9 @@ public class JdbcSinkTable extends OraTableDefinition {
 		int columnNo = 1;
 		for (int i = 0; i < allColumns.size(); i++) {
 			final OraColumn oraColumn = allColumns.get(i);
-			if (schemaType == ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD ||
-					schemaType == ParamConstants.SCHEMA_TYPE_INT_SINGLE ||
-					(schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
+			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD ||
+					schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
+					(schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
 				try {
 					oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;
@@ -748,7 +748,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 
 	private char getOpType(final SinkRecord record) {
 		char opType = 'c';
-		if (schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 			opType = ((Struct) record.value())
 							.getString("op")
 							.charAt(0);
@@ -970,7 +970,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 	private Entry<List<Field>, List<Field>> getFieldsFromSinkRecord(final SinkRecord record) {
 		final List<Field> keyFields;
 		final List<Field> valueFields;
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 			LOGGER.debug("Schema type set to Debezium style.");
 			keyFields = record.valueSchema().field("before").schema().fields();
 			valueFields = record.valueSchema().field("after").schema().fields();
@@ -996,7 +996,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 	private Entry<Struct, Struct> getStructsFromSinkRecord(final SinkRecord record) {
 		final Struct keyStruct;
 		final Struct valueStruct;
-		if (this.schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 			LOGGER.debug("Schema type set to Debezium style.");
 			keyStruct = ((Struct) record.value()).getStruct("before");
 			valueStruct = ((Struct) record.value()).getStruct("after");
