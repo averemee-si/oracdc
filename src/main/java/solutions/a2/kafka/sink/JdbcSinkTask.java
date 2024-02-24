@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.kafka.sink;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -31,6 +31,7 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.ParamConstants;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Version;
 
@@ -39,15 +40,15 @@ import solutions.a2.cdc.oracle.utils.Version;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcJdbcSinkTask extends SinkTask {
+public class JdbcSinkTask extends SinkTask {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkTask.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkTask.class);
 
-	private final Map<String, OraTable4SinkConnector> tablesInProcessing = new HashMap<>();
-	private OraCdcJdbcSinkConnectorConfig config;
+	private final Map<String, JdbcSinkTable> tablesInProcessing = new HashMap<>();
+	private JdbcSinkConnectorConfig config;
 	private int batchSize = 1000;
 	private int schemaType;
-	private OraCdcJdbcSinkConnectionPool sinkPool;
+	private JdbcSinkConnectionPool sinkPool;
 
 	@Override
 	public String version() {
@@ -57,11 +58,11 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 	@Override
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc '{}' Sink Task", props.get("name"));
-		config = new OraCdcJdbcSinkConnectorConfig(props);
+		config = new JdbcSinkConnectorConfig(props);
 
 		try {
 			LOGGER.debug("BEGIN: Hikari Connection Pool initialization.");
-			sinkPool = new OraCdcJdbcSinkConnectionPool(
+			sinkPool = new JdbcSinkConnectionPool(
 					props.get("name"),
 					config.getString(ParamConstants.CONNECTION_URL_PARAM),
 					config.getString(ParamConstants.CONNECTION_USER_PARAM),
@@ -105,10 +106,10 @@ public class OraCdcJdbcSinkTask extends SinkTask {
 					tableName = ((Struct) record.value()).getStruct("source").getString("table");
 					LOGGER.debug("Table name from 'source' field = {}.", tableName);
 				}
-				OraTable4SinkConnector oraTable = tablesInProcessing.get(tableName);
+				JdbcSinkTable oraTable = tablesInProcessing.get(tableName);
 				if (oraTable == null) {
 					LOGGER.debug("Create new table definition for {} and add it to processing map,", tableName);
-					oraTable = new OraTable4SinkConnector(
+					oraTable = new JdbcSinkTable(
 								sinkPool, tableName, record, schemaType, config);
 					tablesInProcessing.put(tableName, oraTable);
 				}

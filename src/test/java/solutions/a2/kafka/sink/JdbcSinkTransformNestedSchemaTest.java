@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.kafka.sink;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,14 +28,16 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
+import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
+import solutions.a2.kafka.sink.TargetDbSqlUtils;
 
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcTransformNestedSchemaTest {
+public class JdbcSinkTransformNestedSchemaTest {
 
 	private static final int PK_STRING_LENGTH_DEFAULT = 25;
 
@@ -114,19 +116,19 @@ public class OraCdcTransformNestedSchemaTest {
 		}
 
 		List<String> createScottDeptOra = TargetDbSqlUtils.createTableSql(
-				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE,
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_ORACLE,
 				PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns); 
 		List<String> createScottDeptPg = TargetDbSqlUtils.createTableSql(
-				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL,
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL,
 				PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns); 
 		List<String> createScottDeptMySql = TargetDbSqlUtils.createTableSql(
-				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL,
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_MYSQL,
 				PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns);
 		List<String> createScottDeptMsSql = TargetDbSqlUtils.createTableSql(
-				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL,
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_MSSQL,
 				PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns);
 
@@ -150,13 +152,13 @@ public class OraCdcTransformNestedSchemaTest {
 		assertTrue(createScottDeptMsSql.get(0).contains("S3_URL nvarchar(4000)"));
 
 		final Map<String, String> sqlTextsOra = TargetDbSqlUtils.generateSinkSql(
-				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns);
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsPg = TargetDbSqlUtils.generateSinkSql(
-				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMySql = TargetDbSqlUtils.generateSinkSql(
-				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMsSql = TargetDbSqlUtils.generateSinkSql(
-				"FND_LOBS", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns);
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns);
 
 		final String sinkUpsertSqlOra = sqlTextsOra.get(TargetDbSqlUtils.UPSERT);
 		final String sinkUpsertSqlPg = sqlTextsPg.get(TargetDbSqlUtils.UPSERT);

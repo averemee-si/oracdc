@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.kafka.sink;
 
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
@@ -43,11 +43,14 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraDumpDecoder;
+import solutions.a2.cdc.oracle.OraTableDefinition;
+import solutions.a2.cdc.oracle.ParamConstants;
 import solutions.a2.cdc.oracle.jmx.OraCdcSinkTableInfo;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
-import solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
 import solutions.a2.cdc.postgres.PgRdbmsInfo;
 
 
@@ -56,9 +59,9 @@ import solutions.a2.cdc.postgres.PgRdbmsInfo;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraTable4SinkConnector extends OraTableDefinition {
+public class JdbcSinkTable extends OraTableDefinition {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4SinkConnector.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkTable.class);
 	private static final Struct DUMMY_STRUCT =
 			new Struct(
 						SchemaBuilder
@@ -97,10 +100,10 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 	 * @param config
 	 * @throws SQLException 
 	 */
-	public OraTable4SinkConnector(
-			final OraCdcJdbcSinkConnectionPool sinkPool, final String tableName,
+	public JdbcSinkTable(
+			final JdbcSinkConnectionPool sinkPool, final String tableName,
 			final SinkRecord record, final int schemaType, 
-			final OraCdcJdbcSinkConnectorConfig config) throws SQLException {
+			final JdbcSinkConnectorConfig config) throws SQLException {
 		super(schemaType);
 		LOGGER.debug("Creating OraTable object from Kafka connect SinkRecord...");
 		this.pkStringLength = config.getPkStringLength();
@@ -122,7 +125,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			this.tableOwner = "oracdc";
 			this.tableName = tableName;
 		}
-		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+		if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
 			LOGGER.debug("Working with PostgreSQL specific lower case only names");
 			// PostgreSQL specific...
 			// Also look at https://stackoverflow.com/questions/43111996/why-postgresql-does-not-like-uppercase-table-names
@@ -460,14 +463,14 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			sinkUpsert.executeBatch();
 		} catch(SQLException sqle) {
 			boolean raiseException = true;
-			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+			if (dbType == JdbcSinkConnectionPool.DB_TYPE_ORACLE) {
 				if (onlyPkColumns && sqle.getErrorCode() == 1) {
 					// ORA-00001: unique constraint %s violated
 					// ignore for tables with PK only column(s)
 					raiseException = false;
 					LOGGER.warn(sqle.getMessage());
 				}
-			} else if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL) {
+			} else if (dbType == JdbcSinkConnectionPool.DB_TYPE_MYSQL) {
 				if (onlyPkColumns && StringUtils.startsWith(sqle.getMessage(), "Duplicate entry")) {
 					// Duplicate entry 'XXX' for key 'YYYYY'
 					// ignore for tables with PK only column(s)
@@ -835,7 +838,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 
 		List<String> sqlCreateTexts = TargetDbSqlUtils.createTableSql(
 				tableName, dbType, pkStringLength, pkColumns, allColumns, lobColumns);
-		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
+		if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
 				sqlCreateTexts.size() > 1) {
 			for (int i = 1; i < sqlCreateTexts.size(); i++) {
 				LOGGER.debug("\tPostgreSQL lo trigger:\n\t{}", sqlCreateTexts.get(i));
@@ -851,7 +854,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 					"Table '{}' created in the target database using:\n{}" +
 					"=====================",
 					tableName, sqlCreateTexts.get(0));
-			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
+			if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
 					sqlCreateTexts.size() > 1) {
 				for (int i = 1; i < sqlCreateTexts.size(); i++) {
 					try {
@@ -882,7 +885,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 			// No keys at all...
 			return false;
 		} else {
-			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+			if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
 				final StringBuilder keyString = new StringBuilder(256);
 				Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
 				boolean firstColumn = true;
@@ -911,7 +914,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 		LOGGER.debug("Check for table {} in database", this.tableName);
 		final DatabaseMetaData metaData = connection.getMetaData();
 		final String schema;
-		if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+		if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
 			final PreparedStatement psSchema = connection.prepareStatement("select CURRENT_SCHEMA",
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			final ResultSet rsSchema = psSchema.executeQuery();
@@ -941,7 +944,7 @@ public class OraTable4SinkConnector extends OraTableDefinition {
 					dbTable, resultSet.getString("TABLE_TYPE"), catalog, dbSchema);
 			exists = true;
 			final Set<String> pkFields;
-			if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+			if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
 				pkFields = PgRdbmsInfo.getPkColumnsFromDict(connection, dbSchema, dbTable);
 			} else {
 				//TODO

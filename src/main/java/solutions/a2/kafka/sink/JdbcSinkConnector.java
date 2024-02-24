@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.kafka.sink;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,9 +25,14 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.utils.Version;
 
-public class OraCdcJdbcSinkConnector extends SinkConnector {
+/**
+ *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
+ */
+public class JdbcSinkConnector extends SinkConnector {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkConnector.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkConnector.class);
 
 	private Map<String, String> props;
 
@@ -48,7 +53,7 @@ public class OraCdcJdbcSinkConnector extends SinkConnector {
 
 	@Override
 	public Class<? extends Task> taskClass() {
-		return OraCdcJdbcSinkTask.class;
+		return JdbcSinkTask.class;
 	}
 
 	@Override
@@ -62,7 +67,7 @@ public class OraCdcJdbcSinkConnector extends SinkConnector {
 
 	@Override
 	public ConfigDef config() {
-		return OraCdcJdbcSinkConnectorConfig.config();
+		return JdbcSinkConnectorConfig.config();
 	}
 
 }

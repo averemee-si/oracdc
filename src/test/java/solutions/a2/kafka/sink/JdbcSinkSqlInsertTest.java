@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.kafka.sink;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,16 +25,18 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.jupiter.api.Test;
 
+import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraXmlBinary;
-import solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
+import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
+import solutions.a2.kafka.sink.TargetDbSqlUtils;
 
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcSinkSqlInsertTest {
+public class JdbcSinkSqlInsertTest {
 
 	@Test
 	public void test() {
@@ -92,13 +94,13 @@ public class OraCdcSinkSqlInsertTest {
 		}
 
 		final Map<String, String> sqlTextsOra = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns);
+				"DEPT", JdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsPg = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
+				"DEPT", JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMySql = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
+				"DEPT", JdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMsSql = TargetDbSqlUtils.generateSinkSql(
-				"DEPT", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns);
+				"DEPT", JdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns);
 
 		final String sinkUpsertSqlOra = sqlTextsOra.get(TargetDbSqlUtils.UPSERT);
 		final String sinkUpsertSqlPg = sqlTextsPg.get(TargetDbSqlUtils.UPSERT);

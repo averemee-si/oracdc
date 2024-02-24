@@ -53,6 +53,7 @@ import solutions.a2.cdc.oracle.data.OraXmlBinary;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
+import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
 
 /**
  * 
@@ -937,7 +938,7 @@ public class OraColumn {
 			final PreparedStatement statement,
 			final int columnNo,
 			final Object columnValue) throws SQLException  {
-		bindWithPrepStmt(OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, statement, columnNo, columnValue);
+		bindWithPrepStmt(JdbcSinkConnectionPool.DB_TYPE_ORACLE, statement, columnNo, columnValue);
 	}
 
 	/**
@@ -1033,7 +1034,7 @@ public class OraColumn {
 						setNull = true;
 					}
 				}
-				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+				if (dbType == JdbcSinkConnectionPool.DB_TYPE_ORACLE) {
 					((OraclePreparedStatement) statement).setNUMBER(columnNo, new NUMBER(ba));
 				} else {
 					BigDecimal bd = null;
@@ -1053,7 +1054,7 @@ public class OraColumn {
 				break;
 			case Types.VARCHAR:
 				// 0x00 PostgreSQL problem
-				if (dbType == OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+				if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
 					statement.setString(columnNo, StringUtils.replace((String) columnValue, "\0", StringUtils.EMPTY));
 				} else { 
 					statement.setString(columnNo, (String) columnValue);

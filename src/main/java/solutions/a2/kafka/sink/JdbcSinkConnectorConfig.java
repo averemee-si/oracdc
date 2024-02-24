@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.kafka.sink;
 
 import java.util.Map;
 
@@ -19,12 +19,14 @@ import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
+
+import solutions.a2.cdc.oracle.ParamConstants;
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
+public class JdbcSinkConnectorConfig extends AbstractConfig {
 
 	private static final String AUTO_CREATE_PARAM = "a2.autocreate";
 	private static final String AUTO_CREATE_DOC = "Automatically create the destination table if missed";
@@ -58,7 +60,7 @@ public class OraCdcJdbcSinkConnectorConfig extends AbstractConfig {
 				;
 	}
 
-	public OraCdcJdbcSinkConnectorConfig(Map<?, ?> originals) {
+	public JdbcSinkConnectorConfig(Map<?, ?> originals) {
 		super(config(), originals);
 	}
 

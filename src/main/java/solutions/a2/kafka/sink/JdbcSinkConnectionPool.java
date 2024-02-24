@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.kafka.sink;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -26,9 +26,14 @@ import org.slf4j.LoggerFactory;
 
 import com.zaxxer.hikari.HikariDataSource;
 
-public class OraCdcJdbcSinkConnectionPool {
+/**
+ *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
+ */
+public class JdbcSinkConnectionPool {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcJdbcSinkConnectionPool.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkConnectionPool.class);
 	private static final int INITIAL_SIZE = 4;
 	private static final String DRIVER_POSTGRESQL = "org.postgresql.Driver";
 	private static final String PREFIX_POSTGRESQL = "jdbc:postgresql:";
@@ -49,7 +54,7 @@ public class OraCdcJdbcSinkConnectionPool {
 	 * @param password       JDBC password
 	 * @throws SQLException
 	 */
-	public OraCdcJdbcSinkConnectionPool(
+	public JdbcSinkConnectionPool(
 			String connectorName, String url, String user, String password) throws SQLException {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("JDBC Url = {}", url);

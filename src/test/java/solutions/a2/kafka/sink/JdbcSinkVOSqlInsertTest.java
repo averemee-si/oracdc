@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.kafka.sink;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -25,14 +25,16 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.cdc.oracle.utils.TargetDbSqlUtils;
+import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
+import solutions.a2.kafka.sink.TargetDbSqlUtils;
 
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcSinkVOSqlInsertTest {
+public class JdbcSinkVOSqlInsertTest {
 
 	@Test
 	public void test() {
@@ -62,13 +64,13 @@ public class OraCdcSinkVOSqlInsertTest {
 		}
 
 		final Map<String, String> sqlTextsOra = TargetDbSqlUtils.generateSinkSql(
-				"SALGRADE", OraCdcJdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns);
+				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsPg = TargetDbSqlUtils.generateSinkSql(
-				"SALGRADE", OraCdcJdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
+				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMySql = TargetDbSqlUtils.generateSinkSql(
-				"SALGRADE", OraCdcJdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
+				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMsSql = TargetDbSqlUtils.generateSinkSql(
-				"SALGRADE", OraCdcJdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns);
+				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns);
 
 		final String sinkInsertSqlOra = sqlTextsOra.get(TargetDbSqlUtils.INSERT);
 		final String sinkInsertSqlPg = sqlTextsPg.get(TargetDbSqlUtils.INSERT);
