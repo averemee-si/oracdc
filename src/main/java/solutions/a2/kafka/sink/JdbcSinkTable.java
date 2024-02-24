@@ -46,12 +46,12 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.OraDumpDecoder;
 import solutions.a2.cdc.oracle.OraTableDefinition;
-import solutions.a2.cdc.oracle.jmx.OraCdcSinkTableInfo;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.postgres.PgRdbmsInfo;
 import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.kafka.sink.jmx.SinkTableInfo;
 
 
 /**
@@ -71,7 +71,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 
 
 	private final int dbType;
-	private final OraCdcSinkTableInfo metrics;
+	private final SinkTableInfo metrics;
 	private String sinkUpsertSql = null;
 	private String sinkDeleteSql = null;
 	private PreparedStatement sinkUpsert = null;
@@ -184,7 +184,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			throw new ConnectException(sqle);
 		}
 
-		metrics = new OraCdcSinkTableInfo(this.tableName);
+		metrics = new SinkTableInfo(this.tableName);
 		upsertCount = 0;
 		deleteCount = 0;
 		upsertTime = 0;

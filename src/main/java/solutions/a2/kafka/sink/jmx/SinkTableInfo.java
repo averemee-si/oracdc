@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle.jmx;
+package solutions.a2.kafka.sink.jmx;
 
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
@@ -32,15 +32,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import solutions.a2.utils.OraCdcMBeanUtils;
 
 /**
- * 
- * @author averemee
  *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
  */
-public class OraCdcSinkTableInfo implements OraCdcSinkTableInfoMBean {
+public class SinkTableInfo implements SinkTableInfoMBean {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSinkTableInfoMBean.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(SinkTableInfoMBean.class);
 
 	private long startTimeMillis;
 	private LocalDateTime startTime;
@@ -49,7 +50,7 @@ public class OraCdcSinkTableInfo implements OraCdcSinkTableInfoMBean {
 	private long elapsedDeleteNanos;
 	private long deleteRecordsCount;
 
-	public OraCdcSinkTableInfo(final String tableName) {
+	public SinkTableInfo(final String tableName) {
 		this.startTimeMillis = System.currentTimeMillis();
 		this.startTime = LocalDateTime.now();
 		this.elapsedUpsertNanos = 0;

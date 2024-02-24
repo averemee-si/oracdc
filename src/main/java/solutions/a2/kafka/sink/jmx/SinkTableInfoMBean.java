@@ -11,14 +11,14 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle.jmx;
+package solutions.a2.kafka.sink.jmx;
 
 /**
- * 
- * @author averemee
  *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
  */
-public interface OraCdcSinkTableInfoMBean {
+public interface SinkTableInfoMBean {
 	public String getStartTime();
 	public long getElapsedTimeMillis();
 	public String getElapsedTime();

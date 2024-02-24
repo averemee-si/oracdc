@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.OraCdcLogMinerTask;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.utils.ExceptionUtils;
+import solutions.a2.utils.OraCdcMBeanUtils;
 
 /**
  * 

@@ -11,20 +11,20 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle.jmx;
+package solutions.a2.utils;
 
 import java.time.Duration;
 
 /**
- * 
- * @author averemee
  *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
  */
 public class OraCdcMBeanUtils {
 
 	private static final String DURATION_FMT = "%sdays %shrs %smin %ssec.\n";
 
-	protected static String formatDuration(Duration duration) {
+	public static String formatDuration(Duration duration) {
 		return String.format(DURATION_FMT,
 				duration.toDays(),
 				duration.toHours() % 24,
