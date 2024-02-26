@@ -24,7 +24,6 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
@@ -49,6 +48,7 @@ public class JdbcSinkTask extends SinkTask {
 	private int batchSize = 1000;
 	private int schemaType;
 	private JdbcSinkConnectionPool sinkPool;
+	private TableNameMapper tableNameMapper;
 
 	@Override
 	public String version() {
@@ -75,13 +75,9 @@ public class JdbcSinkTask extends SinkTask {
 		}
 
 		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
-		LOGGER.debug("batchSize = {} records.", batchSize);
-		final String schemaTypeString = props.get(ConnectorParams.SCHEMA_TYPE_PARAM);
-		LOGGER.debug("a2.schema.type set to {}.", schemaTypeString);
-		if (ConnectorParams.SCHEMA_TYPE_DEBEZIUM.equals(schemaTypeString))
-			schemaType = ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
-		else
-			schemaType = ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
+		schemaType = config.getSchemaType();
+		tableNameMapper = config.getTableNameMapper();
+		tableNameMapper.configure(config);
 	}
 
 	@Override
@@ -92,20 +88,7 @@ public class JdbcSinkTask extends SinkTask {
 			int processedRecords = 0;
 			final Map<TopicPartition, OffsetAndMetadata> currentOffsets = new HashMap<>();
 			for (SinkRecord record : records) {
-				final String tableName;
-				//TODO
-				//TODO
-				//TODO Replace with SimpleNamingStrategy(record, config);
-				//TODO
-				//TODO
-				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD ||
-						schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
-					tableName = record.topic();
-					LOGGER.debug("Table name from Kafka topic = {}.", tableName);
-				} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-					tableName = ((Struct) record.value()).getStruct("source").getString("table");
-					LOGGER.debug("Table name from 'source' field = {}.", tableName);
-				}
+				final String tableName = tableNameMapper.getTableName(record);
 				JdbcSinkTable oraTable = tablesInProcessing.get(tableName);
 				if (oraTable == null) {
 					LOGGER.debug("Create new table definition for {} and add it to processing map,", tableName);
