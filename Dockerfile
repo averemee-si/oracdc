@@ -69,11 +69,11 @@ RUN    echo "" > ${PROPS_FILE} \
 
 
 # Add schema registry dependencies
-ARG    CONFLUENT_VERSION=7.3.3
-ARG    AVRO_VERSION=1.11.1
-ARG    C_COMPRESS_VERSION=1.23.0
-ARG    GUAVA_VERSION=31.1-jre
-ARG    FA_VERSION=1.0.1
+ARG    CONFLUENT_VERSION=7.3.7
+ARG    AVRO_VERSION=1.11.3
+ARG    C_COMPRESS_VERSION=1.26.0
+ARG    GUAVA_VERSION=33.0.0-jre
+ARG    FA_VERSION=1.0.2
 RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && wget "https://packages.confluent.io/maven/io/confluent/kafka-connect-avro-converter/${CONFLUENT_VERSION}/kafka-connect-avro-converter-${CONFLUENT_VERSION}.jar" \
              -O "kafka-connect-avro-converter-${CONFLUENT_VERSION}.jar" \
