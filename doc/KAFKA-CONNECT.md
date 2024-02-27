@@ -130,6 +130,8 @@ When set to _any_unique_ and the table does not have a [primary key](https://doc
 
 `a2.use.all.columns.on.delete` - When set to _false_ (default) **oracdc** reads and processes only the [primary](https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB) key columns from the redo record and sends only the key fields to the Apache Kafka topic. When set to _true_ **oracdc** reads and processes all table columns from the redo record. Default - *false*.
 
+`a2.topic.mapper` - The fully-qualified class name of the class that specifies which Kafka topic the data from the tables should be sent to. If value of thee parameter `a2.shema.type` is set to `debezium`, the default OraCdcDefaultTopicNameMapper uses the parameter `a2.kafka.topic` value as the Kafka topic name, otherwise it constructs the topic name according to the values of the parameters `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter`, as well as the table name, table owner and PDB name.
+Default - *solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper*
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 

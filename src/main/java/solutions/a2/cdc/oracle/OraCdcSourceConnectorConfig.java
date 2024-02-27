@@ -13,14 +13,20 @@
 
 package solutions.a2.cdc.oracle;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 
@@ -28,6 +34,8 @@ import solutions.a2.kafka.ConnectorParams;
  *
  */
 public class OraCdcSourceConnectorConfig extends AbstractConfig {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnectorConfig.class);
 
 	public static final int INCOMPLETE_REDO_INT_ERROR = 1;
 	public static final int INCOMPLETE_REDO_INT_SKIP = 2;
@@ -102,6 +110,14 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			"Default - true.\n" +
 			"When set to true and the table does not have a appropriate primary or unique key, oracdc adds surrogate key using the ROWID.\n" +
 			"When set to false and the table does not have a appropriate primary or unique key, oracdc generates schema for the table without any key fields.\n";
+
+	private static final String TOPIC_MAPPER_DEFAULT = "solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper";
+	private static final String TOPIC_MAPPER_PARAM = "a2.topic.mapper";
+	private static final String TOPIC_MAPPER_DOC =
+			"The fully-qualified class name of the class that specifies which Kafka topic the data from the tables should be sent to.\n" +
+			"If value of thee parameter 'a2.shema.type' is set to 'debezium', the default OraCdcDefaultTopicNameMapper uses the parameter 'a2.kafka.topic' value as the Kafka topic name,\n" +
+			"otherwise it constructs the topic name according to the values of the parameters 'a2.topic.prefix', 'a2.topic.name.style', and 'a2.topic.name.delimiter', as well as the table name, table owner and PDB name.\n" +
+			"Default - " + TOPIC_MAPPER_DEFAULT;
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
@@ -251,6 +267,9 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
 				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
 						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
+				.define(TOPIC_MAPPER_PARAM, Type.STRING,
+						TOPIC_MAPPER_DEFAULT,
+						Importance.LOW, TOPIC_MAPPER_DOC)
 				;
 	}
 
@@ -354,5 +373,53 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	public boolean useAllColsOnDelete() {
 		return getBoolean(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM);
 	}
+
+	public TopicNameMapper getTopicNameMapper() {
+		final TopicNameMapper tnm;
+		final Class<?> clazz;
+		final Constructor<?> constructor;
+		try {
+			clazz = Class.forName(getString(TOPIC_MAPPER_PARAM));
+		} catch (ClassNotFoundException nfe) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Class '{}' specified as the parameter '{}' value was not found.\n" +
+					ExceptionUtils.getExceptionStackTrace(nfe) +
+					"\n" +
+					"=====================\n",
+					getString(TOPIC_MAPPER_PARAM), TOPIC_MAPPER_PARAM);
+			throw new ConnectException(nfe);
+		}
+		try {
+			constructor = clazz.getConstructor();
+		} catch (NoSuchMethodException nsme) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Unable to get default constructor for the class '{}'.\n" +
+					ExceptionUtils.getExceptionStackTrace(nsme) +
+					"\n" +
+					"=====================\n",
+					getString(TOPIC_MAPPER_PARAM));
+			throw new ConnectException(nsme);
+		} 
+		
+		try {
+			tnm = (TopicNameMapper) constructor.newInstance();
+		} catch (SecurityException | 
+				InvocationTargetException | 
+				IllegalAccessException | 
+				InstantiationException e) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"'{}' while instantinating the class '{}'.\n" +
+					ExceptionUtils.getExceptionStackTrace(e) +
+					"\n" +
+					"=====================\n",
+					e.getMessage(),getString(TOPIC_MAPPER_PARAM));
+			throw new ConnectException(e);
+		}
+		return tnm;
+	}
+
 
 }

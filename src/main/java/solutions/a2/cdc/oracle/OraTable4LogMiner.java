@@ -46,7 +46,6 @@ import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
-import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.kafka.ConnectorParams;
@@ -1181,38 +1180,13 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	public void setTopicDecoderPartition(final OraCdcSourceConnectorConfig config,
 			final OraDumpDecoder odd, final Map<String, String> sourcePartition) {
-		final String topicParam = config.getTopicOrPrefix();
-		final int topicNameStyle = config.getTopicNameStyle();
-		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD ||
-				this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
-			if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_TABLE) {
-				this.kafkaTopic = this.tableName;
-			} else if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE) {
-				this.kafkaTopic = this.tableOwner + config.getTopicNameDelimiter() + this.tableName;
-			} else {
-				// topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE
-				if (this.pdbName == null) {
-					LOGGER.warn("Unable to use a2.topic.name.style=PDB_SCHEMA_TABLE in non-CDB database for table {}!",
-							this.fqn());
-					this.kafkaTopic = this.tableOwner + config.getTopicNameDelimiter() + this.tableName;
-				} else {
-					this.kafkaTopic = this.pdbName + config.getTopicNameDelimiter() +
-										this.tableOwner + config.getTopicNameDelimiter() + this.tableName;
-				}
-			}
-			if (StringUtils.isNotBlank(topicParam)) {
-				this.kafkaTopic = topicParam + config.getTopicNameDelimiter() + this.kafkaTopic;
-			}
-			if (!KafkaUtils.validTopicName(this.kafkaTopic)) {
-				this.kafkaTopic = KafkaUtils.fixTopicName(this.kafkaTopic, "zZ");
-			}
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("Kafka topic for table {} set to {}.",
-						this.fqn(), this.kafkaTopic);
-			}
-		} else {
-			// SCHEMA_TYPE_INT_DEBEZIUM
-			this.kafkaTopic = topicParam;
+		final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
+		topicNameMapper.configure(config);
+		this.kafkaTopic = topicNameMapper.getTopicName(pdbName, tableOwner, tableName);
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug(
+					"Kafka topic for table {} set to {}.",
+					this.fqn(), this.kafkaTopic);
 		}
 		this.odd = odd;
 		this.sourcePartition = sourcePartition;
