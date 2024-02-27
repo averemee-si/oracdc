@@ -22,7 +22,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,7 +109,7 @@ public class OraConnectionObjects {
 			LOGGER.error("Errors while processing following array of Oracle RAC URLs:");
 			dbUrls.forEach(v -> LOGGER.error("\t{}", v));
 			LOGGER.error("Size equals {}, but current index equals {} !", dbUrls.size(), index);
-			throw new ConnectException("Unable to build connections to Oracle RAC!");
+			throw new SQLException("Unable to build connections to Oracle RAC!");
 		} else if (index == (dbUrls.size() - 1)) {
 			// Last element - reset back to 0
 			taskId.set(0);
