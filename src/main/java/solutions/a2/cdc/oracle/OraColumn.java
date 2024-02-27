@@ -1007,10 +1007,48 @@ public class OraColumn {
 				}
 				break;
 			case Types.FLOAT:
-				statement.setFloat(columnNo, (float) columnValue);
+				if (Float.NEGATIVE_INFINITY == (float) columnValue) {
+					if (nullable) {
+						statement.setNull(columnNo, Types.FLOAT);
+						LOGGER.error(
+								"\n=====================\n" +
+								"Negative float infinity value for nullable column '{}' at position # {}!\n" +
+								"=====================\n",
+								columnName, columnNo);
+					} else {
+						statement.setDouble(columnNo, Float.MIN_VALUE);
+						LOGGER.error(
+								"\n=====================\n" +
+								"Negative float infinity value for column '{}' at position # {}!\n" +
+								"Column value is set to Float.MIN_VALUE = '{}'!\n" +
+								"=====================\n",
+								columnName, columnNo, Float.MIN_VALUE);
+					}
+				} else {
+					statement.setFloat(columnNo, (float) columnValue);
+				}
 				break;
 			case Types.DOUBLE:
-				statement.setDouble(columnNo, (double) columnValue);
+				if (Double.NEGATIVE_INFINITY == (double) columnValue) {
+					if (nullable) {
+						statement.setNull(columnNo, Types.DOUBLE);
+						LOGGER.error(
+								"\n=====================\n" +
+								"Negative double infinity value for nullable column '{}' at position # {}!\n" +
+								"=====================\n",
+								columnName, columnNo);
+					} else {
+						statement.setDouble(columnNo, Double.MIN_VALUE);
+						LOGGER.error(
+								"\n=====================\n" +
+								"Negative double infinity value for column '{}' at position # {}!\n" +
+								"Column value is set to Double.MIN_VALUE = '{}'!\n" +
+								"=====================\n",
+								columnName, columnNo, Double.MIN_VALUE);
+					}
+				} else {
+					statement.setDouble(columnNo, (double) columnValue);
+				}
 				break;
 			case Types.DECIMAL:
 				statement.setBigDecimal(columnNo, (BigDecimal) columnValue);
