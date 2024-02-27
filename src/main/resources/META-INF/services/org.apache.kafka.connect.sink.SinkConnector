@@ -1,1 +1,1 @@
-solutions.a2.cdc.oracle.OraCdcJdbcSinkConnector
+solutions.a2.kafka.sink.JdbcSinkConnector
