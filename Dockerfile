@@ -39,13 +39,13 @@ ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
 COPY   target/${ORACDC_FILENAME} ${KAFKA_HOME}/connect/lib
 RUN    chown -R kafka:kafka ${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
 
-ARG    CLASSPATH=${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
+ENV    ORACDC_JAR=${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
 ARG    MAIN_CONFIG=solutions.a2.cdc.oracle.utils.file.Env2Property
 RUN    mkdir ${BASEDIR}/oracdc \
        && touch ${BASEDIR}/oracdc/run.sh \
        && chmod +x ${BASEDIR}/oracdc/run.sh \
        && echo "#!/bin/sh" > ${BASEDIR}/oracdc/run.sh \
-       && echo "java -cp ${CLASSPATH} ${MAIN_CONFIG} A2_ORACDC_ ${PROPS_FILE} --append" >> ${BASEDIR}/oracdc/run.sh \
+       && echo "java -cp ${ORACDC_JAR} ${MAIN_CONFIG} A2_ORACDC_ ${PROPS_FILE} --append" >> ${BASEDIR}/oracdc/run.sh \
        && echo "cat ${PROPS_FILE}" >> ${BASEDIR}/oracdc/run.sh \
        && echo "connect-distributed.sh $PROPS_FILE" >> ${BASEDIR}/oracdc/run.sh \
        && chown -R kafka:kafka ${BASEDIR}/oracdc
@@ -66,6 +66,11 @@ RUN    echo "" > ${PROPS_FILE} \
        && echo "key.converter.schemas.enable=true" >> ${PROPS_FILE} \
        && echo "value.converter.schemas.enable=true" >> ${PROPS_FILE} \
        && echo "plugin.path=/opt/kafka/connect/lib" >> ${PROPS_FILE}
+
+ARG    CHECKER_CMD=${KAFKA_HOME}/bin/oraCheck.sh
+RUN    echo "#! /bin/sh" > ${CHECKER_CMD} \
+       && echo "java -cp \${ORACDC_JAR} solutions.a2.cdc.oracle.utils.OracleSetupCheck \"\$@\"" >> ${CHECKER_CMD} \
+       && chmod +x ${CHECKER_CMD}
 
 
 # Add schema registry dependencies

@@ -324,7 +324,7 @@ public class OracleSetupCheck {
 
 	private static void setupCliOptions(final Options options) {
 		// Source connection
-		final Option sourceJdbcUrl = new Option("url", "jdbc-url", true,
+		final Option sourceJdbcUrl = new Option("j", "jdbc-url", true,
 				"Oracle Database JDBC URL");
 		sourceJdbcUrl.setRequired(true);
 		options.addOption(sourceJdbcUrl);
