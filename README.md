@@ -445,6 +445,31 @@ grant
 to ORACDC;
 ```
 
+### Oracle Database settings check utility
+To check the required Oracle Database settings, you can use the setup check utility (v2.2.+), which will check all the settings and, if there are problems, advise on how to fix them
+
+```
+java -cp oracdc-kafka-2.2.0-standalone.jar solutions.a2.cdc.oracle.utils.OracleSetupCheck \
+     --jdbc-url <ORA-JDBC-URL> --user <ACCOUNT-TO-RUN-CONNECTOR> --password <ACCOUNT-PASSWORD>
+```
+
+To run in container environment
+
+```
+docker run --rm -it averemee/oracdc oraCheck.sh \
+     --jdbc-url <ORA-JDBC-URL> --user <ACCOUNT-TO-RUN-CONNECTOR> --password <ACCOUNT-PASSWORD>
+```
+If there are no problems with the settings, the utility prints the following output
+
+```
+=====================
+
+The oracdc's setup check was completed successfully, everything is ready to start oracdc connector
+
+=====================
+```
+
+
 ### Options for connecting to Oracle Database
 In CDB Architecture **oracdc** must connected to [CDB$ROOT](https://docs.oracle.com/en/database/oracle/oracle-database/23/multi/introduction-to-the-multitenant-architecture.html), but starting from Oracle Database [19c RU 10](https://updates.oracle.com/download/32218454.html) and Oracle Database 21c you can chose to connect either to the [CDB$ROOT](https://docs.oracle.com/en/database/oracle/oracle-database/23/multi/introduction-to-the-multitenant-architecture.html), or to an individual PDB.
 
@@ -804,6 +829,17 @@ ServiceLoader manifest files, for more information please read [KIP-898: Moderni
 2) add exponential back-off for sink getConnection()
 3) support for key-less schemas
 4) PostgreSQL: support for implicitly defined primary keys
+
+#####2.2.0 (MAR-2024)
+
+######LogMiner Connector
+1) Enhanced handling of partial rollback redo records (ROLLBACK=1). For additional information about these redo records please read [ROLLBACK INTERNALS](https://blog.ora-600.pl/2017/09/20/rollback-internals/) starting with the sentence _"The interesting thing is with partial rollback."_
+2) New parameter `a2.topic.mapper` to manage the name of the Kafka topic to which data will be sent. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md)
+3) Oracle Database settings check utility
+
+######Sink Connector
+1) Connector classes are re-factored and the Sink Connector itself renamed from **solutions.a2.cdc.oracle.OraCdcJdbcSinkConnector** to **solutions.a2.kafka.sink.JdbcSinkConnector**
+2) New parameter - `a2.table.mapper` to manage the table in which to sink the data.
 
 ## Authors
 
