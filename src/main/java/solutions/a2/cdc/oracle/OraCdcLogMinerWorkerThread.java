@@ -586,11 +586,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								if (oraTable.isCheckSupplementalLogData()) {
 									final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
 									final String rowId = rsLogMiner.getString("ROW_ID");
-									//TODO
-									//TODO
-									//TODO add special case for where OPERATION_CODE=2 and ROLLBACK=1
-									//TODO
-									//TODO
 									// squeeze it!
 									sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
 									if (operation == OraCdcV$LogmnrContents.INSERT) {
@@ -913,14 +908,18 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		LOGGER.error("Error '{}' when waiting for next archived log.", sqle.getMessage());
 		LOGGER.error("SQL errorCode = {}, SQL state = '{}'",
 				sqle.getErrorCode(), sqle.getSQLState());
-		if (sqle.getErrorCode() == ORA_17410) {
-			// SQLSTATE = '08000'
-			LOGGER.error("ORA-17410: No more data to read from socket");
+		if (sqle.getErrorCode() == ORA_17410 ||
+				// SQLSTATE = '08000'
+				sqle.getErrorCode() == ORA_17002) { 
+				// SQLSTATE = '08006'
 			boolean ready = false;
+			int retries = 0;
 			while (runLatch.getCount() > 0 && !ready) {
-				LOGGER.debug("Waiting {} ms for RDBMS connection restore...", pollInterval);
+				long waitTime = (long) Math.pow(2, retries++) + connectionRetryBackoff;
+				LOGGER.warn("Waiting {} ms for LogMiner connection to restore after ORA-{} error...",
+						waitTime, sqle.getErrorCode());
 				try {
-					this.wait(connectionRetryBackoff);
+					this.wait(waitTime);
 				} catch (InterruptedException ie) {
 					LOGGER.error(ie.getMessage());
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
@@ -933,6 +932,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							getConnException.getMessage(), getConnException.getErrorCode(), getConnException.getSQLState());
 				}
 			}
+		} else {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Unhandled '{}', SQL errorCode = {}, SQL state = '{}'\n" +
+					"in restoreOraConnection(sqle) !\n" +
+					"To fix - please send this message to oracle@a2-solutions.eu\n" +
+					"=====================\n",
+					sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 		}
 	}
 
