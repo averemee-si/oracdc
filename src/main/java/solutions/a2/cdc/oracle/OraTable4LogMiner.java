@@ -319,7 +319,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				}
 				sb
 					.append("\nfrom ")
-					.append(tableFqn)
+					.append(tableOwner)
+					.append(".")
+					.append(tableName)
 					.append("\nwhere ROWID = CHARTOROWID(?)");
 				sqlGetKeysUsingRowId = sb.toString();
 			}
@@ -1491,6 +1493,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private void getMissedColumnValues(final Connection connection, final String rowId, final Struct keyStruct) throws SQLException {
 		try {
+			if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
+				alterSessionSetContainer(connection, pdbName);
+			}
 			final PreparedStatement statement = connection .prepareStatement(sqlGetKeysUsingRowId,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			statement.setString(1, rowId);
@@ -1521,6 +1526,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						fqn(), connection.getSchema());
 			}
 			throw sqle;
+		} finally {
+			if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
+				alterSessionSetContainer(connection, OraRdbmsInfo.CDB_ROOT);
+			}
 		}
 	}
 
