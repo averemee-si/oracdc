@@ -1103,7 +1103,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			initialLoadWorker.shutdown();
 		}
 		if (!legacyResiliencyModel && activeTransactions != null && activeTransactions.isEmpty()) {
-			if (worker.getLastRsId() != null && worker.getLastScn() > 0) {
+			if (worker != null && worker.getLastRsId() != null && worker.getLastScn() > 0) {
 				putReadRestartScn(Triple.of(
 						worker.getLastScn(),
 						worker.getLastRsId(),

@@ -133,6 +133,9 @@ When set to _any_unique_ and the table does not have a [primary key](https://doc
 `a2.topic.mapper` - The fully-qualified class name of the class that specifies which Kafka topic the data from the tables should be sent to. If value of thee parameter `a2.shema.type` is set to `debezium`, the default OraCdcDefaultTopicNameMapper uses the parameter `a2.kafka.topic` value as the Kafka topic name, otherwise it constructs the topic name according to the values of the parameters `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter`, as well as the table name, table owner and PDB name.
 Default - *solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper*
 
+`a2.stop.on.ora.1284` - If set to true, the connector stops on an Oracle database error 'ORA-01284: file <Absolute-Path-To-Log-File> cannot be opened'. If set to false, the connector prints an error message and continues processing.
+Default - *true*.
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - *false*.

@@ -67,6 +67,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private final boolean printAllOnlineScnRanges;
 	private long lastOnlineSequence = 0;
 	private final boolean useStandby;
+	private final boolean stopOnOra1284;
 
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
@@ -79,6 +80,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		this.metrics = metrics;
 		this.rdbmsInfo = rdbmsInfo;
 		this.useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
+		this.stopOnOra1284 = config.stopOnOra1284();
 
 		if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
 			// 19.10+ with connection to PDB
@@ -302,33 +304,45 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		}
 
 		// Set current processing in JMX
+		boolean result = true;
 		metrics.setNowProcessed(
 				fileNames, nextLogs ? firstChange : sessionFirstChange, nextChange, lagSeconds);
-		if (callDbmsLogmnrAddLogFile || processOnlineRedo) {
-			LOGGER.trace("Adding files to LogMiner session and starting it");
-			for (int fileNum = 0; fileNum < fileNames.size(); fileNum++) {
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Adding {} to LogMiner processing list.", fileNames.get(fileNum));
-				}
-				csAddArchivedLogs.setInt(1, fileNum);
-				csAddArchivedLogs.setString(2, fileNames.get(fileNum));
-				csAddArchivedLogs.addBatch();
-			}
-			csAddArchivedLogs.executeBatch();
-			csAddArchivedLogs.clearBatch();
-		}
-
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Attempting to start LogMiner for SCN range from {} to {}.",
-					nextLogs ? firstChange : sessionFirstChange, nextChange);
-		}
 		try {
+			if (callDbmsLogmnrAddLogFile || processOnlineRedo) {
+				LOGGER.trace("Adding files to LogMiner session and starting it");
+				for (int fileNum = 0; fileNum < fileNames.size(); fileNum++) {
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Adding {} to LogMiner processing list.", fileNames.get(fileNum));
+					}
+					csAddArchivedLogs.setInt(1, fileNum);
+					csAddArchivedLogs.setString(2, fileNames.get(fileNum));
+					csAddArchivedLogs.addBatch();
+				}
+				csAddArchivedLogs.executeBatch();
+				csAddArchivedLogs.clearBatch();
+			}
+
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Attempting to start LogMiner for SCN range from {} to {}.",
+					nextLogs ? firstChange : sessionFirstChange, nextChange);
+			}
 			csStartLogMiner.setLong(1, nextLogs ? firstChange : sessionFirstChange); 
 			csStartLogMiner.setLong(2, processOnlineRedo ? nextChange - 1 : nextChange);
 			csStartLogMiner.execute();
 			csStartLogMiner.clearParameters();
 		} catch(SQLException sqle) {
-			if (sqle.getErrorCode() == OraRdbmsInfo.ORA_1291 &&
+			if (sqle.getErrorCode() == OraRdbmsInfo.ORA_1284) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"SQL errorCode = {}, SQL state = '{}' while executing DBMS_LOGMNR.START_LOGMNR!\n" +
+						"SQL error message = {}\n" +
+						"\n=====================\n",
+						sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
+				if (stopOnOra1284) {
+					throw sqle;
+				}
+				result = false;
+			} else if (sqle.getErrorCode() == OraRdbmsInfo.ORA_1291 &&
 					processOnlineRedo) {
 				LOGGER.debug("ORA-1291 while processing online redo log {}.", fileNames.get(0));
 				return false;
@@ -340,11 +354,10 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 						.append("\n");
 				});
 				LOGGER.error(
-						"\n" +
-						"=====================\n" +
+						"\n=====================\n" +
 						"Unable to execute\\n\\t{}\\n\\tusing STARTSCN={} and ENDSCN={}!\n" +
 						"\tLogMiner redo files:\n{}" +
-						"=====================\n",
+						"\n=====================\n",
 							OraDictSqlTexts.START_LOGMINER,
 							nextLogs ? firstChange : sessionFirstChange, nextChange, sb);
 				throw sqle;
@@ -357,7 +370,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		firstChange = nextChange;
 		readStartMillis = System.currentTimeMillis();
 		LOGGER.trace("END: {} returns true", functionName);
-		return true;
+		return result;
 	}
 
 	@Override

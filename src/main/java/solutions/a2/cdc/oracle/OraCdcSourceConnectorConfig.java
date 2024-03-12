@@ -119,6 +119,13 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			"otherwise it constructs the topic name according to the values of the parameters 'a2.topic.prefix', 'a2.topic.name.style', and 'a2.topic.name.delimiter', as well as the table name, table owner and PDB name.\n" +
 			"Default - " + TOPIC_MAPPER_DEFAULT;
 
+	private static final boolean STOP_ON_ORA_1284_DEFAULT = true;
+	private static final String STOP_ON_ORA_1284_PARAM = "a2.stop.on.ora.1284";
+	private static final String STOP_ON_ORA_1284_DOC =
+			"If set to true, the connector stops on an Oracle database error 'ORA-01284: file <Absolute-Path-To-Log-File> cannot be opened'.\n" +
+			"If set to false, the connector prints an error message and continues processing.\n" +
+			"Default - " + STOP_ON_ORA_1284_DEFAULT;
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int schemaType = -1;
@@ -270,6 +277,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				.define(TOPIC_MAPPER_PARAM, Type.STRING,
 						TOPIC_MAPPER_DEFAULT,
 						Importance.LOW, TOPIC_MAPPER_DOC)
+				.define(STOP_ON_ORA_1284_PARAM, Type.BOOLEAN, STOP_ON_ORA_1284_DEFAULT,
+						Importance.LOW, STOP_ON_ORA_1284_DOC)
 				;
 	}
 
@@ -372,6 +381,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public boolean useAllColsOnDelete() {
 		return getBoolean(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM);
+	}
+
+	public boolean stopOnOra1284() {
+		return getBoolean(STOP_ON_ORA_1284_PARAM);
 	}
 
 	public TopicNameMapper getTopicNameMapper() {
