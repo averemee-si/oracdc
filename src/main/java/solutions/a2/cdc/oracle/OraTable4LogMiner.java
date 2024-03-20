@@ -95,7 +95,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private boolean printInvalidHexValueWarning = false;
 	private int incompleteDataTolerance = OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
 	private boolean onlyValue = false;
-	private boolean useAllColsOnDelete = false; 
+	private boolean useAllColsOnDelete = false;
+	private int mandatoryColumnsCount = 0;
+	private int mandatoryColumnsProcessed = 0;
 
 	/**
 	 * 
@@ -297,6 +299,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 					}
 				}
+
+				if (column.isPartOfPk() || (!column.isNullable())) {
+					mandatoryColumnsCount++;
+				}
 			}
 
 			rsColumns.close();
@@ -454,6 +460,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
 			}
 		}
+		mandatoryColumnsProcessed = 0;
 		final char opType;
 		if (stmt.getOperation() == OraCdcV$LogmnrContents.INSERT) {
 			if (LOGGER.isDebugEnabled()) {
@@ -511,6 +518,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 										parseRedoRecordValues(
 												oraColumn, columnValue,
 												keyStruct, valueStruct);
+										if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+											mandatoryColumnsProcessed++;
+										}
 									} catch (SQLException sqle) {
 										if (oraColumn.isNullable()) {
 											printToLogInvalidHexValueWarning(
@@ -575,6 +585,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								try {
 									parseRedoRecordValues(oraColumn,
 											columnValue, keyStruct, valueStruct);
+									if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+										mandatoryColumnsProcessed++;
+									}
 								} catch (DataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											columnValue, oraColumn.getColumnName(), tableFqn);
@@ -694,6 +707,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								parseRedoRecordValues(
 										oraColumn, columnValue,
 										keyStruct, valueStruct);
+								if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+									mandatoryColumnsProcessed++;
+								}
 								setColumns.add(columnName);
 							} catch (SQLException sqle ) {
 								if (oraColumn.isNullable()) {
@@ -760,6 +776,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 													oraColumn.getColumnName(), this.tableFqn, columnDefaultValue,
 													stmt.getScn(), stmt.getRsId(), stmt.getSqlRedo());
 											valueStruct.put(oraColumn.getColumnName(), columnDefaultValue);
+											if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+												mandatoryColumnsProcessed++;
+											}
 											throwDataException = false;
 										}
 									}
@@ -792,6 +811,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 									parseRedoRecordValues(
 										oraColumn, columnValue,
 										keyStruct, valueStruct);
+									if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+										mandatoryColumnsProcessed++;
+									}
 								} catch (DataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											columnValue, oraColumn.getColumnName(), tableFqn);
@@ -901,6 +923,29 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				printSkippingRedoRecordMessage(stmt, xid, commitScn);
 			}
 		}
+
+		if (mandatoryColumnsProcessed < mandatoryColumnsCount) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug(
+						"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
+						fqn(), mandatoryColumnsCount, mandatoryColumnsProcessed);
+			}
+			final String message = 
+					"Mandatory columns count for table {} is " +
+					mandatoryColumnsCount +
+					"but only " +
+					mandatoryColumnsProcessed +
+					"returned columns are returned from the redo record!\n" +
+					"Please check supplemental logging settings!\n";
+			if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
+				printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
+				throw new ConnectException("Incomplete redo record!");
+			} else {
+				printErrorMessage(Level.ERROR,  message + "Skipping!\n", stmt, xid, commitScn);
+				return null;
+			}
+		}
+
 		SourceRecord sourceRecord = null;
 		if (!skipRedoRecord) {
 			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
@@ -1628,7 +1673,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final ResultSet resultSet = statement.executeQuery();
 				if (resultSet.next()) {
 					for (OraColumn oraColumn : missedColumns) {
-						oraColumn.setValueFromResultSet(valueStruct, resultSet);
+						if (oraColumn.setValueFromResultSet(valueStruct, resultSet)) {
+							if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+								mandatoryColumnsProcessed++;
+							}
+						}
 					}
 					result = true;
 				} else {

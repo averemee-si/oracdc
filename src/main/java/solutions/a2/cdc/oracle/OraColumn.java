@@ -1479,11 +1479,14 @@ public class OraColumn {
 		}
 	}
 
-	
-	//TODO
-	//TODO Improvement required!
-	//TODO
-	public void setValueFromResultSet(
+	/**
+	 * 
+	 * @param struct
+	 * @param resultSet
+	 * @return true if columnValue from DB was not null
+	 * @throws SQLException
+	 */
+	public boolean setValueFromResultSet(
 			final Struct struct, final ResultSet resultSet) throws SQLException  {
 		switch (jdbcType) {
 		case Types.DATE:
@@ -1529,6 +1532,7 @@ public class OraColumn {
 					JdbcTypes.getTypeName(jdbcType), columnName);
 			throw new SQLException("Unsupported data type: " + JdbcTypes.getTypeName(jdbcType));
 		}
+		return !resultSet.wasNull();
 	}
 
 	public String getValueAsString(final Struct keyStruct, final Struct valueStruct) {
