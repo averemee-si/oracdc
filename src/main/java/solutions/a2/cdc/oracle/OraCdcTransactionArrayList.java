@@ -28,14 +28,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
-	private static final String TRANS_XID = "xid";
-	private static final String TRANS_FIRST_CHANGE = "firstChange";
-	private static final String TRANS_NEXT_CHANGE = "nextChange";
-	private static final String QUEUE_SIZE = "queueSize";
-	private static final String QUEUE_OFFSET = "tailerOffset";
-	private static final String TRANS_COMMIT_SCN = "commitScn";
 
-	private final String xid;
 	private final List<OraCdcLogMinerStatement> statements;
 	private long firstChange;
 	private long nextChange;
@@ -51,8 +44,8 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 	 * @param xid
 	 */
 	public OraCdcTransactionArrayList(final String xid) {
+		super(xid);
 		LOGGER.debug("BEGIN: create OraCdcTransactionArrayList for new transaction");
-		this.xid = xid;
 		statements = new ArrayList<>();
 		firstChange = 0;
 		queueSize = 0;
@@ -124,7 +117,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 		sb.append("oracdc Transaction: ");
 		sb.append(TRANS_XID);
 		sb.append(" = ");
-		sb.append(xid);
+		sb.append(xid());
 		sb.append("', ");
 		sb.append(QUEUE_SIZE);
 		sb.append(" = ");
@@ -156,7 +149,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 
 	@Override
 	public String getXid() {
-		return xid;
+		return xid();
 	}
 
 	@Override

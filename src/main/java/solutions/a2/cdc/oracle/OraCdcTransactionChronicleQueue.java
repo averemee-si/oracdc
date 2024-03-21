@@ -42,15 +42,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionChronicleQueue.class);
 	private static final String QUEUE_DIR = "queueDirectory";
-	private static final String TRANS_XID = "xid";
-	private static final String TRANS_FIRST_CHANGE = "firstChange";
-	private static final String TRANS_NEXT_CHANGE = "nextChange";
-	private static final String QUEUE_SIZE = "queueSize";
 	private static final String QUEUE_OFFSET = "tailerOffset";
-	private static final String TRANS_COMMIT_SCN = "commitScn";
 	private static final String PROCESS_LOBS = "processLobs";
 
-	private final String xid;
 	private long firstChange;
 	private long nextChange;
 	private Long commitScn;
@@ -77,8 +71,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 	 * @throws IOException
 	 */
 	public OraCdcTransactionChronicleQueue(final boolean processLobs, final Path rootDir, final String xid) throws IOException {
+		super(xid);
 		LOGGER.debug("BEGIN: create OraCdcTransactionChronicleQueue for new transaction");
-		this.xid = xid;
 		this.processLobs = processLobs;
 		queueDirectory = Files.createTempDirectory(rootDir, xid + ".");
 		if (processLobs) {
@@ -151,13 +145,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 			final boolean processLobs, final Path queueDirectory, final String xid,
 			final long firstChange, final long nextChange, final Long commitScn,
 			final int queueSize, final int savedTailerOffset) throws IOException {
+		super(xid);
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("BEGIN: restore OraCdcTransaction for XID={} from {}",
 					xid, queueDirectory);
 		}
 		this.processLobs = processLobs;
 		this.queueDirectory = queueDirectory;
-		this.xid = xid;
 		this.queueSize = queueSize;
 		if (processLobs) {
 			lobsQueueDirectory = Paths.get(queueDirectory.toString() + ".LOBDATA");
@@ -323,7 +317,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 	@Override
 	public void close() {
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Closing Cronicle Queue and deleting memory-mapped files for transaction {}.", xid);
+			LOGGER.debug("Closing Cronicle Queue and deleting memory-mapped files for transaction {}.", xid());
 		}
 		if (processLobs) {
 			if (lobs != null) {
@@ -368,7 +362,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 	public Map<String, Object> attrsAsMap() {
 		final Map<String, Object> transAsMap = new LinkedHashMap<>();
 		transAsMap.put(QUEUE_DIR, queueDirectory.toString());
-		transAsMap.put(TRANS_XID, xid);
+		transAsMap.put(TRANS_XID, xid());
 		transAsMap.put(PROCESS_LOBS, processLobs);
 		transAsMap.put(TRANS_FIRST_CHANGE, firstChange);
 		transAsMap.put(TRANS_NEXT_CHANGE, nextChange);
@@ -386,7 +380,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 		sb.append("oracdc Transaction: ");
 		sb.append(TRANS_XID);
 		sb.append(" = ");
-		sb.append(xid);
+		sb.append(xid());
 		sb.append(" located in the '");
 		sb.append(queueDirectory.toString());
 		sb.append("', ");
@@ -439,7 +433,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 
 	@Override
 	public String getXid() {
-		return xid;
+		return xid();
 	}
 
 	@Override
