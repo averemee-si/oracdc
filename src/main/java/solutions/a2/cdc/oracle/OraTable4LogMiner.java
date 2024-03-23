@@ -98,6 +98,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private boolean useAllColsOnDelete = false;
 	private int mandatoryColumnsCount = 0;
 	private int mandatoryColumnsProcessed = 0;
+	private boolean pseudoKey = false;
 
 	/**
 	 * 
@@ -206,9 +207,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						.version(version);
 
 			if (pkColsSet == null) {
-				this.tableWithPk = false;
+				tableWithPk = false;
 				if (!onlyValue) {
 					addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
+					pseudoKey = true;
 				}
 				LOGGER.warn("No primary key detected for table {}.{}",
 						tableFqn, 
@@ -555,7 +557,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				LOGGER.debug("parseRedoRecord() processing DELETE");
 			}
 			opType = 'd';
-			if (tableWithPk) {
+			if (tableWithPk || pseudoKey) {
 				final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 				String[] whereClause = StringUtils.splitByWholeSeparator(
 						StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
