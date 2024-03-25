@@ -926,7 +926,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 		}
 
-		if (mandatoryColumnsProcessed < mandatoryColumnsCount) {
+		if (mandatoryColumnsProcessed < mandatoryColumnsCount && !skipRedoRecord) {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug(
 						"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
@@ -935,9 +935,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final String message = 
 					"Mandatory columns count for table {} is " +
 					mandatoryColumnsCount +
-					"but only " +
+					" but only " +
 					mandatoryColumnsProcessed +
-					"returned columns are returned from the redo record!\n" +
+					" returned columns are returned from the redo record!\n" +
 					"Please check supplemental logging settings!\n";
 			if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
 				printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
