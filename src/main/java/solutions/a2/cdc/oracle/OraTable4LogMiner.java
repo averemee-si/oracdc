@@ -926,30 +926,30 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 		}
 
-		if (mandatoryColumnsProcessed < mandatoryColumnsCount && !skipRedoRecord) {
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug(
-						"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
-						fqn(), mandatoryColumnsCount, mandatoryColumnsProcessed);
-			}
-			final String message = 
-					"Mandatory columns count for table {} is " +
-					mandatoryColumnsCount +
-					" but only " +
-					mandatoryColumnsProcessed +
-					" returned columns are returned from the redo record!\n" +
-					"Please check supplemental logging settings!\n";
-			if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
-				printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
-				throw new ConnectException("Incomplete redo record!");
-			} else {
-				printErrorMessage(Level.ERROR,  message + "Skipping!\n", stmt, xid, commitScn);
-				return null;
-			}
-		}
-
 		SourceRecord sourceRecord = null;
 		if (!skipRedoRecord) {
+			if (mandatoryColumnsProcessed < mandatoryColumnsCount) {
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug(
+							"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
+							fqn(), mandatoryColumnsCount, mandatoryColumnsProcessed);
+				}
+				final String message = 
+						"Mandatory columns count for table {} is " +
+						mandatoryColumnsCount +
+						" but only " +
+						mandatoryColumnsProcessed +
+						" returned columns are returned from the redo record!\n" +
+						"Please check supplemental logging settings!\n";
+				if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
+					printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
+					throw new ConnectException("Incomplete redo record!");
+				} else {
+					printErrorMessage(Level.ERROR,  message + "Skipping!\n", stmt, xid, commitScn);
+					return null;
+				}
+			}
+
 			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 				final Struct struct = new Struct(schema);
 				final Struct source = rdbmsInfo.getStruct(
