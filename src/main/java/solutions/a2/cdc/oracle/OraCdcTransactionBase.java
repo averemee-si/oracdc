@@ -60,37 +60,75 @@ public abstract class OraCdcTransactionBase {
 			// Last processed statement is with ROLLBACK=1 and unpaired
 			if (oraSql.isRollback()) {
 				// Rollback after unpaired rollback - error condition!!!
-				LOGGER.error(
-						"\n=====================\n" +
-						"Partial rollback redo record after another unpaired partial rollback record!\n" +
-						"Please send information below to oracle@a2-solutions.eu\n" +
-						"\tXID = {}\n" +
-						"\nDetailed information about unpaired partial rollback redo record\n" +
-						"\tSCN = {}\n" +
-						"\tTIMESTAMP = {}\n" +
-						"\tRS_ID = {}\n" +
-						"\tSSN = {}\n" +
-						"\tROW_ID = {}\n" +
-						"\tOPERATION_CODE = {}\n" +
-						"\tSQL_REDO = {}\n" +
-						"\nDetailed information about second partial rollback redo record\n" +
-						"\tSCN = {}\n" +
-						"\tTIMESTAMP = {}\n" +
-						"\tRS_ID = {}\n" +
-						"\tSSN = {}\n" +
-						"\tROW_ID = {}\n" +
-						"\tOPERATION_CODE = {}\n" +
-						"\tSQL_REDO = {}\n" +
-						"\n=====================\n",
-						xid,
-						lastSql.getScn(), lastSql.getTs(), lastSql.getRsId(),
-						lastSql.getSsn(), lastSql.getRowId(),
-						lastSql.getOperation(), lastSql.getSqlRedo(),
-						oraSql.getScn(), oraSql.getTs(), oraSql.getRsId(),
-						oraSql.getSsn(), oraSql.getRowId(),
-						oraSql.getOperation(), oraSql.getSqlRedo());
-				lastSql = oraSql;
-				return false;
+				if (lastSql.getTableId() == oraSql.getTableId()) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Partial rollback redo record after another unpaired partial rollback record for the same table!\n" +
+							"Please send information below to oracle@a2-solutions.eu\n" +
+							"\tOBJECT_ID = {}\n" +
+							"\tXID = {}\n" +
+							"\nDetailed information about unpaired partial rollback redo record\n" +
+							"\tSCN = {}\n" +
+							"\tTIMESTAMP = {}\n" +
+							"\tRS_ID = {}\n" +
+							"\tSSN = {}\n" +
+							"\tROW_ID = {}\n" +
+							"\tOPERATION_CODE = {}\n" +
+							"\tSQL_REDO = {}\n" +
+							"\nDetailed information about second partial rollback redo record\n" +
+							"\tSCN = {}\n" +
+							"\tTIMESTAMP = {}\n" +
+							"\tRS_ID = {}\n" +
+							"\tSSN = {}\n" +
+							"\tROW_ID = {}\n" +
+							"\tOPERATION_CODE = {}\n" +
+							"\tSQL_REDO = {}\n" +
+							"\n=====================\n",
+							xid, lastSql.getTableId(),
+							lastSql.getScn(), lastSql.getTs(), lastSql.getRsId(),
+							lastSql.getSsn(), lastSql.getRowId(),
+							lastSql.getOperation(), lastSql.getSqlRedo(),
+							oraSql.getScn(), oraSql.getTs(), oraSql.getRsId(),
+							oraSql.getSsn(), oraSql.getRowId(),
+							oraSql.getOperation(), oraSql.getSqlRedo());
+					lastSql = oraSql;
+					return false;
+				} else {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Partial rollback redo record after another unpaired partial rollback record for the different tables!\n" +
+							"Please send information below to oracle@a2-solutions.eu\n" +
+							"\tXID = {}\n" +
+							"\tOBJECT_ID = {}\n" +
+							"\nDetailed information about unpaired partial rollback redo record\n" +
+							"\tSCN = {}\n" +
+							"\tTIMESTAMP = {}\n" +
+							"\tRS_ID = {}\n" +
+							"\tSSN = {}\n" +
+							"\tROW_ID = {}\n" +
+							"\tOPERATION_CODE = {}\n" +
+							"\tSQL_REDO = {}\n" +
+							"\nDetailed information about second partial rollback redo record\n" +
+							"\tOBJECT_ID = {}\n" +
+							"\tSCN = {}\n" +
+							"\tTIMESTAMP = {}\n" +
+							"\tRS_ID = {}\n" +
+							"\tSSN = {}\n" +
+							"\tROW_ID = {}\n" +
+							"\tOPERATION_CODE = {}\n" +
+							"\tSQL_REDO = {}\n" +
+							"\n=====================\n",
+							xid, lastSql.getTableId(),
+							lastSql.getScn(), lastSql.getTs(), lastSql.getRsId(),
+							lastSql.getSsn(), lastSql.getRowId(),
+							lastSql.getOperation(), lastSql.getSqlRedo(),
+							oraSql.getTableId(),
+							oraSql.getScn(), oraSql.getTs(), oraSql.getRsId(),
+							oraSql.getSsn(), oraSql.getRowId(),
+							oraSql.getOperation(), oraSql.getSqlRedo());
+					lastSql = oraSql;
+					return false;
+				}
 			} else {
 				// Potenitial partial rollback pair....
 				if (lastSql.getTableId() == oraSql.getTableId() && 
