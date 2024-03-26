@@ -169,6 +169,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 
 	@Override
 	public void setCommitScn(Long commitScn) {
+		printMessages();
 		this.commitScn = commitScn;
 	}
 

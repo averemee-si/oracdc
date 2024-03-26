@@ -453,6 +453,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 
 	@Override
 	public void setCommitScn(Long commitScn) {
+		printMessages();
 		this.commitScn = commitScn;
 	}
 
