@@ -618,6 +618,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 										idToNameMap.get(columnName),
 										StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
 										keyStruct, valueStruct);
+								if (oraColumn.isPartOfPk()) {
+									mandatoryColumnsProcessed++;
+								}
 							} else {
 								// Handle ORA-1 in Source DB.....
 								if (StringUtils.equalsIgnoreCase("ROWID", columnName) &&
@@ -730,24 +733,37 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			//BEGIN: where clause processing...
 			if (processWhereFromRow) {
-				if (printSqlForMissedWhereInUpdate) {
-					LOGGER.info(
+				if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
+					final String message = 
+							"Missed where clause in UPDATE record for the table {}.\n";
+					printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
+					throw new ConnectException("Incomplete redo record!");
+				} else if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_SKIP) {
+					final String message = 
+							"Missed where clause in UPDATE record for the table {}.\n";
+					printErrorMessage(Level.WARN,  message, stmt, xid, commitScn);
+					skipRedoRecord = true;
+				} else {
+					// OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE
+					if (printSqlForMissedWhereInUpdate) {
+						LOGGER.info(
+								"\n" +
+								"=====================\n" +
+								"{}\n" +
+								"Will be used to handle UPDATE statements without WHERE clause for table {}.\n" +
+								"=====================\n",
+								sqlGetKeysUsingRowId, fqn());
+						printSqlForMissedWhereInUpdate = false;
+					}
+					LOGGER.warn(
 							"\n" +
 							"=====================\n" +
-							"{}\n" +
-							"Will be used to handle UPDATE statements without WHERE clause for table {}.\n" +
+							"UPDATE statement without WHERE clause for table {} at SCN='{}', RS_ID='{}', ROLLBACK='{}' for ROWID='{}'.\n" +
+							"We will try to get primary key values from table {} at ROWID='{}'.\n" +
 							"=====================\n",
-							sqlGetKeysUsingRowId, fqn());
-					printSqlForMissedWhereInUpdate = false;
+							fqn(), stmt.getScn(), stmt.getRsId(), stmt.isRollback(), stmt.getRowId(), fqn(), stmt.getRowId());
+					getMissedColumnValues(connection, stmt.getRowId(), keyStruct);
 				}
-				LOGGER.warn(
-						"\n" +
-						"=====================\n" +
-						"UPDATE statement without WHERE clause for table {} at SCN='{}' and RS_ID='{}' for ROWID='{}'!\n" +
-						"We will try to get primary key values from table {} at ROWID='{}'!\n" +
-						"=====================\n",
-						fqn(), stmt.getScn(), stmt.getRsId(), stmt.getRowId(), fqn(), stmt.getRowId());
-				getMissedColumnValues(connection, stmt.getRowId(), keyStruct);
 			} else {
 				String[] whereClause = StringUtils.splitByWholeSeparator(
 						StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
@@ -929,24 +945,31 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		SourceRecord sourceRecord = null;
 		if (!skipRedoRecord) {
 			if (mandatoryColumnsProcessed < mandatoryColumnsCount) {
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug(
-							"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
-							fqn(), mandatoryColumnsCount, mandatoryColumnsProcessed);
-				}
-				final String message = 
-						"Mandatory columns count for table {} is " +
-						mandatoryColumnsCount +
-						" but only " +
-						mandatoryColumnsProcessed +
-						" returned columns are returned from the redo record!\n" +
-						"Please check supplemental logging settings!\n";
-				if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
-					printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
-					throw new ConnectException("Incomplete redo record!");
-				} else {
-					printErrorMessage(Level.ERROR,  message + "Skipping!\n", stmt, xid, commitScn);
-					return null;
+				if (opType != 'd') {
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug(
+								"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
+								fqn(), mandatoryColumnsCount, mandatoryColumnsProcessed);
+					}
+					final String message = 
+							"Mandatory columns count for table {} is " +
+							mandatoryColumnsCount +
+							" but only " +
+							mandatoryColumnsProcessed +
+							" mandatory columns are returned from the redo record!\n" +
+							"Please check supplemental logging settings!\n";
+					if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
+						printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
+						throw new ConnectException("Incomplete redo record!");
+					} else {
+						printErrorMessage(Level.ERROR,  message + "Skipping!\n", stmt, xid, commitScn);
+						return null;
+					}
+				} else if (!pseudoKey) {
+					// With ROWID we does not need more checks...
+					//TODO - logic for delete only with primary columns!
+					//TODO
+					//TODO - logic for delete with all columns
 				}
 			}
 
@@ -1505,6 +1528,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			.append("\tRS_ID = {}\n")
 			.append("\tSSN = {}\n")
 			.append("\tROW_ID = {}\n")
+			.append("\tROLLBACK = {}\n")
 			.append("\tOPERATION_CODE = {}\n")
 			.append("\tSQL_REDO = {}\n")
 			.append("=====================\n");
@@ -1512,25 +1536,25 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (columnName == null) {
 				LOGGER.error(sb.toString(),
 					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-					stmt.getSsn(), stmt.getRowId(), stmt.getOperation(), stmt.getSqlRedo());
+					stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
 			} else {
 				LOGGER.error(sb.toString(),
 						columnName, tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-						stmt.getSsn(), stmt.getRowId(), stmt.getOperation(), stmt.getSqlRedo());
+						stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
 				
 			}
 		} else if (level == Level.WARN) {
 			LOGGER.warn(sb.toString(),
 					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-					stmt.getSsn(), stmt.getRowId(), stmt.getOperation(), stmt.getSqlRedo());
+					stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
 		} else if (level == Level.INFO) {
 			LOGGER.info(sb.toString(),
 					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-					stmt.getSsn(), stmt.getRowId(), stmt.getOperation(), stmt.getSqlRedo());
+					stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
 		} else {
 			LOGGER.trace(sb.toString(),
 					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-					stmt.getSsn(), stmt.getRowId(), stmt.getOperation(), stmt.getSqlRedo());
+					stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
 		}
 	}
 
