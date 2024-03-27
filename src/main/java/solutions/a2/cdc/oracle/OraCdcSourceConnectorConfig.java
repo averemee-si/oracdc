@@ -126,6 +126,13 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			"If set to false, the connector prints an error message and continues processing.\n" +
 			"Default - " + STOP_ON_ORA_1284_DEFAULT;
 
+	private static final boolean PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT = false;
+	private static final String PRINT_UNABLE_TO_DELETE_WARNING_PARAM = "a2.print.unable.to.delete.warning";
+	private static final String PRINT_UNABLE_TO_DELETE_WARNING_DOC =
+			"If set to true, the connector prints a warning message including all redo record details about ignoring the DELETE operation for tables without a primary key or it surrogate or a schema that does not contain key information.\n" +
+			"If set to false, the connector does not print a warning message about ignoring the DELETE operation.\n" +
+			"Default - " + PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT;
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int schemaType = -1;
@@ -279,6 +286,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, TOPIC_MAPPER_DOC)
 				.define(STOP_ON_ORA_1284_PARAM, Type.BOOLEAN, STOP_ON_ORA_1284_DEFAULT,
 						Importance.LOW, STOP_ON_ORA_1284_DOC)
+				.define(PRINT_UNABLE_TO_DELETE_WARNING_PARAM, Type.BOOLEAN, PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT,
+						Importance.LOW, PRINT_UNABLE_TO_DELETE_WARNING_DOC)
 				;
 	}
 
@@ -385,6 +394,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public boolean stopOnOra1284() {
 		return getBoolean(STOP_ON_ORA_1284_PARAM);
+	}
+
+	public boolean printUnableToDeleteWarning() {
+		return getBoolean(PRINT_UNABLE_TO_DELETE_WARNING_PARAM);
 	}
 
 	public TopicNameMapper getTopicNameMapper() {

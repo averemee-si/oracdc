@@ -99,6 +99,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private int mandatoryColumnsCount = 0;
 	private int mandatoryColumnsProcessed = 0;
 	private boolean pseudoKey = false;
+	private boolean printUnableToDeleteWarning;
 
 	/**
 	 * 
@@ -159,6 +160,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.printInvalidHexValueWarning = config.isPrintInvalidHexValueWarning();
 		this.incompleteDataTolerance = config.getIncompleteDataTolerance();
 		this.useAllColsOnDelete = config.useAllColsOnDelete();
+		this.printUnableToDeleteWarning = config.printUnableToDeleteWarning();
 		try {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -644,13 +646,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			} else if (onlyValue) {
 				// skip delete operation only when schema don't have key
 				skipRedoRecord = true;
-				LOGGER.warn(
-						"\n" +
-						"=====================\n" +
-						"Unable to perform delete operation on table {}, SCN={}, RBA='{}', ROWID='{}' without primary key!\n" +
-						"SQL_REDO:\n\t{}\n" +
-						"=====================\n",
-						this.fqn(), stmt.getScn(), stmt.getRsId(), stmt.getRowId(), stmt.getSqlRedo());
+				if (printUnableToDeleteWarning) {
+					LOGGER.warn(
+							"\n" +
+							"=====================\n" +
+							"Unable to perform delete operation on table {}, SCN={}, RBA='{}', ROWID='{}' without primary key!\n" +
+							"SQL_REDO:\n\t{}\n" +
+							"=====================\n",
+							this.fqn(), stmt.getScn(), stmt.getRsId(), stmt.getRowId(), stmt.getSqlRedo());
+				}
 			}
 		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
 			if (LOGGER.isDebugEnabled()) {

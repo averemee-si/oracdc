@@ -136,6 +136,9 @@ Default - *solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper*
 `a2.stop.on.ora.1284` - If set to true, the connector stops on an Oracle database error 'ORA-01284: file <Absolute-Path-To-Log-File> cannot be opened'. If set to false, the connector prints an error message and continues processing.
 Default - *true*.
 
+`a2.print.unable.to.delete.warning` - If set to true, the connector prints a warning message including all redo record details about ignoring the DELETE operation for tables without a primary key or it surrogate or a schema that does not contain key information. If set to false, the connector does not print a warning message about ignoring the DELETE operation.
+Default - *false*.
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - *false*.
