@@ -144,9 +144,15 @@ public class OraColumn {
 
 		defaultValue = resultSet.getString("DATA_DEFAULT");
 		if (resultSet.wasNull()) {
-			this.defaultValuePresent = false;
+			defaultValuePresent = false;
 		} else {
-			this.defaultValuePresent = true;
+			if (StringUtils.equalsIgnoreCase(
+					StringUtils.trim(defaultValue), "NULL")) {
+				defaultValuePresent = false;
+				defaultValue = null;
+			} else {
+				defaultValuePresent = true;
+			}
 		}
 
 		if (mviewSource) {
