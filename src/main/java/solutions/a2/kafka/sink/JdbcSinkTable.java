@@ -89,6 +89,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 	private final Set<String> pkInUpsertBatch = new HashSet<>();
 	private boolean exists = true;
 	private String tableNameCaseConv;
+	private boolean ready4Delete = false;
 
 	/**
 	 * This constructor is used only for Sink connector
@@ -143,15 +144,36 @@ public class JdbcSinkTable extends OraTableDefinition {
 			final Entry<Set<String>, ResultSet> tableMetadata = checkPresence(connection);
 			if (exists) {
 				if (opType == 'd' && (!config.useAllColsOnDelete())) {
-					LOGGER.warn("\n" +
-							"=====================\n" +
-							"data transfer to the  existing table {} will begin after first non-delete operation for it!\n" +
-							"=====================\n",
-							tableName);
+					final List<Field> keyFields;
+					if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+						keyFields = record.valueSchema().field("before").schema().fields();
+					} else {
+						//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
+						//ParamConstants.SCHEMA_TYPE_INT_SINGLE
+						if (record.keySchema() == null) {
+							keyFields = null;
+						} else {
+							keyFields = record.keySchema().fields();
+						}
+					}
+					if (keyFields != null) {
+						for (Field field : keyFields) {
+							final OraColumn column = new OraColumn(field, true, true);
+							pkColumns.put(column.getColumnName(), column);
+						}
+
+						sinkDeleteSql = TargetDbSqlUtils.generateSinkSql(
+								tableName, dbType, pkColumns, allColumns, lobColumns).get(TargetDbSqlUtils.DELETE);
+						pkColumns.clear();
+						ready4Delete = true;
+					} else {
+						LOGGER.warn("\n" +
+								"=====================\n" +
+								"data transfer to the  existing table {} will begin after first non-delete operation for it!\n" +
+								"=====================\n",
+								tableName);
+					}
 					delayedObjectsCreation = true;
-					//TODO
-					//TODO Need code for performing DELETE only!!! And one more flag!
-					//TODO
 				} else {
 					prepareSql(record, tableMetadata);
 				}
@@ -355,9 +377,31 @@ public class JdbcSinkTable extends OraTableDefinition {
 		} else {
 			if ('d' == opType) {
 				if (delayedObjectsCreation) {
-					LOGGER.info(
+					if (exists) {
+						if (ready4Delete) {
+							try {
+								processDelete(connection, record);
+							} catch (Exception e) {
+								final Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
+								LOGGER.error("\n" +
+										"=====================\n" +
+										"Unable to execute delete statement:\n{}\n" +
+										"keyStruct = {}\n",
+										"=====================\n",
+										sinkDeleteSql, structs.getKey().toString());
+								throw e;
+							}
+							deleteTime += System.nanoTime() - nanosStart;
+						} else {
+							LOGGER.warn(
+									"Skipping the delete operation for the table {}. Please check connector and schema settings!",
+									tableName);
+						}
+					} else {
+						LOGGER.info(
 							"Skipping the delete operation because the table {} has not yet been created",
 							tableName);
+					}
 				} else {
 					try {
 						processDelete(connection, record);
