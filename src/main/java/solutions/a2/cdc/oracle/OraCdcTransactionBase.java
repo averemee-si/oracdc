@@ -37,7 +37,6 @@ public abstract class OraCdcTransactionBase {
 	protected static final String QUEUE_OFFSET = "tailerOffset";
 	protected static final String TRANS_COMMIT_SCN = "commitScn";
 
-
 	private final String xid;
 
 	private final List<String> excludedRbas = new ArrayList<>();
@@ -62,17 +61,21 @@ public abstract class OraCdcTransactionBase {
 			// Last processed statement is with ROLLBACK=1 and unpaired
 			if (oraSql.isRollback()) {
 				// Rollback after unpaired rollback - error condition!!!
-				allocMessages();
-				addMessage(
-						"Partial rollback redo record after another unpaired partial rollback record for " +
-						(lastSql.getTableId() == oraSql.getTableId() ? "same tables" : "different tables"),
-						"Detailed information about unpaired partial rollback redo record:",
-						lastSql);
-				addMessage(
-						null,
-						"Detailed information about second partial rollback redo record",
-						oraSql);
-				lastSql = oraSql;
+				if (ignore(oraSql)) {
+					firstStatement = true;
+				} else {
+					allocMessages();
+					addMessage(
+							"Partial rollback redo record after another unpaired partial rollback record for " +
+							(lastSql.getTableId() == oraSql.getTableId() ? "same tables" : "different tables"),
+							"Detailed information about unpaired partial rollback redo record:",
+							lastSql);
+					addMessage(
+							null,
+							"Detailed information about second partial rollback redo record",
+							oraSql);
+					lastSql = oraSql;
+				}
 				return oraSql.isRollback();
 			} else {
 				// Potenitial partial rollback pair....
@@ -89,48 +92,30 @@ public abstract class OraCdcTransactionBase {
 								"\n=====================\n" +
 								"Redo record is paired with partial rollback in transaction '{}'.\n" +
 								"\nDetailed information about partial rollback redo record (ROLLBACK=1)\n" +
-								"\tSCN = {}\n" +
-								"\tTIMESTAMP = {}\n" +
-								"\tRS_ID = {}\n" +
-								"\tSSN = {}\n" +
-								"\tROW_ID = {}\n" +
-								"\tOPERATION_CODE = {}\n" +
-								"\tSQL_REDO = {}\n" +
-								"\tROLLBACK = {}\n" +
+								lastSql.toStringBuilder().toString() +
 								"\nDetailed information about redo record (ROLLBACK=0)\n" +
-								"\tSCN = {}\n" +
-								"\tTIMESTAMP = {}\n" +
-								"\tRS_ID = {}\n" +
-								"\tSSN = {}\n" +
-								"\tROW_ID = {}\n" +
-								"\tOPERATION_CODE = {}\n" +
-								"\tSQL_REDO = {}\n" +
-								"\tROLLBACK = {}\n" +
+								oraSql.toStringBuilder().toString() +
 								"\n=====================\n",
-								xid,
-								lastSql.getScn(), lastSql.getTs(), lastSql.getRsId(),
-								lastSql.getSsn(), lastSql.getRowId(),
-								lastSql.getOperation(), lastSql.getSqlRedo(),
-								lastSql.isRollback(),
-								oraSql.getScn(), oraSql.getTs(), oraSql.getRsId(),
-								oraSql.getSsn(), oraSql.getRowId(),
-								oraSql.getOperation(), oraSql.getSqlRedo(),
-								oraSql.isRollback());
+								xid);
 					}
 					// In this case we do need this record at all
 					firstStatement = true;
 					return true;
 				} else {
-					allocMessages();
-					addMessage(
-							"Redo record with ROLLBACK=0 after unpaired record with ROLLBACK=1 does not match it",
-							"Detailed information about unpaired partial rollback redo record:",
-							lastSql);
-					addMessage(
-							null,
-							"Detailed information about redo record with ROLLBACK=0",
-							oraSql);
-					lastSql = oraSql;
+					if (ignore(oraSql)) {
+						firstStatement = true;
+					} else {
+						allocMessages();
+						addMessage(
+								"Redo record with ROLLBACK=0 after unpaired record with ROLLBACK=1 does not match it",
+								"Detailed information about unpaired partial rollback redo record:",
+								lastSql);
+						addMessage(
+								null,
+								"Detailed information about redo record with ROLLBACK=0",
+								oraSql);
+						lastSql = oraSql;
+					}
 					return oraSql.isRollback();
 				}
 			}
@@ -153,38 +138,20 @@ public abstract class OraCdcTransactionBase {
 								"\n=====================\n" +
 								"Redo record is paired with partial rollback in transaction '{}'.\n" +
 								"\nDetailed information about redo record (ROLLBACK=0)\n" +
-								"\tSCN = {}\n" +
-								"\tTIMESTAMP = {}\n" +
-								"\tRS_ID = {}\n" +
-								"\tSSN = {}\n" +
-								"\tROW_ID = {}\n" +
-								"\tOPERATION_CODE = {}\n" +
-								"\tSQL_REDO = {}\n" +
-								"\tROLLBACK = {}\n" +
+								lastSql.toStringBuilder().toString() +
 								"\nDetailed information about partial rollback redo record (ROLLBACK=1)\n" +
-								"\tSCN = {}\n" +
-								"\tTIMESTAMP = {}\n" +
-								"\tRS_ID = {}\n" +
-								"\tSSN = {}\n" +
-								"\tROW_ID = {}\n" +
-								"\tOPERATION_CODE = {}\n" +
-								"\tSQL_REDO = {}\n" +
-								"\tROLLBACK = {}\n" +
+								oraSql.toStringBuilder().toString() +
 								"\n=====================\n",
-								xid,
-								lastSql.getScn(), lastSql.getTs(), lastSql.getRsId(),
-								lastSql.getSsn(), lastSql.getRowId(),
-								lastSql.getOperation(), lastSql.getSqlRedo(),
-								lastSql.isRollback(),
-								oraSql.getScn(), oraSql.getTs(), oraSql.getRsId(),
-								oraSql.getSsn(), oraSql.getRowId(),
-								oraSql.getOperation(), oraSql.getSqlRedo(),
-								oraSql.isRollback());
+								xid);
 					}
 					firstStatement = true;
 					return true;
 				} else {
-					lastSql = oraSql;
+					if (ignore(oraSql)) {
+						firstStatement = true;
+					} else {
+						lastSql = oraSql;
+					}
 					return true;
 				}
 			} else {
@@ -251,30 +218,30 @@ public abstract class OraCdcTransactionBase {
 		sbMessages
 			.append(recordHeader)
 			.append("\n")
-			.append("\tSCN = ")
-			.append(stmt.getScn())
-			.append("\n")
-			.append("\tTIMESTAMP = ")
-			.append(stmt.getTs())
-			.append("\n")
-			.append("\tRS_ID = '")
-			.append(stmt.getRsId())
-			.append("'\n")
-			.append("\tSSN = ")
-			.append(stmt.getSsn())
-			.append("\n")
-			.append("\tROW_ID = ")
-			.append(stmt.getRowId())
-			.append("\n")
-			.append("\tOPERATION_CODE = ")
-			.append(stmt.getOperation())
-			.append("\n")
-			.append("\tSQL_REDO = ")
-			.append(stmt.getSqlRedo())
-			.append("\n")
-			.append("\tROLLBACK = ")
-			.append(stmt.isRollback())
-			.append("\n");
+			.append(stmt.toStringBuilder());
+	}
+
+	private boolean ignore(final OraCdcLogMinerStatement stmt) {
+		final boolean result =
+				stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE &&
+				!StringUtils.contains(stmt.getSqlRedo(), " where ");
+		if (result) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug(
+						"Partial rollback redo record at RBA='{}' in XID={} without WHERE clause.",
+						stmt.getRsId(), xid);
+			}
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace(
+						"\n=====================\n" +
+						"Partial rollback redo record in transaction {} without WHERE clause'.\n" +
+						"\nDetailed information about redo record\n" +
+						stmt.toStringBuilder().toString() +
+						"\n=====================\n",
+						xid);
+			}
+		}
+		return result;
 	}
 
 }

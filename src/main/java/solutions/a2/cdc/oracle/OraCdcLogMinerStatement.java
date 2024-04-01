@@ -13,6 +13,9 @@
 
 package solutions.a2.cdc.oracle;
 
+import java.time.Instant;
+import java.time.ZoneId;
+
 import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.core.io.IORuntimeException;
 import net.openhft.chronicle.wire.WireOut;
@@ -26,6 +29,8 @@ import net.openhft.chronicle.wire.WriteMarshallable;
  * @author averemee
  */
 public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshallable {
+
+	private static final int STRING_16K = 16384;
 
 	/** (((long)V$LOGMNR_CONTENTS.CON_ID) << 32) | (V$LOGMNR_CONTENTS.DATA_OBJ# & 0xFFFFFFFFL) */
 	private long tableId;
@@ -142,35 +147,25 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 
 	@Override
 	public String toString() {
-		final StringBuilder sb = new StringBuilder(1024);
-		final int origTableId = (int) tableId;
+		final StringBuilder sb = new StringBuilder(STRING_16K);
 		final int conId = (int) (tableId >> 32);
-		sb
-			.append("OraCdcLogMinerStatement [")
-			.append("CON_ID=")
-			.append(conId)
-			.append(", DATA_OBJ#=")
-			.append(origTableId)
-			.append(", OPERATION_CODE=")
-			.append(operation)
-			.append(", SQL_REDO=")
-			.append(sqlRedo)
-			.append(", TIMESTAMP=")
-			.append(ts)
-			.append(", SCN=")
-			.append(scn)
-			.append(", RS_ID=")
-			.append(rsId)
-			.append(", SSN=")
-			.append(ssn)
-			.append(", ROW_ID=")
-			.append(rowId)
-			.append(", ROLLBACK=")
-			.append(rollback ? "1" : "0")
-			.append(", LOB_COUNT=")
-			.append(lobCount)
-			.append("]");
-
+		sb.append("OraCdcLogMinerStatement [");
+			if (conId != 0) {
+				sb
+					.append("\n\tCON_ID=")
+					.append(conId);
+			}
+			sb
+				.append("\n")
+				.append(toStringBuilder());
+			if (lobCount != 0) {
+				sb
+					.append("\tLOB_COUNT=")
+					.append(lobCount)
+					.append("\n");
+					
+			}
+			sb.append("]");
 		return sb.toString();
 	}
 
@@ -222,4 +217,34 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		// TODO Auto-generated method stub
 		return ReadMarshallable.super.usesSelfDescribingMessage();
 	}
+
+	public StringBuilder toStringBuilder() {
+		final StringBuilder sb = new StringBuilder(STRING_16K);
+		final int objId = (int) tableId;
+		sb
+			.append("\tDATA_OBJ# = ")
+			.append(objId)
+			.append("\n\tSCN = ")
+			.append(scn)
+			.append("\n\tTIMESTAMP = ")
+			//TODO
+			//TODO Need to pass OraRdbmsInfo.getDbTimeZone() !!!
+			//TODO
+			.append(Instant.ofEpochMilli(ts).atZone(ZoneId.systemDefault()))
+			.append("\n\tRS_ID = '")
+			.append(rsId)
+			.append("'\n\tSSN = ")
+			.append(ssn)
+			.append("\n\tROW_ID = ")
+			.append(rowId)
+			.append("\n\tOPERATION_CODE = ")
+			.append(operation)
+			.append("\n\tSQL_REDO = ")
+			.append(sqlRedo)
+			.append("\n\tROLLBACK = ")
+			.append(rollback ? "1" : "0")
+			.append("\n");
+		return sb;
+	}
+
 }

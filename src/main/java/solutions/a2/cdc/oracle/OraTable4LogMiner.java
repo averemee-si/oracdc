@@ -1524,41 +1524,23 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		sb
 			.append("\n=====================\n")
 			.append(message)
-			.append("\n")
-			.append("\tSCN = {}\n")
-			.append("\tCOMMIT_SCN = {}\n")
+			.append("\n\tCOMMIT_SCN = {}\n")
 			.append("\tXID = {}\n")
-			.append("\tTIMESTAMP = {}\n")
-			.append("\tRS_ID = {}\n")
-			.append("\tSSN = {}\n")
-			.append("\tROW_ID = {}\n")
-			.append("\tROLLBACK = {}\n")
-			.append("\tOPERATION_CODE = {}\n")
-			.append("\tSQL_REDO = {}\n")
+			.append(stmt.toStringBuilder())
 			.append("=====================\n");
 		if (level == Level.ERROR) {
 			if (columnName == null) {
-				LOGGER.error(sb.toString(),
-					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-					stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
+				LOGGER.error(sb.toString(), tableFqn, commitScn, xid);
 			} else {
-				LOGGER.error(sb.toString(),
-						columnName, tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-						stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
+				LOGGER.error(sb.toString(), columnName, tableFqn, commitScn, xid);
 				
 			}
 		} else if (level == Level.WARN) {
-			LOGGER.warn(sb.toString(),
-					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-					stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
+			LOGGER.warn(sb.toString(), tableFqn, commitScn, xid);
 		} else if (level == Level.INFO) {
-			LOGGER.info(sb.toString(),
-					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-					stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
+			LOGGER.info(sb.toString(), tableFqn, commitScn, xid);
 		} else {
-			LOGGER.trace(sb.toString(),
-					tableFqn, stmt.getScn(), commitScn, xid, stmt.getTs(), stmt.getRsId(),
-					stmt.getSsn(), stmt.getRowId(), stmt.isRollback(), stmt.getOperation(), stmt.getSqlRedo());
+			LOGGER.trace(sb.toString(), tableFqn, commitScn, xid);
 		}
 	}
 
