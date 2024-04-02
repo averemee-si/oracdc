@@ -161,6 +161,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.incompleteDataTolerance = config.getIncompleteDataTolerance();
 		this.useAllColsOnDelete = config.useAllColsOnDelete();
 		this.printUnableToDeleteWarning = config.printUnableToDeleteWarning();
+
 		try {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -185,6 +186,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					isCdb ? conId : -1, this.tableOwner, this.tableName, config.getPkType());
 
 			// Schema init - keySchema is immutable and always 1
+			final SchemaNameMapper snm = config.getSchemaNameMapper();
+			snm.configure(config);
 			final SchemaBuilder keySchemaBuilder;
 			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
 					(pkColsSet == null && !config.useRowidAsKey())) {
@@ -194,18 +197,13 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				keySchemaBuilder = SchemaBuilder
 						.struct()
 						.required()
-						.name(config.useProtobufSchemaNaming() ?
-								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + "_Key" :
-								tableFqn + ".Key")
+						.name(snm.getKeySchemaName(pdbName, tableOwner, tableName))
 						.version(1);
 			}
 			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
 						.struct()
 						.optional()
-						.name(config.useProtobufSchemaNaming() ?
-								(pdbName == null ? "" : pdbName + "_") + tableOwner + "_" + tableName + 
-										(schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ? "" : "_Value") :
-								tableFqn + (schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ? "" : ".Value"))
+						.name(snm.getValueSchemaName(pdbName, tableOwner, tableName))
 						.version(version);
 
 			if (pkColsSet == null) {
@@ -214,7 +212,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
 					pseudoKey = true;
 				}
-				LOGGER.warn("No primary key detected for table {}.{}",
+				LOGGER.warn("No primary key detected for table {}. {}",
 						tableFqn, 
 						onlyValue ? "" : " ROWID will be used as primary key.");
 			}

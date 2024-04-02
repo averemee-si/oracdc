@@ -133,6 +133,12 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			"If set to false, the connector does not print a warning message about ignoring the DELETE operation.\n" +
 			"Default - " + PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT;
 
+	private static final String SCHEMANAME_MAPPER_DEFAULT = "solutions.a2.cdc.oracle.OraCdcDefaultSchemaNameMapper";
+	private static final String SCHEMANAME_MAPPER_PARAM = "a2.schema.name.mapper";
+	private static final String SCHEMANAME_MAPPER_DOC =
+			"The fully-qualified class name of the class that constructs schema name from the Oracle PDB name (if present), the table owner, and the table name.\n" +
+			"Default - " + SCHEMANAME_MAPPER_DEFAULT;
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int schemaType = -1;
@@ -288,6 +294,9 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, STOP_ON_ORA_1284_DOC)
 				.define(PRINT_UNABLE_TO_DELETE_WARNING_PARAM, Type.BOOLEAN, PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT,
 						Importance.LOW, PRINT_UNABLE_TO_DELETE_WARNING_DOC)
+				.define(SCHEMANAME_MAPPER_PARAM, Type.STRING,
+						SCHEMANAME_MAPPER_DEFAULT,
+						Importance.LOW, SCHEMANAME_MAPPER_DOC)
 				;
 	}
 
@@ -445,6 +454,54 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			throw new ConnectException(e);
 		}
 		return tnm;
+	}
+
+
+	public SchemaNameMapper getSchemaNameMapper() {
+		final SchemaNameMapper snm;
+		final Class<?> clazz;
+		final Constructor<?> constructor;
+		try {
+			clazz = Class.forName(getString(SCHEMANAME_MAPPER_PARAM));
+		} catch (ClassNotFoundException nfe) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Class '{}' specified as the parameter '{}' value was not found.\n" +
+					ExceptionUtils.getExceptionStackTrace(nfe) +
+					"\n" +
+					"=====================\n",
+					getString(SCHEMANAME_MAPPER_PARAM), SCHEMANAME_MAPPER_PARAM);
+			throw new ConnectException(nfe);
+		}
+		try {
+			constructor = clazz.getConstructor();
+		} catch (NoSuchMethodException nsme) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Unable to get default constructor for the class '{}'.\n" +
+					ExceptionUtils.getExceptionStackTrace(nsme) +
+					"\n" +
+					"=====================\n",
+					getString(SCHEMANAME_MAPPER_PARAM));
+			throw new ConnectException(nsme);
+		} 
+		
+		try {
+			snm = (SchemaNameMapper) constructor.newInstance();
+		} catch (SecurityException | 
+				InvocationTargetException | 
+				IllegalAccessException | 
+				InstantiationException e) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"'{}' while instantinating the class '{}'.\n" +
+					ExceptionUtils.getExceptionStackTrace(e) +
+					"\n" +
+					"=====================\n",
+					e.getMessage(),getString(SCHEMANAME_MAPPER_PARAM));
+			throw new ConnectException(e);
+		}
+		return snm;
 	}
 
 

@@ -139,6 +139,9 @@ Default - *true*.
 `a2.print.unable.to.delete.warning` - If set to true, the connector prints a warning message including all redo record details about ignoring the DELETE operation for tables without a primary key or it surrogate or a schema that does not contain key information. If set to false, the connector does not print a warning message about ignoring the DELETE operation.
 Default - *false*.
 
+`a2.schema.name.mapper` - The fully-qualified class name of the class that constructs schema name from the Oracle PDB name (if present), the table owner, and the table name.
+Default - *solutions.a2.cdc.oracle.OraCdcDefaultSchemaNameMapper* 
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - *false*.
