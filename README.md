@@ -310,6 +310,10 @@ grant select on V_$DATABASE to <CONNECTOR-USER>;
 ```
 
 
+# Docker Container
+For a quick start with the Docker container, please read [How to Set Up Oracle Database Tables Replication in Minutes](https://averemee.substack.com/p/how-to-set-up-oracle-database-tables)
+
+
 # Getting Started
 
 These instructions will get you a copy of the project up and running on any platform with JDK11+ support.
@@ -608,6 +612,7 @@ When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle
 
 * better resilience to RDBMS errors
 * **oracdc** as audit information source
+* better schema management including ideas from [timestamp of creation of a schema version](https://github.com/confluentinc/schema-registry/issues/1899)
 
 
 ## Version history
@@ -840,6 +845,20 @@ ServiceLoader manifest files, for more information please read [KIP-898: Moderni
 ######Sink Connector
 1) Connector classes are re-factored and the Sink Connector itself renamed from **solutions.a2.cdc.oracle.OraCdcJdbcSinkConnector** to **solutions.a2.kafka.sink.JdbcSinkConnector**
 2) New parameter - `a2.table.mapper` to manage the table in which to sink the data.
+
+#####2.3.0 (APR-2024)
+
+######LogMiner Connector
+
+1) New parameter - `a2.stop.on.ora.1284` to manage the connector behavior on ORA-1284. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md)
+2) Checking the number of non-zero columns returned from a redo record for greater reliability.
+3) Handling of partial rollback records in RDBMS 19.13 i.e. when redo record with ROLLBACK=1 is before redo record with ROLLBACK=0
+4) Processing of DELETE operation for tables ROWID pseudo key
+5) New parameter - `a2.print.unable.to.delete.warning` to manage the connector output in log for DELETE operations over table's without PK. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md)
+6) New parameter - `a2.schema.name.mapper` to manage schema names generation. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md)
+
+######Docker image
+Rehost Confluent schema registry clients (Avro/Protobuf/JSON Schema) and bump version to 7.5.3
 
 ## Authors
 

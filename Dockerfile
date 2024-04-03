@@ -14,7 +14,7 @@
 ARG    CONFLUENT_VERSION=7.5.3
 
 FROM   eclipse-temurin:17-jdk AS build-sr-client
-RUN    set -eux && apt-get install wget 
+RUN    set -eux && apt-get --yes install wget 
 
 # Add schema registry dependencies
 ARG    CONFLUENT_VERSION
@@ -268,12 +268,12 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
 FROM   eclipse-temurin:17-jre
 LABEL  maintainer="oracle@a2-solutions.eu"
 LABEL  vendor="A2 Rešitve d.o.o."
-LABEL  version="2.2.0"
-LABEL  release="2.2.0"
+LABEL  version="2.3.0"
+LABEL  release="2.3.0"
 LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
-RUN    set -eux && apt-get update && apt-get install netcat tzdata bash wget 
+RUN    set -eux && apt-get update && apt-get --yes install netcat tzdata bash wget 
 RUN    addgroup kafka && adduser --ingroup kafka kafka 
 ARG    BASEDIR=/opt
 
@@ -293,7 +293,7 @@ RUN    wget "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_FILE
        && mkdir -p ${KAFKA_HOME}/connect/jmx \
        && chown -R kafka:kafka ${BASEDIR}/kafka_${SCALA_VERSION}-${KAFKA_VERSION} ${KAFKA_HOME}
 
-ARG    ORACDC_VERSION=2.2.0
+ARG    ORACDC_VERSION=2.3.0
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
 COPY   target/${ORACDC_FILENAME} ${KAFKA_HOME}/connect/lib
 RUN    chown -R kafka:kafka ${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
