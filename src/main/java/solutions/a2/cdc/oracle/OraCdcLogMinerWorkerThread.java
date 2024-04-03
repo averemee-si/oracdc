@@ -291,9 +291,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			}
 
 		} catch (SQLException e) {
-			LOGGER.error("Unable to start logminer archivelog worker thread!");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-			throw new SQLException(e);
+			LOGGER.error(
+					"\n\nUnable to start OraCdcLogMinerWorkerThread !\n" +
+					"SQL Error ={}, SQL State = {}, SQL Message = '{}'\n\n",
+					e.getErrorCode(), e.getSQLState(), e.getMessage());
+			throw e;
 		}
 	}
 
