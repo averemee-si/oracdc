@@ -90,9 +90,11 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 				LOGGER.warn(
 						"\n" +
 						"=====================\n" +
-						"Cannot process online redo logs using connection to PDB!\n" +
-						"Value TRUE of the parameter 'a2.process.online.redo.logs' is ignored!\n" +
-						"=====================\n");
+						"Cannot process online redo logs using connection to {}!\n" +
+						"Value TRUE of the parameter '{}' is ignored!\n" +
+						"=====================\n",
+						useStandby ? "standby database" : "PDB",
+						ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
 			}
 		} else {
 			callDbmsLogmnrAddLogFile = true;
