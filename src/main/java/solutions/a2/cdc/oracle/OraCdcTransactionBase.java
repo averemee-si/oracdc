@@ -53,9 +53,11 @@ public abstract class OraCdcTransactionBase {
 
 	boolean checkForRollback(OraCdcLogMinerStatement oraSql) {
 		if (firstStatement) {
-			// First statement in transaction or after successful pairing
-			firstStatement = false;
-			lastSql = oraSql;
+			if (!ignore(oraSql)) {
+				// First statement in transaction or after successful pairing
+				firstStatement = false;
+				lastSql = oraSql;
+			}
 			return oraSql.isRollback();
 		} else if (lastSql.isRollback()) {
 			// Last processed statement is with ROLLBACK=1 and unpaired
@@ -223,6 +225,7 @@ public abstract class OraCdcTransactionBase {
 
 	private boolean ignore(final OraCdcLogMinerStatement stmt) {
 		final boolean result =
+				stmt.isRollback() &&
 				stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE &&
 				!StringUtils.contains(stmt.getSqlRedo(), " where ");
 		if (result) {
