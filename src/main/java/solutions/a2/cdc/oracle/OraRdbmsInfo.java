@@ -723,7 +723,9 @@ public class OraRdbmsInfo {
 		boolean firstValue = true;
 		boolean lastValue = false;
 		int recordCount = 0;
+		int total = 0;
 		while (rs.next()) {
+			total++;
 			lastValue = false;
 			if (firstValue) {
 				firstValue = false;
@@ -753,6 +755,15 @@ public class OraRdbmsInfo {
 		rs = null;
 		ps.close();
 		ps = null;
+		if (total == 0 && !exclude) {
+			LOGGER.error(
+					"\n" +
+					"=====================\n" +
+					"{}\n" +
+					"didn't return any rows!\n" +
+					"=====================\n",
+					selectObjectIds);
+		}
 		return sb.toString();
 	}
 
