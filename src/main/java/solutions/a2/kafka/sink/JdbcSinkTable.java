@@ -164,7 +164,6 @@ public class JdbcSinkTable extends OraTableDefinition {
 
 						sinkDeleteSql = TargetDbSqlUtils.generateSinkSql(
 								tableName, dbType, pkColumns, allColumns, lobColumns).get(TargetDbSqlUtils.DELETE);
-						pkColumns.clear();
 						ready4Delete = true;
 					} else {
 						LOGGER.warn("\n" +
@@ -239,7 +238,9 @@ public class JdbcSinkTable extends OraTableDefinition {
 			}
 		});
 	
-		if (!onlyValue ) {
+		if (!onlyValue) {
+			// pkColumns may contain values
+			pkColumns.clear();
 			for (final String dbPkColumn : tableMetadata.getKey()) {
 				final boolean isKey;
 				final Field pkField;
@@ -925,7 +926,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 	}
 
 	public boolean duplicatedKeyInBatch(final SinkRecord record) {
-		if (onlyValue) {
+		if (onlyValue || getOpType(record) == 'd') {
 			// No keys at all...
 			return false;
 		} else {
