@@ -50,7 +50,6 @@ public class OraRdbmsInfo {
 
 	public static final String CDB_ROOT = "CDB$ROOT";
 	public static final String MOUNTED = "NOUNTED";
-	public static final String STANDBY = "STANDBY";
 
 	private String versionString;
 	private final String rdbmsEdition;
@@ -87,6 +86,7 @@ public class OraRdbmsInfo {
 	private final static int PDB_MINING_BACKPORT_MAJOR = 19;
 	private final static int PDB_MINING_BACKPORT_MINOR = 10;
 	private static final String JDBC_ORA_PREFIX = "jdbc:oracle:thin:@";
+	private static final String STANDBY = "STANDBY";
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraRdbmsInfo.class);
 
 	public OraRdbmsInfo(final Connection connection) throws SQLException {
@@ -913,8 +913,8 @@ public class OraRdbmsInfo {
 		return logMode;
 	}
 
-	public String getControlFileType() {
-		return controlFileType;
+	public boolean isStandby() {
+		return StringUtils.equals(STANDBY, controlFileType);
 	}
 
 	public String getOpenMode() {

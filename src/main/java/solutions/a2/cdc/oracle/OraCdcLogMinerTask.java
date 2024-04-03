@@ -411,7 +411,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 			boolean rewind = false;
 			final long firstAvailableScn = rdbmsInfo.firstScnFromArchivedLogs(
-					oraConnections.getLogMinerConnection(), !useStandby);
+					oraConnections.getLogMinerConnection(),
+					!(useStandby ||  rdbmsInfo.isStandby()));
 			long firstScn = firstAvailableScn;
 			String firstRsId = null;
 			long firstSsn = -1;
