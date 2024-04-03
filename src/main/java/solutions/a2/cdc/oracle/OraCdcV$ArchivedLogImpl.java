@@ -50,8 +50,6 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private final boolean callDbmsLogmnrAddLogFile;
 	private final boolean processOnlineRedoLogs;
 	private final int onlineRedoQueryMsMin;
-	private final long dbId;
-	private final String dbUniqueName;
 	private final OraCdcLogMinerMgmtIntf metrics;
 	private PreparedStatement psGetArchivedLogs;
 	private CallableStatement csAddArchivedLogs;
@@ -79,6 +77,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
 		this.rdbmsInfo = rdbmsInfo;
+		final String openMode = rdbmsInfo.getOpenMode();
 		this.useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
 		this.stopOnOra1284 = config.stopOnOra1284();
 
@@ -123,41 +122,26 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
 		this.firstChange = firstChange;
 		createStatements(connLogMiner);
-		PreparedStatement psOpenMode = connLogMiner.prepareStatement(OraDictSqlTexts.RDBMS_OPEN_MODE,
-				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		ResultSet rsOpenMode = psOpenMode.executeQuery();
-		if (rsOpenMode.next()) {
-			final String openMode = rsOpenMode.getString(1);
-			dbId = rsOpenMode.getLong(2);
-			dbUniqueName = rsOpenMode.getString(3);
-			final String controlFileType = rsOpenMode.getString(4);
-			final StringBuilder sb = new StringBuilder(512);
-			sb.append("\n=====================\n");
-			if (StringUtils.equals("STANDBY", controlFileType)) {
-				if (StringUtils.equals("MOUNTED", openMode)) {
-					sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state to call LogMiner.\n");
-					dictionaryAvailable = false;
-				} else {
-					sb.append("oracdc will use connection to Oracle Active DataGuard Database with a unique name {} in {} state to call LogMiner.\n");
-					dictionaryAvailable = true;
-				}
+
+		final StringBuilder sb = new StringBuilder(512);
+		sb.append("\n=====================\n");
+		if (StringUtils.equals(OraRdbmsInfo.STANDBY, rdbmsInfo.getControlFileType())) {
+			if (StringUtils.equals(OraRdbmsInfo.MOUNTED, openMode)) {
+				sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state to call LogMiner.\n");
+				dictionaryAvailable = false;
 			} else {
-				sb.append("oracdc will use connection to Oracle Database with a unique name {} in {} state to call LogMiner and query the dictionary.\n");
+				sb.append("oracdc will use connection to Oracle Active DataGuard Database with a unique name {} in {} state to call LogMiner.\n");
 				dictionaryAvailable = true;
 			}
-			sb
-				.append("Oracle Database DBID is {}, LogMiner will start from SCN {}.")
-				.append("\n=====================\n");
-			
-			LOGGER.info(sb.toString(),
-					dbUniqueName, openMode, dbId, firstChange);
 		} else {
-			throw new SQLException("Unable to detect RDBMS open mode");
+			sb.append("oracdc will use connection to Oracle Database with a unique name {} in {} state to call LogMiner and query the dictionary.\n");
+			dictionaryAvailable = true;
 		}
-		rsOpenMode.close();
-		rsOpenMode = null;
-		psOpenMode.close();
-		psOpenMode = null;
+		sb
+			.append("Oracle Database DBID is {}, LogMiner will start from SCN {}.")
+			.append("\n=====================\n");
+			
+		LOGGER.info(sb.toString(), rdbmsInfo.getDbUniqueName(), openMode, rdbmsInfo.getDbId(), firstChange);
 		// It's time to init JMS metrics...
 		metrics.start(firstChange);
 		LOGGER.trace("END: OraLogMiner Constructor");
@@ -390,12 +374,12 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
 	@Override
 	public long getDbId() {
-		return dbId;
+		return rdbmsInfo.getDbId();
 	}
 
 	@Override
 	public String getDbUniqueName() {
-		return dbUniqueName;
+		return rdbmsInfo.getDbUniqueName();
 	}
 
 	private void printRedoLogInfo(final boolean archived, final boolean printNextChange,

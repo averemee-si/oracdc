@@ -49,6 +49,8 @@ public class OraRdbmsInfo {
 	public static final int ORA_1284 = 1284;
 
 	public static final String CDB_ROOT = "CDB$ROOT";
+	public static final String MOUNTED = "NOUNTED";
+	public static final String STANDBY = "STANDBY";
 
 	private String versionString;
 	private final String rdbmsEdition;
@@ -77,6 +79,8 @@ public class OraRdbmsInfo {
 	private ZoneId dbTimeZone;
 	private ZoneId sessionTimeZone;
 	private final String logMode;
+	private final String controlFileType;
+	private final String openMode;
 
 	public final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -205,6 +209,8 @@ public class OraRdbmsInfo {
 			} else {
 				windows = false;
 			}
+			controlFileType = rs.getString("CONTROLFILE_TYPE");
+			openMode = rs.getString("OPEN_MODE");
 			supplementalLogDataAll = rs.getString("SUPPLEMENTAL_LOG_DATA_ALL");
 			supplementalLogDataMin = rs.getString("SUPPLEMENTAL_LOG_DATA_MIN");
 			if (StringUtils.equalsIgnoreCase(supplementalLogDataAll, "YES")) {
@@ -905,6 +911,14 @@ public class OraRdbmsInfo {
 
 	public String getLogMode() {
 		return logMode;
+	}
+
+	public String getControlFileType() {
+		return controlFileType;
+	}
+
+	public String getOpenMode() {
+		return openMode;
 	}
 
 	@Override

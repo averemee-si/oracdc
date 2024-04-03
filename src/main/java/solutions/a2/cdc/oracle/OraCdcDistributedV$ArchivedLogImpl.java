@@ -98,28 +98,17 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 		}
 
 		createStatements(connLogMiner);
-		PreparedStatement psOpenMode = connLogMiner.prepareStatement(OraDictSqlTexts.RDBMS_OPEN_MODE,
-				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		ResultSet rsOpenMode = psOpenMode.executeQuery();
-		if (rsOpenMode.next()) {
-			final String openMode = rsOpenMode.getString(1);
-			if ("MOUNTED".equals(openMode)) {
-				LOGGER.trace("LogMiner connection database is in MOUNTED state, no dictionary available.");
-				dictionaryAvailable = false;
-			} else {
-				LOGGER.trace("LogMiner connection database is in {} state, dictionary is available.", openMode);
-				dictionaryAvailable = true;
-			}
-			LOGGER.info("LogMiner will start from SCN {}", firstChange);
-			dbId = rsOpenMode.getLong(2);
-			dbUniqueName = rsOpenMode.getString(3);
+		final String openMode = rdbmsInfo.getOpenMode();
+		if (StringUtils.equals(OraRdbmsInfo.MOUNTED, openMode)) {
+			LOGGER.trace("LogMiner connection database is in MOUNTED state, no dictionary available.");
+			dictionaryAvailable = false;
 		} else {
-			throw new SQLException("Unable to detect RDBMS open mode");
+			LOGGER.trace("LogMiner connection database is in {} state, dictionary is available.", openMode);
+			dictionaryAvailable = true;
 		}
-		rsOpenMode.close();
-		rsOpenMode = null;
-		psOpenMode.close();
-		psOpenMode = null;
+		LOGGER.info("LogMiner will start from SCN {}", firstChange);
+		dbId = rdbmsInfo.getDbId();
+		dbUniqueName = rdbmsInfo.getDbUniqueName();
 		RedoTransportThread rtt = new RedoTransportThread(
 				firstChange, config, runLatch, redoFiles, oraConnections, rdbmsInfo);
 		rtt.start();
