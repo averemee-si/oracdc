@@ -860,6 +860,11 @@ ServiceLoader manifest files, for more information please read [KIP-898: Moderni
 ######Docker image
 Rehost Confluent schema registry clients (Avro/Protobuf/JSON Schema) and bump version to 7.5.3
 
+######2.3.1 (APR-2024)
+
+Simplification of configuration for [Oracle Active DataGuard](https://www.oracle.com/database/data-guard/) - now the same configuration is used for [Oracle Active DataGuard](https://www.oracle.com/database/data-guard/) as for a primary database
+
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
