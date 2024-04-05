@@ -252,7 +252,6 @@ public class OraConnectionObjects {
 					final StringBuilder errMessage = new StringBuilder(256);
 					errMessage
 						.append("\n=====================\n")
-						.append(distributed)
 						.append("ORA-01882 while getting connection:\n")
 						.append(sqle.getMessage())
 						.append("\n")
