@@ -204,8 +204,7 @@ public class OracleSetupCheck {
 			LOGGER.error(sb.toString());
 		} else {
 			try (final Connection connection = dbPool.getConnection()) {
-				//TODO - currently only primary database!
-				final long startScn = rdbmsInfo.firstScnFromArchivedLogs(connection, true);
+				final long startScn = rdbmsInfo.firstScnFromArchivedLogs(connection, !rdbmsInfo.isStandby());
 				LOGGER.info("Minimum available SCN = {}", startScn);
 				final String fileName;
 				final long firstChange;
