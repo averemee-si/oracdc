@@ -320,7 +320,7 @@ from (select min(FIRST_CHANGE#) SCN
       from   V$ARCHIVED_LOG
       where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'
       and    THREAD#=1) A,
-     (select FIRST_CHANGE# SCN
+     (select min(FIRST_CHANGE#) SCN
       from  V$LOG
       where STATUS = 'CURRENT'
         and THREAD#=1) O
@@ -337,7 +337,7 @@ from (select min(FIRST_CHANGE#) SCN
 			"        and THREAD#=?) O";
 
 	/*
-select nvl(least(A.SCN, O.SCN), O.SCN)
+select least(nvl(A.SCN, 18446744073709551615), nvl(O.SCN, 18446744073709551615))
 from (select min(FIRST_CHANGE#) SCN
       from   V$ARCHIVED_LOG
       where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'
@@ -348,7 +348,7 @@ from (select min(FIRST_CHANGE#) SCN
         and THREAD#=1) O
 	 */
 	public static final String FIRST_AVAILABLE_SCN_IN_ARCHIVE_STBY =
-			"select nvl(least(A.SCN, O.SCN), O.SCN)\n" +
+			"select least(nvl(A.SCN, 18446744073709551615), nvl(O.SCN, 18446744073709551615))\n" +
 			"from (select min(FIRST_CHANGE#) SCN\n" +
 			"      from   V$ARCHIVED_LOG\n" +
 			"      where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO'\n" +
