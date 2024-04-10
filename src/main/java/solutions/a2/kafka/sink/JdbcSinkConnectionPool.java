@@ -145,7 +145,7 @@ public class JdbcSinkConnectionPool {
 					if (waitTimeMillis > 300_000) {
 						LOGGER.error(
 								"\n=====================\n" +
-								"Unable to get connection to after {} milliseconds!.\n" +
+								"Unable to get connection to {} after {} milliseconds!.\n" +
 								"=====================\n",
 								dataSource.getJdbcUrl(), waitTimeMillis);
 						throw sqle;
