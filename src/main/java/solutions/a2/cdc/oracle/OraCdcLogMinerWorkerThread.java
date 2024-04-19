@@ -609,7 +609,18 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 													xid, timestamp, lastScn);
 										}
 										if (useChronicleQueue) {
-											transaction = new OraCdcTransactionChronicleQueue(processLobs, queuesRoot, xid);
+											try {
+												transaction = new OraCdcTransactionChronicleQueue(processLobs, queuesRoot, xid);
+											} catch (Exception cqe) {
+												LOGGER.error(
+														"\n=====================\n" +
+														"'{}' while initializing Chronicle Queue.\n" +
+														"\tREF. https://github.com/OpenHFT/Chronicle-Queue/issues/1446\n" +
+														"Please send errorstack below to oracle@a2-solutions.eu\n{}\n" +
+														"=====================\n",
+														cqe.getMessage(), ExceptionUtils.getExceptionStackTrace(cqe));
+												throw new ConnectException(cqe);
+											}
 										} else {
 											transaction = new OraCdcTransactionArrayList(xid);
 										}

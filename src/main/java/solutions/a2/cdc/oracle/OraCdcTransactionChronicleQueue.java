@@ -44,6 +44,15 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 	private static final String QUEUE_DIR = "queueDirectory";
 	private static final String QUEUE_OFFSET = "tailerOffset";
 	private static final String PROCESS_LOBS = "processLobs";
+	private static final String CQ_ISSUE_1446_RETRY_MSG = "Received https://github.com/OpenHFT/Chronicle-Queue/issues/1446, will try again";
+	private static final String CQ_ISSUE_1446_MSG =
+			"\n=====================\n" +
+			"'{}' while initializing Chronicle Queue.\n" +
+			"Perhaps this is https://github.com/OpenHFT/Chronicle-Queue/issues/1446\n" +
+			"Please suggest increase the value of system property \"chronicle.table.store.timeoutMS\".\n" +
+			"\tFor more information on Chronicle Queue parameters please visit https://github.com/OpenHFT/Chronicle-Queue/blob/ea/systemProperties.adoc .\n" +
+			"=====================\n";
+	private static final int LOCK_RETRY = 5;
 
 	private long firstChange;
 	private long nextChange;
@@ -90,19 +99,58 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 			}
 		}
 		try {
-			statements = ChronicleQueue
-				.singleBuilder(queueDirectory)
-				.build();
+			boolean cqDone = false;
+			Exception lastException = null;
+			for (int i = 0; i < LOCK_RETRY; i++) {
+				try {
+					statements = ChronicleQueue
+							.singleBuilder(queueDirectory)
+							.build();
+					cqDone = true;
+				} catch (IllegalStateException ise) {
+					LOGGER.error(CQ_ISSUE_1446_RETRY_MSG);
+					deleteDir(queueDirectory);
+					if (i == LOCK_RETRY - 1) {
+						lastException = ise;
+					}
+				}
+				if (cqDone) {
+					break;
+				}
+			}
+			if (!cqDone) {
+				LOGGER.error(CQ_ISSUE_1446_MSG, lastException.getMessage());
+				throw lastException;
+			}
 			tailer = statements.createTailer();
 			appender = statements.acquireAppender();
 			queueSize = 0;
 			tailerOffset = 0;
 			if (processLobs) {
-				lobs = ChronicleQueue
-						.singleBuilder(lobsQueueDirectory)
-						.build();
-					lobsTailer = lobs.createTailer();
-					lobsAppender = lobs.acquireAppender();
+				cqDone = false;
+				for (int i = 0; i < LOCK_RETRY; i++) {
+					try {
+						lobs = ChronicleQueue
+								.singleBuilder(lobsQueueDirectory)
+								.build();
+						cqDone = true;
+					} catch (IllegalStateException ise) {
+						LOGGER.error(CQ_ISSUE_1446_RETRY_MSG);
+						deleteDir(lobsQueueDirectory);
+						if (i == LOCK_RETRY - 1) {
+							lastException = ise;
+						}
+					}
+					if (cqDone) {
+						break;
+					}
+				}
+				if (!cqDone) {
+					LOGGER.error(CQ_ISSUE_1446_MSG, lastException.getMessage());
+					throw lastException;
+				}
+				lobsTailer = lobs.createTailer();
+				lobsAppender = lobs.acquireAppender();
 			}
 		} catch (Exception e) {
 			LOGGER.error("Unable to create Chronicle Queue!");
@@ -329,23 +377,23 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 			statements.close();
 		}
 		statements = null;
+		if (processLobs) {
+			deleteDir(lobsQueueDirectory);
+		}
+		deleteDir(queueDirectory);
+	}
+
+	private void deleteDir(final Path directory) {
 		try {
-			if (processLobs) {
-				Files.walk(lobsQueueDirectory)
-				.sorted(Comparator.reverseOrder())
-				.map(Path::toFile)
-				.forEach(File::delete);
-			}
-			Files.walk(queueDirectory)
+			Files.walk(directory)
 				.sorted(Comparator.reverseOrder())
 				.map(Path::toFile)
 				.forEach(File::delete);
 		} catch (NoSuchFileException nsf) {
 			LOGGER.error(nsf.getMessage());
 		} catch (IOException ioe) {
-			LOGGER.error("Unable to delete Cronicle Queue files.");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-		}
+			LOGGER.error(ioe.getMessage());
+		} 
 	}
 
 
