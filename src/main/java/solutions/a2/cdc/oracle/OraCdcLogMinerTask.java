@@ -982,7 +982,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 										if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
 											final long ddlStartTs = System.currentTimeMillis();
 											final int changedColumnCount = 
-													oraTable.processDdl(config.useOracdcSchemas(), stmt, transaction.getXid(), transaction.getCommitScn());
+													oraTable.processDdl(stmt, transaction.getXid(), transaction.getCommitScn());
 											if (!legacyResiliencyModel) {
 												putTableAndVersion(stmt.getTableId(), oraTable.getVersion());
 											}

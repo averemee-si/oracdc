@@ -247,6 +247,13 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			connectorProperties.put(ParamConstants.ARCHIVED_LOG_CAT_PARAM, 
 					OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName());
 		}
+		try {
+			config.getOraRowScnField();
+			config.getOraRowTsField();
+			config.getOraCommitScnField();
+		} catch (IllegalArgumentException iae) {
+			throw new ConnectException(iae);
+		}
 	}
 
 	@Override

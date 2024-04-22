@@ -32,6 +32,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -100,6 +101,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private int mandatoryColumnsProcessed = 0;
 	private boolean pseudoKey = false;
 	private boolean printUnableToDeleteWarning;
+	private boolean addRowScn = false;
+	private String rowScnName = null;
+	private boolean addRowTs = false;
+	private String rowTsName = null;
+	private boolean addCommitScn = false;
+	private String commitScnName = null;
+	private boolean addRowOp = false;
+	private String rowOpName = null;
+	private boolean useOracdcSchemas = false;
 
 	/**
 	 * 
@@ -161,6 +171,24 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.incompleteDataTolerance = config.getIncompleteDataTolerance();
 		this.useAllColsOnDelete = config.useAllColsOnDelete();
 		this.printUnableToDeleteWarning = config.printUnableToDeleteWarning();
+		this.useOracdcSchemas = config.useOracdcSchemas();
+
+		rowScnName = config.getOraRowScnField();
+		if (rowScnName != null) {
+			addRowScn = true;
+		}
+		commitScnName = config.getOraCommitScnField();
+		if (commitScnName != null) {
+			addCommitScn = true;
+		}
+		rowTsName = config.getOraRowTsField();
+		if (rowTsName != null) {
+			addRowTs = true;
+		}
+		rowOpName = config.getOraRowOpField();
+		if (rowOpName != null) {
+			addRowOp = true;
+		}
 
 		try {
 			if (LOGGER.isDebugEnabled()) {
@@ -233,7 +261,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				boolean columnAdded = false;
 				OraColumn column = null;
 				try {
-					column = new OraColumn(false, config.useOracdcSchemas(), processLobs, rsColumns, pkColsSet);
+					column = new OraColumn(false, useOracdcSchemas, processLobs, rsColumns, pkColsSet);
 					columnAdded = true;
 				} catch (UnsupportedColumnDataTypeException ucdte) {
 					LOGGER.warn("Column {} not added to definition of table {}.{}",
@@ -335,7 +363,48 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 
 			// Schema
+			if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+				//TODO
+				//TODO Beter handling for 'debezium'-like schemas are required for this case...
+				//TODO
+				if (addRowScn) {
+					//TODO
+					//TODO
+					//TODO Will be changed in 3.0 together with SCN datatype replacement to unsigned long
+					//TODO
+					//TODO
+					valueSchemaBuilder.field(rowScnName, Schema.INT64_SCHEMA);
+				}
+				if (addRowTs) {
+					valueSchemaBuilder.field(rowTsName, Timestamp.builder().required().build());
+				}
+				if (addCommitScn) {
+					//TODO
+					//TODO
+					//TODO Will be changed in 3.0 together with SCN datatype replacement to unsigned long
+					//TODO
+					//TODO
+					valueSchemaBuilder.field(commitScnName, Schema.INT64_SCHEMA);
+				}
+			}
+			if (addRowOp) {
+				valueSchemaBuilder.field(rowOpName, Schema.STRING_SCHEMA);
+			}
 			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
+			if (LOGGER.isDebugEnabled()) {
+				if (keySchema != null &&
+						keySchema.fields() != null &&
+						keySchema.fields().size() > 0) {
+					LOGGER.debug("Key fields for table {}.", fqn());
+					keySchema.fields().forEach(f -> LOGGER.debug("\t{} with schema {}",f.name(), f.schema().name()));
+				}
+				if (valueSchema != null &&
+						valueSchema.fields() != null &&
+						valueSchema.fields().size() > 0) {
+					LOGGER.debug("Value fields for table {}.", fqn());
+					valueSchema.fields().forEach(f -> LOGGER.debug("\t{} with schema {}",f.name(), f.schema().name()));
+				}
+			}
 
 			if (isCdb) {
 				// Restore container in session
@@ -997,6 +1066,48 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						schema,
 						struct);
 			} else {
+				if (!(opType == 'd' && (!useAllColsOnDelete))) {
+					//TODO
+					//TODO Beter handling for 'debezium'-like schemas are required for this case...
+					//TODO
+					if (addRowScn) {
+						//TODO
+						//TODO
+						//TODO Will be changed in 3.0 together with SCN datatype replacement to unsigned long
+						//TODO
+						//TODO
+						valueStruct.put(rowScnName, stmt.getScn());
+					}
+					if (addRowTs) {
+						valueStruct.put(rowTsName, stmt.getTimestamp());
+					}
+					if (addCommitScn) {
+						//TODO
+						//TODO
+						//TODO Will be changed in 3.0 together with SCN datatype replacement to unsigned long
+						//TODO
+						//TODO
+						valueStruct.put(commitScnName, commitScn);
+					}
+					if (addRowOp) {
+						final String operation;
+						switch (stmt.getOperation()) {
+						case OraCdcV$LogmnrContents.INSERT:
+							operation = "INSERT";
+							break;
+						case OraCdcV$LogmnrContents.UPDATE:
+							operation = "UPDATE";
+							break;
+						case OraCdcV$LogmnrContents.DELETE:
+							operation = "DELETE";
+							break;
+						default:
+							// Very rare case...
+							operation = "XML DOC BEGIN";
+						} 
+						valueStruct.put(rowOpName, operation);
+					}
+				}
 				if (onlyValue) {
 					sourceRecord = new SourceRecord(
 							sourcePartition,
@@ -1278,8 +1389,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		return withLobs;
 	}
 
-	public int processDdl(final boolean useOracdcSchemas,
-			final OraCdcLogMinerStatement stmt,
+	public int processDdl(final OraCdcLogMinerStatement stmt,
 			final String xid,
 			final long commitScn) throws SQLException {
 		int updatedColumnCount = 0;

@@ -17,6 +17,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -25,6 +26,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -138,6 +140,26 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	private static final String SCHEMANAME_MAPPER_DOC =
 			"The fully-qualified class name of the class that constructs schema name from the Oracle PDB name (if present), the table owner, and the table name.\n" +
 			"Default - " + SCHEMANAME_MAPPER_DEFAULT;
+
+	private static final String ORA_ROWSCN_PARAM = "a2.pseudocolumn.ora_rowscn";
+	private static final String ORA_ROWSCN_DOC =
+			"The name of the field in the Kafka Connect record that contains the SCN where the row change was made. If the value is empty, the SCN field is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include SCN field in Kafka Connect record";
+
+	private static final String ORA_COMMITSCN_PARAM = "a2.pseudocolumn.ora_commitscn";
+	private static final String ORA_COMMITSCN_DOC =
+			"The name of the field in the Kafka Connect record that contains the commit SCN of the transaction in which the row change was made. If the value is empty, the commit SCN field is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include commit SCN field in Kafka Connect record";
+
+	private static final String ORA_ROWTS_PARAM = "a2.pseudocolumn.ora_rowts";
+	private static final String ORA_ROWTS_DOC =
+			"The name of the field in the Kafka Connect record that contains the database server timestamp where the row change was made. If the value is empty, the timestamp field is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include row change timestamp field in Kafka Connect record";
+
+	private static final String ORA_OPERATION_PARAM = "a2.pseudocolumn.ora_operation";
+	private static final String ORA_OPERATION_DOC =
+			"The name of the field in the Kafka Connect record that contains the name of the operation (UPDATE/INSERT/DELETE) that changed the database row. If the value is empty, the operation field is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include operation field in Kafka Connect record";
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
@@ -297,8 +319,17 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				.define(SCHEMANAME_MAPPER_PARAM, Type.STRING,
 						SCHEMANAME_MAPPER_DEFAULT,
 						Importance.LOW, SCHEMANAME_MAPPER_DOC)
+				.define(ORA_ROWSCN_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_ROWSCN_DOC)
+				.define(ORA_COMMITSCN_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_COMMITSCN_DOC)
+				.define(ORA_ROWTS_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_ROWTS_DOC)
+				.define(ORA_OPERATION_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_OPERATION_DOC)
 				;
 	}
+
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {
 		super(config(), originals);
@@ -504,5 +535,37 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 		return snm;
 	}
 
+	public String getOraRowScnField() {
+		return getPseudoColumn(ORA_ROWSCN_PARAM);
+	}
+
+	public String getOraCommitScnField() {
+		return getPseudoColumn(ORA_COMMITSCN_PARAM);
+	}
+
+	public String getOraRowTsField() {
+		return getPseudoColumn(ORA_ROWTS_PARAM);
+	}
+
+	public String getOraRowOpField() {
+		return getPseudoColumn(ORA_OPERATION_PARAM);
+	}
+
+	private String getPseudoColumn(final String param) {
+		final String value = getString(param);
+		if (StringUtils.isBlank(value)) {
+			return null;
+		} else if (KafkaUtils.validAvroFieldName(value)) {
+			return value;
+		} else {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Invalid value [{}] for parameter '{}'.\n" +
+					"The parameter value must contain only the characters below\n\t{}\n" +
+					"=====================\n",
+					value, param, KafkaUtils.AVRO_FIELD_VALID_CHARS);
+			throw new IllegalArgumentException("Invalid value [" + value + "] for parameter " + param + "!");
+		}
+	}
 
 }

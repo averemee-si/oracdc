@@ -142,6 +142,19 @@ Default - *false*.
 `a2.schema.name.mapper` - The fully-qualified class name of the class that constructs schema name from the Oracle PDB name (if present), the table owner, and the table name.
 Default - *solutions.a2.cdc.oracle.OraCdcDefaultSchemaNameMapper* 
 
+`a2.pseudocolumn.ora_rowscn` - The name of the field in the Kafka Connect record that contains the SCN where the row change was made. If the value is empty, the SCN field is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include SCN field in Kafka Connect record.
+
+`a2.pseudocolumn.ora_commitscn` - The name of the field in the Kafka Connect record that contains the commit SCN of the transaction in which the row change was made. If the value is empty, the commit SCN field is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include commit SCN field in Kafka Connect record
+
+`a2.pseudocolumn.ora_rowts` - The name of the field in the Kafka Connect record that contains the database server timestamp where the row change was made. If the value is empty, the timestamp field is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include row change timestamp field in Kafka Connect record
+
+`a2.pseudocolumn.ora_operation` - The name of the field in the Kafka Connect record that contains the name of the operation (UPDATE/INSERT/DELETE) that changed the database row. If the value is empty, the operation field is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include row change operation field in Kafka Connect record
+
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - *false*.

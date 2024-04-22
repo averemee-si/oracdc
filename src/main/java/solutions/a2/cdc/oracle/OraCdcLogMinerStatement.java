@@ -13,6 +13,7 @@
 
 package solutions.a2.cdc.oracle;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.ZoneId;
 
@@ -111,6 +112,10 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 
 	public long getTs() {
 		return ts;
+	}
+
+	public Timestamp getTimestamp() {
+		return Timestamp.from(Instant.ofEpochMilli(ts));
 	}
 
 	public long getScn() {
