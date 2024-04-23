@@ -31,6 +31,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
@@ -59,12 +60,14 @@ public class DatabaseObjects implements ActionListener {
 	private String tableName;
 	private final OraConnectionObjects oraConnections;
 	private final OraCdcSourceConnectorConfig config;
+	private final OraCdcPseudoColumnsProcessor pseudoColumns;
 
 	public DatabaseObjects(
 			final String jdbcUrl, final String username, final String password)
 					throws SQLException {
 		oraConnections = OraConnectionObjects.get4UserPassword("table-schema-editor", jdbcUrl, username, password);
-		config = new OraCdcSourceConnectorConfig(new HashMap<String, String>()); 
+		config = new OraCdcSourceConnectorConfig(new HashMap<String, String>());
+		pseudoColumns = new OraCdcPseudoColumnsProcessor(config);
 		final Connection connection = oraConnections.getConnection();
 		rdbmsInfo = new OraRdbmsInfo(connection, false);
 		final String protoValue = StringUtils.repeat("A", 31);
@@ -188,7 +191,7 @@ public class DatabaseObjects implements ActionListener {
 						isCdb ? (short) conId : -1,
 						tableOwner, tableName, "ENABLED".equalsIgnoreCase(rs.getString("DEPENDENCIES")),
 						config, processLobs, new OraCdcDefaultLobTransformationsImpl(),
-						isCdb, 0, null, null, rdbmsInfo, connection);
+						isCdb, 0, null, null, rdbmsInfo, connection, pseudoColumns);
 				return new AbstractMap.SimpleImmutableEntry<Long, OraTable4LogMiner>(combinedDataObjectId, oraTable);
 			} else {
 				throw new SQLException(

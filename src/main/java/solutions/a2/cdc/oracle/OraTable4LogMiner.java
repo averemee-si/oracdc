@@ -32,7 +32,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.data.Timestamp;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -101,15 +100,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private int mandatoryColumnsProcessed = 0;
 	private boolean pseudoKey = false;
 	private boolean printUnableToDeleteWarning;
-	private boolean addRowScn = false;
-	private String rowScnName = null;
-	private boolean addRowTs = false;
-	private String rowTsName = null;
-	private boolean addCommitScn = false;
-	private String commitScnName = null;
-	private boolean addRowOp = false;
-	private String rowOpName = null;
 	private boolean useOracdcSchemas = false;
+	private OraCdcPseudoColumnsProcessor pseudoColumns;
 
 	/**
 	 * 
@@ -159,7 +151,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final boolean processLobs, final OraCdcLobTransformationsIntf transformLobs,
 			final boolean isCdb, final int topicPartition, final OraDumpDecoder odd,
 			final Map<String, String> sourcePartition,
-			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
+			final OraRdbmsInfo rdbmsInfo, final Connection connection,
+			final OraCdcPseudoColumnsProcessor pseudoColumns) {
 		this(pdbName, tableOwner, tableName, config.getSchemaType(), processLobs, transformLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(config, odd, sourcePartition);
@@ -172,23 +165,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.useAllColsOnDelete = config.useAllColsOnDelete();
 		this.printUnableToDeleteWarning = config.printUnableToDeleteWarning();
 		this.useOracdcSchemas = config.useOracdcSchemas();
-
-		rowScnName = config.getOraRowScnField();
-		if (rowScnName != null) {
-			addRowScn = true;
-		}
-		commitScnName = config.getOraCommitScnField();
-		if (commitScnName != null) {
-			addCommitScn = true;
-		}
-		rowTsName = config.getOraRowTsField();
-		if (rowTsName != null) {
-			addRowTs = true;
-		}
-		rowOpName = config.getOraRowOpField();
-		if (rowOpName != null) {
-			addRowOp = true;
-		}
+		this.pseudoColumns = pseudoColumns;
 
 		try {
 			if (LOGGER.isDebugEnabled()) {
@@ -367,28 +344,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				//TODO
 				//TODO Beter handling for 'debezium'-like schemas are required for this case...
 				//TODO
-				if (addRowScn) {
-					//TODO
-					//TODO
-					//TODO Will be changed in 3.0 together with SCN datatype replacement to unsigned long
-					//TODO
-					//TODO
-					valueSchemaBuilder.field(rowScnName, Schema.INT64_SCHEMA);
-				}
-				if (addRowTs) {
-					valueSchemaBuilder.field(rowTsName, Timestamp.builder().required().build());
-				}
-				if (addCommitScn) {
-					//TODO
-					//TODO
-					//TODO Will be changed in 3.0 together with SCN datatype replacement to unsigned long
-					//TODO
-					//TODO
-					valueSchemaBuilder.field(commitScnName, Schema.INT64_SCHEMA);
-				}
-			}
-			if (addRowOp) {
-				valueSchemaBuilder.field(rowOpName, Schema.STRING_SCHEMA);
+				pseudoColumns.addToSchema(valueSchemaBuilder);
 			}
 			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
 			if (LOGGER.isDebugEnabled()) {
@@ -1070,43 +1026,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					//TODO
 					//TODO Beter handling for 'debezium'-like schemas are required for this case...
 					//TODO
-					if (addRowScn) {
-						//TODO
-						//TODO
-						//TODO Will be changed in 3.0 together with SCN datatype replacement to unsigned long
-						//TODO
-						//TODO
-						valueStruct.put(rowScnName, stmt.getScn());
-					}
-					if (addRowTs) {
-						valueStruct.put(rowTsName, stmt.getTimestamp());
-					}
-					if (addCommitScn) {
-						//TODO
-						//TODO
-						//TODO Will be changed in 3.0 together with SCN datatype replacement to unsigned long
-						//TODO
-						//TODO
-						valueStruct.put(commitScnName, commitScn);
-					}
-					if (addRowOp) {
-						final String operation;
-						switch (stmt.getOperation()) {
-						case OraCdcV$LogmnrContents.INSERT:
-							operation = "INSERT";
-							break;
-						case OraCdcV$LogmnrContents.UPDATE:
-							operation = "UPDATE";
-							break;
-						case OraCdcV$LogmnrContents.DELETE:
-							operation = "DELETE";
-							break;
-						default:
-							// Very rare case...
-							operation = "XML DOC BEGIN";
-						} 
-						valueStruct.put(rowOpName, operation);
-					}
+					pseudoColumns.addToStruct(valueStruct, stmt, commitScn);
 				}
 				if (onlyValue) {
 					sourceRecord = new SourceRecord(

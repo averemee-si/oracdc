@@ -114,6 +114,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Set<Long> nonLobObjects;
 	private String lastRealRowId;
 	private final long logMinerReconnectIntervalMs;
+	private final OraCdcPseudoColumnsProcessor pseudoColumns;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -132,7 +133,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final OraCdcSourceConnectorConfig config,
 			final OraCdcLobTransformationsIntf transformLobs,
 			final OraRdbmsInfo rdbmsInfo,
-			final OraConnectionObjects oraConnections) throws SQLException {
+			final OraConnectionObjects oraConnections,
+			final OraCdcPseudoColumnsProcessor pseudoColumns) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -158,6 +160,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
 		this.rdbmsInfo = rdbmsInfo;
 		this.oraConnections = oraConnections;
+		this.pseudoColumns = pseudoColumns;
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		legacyResiliencyModel = task.isLegacyResiliencyModel();
 		if (legacyResiliencyModel) {
@@ -560,7 +563,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 												config, processLobs,
 												transformLobs, isCdb, topicPartition,
-												odd, partition, rdbmsInfo, connDictionary);
+												odd, partition, rdbmsInfo, connDictionary, pseudoColumns);
 											if (!legacyResiliencyModel) {
 												task.putTableAndVersion(combinedDataObjectId, 1);
 											}

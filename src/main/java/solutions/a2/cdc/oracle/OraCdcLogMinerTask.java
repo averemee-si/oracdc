@@ -116,6 +116,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private long lastInProgressSsn = 0;
 	private OraCdcSourceConnectorConfig config;
 	private int topicPartition;
+	private OraCdcPseudoColumnsProcessor pseudoColumns;
 
 	@Override
 	public String version() {
@@ -355,6 +356,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
+			pseudoColumns = new OraCdcPseudoColumnsProcessor(config);
 
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName();
 			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, rdbmsInfo.getDbId());
@@ -811,7 +813,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 					config,
 					transformLobs,
 					rdbmsInfo,
-					oraConnections);
+					oraConnections,
+					pseudoColumns);
 			if (rewind) {
 				worker.rewind(firstScn, firstRsId, firstSsn);
 			}
@@ -1291,7 +1294,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							tableOwner, tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", rsCheckTable.getString("DEPENDENCIES")),
 							config, processLobs, transformLobs, isCdb, topicPartition, 
-							odd, partition, rdbmsInfo, connection);
+							odd, partition, rdbmsInfo, connection, pseudoColumns);
 					oraTable.setVersion(version);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 					metrics.addTableInProcessing(oraTable.fqn());
@@ -1339,7 +1342,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							resultSet.getString("OWNER"), tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
 							config, processLobs, transformLobs, isCdb, topicPartition, 
-							odd, partition, rdbmsInfo, connection);
+							odd, partition, rdbmsInfo, connection, pseudoColumns);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}
