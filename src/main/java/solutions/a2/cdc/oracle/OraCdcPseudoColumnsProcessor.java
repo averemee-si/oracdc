@@ -218,15 +218,53 @@ public class OraCdcPseudoColumnsProcessor {
 			struct.put(rowOpName, operation);
 		}
 		if (auditNeeded) {
-			//TODO
-			//TODO
-			//TODO
-			//TODO
-			//TODO
+			if (addUsernameField) {
+				struct.put(usernameField, transaction.getUsername());
+			}
+			if (addOsUsernameField) {
+				struct.put(osUsernameField, transaction.getOsUsername());
+			}
+			if (addHostnameField) {
+				struct.put(hostnameField, transaction.getHostname());
+			}
+			if (addAuditSessionIdField) {
+				struct.put(auditSessionIdField, transaction.getAuditSessionId());
+			}
+			if (addSessionInfoField) {
+				struct.put(sessionInfoField, transaction.getSessionInfo());
+			}
+			if (addClientIdField) {
+				struct.put(clientIdField, transaction.getClientId());
+			}
 		}
 	}
 
 	public boolean isAuditNeeded() {
 		return auditNeeded;
 	}
+
+	public boolean isUsername() {
+		return addUsernameField;
+	}
+
+	public boolean isOsUsername() {
+		return addOsUsernameField;
+	}
+
+	public boolean isHostname() {
+		return addHostnameField;
+	}
+
+	public boolean isAuditSessionId() {
+		return addAuditSessionIdField;
+	}
+
+	public boolean isSessionInfo() {
+		return addSessionInfoField;
+	}
+
+	public boolean isClientId() {
+		return addClientIdField;
+	}
+
 }

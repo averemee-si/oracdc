@@ -1,5 +1,8 @@
 package solutions.a2.cdc.oracle;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -16,8 +19,16 @@ public interface OraCdcTransaction {
 	public String getXid();
 	public long getFirstChange();
 	public long getNextChange();
-	public Long getCommitScn();
-	public void setCommitScn(Long commitScn);
+	public long getCommitScn();
+	public void setCommitScn(long commitScn);
+	public void setCommitScn(long commitScn, OraCdcPseudoColumnsProcessor pseudoColumns, ResultSet resultSet) throws SQLException;
 	public long size();
 
+	public String getUsername();
+	public String getOsUsername();
+	public String getHostname();
+	public long getAuditSessionId();
+	public String getSessionInfo();
+	public String getClientId();
+	
 }

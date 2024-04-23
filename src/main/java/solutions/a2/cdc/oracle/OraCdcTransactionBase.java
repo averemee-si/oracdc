@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,7 +28,7 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public abstract class OraCdcTransactionBase {
+public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionBase.class);
 
@@ -38,6 +40,7 @@ public abstract class OraCdcTransactionBase {
 	protected static final String TRANS_COMMIT_SCN = "commitScn";
 
 	private final String xid;
+	private long commitScn;
 
 	private final List<String> excludedRbas = new ArrayList<>();
 
@@ -46,6 +49,13 @@ public abstract class OraCdcTransactionBase {
 	private int offset = 0;
 	private boolean moreMessages = false;
 	private StringBuilder sbMessages;
+
+	private String username;
+	private String osUsername;
+	private String hostname;
+	private long auditSessionId;
+	private String sessionInfo;
+	private String clientId;
 
 	OraCdcTransactionBase(final String xid) {
 		this.xid = xid;
@@ -182,21 +192,48 @@ public abstract class OraCdcTransactionBase {
 		}
 	}
 
-	protected String xid() {
+	public String getXid() {
 		return xid;
+	}
+
+	public long getCommitScn() {
+		return commitScn;
+	}
+
+	public void setCommitScn(long commitScn) {
+		if (moreMessages) {
+			sbMessages.append("\n=====================\n");
+			LOGGER.error(sbMessages.toString(), xid);
+		}
+		this.commitScn = commitScn;
+	}
+
+	public void setCommitScn(long commitScn, OraCdcPseudoColumnsProcessor pseudoColumns, ResultSet resultSet) throws SQLException {
+		setCommitScn(commitScn);
+		if (pseudoColumns.isAuditNeeded()) {
+			if (pseudoColumns.isUsername()) {
+				username = resultSet.getString("USERNAME");
+			}
+			if (pseudoColumns.isOsUsername()) {
+				osUsername = resultSet.getString("OS_USERNAME");
+			}
+			if (pseudoColumns.isHostname()) {
+				hostname = resultSet.getString("MACHINE_NAME");
+			}
+			if (pseudoColumns.isAuditSessionId()) {
+				auditSessionId = resultSet.getLong("AUDIT_SESSIONID");
+			}
+			if (pseudoColumns.isSessionInfo()) {
+				sessionInfo = resultSet.getString("SESSION_INFO");
+			}
+			clientId = resultSet.getString("CLIENT_ID");
+		}
 	}
 
 	private boolean valid4Rollback(final OraCdcLogMinerStatement stmt) {
 		return stmt.getOperation() == OraCdcV$LogmnrContents.INSERT ||
 				stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE ||
 						stmt.getOperation() == OraCdcV$LogmnrContents.DELETE;
-	}
-
-	void printMessages() {
-		if (moreMessages) {
-			sbMessages.append("\n=====================\n");
-			LOGGER.error(sbMessages.toString(), xid);
-		}
 	}
 
 	private void allocMessages() {
@@ -245,6 +282,74 @@ public abstract class OraCdcTransactionBase {
 			}
 		}
 		return result;
+	}
+
+	public static Logger getLogger() {
+		return LOGGER;
+	}
+
+	public static String getTransXid() {
+		return TRANS_XID;
+	}
+
+	public static String getTransFirstChange() {
+		return TRANS_FIRST_CHANGE;
+	}
+
+	public static String getTransNextChange() {
+		return TRANS_NEXT_CHANGE;
+	}
+
+	public static String getQueueSize() {
+		return QUEUE_SIZE;
+	}
+
+	public static String getQueueOffset() {
+		return QUEUE_OFFSET;
+	}
+
+	public static String getTransCommitScn() {
+		return TRANS_COMMIT_SCN;
+	}
+
+	public List<String> getExcludedRbas() {
+		return excludedRbas;
+	}
+
+	public OraCdcLogMinerStatement getLastSql() {
+		return lastSql;
+	}
+
+	public boolean isFirstStatement() {
+		return firstStatement;
+	}
+
+	public int getOffset() {
+		return offset;
+	}
+
+	public String getUsername() {
+		return username;
+	}
+
+	public String getOsUsername() {
+		return osUsername;
+	}
+
+	public String getHostname() {
+		return hostname;
+	}
+
+	public long getAuditSessionId() {
+		return auditSessionId;
+	}
+
+	public String getSessionInfo() {
+		return sessionInfo;
+	}
+
+	public String getClientId() {
+		return clientId;
 	}
 
 }

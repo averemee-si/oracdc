@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements OraCdcTransaction {
+public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
@@ -32,7 +32,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 	private final List<OraCdcLogMinerStatement> statements;
 	private long firstChange;
 	private long nextChange;
-	private Long commitScn;
 	private int queueSize;
 	private int tailerOffset;
 	private long transSize;
@@ -117,7 +116,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 		sb.append("oracdc Transaction: ");
 		sb.append(TRANS_XID);
 		sb.append(" = ");
-		sb.append(xid());
+		sb.append(getXid());
 		sb.append("', ");
 		sb.append(QUEUE_SIZE);
 		sb.append(" = ");
@@ -130,11 +129,11 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 		sb.append(TRANS_NEXT_CHANGE);
 		sb.append(" = ");
 		sb.append(nextChange);
-		if (commitScn != null) {
+		if (getCommitScn() != 0) {
 			sb.append(", ");
 			sb.append(TRANS_COMMIT_SCN);
 			sb.append(" = ");
-			sb.append(commitScn);
+			sb.append(getCommitScn());
 		}
 		if (tailerOffset > 0) {
 			sb.append(", ");
@@ -148,11 +147,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 	}
 
 	@Override
-	public String getXid() {
-		return xid();
-	}
-
-	@Override
 	public long getFirstChange() {
 		return firstChange;
 	}
@@ -160,17 +154,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase implements
 	@Override
 	public long getNextChange() {
 		return nextChange;
-	}
-
-	@Override
-	public Long getCommitScn() {
-		return commitScn;
-	}
-
-	@Override
-	public void setCommitScn(Long commitScn) {
-		printMessages();
-		this.commitScn = commitScn;
 	}
 
 	@Override

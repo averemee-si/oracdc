@@ -379,7 +379,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						case OraCdcV$LogmnrContents.COMMIT:
 							if (transaction != null) {
 								// SCN of commit
-								transaction.setCommitScn(lastScn);
+								transaction.setCommitScn(lastScn, pseudoColumns, rsLogMiner);
 								committedTransactions.add(transaction);
 								activeTransactions.remove(xid);
 								if (!legacyResiliencyModel) {

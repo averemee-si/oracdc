@@ -37,7 +37,7 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase implements OraCdcTransaction {
+public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionChronicleQueue.class);
@@ -56,7 +56,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 
 	private long firstChange;
 	private long nextChange;
-	private Long commitScn;
 	private final Path queueDirectory;
 	private final Path lobsQueueDirectory;
 	private final boolean processLobs;
@@ -226,7 +225,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 		}
 		this.firstChange = firstChange;
 		this.nextChange = nextChange;
-		this.commitScn = commitScn;
+		setCommitScn(commitScn);
 		tailerOffset = 0;
 		while (tailerOffset < savedTailerOffset) {
 			OraCdcLogMinerStatement oraSql = new OraCdcLogMinerStatement();
@@ -365,7 +364,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 	@Override
 	public void close() {
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Closing Cronicle Queue and deleting memory-mapped files for transaction {}.", xid());
+			LOGGER.debug("Closing Cronicle Queue and deleting memory-mapped files for transaction {}.", getXid());
 		}
 		if (processLobs) {
 			if (lobs != null) {
@@ -410,14 +409,14 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 	public Map<String, Object> attrsAsMap() {
 		final Map<String, Object> transAsMap = new LinkedHashMap<>();
 		transAsMap.put(QUEUE_DIR, queueDirectory.toString());
-		transAsMap.put(TRANS_XID, xid());
+		transAsMap.put(TRANS_XID, getXid());
 		transAsMap.put(PROCESS_LOBS, processLobs);
 		transAsMap.put(TRANS_FIRST_CHANGE, firstChange);
 		transAsMap.put(TRANS_NEXT_CHANGE, nextChange);
 		transAsMap.put(QUEUE_SIZE, queueSize);
 		transAsMap.put(QUEUE_OFFSET, tailerOffset);
-		if (commitScn != null) {
-			transAsMap.put(TRANS_COMMIT_SCN, commitScn);
+		if (getCommitScn() != 0) {
+			transAsMap.put(TRANS_COMMIT_SCN, getCommitScn());
 		}
 		return transAsMap;
 	}
@@ -428,7 +427,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 		sb.append("oracdc Transaction: ");
 		sb.append(TRANS_XID);
 		sb.append(" = ");
-		sb.append(xid());
+		sb.append(getXid());
 		sb.append(" located in the '");
 		sb.append(queueDirectory.toString());
 		sb.append("', ");
@@ -447,11 +446,11 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 		sb.append(TRANS_NEXT_CHANGE);
 		sb.append(" = ");
 		sb.append(nextChange);
-		if (commitScn != null) {
+		if (getCommitScn() != 0) {
 			sb.append(", ");
 			sb.append(TRANS_COMMIT_SCN);
 			sb.append(" = ");
-			sb.append(commitScn);
+			sb.append(getCommitScn());
 		}
 		if (tailerOffset > 0) {
 			sb.append(", ");
@@ -480,11 +479,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 	}
 
 	@Override
-	public String getXid() {
-		return xid();
-	}
-
-	@Override
 	public long getFirstChange() {
 		return firstChange;
 	}
@@ -492,17 +486,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase imple
 	@Override
 	public long getNextChange() {
 		return nextChange;
-	}
-
-	@Override
-	public Long getCommitScn() {
-		return commitScn;
-	}
-
-	@Override
-	public void setCommitScn(Long commitScn) {
-		printMessages();
-		this.commitScn = commitScn;
 	}
 
 	public Path getPath() {
