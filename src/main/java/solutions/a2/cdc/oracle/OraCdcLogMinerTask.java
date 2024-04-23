@@ -647,13 +647,17 @@ public class OraCdcLogMinerTask extends SourceTask {
 			String mineDataSql = null;
 			String initialLoadSql = null;
 			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
-				mineDataSql = OraDictSqlTexts.MINE_DATA_CDB;
+				mineDataSql = pseudoColumns.isAuditNeeded() ?
+						OraDictSqlTexts.MINE_DATA_CDB_AUD :
+						OraDictSqlTexts.MINE_DATA_CDB;
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
 				if (execInitialLoad) {
 					initialLoadSql = OraDictSqlTexts.INITIAL_LOAD_LIST_CDB;
 				}
 			} else {
-				mineDataSql = OraDictSqlTexts.MINE_DATA_NON_CDB;
+				mineDataSql = pseudoColumns.isAuditNeeded() ? 
+						OraDictSqlTexts.MINE_DATA_NON_CDB_AUD :
+						OraDictSqlTexts.MINE_DATA_NON_CDB;
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
 				if (execInitialLoad) {
 					initialLoadSql = OraDictSqlTexts.INITIAL_LOAD_LIST_NON_CDB;

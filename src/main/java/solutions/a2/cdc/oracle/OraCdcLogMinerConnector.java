@@ -251,6 +251,14 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			config.getOraRowScnField();
 			config.getOraRowTsField();
 			config.getOraCommitScnField();
+			config.getOraRowOpField();
+
+			config.getOraUsernameField();
+			config.getOraOsUsernameField();
+			config.getOraHostnameField();
+			config.getOraAuditSessionIdField();
+			config.getOraSessionInfoField();
+			config.getOraClientIdField();
 		} catch (IllegalArgumentException iae) {
 			throw new ConnectException(iae);
 		}

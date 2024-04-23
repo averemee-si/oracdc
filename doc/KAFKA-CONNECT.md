@@ -154,6 +154,24 @@ Default - *<EMPTY_STRING>*, i.e. do not include row change timestamp field in Ka
 `a2.pseudocolumn.ora_operation` - The name of the field in the Kafka Connect record that contains the name of the operation (UPDATE/INSERT/DELETE) that changed the database row. If the value is empty, the operation field is not included in the Kafka Connect records.
 Default - *<EMPTY_STRING>*, i.e. do not include row change operation field in Kafka Connect record
 
+`a2.pseudocolumn.ora_username` - The name of the field in the Kafka Connect record that contains the name of the the user who executed the transaction. If the value is empty, the username is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include username field in Kafka Connect record
+
+`a2.pseudocolumn.ora_osusername` - The name of the field in the Kafka Connect record that contains the name of the the OS user who executed the transaction. If the value is empty, the OS username is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include OS username field in Kafka Connect record
+
+`a2.pseudocolumn.ora_hostname` - The name of the field in the Kafka Connect record that contains the hostname of the machine from which the user connected to the database. If the value is empty, the hostname is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include hostname field in Kafka Connect record
+
+`a2.pseudocolumn.ora_audit_session_id` - The name of the field in the Kafka Connect record that contains the audit session ID associated with the user session making the change. If the value is empty, the audit session id field is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include audit session ID field in Kafka Connect record
+
+`a2.pseudocolumn.ora_session_info` - The name of the field in the Kafka Connect record that contains the information about the database session that executed the transaction. If the value is empty, the session info field is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include session info field in Kafka Connect record
+
+`a2.pseudocolumn.ora_client_id` - The name of the field in the Kafka Connect record that contains the client identifier in the session that executed the transaction (if available). If the value is empty, the client identifier field is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include client identifier field in Kafka Connect record
+
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 

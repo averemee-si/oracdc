@@ -161,6 +161,36 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			"The name of the field in the Kafka Connect record that contains the name of the operation (UPDATE/INSERT/DELETE) that changed the database row. If the value is empty, the operation field is not included in the Kafka Connect records.\n" +
 			"Default - \"\", i.e. do not include operation field in Kafka Connect record";
 
+	private static final String ORA_USERNAME_PARAM = "a2.pseudocolumn.ora_username";
+	private static final String ORA_USERNAME_DOC =
+			"The name of the field in the Kafka Connect record that contains the name of the the user who executed the transaction. If the value is empty, the username is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include username field in Kafka Connect record";
+
+	private static final String ORA_OSUSERNAME_PARAM = "a2.pseudocolumn.ora_osusername";
+	private static final String ORA_OSUSERNAME_DOC =
+			"The name of the field in the Kafka Connect record that contains the name of the the OS user who executed the transaction. If the value is empty, the OS username is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include OS username field in Kafka Connect record";
+
+	private static final String ORA_HOSTNAME_PARAM = "a2.pseudocolumn.ora_hostname";
+	private static final String ORA_HOSTNAME_DOC =
+			"The name of the field in the Kafka Connect record that contains the hostname of the machine from which the user connected to the database. If the value is empty, the hostname is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include hostname field in Kafka Connect record";
+
+	private static final String ORA_AUDIT_SESSIONID_PARAM = "a2.pseudocolumn.ora_audit_session_id";
+	private static final String ORA_AUDIT_SESSIONID_DOC =
+			"The name of the field in the Kafka Connect record that contains the audit session ID associated with the user session making the change. If the value is empty, the audit session id field is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include audit session id field in Kafka Connect record";
+
+	private static final String ORA_SESSION_INFO_PARAM = "a2.pseudocolumn.ora_session_info";
+	private static final String ORA_SESSION_INFO_DOC =
+			"The name of the field in the Kafka Connect record that contains the information about the database session that executed the transaction. If the value is empty, the session info field is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include session info field in Kafka Connect record";
+
+	private static final String ORA_CLIENT_ID_PARAM = "a2.pseudocolumn.ora_client_id";
+	private static final String ORA_CLIENT_ID_DOC =
+			"The name of the field in the Kafka Connect record that contains the client identifier in the session that executed the transaction (if available). If the value is empty, the client identifier field is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include client identifier field in Kafka Connect record";
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int schemaType = -1;
@@ -327,9 +357,20 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ORA_ROWTS_DOC)
 				.define(ORA_OPERATION_PARAM, Type.STRING, "",
 						Importance.LOW, ORA_OPERATION_DOC)
+				.define(ORA_USERNAME_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_USERNAME_DOC)
+				.define(ORA_OSUSERNAME_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_OSUSERNAME_DOC)
+				.define(ORA_HOSTNAME_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_HOSTNAME_DOC)
+				.define(ORA_AUDIT_SESSIONID_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_AUDIT_SESSIONID_DOC)
+				.define(ORA_SESSION_INFO_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_SESSION_INFO_DOC)
+				.define(ORA_CLIENT_ID_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_CLIENT_ID_DOC)
 				;
 	}
-
 
 	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {
 		super(config(), originals);
@@ -549,6 +590,30 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public String getOraRowOpField() {
 		return getPseudoColumn(ORA_OPERATION_PARAM);
+	}
+
+	public String getOraUsernameField() {
+		return getPseudoColumn(ORA_USERNAME_PARAM);
+	}
+
+	public String getOraOsUsernameField() {
+		return getPseudoColumn(ORA_OSUSERNAME_PARAM);
+	}
+
+	public String getOraHostnameField() {
+		return getPseudoColumn(ORA_HOSTNAME_PARAM);
+	}
+
+	public String getOraAuditSessionIdField() {
+		return getPseudoColumn(ORA_AUDIT_SESSIONID_PARAM);
+	}
+
+	public String getOraSessionInfoField() {
+		return getPseudoColumn(ORA_SESSION_INFO_PARAM);
+	}
+
+	public String getOraClientIdField() {
+		return getPseudoColumn(ORA_CLIENT_ID_PARAM);
 	}
 
 	private String getPseudoColumn(final String param) {

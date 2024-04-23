@@ -27,6 +27,7 @@ import org.apache.kafka.connect.data.Timestamp;
 public class OraCdcPseudoColumnsProcessor {
 
 	private final boolean pseudoColumns;
+
 	private final boolean addRowScn;
 	private final String rowScnName;
 	private final boolean addRowTs;
@@ -35,6 +36,20 @@ public class OraCdcPseudoColumnsProcessor {
 	private final String commitScnName;
 	private final boolean addRowOp;
 	private final String rowOpName;
+
+	private final boolean addUsernameField;
+	private final String usernameField;
+	private final boolean addOsUsernameField;
+	private final String osUsernameField;
+	private final boolean addHostnameField;
+	private final String hostnameField;
+	private final boolean addAuditSessionIdField;
+	private final String auditSessionIdField;
+	private final boolean addSessionInfoField;
+	private final String sessionInfoField;
+	private final boolean addClientIdField;
+	private final String clientIdField;
+
 	private final boolean auditNeeded;
 
 	public OraCdcPseudoColumnsProcessor(final OraCdcSourceConnectorConfig config) {
@@ -63,13 +78,56 @@ public class OraCdcPseudoColumnsProcessor {
 			addRowOp = false;
 		}
 
-		if (addRowScn || addCommitScn || addRowTs || addRowOp) {
+		usernameField = config.getOraUsernameField();
+		if (usernameField != null) {
+			addUsernameField = true;
+		} else {
+			addUsernameField = false;
+		}
+		osUsernameField = config.getOraOsUsernameField();
+		if (osUsernameField != null) {
+			addOsUsernameField = true;
+		} else {
+			addOsUsernameField = false;
+		}
+		hostnameField = config.getOraHostnameField();
+		if (hostnameField != null) {
+			addHostnameField = true;
+		} else {
+			addHostnameField = false;
+		}
+		auditSessionIdField = config.getOraAuditSessionIdField();
+		if (auditSessionIdField != null) {
+			addAuditSessionIdField = true;
+		} else {
+			addAuditSessionIdField = false;
+		}
+		sessionInfoField = config.getOraSessionInfoField();
+		if (sessionInfoField != null) {
+			addSessionInfoField = true;
+		} else {
+			addSessionInfoField = false;
+		}
+		clientIdField = config.getOraClientIdField();
+		if (clientIdField != null) {
+			addClientIdField = true;
+		} else {
+			addClientIdField = false;
+		}
+
+		if (addUsernameField || addOsUsernameField || addHostnameField ||
+				addAuditSessionIdField || addSessionInfoField || addClientIdField) {
+			auditNeeded = true;
+		} else {
+			auditNeeded = false;
+		}
+
+		if (addRowScn || addCommitScn || addRowTs || addRowOp ||
+				auditNeeded) {
 			pseudoColumns = true;
 		} else {
 			pseudoColumns = false;
 		}
-		//TODO
-		auditNeeded = false;
 	}
 
 	public void addToSchema(final SchemaBuilder builder) {
@@ -95,6 +153,27 @@ public class OraCdcPseudoColumnsProcessor {
 			}
 			if (addRowOp) {
 				builder.field(rowOpName, Schema.STRING_SCHEMA);
+			}
+
+			if (auditNeeded) {
+				if (addUsernameField) {
+					builder.field(usernameField, Schema.OPTIONAL_STRING_SCHEMA);
+				}
+				if (addOsUsernameField) {
+					builder.field(osUsernameField, Schema.OPTIONAL_STRING_SCHEMA);
+				}
+				if (addHostnameField) {
+					builder.field(hostnameField, Schema.OPTIONAL_STRING_SCHEMA);
+				}
+				if (addAuditSessionIdField) {
+					builder.field(auditSessionIdField, Schema.OPTIONAL_INT64_SCHEMA);
+				}
+				if (addSessionInfoField) {
+					builder.field(sessionInfoField, Schema.OPTIONAL_STRING_SCHEMA);
+				}
+				if (addClientIdField) {
+					builder.field(clientIdField, Schema.OPTIONAL_STRING_SCHEMA);
+				}
 			}
 		}
 	}
@@ -137,6 +216,13 @@ public class OraCdcPseudoColumnsProcessor {
 				operation = "XML DOC BEGIN";
 			} 
 			struct.put(rowOpName, operation);
+		}
+		if (auditNeeded) {
+			//TODO
+			//TODO
+			//TODO
+			//TODO
+			//TODO
 		}
 	}
 
