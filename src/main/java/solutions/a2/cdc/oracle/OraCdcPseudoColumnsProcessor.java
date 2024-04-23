@@ -99,7 +99,8 @@ public class OraCdcPseudoColumnsProcessor {
 		}
 	}
 
-	public void addToStruct(final Struct struct, final OraCdcLogMinerStatement stmt, final long commitScn) {
+	public void addToStruct(
+			final Struct struct, final OraCdcLogMinerStatement stmt, final OraCdcTransaction transaction) {
 		if (addRowScn) {
 			//TODO
 			//TODO
@@ -117,7 +118,7 @@ public class OraCdcPseudoColumnsProcessor {
 			//TODO Will be changed in 3.0 together with SCN datatype replacement to unsigned long
 			//TODO
 			//TODO
-			struct.put(commitScnName, commitScn);
+			struct.put(commitScnName, transaction.getCommitScn());
 		}
 		if (addRowOp) {
 			final String operation;

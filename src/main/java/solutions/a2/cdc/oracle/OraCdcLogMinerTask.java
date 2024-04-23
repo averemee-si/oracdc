@@ -1000,8 +1000,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 											}
 											final SourceRecord record = oraTable.parseRedoRecord(
 													stmt, lobs,
-													transaction.getXid(),
-													transaction.getCommitScn(),
+													transaction,
 													offset,
 													connDictionary);
 											if (record != null) {

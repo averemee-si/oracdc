@@ -452,13 +452,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	public SourceRecord parseRedoRecord(
 			final OraCdcLogMinerStatement stmt,
 			final List<OraCdcLargeObjectHolder> lobs,
-			final String xid,
-			final long commitScn,
+			final OraCdcTransaction transaction,
 			final Map<String, Object> offset,
 			final Connection connection) throws SQLException {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("BEGIN: parseRedoRecord()");
 		}
+		final String xid = transaction.getXid();
+		final long commitScn = transaction.getCommitScn();
 		final Struct keyStruct;
 		if (onlyValue) {
 			keyStruct = null;
@@ -1026,7 +1027,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					//TODO
 					//TODO Beter handling for 'debezium'-like schemas are required for this case...
 					//TODO
-					pseudoColumns.addToStruct(valueStruct, stmt, commitScn);
+					pseudoColumns.addToStruct(valueStruct, stmt, transaction);
 				}
 				if (onlyValue) {
 					sourceRecord = new SourceRecord(
