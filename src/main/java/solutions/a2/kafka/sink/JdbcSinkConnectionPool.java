@@ -34,7 +34,6 @@ import com.zaxxer.hikari.HikariDataSource;
 public class JdbcSinkConnectionPool {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkConnectionPool.class);
-	private static final int INITIAL_SIZE = 4;
 	private static final String DRIVER_POSTGRESQL = "org.postgresql.Driver";
 	private static final String PREFIX_POSTGRESQL = "jdbc:postgresql:";
 
@@ -58,7 +57,6 @@ public class JdbcSinkConnectionPool {
 			String connectorName, String url, String user, String password) throws SQLException {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("JDBC Url = {}", url);
-			LOGGER.debug("Initial pool size = {}", INITIAL_SIZE);
 		}
 		dataSource = new HikariDataSource();
 		dataSource.setJdbcUrl(url);
@@ -66,8 +64,7 @@ public class JdbcSinkConnectionPool {
 		dataSource.setPassword(password);
 		dataSource.setAutoCommit(false);
 		dataSource.setPoolName("oracdc-hikari-" + connectorName);
-		//TODO
-		dataSource.setMaximumPoolSize(INITIAL_SIZE);
+		dataSource.setMinimumIdle(0);
 		if (StringUtils.startsWith(url, "jdbc:mariadb:") ||
 				StringUtils.startsWith(url, "jdbc:mysql:")) {
 			if (!StringUtils.contains(url, "cachePrepStmts")) {
