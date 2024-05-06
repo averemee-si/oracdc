@@ -300,11 +300,12 @@ public class TargetDbSqlUtils {
 			final int dbType,
 			final Map<String, OraColumn> pkColumns,
 			final List<OraColumn> allColumns,
-			final Map<String, Object> lobColumns) {
+			final Map<String, Object> lobColumns,
+			final boolean auditTrail) {
 
 		final int pkColCount = pkColumns.size();
 		final boolean onlyPkColumns = allColumns.size() == 0;
-		final boolean onlyValue = pkColCount == 0;
+		final boolean onlyValue = (pkColCount == 0) || auditTrail;
 		final Map<String, String> generatedSql = new HashMap<>();
 
 		if (onlyValue) {

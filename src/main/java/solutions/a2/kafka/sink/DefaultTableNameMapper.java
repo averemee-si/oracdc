@@ -31,11 +31,15 @@ public class DefaultTableNameMapper implements TableNameMapper {
 	private static final Logger LOGGER = LoggerFactory.getLogger(DefaultTableNameMapper.class);
 
 	private String topicPrefix;
+	private String prefix;
+	private String suffix;
 	private int schemaType;
 
 	@Override
 	public void configure(final JdbcSinkConnectorConfig config) {
 		topicPrefix = config.getString(ConnectorParams.TOPIC_PREFIX_PARAM);
+		prefix = StringUtils.trim(config.getTableNamePrefix());
+		suffix = StringUtils.trim(config.getTableNameSuffix());
 		schemaType = config.getSchemaType();
 	}
 
@@ -46,7 +50,7 @@ public class DefaultTableNameMapper implements TableNameMapper {
 				schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
 			if (StringUtils.isNotBlank(topicPrefix) &&
 					StringUtils.startsWith(record.topic(), topicPrefix)) {
-				tableName = StringUtils.substring(record.topic(), topicPrefix.length());
+				tableName = prefix + StringUtils.substring(record.topic(), topicPrefix.length()) + suffix;
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("Table name '{}' is set using the Kafka topic name {} and parameter '{}' with value {}.",
 						tableName, record.topic(), topicPrefix);

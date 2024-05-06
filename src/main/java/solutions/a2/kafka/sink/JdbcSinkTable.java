@@ -90,6 +90,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 	private boolean exists = true;
 	private String tableNameCaseConv;
 	private boolean ready4Delete = false;
+	private int connectorMode = JdbcSinkConnectorConfig.CONNECTOR_REPLICATE;
 
 	/**
 	 * This constructor is used only for Sink connector
@@ -107,8 +108,9 @@ public class JdbcSinkTable extends OraTableDefinition {
 			final JdbcSinkConnectorConfig config) throws SQLException {
 		super(schemaType);
 		LOGGER.debug("Creating OraTable object from Kafka connect SinkRecord...");
-		this.pkStringLength = config.getPkStringLength();
+		pkStringLength = config.getPkStringLength();
 		dbType = sinkPool.getDbType();
+		connectorMode = config.getConnectorMode();
 
 		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 			LOGGER.debug("Schema type set to Debezium style.");
@@ -143,7 +145,9 @@ public class JdbcSinkTable extends OraTableDefinition {
 		try (Connection connection = sinkPool.getConnection()) {
 			final Entry<Set<String>, ResultSet> tableMetadata = checkPresence(connection);
 			if (exists) {
-				if (opType == 'd' && (!config.useAllColsOnDelete())) {
+				if (opType == 'd' &&
+						(!config.useAllColsOnDelete()) &&
+						connectorMode == JdbcSinkConnectorConfig.CONNECTOR_REPLICATE) {
 					final List<Field> keyFields;
 					if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 						keyFields = record.valueSchema().field("before").schema().fields();
@@ -163,7 +167,8 @@ public class JdbcSinkTable extends OraTableDefinition {
 						}
 
 						sinkDeleteSql = TargetDbSqlUtils.generateSinkSql(
-								tableName, dbType, pkColumns, allColumns, lobColumns).get(TargetDbSqlUtils.DELETE);
+								tableName, dbType, pkColumns, allColumns, lobColumns,
+								connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL).get(TargetDbSqlUtils.DELETE);
 						ready4Delete = true;
 					} else {
 						LOGGER.warn("\n" +
@@ -346,8 +351,10 @@ public class JdbcSinkTable extends OraTableDefinition {
 		// Prepare UPDATE/INSERT/DELETE statements...
 		LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
 		final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
-				tableName, dbType, pkColumns, allColumns, lobColumns);
-		if (onlyValue) {
+				tableName, dbType, pkColumns, allColumns, lobColumns,
+				connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL);
+		if (onlyValue ||
+				connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL) {
 			sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Table name -> {}, INSERT statement ->\n{}", this.tableName, sinkUpsertSql);
@@ -372,7 +379,8 @@ public class JdbcSinkTable extends OraTableDefinition {
 		LOGGER.debug("BEGIN: putData");
 		final char opType = getOpType(record);
 		final long nanosStart = System.nanoTime();
-		if (onlyValue) {
+		if (onlyValue ||
+				connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL) {
 			processInsert(connection, record);
 			upsertTime += System.nanoTime() - nanosStart;
 		} else {
