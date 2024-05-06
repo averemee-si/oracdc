@@ -57,10 +57,6 @@ import solutions.a2.utils.ExceptionUtils;
 public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
-	private static final int ORA_17410 = 17410;
-	private static final int ORA_2396 = 2396;
-	private static final int ORA_17008 = 17008;
-	private static final int ORA_17002 = 17002;
 	private static final int MAX_RETRIES = 63;
 
 	private final OraCdcLogMinerTask task;
@@ -462,10 +458,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											wait4CheckTableCursor = false;
 											break;
 										} catch (SQLException sqle) {
-											if (sqle.getErrorCode() == ORA_2396 ||
-													sqle.getErrorCode() == ORA_17002 ||
-													sqle.getErrorCode() == ORA_17008 ||
-													sqle.getErrorCode() == ORA_17410 || 
+											if (sqle.getErrorCode() == OraRdbmsInfo.ORA_2396 ||
+													sqle.getErrorCode() == OraRdbmsInfo.ORA_17002 ||
+													sqle.getErrorCode() == OraRdbmsInfo.ORA_17008 ||
+													sqle.getErrorCode() == OraRdbmsInfo.ORA_17410 || 
 													sqle instanceof SQLRecoverableException ||
 													(sqle.getCause() != null && sqle.getCause() instanceof SQLRecoverableException)) {
 												LOGGER.warn(
@@ -799,15 +795,45 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						lastGuaranteedRsId = lastRsId;
 						lastGuaranteedSsn = lastSsn;
 						if (fetchRsLogMinerNext) {
-							//TODO
-							//TODO Add try-catch block with exponential backoff here!!!
-							//TODO hit SQL errorCode = 17002, SQL state = '08006'
-							//TODO
-							isRsLogMinerRowAvailable = rsLogMiner.next();
+							try {
+								isRsLogMinerRowAvailable = rsLogMiner.next();
+							} catch (SQLException sqle) {
+								if (sqle.getErrorCode() == OraRdbmsInfo.ORA_310) {
+									// SQLState = 64000
+									isRsLogMinerRowAvailable = false;
+									logMiner.setFirstChange(lastScn);
+									LOGGER.error(
+											"\n=====================\n" +
+											"{}\n" +
+											"\twhile executing 'isRsLogMinerRowAvailable = rsLogMiner.next();'\n" +
+											"\tFull errorstack:\n{}\n" +
+											"=====================\n",
+											sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
+									//TODO
+									//TODO Do we need to rewind to <lastScn, lastRsId, lastSsn>? 
+									//TODO
+								} else {
+									//TODO
+									//TODO Add try-catch block with exponential backoff here!!!
+									//TODO hit SQL errorCode = 17002, SQL state = '08006'
+									//TODO
+									throw sqle;
+								}
+							}
 						}
 					}
-					logMiner.stop();
-					rsLogMiner.close();
+					try {
+						logMiner.stop();
+						rsLogMiner.close();
+					} catch (SQLException sqle) {
+						LOGGER.error(
+								"\n=====================\n" +
+								"{}\n" +
+								"\twhile executing 'logMiner.stop(); rsLogMiner.close();'\n" +
+								"\tFull errorstack:\n{}\n" +
+								"=====================\n",
+								sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
+					}
 					rsLogMiner = null;
 					if (!legacyResiliencyModel && activeTransactions.isEmpty() && lastGuaranteedScn > 0) {
 						// Update restart point in time
@@ -924,9 +950,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		LOGGER.error("Error '{}' when waiting for next archived log.", sqle.getMessage());
 		LOGGER.error("SQL errorCode = {}, SQL state = '{}'",
 				sqle.getErrorCode(), sqle.getSQLState());
-		if (sqle.getErrorCode() == ORA_17410 ||
+		if (sqle.getErrorCode() == OraRdbmsInfo.ORA_17410 ||
 				// SQLSTATE = '08000'
-				sqle.getErrorCode() == ORA_17002) { 
+				sqle.getErrorCode() == OraRdbmsInfo.ORA_17002) { 
 				// SQLSTATE = '08006'
 			boolean ready = false;
 			int retries = 0;

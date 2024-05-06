@@ -42,11 +42,16 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class OraRdbmsInfo {
 
+	public static final int ORA_310 = 310;
 	public static final int ORA_942 = 942;
-	public static final int ORA_1291 = 1291;
-	public static final int ORA_12514 = 12514;
 	public static final int ORA_1017 = 1017;
 	public static final int ORA_1284 = 1284;
+	public static final int ORA_1291 = 1291;
+	public static final int ORA_2396 = 2396;
+	public static final int ORA_12514 = 12514;
+	public static final int ORA_17002 = 17002;
+	public static final int ORA_17008 = 17008;
+	public static final int ORA_17410 = 17410;
 
 	public static final String CDB_ROOT = "CDB$ROOT";
 	public static final String MOUNTED = "NOUNTED";
