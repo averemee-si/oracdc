@@ -248,6 +248,11 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 		return dbUniqueName;
 	}
 
+	@Override
+	public void setFirstChange(long firstChange) throws SQLException {
+		throw new SQLException("setFirstChange(firstChange) is not supported for " + this.getClass().getName());
+	}
+
 	private static class RedoTransportThread extends Thread {
 
 		private final CountDownLatch runLatch;

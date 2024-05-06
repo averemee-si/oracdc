@@ -391,6 +391,11 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		return rdbmsInfo.getDbUniqueName();
 	}
 
+	@Override
+	public void setFirstChange(final long firstChange) throws SQLException {
+		this.firstChange = firstChange;
+	}
+
 	private void printRedoLogInfo(final boolean archived, final boolean printNextChange,
 			final String fileName, final int thread, final long sequence, final long logFileFirstChange) {
 		final StringBuilder sb = new StringBuilder(512);

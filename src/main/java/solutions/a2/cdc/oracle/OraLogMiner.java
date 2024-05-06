@@ -32,6 +32,7 @@ public interface OraLogMiner {
 	boolean isDictionaryAvailable();
 	long getDbId();
 	String getDbUniqueName();
+	void setFirstChange(long firstChange) throws SQLException;
 
 	/**
 	 * Does implementation requires connection to Oracle Database? 
