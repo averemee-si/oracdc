@@ -58,7 +58,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private PreparedStatement psUpToCurrentScn;
 	private int archLogsAvailable = 0;
 	private long archLogsSize = 0;
-	private List<String> fileNames = new ArrayList<>();
+	private final List<String> fileNames = new ArrayList<>();
 	private long readStartMillis;
 	private final OraRdbmsInfo rdbmsInfo;
 	private long lastOnlineRedoTime = 0;
@@ -187,7 +187,12 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		if (nextLogs) {
 			functionName = "next()";
 			// Initialize list of files only for "next()"
-			fileNames = new ArrayList<>();
+			if (fileNames.size() > 0) {
+				//TODO
+				//TODO Send notification about processed files...
+				//TODO
+			}
+			fileNames.clear();
 		} else {
 			functionName = "extend()";
 		}

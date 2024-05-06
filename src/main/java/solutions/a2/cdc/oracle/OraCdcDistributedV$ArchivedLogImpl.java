@@ -69,7 +69,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 	private CallableStatement csStopLogMiner;
 	private int archLogsAvailable = 0;
 	private long archLogsSize = 0;
-	private List<String> fileNames = new ArrayList<>();
+	private final List<String> fileNames = new ArrayList<>();
 	private long readStartMillis;
 
 	private final BlockingQueue<ArchivedRedoFile> redoFiles;
@@ -156,7 +156,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 
 		if (nextLogs) {
 			// Initialize list of files only for "next()"
-			fileNames = new ArrayList<>();
+			fileNames.clear();
 		}
 
 		while (true) {
