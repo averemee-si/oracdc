@@ -296,7 +296,9 @@ RUN    wget "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_FILE
 ARG    ORACDC_VERSION=2.3.1
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
 COPY   target/${ORACDC_FILENAME} ${KAFKA_HOME}/connect/lib
+COPY   config/connect-log4j.properties ${KAFKA_HOME}/config
 RUN    chown -R kafka:kafka ${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
+RUN    chown -R kafka:kafka ${KAFKA_HOME}/config
 ENV    ORACDC_JAR=${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
 ARG    MAIN_CONFIG=solutions.a2.cdc.oracle.utils.file.Env2Property
 RUN    mkdir ${BASEDIR}/oracdc \
