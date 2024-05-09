@@ -864,6 +864,20 @@ Rehost Confluent schema registry clients (Avro/Protobuf/JSON Schema) and bump ve
 
 Simplification of configuration for [Oracle Active DataGuard](https://www.oracle.com/database/data-guard/) - now the same configuration is used for [Oracle Active DataGuard](https://www.oracle.com/database/data-guard/) as for a primary database
 
+#####2.4.0 (MAY-2024)
+
+######LogMiner Connector
+
+1) [Oracle Active DataGuard](https://www.oracle.com/database/data-guard/) support for Oracle Database settings check utility
+2) Fix for [Oracle DataGuard](https://www.oracle.com/database/data-guard/) when V$STANDBY_LOG does not contain rows
+3) Fix ORA-310/ORA-334 under heavy RDBMS load
+4) New parameters to support pseudo columns - `a2.pseudocolumn.ora_rowscn`, `a2.pseudocolumn.ora_commitscn`, `a2.pseudocolumn.ora_rowts`, & `a2.pseudocolumn.ora_operation`. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md)
+5) New parameters to support audit pseudo columns: `a2.pseudocolumn.ora_username`, `a2.pseudocolumn.ora_osusername`, `a2.pseudocolumn.ora_hostname`, `a2.pseudocolumn.ora_audit_session_id`, `a2.pseudocolumn.ora_session_info`, & `a2.pseudocolumn.ora_client_id`. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md)
+
+
+######Sink Connector
+
+New parameters: `a2.table.mapper`, `a2.table.name.prefix`, and `a2.table.name.suffix`
 
 ## Authors
 
