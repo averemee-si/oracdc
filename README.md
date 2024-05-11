@@ -164,7 +164,7 @@ Wherein
 ```
 alter system dump logfile '/path-to-archived-log-file' scn min XXXXXXXXX scn max YYYYYYYYY;
 ```
-shows correct values in redo block. This checked using Oracle RDBMS 23c (23.2 & 23.3).
+shows correct values in redo block. This checked using Oracle RDBMS 23c (23.2,  23.3, & 23.4/23AI).
 Unfortunately, BOOLEAN data type is not contained in LogMiner's [Supported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-D11CC6EF-D94C-426F-B244-96CE2403924A), nor in the [Unsupported Data Types and Table Storage Attributes](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html#GUID-8A4F98EC-C233-4471-BFF9-9FB35EF5AD0D).
 We are watching the status of this issue.
 
