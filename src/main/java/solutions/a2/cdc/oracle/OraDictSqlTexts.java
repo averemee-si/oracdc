@@ -189,7 +189,11 @@ from   DBA_IND_COLUMNS IC, DBA_TAB_COLUMNS TC, (
 	from (
     	select I.OWNER, I.INDEX_NAME, count(*) TOTAL, sum(case when TC.NULLABLE='N' then 1 else 0 end) NON_NULL
 	    from   DBA_INDEXES I, DBA_IND_COLUMNS IC, DBA_TAB_COLUMNS TC
-    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE' and I.STATUS='VALID'
+    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE'
+          and  (I.STATUS='VALID'
+               or (I.PARTITIONED='YES' and
+                   (select count(distinct STATUS) from DBA_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME) = 1 and
+                   (select count(distinct STATUS) from DBA_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME and IP.STATUS='USABLE') = 1 ))
 	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME
     	  and  TC.OWNER=I.TABLE_OWNER and TC.TABLE_NAME=I.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME
 	      and  I.TABLE_OWNER='INV' and I.TABLE_NAME='MTL_MATERIAL_TRANSACTIONS'
@@ -207,8 +211,12 @@ where TC.OWNER=IC.TABLE_OWNER and TC.TABLE_NAME=IC.TABLE_NAME and IC.COLUMN_NAME
 			"	from (\n" + 
 			"    	select I.OWNER, I.INDEX_NAME, count(*) TOTAL, sum(case when TC.NULLABLE='N' then 1 else 0 end) NON_NULL\n" + 
 			"	    from   DBA_INDEXES I, DBA_IND_COLUMNS IC, DBA_TAB_COLUMNS TC\n" + 
-			"    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE' and I.STATUS='VALID'\n" + 
-			"	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME\n" + 
+			"    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE'\n" +
+			"          and  (I.STATUS='VALID'\n" +
+			"               or (I.PARTITIONED='YES' and\n" +
+			"                   (select count(distinct STATUS) from DBA_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME) = 1 and\n" +
+			"                   (select count(distinct STATUS) from DBA_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME and IP.STATUS='USABLE') = 1 ))\n" +
+			"	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME\n" +
 			"    	  and  TC.OWNER=I.TABLE_OWNER and TC.TABLE_NAME=I.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME\n" + 
 			"	      and  I.TABLE_OWNER=? and I.TABLE_NAME=?\n" + 
 			"    	group by I.OWNER, I.INDEX_NAME\n" + 
@@ -224,7 +232,11 @@ from   CDB_IND_COLUMNS IC, CDB_TAB_COLUMNS TC, (
 	from (
     	select I.OWNER, I.INDEX_NAME, I.CON_ID, count(*) TOTAL, sum(case when TC.NULLABLE='N' then 1 else 0 end) NON_NULL
 	    from   CDB_INDEXES I, CDB_IND_COLUMNS IC, CDB_TAB_COLUMNS TC
-    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE' and I.STATUS='VALID'
+    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE'
+          and  (I.STATUS='VALID'
+               or (I.PARTITIONED='YES' and
+                   (select count(distinct STATUS) from CDB_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME) = 1 and
+                   (select count(distinct STATUS) from CDB_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME and IP.STATUS='USABLE') = 1 ))
 	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME
 	      and  I.CON_ID=IC.CON_ID and IC.CON_ID=TC.CON_ID
     	  and  TC.OWNER=I.TABLE_OWNER and TC.TABLE_NAME=I.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME
@@ -243,8 +255,12 @@ where TC.OWNER=IC.TABLE_OWNER and TC.TABLE_NAME=IC.TABLE_NAME and IC.COLUMN_NAME
 			"	from (\n" + 
 			"    	select I.OWNER, I.INDEX_NAME, I.CON_ID, count(*) TOTAL, sum(case when TC.NULLABLE='N' then 1 else 0 end) NON_NULL\n" + 
 			"	    from   CDB_INDEXES I, CDB_IND_COLUMNS IC, CDB_TAB_COLUMNS TC\n" + 
-			"    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE' and I.STATUS='VALID'\n" + 
-			"	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME\n" + 
+			"    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE'\n" +
+			"          and  (I.STATUS='VALID'\n" +
+			"               or (I.PARTITIONED='YES' and\n" +
+			"                   (select count(distinct STATUS) from CDB_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME) = 1 and\n" +
+			"                   (select count(distinct STATUS) from CDB_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME and IP.STATUS='USABLE') = 1 ))\n" +
+			"	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME\n" +
 			"	      and  I.CON_ID=IC.CON_ID and IC.CON_ID=TC.CON_ID\n" + 
 			"    	  and  TC.OWNER=I.TABLE_OWNER and TC.TABLE_NAME=I.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME\n" + 
 			"	      and  I.TABLE_OWNER=? and I.TABLE_NAME=? and I.CON_ID=?\n" + 
