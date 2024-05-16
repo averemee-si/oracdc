@@ -983,7 +983,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			schema = null;
 		}
 		final Entry<Set<String>, ResultSet> result;
-		final String[] tableTypes = {"TABLE"};
+		final String[] tableTypes = {"TABLE", "PARTITIONED TABLE"};
 		ResultSet resultSet = metaData.getTables(null, schema, tableNameCaseConv, tableTypes);
 		if (resultSet.next()) {
 			final String catalog = resultSet.getString("TABLE_CAT");

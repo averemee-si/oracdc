@@ -102,7 +102,7 @@ where  IMPLICIT_KEY.TOTAL = IMPLICIT_KEY.NON_NULL
   and  ci.oid = i.indexrelid
   and  a.attrelid = ct.oid
   and  a.attnum = ANY(i.indkey)
-  and  ct.relkind = 'r'
+  and  ct.relkind in ('r', 'p')
   and  n.nspname = IMPLICIT_KEY.TABLE_SCHEMA
   and  ct.relname = IMPLICIT_KEY.TABLE_NAME
   and  ci.relname = IMPLICIT_KEY.INDEX_NAME;
@@ -143,7 +143,7 @@ where  IMPLICIT_KEY.TOTAL = IMPLICIT_KEY.NON_NULL
 			"  and  ci.oid = i.indexrelid\n" +
 			"  and  a.attrelid = ct.oid\n" +
 			"  and  a.attnum = ANY(i.indkey)\n" +
-			"  and  ct.relkind = 'r'\n" +
+			"  and  ct.relkind in ('r', 'p')\n" +
 			"  and  n.nspname = IMPLICIT_KEY.TABLE_SCHEMA\n" +
 			"  and  ct.relname = IMPLICIT_KEY.TABLE_NAME\n" +
 			"  and  ci.relname = IMPLICIT_KEY.INDEX_NAME\n";
@@ -198,7 +198,6 @@ order by UQ.INDEX_NAME, UQ.KEY_SEQ;
 			"  and UQ.TABLE_SCHEMA = ?\n" +
 			"  and UQ.TABLE_NAME = ?\n" +
 			"order by UQ.INDEX_NAME, UQ.KEY_SEQ\n";
-
 
 }
 
