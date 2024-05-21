@@ -1120,7 +1120,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		if (activeTransactions != null && !activeTransactions.isEmpty()) {
 			// Clean it!
 			activeTransactions.forEach((name, transaction) -> {
-				LOGGER.warn("Removing uncompleted transaction{}", name);
+				LOGGER.warn("Removing uncompleted transaction {}", name);
 				transaction.close();
 			});
 		}
