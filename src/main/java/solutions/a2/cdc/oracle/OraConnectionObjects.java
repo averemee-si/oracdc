@@ -310,7 +310,11 @@ public class OraConnectionObjects {
 			UniversalConnectionPoolManager mgr = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
 			mgr.destroyConnectionPool(poolName);
 		} catch (UniversalConnectionPoolException ucpe) {
-			throw new SQLException(ucpe);
+			if (StringUtils.containsIgnoreCase(ucpe.getMessage(), "not found")) {
+				LOGGER.warn("'{}' while calling  destroyConnectionPool({})", ucpe.getMessage(), poolName);
+			} else {
+				throw new SQLException(ucpe);
+			}
 		}
 	}
 
