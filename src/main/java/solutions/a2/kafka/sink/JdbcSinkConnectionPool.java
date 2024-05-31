@@ -48,13 +48,14 @@ public class JdbcSinkConnectionPool {
 	/**
 	 * 
 	 * @param connectorName  name of connector
-	 * @param url            JDBC URL
-	 * @param user           JDBC user
-	 * @param password       JDBC password
+	 * @param config         JdbcSinkConnectorConfig
 	 * @throws SQLException
 	 */
 	public JdbcSinkConnectionPool(
-			String connectorName, String url, String user, String password) throws SQLException {
+			final String connectorName, final JdbcSinkConnectorConfig config) throws SQLException {
+		final String url = config.getJdbcUrl();
+		final String user = config.getJdbcUser();
+		final String password = config.getJdbcPassword();
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("JDBC Url = {}", url);
 		}
@@ -65,6 +66,10 @@ public class JdbcSinkConnectionPool {
 		dataSource.setAutoCommit(false);
 		dataSource.setPoolName("oracdc-hikari-" + connectorName);
 		dataSource.setMinimumIdle(0);
+		final String initSql = config.getInitSql();
+		if (StringUtils.isNotBlank(initSql)) {
+			dataSource.setConnectionInitSql(initSql);
+		}
 		if (StringUtils.startsWith(url, "jdbc:mariadb:") ||
 				StringUtils.startsWith(url, "jdbc:mysql:")) {
 			if (!StringUtils.contains(url, "cachePrepStmts")) {

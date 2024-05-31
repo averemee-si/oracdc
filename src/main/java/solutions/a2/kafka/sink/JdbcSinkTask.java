@@ -62,11 +62,7 @@ public class JdbcSinkTask extends SinkTask {
 
 		try {
 			LOGGER.debug("BEGIN: Hikari Connection Pool initialization.");
-			sinkPool = new JdbcSinkConnectionPool(
-					props.get("name"),
-					config.getString(ConnectorParams.CONNECTION_URL_PARAM),
-					config.getString(ConnectorParams.CONNECTION_USER_PARAM),
-					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
+			sinkPool = new JdbcSinkConnectionPool(props.get("name"), config);
 			LOGGER.debug("END: Hikari Connection Pool initialization.");
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to connect to {}", config.getString(ConnectorParams.CONNECTION_URL_PARAM));

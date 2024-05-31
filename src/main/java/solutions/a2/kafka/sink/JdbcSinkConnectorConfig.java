@@ -77,6 +77,11 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 			" and in 'audit_trail' mode, it only sends INSERT commands to record the change history of the source table.\n" +
 			"Default - " + CONN_TYPE_REPLICATE;
 
+	private static final String INIT_SQL_PARAM = "a2.connection.init.sql";
+	private static final String INIT_SQL_DOC = 
+			"Set the SQL statement that will be executed on all new connections when they are created.\n" +
+			"For example, to override the PostgreSQL server setting for the work_mem parameter, use \"a2.connection.init.sql\" : \"SET work_mem = '16MB'\" .";
+
 	private int schemaType = -1;
 	private int connectorMode = -1;
 
@@ -115,6 +120,8 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 						CONN_TYPE_REPLICATE,
 						ConfigDef.ValidString.in(CONN_TYPE_REPLICATE, CONN_TYPE_AUDIT_TRAIL),
 						Importance.HIGH, CONN_TYPE_DOC)
+				.define(INIT_SQL_PARAM, Type.STRING, "",
+						Importance.LOW, INIT_SQL_DOC)
 				;
 	}
 
@@ -216,6 +223,22 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 			}
 		}
 		return connectorMode;
+	}
+
+	public String getJdbcUrl() {
+		return getString(ConnectorParams.CONNECTION_URL_PARAM);
+	}
+
+	public String getJdbcUser() {
+		return getString(ConnectorParams.CONNECTION_USER_PARAM);
+	}
+
+	public String getJdbcPassword() {
+		return getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value();
+	}
+
+	public String getInitSql() {
+		return getString(INIT_SQL_PARAM);
 	}
 
 }
