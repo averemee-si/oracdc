@@ -17,8 +17,8 @@ import java.util.List;
 
 /**
  * 
- * @author averemee
- *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
  */
 public interface OraCdcLogMinerMgmtIntf {
 
@@ -27,5 +27,6 @@ public interface OraCdcLogMinerMgmtIntf {
 			final List<String> nowProcessedArchiveLogs, final long currentFirstScn, final long currentNextScn, final int lagSeconds);
 	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size,
 			final long redoReadMillis);
+	public void setLastProcessedSequence(final long lastProcessedArchiveSequence);
 
 }

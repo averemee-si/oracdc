@@ -30,8 +30,8 @@ import solutions.a2.utils.OraCdcMBeanUtils;
 
 /**
  * 
- * @author averemee
- *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
  */
 public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdcLogMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
 
@@ -57,6 +57,7 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 	private int maxTransSendCount = 0;
 	private int currentTransProcessingCount = 0;
 	private int maxTransProcessingCount = 0;
+	private long lastProcessedSequence = 0;
 
 	private final OraCdcLogMinerTask task;
 
@@ -347,6 +348,14 @@ public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdc
 	@Override
 	public int getCurrentNumberOfTransInProcessingQueue() {
 		return currentTransProcessingCount;
+	}
+	@Override
+	public long getLastProcessedSequence() {
+		return lastProcessedSequence;
+	}
+	@Override
+	public void setLastProcessedSequence(final long lastProcessedSequence) {
+		this.lastProcessedSequence = lastProcessedSequence;
 	}
 
 	@Override

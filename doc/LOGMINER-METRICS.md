@@ -10,6 +10,7 @@
 |Last100ProcessedArchivelogs           |String[] |Last 100 processed archivelogs                                                                    |
 |LastProcessedArchivelog               |String   |Last processed archivelog                                                                         |
 |LastProcessedScn                      |long     |Last processed SCN                                                                                |
+|LastProcessedSequence                 |long     |Last processed log sequence                                                                       |
 |LastProcessedArchivelogTime           |String   |Time when the last archivelog was processed                                                       |
 |TableOutOfScopeCount                  |int      |The number of tables from the journal that do not meet the a2.include criteria                    |
 |NowProcessedArchivelogs               |String[] |Archivelogs currently being processed                                                             |

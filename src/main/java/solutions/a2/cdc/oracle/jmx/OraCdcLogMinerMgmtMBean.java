@@ -15,8 +15,8 @@ package solutions.a2.cdc.oracle.jmx;
 
 /**
  * 
- * @author averemee
- *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
  */
 public interface OraCdcLogMinerMgmtMBean {
 	public int getTablesInProcessingCount();
@@ -25,6 +25,7 @@ public interface OraCdcLogMinerMgmtMBean {
 	public String[] getLast100ProcessedArchivelogs();
 	public String getLastProcessedArchivelog();
 	public long getLastProcessedScn();
+	public long getLastProcessedSequence();
 	public String getLastProcessedArchivelogTime();
 	public int getTableOutOfScopeCount();
 	public String[] getNowProcessedArchivelogs();
