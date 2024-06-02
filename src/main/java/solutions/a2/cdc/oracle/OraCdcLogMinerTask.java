@@ -124,7 +124,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 		} catch (ConfigException ce) {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
-
+		// pass connectorName to config container
+		config.setConnectorName(connectorName);
 		final boolean useRac = config.getBoolean(ParamConstants.USE_RAC_PARAM);
 		final boolean useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
 		final boolean dg4RacSingleInst = useStandby &&
