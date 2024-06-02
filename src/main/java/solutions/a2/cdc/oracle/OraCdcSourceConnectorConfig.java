@@ -13,6 +13,7 @@
 
 package solutions.a2.cdc.oracle;
 
+import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
@@ -190,6 +191,16 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	private static final String ORA_CLIENT_ID_DOC =
 			"The name of the field in the Kafka Connect record that contains the client identifier in the session that executed the transaction (if available). If the value is empty, the client identifier field is not included in the Kafka Connect records.\n" +
 			"Default - \"\", i.e. do not include client identifier field in Kafka Connect record";
+
+	private static final String LAST_SEQ_NOTIFIER_PARAM = "a2.last.sequence.notifier";
+	private static final String LAST_SEQ_NOTIFIER_DOC =
+			"The fully-qualified class name of the class that implements LastProcessedSeqNotifier interface to send notifications about the last processed log sequence.\n" +
+			"Currently there is only a notifier that writes a last processed sequence number to a file. To configure it, you need to set the value of the parameter 'a2.last.sequence.notifier' to 'solutions.a2.cdc.oracle.OraCdcLastProcessedSeqFileNotifier' and the value of the parameter 'a2.last.sequence.notifier.file' to the name of the file in which the last processed number will be written.\n" +
+			"Default - \"\", i.e. no notification";
+
+	private static final String LAST_SEQ_NOTIFIER_FILE_PARAM = "a2.last.sequence.notifier.file";
+	private static final String LAST_SEQ_NOTIFIER_FILE_DOC = "The name of the file in which the last processed number will be written. Default - ${connectorName}.seq";
+
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
@@ -370,6 +381,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ORA_SESSION_INFO_DOC)
 				.define(ORA_CLIENT_ID_PARAM, Type.STRING, "",
 						Importance.LOW, ORA_CLIENT_ID_DOC)
+				.define(LAST_SEQ_NOTIFIER_PARAM, Type.STRING, "",
+						Importance.LOW, LAST_SEQ_NOTIFIER_DOC)
+				.define(LAST_SEQ_NOTIFIER_FILE_PARAM, Type.STRING, "",
+						Importance.LOW, LAST_SEQ_NOTIFIER_FILE_DOC)
 				;
 	}
 
@@ -640,6 +655,72 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public void setConnectorName(String connectorName) {
 		this.connectorName = connectorName;
+	}
+
+	public LastProcessedSeqNotifier getLastProcessedSeqNotifier() {
+		final String className = getString(LAST_SEQ_NOTIFIER_PARAM);
+		if (StringUtils.isBlank(className)) {
+			return null;
+		} else {
+			final LastProcessedSeqNotifier lpsn;
+			final Class<?> clazz;
+			final Constructor<?> constructor;
+			try {
+				clazz = Class.forName(className);
+			} catch (ClassNotFoundException nfe) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Class '{}' specified as the parameter '{}' value was not found.\n" +
+						ExceptionUtils.getExceptionStackTrace(nfe) +
+						"\n" +
+						"=====================\n",
+						className, LAST_SEQ_NOTIFIER_PARAM);
+				throw new ConnectException(nfe);
+			}
+			try {
+				constructor = clazz.getConstructor();
+			} catch (NoSuchMethodException nsme) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to get default constructor for the class '{}'.\n" +
+						ExceptionUtils.getExceptionStackTrace(nsme) +
+						"\n" +
+						"=====================\n",
+						className);
+				throw new ConnectException(nsme);
+			} 
+			
+			try {
+				lpsn = (LastProcessedSeqNotifier) constructor.newInstance();
+			} catch (SecurityException | 
+					InvocationTargetException | 
+					IllegalAccessException | 
+					InstantiationException e) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"'{}' while instantinating the class '{}'.\n" +
+						ExceptionUtils.getExceptionStackTrace(e) +
+						"\n" +
+						"=====================\n",
+						e.getMessage(),className);
+				throw new ConnectException(e);
+			}
+			return lpsn;
+		}
+	}
+
+	public String getLastProcessedSeqNotifierFile() {
+		if (StringUtils.isNotBlank(getString(LAST_SEQ_NOTIFIER_FILE_PARAM))) {
+			return getString(LAST_SEQ_NOTIFIER_FILE_PARAM);
+		} else {
+			final String tmpDir = System.getProperty("java.io.tmpdir");
+			if (StringUtils.isNotBlank(connectorName)) {
+				return tmpDir + File.separator +
+						connectorName + ".seq";
+			} else {
+				return tmpDir + File.separator + "oracdc.seq";
+			}
+		} 
 	}
 
 }

@@ -18,6 +18,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -42,7 +43,10 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private long firstChange;
 	private long sessionFirstChange;
 	private long nextChange = 0;
-	private long lastSequence = -1;
+	private long lastSequence = 0;
+	private long lastProcessedArchiveSequence = 0;
+	private long lastProcessedOnlineSequence = 0;
+	private final String connectorName;
 	private int numArchLogs;
 	private long sizeOfArchLogs;
 	private final boolean useNumOfArchLogs;
@@ -66,6 +70,8 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private long lastOnlineSequence = 0;
 	private final boolean useStandby;
 	private final boolean stopOnOra1284;
+	private final boolean useNotifier;
+	private final LastProcessedSeqNotifier notifier;
 
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
@@ -80,6 +86,14 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		this.useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)  ||
 							rdbmsInfo.isStandby();
 		this.stopOnOra1284 = config.stopOnOra1284();
+		this.connectorName = config.getConnectorName();
+		this.notifier = config.getLastProcessedSeqNotifier();
+		if (notifier == null) {
+			useNotifier = false;
+		} else {
+			useNotifier = true;
+			notifier.configure(config);
+		}
 
 		if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
 			// 19.10+ with connection to PDB
@@ -187,11 +201,6 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		if (nextLogs) {
 			functionName = "next()";
 			// Initialize list of files only for "next()"
-			if (fileNames.size() > 0) {
-				//TODO
-				//TODO Send notification about processed files...
-				//TODO
-			}
 			fileNames.clear();
 		} else {
 			functionName = "extend()";
@@ -210,6 +219,18 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		int lagSeconds = 0;
 		while (rs.next()) {
 			final long sequence = rs.getLong("SEQUENCE#");
+			if (sequence != lastProcessedArchiveSequence) {
+				if (lastProcessedArchiveSequence > 0) {
+					metrics.setLastProcessedSequence(lastProcessedArchiveSequence);
+					if (useNotifier) {
+						notifier.notify(Instant.now(), lastProcessedArchiveSequence);
+					}
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastProcessedArchiveSequence);
+					}
+				}
+				lastProcessedArchiveSequence = sequence;
+			}
 			nextChange = rs.getLong("NEXT_CHANGE#");
 			if (lagSeconds == 0) {
 				lagSeconds = rs.getInt("ACTUAL_LAG_SECONDS");
@@ -275,6 +296,29 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 					onlineRedoMember = rsUpToCurrentScn.getString(4);
 				} else {
 					throw new SQLException("Unable to execute\n" + OraDictSqlTexts.UP_TO_CURRENT_SCN + "\n!!!");
+				}
+				if (onlineSequence != lastProcessedOnlineSequence ||
+						onlineSequence != lastProcessedArchiveSequence) {
+					if (onlineSequence != lastProcessedArchiveSequence) {
+						metrics.setLastProcessedSequence(lastProcessedArchiveSequence);
+						if (useNotifier) {
+							notifier.notify(Instant.now(), lastProcessedArchiveSequence);
+						}
+						if (LOGGER.isDebugEnabled()) {
+							LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastProcessedArchiveSequence);
+						}
+						lastProcessedArchiveSequence = onlineSequence;
+					} else if (lastProcessedOnlineSequence > 0) {
+						metrics.setLastProcessedSequence(lastProcessedOnlineSequence);
+						if (useNotifier) {
+							notifier.notify(Instant.now(), lastProcessedOnlineSequence);
+						}
+						if (LOGGER.isDebugEnabled()) {
+							LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastProcessedOnlineSequence);
+						}
+						lastProcessedArchiveSequence = onlineSequence;
+					}
+					lastProcessedOnlineSequence = onlineSequence;
 				}
 				rsUpToCurrentScn.close();
 				rsUpToCurrentScn = null;
