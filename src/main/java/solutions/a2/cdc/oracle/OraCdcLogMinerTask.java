@@ -18,19 +18,12 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -92,7 +85,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private OraCdcLogMinerWorkerThread worker;
 	private OraCdcTransaction transaction;
 	private boolean lastStatementInTransaction = true;
-	private boolean needToStoreState = false;
 	private boolean processLobs = false;
 	private boolean useChronicleQueue = true;
 	private CountDownLatch runLatch;
@@ -108,7 +100,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private String connectorName; 
 	private OraConnectionObjects oraConnections;
 	private Map<String, Object> offset;
-	private boolean legacyResiliencyModel;
 	private long lastProcessedCommitScn = 0;
 	private long lastInProgressCommitScn = 0;
 	private long lastInProgressScn = 0;
@@ -252,15 +243,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				throw new ConnectException("InstantiationException while instantiating " + transformLobsImplClass, ie);
 			}
 		}
-		if (StringUtils.equalsIgnoreCase(
-				config.getString(ParamConstants.RESILIENCY_TYPE_PARAM),
-				ParamConstants.RESILIENCY_TYPE_LEGACY)) {
-			legacyResiliencyModel = true;
-			offset = new HashMap<>();
-		} else {
-			legacyResiliencyModel = false;
-			offset = new ConcurrentHashMap<>();
-		}
+		offset = new ConcurrentHashMap<>();
 		try (Connection connDictionary = oraConnections.getConnection()) {
 			rdbmsInfo = new OraRdbmsInfo(connDictionary);
 			if (dg4RacSingleInst) {
@@ -429,217 +412,90 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 			Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(partition);
 
-			if (legacyResiliencyModel) {
-				// Legacy code to restore state from state file
-				stateFileName = config.getString(ParamConstants.PERSISTENT_STATE_FILE_PARAM);
-				final Path stateFilePath = Paths.get(stateFileName);
-				if (stateFilePath.toFile().exists()) {
-					// File with stored state exists
-					final long restoreStarted = System.currentTimeMillis();
-					OraCdcPersistentState persistentState = OraCdcPersistentState.fromFile(stateFileName);
-					LOGGER.info("Will start processing using stored persistent state file {} dated {}.",
-							stateFileName,
-							LocalDateTime.ofInstant(
-									Instant.ofEpochMilli(persistentState.getLastOpTsMillis()), ZoneId.systemDefault()
-								).format(DateTimeFormatter.ISO_DATE_TIME));
-					if (rdbmsInfo.getDbId() != persistentState.getDbId()) {
-						LOGGER.error("DBID from stored state file {} and from connection {} are different!",
-								persistentState.getDbId(), rdbmsInfo.getDbId());
-						LOGGER.error("Exiting.");
-						throw new ConnectException("Unable to use stored file for database with different DBID!!!");
-					}
-					LOGGER.debug(persistentState.toString());
-					// Begin - initial load analysis...
-					if (execInitialLoad) {
-						// Need to check state file value
-						final String initialLoadFromStateFile = persistentState.getInitialLoad();
-						if (StringUtils.equalsIgnoreCase(ParamConstants.INITIAL_LOAD_COMPLETED, initialLoadFromStateFile)) {
-							execInitialLoad = false;
-							initialLoadStatus = ParamConstants.INITIAL_LOAD_COMPLETED;
-							LOGGER.info("Initial load set to {} (value from state file)", ParamConstants.INITIAL_LOAD_COMPLETED);
-						}
-					}
-					// End - initial load analysis...
-
-					if (startScnFromProps) {
-						// a2.first.change set in parameters, ignore stored state, rename file
-						firstScn = config.getLong(ParamConstants.LGMNR_START_SCN_PARAM);
-						if (firstScn < firstAvailableScn) {
-							LOGGER.warn(
-									"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-									ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
-							firstScn = firstAvailableScn;
-						} else {
-							LOGGER.info("Ignoring last processed SCN value from stored state file {} and setting it to {} from connector properties",
-								stateFileName, firstScn);
-						}
-					} else {
-						firstScn = persistentState.getLastScn();
-						if (firstScn < firstAvailableScn) {
-							LOGGER.warn(
-									"Ignoring {}={} in oracdc state file '{}', and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-									ParamConstants.LGMNR_START_SCN_PARAM, firstScn, stateFileName, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
-							firstScn = firstAvailableScn;
-						} else {
-							firstRsId = persistentState.getLastRsId();
-							firstSsn = persistentState.getLastSsn();
-
-							if (offsetFromKafka != null && offsetFromKafka.size() > 0) {
-								LOGGER.info("Last read SCN={}, RS_ID (RBA)='{}', SSN={}",
-										firstScn, firstRsId, firstSsn);
-								LOGGER.info("Last sent SCN={}, RS_ID (RBA)='{}', SSN={}",
-										offsetFromKafka.get("SCN"), offsetFromKafka.get("RS_ID"), offsetFromKafka.get("SSN"));
-							}
-							
-							if (persistentState.getCurrentTransaction() != null) {
-								transaction = OraCdcTransactionChronicleQueue.restoreFromMap(persistentState.getCurrentTransaction());
-								// To prevent committedTransactions.poll() in this.poll()
-								lastStatementInTransaction = false;
-								LOGGER.debug("Restored current transaction {}", transaction.toString());
-							}
-							if (persistentState.getCommittedTransactions() != null) {
-								for (int i = 0; i < persistentState.getCommittedTransactions().size(); i++) {
-									final OraCdcTransaction oct = OraCdcTransactionChronicleQueue.restoreFromMap(
-											persistentState.getCommittedTransactions().get(i));
-									committedTransactions.add(oct);
-									LOGGER.debug("Restored committed transaction {}", oct.toString());
-								}
-							}
-							if (persistentState.getInProgressTransactions() != null) {
-								for (int i = 0; i < persistentState.getInProgressTransactions().size(); i++) {
-									final OraCdcTransaction oct = OraCdcTransactionChronicleQueue.restoreFromMap(
-											persistentState.getInProgressTransactions().get(i));
-									activeTransactions.put(oct.getXid(), oct);
-									LOGGER.debug("Restored in progress transaction {}", oct.toString());
-								}
-							}
-							// Restore table's, its versions and other related information
-							restoreTableInfoFromDictionary(persistentState);
-							LOGGER.info("Restore persistent state {} ms", (System.currentTimeMillis() - restoreStarted));
-							rewind = true;
-						}
-					}
-					final String savedStateFile = stateFileName + "." + System.currentTimeMillis(); 
-					Files.copy(stateFilePath, Paths.get(savedStateFile), StandardCopyOption.REPLACE_EXISTING);
-					LOGGER.info("Stored state file {} copied to {}", stateFileName, savedStateFile);
-				} else {
-					// Check Kafka offset
-					if (offsetFromKafka != null && offsetFromKafka.size() > 0) {
-						firstScn = (long) offsetFromKafka.get("SCN");
-						if (firstScn < firstAvailableScn) {
-							LOGGER.warn(
-									"Ignoring {}={} in connect.offsets, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-									ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
-							firstScn = firstAvailableScn;
-						} else {
-							firstRsId = (String) offsetFromKafka.get("RS_ID");
-							firstSsn = (long) offsetFromKafka.get("SSN");
-							rewind = true;
-							LOGGER.warn("Persistent state file {} not found!", stateFileName);
-							LOGGER.warn("oracdc will use offset from Kafka cluster: SCN={}, RS_ID(RBA)='{}', SSN={}",
-									firstScn, firstRsId, firstSsn);
-						}
-					} else if (startScnFromProps) {
-						firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
-						if (firstScn < firstAvailableScn) {
-							LOGGER.warn(
-									"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-									ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
-							firstScn = firstAvailableScn;
-						} else {
-							LOGGER.info("Using first SCN value {} from connector properties.", firstScn);
-						}
-					} else {
+			// New resiliency model
+			// Begin - initial load analysis...
+			if (execInitialLoad) {
+				// Need to check value from offset
+				if (offsetFromKafka != null &&
+						StringUtils.equalsIgnoreCase(
+								ParamConstants.INITIAL_LOAD_COMPLETED,
+								(String) offsetFromKafka.get("I"))) {
+					execInitialLoad = false;
+					initialLoadStatus = ParamConstants.INITIAL_LOAD_COMPLETED;
+					offset.put("I", ParamConstants.INITIAL_LOAD_COMPLETED);
+					LOGGER.info("Initial load set to {} (value from offset)", ParamConstants.INITIAL_LOAD_COMPLETED);
+				}
+			}
+			// End - initial load analysis...
+			if (offsetFromKafka != null && offsetFromKafka.containsKey("C:COMMIT_SCN")) {
+				if (startScnFromProps) {
+					// a2.first.change set in connector properties, ignore stored offsets values
+					// for restart...
+					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
+					LOGGER.info("{}={} is set in connector properties, ignoring SCN related restart data from connector offset storage.",
+							ParamConstants.LGMNR_START_SCN_PARAM, firstScn);
+					if (firstScn < firstAvailableScn) {
+						LOGGER.warn(
+								"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
+								ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
 						firstScn = firstAvailableScn;
-						LOGGER.info("Using min(FIRST_CHANGE#) from V$ARCHIVED_LOG = {} as first SCN value.", firstScn);
+					} else {
+						// We need to rewind, potentially
+						rewind = true;
+					}
+				} else {
+					// Use stored offset values for SCN and related from storage offset
+					firstScn = (long) offsetFromKafka.get("S:SCN");
+					firstRsId = (String) offsetFromKafka.get("S:RS_ID");
+					firstSsn = (long) offsetFromKafka.get("S:SSN");
+					LOGGER.info("Point in time from offset data to start reading reading from SCN={}, RS_ID (RBA)='{}', SSN={}",
+							firstScn, firstRsId, firstSsn);
+					lastProcessedCommitScn = (long) offsetFromKafka.get("C:COMMIT_SCN");
+					lastInProgressCommitScn = (long) offsetFromKafka.get("COMMIT_SCN");
+					if (lastProcessedCommitScn == lastInProgressCommitScn) {
+						// Rewind not required, reset back lastInProgressCommitScn
+						lastInProgressCommitScn = 0;
+					} else {
+						lastInProgressScn = (long) offsetFromKafka.get("SCN");
+						lastInProgressRsId = (String) offsetFromKafka.get("RS_ID");
+						lastInProgressSsn = (long) offsetFromKafka.get("SSN");
+						LOGGER.info("Last sent SCN={}, RS_ID (RBA)='{}', SSN={} for  transaction with incomplete send",
+								lastInProgressScn, lastInProgressRsId, lastInProgressSsn);
+					}
+					if (firstScn < firstAvailableScn) {
+						LOGGER.warn(
+								"\n" +
+								"=====================\n" +
+								"Ignoring Point in time {}:{}:{} from offset, and setting it to first available SCN in V$ARCHIVED_LOG {}.\n" +
+								"=====================",
+								firstScn, firstRsId, firstSsn, firstAvailableScn);
+						firstScn = firstAvailableScn;
+					} else {
+						rewind = true;
 					}
 				}
 			} else {
-				// New resiliency model
-				// Begin - initial load analysis...
-				if (execInitialLoad) {
-					// Need to check value from offset
-					if (offsetFromKafka != null &&
-							StringUtils.equalsIgnoreCase(
-									ParamConstants.INITIAL_LOAD_COMPLETED,
-									(String) offsetFromKafka.get("I"))) {
-						execInitialLoad = false;
-						initialLoadStatus = ParamConstants.INITIAL_LOAD_COMPLETED;
-						offset.put("I", ParamConstants.INITIAL_LOAD_COMPLETED);
-						LOGGER.info("Initial load set to {} (value from offset)", ParamConstants.INITIAL_LOAD_COMPLETED);
-					}
-				}
-				// End - initial load analysis...
-				if (offsetFromKafka != null && offsetFromKafka.containsKey("C:COMMIT_SCN")) {
-					if (startScnFromProps) {
-						// a2.first.change set in connector properties, ignore stored offsets values
-						// for restart...
-						firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
-						LOGGER.info("{}={} is set in connector properties, ignoring SCN related restart data from connector offset storage.",
-								ParamConstants.LGMNR_START_SCN_PARAM, firstScn);
-						if (firstScn < firstAvailableScn) {
-							LOGGER.warn(
-									"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-									ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
-							firstScn = firstAvailableScn;
-						} else {
-							// We need to rewind, potentially
-							rewind = true;
-						}
+				LOGGER.info("No data present in connector's offset storage for {}:{}",
+							sourcePartitionName, rdbmsInfo.getDbId());
+				if (startScnFromProps) {
+					// a2.first.change set in connector properties, restart data are not present
+					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
+					LOGGER.info("{}={} is set in connector properties, previous offset data is not available.",
+							ParamConstants.LGMNR_START_SCN_PARAM, firstScn);
+					if (firstScn < firstAvailableScn) {
+						LOGGER.warn(
+								"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
+								ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
+						firstScn = firstAvailableScn;
 					} else {
-						// Use stored offset values for SCN and related from storage offset
-						firstScn = (long) offsetFromKafka.get("S:SCN");
-						firstRsId = (String) offsetFromKafka.get("S:RS_ID");
-						firstSsn = (long) offsetFromKafka.get("S:SSN");
-						LOGGER.info("Point in time from offset data to start reading reading from SCN={}, RS_ID (RBA)='{}', SSN={}",
-								firstScn, firstRsId, firstSsn);
-						lastProcessedCommitScn = (long) offsetFromKafka.get("C:COMMIT_SCN");
-						lastInProgressCommitScn = (long) offsetFromKafka.get("COMMIT_SCN");
-						if (lastProcessedCommitScn == lastInProgressCommitScn) {
-							// Rewind not required, reset back lastInProgressCommitScn
-							lastInProgressCommitScn = 0;
-						} else {
-							lastInProgressScn = (long) offsetFromKafka.get("SCN");
-							lastInProgressRsId = (String) offsetFromKafka.get("RS_ID");
-							lastInProgressSsn = (long) offsetFromKafka.get("SSN");
-							LOGGER.info("Last sent SCN={}, RS_ID (RBA)='{}', SSN={} for  transaction with incomplete send",
-									lastInProgressScn, lastInProgressRsId, lastInProgressSsn);
-						}
-						if (firstScn < firstAvailableScn) {
-							LOGGER.warn(
-									"\n" +
-									"=====================\n" +
-									"Ignoring Point in time {}:{}:{} from offset, and setting it to first available SCN in V$ARCHIVED_LOG {}.\n" +
-									"=====================",
-									firstScn, firstRsId, firstSsn, firstAvailableScn);
-							firstScn = firstAvailableScn;
-						} else {
-							rewind = true;
-						}
+						// We need to rewind, potentially
+						rewind = true;
 					}
 				} else {
-					LOGGER.info("No data present in connector's offset storage for {}:{}",
-							sourcePartitionName, rdbmsInfo.getDbId());
-					if (startScnFromProps) {
-						// a2.first.change set in connector properties, restart data are not present
-						firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
-						LOGGER.info("{}={} is set in connector properties, previous offset data is not available.",
-								ParamConstants.LGMNR_START_SCN_PARAM, firstScn);
-						if (firstScn < firstAvailableScn) {
-							LOGGER.warn(
-									"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-									ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
-							firstScn = firstAvailableScn;
-						} else {
-							// We need to rewind, potentially
-							rewind = true;
-						}
-					} else {
-						// No previous offset, no start scn - just use first available from V$ARCHIVED_LOG  
-						LOGGER.info("oracdc will start from minimum available SCN in V$ARCHIVED_LOG = {}.",
-								firstAvailableScn);
-						firstScn = firstAvailableScn;
-					}
+					// No previous offset, no start scn - just use first available from V$ARCHIVED_LOG  
+					LOGGER.info("oracdc will start from minimum available SCN in V$ARCHIVED_LOG = {}.",
+							firstAvailableScn);
+					firstScn = firstAvailableScn;
 				}
 			}
 
@@ -840,7 +696,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 
 
-		} catch (SQLException | InvalidPathException | IOException e) {
+		} catch (SQLException | InvalidPathException e) {
 			LOGGER.error("Unable to start oracdc logminer task!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
@@ -850,7 +706,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 			initialLoadWorker.start();
 		}
 		worker.start();
-		needToStoreState = true;
 		runLatch = new CountDownLatch(1);
 		isPollRunning = new AtomicBoolean(false);
 	}
@@ -873,9 +728,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					LOGGER.info("Initial load completed");
 					execInitialLoad = false;
 					initialLoadStatus = ParamConstants.INITIAL_LOAD_COMPLETED;
-					if (!legacyResiliencyModel) {
-						offset.put("I", ParamConstants.INITIAL_LOAD_COMPLETED);
-					}
+					offset.put("I", ParamConstants.INITIAL_LOAD_COMPLETED);
 					return null;
 				}
 			}
@@ -929,38 +782,36 @@ public class OraCdcLogMinerTask extends SourceTask {
 					} else {
 						lastStatementInTransaction = false;
 						boolean processTransaction = true;
-						if (!legacyResiliencyModel) {
-							if (transaction.getCommitScn() <= lastProcessedCommitScn) {
-								LOGGER.warn(
+						if (transaction.getCommitScn() <= lastProcessedCommitScn) {
+							LOGGER.warn(
 										"Transaction '{}' with COMMIT_SCN {} is skipped because transaction with {} COMMIT_SCN {} was already sent to Kafka broker",
 										transaction.getXid(),
 										transaction.getCommitScn(),
 										transaction.getCommitScn() == lastProcessedCommitScn ? "same" : "greater",
 										lastProcessedCommitScn);
-								// Force poll new transaction
-								lastStatementInTransaction = true;
-								transaction.close();
-								transaction = null;
-								continue;
-							} else if (transaction.getCommitScn() == lastInProgressCommitScn) {
-								while (true) {
-									processTransaction = transaction.getStatement(stmt);
-									if (processLobs && processTransaction && stmt.getLobCount() > 0) {
-										lobs.clear();
-										((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
-									}
-									lastStatementInTransaction = !processTransaction;
-									if (stmt.getScn() == lastInProgressScn &&
-											StringUtils.equals(stmt.getRsId(), lastInProgressRsId) &&
-											stmt.getSsn() == lastInProgressSsn) {
-										// Rewind completed
-										break;
-									}
-									if (!processTransaction) {
-										LOGGER.error("Unable to rewind transaction {} with COMMIT_SCN={} till requested {}:'{}':{}!",
-												transaction.getXid(), transaction.getCommitScn(), lastInProgressScn, lastInProgressRsId, lastInProgressSsn);
-										throw new ConnectException("Data corruption while restarting oracdc task!");
-									}
+							// Force poll new transaction
+							lastStatementInTransaction = true;
+							transaction.close();
+							transaction = null;
+							continue;
+						} else if (transaction.getCommitScn() == lastInProgressCommitScn) {
+							while (true) {
+								processTransaction = transaction.getStatement(stmt);
+								if (processLobs && processTransaction && stmt.getLobCount() > 0) {
+									lobs.clear();
+									((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
+								}
+								lastStatementInTransaction = !processTransaction;
+								if (stmt.getScn() == lastInProgressScn &&
+										StringUtils.equals(stmt.getRsId(), lastInProgressRsId) &&
+										stmt.getSsn() == lastInProgressSsn) {
+									// Rewind completed
+									break;
+								}
+								if (!processTransaction) {
+									LOGGER.error("Unable to rewind transaction {} with COMMIT_SCN={} till requested {}:'{}':{}!",
+											transaction.getXid(), transaction.getCommitScn(), lastInProgressScn, lastInProgressRsId, lastInProgressSsn);
+									throw new ConnectException("Data corruption while restarting oracdc task!");
 								}
 							}
 						}
@@ -990,18 +841,14 @@ public class OraCdcLogMinerTask extends SourceTask {
 											final long ddlStartTs = System.currentTimeMillis();
 											final int changedColumnCount = 
 													oraTable.processDdl(stmt, transaction.getXid(), transaction.getCommitScn());
-											if (!legacyResiliencyModel) {
-												putTableAndVersion(stmt.getTableId(), oraTable.getVersion());
-											}
+											putTableAndVersion(stmt.getTableId(), oraTable.getVersion());
 											metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
 										} else {
 											final long startParseTs = System.currentTimeMillis();
 											offset.put("SCN", stmt.getScn());
 											offset.put("RS_ID", stmt.getRsId());
 											offset.put("SSN", stmt.getSsn());
-											if (!legacyResiliencyModel) {
-												offset.put("COMMIT_SCN", transaction.getCommitScn());
-											}
+											offset.put("COMMIT_SCN", transaction.getCommitScn());
 											final SourceRecord record = oraTable.parseRedoRecord(
 													stmt, lobs,
 													transaction,
@@ -1028,10 +875,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 								LOGGER.debug("End of processing transaction XID {}, first change {}, commit SCN {}.",
 									transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
 							}
-							if (!legacyResiliencyModel) {
-								// Store last successfully processed COMMIT_SCN to offset
-								offset.put("C:COMMIT_SCN", transaction.getCommitScn());
-							}
+							// Store last successfully processed COMMIT_SCN to offset
+							offset.put("C:COMMIT_SCN", transaction.getCommitScn());
 							transaction.close();
 							transaction = null;
 						}
@@ -1092,24 +937,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 					}
 				}
 			}
-			if (legacyResiliencyModel && needToStoreState) {
-				// We need state file only when legacyResilencyModel == true
-				try {
-					saveState(true);
-				} catch(IOException ioe) {
-					LOGGER.error("Unable to save state to file " + stateFileName + "!");
-					LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-					throw new ConnectException("Unable to save state to file " + stateFileName + "!");
-				}
-			} else if (legacyResiliencyModel && !needToStoreState) {
-				LOGGER.info("Do not need to run store state procedures.");
-				LOGGER.info("Check Connect log files for errors.");
-			}
 		}
 		if (initialLoadWorker != null && initialLoadWorker.isRunning()) {
 			initialLoadWorker.shutdown();
 		}
-		if (!legacyResiliencyModel && activeTransactions != null && activeTransactions.isEmpty()) {
+		if (activeTransactions != null && activeTransactions.isEmpty()) {
 			if (worker != null && worker.getLastRsId() != null && worker.getLastScn() > 0) {
 				putReadRestartScn(Triple.of(
 						worker.getLastScn(),
@@ -1240,93 +1072,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 		FileUtils.writeDictionaryFile(tablesInProcessing, schemaFileName);
 	}
 
-	private void restoreTableInfoFromDictionary(final OraCdcPersistentState ops) throws SQLException {
-//		final List<Long> processedTablesIds = ops.getProcessedTablesIds();
-		final boolean useVersion;
-		final int tableCount;
-		if (ops.getProcessedTablesIdsWithVersion() != null) {
-			useVersion = true;
-			tableCount = ops.getProcessedTablesIdsWithVersion().size();
-		} else if (ops.getProcessedTablesIds() != null) {
-			useVersion = false;
-			tableCount = ops.getProcessedTablesIds().size();
-		} else {
-			return;
-		}
-		final Connection connection = oraConnections.getConnection();
-		final PreparedStatement psCheckTable;
-		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
-		if (isCdb) {
-			psCheckTable = connection.prepareStatement(
-					OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		} else {
-			psCheckTable = connection.prepareStatement(
-					OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		}
-		for (int i = 0; i < tableCount; i++) {
-			final long combinedDataObjectId;
-			final int version;
-			if (useVersion) {
-				final String[] versionWithId = StringUtils.split(
-						ops.getProcessedTablesIdsWithVersion().get(i),
-						OraCdcPersistentState.TABLE_VERSION_SEPARATOR);
-				combinedDataObjectId = Long.parseLong(versionWithId[0]);
-				version = Integer.parseInt(versionWithId[1]);
-			} else {
-				combinedDataObjectId = ops.getProcessedTablesIds().get(i);
-				version = 1;
-			}
-			if (!tablesInProcessing.containsKey(combinedDataObjectId)) {
-				final int tableId = (int) combinedDataObjectId;
-				final int conId = (int) (combinedDataObjectId >> 32);
-				psCheckTable.setInt(1, tableId);
-				if (isCdb) {
-					psCheckTable.setInt(2, conId);
-				}
-				LOGGER.debug("Adding from database dictionary for internal id {}: OBJECT_ID = {}, CON_ID = {}",
-						combinedDataObjectId, tableId, conId);
-				final ResultSet rsCheckTable = psCheckTable.executeQuery();
-				if (rsCheckTable.next()) {
-					final String tableName = rsCheckTable.getString("TABLE_NAME");
-					final String tableOwner = rsCheckTable.getString("OWNER");
-					OraTable4LogMiner oraTable = new OraTable4LogMiner(
-							isCdb ? rsCheckTable.getString("PDB_NAME") : null,
-							isCdb ? (short) conId : -1,
-							tableOwner, tableName,
-							StringUtils.equalsIgnoreCase("ENABLED", rsCheckTable.getString("DEPENDENCIES")),
-							config, processLobs, transformLobs, isCdb, topicPartition, 
-							odd, partition, rdbmsInfo, connection, pseudoColumns);
-					oraTable.setVersion(version);
-					tablesInProcessing.put(combinedDataObjectId, oraTable);
-					metrics.addTableInProcessing(oraTable.fqn());
-					LOGGER.debug("Restored metadata for table {}, OBJECT_ID={}, CON_ID={}",
-							oraTable.fqn(), tableId, conId);
-				} else {
-					throw new SQLException("Data corruption detected!\n" +
-							"OBJECT_ID=" + tableId + ", CON_ID=" + conId + 
-							" exist in stored state but not in database!!!");
-				}
-				rsCheckTable.close();
-				psCheckTable.clearParameters();
-			}
-		}
-		psCheckTable.close();
-		connection.close();
-
-		if (ops.getOutOfScopeTablesIds() != null) {
-			ops.getOutOfScopeTablesIds().forEach(combinedId -> {
-				tablesOutOfScope.add(combinedId);
-				if (LOGGER.isDebugEnabled()) {
-					final int tableId = (int) ((long) combinedId);
-					final int conId = (int) (combinedId >> 32);
-					LOGGER.debug("Restored out of scope table OBJECT_ID {} from CON_ID {}", tableId, conId);
-				}
-			});
-		}
-	}
-
 	private void buildInitialLoadTableList(final String initialLoadSql) throws SQLException {
 		try (Connection connection = oraConnections.getConnection();
 				PreparedStatement statement = connection.prepareStatement(initialLoadSql);
@@ -1352,10 +1097,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 		} catch (SQLException sqle) {
 			throw new SQLException(sqle);
 		}
-	}
-
-	protected boolean isLegacyResiliencyModel() {
-		return legacyResiliencyModel;
 	}
 
 	protected void putReadRestartScn(final Triple<Long, String, Long> transData) {

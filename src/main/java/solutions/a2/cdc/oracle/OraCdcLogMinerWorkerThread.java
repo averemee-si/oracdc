@@ -83,7 +83,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private Connection connDictionary;
 	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
-	private final boolean legacyResiliencyModel;
 	private final TreeMap<String, Triple<Long, String, Long>> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
@@ -158,14 +157,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.oraConnections = oraConnections;
 		this.pseudoColumns = pseudoColumns;
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
-		legacyResiliencyModel = task.isLegacyResiliencyModel();
-		if (legacyResiliencyModel) {
-			activeTransComparator = null;
-			sortedByFirstScn = null;
-		} else {
-			activeTransComparator = new ActiveTransComparator(activeTransactions);
-			sortedByFirstScn = new TreeMap<>(activeTransComparator);
-		}
+		activeTransComparator = new ActiveTransComparator(activeTransactions);
+		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
@@ -378,13 +371,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								transaction.setCommitScn(lastScn, pseudoColumns, rsLogMiner);
 								committedTransactions.add(transaction);
 								activeTransactions.remove(xid);
-								if (!legacyResiliencyModel) {
-									sortedByFirstScn.remove(xid);
-									if (!sortedByFirstScn.isEmpty()) {
-										task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
-									} else {
-										firstTransaction = true;
-									}
+								sortedByFirstScn.remove(xid);
+								if (!sortedByFirstScn.isEmpty()) {
+									task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+								} else {
+									firstTransaction = true;
 								}
 								metrics.addCommittedRecords(transaction.length(), transaction.size(),
 										committedTransactions.size(), activeTransactions.size());
@@ -405,13 +396,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								}
 								transaction.close();
 								activeTransactions.remove(xid);
-								if (!legacyResiliencyModel) {
-									sortedByFirstScn.remove(xid);
-									if (!sortedByFirstScn.isEmpty()) {
-										task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
-									} else {
-										firstTransaction = true;
-									}
+								sortedByFirstScn.remove(xid);
+								if (!sortedByFirstScn.isEmpty()) {
+									task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+								} else {
+									firstTransaction = true;
 								}
 								metrics.addRolledBackRecords(transaction.length(), transaction.size(),
 										activeTransactions.size() - 1);
@@ -560,9 +549,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												config, processLobs,
 												transformLobs, isCdb, topicPartition,
 												odd, partition, rdbmsInfo, connDictionary, pseudoColumns);
-											if (!legacyResiliencyModel) {
-												task.putTableAndVersion(combinedDataObjectId, 1);
-											}
+											task.putTableAndVersion(combinedDataObjectId, 1);
 
 											if (isPartition) {
 												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
@@ -624,13 +611,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											transaction = new OraCdcTransactionArrayList(xid);
 										}
 										activeTransactions.put(xid, transaction);
-										if (!legacyResiliencyModel) {
-											sortedByFirstScn.put(xid,
+										sortedByFirstScn.put(xid,
 													Triple.of(lastScn, lastRsId, lastSsn));
-											if (firstTransaction) {
-												firstTransaction = false;
-												task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
-											}
+										if (firstTransaction) {
+											firstTransaction = false;
+											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
 										}
 									}
 									if (processLobs) {
@@ -680,13 +665,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											transaction = new OraCdcTransactionArrayList(xid);
 										}
 										activeTransactions.put(xid, transaction);
-										if (!legacyResiliencyModel) {
-											sortedByFirstScn.put(xid,
+										sortedByFirstScn.put(xid,
 													Triple.of(lastScn, lastRsId, lastSsn));
-											if (firstTransaction) {
-												firstTransaction = false;
-												task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
-											}
+										if (firstTransaction) {
+											firstTransaction = false;
+											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
 										}
 									}
 									transaction.addStatement(lmStmt);
@@ -835,7 +818,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 					}
 					rsLogMiner = null;
-					if (!legacyResiliencyModel && activeTransactions.isEmpty() && lastGuaranteedScn > 0) {
+					if (activeTransactions.isEmpty() && lastGuaranteedScn > 0) {
 						// Update restart point in time
 						task.putReadRestartScn(Triple.of(lastGuaranteedScn, lastGuaranteedRsId, lastGuaranteedSsn));
 					}
