@@ -195,6 +195,7 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	private int topicNameStyle = -1;
 	private int schemaType = -1;
 	private int pkType = -1;
+	private String connectorName;
 
 	public static ConfigDef config() {
 		return new ConfigDef()
@@ -631,6 +632,14 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 					value, param, KafkaUtils.AVRO_FIELD_VALID_CHARS);
 			throw new IllegalArgumentException("Invalid value [" + value + "] for parameter " + param + "!");
 		}
+	}
+
+	public String getConnectorName() {
+		return connectorName;
+	}
+
+	public void setConnectorName(String connectorName) {
+		this.connectorName = connectorName;
 	}
 
 }
