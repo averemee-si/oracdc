@@ -300,12 +300,14 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 				if (onlineSequence != lastProcessedOnlineSequence ||
 						onlineSequence != lastProcessedArchiveSequence) {
 					if (onlineSequence != lastProcessedArchiveSequence) {
-						metrics.setLastProcessedSequence(lastProcessedArchiveSequence);
-						if (useNotifier) {
-							notifier.notify(Instant.now(), lastProcessedArchiveSequence);
-						}
-						if (LOGGER.isDebugEnabled()) {
-							LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastProcessedArchiveSequence);
+						if (lastProcessedArchiveSequence > 0) {
+							metrics.setLastProcessedSequence(lastProcessedArchiveSequence);
+							if (useNotifier) {
+								notifier.notify(Instant.now(), lastProcessedArchiveSequence);
+							}
+							if (LOGGER.isDebugEnabled()) {
+								LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastProcessedArchiveSequence);
+							}
 						}
 						lastProcessedArchiveSequence = onlineSequence;
 					} else if (lastProcessedOnlineSequence > 0) {
