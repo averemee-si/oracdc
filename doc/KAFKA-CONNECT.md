@@ -96,8 +96,6 @@ alter session set events '10046 trace name context forever, level 8';
 
 ```
 
-`a2.resiliency.type` - How restarts and crashes are handled: In ``legacy`` mode, all information is stored in the file system, delivery of all changes is guaranteed with exactly-once semantics, but this mode does not protect against file system failures. When set to ``fault-tolerant``  (the default since v1.0.0), all restart data stored on Kafka topics, the connector depends only on Kafka cluster, but if an error occurs in the middle of sending a Oracle transaction to the Kafka broker, that transaction will be re-read from archived redo and sending to Kafka will continue after last successfully processed record to maintain exactly-once semantics
-
 `a2.use.rac` - When set to *true* **oracdc** first tried to detect is this connection to [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) by querying the fixed table [V$ACTIVE_INSTANCES](https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-ACTIVE_INSTANCES.html). If database is not RAC, only the warning message is printed. If **oracdc** is connected to [Oracle RAC](https://www.oracle.com/database/real-application-clusters/) by querying the fixed table [V$ACTIVE_INSTANCES](https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-ACTIVE_INSTANCES.html) additional checks are performed and **oracdc** starts a separate task for each redo thread/RAC instance. Changes for the same table from different redo threads/RAC instances are delivered to the same topic but to different partition where
 
 ```

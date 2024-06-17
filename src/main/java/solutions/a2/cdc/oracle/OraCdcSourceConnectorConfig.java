@@ -304,11 +304,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_PORT_DOC)
 				.define(ParamConstants.LOB_TRANSFORM_CLASS_PARAM, Type.STRING, ParamConstants.LOB_TRANSFORM_CLASS_DEFAULT,
 						Importance.LOW, ParamConstants.LOB_TRANSFORM_CLASS_DOC)
-				.define(ParamConstants.RESILIENCY_TYPE_PARAM, Type.STRING,
-						ParamConstants.RESILIENCY_TYPE_FAULT_TOLERANT,
-						ConfigDef.ValidString.in(ParamConstants.RESILIENCY_TYPE_LEGACY,
-								ParamConstants.RESILIENCY_TYPE_FAULT_TOLERANT),
-						Importance.LOW, ParamConstants.RESILIENCY_TYPE_DOC)
 				.define(ParamConstants.USE_RAC_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.USE_RAC_DOC)
 				.define(PROTOBUF_SCHEMA_NAMING_PARAM, Type.BOOLEAN, false,
