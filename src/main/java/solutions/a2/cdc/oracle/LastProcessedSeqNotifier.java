@@ -24,4 +24,5 @@ public interface LastProcessedSeqNotifier {
 
 	default void configure(OraCdcSourceConnectorConfig config) {};
 	void notify(final Instant instant, final long sequence);
+	void notify(final Instant instant, final long sequence, final String message);
 }

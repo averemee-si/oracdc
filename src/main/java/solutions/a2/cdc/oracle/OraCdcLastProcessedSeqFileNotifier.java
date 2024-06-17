@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,9 +59,24 @@ public class OraCdcLastProcessedSeqFileNotifier implements LastProcessedSeqNotif
 
 	@Override
 	public void notify(final Instant instant, final long sequence) {
+		notify(instant, sequence, null);
+	}
+
+	@Override
+	public void notify(final Instant instant, final long sequence, final String message) {
 		executor.execute(() -> {
 			try(PrintWriter pw = new PrintWriter(new BufferedWriter(new FileWriter(fileName, true)))) {
-				pw.println(sequence + "\t" + instant.toString());
+				final StringBuilder sb = new StringBuilder(128);
+				sb
+					.append(sequence)
+					.append("\t")
+					.append(instant.toString());
+				if (StringUtils.isNotBlank(message)) {
+					sb
+						.append("\t")
+						.append(message);
+				}
+				pw.println(sb.toString());
 			} catch (IOException ioe) {
 				LOGGER.error(
 						"\n=====================\n" +
