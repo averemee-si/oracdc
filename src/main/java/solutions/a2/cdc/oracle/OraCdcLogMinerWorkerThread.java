@@ -302,6 +302,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			lastScn = firstScn;
 			lastRsId = firstRsId;
 			lastSsn = firstSsn;
+			int errorCount = 0;
 			while (rewindNeeded) {
 				if (rsLogMiner.next()) {
 					lastScn = rsLogMiner.getLong("SCN");
@@ -325,9 +326,18 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						}
 					}
 				} else {
-					LOGGER.error("Incorrect rewind to SCN = {}, RS_ID = '{}', SSN = {}",
-							firstScn, firstRsId, firstSsn);
-					throw new SQLException("Incorrect rewind operation!!!");
+					if (errorCount < MAX_RETRIES) {
+						LOGGER.warn("Unable to rewind to SCN = {}, RS_ID = '{}', SSN = {}, empty ResultSet!",
+								firstScn, firstRsId, firstSsn);
+						rsLogMiner.close();
+						//TODO - do we need to re-initialize LogMiner here?
+						rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
+						errorCount++;
+					} else {
+						LOGGER.error("Incorrect rewind to SCN = {}, RS_ID = '{}', SSN = {}",
+								firstScn, firstRsId, firstSsn);
+						throw new SQLException("Incorrect rewind operation!!!");
+					}
 				}
 			}
 			rewindElapsed = System.currentTimeMillis() - rewindElapsed;
