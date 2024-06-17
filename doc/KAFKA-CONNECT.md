@@ -63,8 +63,6 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 
 `a2.tmpdir` - Temporary directory for off-heap storage. Default - value of _java.io.tmpdir_ JVM property
 
-`a2.persistent.state.file` - Name of file to store oracdc state between restart. Default `$TMPDIR/oracdc.state`. Not used when `a2.resiliency.type` set to set to ``fault-tolerant``  (the default since v1.0.0)
-
 `a2.oracdc.schemas` - Use oracdc schemas (**solutions.a2.cdc.oracle.data.OraNumber** and **solutions.a2.cdc.oracle.data.OraTimestamp**) for Oracle datatypes (NUMBER, TIMESTAMP WITH [LOCAL] TIMEZONE). Default false.
 
 `a2.dictionary.file` - File with stored columns data type mapping. For more details contact us at oracle@a2-solutions.eu. This file can be prepared using Schema Editor GUI (solutions.a2.cdc.oracle.schema.TableSchemaEditor)

@@ -66,9 +66,6 @@ public class ParamConstants {
 	public static final String STANDBY_TNS_ALIAS_PARAM = "a2.standby.tns.alias";
 	public static final String STANDBY_TNS_ALIAS_DOC = "Connection TNS alias for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
 
-	public static final String PERSISTENT_STATE_FILE_PARAM = "a2.persistent.state.file";
-	public static final String PERSISTENT_STATE_FILE_DOC = "Name of file to store oracdc state between restart. Default $TMPDIR/oracdc.state";
-
 	public static final String DICTIONARY_FILE_PARAM = "a2.dictionary.file";
 	public static final String DICTIONARY_FILE_DOC = "File with stored columns data type mapping. For more details contact us at oracle@a2-solutions.eu";
 

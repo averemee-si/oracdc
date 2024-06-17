@@ -254,8 +254,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.STANDBY_WALLET_DOC)
 				.define(ParamConstants.STANDBY_URL_PARAM, Type.STRING, "",
 						Importance.LOW, ParamConstants.STANDBY_URL_DOC)
-				.define(ParamConstants.PERSISTENT_STATE_FILE_PARAM, Type.STRING, "",
-						Importance.MEDIUM, ParamConstants.PERSISTENT_STATE_FILE_DOC)
 				.define(ORACDC_SCHEMAS_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ORACDC_SCHEMAS_DOC)
 				.define(ParamConstants.DICTIONARY_FILE_PARAM, Type.STRING, "",

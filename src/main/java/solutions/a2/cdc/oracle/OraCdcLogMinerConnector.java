@@ -13,7 +13,6 @@
 
 package solutions.a2.cdc.oracle;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -196,18 +195,6 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 						tempDir);
 				throw new ConnectException(e);
 			}
-		}
-
-		if (StringUtils.isBlank(config.getString(ParamConstants.PERSISTENT_STATE_FILE_PARAM))) {
-			connectorProperties.put(
-					ParamConstants.PERSISTENT_STATE_FILE_PARAM,
-					System.getProperty("java.io.tmpdir") +  
-						(StringUtils.endsWith(
-								System.getProperty("java.io.tmpdir"), File.separator) ? "" : File.separator) +
-						"oracdc.state");
-			LOGGER.info(VALUE_SET_TO,
-					ParamConstants.PERSISTENT_STATE_FILE_PARAM,
-					connectorProperties.get(ParamConstants.PERSISTENT_STATE_FILE_PARAM));
 		}
 
 		if (config.getLong(ParamConstants.LGMNR_START_SCN_PARAM) < 1) {
