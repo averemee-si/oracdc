@@ -454,8 +454,8 @@ public class OraRdbmsInfo {
 					if (result == null) {
 						result = new HashSet<>();
 						indexOwner = rs.getString("OWNER");
-						indexName = rs.getString("CONSTRAINT_NAME");
-					} else if (!StringUtils.equals(indexName, rs.getString("CONSTRAINT_NAME"))) {
+						indexName = rs.getString("INDEX_NAME");
+					} else if (!StringUtils.equals(indexName, rs.getString("INDEX_NAME"))) {
 						break;
 					}
 					result.add(rs.getString("COLUMN_NAME"));
