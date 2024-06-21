@@ -55,9 +55,6 @@ When set to _debezium_  **oracdc** produces [Debezium](https://debezium.io/docum
 `a2.protobuf.schema.naming` - _Source Connector_ only: Default - false. When set to true oracdc generates schema names as valid Protocol Buffers identifiers using underscore as separator. When set to false (default) oracdc generates schema names using dot as separator.
 
 ### solutions.a2.cdc.oracle.OraCdcLogMinerConnector specific parameters
-`a2.redo.count` - Quantity of archived logs to process during each DBMS_LOGMNR.START_LOGMNR call, default _1_
-
-`a2.redo.size` - Minimal size of archived logs to process during each DBMS_LOGMNR.START_LOGMNR call. When set value of `a2.redo.count` is ignored
 
 `a2.first.change` - When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set **min(FIRST_CHANGE#) from V$ARCHIVED_LOG** will used. Overrides SCN value  stored in offset file.
 

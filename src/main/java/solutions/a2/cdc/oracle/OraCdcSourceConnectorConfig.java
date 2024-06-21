@@ -240,10 +240,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.MEDIUM, ParamConstants.TABLE_EXCLUDE_DOC)
 				.define(ParamConstants.TABLE_INCLUDE_PARAM, Type.LIST, "",
 						Importance.MEDIUM, ParamConstants.TABLE_INCLUDE_DOC)
-				.define(ParamConstants.REDO_FILES_COUNT_PARAM, Type.SHORT, (short) 1,
-						Importance.MEDIUM, ParamConstants.REDO_FILES_COUNT_DOC)
-				.define(ParamConstants.REDO_FILES_SIZE_PARAM, Type.LONG, 0,
-						Importance.MEDIUM, ParamConstants.REDO_FILES_SIZE_DOC)
 				.define(ParamConstants.LGMNR_START_SCN_PARAM, Type.LONG, 0,
 						Importance.MEDIUM, ParamConstants.LGMNR_START_SCN_DOC)
 				.define(ParamConstants.TEMP_DIR_PARAM, Type.STRING, "",

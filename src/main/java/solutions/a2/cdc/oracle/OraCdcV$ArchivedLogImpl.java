@@ -44,12 +44,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private long sessionFirstChange;
 	private long nextChange = 0;
 	private long lastSequence = 0;
-	private long lastProcessedArchiveSequence = 0;
-	private long lastProcessedOnlineSequence = 0;
 	private final String connectorName;
-	private int numArchLogs;
-	private long sizeOfArchLogs;
-	private final boolean useNumOfArchLogs;
 	private final boolean dictionaryAvailable;
 	private final boolean callDbmsLogmnrAddLogFile;
 	private final boolean processOnlineRedoLogs;
@@ -60,8 +55,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private CallableStatement csStartLogMiner;
 	private CallableStatement csStopLogMiner;
 	private PreparedStatement psUpToCurrentScn;
-	private int archLogsAvailable = 0;
-	private long archLogsSize = 0;
+	private long archLogSize = 0;
 	private final List<String> fileNames = new ArrayList<>();
 	private long readStartMillis;
 	private final OraRdbmsInfo rdbmsInfo;
@@ -124,16 +118,6 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			printAllOnlineScnRanges = config.getBoolean(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM);
 		} else {
 			printAllOnlineScnRanges = false;
-		}
-
-		if (config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM) > 0) {
-			useNumOfArchLogs = false;
-			sizeOfArchLogs = config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM);
-			LOGGER.debug("The redo log read size limit will be set to '{}' bytes.", sizeOfArchLogs);
-		} else {
-			useNumOfArchLogs = true;
-			numArchLogs = config.getShort(ParamConstants.REDO_FILES_COUNT_PARAM);
-			LOGGER.debug("The redo log read size limit will be set to '{}' files", numArchLogs);
 		}
 
 		this.firstChange = firstChange;
@@ -207,8 +191,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		}
 		LOGGER.trace("BEGIN: {}", functionName);
 
-		archLogsAvailable = 0;
-		archLogsSize = 0;
+		boolean archLogAvailable = false;
 
 		psGetArchivedLogs.setLong(1, firstChange);
 		psGetArchivedLogs.setLong(2, firstChange);
@@ -219,50 +202,39 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		int lagSeconds = 0;
 		while (rs.next()) {
 			final long sequence = rs.getLong("SEQUENCE#");
-			if (sequence != lastProcessedArchiveSequence) {
-				if (lastProcessedArchiveSequence > 0) {
-					metrics.setLastProcessedSequence(lastProcessedArchiveSequence);
-					if (useNotifier) {
-						notifier.notify(Instant.now(), lastProcessedArchiveSequence);
-					}
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastProcessedArchiveSequence);
-					}
-				}
-				lastProcessedArchiveSequence = sequence;
-			}
 			nextChange = rs.getLong("NEXT_CHANGE#");
-			if (lagSeconds == 0) {
-				lagSeconds = rs.getInt("ACTUAL_LAG_SECONDS");
-			}
-			if (sequence > lastSequence) {
+			lagSeconds = rs.getInt("ACTUAL_LAG_SECONDS");
+			if (sequence >= lastSequence) {
 				if (firstChange < nextChange) {
 					// #25 BEGIN - hole in SEQUENCE# numbering  in V$ARCHIVED_LOG
 					if (nextLogs && (lastSequence - sequence) > 1) {
 						LOGGER.warn("Gap in V$ARCHIVED_LOG numbering detected between SEQUENCE# {} and {}",
 								lastSequence, sequence);
-						if (fileNames.size() > 0) {
-							break;
-						} else {
+						if (fileNames.size() < 1) {
 							firstChange = rs.getLong("FIRST_CHANGE#");
 						}
 					}
 					// #25 END - hole in SEQUENCE# numbering  in V$ARCHIVED_LOG
-					lastSequence = sequence;
-					final String fileName = rs.getString("NAME");
-					fileNames.add(archLogsAvailable, fileName);
-					printRedoLogInfo(true, true,
-							fileName, rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"));
-					archLogsAvailable++;
-					archLogsSize += rs.getLong("BYTES"); 
-					if (useNumOfArchLogs) {
-						if (archLogsAvailable >= numArchLogs) {
-							break;
+
+					if (sequence > lastSequence ||
+							(sequence == lastSequence && firstChange < nextChange)) {
+						if (sequence > lastSequence && lastSequence > 0) {
+							metrics.setLastProcessedSequence(lastSequence);
+							if (useNotifier) {
+								notifier.notify(Instant.now(), lastSequence);
+							}
+							if (LOGGER.isDebugEnabled()) {
+								LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastSequence);
+							}
+							lastSequence = sequence;
 						}
-					} else {
-						if (archLogsSize >= sizeOfArchLogs) {
-							break;
-						}
+						final String fileName = rs.getString("NAME");
+						fileNames.add(0, fileName);
+						printRedoLogInfo(true, true,
+								fileName, rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"));
+						archLogAvailable = true;
+						archLogSize = rs.getLong("BYTES");
+						break;
 					}
 				}
 			}
@@ -272,7 +244,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		psGetArchivedLogs.clearParameters();
 
 		boolean processOnlineRedo = false;
-		if (archLogsAvailable == 0) {
+		if (!archLogAvailable) {
 			if (!callDbmsLogmnrAddLogFile || !processOnlineRedoLogs) {
 				LOGGER.debug("END: {} no archived redo yet, return false", functionName);
 				return false;
@@ -297,43 +269,28 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 				} else {
 					throw new SQLException("Unable to execute\n" + OraDictSqlTexts.UP_TO_CURRENT_SCN + "\n!!!");
 				}
-				if (onlineSequence != lastProcessedOnlineSequence ||
-						onlineSequence != lastProcessedArchiveSequence) {
-					if (onlineSequence != lastProcessedArchiveSequence) {
-						if (lastProcessedArchiveSequence > 0) {
-							metrics.setLastProcessedSequence(lastProcessedArchiveSequence);
-							if (useNotifier) {
-								notifier.notify(Instant.now(), lastProcessedArchiveSequence);
-							}
-							if (LOGGER.isDebugEnabled()) {
-								LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastProcessedArchiveSequence);
-							}
-						}
-						lastProcessedArchiveSequence = onlineSequence;
-					} else if (lastProcessedOnlineSequence > 0) {
-						metrics.setLastProcessedSequence(lastProcessedOnlineSequence);
-						if (useNotifier) {
-							notifier.notify(Instant.now(), lastProcessedOnlineSequence);
-						}
-						if (LOGGER.isDebugEnabled()) {
-							LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastProcessedOnlineSequence);
-						}
-						lastProcessedArchiveSequence = onlineSequence;
-					}
-					lastProcessedOnlineSequence = onlineSequence;
-				}
 				rsUpToCurrentScn.close();
 				rsUpToCurrentScn = null;
 				if ((nextChange - 1) < firstChange) {
 					LOGGER.trace("END: {} no new data in online redo, return false", functionName);
 					return false;
 				}
+
+				//TODO next() vs extend()
 				fileNames.add(onlineRedoMember);
 				if (printAllOnlineScnRanges) {
 					printRedoLogInfo(false, true, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
-				} else {
-					if (lastOnlineSequence != onlineSequence) {
-						lastOnlineSequence = onlineSequence;
+				}
+				if (lastOnlineSequence != onlineSequence) {
+					if (lastOnlineSequence > lastSequence && lastSequence > 0) {
+						metrics.setLastProcessedSequence(lastSequence);
+						if (useNotifier) {
+							notifier.notify(Instant.now(), lastSequence, "ONLINE");
+						}
+						lastSequence = lastOnlineSequence;
+					}					
+					lastOnlineSequence = onlineSequence;
+					if (!printAllOnlineScnRanges) {
 						printRedoLogInfo(false, false, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
 					}
 				}
@@ -417,7 +374,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		LOGGER.trace("BEGIN: stop()");
 		csStopLogMiner.execute();
 		// Add info about processed files to JMX
-		metrics.addAlreadyProcessed(fileNames, archLogsAvailable, archLogsSize,
+		metrics.addAlreadyProcessed(fileNames, 1, archLogSize,
 				System.currentTimeMillis() - readStartMillis);
 		LOGGER.trace("END: stop()");
 	}

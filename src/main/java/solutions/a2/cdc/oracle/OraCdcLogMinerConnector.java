@@ -208,17 +208,6 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			connectorProperties.remove(ParamConstants.TABLE_INCLUDE_PARAM);
 		}
 
-		if (config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM) > 0) {
-			LOGGER.info("Redo size threshold will be used instead of count of redo files.");
-			connectorProperties.remove(ParamConstants.REDO_FILES_COUNT_PARAM);
-		} else {
-			LOGGER.info("Count of redo files will be used instead of size threshold.");
-			connectorProperties.remove(ParamConstants.REDO_FILES_SIZE_PARAM);
-			if (config.getShort(ParamConstants.REDO_FILES_COUNT_PARAM) < 1) {
-				connectorProperties.put(ParamConstants.REDO_FILES_COUNT_PARAM, "1");
-			}
-		}
-
 		if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
 			// When this set we need explicitly value of  a2.archived.log.catalog parameter
 			if (!OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName()

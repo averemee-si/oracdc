@@ -57,9 +57,6 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcDistributedV$ArchivedLogImpl.class);
 
 	private long sessionFirstChange;
-	private int numArchLogs;
-	private long sizeOfArchLogs;
-	private final boolean useNumOfArchLogs;
 	private final boolean dictionaryAvailable;
 	private final long dbId;
 	private final String dbUniqueName;
@@ -69,10 +66,10 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 	private CallableStatement csStopLogMiner;
 	private int archLogsAvailable = 0;
 	private long archLogsSize = 0;
-	private final List<String> fileNames = new ArrayList<>();
 	private long readStartMillis;
+	private final List<String> fileNames = new ArrayList<>();
+	private final BlockingQueue<ArchivedRedoFile> redoFiles = new LinkedBlockingQueue<>();
 
-	private final BlockingQueue<ArchivedRedoFile> redoFiles;
 
 
 	public OraCdcDistributedV$ArchivedLogImpl(
@@ -84,18 +81,6 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			final OraConnectionObjects oraConnections) throws SQLException {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
-
-		redoFiles = new LinkedBlockingQueue<>();
-
-		if (config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM) > 0) {
-			useNumOfArchLogs = false;
-			sizeOfArchLogs = config.getLong(ParamConstants.REDO_FILES_SIZE_PARAM);
-			LOGGER.debug("The redo log read size limit will be set to '{}' bytes.", sizeOfArchLogs);
-		} else {
-			useNumOfArchLogs = true;
-			numArchLogs = config.getShort(ParamConstants.REDO_FILES_COUNT_PARAM);
-			LOGGER.debug("The redo log read size limit will be set to '{}' files", numArchLogs);
-		}
 
 		createStatements(connLogMiner);
 		final String openMode = rdbmsInfo.getOpenMode();
@@ -159,37 +144,19 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			fileNames.clear();
 		}
 
-		while (true) {
-			ArchivedRedoFile redoFile = redoFiles.poll();
-			if (redoFile != null) {
-				fileNames.add(redoFile.NAME);
-				if (archLogsAvailable == 0) {
-					currentFirst = redoFile.FIRST_CHANGE;
-					currentLag = redoFile.ACTUAL_LAG_SECONDS();
-				}
-				currentNext = redoFile.NEXT_CHANGE;
-				archLogsAvailable++;
-				archLogsSize += redoFile.BYTES;
-				LOGGER.info("Adding archived log {} thread# {} sequence# {} first change number {} next log first change {}",
-						redoFile.NAME, redoFile.THREAD, redoFile.SEQUENCE, redoFile.FIRST_CHANGE, redoFile.NEXT_CHANGE);
-				if (useNumOfArchLogs) {
-					if (archLogsAvailable >= numArchLogs) {
-						break;
-					}
-				} else {
-					if (archLogsSize >= sizeOfArchLogs) {
-						break;
-					}
-				}
-			} else {
-				break;
+		ArchivedRedoFile redoFile = redoFiles.poll();
+		if (redoFile != null) {
+			fileNames.add(redoFile.NAME);
+			if (archLogsAvailable == 0) {
+				currentFirst = redoFile.FIRST_CHANGE;
+				currentLag = redoFile.ACTUAL_LAG_SECONDS();
 			}
-		}
+			currentNext = redoFile.NEXT_CHANGE;
+			archLogsAvailable++;
+			archLogsSize += redoFile.BYTES;
+			LOGGER.info("Adding archived log {} thread# {} sequence# {} first change number {} next log first change {}",
+						redoFile.NAME, redoFile.THREAD, redoFile.SEQUENCE, redoFile.FIRST_CHANGE, redoFile.NEXT_CHANGE);
 
-		if (archLogsAvailable == 0) {
-			LOGGER.trace("END: {} return false", functionName);
-			return false;
-		} else {
 			// Set current processing in JMX
 			metrics.setNowProcessed(
 					fileNames, nextLogs ? currentFirst : sessionFirstChange, currentNext, currentLag);
@@ -220,9 +187,13 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			readStartMillis = System.currentTimeMillis();
 			LOGGER.trace("END: {} returns true", functionName);
 			return true;
+		} else {
+			LOGGER.trace("END: {} return false", functionName);
+			return false;
 		}
 
 	}
+
 	@Override
 	public void stop() throws SQLException {
 		LOGGER.trace("BEGIN: stop()");
