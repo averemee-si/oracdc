@@ -371,7 +371,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 
 		} catch (SQLException sqle) {
-			LOGGER.error("Unable to get table information.");
+			LOGGER.error("Unable to get information about table {}.{}!", tableOwner, tableName);
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 			throw new ConnectException(sqle);
 		}
