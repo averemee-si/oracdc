@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceConnector;
@@ -79,11 +80,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			// Copy rest of params...
 			config.values().forEach((k, v) -> {
 				if (!connectorProperties.containsKey(k) && v != null) {
-					if (StringUtils.equals(k, ParamConstants.TABLE_EXCLUDE_PARAM) ||
-							StringUtils.equals(k, ParamConstants.TABLE_INCLUDE_PARAM) ||
-							StringUtils.equals(k, ConnectorParams.CONNECTION_PASSWORD_PARAM) ||
-							StringUtils.equals(k, ParamConstants.INTERNAL_RAC_URLS_PARAM) ||
-							StringUtils.equals(k, ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM)) {
+					if (v instanceof Password) {
 						connectorProperties.put(k, "");
 					} else if (v instanceof Boolean) {
 						connectorProperties.put(k, ((Boolean) v).toString());
@@ -93,6 +90,8 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 						connectorProperties.put(k, ((Integer) v).toString());
 					} else if (v instanceof Long) {
 						connectorProperties.put(k, ((Long) v).toString());
+					} else if (StringUtils.equals("java.util.Collections$EmptyList", v.getClass().getName())) {
+						connectorProperties.put(k, "");
 					} else {
 						connectorProperties.put(k, (String) v);
 					}
