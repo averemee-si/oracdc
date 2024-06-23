@@ -366,7 +366,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 			LOGGER.error("For example:");
 			LOGGER.error("\tjdbc:oracle:thin:@prod_db?TNS_ADMIN=/u01/app/oracle/product/21.3.0/dbhome_1/network/admin/");
 			LOGGER.error("For more information on JDBC URL format please see Oracle® Database JDBC Java API Reference, Release 21c -");
-			LOGGER.error("\thttps://docs.oracle.com/en/database/oracle/oracle-database/21/jajdb/");
+			LOGGER.error("\thttps://docs.oracle.com/en/database/oracle/oracle-database/23/jajdb/");
 			throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 		}
 	}
