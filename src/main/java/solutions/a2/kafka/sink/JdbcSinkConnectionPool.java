@@ -137,33 +137,37 @@ public class JdbcSinkConnectionPool {
 		Connection connection = null;
 		int attempt = 0;
 		long waitTimeMillis = 0;
-		while (true) {
+		boolean tryToGet = true;
+		do {
 			try {
 				connection = dataSource.getConnection();
-				break;
-			} catch (SQLException sqle) {
-				if (sqle instanceof SQLTransientConnectionException) {
-					//TODO - parameterize it!
-					if (waitTimeMillis > 300_000) {
-						LOGGER.error(
-								"\n=====================\n" +
-								"Unable to get connection to {} after {} milliseconds!.\n" +
-								"=====================\n",
-								dataSource.getJdbcUrl(), waitTimeMillis);
-						throw sqle;
-					} else {
-						long currentWait = (long) Math.pow(10, ++attempt);
-						waitTimeMillis += currentWait;
-						try {
-							LOGGER.debug("Waiting [] ms for connection", currentWait);
-							Thread.sleep(currentWait);
-						} catch (InterruptedException ie) {}
-					}
+				tryToGet = false;
+			} catch (SQLTransientConnectionException stce) {
+				//TODO - parameterize it!
+				if (waitTimeMillis > 300_000) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Unable to get connection to {} after {} milliseconds!.\n" +
+							"=====================\n",
+							dataSource.getJdbcUrl(), waitTimeMillis);
+					throw stce;
 				} else {
-					throw sqle;
+					long currentWait = (long) Math.pow(10, ++attempt);
+					waitTimeMillis += currentWait;
+					try {
+						LOGGER.debug("Waiting [] ms for connection", currentWait);
+						Thread.sleep(currentWait);
+					} catch (InterruptedException ie) {}
 				}
+			} catch (SQLException sqle) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to get connection to {}.\n" +
+						"=====================\n",
+						dataSource.getJdbcUrl());
+				throw sqle;
 			}
-		}
+		} while (tryToGet);
 		if (connection.getAutoCommit()) {
 			connection.setAutoCommit(false);
 		}
