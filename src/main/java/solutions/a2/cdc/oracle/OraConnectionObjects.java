@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleStatement;
 import oracle.jdbc.pool.OracleDataSource;
+import oracle.ucp.NoAvailableConnectionsException;
 import oracle.ucp.UniversalConnectionPoolException;
 import oracle.ucp.admin.UniversalConnectionPoolManager;
 import oracle.ucp.admin.UniversalConnectionPoolManagerImpl;
@@ -48,6 +49,8 @@ public class OraConnectionObjects {
 	private static final AtomicBoolean state = new AtomicBoolean(true);
 	private static final AtomicInteger taskId = new AtomicInteger(0);
 	private static final String TZ_AS_REGION = "oracle.jdbc.timezoneAsRegion";
+	private static final int CONNECTION_WAIT_TIMEOUT = 40;
+	private static final int TIME_TO_LIVE_CONNECTION_TIMEOUT = 5;
 
 	private PoolDataSource pds;
 	private final String poolName;
@@ -280,6 +283,31 @@ public class OraConnectionObjects {
 					return getConnection();
 				} else {
 					throw sqle;
+				}
+			} else if (sqle.getCause() instanceof NoAvailableConnectionsException) {
+				if (pds.getConnectionWaitTimeout() == CONNECTION_WAIT_TIMEOUT &&
+						pds.getTimeToLiveConnectionTimeout() == TIME_TO_LIVE_CONNECTION_TIMEOUT) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"oracle.ucp.NoAvailableConnectionsException with:\n" +
+							"\tgetConnectionWaitTimeout() = {}\n" +
+							"\tgetTimeToLiveConnectionTimeout() = {}\n" +
+							"\tgetValidateConnectionOnBorrow() = {}\n" +
+							"=====================\n",
+							pds.getConnectionWaitTimeout(),
+							pds.getTimeToLiveConnectionTimeout(),
+							pds.getValidateConnectionOnBorrow());
+					throw sqle;
+				} else {
+					try {
+						Thread.sleep(5);
+					} catch (InterruptedException ie) {}
+					pds.setConnectionWaitTimeout(CONNECTION_WAIT_TIMEOUT);
+					pds.setTimeToLiveConnectionTimeout(TIME_TO_LIVE_CONNECTION_TIMEOUT);
+					try {
+						Thread.sleep(5);
+					} catch (InterruptedException ie) {}
+					return getConnection();
 				}
 			} else {
 				throw sqle;
