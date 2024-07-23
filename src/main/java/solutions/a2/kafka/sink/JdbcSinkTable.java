@@ -298,16 +298,15 @@ public class JdbcSinkTable extends OraTableDefinition {
 					unnestedColumns.get(parentField)
 							.add(unnestedValues.get(dbValueColumn4M));
 				} else {
-					if (StringUtils.equalsIgnoreCase("YES", rsAllColumns.getString("IS_NULLABLE"))) {
-						LOGGER.warn(
-								"Column {}.{} with type {} is present in the database but not in the Kafka topic!",
-								tableName, dbValueColumn, JdbcTypes.getTypeName(rsAllColumns.getInt("DATA_TYPE")));
-						continue;
-					} else {
-						throw new ConnectException("Database NON NULL column '" +
-								tableName + "." + dbValueColumn + "' is not present in Kafka topic " +
-								record.topic() + "!");
-					}
+					LOGGER.warn(
+							"\n" +
+							"=====================\n" +
+							"{} column {}.{} with type {} is present in the database but not in the Kafka topic!\n" +
+							"=====================\n",
+							StringUtils.equalsIgnoreCase("YES", rsAllColumns.getString("IS_NULLABLE")) ?
+									"Nullable" : "Not nullable",
+							tableName, dbValueColumn, JdbcTypes.getTypeName(rsAllColumns.getInt("DATA_TYPE")));
+					continue;
 				}
 				if (valueField != null) {
 					final OraColumn column = new OraColumn(valueField, false, isKey);
