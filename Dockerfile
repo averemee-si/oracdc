@@ -274,7 +274,7 @@ LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
 RUN    set -eux && apt-get update && apt-get --yes install netcat-traditional tzdata bash wget adduser 
-RUN    addgroup kafka && adduser --ingroup kafka kafka 
+RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka 
 ARG    BASEDIR=/opt
 
 ARG    KAFKA_VERSION=3.6.1
