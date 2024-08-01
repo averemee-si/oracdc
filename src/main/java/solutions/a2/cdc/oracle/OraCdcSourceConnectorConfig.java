@@ -16,7 +16,9 @@ package solutions.a2.cdc.oracle;
 import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.config.AbstractConfig;
@@ -201,6 +203,16 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	private static final String LAST_SEQ_NOTIFIER_FILE_PARAM = "a2.last.sequence.notifier.file";
 	private static final String LAST_SEQ_NOTIFIER_FILE_DOC = "The name of the file in which the last processed number will be written. Default - ${connectorName}.seq";
 
+	private static final String KEY_OVERRIDE_PARAM = "a2.key.override";
+	private static final String KEY_OVERRIDE_DOC =
+			"A comma separated list of elements in the format TABLE_OWNER.TABLE_NAME=NOKEY|ROWID|INDEX(INDEX_NAME).\n" + 
+			"If there is a table in this list, then the values ​​of the `a2.pk.type` and `a2.use.rowid.as.key` parameters for it are ignored and the values ​​of the key columns are set in accordance with this parameter:\n" +
+			"NONE - do not create key fields in the Kafka topic for this table,\n" +
+			"ROWID - use ROWID as a key field in the Kafka topic with the name ORA_ROW_ID and type STRING,\n" + 
+			"INDEX(INDEX_NAME) use the index columns of index named INDEX_NAME as key fields of the Kafka topic\n" +
+			"Default - empty value.";
+	private Map<String, OraCdcKeyOverrideTypes> keyOverrideMap = null;
+	private Map<String, String> keyOverrideIndexMap = null;
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
@@ -374,6 +386,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, LAST_SEQ_NOTIFIER_DOC)
 				.define(LAST_SEQ_NOTIFIER_FILE_PARAM, Type.STRING, "",
 						Importance.LOW, LAST_SEQ_NOTIFIER_FILE_DOC)
+				.define(KEY_OVERRIDE_PARAM, Type.LIST, "",
+						Importance.MEDIUM, KEY_OVERRIDE_DOC)
 				;
 	}
 
@@ -710,6 +724,43 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				return tmpDir + File.separator + "oracdc.seq";
 			}
 		} 
+	}
+
+	public Entry<OraCdcKeyOverrideTypes, String> getKeyOverrideType(final String fqtn) {
+		if (keyOverrideMap == null) {
+			keyOverrideMap = new HashMap<>();
+			keyOverrideIndexMap = new HashMap<>();
+			//Perform initial parsing
+			getList(KEY_OVERRIDE_PARAM).forEach(token -> {
+				try {
+					final String[] pair = StringUtils.split(token, "=");
+					final String fullTableName = StringUtils.upperCase(pair[0]);
+					final String overrideValue = pair[1];
+					if (StringUtils.equalsIgnoreCase(overrideValue, "NOKEY")) {
+						keyOverrideMap.put(fullTableName, OraCdcKeyOverrideTypes.NOKEY);
+					} else if (StringUtils.equalsIgnoreCase(overrideValue, "ROWID")) {
+						keyOverrideMap.put(fullTableName, OraCdcKeyOverrideTypes.ROWID);
+					} else if (StringUtils.startsWithIgnoreCase(overrideValue, "INDEX")) {
+						keyOverrideMap.put(fullTableName, OraCdcKeyOverrideTypes.INDEX);
+						keyOverrideIndexMap.put(fullTableName,
+								StringUtils.substringBetween(overrideValue, "(", ")"));
+					} else {
+						LOGGER.error(
+								"\n" +
+								"=====================\n" +
+								"Incorrect value {} for parameter {}!\n" +
+								"=====================\n",
+								token, KEY_OVERRIDE_PARAM);
+					}
+				} catch (Exception e) {
+					LOGGER.error("Unable to parse '{}'!", token);
+				}
+			});
+			
+		}
+		return Map.entry(
+				keyOverrideMap.getOrDefault(fqtn, OraCdcKeyOverrideTypes.NONE),
+				keyOverrideIndexMap.getOrDefault(fqtn, ""));
 	}
 
 }

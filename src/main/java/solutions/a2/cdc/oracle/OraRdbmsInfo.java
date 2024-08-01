@@ -437,7 +437,7 @@ public class OraRdbmsInfo {
 			ps.close();
 			ps = null;
 			if (result != null) {
-				printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName);
+				printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName, false);
 			} else if (pkType == OraCdcSourceConnectorConfig.PK_TYPE_INT_ANY_UNIQUE) {
 				ps = connection.prepareStatement(
 						(isCdb) ?
@@ -465,16 +465,74 @@ public class OraRdbmsInfo {
 				ps.close();
 				ps = null;
 				if (result != null) {
-					printPkWarning(result, false, tableOwner, tableName,indexOwner, indexName);
+					printPkWarning(result, false, tableOwner, tableName, indexOwner, indexName, false);
 				}
 			}
 		}
 		return result;
 	}
 
+	/**
+	 * Returns columns of index
+	 * 
+	 * @param connection         - Connection to data dictionary (db in 'OPEN' state)
+	 * @param conId              - CON_ID, if -1 we working with non CDB or pre-12c Oracle Database
+	 * @param tableOwner         - Table owner
+	 * @param tableName          - Table name
+	 * @param indexName          - Index name
+	 * @return                   - Set with names of columns. null if nothing found
+	 * @throws SQLException
+	 */
+	public static Set<String> getPkColumnsFromDict(
+			final Connection connection,
+			final short conId,
+			final String tableOwner,
+			final String tableName,
+			final String indexName) throws SQLException {
+		final boolean isCdb = (conId > -1);
+		Set<String> result = null;
+		PreparedStatement ps = connection.prepareStatement(
+				(isCdb) ?
+						OraDictSqlTexts.INDEX_COLUMNS_CDB :
+						OraDictSqlTexts.INDEX_COLUMNS_NON_CDB,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		ps.setString(1, tableOwner);
+		ps.setString(2, tableName);
+		ps.setString(3, indexName);
+		if (isCdb) {
+			ps.setShort(4, conId);			
+		}
+
+		String indexOwner = null;
+		ResultSet rs = ps.executeQuery();
+		while (rs.next()) {
+			if (result == null) {
+				result = new HashSet<>();
+				indexOwner = rs.getString("INDEX_OWNER");
+			}
+			result.add(rs.getString("COLUMN_NAME"));
+		}
+		rs.close();
+		rs = null;
+		ps.close();
+		ps = null;
+		if (result == null) {
+			LOGGER.error(
+					"\n" +
+					"=====================\n" +
+					"Data for index {} (on table {}.{}) not found!\n" +
+					"=====================\n",
+					indexName, tableOwner, tableName);
+		} else {
+			printPkWarning(result, false, tableOwner, tableName, indexOwner, indexName, true);
+		}
+		return result;
+	}
+
 	private static void printPkWarning(final Set<String> result, final boolean notNull,
 			final String tableOwner, final String tableName,
-			final String indexOwner, final String indexName) {
+			final String indexOwner, final String indexName,
+			final boolean override) {
 		final StringBuilder sb = new StringBuilder(128);
 		boolean firstCol = true;
 		for (String columnName : result) {
@@ -485,14 +543,23 @@ public class OraRdbmsInfo {
 			}
 			sb.append(columnName);
 		}
-		LOGGER.info(
-				"\n" +
-				"=====================\n" +
-				"Table {}.{} does not have a primary key constraint.\n" +
-				"Unique index {}.{} with {}column(s) '{}' will be used instead of the missing primary key.\n" +
-				"=====================\n",
-				tableOwner, tableName, indexOwner, indexName, 
-				(notNull ? "NOT NULL " : ""), sb.toString());
+		if (override) {
+			LOGGER.info(
+					"\n" +
+					"=====================\n" +
+					"Columns of index {}.{}({}) will be used as key fields for table {}.{}.\n" +
+					"=====================\n",
+					 indexOwner, indexName, sb.toString(), tableOwner, tableName);
+		} else {
+			LOGGER.info(
+					"\n" +
+					"=====================\n" +
+					"Table {}.{} does not have a primary key constraint.\n" +
+					"Unique index {}.{} with {}column(s) '{}' will be used instead of the missing primary key.\n" +
+					"=====================\n",
+					tableOwner, tableName, indexOwner, indexName, 
+					(notNull ? "NOT NULL " : ""), sb.toString());
+		}
 	}
 
 	/**

@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.data.Schema;
@@ -186,16 +187,52 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"=====================\n", tableFqn);
 				}
 			}
+			final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
+			final boolean useRowIdAsKey;
 			// Detect PK column list...
-			final Set<String> pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
-					isCdb ? conId : -1, this.tableOwner, this.tableName, config.getPkType());
-
+			final Set<String> pkColsSet;
+			switch (keyOverrideType.getKey()) {
+			case NONE:
+				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
+						isCdb ? conId : -1, this.tableOwner, this.tableName, config.getPkType());
+				useRowIdAsKey = config.useRowidAsKey();
+				break;
+			case ROWID:
+				pkColsSet = null;
+				useRowIdAsKey = true;
+				break;
+			case NOKEY:
+				pkColsSet = null;
+				useRowIdAsKey = false;
+				break;
+			default:
+				//INDEX
+				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
+						isCdb ? conId : -1, this.tableOwner, this.tableName, keyOverrideType.getValue());
+				useRowIdAsKey = config.useRowidAsKey();
+				break;
+			}
+/*
+			if (keyOverrideType.getKey() == OraCdcKeyOverrideTypes.NONE) {
+				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
+						isCdb ? conId : -1, this.tableOwner, this.tableName, config.getPkType());
+			} else if (keyOverrideType == OraCdcKeyOverrideTypes.ROWID) {
+				pkColsSet = null;
+				useRowIdAsKey = true;
+			} else if (keyOverrideType == OraCdcKeyOverrideTypes.NOKEY) {
+				pkColsSet = null;
+				useRowIdAsKey = false;
+			} else {
+				//TODO OraCdcKeyOverrideTypes.INDEX
+				pkColsSet = null;
+			}
+*/
 			// Schema init - keySchema is immutable and always 1
 			final SchemaNameMapper snm = config.getSchemaNameMapper();
 			snm.configure(config);
 			final SchemaBuilder keySchemaBuilder;
 			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
-					(pkColsSet == null && !config.useRowidAsKey())) {
+					(pkColsSet == null && !useRowIdAsKey)) {
 				keySchemaBuilder = null;
 				onlyValue = true;
 			} else {
@@ -213,7 +250,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 			if (pkColsSet == null) {
 				tableWithPk = false;
-				if (!onlyValue) {
+				if (!onlyValue && useRowIdAsKey) {
 					addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
 					pseudoKey = true;
 				}
