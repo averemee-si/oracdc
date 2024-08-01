@@ -184,6 +184,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		other.ssn = this.ssn;
 		other.rowId = this.rowId;
 		other.lobCount = this.lobCount;
+		other.rollback = this.rollback;
 		other.holderSize = this.holderSize;
 	}
 
@@ -198,7 +199,8 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 			.write8bit(rsId)
 			.writeLong(ssn)
 			.write8bit(rowId)
-			.writeByte(lobCount);
+			.writeByte(lobCount)
+			.writeBoolean(rollback);
 	}
 
 
@@ -214,6 +216,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		ssn = raw.readLong();
 		rowId = raw.read8bit();
 		lobCount = raw.readByte();
+		rollback = raw.readBoolean();
 	}
 
 
