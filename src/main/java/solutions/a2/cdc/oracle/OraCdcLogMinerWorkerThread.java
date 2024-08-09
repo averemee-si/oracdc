@@ -945,7 +945,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				sqle.getErrorCode(), sqle.getSQLState());
 		if (sqle.getErrorCode() == OraRdbmsInfo.ORA_17410 ||
 				// SQLSTATE = '08000'
-				sqle.getErrorCode() == OraRdbmsInfo.ORA_17002) { 
+				sqle.getErrorCode() == OraRdbmsInfo.ORA_17002 || 
+				// SQLSTATE = '08006'
+				sqle.getErrorCode() == OraRdbmsInfo.ORA_1089) {
 				// SQLSTATE = '08006'
 			boolean ready = false;
 			int retries = 0;
@@ -966,6 +968,15 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					LOGGER.error("Error '{}' when restoring connection, SQL errorCode = {}, SQL state = '{}'",
 							getConnException.getMessage(), getConnException.getErrorCode(), getConnException.getSQLState());
 				}
+				if (retries == MAX_RETRIES) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Unable to restore connections after {} retries.\n" +
+							"Original error: '{}',\n\tSQL errorCode = {}, SQL state = '{}'\n" +
+							"\n=====================\n",
+							retries, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+					throw new ConnectException(sqle);
+				}
 			}
 		} else {
 			LOGGER.error(
@@ -975,6 +986,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					"To fix - please send this message to oracle@a2-solutions.eu\n" +
 					"=====================\n",
 					sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+			throw new ConnectException(sqle);
 		}
 	}
 
