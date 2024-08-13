@@ -16,9 +16,11 @@ package solutions.a2.cdc.oracle;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,16 +41,15 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 	protected static final String QUEUE_OFFSET = "tailerOffset";
 	protected static final String TRANS_COMMIT_SCN = "commitScn";
 
+	boolean firstRecord = true;
+	long firstChange = 0;
 	private final String xid;
 	private long commitScn;
 
-	private final List<String> excludedRbas = new ArrayList<>();
-
-	private OraCdcLogMinerStatement lastSql;
-	private boolean firstStatement = true;
-	private int offset = 0;
-	private boolean moreMessages = false;
-	private StringBuilder sbMessages;
+	boolean partialRollback = false;
+	List<PartialRollbackEntry> rollbackEntriesList;
+	OraCdcLogMinerStatement lmStmt;
+	Set<Map.Entry<String, Long>> rollbackPairs;
 
 	private String username;
 	private String osUsername;
@@ -61,131 +62,52 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		this.xid = xid;
 	}
 
-	boolean checkForRollback(OraCdcLogMinerStatement oraSql) {
-		if (firstStatement) {
-			if (!ignore(oraSql)) {
-				// First statement in transaction or after successful pairing
-				firstStatement = false;
-				lastSql = oraSql;
-			}
-			return oraSql.isRollback();
-		} else if (lastSql.isRollback()) {
-			// Last processed statement is with ROLLBACK=1 and unpaired
+	void checkForRollback(final OraCdcLogMinerStatement oraSql, final long index) {
+		if (firstRecord) {
+			firstRecord = false;
+			firstChange = oraSql.getScn();
 			if (oraSql.isRollback()) {
-				// Rollback after unpaired rollback - error condition!!!
-				if (ignore(oraSql)) {
-					firstStatement = true;
-				} else {
-					allocMessages();
-					addMessage(
-							"Partial rollback redo record after another unpaired partial rollback record for " +
-							(lastSql.getTableId() == oraSql.getTableId() ? "same tables" : "different tables"),
-							"Detailed information about unpaired partial rollback redo record:",
-							lastSql);
-					addMessage(
-							null,
-							"Detailed information about second partial rollback redo record",
-							oraSql);
-					lastSql = oraSql;
-				}
-				return oraSql.isRollback();
-			} else {
-				// Potenitial partial rollback pair....
-				if (lastSql.getTableId() == oraSql.getTableId() && 
-						valid4Rollback(lastSql) && valid4Rollback(oraSql) &&
-						StringUtils.equals(lastSql.getRowId(), oraSql.getRowId())) {
-					// Done with pairing
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("Skipping redo record at SCN={}, RBA='{}' with ROWID={}",
-								oraSql.getScn(), oraSql.getRsId(), oraSql.getRowId());
-					}
-					if (LOGGER.isTraceEnabled()) {
-						LOGGER.trace(
-								"\n=====================\n" +
-								"Redo record is paired with partial rollback in transaction '{}'.\n" +
-								"\nDetailed information about partial rollback redo record (ROLLBACK=1)\n" +
-								lastSql.toStringBuilder().toString() +
-								"\nDetailed information about redo record (ROLLBACK=0)\n" +
-								oraSql.toStringBuilder().toString() +
-								"\n=====================\n",
-								xid);
-					}
-					// In this case we do need this record at all
-					firstStatement = true;
-					return true;
-				} else {
-					if (ignore(oraSql)) {
-						firstStatement = true;
-					} else {
-						allocMessages();
-						addMessage(
-								"Redo record with ROLLBACK=0 after unpaired record with ROLLBACK=1 does not match it",
-								"Detailed information about unpaired partial rollback redo record:",
-								lastSql);
-						addMessage(
-								null,
-								"Detailed information about redo record with ROLLBACK=0",
-								oraSql);
-						lastSql = oraSql;
-					}
-					return oraSql.isRollback();
-				}
+				LOGGER.error(
+						"\n=====================\n" +
+						"The partial rollback redo record in transaction {} is the first statement in that transaction.\n" +
+						"\nDetailed information about redo record\n" +
+						oraSql.toStringBuilder().toString() +
+						"\n=====================\n",
+						xid);
 			}
 		} else {
-			// Last processed statement is with ROLLBACK=0
 			if (oraSql.isRollback()) {
-				// Potenitial partial rollback pair....
-				if (lastSql.getTableId() == oraSql.getTableId() && 
-						valid4Rollback(lastSql) && valid4Rollback(oraSql) &&
-						StringUtils.equals(lastSql.getRowId(), oraSql.getRowId())) {
-					// Done with pairing
-					excludedRbas.add(lastSql.getRsId());
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug(
-								"Redo record with RBA='{}' added to the list of rolled back entries.",
-								lastSql.getRsId());
-					}
-					if (LOGGER.isTraceEnabled()) {
-						LOGGER.trace(
-								"\n=====================\n" +
-								"Redo record is paired with partial rollback in transaction '{}'.\n" +
-								"\nDetailed information about redo record (ROLLBACK=0)\n" +
-								lastSql.toStringBuilder().toString() +
-								"\nDetailed information about partial rollback redo record (ROLLBACK=1)\n" +
-								oraSql.toStringBuilder().toString() +
-								"\n=====================\n",
-								xid);
-					}
-					firstStatement = true;
-					return true;
-				} else {
-					if (ignore(oraSql)) {
-						firstStatement = true;
-					} else {
-						lastSql = oraSql;
-					}
-					return true;
+				if (!partialRollback) {
+					partialRollback = true;
+					rollbackEntriesList = new ArrayList<>();
 				}
-			} else {
-				lastSql = oraSql;
-				return false;
+				final PartialRollbackEntry pre = new PartialRollbackEntry();
+				pre.index = index;
+				pre.tableId = oraSql.getTableId();
+				pre.operation = oraSql.getOperation();
+				pre.rowId = oraSql.getRowId();
+				pre.scn = oraSql.getScn();
+				pre.rsId = oraSql.getRsId();
+				pre.ssn = oraSql.getSsn();
+
+				rollbackEntriesList.add(pre);
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("New partial rollback entry at SCN={}, RS_ID(RBA)='{}' for ROWID={} added.",
+							oraSql.getScn(), oraSql.getRsId(), oraSql.getRowId());
+				}
 			}
 		}
 	}
 
+	abstract void processRollbackEntries();
+
 	boolean willItRolledBack(final OraCdcLogMinerStatement oraSql) {
-		if (excludedRbas.size() > 0 && offset < excludedRbas.size()) {
-			final String rba = oraSql.getRsId();
-			if (StringUtils.equals(rba, excludedRbas.get(offset))) {
-				if (LOGGER.isTraceEnabled()) {
-					LOGGER.trace(
-							"Redo record with RBA='{}' will be skipped.",
-							rba);
-				}
-				offset++;
+		if (partialRollback) {
+			if (oraSql.isRollback()) {
 				return true;
 			} else {
-				return false;
+				final Map.Entry<String, Long> uniqueAddr = Map.entry(oraSql.getRsId(), oraSql.getSsn());
+				return rollbackPairs.contains(uniqueAddr);
 			}
 		} else {
 			return false;
@@ -201,11 +123,13 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 	}
 
 	public void setCommitScn(long commitScn) {
-		if (moreMessages) {
-			sbMessages.append("\n=====================\n");
-			LOGGER.error(sbMessages.toString(), xid);
-		}
 		this.commitScn = commitScn;
+		if (partialRollback) {
+			// Need to process all entries in reverse order
+			rollbackPairs = new HashSet<>();
+			lmStmt = new OraCdcLogMinerStatement();
+			processRollbackEntries();
+		}
 	}
 
 	public void setCommitScn(long commitScn, OraCdcPseudoColumnsProcessor pseudoColumns, ResultSet resultSet) throws SQLException {
@@ -228,60 +152,6 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 			}
 			clientId = resultSet.getString("CLIENT_ID");
 		}
-	}
-
-	private boolean valid4Rollback(final OraCdcLogMinerStatement stmt) {
-		return stmt.getOperation() == OraCdcV$LogmnrContents.INSERT ||
-				stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE ||
-						stmt.getOperation() == OraCdcV$LogmnrContents.DELETE;
-	}
-
-	private void allocMessages() {
-		if (!moreMessages) {
-			moreMessages = true;
-			sbMessages = new StringBuilder(1048576);
-			sbMessages
-				.append("\n=====================\n")
-				.append("\nUnpaired redo records for transaction XID '{}':\n")
-				.append("Please send information below to oracle@a2-solutions.eu\n\n");
-		}
-	}
-
-	private void addMessage(final String firstLine, final String recordHeader, final OraCdcLogMinerStatement stmt) {
-		if (firstLine != null) {
-			sbMessages
-				.append("\n")
-				.append(firstLine)
-				.append(".\n");
-		}
-		sbMessages
-			.append(recordHeader)
-			.append("\n")
-			.append(stmt.toStringBuilder());
-	}
-
-	private boolean ignore(final OraCdcLogMinerStatement stmt) {
-		final boolean result =
-				stmt.isRollback() &&
-				stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE &&
-				!StringUtils.contains(stmt.getSqlRedo(), " where ");
-		if (result) {
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug(
-						"Partial rollback redo record at RBA='{}' in XID={} without WHERE clause.",
-						stmt.getRsId(), xid);
-			}
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace(
-						"\n=====================\n" +
-						"Partial rollback redo record in transaction {} without WHERE clause'.\n" +
-						"\nDetailed information about redo record\n" +
-						stmt.toStringBuilder().toString() +
-						"\n=====================\n",
-						xid);
-			}
-		}
-		return result;
 	}
 
 	public static Logger getLogger() {
@@ -312,22 +182,6 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		return TRANS_COMMIT_SCN;
 	}
 
-	public List<String> getExcludedRbas() {
-		return excludedRbas;
-	}
-
-	public OraCdcLogMinerStatement getLastSql() {
-		return lastSql;
-	}
-
-	public boolean isFirstStatement() {
-		return firstStatement;
-	}
-
-	public int getOffset() {
-		return offset;
-	}
-
 	public String getUsername() {
 		return username;
 	}
@@ -350,6 +204,31 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	public String getClientId() {
 		return clientId;
+	}
+
+	void printPartialRollbackEntryDebug(final PartialRollbackEntry pre) {
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Working with partial rollback statement for ROWID={} at SCN={}, RBA(RS_ID)='{}', SSN={}",
+					pre.rowId, pre.scn, pre.rsId, pre.ssn);
+		}
+	}
+
+	void printUnpairedRollbackEntryError(final PartialRollbackEntry pre) {
+		LOGGER.error(
+				"\n=====================\n" +
+				"No pair for partial rollback statement with ROWID={} at SCN={}, RBA(RS_ID)='{}' in transaction XID='{}'!\n" +
+				"\n=====================\n",
+				pre.rowId, pre.scn, pre.rsId, getXid());
+	}
+
+	static class PartialRollbackEntry {
+		long index;
+		long tableId;
+		short operation;
+		String rowId;
+		long scn;
+		String rsId;
+		long ssn;
 	}
 
 }

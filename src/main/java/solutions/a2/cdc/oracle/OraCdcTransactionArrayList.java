@@ -15,7 +15,9 @@ package solutions.a2.cdc.oracle;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +32,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
 
 	private final List<OraCdcLogMinerStatement> statements;
-	private long firstChange;
 	private long nextChange;
 	private int queueSize;
 	private int tailerOffset;
@@ -46,7 +47,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 		super(xid);
 		LOGGER.debug("BEGIN: create OraCdcTransactionArrayList for new transaction");
 		statements = new ArrayList<>();
-		firstChange = 0;
 		queueSize = 0;
 		tailerOffset = 0;
 		transSize = 0;
@@ -65,28 +65,57 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 		this.addStatement(firstStatement);
 	}
 
+	void processRollbackEntries() {
+		long nanos = System.nanoTime();
+		for (final PartialRollbackEntry pre : rollbackEntriesList) {
+			printPartialRollbackEntryDebug(pre);
+			boolean pairFound = false;
+			for (int i = (int) pre.index; i > -1; i--) {
+				lmStmt = statements.get(i);
+				if (!lmStmt.isRollback() &&
+					lmStmt.getTableId() == pre.tableId &&
+					((pre.operation == OraCdcV$LogmnrContents.DELETE &&
+					lmStmt.getOperation() == OraCdcV$LogmnrContents.INSERT) ||
+					(pre.operation == OraCdcV$LogmnrContents.INSERT &&
+					lmStmt.getOperation() == OraCdcV$LogmnrContents.DELETE) ||
+					(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
+					lmStmt.getOperation() == OraCdcV$LogmnrContents.UPDATE)) &&
+					StringUtils.equals(pre.rowId, lmStmt.getRowId())) {
+					final Map.Entry<String, Long> uniqueAddr = Map.entry(lmStmt.getRsId(), lmStmt.getSsn());
+					if (!rollbackPairs.contains(uniqueAddr)) {
+						rollbackPairs.add(uniqueAddr);
+						pairFound = true;
+						break;
+					}
+				}
+			}
+			if (!pairFound) {
+				printUnpairedRollbackEntryError(pre);
+			}
+		}
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Spent {} nanos to pair {} partial rollback entries in transaction XID='{}' with size={}.",
+					(System.nanoTime() - nanos), rollbackEntriesList.size(), getXid(), queueSize);
+		}
+	}
 
 	@Override
 	public void addStatement(final OraCdcLogMinerStatement oraSql) {
-		if (firstChange == 0) {
-			firstChange = oraSql.getScn();
-		}
-		if (!checkForRollback(oraSql)) {
-			statements.add(oraSql);
-			nextChange = oraSql.getScn();
-			queueSize++;
-			transSize += oraSql.size();
-		}
+		checkForRollback(oraSql, statements.size() - 1);
+
+		statements.add(oraSql);
+		nextChange = oraSql.getScn();
+		queueSize++;
+		transSize += oraSql.size();
+
+
 	}
 
 	@Override
 	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
 		while (tailerOffset < statements.size()) {
-			final OraCdcLogMinerStatement fromQueue = statements.get(tailerOffset);
-			final boolean rollback = willItRolledBack(fromQueue);
-			tailerOffset++;
-			if (!rollback) {
-				firstChange = oraSql.getScn();
+			final OraCdcLogMinerStatement fromQueue = statements.get(tailerOffset++);
+			if (!willItRolledBack(fromQueue)) {
 				fromQueue.clone(oraSql);
 				return true;
 			}

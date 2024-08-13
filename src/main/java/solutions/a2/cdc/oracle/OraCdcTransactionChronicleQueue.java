@@ -10,7 +10,7 @@
  * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
  * the License for the specific language governing permissions and limitations under the License.
  */
-
+	
 package solutions.a2.cdc.oracle;
 
 import java.io.File;
@@ -24,12 +24,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
+import net.openhft.chronicle.queue.TailerDirection;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -53,8 +55,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 			"\tFor more information on Chronicle Queue parameters please visit https://github.com/OpenHFT/Chronicle-Queue/blob/ea/systemProperties.adoc .\n" +
 			"=====================\n";
 	private static final int LOCK_RETRY = 5;
+	private static final int PARTIAL_ROLLBACK_HEAP_THRESHOLD = 10;
 
-	private long firstChange;
 	private long nextChange;
 	private final Path queueDirectory;
 	private final Path lobsQueueDirectory;
@@ -175,120 +177,105 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		this.addStatement(firstStatement);
 	}
 
-	/**
-	 * 
-	 * Restores OraCdcTransaction from previously created Chronicle queue file
-	 * 
-	 * @param processLobs
-	 * @param queueDirectory
-	 * @param xid
-	 * @param firstChange
-	 * @param nextChange
-	 * @param commitScn
-	 * @param queueSize
-	 * @param savedTailerOffset
-	 */
-	public OraCdcTransactionChronicleQueue(
-			final boolean processLobs, final Path queueDirectory, final String xid,
-			final long firstChange, final long nextChange, final Long commitScn,
-			final int queueSize, final int savedTailerOffset) throws IOException {
-		super(xid);
+	void processRollbackEntries() {
+		long nanos = System.nanoTime();
+		final ExcerptTailer reverse = statements.createTailer();
+		reverse.direction(TailerDirection.BACKWARD);
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("BEGIN: restore OraCdcTransaction for XID={} from {}",
-					xid, queueDirectory);
+			LOGGER.debug("Spent {} nanos to open the reverse tailer.", (System.nanoTime() - nanos));
 		}
-		this.processLobs = processLobs;
-		this.queueDirectory = queueDirectory;
-		this.queueSize = queueSize;
-		if (processLobs) {
-			lobsQueueDirectory = Paths.get(queueDirectory.toString() + ".LOBDATA");
-		} else {
-			lobsQueueDirectory = null;
-		}
-		try {
-			statements = ChronicleQueue
-				.singleBuilder(queueDirectory)
-				.build();
-			tailer = statements.createTailer();
-			appender = statements.acquireAppender();
-			if (lobsQueueDirectory != null) {
-				lobs = ChronicleQueue
-						.singleBuilder(lobsQueueDirectory)
-						.build();
-					lobsTailer = lobs.createTailer();
-					lobsAppender = lobs.acquireAppender();
-			}
-		} catch (Exception e) {
-			LOGGER.error("Unable to create Chronicle Queue!");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-			throw new IOException(e);
-		}
-		this.firstChange = firstChange;
-		this.nextChange = nextChange;
-		setCommitScn(commitScn);
-		tailerOffset = 0;
-		while (tailerOffset < savedTailerOffset) {
-			OraCdcLogMinerStatement oraSql = new OraCdcLogMinerStatement();
-			final boolean result = getStatement(oraSql);
-			if (!result) {
-				throw new IOException("Chronicle Queue for data corruption!!!");
-			}
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("Chronicle Queue for data rewind current offset={}, SCN={}",
-					tailerOffset, oraSql.getScn());
-			}
-			if (processLobs) {
-				for (int i = 0; i < (int) oraSql.getLobCount(); i++) {
-					OraCdcLargeObjectHolder oraLob = new OraCdcLargeObjectHolder();
-					final boolean lobResult = lobsTailer.readDocument(oraLob);
-					if (!lobResult) {
-						throw new IOException("Chronicle Queue for LOBS corruption!!!");
+
+		boolean readResult = false;
+		nanos = System.nanoTime();
+
+		if (rollbackEntriesList.size() < PARTIAL_ROLLBACK_HEAP_THRESHOLD) {
+			for (final PartialRollbackEntry pre : rollbackEntriesList) {
+				printPartialRollbackEntryDebug(pre);
+				reverse.moveToIndex(pre.index);
+				boolean pairFound = false;
+				do {
+					readResult = reverse.readDocument(lmStmt);
+					if (readResult &&
+							!lmStmt.isRollback() &&
+							lmStmt.getTableId() == pre.tableId &&
+							((pre.operation == OraCdcV$LogmnrContents.DELETE &&
+								lmStmt.getOperation() == OraCdcV$LogmnrContents.INSERT) ||
+							(pre.operation == OraCdcV$LogmnrContents.INSERT &&
+							lmStmt.getOperation() == OraCdcV$LogmnrContents.DELETE) ||
+							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
+							lmStmt.getOperation() == OraCdcV$LogmnrContents.UPDATE)) &&
+							StringUtils.equals(pre.rowId, lmStmt.getRowId())) {
+						final Map.Entry<String, Long> uniqueAddr = Map.entry(lmStmt.getRsId(), lmStmt.getSsn());
+						if (!rollbackPairs.contains(uniqueAddr)) {
+							rollbackPairs.add(uniqueAddr);
+							pairFound = true;
+						}
 					}
+				} while (readResult && !pairFound);
+				if (!pairFound) {
+					printUnpairedRollbackEntryError(pre);
+				}
+			}
+		} else {
+			// Step I
+			reverse.moveToIndex(appender.lastIndexAppended());
+			int i= 0;
+			final PartialRollbackEntry[] nonRollback = new PartialRollbackEntry[this.queueSize - rollbackEntriesList.size()];
+			do {
+				readResult = reverse.readDocument(lmStmt);
+				if (readResult && !lmStmt.isRollback()) {
+					final PartialRollbackEntry pre = new PartialRollbackEntry();
+					pre.index = reverse.index();
+					pre.tableId = lmStmt.getTableId();
+					pre.operation = lmStmt.getOperation();
+					pre.rowId = lmStmt.getRowId();
+					pre.scn = lmStmt.getScn();
+					pre.rsId = lmStmt.getRsId();
+					pre.ssn = lmStmt.getSsn();
+					nonRollback[i++] = pre;
+				}
+			} while (readResult);
+			// Step 2
+			for (final PartialRollbackEntry pre : rollbackEntriesList) {
+				printPartialRollbackEntryDebug(pre);
+				boolean pairFound = false;
+				for (i = 0; i < nonRollback.length; i++) {
+					if (nonRollback[i].tableId == pre.tableId &&
+							((pre.operation == OraCdcV$LogmnrContents.DELETE &&
+								nonRollback[i].operation == OraCdcV$LogmnrContents.INSERT) ||
+							(pre.operation == OraCdcV$LogmnrContents.INSERT &&
+									nonRollback[i].operation == OraCdcV$LogmnrContents.DELETE) ||
+							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
+									nonRollback[i].operation == OraCdcV$LogmnrContents.UPDATE)) &&
+							StringUtils.equals(pre.rowId, nonRollback[i].rowId)) {
+						final Map.Entry<String, Long> uniqueAddr = Map.entry(nonRollback[i].rsId, nonRollback[i].ssn);
+						if (!rollbackPairs.contains(uniqueAddr)) {
+							rollbackPairs.add(uniqueAddr);
+							pairFound = true;
+							break;
+						}
+					}
+				}
+				if (!pairFound) {
+					printUnpairedRollbackEntryError(pre);
 				}
 			}
 		}
-		//TODO - additional manipulations are required
-		transSize = statements.lastIndex();
 
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Chronicle Queue Successfully restored in directory {} for transaction XID {} with {} records.",
-					queueDirectory.toString(), xid, queueSize);
+			LOGGER.debug("Spent {} nanos to pair {} partial rollback entries in transaction XID='{}' with size={}.",
+					(System.nanoTime() - nanos), rollbackEntriesList.size(), getXid(), queueSize);
 		}
+		reverse.close();
 	}
 
-	/**
-	 * 
-	 * Restores OraCdcTransaction from previously created Chronicle queue file
-	 * 
-	 * @param queueDirectory
-	 * @param xid
-	 * @param firstChange
-	 * @param nextChange
-	 * @param commitScn
-	 * @param queueSize
-	 * @param savedTailerOffset
-	 */
-	public OraCdcTransactionChronicleQueue(
-			final Path queueDirectory, final String xid,
-			final long firstChange, final long nextChange, final Long commitScn,
-			final int queueSize, final int savedTailerOffset) throws IOException {
-		this(false, queueDirectory, xid, firstChange, nextChange, commitScn, queueSize, savedTailerOffset);
+	private void addStatementInt(final OraCdcLogMinerStatement oraSql) {
+		checkForRollback(oraSql, firstRecord ? - 1 : appender.lastIndexAppended());
+		appender.writeDocument(oraSql);
+		nextChange = oraSql.getScn();
+		queueSize++;
+		transSize += oraSql.size();
 	}
-
-	private boolean addStatementInt(final OraCdcLogMinerStatement oraSql) {
-		if (firstChange == 0) {
-			firstChange = oraSql.getScn();
-		}
-		final boolean isRollback = checkForRollback(oraSql);
-		if (!isRollback) {
-			appender.writeDocument(oraSql);
-			nextChange = oraSql.getScn();
-			queueSize++;
-			transSize += oraSql.size();
-		}
-		return isRollback;
-	}
-	
 
 	@Override
 	public void addStatement(final OraCdcLogMinerStatement oraSql) {
@@ -304,8 +291,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 			lobsExists = true;
 			oraSql.setLobCount((byte) lobs.size());
 		}
-		final boolean isRollback = addStatementInt(oraSql); 
-		if (lobsExists && !isRollback) {
+		addStatementInt(oraSql); 
+		if (lobsExists) {
 			for (int i = 0; i < lobs.size(); i++) {
 				lobsAppender.writeDocument(lobs.get(i));
 				transSize += lobs.get(i).size();
@@ -315,20 +302,19 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 
 	@Override
 	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
-		boolean result;
-		boolean rollback = false;
+		boolean result = false;
 		do {
 			result = tailer.readDocument(oraSql);
 			if (result) {
-				rollback = willItRolledBack(oraSql);
-				if (!rollback) {
-					firstChange = oraSql.getScn();
+				if (!willItRolledBack(oraSql)) {
+					tailerOffset++;
+					break;
 				}
-				tailerOffset++;
 			} else {
-				break;
+				tailerOffset++;
+				continue;
 			}
-		} while (rollback);
+		} while (result);
 		return result;
 	}
 
@@ -463,21 +449,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		return sb.toString();
 	}
 
-	public static OraCdcTransaction restoreFromMap(Map<String, Object> attrs) throws IOException {
-		final Path transDir = Paths.get((String) attrs.get(QUEUE_DIR));
-		final String transXid = (String) attrs.get(TRANS_XID);
-		final long transFirstChange = valueAsLong(attrs.get(TRANS_FIRST_CHANGE));
-		final long transNextChange = valueAsLong(attrs.get(TRANS_NEXT_CHANGE));
-		final int transQueueSize = (int) attrs.get(QUEUE_SIZE);
-		final int transOffset = (int) attrs.get(QUEUE_OFFSET);
-		final Object transCommitScnObj = attrs.get(TRANS_COMMIT_SCN);
-		final Long transCommitScn = transCommitScnObj == null ? null : valueAsLong(transCommitScnObj);
-		final Object transProcessLobsObj = attrs.get(PROCESS_LOBS);
-		final Boolean transProcessLobs = transProcessLobsObj == null ? false : (Boolean) transProcessLobsObj;
-		return new OraCdcTransactionChronicleQueue(transProcessLobs, transDir, transXid,
-				transFirstChange, transNextChange, transCommitScn, transQueueSize, transOffset);
-	}
-
 	@Override
 	public long getFirstChange() {
 		return firstChange;
@@ -495,14 +466,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	@Override
 	public long size() {
 		return transSize;
-	}
-
-	private static long valueAsLong(Object value) {
-		if (value instanceof Integer) {
-			return ((Integer) value).intValue();
-		} else {
-			return (long) value;
-		}
 	}
 
 }
