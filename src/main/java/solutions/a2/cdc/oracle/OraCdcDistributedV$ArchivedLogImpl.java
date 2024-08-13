@@ -196,12 +196,19 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 
 	@Override
 	public void stop() throws SQLException {
-		LOGGER.trace("BEGIN: stop()");
+		LOGGER.debug("BEGIN: stop()");
 		csStopLogMiner.execute();
 		// Add info about processed files to JMX
 		metrics.addAlreadyProcessed(fileNames, archLogsAvailable, archLogsSize,
 				System.currentTimeMillis() - readStartMillis);
-		LOGGER.trace("END: stop()");
+		LOGGER.debug("END: stop()");
+	}
+
+	@Override
+	public void stop(final long firstChange) throws SQLException {
+		LOGGER.debug("BEGIN: stop({})", firstChange);
+		this.stop();
+		LOGGER.debug("END: stop({})", firstChange);
 	}
 
 	@Override

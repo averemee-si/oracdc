@@ -20,8 +20,8 @@ import java.sql.SQLException;
  * 
  * Interface for LogMiner operations
  * 
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
- * @author averemee
  */
 public interface OraLogMiner {
 
@@ -29,6 +29,7 @@ public interface OraLogMiner {
 	boolean next() throws SQLException;
 	boolean extend() throws SQLException;
 	void stop() throws SQLException;
+	void stop(long firstChange) throws SQLException;
 	boolean isDictionaryAvailable();
 	long getDbId();
 	String getDbUniqueName();

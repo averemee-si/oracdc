@@ -226,8 +226,8 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 							if (LOGGER.isDebugEnabled()) {
 								LOGGER.debug("{} has finished processing SEQUENCE# {}", connectorName, lastSequence);
 							}
-							lastSequence = sequence;
 						}
+						lastSequence = sequence;
 						final String fileName = rs.getString("NAME");
 						fileNames.add(0, fileName);
 						printRedoLogInfo(true, true,
@@ -371,12 +371,20 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
 	@Override
 	public void stop() throws SQLException {
-		LOGGER.trace("BEGIN: stop()");
+		LOGGER.debug("BEGIN: stop()");
 		csStopLogMiner.execute();
 		// Add info about processed files to JMX
 		metrics.addAlreadyProcessed(fileNames, 1, archLogSize,
 				System.currentTimeMillis() - readStartMillis);
-		LOGGER.trace("END: stop()");
+		LOGGER.debug("END: stop()");
+	}
+
+	@Override
+	public void stop(final long firstChange) throws SQLException {
+		LOGGER.debug("BEGIN: stop({})", firstChange);
+		this.firstChange = firstChange;
+		this.stop();
+		LOGGER.debug("END: stop({})", firstChange);
 	}
 
 	@Override
