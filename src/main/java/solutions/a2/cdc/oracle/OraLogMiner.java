@@ -29,7 +29,6 @@ public interface OraLogMiner {
 	boolean next() throws SQLException;
 	boolean extend() throws SQLException;
 	void stop() throws SQLException;
-	void stop(long firstChange) throws SQLException;
 	boolean isDictionaryAvailable();
 	long getDbId();
 	String getDbUniqueName();

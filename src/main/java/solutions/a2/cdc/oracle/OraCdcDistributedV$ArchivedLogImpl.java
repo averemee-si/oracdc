@@ -205,13 +205,6 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 	}
 
 	@Override
-	public void stop(final long firstChange) throws SQLException {
-		LOGGER.debug("BEGIN: stop({})", firstChange);
-		this.stop();
-		LOGGER.debug("END: stop({})", firstChange);
-	}
-
-	@Override
 	public boolean isDictionaryAvailable() {
 		return dictionaryAvailable;
 	}
