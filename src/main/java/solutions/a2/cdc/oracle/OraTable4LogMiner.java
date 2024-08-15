@@ -212,21 +212,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				useRowIdAsKey = config.useRowidAsKey();
 				break;
 			}
-/*
-			if (keyOverrideType.getKey() == OraCdcKeyOverrideTypes.NONE) {
-				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
-						isCdb ? conId : -1, this.tableOwner, this.tableName, config.getPkType());
-			} else if (keyOverrideType == OraCdcKeyOverrideTypes.ROWID) {
-				pkColsSet = null;
-				useRowIdAsKey = true;
-			} else if (keyOverrideType == OraCdcKeyOverrideTypes.NOKEY) {
-				pkColsSet = null;
-				useRowIdAsKey = false;
-			} else {
-				//TODO OraCdcKeyOverrideTypes.INDEX
-				pkColsSet = null;
-			}
-*/
 			// Schema init - keySchema is immutable and always 1
 			final SchemaNameMapper snm = config.getSchemaNameMapper();
 			snm.configure(config);
@@ -326,11 +311,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						maxColumnId = column.getColumnId();
 					}
 					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("New {} column {}({}) added to table definition {}.",
-								column.isPartOfPk() ? " PK " : " ", column.getColumnName(), 
-								JdbcTypes.getTypeName(column.getJdbcType()), tableFqn);
+						LOGGER.debug("New{}column {}({}) with ID={} added to table definition {}.",
+								column.isPartOfPk() ? " PK " : (column.isNullable() ? " " : " mandatory "),
+								column.getColumnName(), JdbcTypes.getTypeName(column.getJdbcType()),
+								column.getColumnId(), tableFqn);
+						if (column.isDefaultValuePresent()) {
+							LOGGER.debug("\tDefault value is set to \"{}\"", column.getDefaultValue());
+						}
 					}
-
 				}
 
 				if (column.isPartOfPk()) {
@@ -344,7 +332,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 				}
 
-				if (column.isPartOfPk() || (!column.isNullable())) {
+				if (column.isPartOfPk() || (!column.isNullable() && !column.isDefaultValuePresent())) {
 					mandatoryColumnsCount++;
 				}
 			}
@@ -385,17 +373,26 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
 			if (LOGGER.isDebugEnabled()) {
+				if (mandatoryColumnsCount > 0) {
+					LOGGER.debug("Table {} has {} mandatory columns.", fqn(), mandatoryColumnsCount);
+				}
 				if (keySchema != null &&
 						keySchema.fields() != null &&
 						keySchema.fields().size() > 0) {
 					LOGGER.debug("Key fields for table {}.", fqn());
-					keySchema.fields().forEach(f -> LOGGER.debug("\t{} with schema {}",f.name(), f.schema().name()));
+					keySchema.fields().forEach(f ->
+						LOGGER.debug(
+								"\t{} with schema {}",
+								f.name(), f.schema().name() != null ? f.schema().name() : f.schema().toString()));
 				}
 				if (valueSchema != null &&
 						valueSchema.fields() != null &&
 						valueSchema.fields().size() > 0) {
 					LOGGER.debug("Value fields for table {}.", fqn());
-					valueSchema.fields().forEach(f -> LOGGER.debug("\t{} with schema {}",f.name(), f.schema().name()));
+					valueSchema.fields().forEach(f ->
+					LOGGER.debug(
+							"\t{} with schema {}",
+							f.name(), f.schema().name() != null ? f.schema().name() : f.schema().toString()));
 				}
 			}
 
@@ -755,13 +752,16 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							}
 							setColumns.add(columnName);
 						} catch (DataException de) {
-							//TODO
-							//TODO Check for column value in WHERE clause
-							//TODO
 							if (!oraColumn.isDefaultValuePresent()) {
 								// throw error only if we don't expect to get value from WHERE clause
 								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw new DataException(de);
+							} else {
+								valueStruct.put(oraColumn.getColumnName(), oraColumn.getTypedDefaultValue());
+								if (LOGGER.isDebugEnabled()) {
+									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
+											oraColumn.getColumnName(), fqn(), oraColumn.getDefaultValue());
+								}
 							}
 						}
 					} else {
