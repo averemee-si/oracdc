@@ -11,7 +11,7 @@
 # the License for the specific language governing permissions and limitations under the License.
 #
 
-ARG    CONFLUENT_VERSION=7.5.3
+ARG    CONFLUENT_VERSION=7.5.5
 
 FROM   eclipse-temurin:17-jdk AS build-sr-client
 RUN    set -eux && apt-get --yes install wget 
@@ -277,7 +277,7 @@ RUN    set -eux && apt-get update && apt-get --yes install netcat-traditional tz
 RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka 
 ARG    BASEDIR=/opt
 
-ARG    KAFKA_VERSION=3.6.1
+ARG    KAFKA_VERSION=3.7.1
 ARG    SCALA_VERSION=2.13
 ARG    KAFKA_FILENAME=kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz
 ENV    KAFKA_HOME=${BASEDIR}/kafka
