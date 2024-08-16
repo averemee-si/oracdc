@@ -220,7 +220,7 @@ public class OraConnectionObjects {
 			} catch (SQLException sqle) {
 				LOGGER.error(
 						"\n=====================\n" +
-						"Unble to set trace parameters (max_dump_file_size, tracefile_identifier, and event 10046 level 8)!\n" +
+						"Unable to set trace parameters (max_dump_file_size, tracefile_identifier, and event 10046 level 8)!\n" +
 						"To fix please run:\n" +
 						"\tgrant alter session to {};" +
 						"\n=====================\n",
