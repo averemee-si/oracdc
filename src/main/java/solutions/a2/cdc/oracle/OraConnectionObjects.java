@@ -218,9 +218,12 @@ public class OraConnectionObjects {
 				alterSession.execute("alter session set tracefile_identifier='oracdc'");
 				alterSession.execute("alter session set events '10046 trace name context forever, level 8'");
 			} catch (SQLException sqle) {
-				LOGGER.error("Unble to set trace parameters (max_dump_file_size, tracefile_identifier, and event 10046 level 8)!");
-				LOGGER.error("To fix please run:");
-				LOGGER.error("\tgrant alter session to {};",
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unble to set trace parameters (max_dump_file_size, tracefile_identifier, and event 10046 level 8)!\n" +
+						"To fix please run:\n" +
+						"\tgrant alter session to {};" +
+						"\n=====================\n",
 						((OracleConnection)logMinerConnection).getUserName());
 			}
 		}
