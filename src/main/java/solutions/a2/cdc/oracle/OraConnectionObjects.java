@@ -34,6 +34,7 @@ import oracle.ucp.admin.UniversalConnectionPoolManager;
 import oracle.ucp.admin.UniversalConnectionPoolManagerImpl;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
+import oracle.ucp.jdbc.ValidConnection;
 import solutions.a2.kafka.ConnectorParams;
 
 /**
@@ -316,6 +317,13 @@ public class OraConnectionObjects {
 				throw sqle;
 			}
 		}
+	}
+
+	public void closeLogMinerConnection(final Connection connection) throws SQLException {
+		if (!standby && !distributed) {
+			((ValidConnection) connection).setInvalid();
+		}
+		connection.close();
 	}
 
 	public static Connection getConnection(OraCdcSourceConnectorConfig config) throws SQLException {
