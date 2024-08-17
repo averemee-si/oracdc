@@ -368,7 +368,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					while (isRsLogMinerRowAvailable && runLatch.getCount() > 0) {
 						fetchRsLogMinerNext = true;
 						final short operation = rsLogMiner.getShort("OPERATION_CODE");
-						final boolean partialRollback = rsLogMiner.getInt("ROLLBACK") > 0;
+						final boolean partialRollback = rsLogMiner.getBoolean("ROLLBACK");
 						xid = rsLogMiner.getString("XID");
 						lastScn = rsLogMiner.getLong("SCN");
 						lastRsId = rsLogMiner.getString("RS_ID");
@@ -424,6 +424,24 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						case OraCdcV$LogmnrContents.DELETE:
 						case OraCdcV$LogmnrContents.UPDATE:
 						case OraCdcV$LogmnrContents.XML_DOC_BEGIN:
+							if (transaction == null && partialRollback) {
+								LOGGER.error(
+										"\n=====================\n\n" +
+										"The transaction with XID='{}' starts with an invalid operation with the PARTIAL ROLLBACK flag!\n" +
+										"A possible reason for this could be that more than one oracdc instance connected to the same database\n" + 
+										"instance/service/PDB using the same credentials are running in the same JVM, i.e.\n" +
+										"sharing the same Kafka Connect process/cluster specified by the group.id parameter.\n" +
+										"In this case, you need to use different Kafka Connect processes/clusters with unique grop.id's\n" +
+										"for the same connections to the same database instance/service/PDB using the same credentials.\n\n" +
+										"Another possible reason is that the connector's starting point is incorrect and the transaction '{}'\n" +
+										"starts with an SCN that splits the transaction into two parts, and the initial operations of the transaction,\n" +
+										"which are in the first part of the transaction, are not available to the connector.\n" + 
+										"In this case, you need to set the connector's 'a2.first.change' parameter to the correct value\n" +
+										"and make sure that the necessary archive logs are available.\n\n" +
+										"If you have questions or need more information, please write to us at oracle@a2-solutions.eu\n\n" +
+										"\n=====================\n",
+										xid, xid);
+							}
 							// Read as long to speed up shift
 							final long dataObjectId = rsLogMiner.getLong("DATA_OBJ#");
 							long combinedDataObjectId;
@@ -464,11 +482,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 													sqle instanceof SQLRecoverableException ||
 													(sqle.getCause() != null && sqle.getCause() instanceof SQLRecoverableException)) {
 												LOGGER.warn(
-														"\n" +
-														"=====================\n" +
+														"\n=====================\n" +
 														"Encontered an 'ORA-{}: {}'\n" +
 														"Attempting to reconnect to dictionary...\n" +
-														"=====================",
+														"=====================\n",
 														sqle.getErrorCode(), sqle.getMessage());
 												try {
 													try {
@@ -476,10 +493,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 														connDictionary = null;
 													} catch(SQLException unimportant) {
 														LOGGER.warn(
-																"\n" +
-																"=====================\n" +
+																"\n=====================\n" +
 																"Unable to close inactive dictionary connection after 'ORA-{}'\n" +
-																"=====================",
+																"=====================\n",
 																sqle.getErrorCode());
 													}
 													boolean ready = false;
@@ -491,10 +507,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 														} catch(SQLException sqleRestore) {
 															if (retries > MAX_RETRIES) {
 																LOGGER.error(
-																		"\n" +
-																		"=====================\n" +
+																		"\n=====================\n" +
 																		"Unable to restore dictionary connection after {} retries!\n" +
-																		"=====================",
+																		"=====================\n",
 																		retries);
 																throw sqleRestore;
 															}
@@ -510,21 +525,19 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 													}
 												} catch (SQLException ucpe) {
 													LOGGER.error(
-															"\n" +
-															"=====================\n" +
+															"\n=====================\n" +
 															"SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables\n" +
 															"SQL error message = {}\n" +
-															"=====================",
+															"=====================\n",
 															ucpe.getErrorCode(), ucpe.getSQLState(), ucpe.getMessage());
 													throw new SQLException(sqle);
 												}
 											} else {
 												LOGGER.error(
-														"\n" +
-														"=====================\n" +
+														"\n=====================\n" +
 														"SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dictionary tables\n" +
 														"SQL error message = {}\n" +
-														"=====================",
+														"=====================\n",
 														sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
 												throw new SQLException(sqle);
 											}
@@ -636,8 +649,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									metrics.addRecord();
 								} else {
 									LOGGER.error(
-											"\n" +
-											"=====================\n" +
+											"\n=====================\n" +
 											"Supplemental logging for table '{}' is not configured correctly!\n" +
 											"Please set it according to the oracdc documentation!\n" +
 											"Redo record is skipped for OPERATION={}, SCN={}, RBA='{}', XID='{}',\n\tREDO_DATA='{}'\n" +
@@ -782,7 +794,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									rsLogMiner.getString("XID"));
 							LOGGER.error("Current query is:\n{}\n", mineDataSql);
 							throw new SQLException("Unknown operation in OraCdcLogMinerWorkerThread.run()");
-						}
+						} // switch(operation)
 						// Copy again, to protect from exception...
 						lastGuaranteedScn = lastScn;
 						lastGuaranteedRsId = lastRsId;
@@ -814,7 +826,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								}
 							}
 						}
-					}
+					} // while (isRsLogMinerRowAvailable && runLatch.getCount() > 0)
 					try {
 						logMiner.stop();
 						rsLogMiner.close();
@@ -875,8 +887,12 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									}
 								}
 								if (doReconnect) {
+									final long tsReconnect = System.currentTimeMillis();
 									closeOraConnection();
 									restoreOraConnection();
+									LOGGER.info(
+											"Reconnection to RDBMS completed in {} ms.",
+											(System.currentTimeMillis() - tsReconnect));
 								}
 								logMinerReady = logMiner.next();
 							} catch (SQLException sqle) {
@@ -1016,7 +1032,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		psCheckTable = null;
 		psLogMiner.close();
 		psLogMiner = null;
-		connLogMiner.close();
+		oraConnections.closeLogMinerConnection(connLogMiner);
 		connLogMiner = null;
 	}
 
