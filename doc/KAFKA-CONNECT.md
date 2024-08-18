@@ -165,6 +165,18 @@ Default - *<EMPTY_STRING>*, i.e. do not include session info field in Kafka Conn
 `a2.pseudocolumn.ora_client_id` - The name of the field in the Kafka Connect record that contains the client identifier in the session that executed the transaction (if available). If the value is empty, the client identifier field is not included in the Kafka Connect records.
 Default - *<EMPTY_STRING>*, i.e. do not include client identifier field in Kafka Connect record
 
+`a2.key.override` - 	A comma separated list of elements in the format TABLE_OWNER.TABLE_NAME=NOKEY|ROWID|INDEX(INDEX_NAME). If there is a table in this list, then the values ​​of the `a2.pk.type` and `a2.use.rowid.as.key` parameters for it are ignored and the values ​​of the key columns are set in accordance with this parameter:
+ `NONE` - do not create key fields in the Kafka topic for this table
+ `ROWID` - use ROWID as a key field in the Kafka topic with the name ORA_ROW_ID and type STRING
+ `INDEX(INDEX_NAME)` use the index columns of index named INDEX_NAME as key fields of the Kafka topic
+Default - *<EMPTY_STRING>*
+
+
+`a2.last.sequence.notifier` - The fully-qualified class name of the class that implements LastProcessedSeqNotifier interface to send notifications about the last processed log sequence. Currently there is only a notifier that writes a last processed sequence number to a file. To configure it, you need to set the value of the parameter `a2.last.sequence.notifier` to `solutions.a2.cdc.oracle.OraCdcLastProcessedSeqFileNotifier` and the value of the parameter `a2.last.sequence.notifier.file` to the name of the file in which the last processed number will be written.
+
+`a2.last.sequence.notifier.file` - The name of the file in which the last processed number will be written.
+Default - *${connectorName}.seq*
+
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
