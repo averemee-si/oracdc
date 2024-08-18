@@ -69,7 +69,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	private ChronicleQueue lobs;
 	private ExcerptAppender lobsAppender;
 	private ExcerptTailer lobsTailer;
-	private long transSize;
 
 	/**
 	 * 
@@ -267,6 +266,18 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 					(System.nanoTime() - nanos), rollbackEntriesList.size(), getXid(), queueSize);
 		}
 		reverse.close();
+	}
+
+	void addToPrintOutput(final StringBuilder sb) {
+		final ExcerptTailer printTailer = statements.createTailer();
+		boolean readResult = false;
+		do {
+			readResult = printTailer.readDocument(lmStmt);
+			if (readResult) {
+				sb.append(lmStmt.toDelimitedRow());
+			}
+		} while (readResult);
+		printTailer.close();
 	}
 
 	private void addStatementInt(final OraCdcLogMinerStatement oraSql) {

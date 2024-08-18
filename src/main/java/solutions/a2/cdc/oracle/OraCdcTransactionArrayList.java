@@ -35,7 +35,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 	private long nextChange;
 	private int queueSize;
 	private int tailerOffset;
-	private long transSize;
 
 	/**
 	 * 
@@ -49,7 +48,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 		statements = new ArrayList<>();
 		queueSize = 0;
 		tailerOffset = 0;
-		transSize = 0;
 		LOGGER.trace("END: create OraCdcTransactionArrayList for new transaction");
 	}
 
@@ -99,6 +97,10 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 		}
 	}
 
+	void addToPrintOutput(final StringBuilder sb) {
+		statements.forEach(stmt -> sb.append(stmt.toDelimitedRow()));
+	}
+
 	@Override
 	public void addStatement(final OraCdcLogMinerStatement oraSql) {
 		checkForRollback(oraSql, statements.size() - 1);
@@ -107,8 +109,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 		nextChange = oraSql.getScn();
 		queueSize++;
 		transSize += oraSql.size();
-
-
 	}
 
 	@Override

@@ -255,4 +255,55 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		return sb;
 	}
 
+	public static StringBuilder delimitedRowHeader() {
+		return delimitedRowHeader("\t");
+	}
+
+	public static StringBuilder delimitedRowHeader(final String delimiter) {
+		final StringBuilder sb = new StringBuilder(256);
+		sb
+			.append("SCN")
+			.append(delimiter)
+			.append("TIMESTAMP")
+			.append(delimiter)
+			.append("RBA")
+			.append(delimiter)
+			.append("SSN")
+			.append(delimiter)
+			.append("OBJECT_ID")
+			.append(delimiter)
+			.append("ROWID")
+			.append(delimiter)
+			.append("OPERATION_CODE")
+			.append(delimiter)
+			.append("ROLLBACK\n");
+		return sb;
+	}
+
+	public StringBuilder toDelimitedRow() {
+		return toDelimitedRow("\t");
+	}
+
+	public StringBuilder toDelimitedRow(final String delimiter) {
+		final StringBuilder sb = new StringBuilder(STRING_16K);
+		sb
+		.append(scn)
+		.append(delimiter)
+		.append(Instant.ofEpochMilli(ts).atZone(ZoneId.systemDefault()))
+		.append(delimiter)
+		.append(rsId)
+		.append(delimiter)
+		.append(ssn)
+		.append(delimiter)
+		.append(tableId)
+		.append(delimiter)
+		.append(rowId)
+		.append(delimiter)
+		.append(operation)
+		.append(delimiter)
+		.append(rollback ? "1" : "0")
+		.append("\n");
+		return sb;
+	}
+
 }

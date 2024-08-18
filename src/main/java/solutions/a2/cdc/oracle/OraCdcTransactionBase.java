@@ -45,11 +45,13 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 	long firstChange = 0;
 	private final String xid;
 	private long commitScn;
+	long transSize;
 
 	boolean partialRollback = false;
 	List<PartialRollbackEntry> rollbackEntriesList;
 	OraCdcLogMinerStatement lmStmt;
 	Set<Map.Entry<String, Long>> rollbackPairs;
+	private boolean startedWithPartialRollback = false;
 
 	private String username;
 	private String osUsername;
@@ -60,6 +62,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	OraCdcTransactionBase(final String xid) {
 		this.xid = xid;
+		this.transSize = 0;
 	}
 
 	void checkForRollback(final OraCdcLogMinerStatement oraSql, final long index) {
@@ -67,6 +70,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 			firstRecord = false;
 			firstChange = oraSql.getScn();
 			if (oraSql.isRollback()) {
+				startedWithPartialRollback = true;
 				LOGGER.error(
 						"\n=====================\n" +
 						"The partial rollback redo record in transaction {} is the first statement in that transaction.\n" +
@@ -122,8 +126,32 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		return commitScn;
 	}
 
+	private void print(boolean errorOutput) {
+		final StringBuilder sb = new StringBuilder((int) transSize);
+		sb
+			.append("\n=====================\n")
+			.append("Information about suspicious transaction with XID=")
+			.append(getXid())
+			.append(" which started with PARTIAL ROLLBACK operation!\n")
+			.append(OraCdcLogMinerStatement.delimitedRowHeader());
+		addToPrintOutput(sb);
+		sb.append("\n=====================\n");
+		if (errorOutput) {
+			LOGGER.error(sb.toString());
+		} else {
+			LOGGER.trace(sb.toString());
+		}
+	}
+
+	abstract void addToPrintOutput(final StringBuilder sb);
+
 	public void setCommitScn(long commitScn) {
 		this.commitScn = commitScn;
+		if (startedWithPartialRollback) {
+			print(true);
+		} else if (LOGGER.isTraceEnabled()) {
+			print(false);
+		}
 		if (partialRollback) {
 			// Need to process all entries in reverse order
 			rollbackPairs = new HashSet<>();
