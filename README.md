@@ -879,6 +879,21 @@ Simplification of configuration for [Oracle Active DataGuard](https://www.oracle
 
 New parameters: `a2.table.mapper`, `a2.table.name.prefix`, and `a2.table.name.suffix`
 
+#####2.5.0 (AUG-2024)
+
+######LogMiner Connector
+
+1) Improved processing of transactions containing [partial rollback](https://blog.ora-600.pl/2017/09/20/rollback-internals/) (with ROLLBACK=1) statements
+2) JMX: LastProcessedSequence metric. For more information please read [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
+3) Obsoleted and removed parameters: `a2.resiliency.type`, `a2.persistent.state.file`, `a2.redo.count`, `a2.redo.size`
+4) New parameter to control the selection of database table columns to create key fields of a Kafka Connect record `a2.key.override`. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md).
+5) New parameter to add notifications about last processed redo sequence `a2.last.sequence.notifier`.  For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md).
+
+######Sink Connector
+
+New parameter to set a SQL statement(s) that will be executed for all new connections when they are created - `a2.connection.init.sql`
+
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
