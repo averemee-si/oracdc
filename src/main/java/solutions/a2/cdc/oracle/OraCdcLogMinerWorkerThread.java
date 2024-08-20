@@ -436,8 +436,10 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									LOGGER.warn(
 											"\n======================\n" +
 											"Suspicious XID {} is changed to {} for operation {} at SCN={}, RBA(RS_ID)={}, SSN={}\n" +
+											"LogMiner START_SCN={}, END_SCN={}.\n" +
 											"======================\n",
-											xid, substitutedXid, operation, lastScn, lastRsId, lastSsn);
+											xid, substitutedXid, operation, lastScn, lastRsId, lastSsn,
+											logMiner.getFirstChange(), logMiner.getNextChange());
 									transaction = activeTransactions.get(substitutedXid);
 									((OraCdcTransactionBase)transaction).setSuspicious();
 								} else {
@@ -445,6 +447,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											"\n=====================\n\n" +
 											"The transaction with XID='{}' starts with with the PARTIAL ROLLBACK flag!\n" +
 											"Operation code is {}, SCN={}, RBA(RS_ID)={}, SSN={}\n" +
+											"LogMiner START_SCN={}, END_SCN={}.\n" +
 											"A possible reason for this could be that more than one oracdc instance connected to the same database\n" + 
 											"instance/service/PDB using the same credentials are running in the same JVM, i.e.\n" +
 											"sharing the same Kafka Connect process/cluster specified by the group.id parameter.\n" +
@@ -457,7 +460,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											"and make sure that the necessary archive logs are available.\n\n" +
 											"If you have questions or need more information, please write to us at oracle@a2-solutions.eu\n\n" +
 											"\n=====================\n",
-											xid, operation, lastScn, lastRsId, lastSsn, xid);
+											xid, operation, lastScn, lastRsId, lastSsn, xid,
+											logMiner.getFirstChange(), logMiner.getNextChange());
 								}
 							}
 							// Read as long to speed up shift
