@@ -147,6 +147,9 @@ Default - *<EMPTY_STRING>*, i.e. do not include row change timestamp field in Ka
 `a2.pseudocolumn.ora_operation` - The name of the field in the Kafka Connect record that contains the name of the operation (UPDATE/INSERT/DELETE) that changed the database row. If the value is empty, the operation field is not included in the Kafka Connect records.
 Default - *<EMPTY_STRING>*, i.e. do not include row change operation field in Kafka Connect record
 
+`a2.pseudocolumn.ora_xid` - The name of the field in the Kafka Connect record that contains the XID (transaction Id) of the transaction that changed the database row. If the value is empty, the XID field is not included in the Kafka Connect records.
+Default - *<EMPTY_STRING>*, i.e. do not include XID field in Kafka Connect record
+
 `a2.pseudocolumn.ora_username` - The name of the field in the Kafka Connect record that contains the name of the the user who executed the transaction. If the value is empty, the username is not included in the Kafka Connect records.
 Default - *<EMPTY_STRING>*, i.e. do not include username field in Kafka Connect record
 

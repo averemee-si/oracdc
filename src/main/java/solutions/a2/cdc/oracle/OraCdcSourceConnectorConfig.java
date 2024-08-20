@@ -164,6 +164,11 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			"The name of the field in the Kafka Connect record that contains the name of the operation (UPDATE/INSERT/DELETE) that changed the database row. If the value is empty, the operation field is not included in the Kafka Connect records.\n" +
 			"Default - \"\", i.e. do not include operation field in Kafka Connect record";
 
+	private static final String ORA_XID_PARAM = "a2.pseudocolumn.ora_xid";
+	private static final String ORA_XID_DOC =
+			"The name of the field in the Kafka Connect record that contains the XID (transaction Id) of the transaction that changed the database row. If the value is empty, the XID field is not included in the Kafka Connect records.\n" +
+			"Default - \"\", i.e. do not include XID field in Kafka Connect record";
+
 	private static final String ORA_USERNAME_PARAM = "a2.pseudocolumn.ora_username";
 	private static final String ORA_USERNAME_DOC =
 			"The name of the field in the Kafka Connect record that contains the name of the the user who executed the transaction. If the value is empty, the username is not included in the Kafka Connect records.\n" +
@@ -370,6 +375,8 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ORA_ROWTS_DOC)
 				.define(ORA_OPERATION_PARAM, Type.STRING, "",
 						Importance.LOW, ORA_OPERATION_DOC)
+				.define(ORA_XID_PARAM, Type.STRING, "",
+						Importance.LOW, ORA_XID_DOC)
 				.define(ORA_USERNAME_PARAM, Type.STRING, "",
 						Importance.LOW, ORA_USERNAME_DOC)
 				.define(ORA_OSUSERNAME_PARAM, Type.STRING, "",
@@ -609,6 +616,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public String getOraRowOpField() {
 		return getPseudoColumn(ORA_OPERATION_PARAM);
+	}
+
+	public String getOraXidField() {
+		return getPseudoColumn(ORA_XID_PARAM);
 	}
 
 	public String getOraUsernameField() {

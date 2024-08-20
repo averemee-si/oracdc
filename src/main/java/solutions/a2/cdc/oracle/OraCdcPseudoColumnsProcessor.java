@@ -36,6 +36,8 @@ public class OraCdcPseudoColumnsProcessor {
 	private final String commitScnName;
 	private final boolean addRowOp;
 	private final String rowOpName;
+	private final boolean addRowXid;
+	private final String rowXidName;
 
 	private final boolean addUsernameField;
 	private final String usernameField;
@@ -76,6 +78,12 @@ public class OraCdcPseudoColumnsProcessor {
 			addRowOp = true;
 		} else {
 			addRowOp = false;
+		}
+		rowXidName = config.getOraXidField();
+		if (rowXidName != null) {
+			addRowXid = true;
+		} else {
+			addRowXid = false;
 		}
 
 		usernameField = config.getOraUsernameField();
@@ -155,6 +163,10 @@ public class OraCdcPseudoColumnsProcessor {
 				builder.field(rowOpName, Schema.STRING_SCHEMA);
 			}
 
+			if (addRowXid) {
+				builder.field(rowXidName, Schema.STRING_SCHEMA);
+			}
+
 			if (auditNeeded) {
 				if (addUsernameField) {
 					builder.field(usernameField, Schema.OPTIONAL_STRING_SCHEMA);
@@ -216,6 +228,9 @@ public class OraCdcPseudoColumnsProcessor {
 				operation = "XML DOC BEGIN";
 			} 
 			struct.put(rowOpName, operation);
+		}
+		if (addRowXid) {
+			struct.put(rowXidName, transaction.getXid());
 		}
 		if (auditNeeded) {
 			if (addUsernameField) {
