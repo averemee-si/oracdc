@@ -33,6 +33,8 @@ public interface OraLogMiner {
 	long getDbId();
 	String getDbUniqueName();
 	void setFirstChange(long firstChange) throws SQLException;
+	long getFirstChange();
+	long getNextChange();
 
 	/**
 	 * Does implementation requires connection to Oracle Database? 

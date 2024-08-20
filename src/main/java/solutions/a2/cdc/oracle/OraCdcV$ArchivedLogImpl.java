@@ -41,6 +41,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcV$ArchivedLogImpl.class);
 
 	private long firstChange;
+	private long currentFirstChange;
 	private long sessionFirstChange;
 	private long nextChange = 0;
 	private long lastSequence = 0;
@@ -363,6 +364,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			// Set sessionFirstChange only in call to next()
 			sessionFirstChange = firstChange;
 		}
+		currentFirstChange = firstChange;
 		firstChange = nextChange;
 		readStartMillis = System.currentTimeMillis();
 		LOGGER.trace("END: {} returns true", functionName);
@@ -397,6 +399,16 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	@Override
 	public void setFirstChange(final long firstChange) throws SQLException {
 		this.firstChange = firstChange;
+	}
+
+	@Override
+	public long getFirstChange() {
+		return currentFirstChange;
+	}
+
+	@Override
+	public long getNextChange() {
+		return nextChange;
 	}
 
 	private void printRedoLogInfo(final boolean archived, final boolean printNextChange,

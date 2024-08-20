@@ -59,6 +59,8 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 	private long sessionFirstChange;
 	private final boolean dictionaryAvailable;
 	private final long dbId;
+	private long firstChange;
+	private long nextChange;	
 	private final String dbUniqueName;
 	private final OraCdcLogMinerMgmtIntf metrics;
 	private CallableStatement csAddArchivedLogs;
@@ -180,6 +182,8 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			csStartLogMiner.setLong(2, currentNext);
 			csStartLogMiner.execute();
 			csStartLogMiner.clearParameters();
+			firstChange = currentFirst;
+			nextChange = currentNext;
 			if (nextLogs) {
 				// Set sessionFirstChange only in call to next()
 				sessionFirstChange = currentFirst;
@@ -222,6 +226,16 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 	@Override
 	public void setFirstChange(long firstChange) throws SQLException {
 		throw new SQLException("setFirstChange(firstChange) is not supported for " + this.getClass().getName());
+	}
+
+	@Override
+	public long getFirstChange() {
+		return firstChange;
+	}
+
+	@Override
+	public long getNextChange() {
+		return nextChange;
 	}
 
 	private static class RedoTransportThread extends Thread {
