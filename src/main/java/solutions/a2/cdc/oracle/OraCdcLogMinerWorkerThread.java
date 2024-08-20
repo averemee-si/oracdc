@@ -58,6 +58,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
 	private static final int MAX_RETRIES = 63;
+	// XIDUSN || XIDSLT
+	private static final int TRANS_PREFIX = 8;
 
 	private final OraCdcLogMinerTask task;
 	private final int pollInterval;
@@ -83,6 +85,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private Connection connDictionary;
 	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
+	private final Map<String, String> prefixedTransactions;
 	private final TreeMap<String, Triple<Long, String, Long>> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
@@ -159,6 +162,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
+		prefixedTransactions = new HashMap<>();
 
 		runLatch = new CountDownLatch(1);
 		running = new AtomicBoolean(false);
@@ -381,6 +385,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								transaction.setCommitScn(lastScn, pseudoColumns, rsLogMiner);
 								committedTransactions.add(transaction);
 								activeTransactions.remove(xid);
+								prefixedTransactions.remove(StringUtils.left(xid, TRANS_PREFIX));
 								sortedByFirstScn.remove(xid);
 								if (!sortedByFirstScn.isEmpty()) {
 									task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -406,6 +411,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								}
 								transaction.close();
 								activeTransactions.remove(xid);
+								prefixedTransactions.remove(StringUtils.left(xid, TRANS_PREFIX));
 								sortedByFirstScn.remove(xid);
 								if (!sortedByFirstScn.isEmpty()) {
 									task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -425,22 +431,34 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						case OraCdcV$LogmnrContents.UPDATE:
 						case OraCdcV$LogmnrContents.XML_DOC_BEGIN:
 							if (transaction == null && partialRollback) {
-								LOGGER.error(
-										"\n=====================\n\n" +
-										"The transaction with XID='{}' starts with an invalid operation with the PARTIAL ROLLBACK flag!\n" +
-										"A possible reason for this could be that more than one oracdc instance connected to the same database\n" + 
-										"instance/service/PDB using the same credentials are running in the same JVM, i.e.\n" +
-										"sharing the same Kafka Connect process/cluster specified by the group.id parameter.\n" +
-										"In this case, you need to use different Kafka Connect processes/clusters with unique grop.id's\n" +
-										"for the same connections to the same database instance/service/PDB using the same credentials.\n\n" +
-										"Another possible reason is that the connector's starting point is incorrect and the transaction '{}'\n" +
-										"starts with an SCN that splits the transaction into two parts, and the initial operations of the transaction,\n" +
-										"which are in the first part of the transaction, are not available to the connector.\n" + 
-										"In this case, you need to set the connector's 'a2.first.change' parameter to the correct value\n" +
-										"and make sure that the necessary archive logs are available.\n\n" +
-										"If you have questions or need more information, please write to us at oracle@a2-solutions.eu\n\n" +
-										"\n=====================\n",
-										xid, xid);
+								final String substitutedXid = prefixedTransactions.get(StringUtils.left(xid, TRANS_PREFIX));
+								if (StringUtils.endsWith(xid, "FFFFFFFF") && substitutedXid != null) {
+									LOGGER.warn(
+											"\n======================\n" +
+											"Suspicious XID {} is changed to {} for operation {} at SCN={}, RBA(RS_ID)={}, SSN={}\n" +
+											"======================\n",
+											xid, substitutedXid, operation, lastScn, lastRsId, lastSsn);
+									transaction = activeTransactions.get(substitutedXid);
+									((OraCdcTransactionBase)transaction).setSuspicious();
+								} else {
+									LOGGER.error(
+											"\n=====================\n\n" +
+											"The transaction with XID='{}' starts with with the PARTIAL ROLLBACK flag!\n" +
+											"Operation code is {}, SCN={}, RBA(RS_ID)={}, SSN={}\n" +
+											"A possible reason for this could be that more than one oracdc instance connected to the same database\n" + 
+											"instance/service/PDB using the same credentials are running in the same JVM, i.e.\n" +
+											"sharing the same Kafka Connect process/cluster specified by the group.id parameter.\n" +
+											"In this case, you need to use different Kafka Connect processes/clusters with unique grop.id's\n" +
+											"for the same connections to the same database instance/service/PDB using the same credentials.\n\n" +
+											"Another possible reason is that the connector's starting point is incorrect and the transaction '{}'\n" +
+											"starts with an SCN that splits the transaction into two parts, and the initial operations of the transaction,\n" +
+											"which are in the first part of the transaction, are not available to the connector.\n" + 
+											"In this case, you need to set the connector's 'a2.first.change' parameter to the correct value\n" +
+											"and make sure that the necessary archive logs are available.\n\n" +
+											"If you have questions or need more information, please write to us at oracle@a2-solutions.eu\n\n" +
+											"\n=====================\n",
+											xid, operation, lastScn, lastRsId, lastSsn, xid);
+								}
 							}
 							// Read as long to speed up shift
 							final long dataObjectId = rsLogMiner.getLong("DATA_OBJ#");
@@ -634,6 +652,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											transaction = new OraCdcTransactionArrayList(xid);
 										}
 										activeTransactions.put(xid, transaction);
+										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
 													Triple.of(lastScn, lastRsId, lastSsn));
 										if (firstTransaction) {
@@ -687,6 +706,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											transaction = new OraCdcTransactionArrayList(xid);
 										}
 										activeTransactions.put(xid, transaction);
+										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
 													Triple.of(lastScn, lastRsId, lastSsn));
 										if (firstTransaction) {
@@ -1351,6 +1371,18 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			return -1;
 		}
 
+	}
+
+	private void createTransactionPrefix(final String xid) {
+		final String prefix = StringUtils.left(xid, TRANS_PREFIX);
+		final String prevXid = prefixedTransactions.put(prefix, xid);
+		if (prevXid != null) {
+			LOGGER.warn(
+					"\n=====================\n" +
+					"Transaction prefix {} binding changed from {} to {}.\n" +
+					"=====================\n",
+					prefix, prevXid, xid);
+		}
 	}
 
 }
