@@ -51,7 +51,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 	List<PartialRollbackEntry> rollbackEntriesList;
 	OraCdcLogMinerStatement lmStmt;
 	Set<Map.Entry<String, Long>> rollbackPairs;
-	private boolean startedWithPartialRollback = false;
+	private boolean suspicious = false;
 
 	private String username;
 	private String osUsername;
@@ -70,7 +70,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 			firstRecord = false;
 			firstChange = oraSql.getScn();
 			if (oraSql.isRollback()) {
-				startedWithPartialRollback = true;
+				suspicious = true;
 				LOGGER.error(
 						"\n=====================\n" +
 						"The partial rollback redo record in transaction {} is the first statement in that transaction.\n" +
@@ -132,7 +132,10 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 			.append("\n=====================\n")
 			.append("Information about suspicious transaction with XID=")
 			.append(getXid())
-			.append(" which started with PARTIAL ROLLBACK operation!\n")
+			.append("\n")
+			.append("COMMIT_SCN=")
+			.append(commitScn)
+			.append("\n")
 			.append(OraCdcLogMinerStatement.delimitedRowHeader());
 		addToPrintOutput(sb);
 		sb.append("\n=====================\n");
@@ -147,7 +150,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	public void setCommitScn(long commitScn) {
 		this.commitScn = commitScn;
-		if (startedWithPartialRollback) {
+		if (suspicious) {
 			print(true);
 		} else if (LOGGER.isTraceEnabled()) {
 			print(false);
@@ -180,6 +183,10 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 			}
 			clientId = resultSet.getString("CLIENT_ID");
 		}
+	}
+
+	void setSuspicious() {
+		suspicious = true;
 	}
 
 	public static Logger getLogger() {
