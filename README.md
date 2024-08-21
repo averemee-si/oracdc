@@ -893,6 +893,12 @@ New parameters: `a2.table.mapper`, `a2.table.name.prefix`, and `a2.table.name.su
 
 New parameter to set a SQL statement(s) that will be executed for all new connections when they are created - `a2.connection.init.sql`
 
+######2.5.1 (AUG-2024)
+
+#######LogMiner Connector
+
+1) Handling/binding suspicious transactions (XID always ends with FFFFFFFF, i.e. wrong transaction ID sequence number) and the transaction always starts with a partial rollback operation
+2) New parameter and additional pseudocolumn `a2.pseudocolumn.ora_xid`
 
 ## Authors
 
