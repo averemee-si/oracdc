@@ -150,16 +150,16 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	public void setCommitScn(long commitScn) {
 		this.commitScn = commitScn;
-		if (suspicious) {
-			print(true);
-		} else if (LOGGER.isTraceEnabled()) {
-			print(false);
-		}
 		if (partialRollback) {
 			// Need to process all entries in reverse order
 			rollbackPairs = new HashSet<>();
 			lmStmt = new OraCdcLogMinerStatement();
 			processRollbackEntries();
+		}
+		if (suspicious) {
+			print(true);
+		} else if (LOGGER.isTraceEnabled()) {
+			print(false);
 		}
 	}
 
@@ -249,6 +249,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 	}
 
 	void printUnpairedRollbackEntryError(final PartialRollbackEntry pre) {
+		suspicious = true;
 		LOGGER.error(
 				"\n=====================\n" +
 				"No pair for partial rollback statement with ROWID={} at SCN={}, RBA(RS_ID)='{}' in transaction XID='{}'!\n" +
