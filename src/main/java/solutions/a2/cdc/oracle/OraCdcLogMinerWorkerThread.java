@@ -345,7 +345,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				}
 			}
 			rewindElapsed = System.currentTimeMillis() - rewindElapsed;
-			LOGGER.info("Total records scipped while rewinding: {}, elapsed time ms: {}", recordCount, rewindElapsed);
+			LOGGER.info("Total records skipped while rewinding: {}, elapsed time ms: {}", recordCount, rewindElapsed);
 		} else {
 			LOGGER.info("Values from offset (SCN = {}, RS_ID = '{}', SSN = {}) ignored, waiting for new archived log.",
 					firstScn, firstRsId, firstSsn);
