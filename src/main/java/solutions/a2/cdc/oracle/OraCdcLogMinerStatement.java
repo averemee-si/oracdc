@@ -285,24 +285,25 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	}
 
 	public StringBuilder toDelimitedRow(final String delimiter) {
+		final int objId = (int) tableId;
 		final StringBuilder sb = new StringBuilder(STRING_16K);
 		sb
-		.append(scn)
-		.append(delimiter)
-		.append(Instant.ofEpochMilli(ts).atZone(ZoneId.systemDefault()))
-		.append(delimiter)
-		.append(rsId)
-		.append(delimiter)
-		.append(ssn)
-		.append(delimiter)
-		.append(tableId)
-		.append(delimiter)
-		.append(rowId)
-		.append(delimiter)
-		.append(operation)
-		.append(delimiter)
-		.append(rollback ? "1" : "0")
-		.append("\n");
+			.append(scn)
+			.append(delimiter)
+			.append(Instant.ofEpochMilli(ts).atZone(ZoneId.systemDefault()))
+			.append(delimiter)
+			.append(rsId)
+			.append(delimiter)
+			.append(ssn)
+			.append(delimiter)
+			.append(objId)
+			.append(delimiter)
+			.append(rowId)
+			.append(delimiter)
+			.append(operation)
+			.append(delimiter)
+			.append(rollback ? "1" : "0")
+			.append("\n");
 		return sb;
 	}
 
