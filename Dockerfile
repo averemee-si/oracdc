@@ -27,7 +27,7 @@ ARG    KOTLIN_VERSION=1.9.23
 #
 # Confluent AVRO support uber-jar
 #
-ARG    AVRO_VERSION=1.11.3
+ARG    AVRO_VERSION=1.12.0
 ARG    C_COMPRESS_VERSION=1.26.1
 RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && wget "${CONFLUENT_BASE}/kafka-connect-avro-converter/${CONFLUENT_VERSION}/kafka-connect-avro-converter-${CONFLUENT_VERSION}.jar" \
