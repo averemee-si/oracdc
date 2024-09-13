@@ -20,7 +20,7 @@ RUN    set -eux && apt-get --yes install wget
 ARG    CONFLUENT_VERSION
 ARG    CONFLUENT_BASE="https://packages.confluent.io/maven/io/confluent"
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
-ARG    GUAVA_VERSION=33.1.0-jre
+ARG    GUAVA_VERSION=33.3.0-jre
 ARG    FA_VERSION=1.0.2
 ARG    KOTLIN_VERSION=1.9.23
 
