@@ -153,7 +153,7 @@ ARG    SKEMA_VERSION=0.16.0
 ARG    MBKNOR_VERSION=1.0.39
 ARG    SCALA_VERSION=2.13.14
 ARG    VLDTN_API_VERSION=2.0.1.Final
-ARG    CLASSGRAPH_VERSION=4.8.168
+ARG    CLASSGRAPH_VERSION=4.8.175
 RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && wget "${CONFLUENT_BASE}/kafka-connect-json-schema-converter/${CONFLUENT_VERSION}/kafka-connect-json-schema-converter-${CONFLUENT_VERSION}.jar" \
              -O "kafka-connect-json-schema-converter-${CONFLUENT_VERSION}.jar" \
