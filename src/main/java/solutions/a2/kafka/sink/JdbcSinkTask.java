@@ -76,13 +76,15 @@ public class JdbcSinkTask extends SinkTask {
 		tableNameMapper.configure(config);
 	}
 
+	private final Map<TopicPartition, OffsetAndMetadata> currentOffsets = new HashMap<>();
+	private final Set<String> tablesInProcess = new HashSet<>();
 	@Override
 	public void put(Collection<SinkRecord> records) {
 		LOGGER.debug("BEGIN: put()");
-		final Set<String> tablesInProcess = new HashSet<>();
+		tablesInProcess.clear();
+		currentOffsets.clear();
 		try (Connection connection = sinkPool.getConnection()) {
 			int processedRecords = 0;
-			final Map<TopicPartition, OffsetAndMetadata> currentOffsets = new HashMap<>();
 			for (SinkRecord record : records) {
 				final String tableName = tableNameMapper.getTableName(record);
 				JdbcSinkTable oraTable = tablesInProcessing.get(tableName);
@@ -121,8 +123,8 @@ public class JdbcSinkTask extends SinkTask {
 				processedRecords++;
 				if (processedRecords == batchSize) {
 					for (String tableInProgress : tablesInProcess) {
-						LOGGER.debug("Executing batch for table {}.", tableInProgress);
 						tablesInProcessing.get(tableInProgress).exec();
+						LOGGER.debug("Executing batch for table {}.", tableInProgress);
 					}
 					this.flush(currentOffsets);
 					connection.commit();
@@ -136,6 +138,9 @@ public class JdbcSinkTask extends SinkTask {
 				tablesInProcessing.get(tableInProgress).execAndCloseCursors();
 			}
 			connection.commit();
+			if (records != null && records.size() > 0) {
+				LOGGER.info("{} changes processed successfully.", records.size());
+			}
 		} catch (SQLException sqle) {
 			LOGGER.error("Error '{}' when put to target system, SQL errorCode = {}, SQL state = '{}'",
 					sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
