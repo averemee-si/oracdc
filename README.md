@@ -900,6 +900,13 @@ New parameter to set a SQL statement(s) that will be executed for all new connec
 1) Handling/binding suspicious transactions (XID always ends with FFFFFFFF, i.e. wrong transaction ID sequence number) and the transaction always starts with a partial rollback operation
 2) New parameter and additional pseudocolumn `a2.pseudocolumn.ora_xid`
 
+######2.5.2 (SEP-2024)
+
+1) SMT converters for
+    solutions.a2.cdc.oracle.data.OraNumber/solutions.a2.cdc.oracle.data.OraIntervalYM/solutions.a2.cdc.oracle.data.OraIntervalDS (oracle.sql.NUMBER/oracle.sql.INTERVALYM/oracle.sql.INTERVALDS)
+2) Dockerfile enhancements (Schema registry client updated to Confluent 7.7.1), Dockerfile.snowflake to quickly create a data delivery pipeline between transactional Oracle and analytical Snowflake
+
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)

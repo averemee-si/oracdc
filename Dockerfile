@@ -33,7 +33,10 @@ ARG    ANTLR4_VERSION=4.13.2
 ARG    JACKSON_VERSION=2.17.2
 ARG    PROTOP_VERSION=4.0.3
 ARG    SYAML_VERSION=2.3
-ARG    NESSIE_VERSION=0.5.0
+ARG    NESSIE_VERSION=0.3.21
+ARG    WOODSTOX_VERSION=6.7.0
+ARG    JACKSON_PB_VERSION=0.9.15
+ARG    JSONATA_VERSION=2.4.9
 
 #
 # Confluent AVRO support uber-jar
@@ -69,6 +72,9 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
           "${MVN_BASE}/org/projectnessie/cel/cel-tools/${NESSIE_VERSION}/cel-tools-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-generated-pb/${NESSIE_VERSION}/cel-generated-pb-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-generated-antlr/${NESSIE_VERSION}/cel-generated-antlr-${NESSIE_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/woodstox/woodstox-core/${WOODSTOX_VERSION}/woodstox-core-${WOODSTOX_VERSION}.jar" \
+          "${MVN_BASE}/com/hubspot/jackson/jackson-datatype-protobuf/${JACKSON_PB_VERSION}/jackson-datatype-protobuf-${JACKSON_PB_VERSION}.jar" \
+          "${MVN_BASE}/com/ibm/jsonata4java/JSONata4Java/${JSONATA_VERSION}/JSONata4Java-${JSONATA_VERSION}.jar" \
           "${MVN_BASE}/org/apache/avro/avro/${AVRO_VERSION}/avro-${AVRO_VERSION}.jar" \
           "${MVN_BASE}/org/apache/commons/commons-compress/${C_COMPRESS_VERSION}/commons-compress-${C_COMPRESS_VERSION}.jar" \
           "${MVN_BASE}/com/google/guava/guava/${GUAVA_VERSION}/guava-${GUAVA_VERSION}.jar" \
@@ -119,6 +125,9 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
           "${MVN_BASE}/org/projectnessie/cel/cel-tools/${NESSIE_VERSION}/cel-tools-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-generated-pb/${NESSIE_VERSION}/cel-generated-pb-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-generated-antlr/${NESSIE_VERSION}/cel-generated-antlr-${NESSIE_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/woodstox/woodstox-core/${WOODSTOX_VERSION}/woodstox-core-${WOODSTOX_VERSION}.jar" \
+          "${MVN_BASE}/com/hubspot/jackson/jackson-datatype-protobuf/${JACKSON_PB_VERSION}/jackson-datatype-protobuf-${JACKSON_PB_VERSION}.jar" \
+          "${MVN_BASE}/com/ibm/jsonata4java/JSONata4Java/${JSONATA_VERSION}/JSONata4Java-${JSONATA_VERSION}.jar" \
           "${MVN_BASE}/com/squareup/wire/wire-schema-jvm/${SQUP_WIRE_VERSION}/wire-schema-jvm-${SQUP_WIRE_VERSION}.jar" \
           "${MVN_BASE}/com/squareup/wire/wire-runtime-jvm/${SQUP_WIRE_VERSION}/wire-runtime-jvm-${SQUP_WIRE_VERSION}.jar" \
           "${MVN_BASE}/com/squareup/okio/okio-jvm/${SQUP_OKIO_VERSION}/okio-jvm-${SQUP_OKIO_VERSION}.jar" \
@@ -184,6 +193,9 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
           "${MVN_BASE}/org/projectnessie/cel/cel-tools/${NESSIE_VERSION}/cel-tools-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-generated-pb/${NESSIE_VERSION}/cel-generated-pb-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-generated-antlr/${NESSIE_VERSION}/cel-generated-antlr-${NESSIE_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/woodstox/woodstox-core/${WOODSTOX_VERSION}/woodstox-core-${WOODSTOX_VERSION}.jar" \
+          "${MVN_BASE}/com/hubspot/jackson/jackson-datatype-protobuf/${JACKSON_PB_VERSION}/jackson-datatype-protobuf-${JACKSON_PB_VERSION}.jar" \
+          "${MVN_BASE}/com/ibm/jsonata4java/JSONata4Java/${JSONATA_VERSION}/JSONata4Java-${JSONATA_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-jdk8/${JACKSON_VERSION}/jackson-datatype-jdk8-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/${JACKSON_VERSION}/jackson-datatype-jsr310-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-joda/${JACKSON_VERSION}/jackson-datatype-joda-${JACKSON_VERSION}.jar" \
@@ -217,8 +229,8 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
 FROM   eclipse-temurin:17-jre
 LABEL  maintainer="oracle@a2-solutions.eu"
 LABEL  vendor="A2 Rešitve d.o.o."
-LABEL  version="2.5.1"
-LABEL  release="2.5.1"
+LABEL  version="2.5.2"
+LABEL  release="2.5.2"
 LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
@@ -245,7 +257,7 @@ RUN    wget -q "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_F
        && mkdir -p ${KAFKA_HOME}/connect/jmx \
        && chown -R kafka:kafka ${BASEDIR}/kafka_${SCALA_VERSION}-${KAFKA_VERSION} ${KAFKA_HOME}
 
-ARG    ORACDC_VERSION=2.5.1
+ARG    ORACDC_VERSION=2.5.2
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
 COPY   target/${ORACDC_FILENAME} ${KAFKA_HOME}/connect/lib
 COPY   config/connect-log4j.properties ${KAFKA_HOME}/config
