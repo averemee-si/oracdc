@@ -65,9 +65,9 @@
 		<maven.compiler.target>11</maven.compiler.target>
 		<junit.version>5.10.2</junit.version>
 		<kafka.version>3.7.1</kafka.version>
-		<commons.lang3.version>3.14.0</commons.lang3.version>
+		<commons.lang3.version>3.17.0</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
-		<commons.cli.version>1.6.0</commons.cli.version>
+		<commons.cli.version>1.9.0</commons.cli.version>
 		<chronicle.queue.version>5.23.37</chronicle.queue.version>
 		<chronicle.affinity.version>3.23.3</chronicle.affinity.version>
 		<ora.jdbc.version>21.15.0.0</ora.jdbc.version>
