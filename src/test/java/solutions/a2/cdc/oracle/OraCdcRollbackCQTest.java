@@ -18,9 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.nio.file.FileSystems;
-import java.nio.file.Path;
 
+import org.apache.log4j.BasicConfigurator;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -28,45 +27,72 @@ import org.junit.jupiter.api.Test;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcRollbackCQTest extends OraCdcRollbackData {
+public class OraCdcRollbackCQTest {
 
 	@Test
 	public void test() throws IOException {
-		
-		final String tmpDir = System.getProperty("java.io.tmpdir");
-		final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
-		final String xid = "0000270016000000";
+		BasicConfigurator.configure();
 
-		
-		final OraCdcTransaction transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, updIn1);
-		transaction.addStatement(updIn2);
-		transaction.addStatement(rb1);
-		transaction.addStatement(updIn3);
-		transaction.addStatement(updIn4);
-		transaction.addStatement(updIn5);
-		transaction.addStatement(rb2);
-		transaction.addStatement(updIn6);
-		transaction.addStatement(rb3);
-		transaction.setCommitScn(updIn6.getScn());
+		final OraCdcRollbackData testData = new OraCdcRollbackData(false);
+		final OraCdcTransaction transaction = testData.get();
 
-		OraCdcLogMinerStatement updOut = new OraCdcLogMinerStatement();
-		
-		// We expect updIn1
-		assertTrue(transaction.getStatement(updOut));
-		assertEquals(updIn1.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
+		boolean AAAqvfABcAAEXtqAAN_At_008fdb97_0010 = false;
+		boolean AAAqvfABcAAEXtqAAO_At_008fdc24_010c = false;
+		boolean AAAqvfABcAAEXtqAAO_At_008fdc32_0048 = false;
+		boolean AAAqvfABcAAEXtqAAO_At_008fdc43_0010 = false;
 
-		// We expect updIn3 (updIn2 - rolled back!)
-		assertTrue(transaction.getStatement(updOut));
-		assertEquals(updIn3.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
+		boolean AAAqvfABcAAEXtqAAN_At_008fe16a_0188 = false;
+		boolean AAAqvfABcAAEXtqAAO_At_008fe23d_0158 = false;
 
-		// We expect updIn4
-		assertTrue(transaction.getStatement(updOut));
-		assertEquals(updIn4.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
+		int count = 0;
+		boolean processTransaction = false;
+		final OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
+		do {
+			processTransaction = transaction.getStatement(stmt);
+			if (processTransaction) {
+				count++;
 
-		// No more records in queue - only rollback records in this transaction
-		assertFalse(transaction.getStatement(updOut));
+				assertFalse(stmt.isRollback());
 
-		transaction.close();
+				if (stmt.getRsId().equals(" 0x0031f7.008fdb97.0010 ") &&
+						stmt.getRowId().equals("AAAqvfABcAAEXtqAAN")) {
+					AAAqvfABcAAEXtqAAN_At_008fdb97_0010 = true;
+				}
+				if (stmt.getRsId().equals(" 0x0031f7.008fdc24.010c ") &&
+						stmt.getRowId().equals("AAAqvfABcAAEXtqAAO")) {
+					AAAqvfABcAAEXtqAAO_At_008fdc24_010c = true;
+				}
+				if (stmt.getRsId().equals(" 0x0031f7.008fdc32.0048 ") &&
+						stmt.getRowId().equals("AAAqvfABcAAEXtqAAO")) {
+					AAAqvfABcAAEXtqAAO_At_008fdc32_0048 = true;
+				}
+				if (stmt.getRsId().equals(" 0x0031f7.008fdc43.0010 ") &&
+						stmt.getRowId().equals("AAAqvfABcAAEXtqAAO")) {
+					AAAqvfABcAAEXtqAAO_At_008fdc43_0010 = true;
+				}
+
+				if (stmt.getRsId().equals(" 0x0031f7.008fe16a.0188 ") &&
+						stmt.getRowId().equals("AAAqvfABcAAEXtqAAN")) {
+					AAAqvfABcAAEXtqAAN_At_008fe16a_0188 = true;
+				}
+				if (stmt.getRsId().equals(" 0x0031f7.008fe23d.0158 ") &&
+						stmt.getRowId().equals("AAAqvfABcAAEXtqAAO")) {
+					AAAqvfABcAAEXtqAAO_At_008fe23d_0158 = true;
+				}
+			}
+		} while (processTransaction);
+
+		assertFalse(AAAqvfABcAAEXtqAAN_At_008fdb97_0010);
+		assertFalse(AAAqvfABcAAEXtqAAO_At_008fdc24_010c);
+		assertFalse(AAAqvfABcAAEXtqAAO_At_008fdc32_0048);
+		assertFalse(AAAqvfABcAAEXtqAAO_At_008fdc43_0010);
+
+		assertTrue(AAAqvfABcAAEXtqAAN_At_008fe16a_0188);
+		assertTrue(AAAqvfABcAAEXtqAAO_At_008fe23d_0158);
+
+		assertEquals(count, 83);
+
+		testData.close();
 	}
 
 }
