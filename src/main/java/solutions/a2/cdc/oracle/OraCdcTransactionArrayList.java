@@ -95,6 +95,10 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 			LOGGER.debug("Spent {} nanos to pair {} partial rollback entries in transaction XID='{}' with size={}.",
 					(System.nanoTime() - nanos), rollbackEntriesList.size(), getXid(), queueSize);
 		}
+		LOGGER.debug("List of rollback pairs:");
+		rollbackPairs.forEach(entry -> {
+			LOGGER.debug("\tRBA={}, SSN={}", entry.getKey(), entry.getValue());
+		});
 	}
 
 	void addToPrintOutput(final StringBuilder sb) {

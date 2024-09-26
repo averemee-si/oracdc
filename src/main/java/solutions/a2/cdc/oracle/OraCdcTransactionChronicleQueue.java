@@ -238,7 +238,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 			for (final PartialRollbackEntry pre : rollbackEntriesList) {
 				printPartialRollbackEntryDebug(pre);
 				boolean pairFound = false;
-				for (i = 0; i < nonRollback.length; i++) {
+				for (i = nonRollback.length - 1; i > 0; i--) {
 					if (nonRollback[i].tableId == pre.tableId &&
 							((pre.operation == OraCdcV$LogmnrContents.DELETE &&
 								nonRollback[i].operation == OraCdcV$LogmnrContents.INSERT) ||
@@ -264,6 +264,10 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Spent {} nanos to pair {} partial rollback entries in transaction XID='{}' with size={}.",
 					(System.nanoTime() - nanos), rollbackEntriesList.size(), getXid(), queueSize);
+			LOGGER.debug("List of rollback pairs:");
+			rollbackPairs.forEach(entry -> {
+				LOGGER.debug("\tRBA={}, SSN={}", entry.getKey(), entry.getValue());
+			});
 		}
 		reverse.close();
 	}
