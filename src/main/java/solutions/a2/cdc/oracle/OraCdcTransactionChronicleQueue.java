@@ -238,7 +238,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 			for (final PartialRollbackEntry pre : rollbackEntriesList) {
 				printPartialRollbackEntryDebug(pre);
 				boolean pairFound = false;
-				for (i = nonRollback.length - 1; i > 0; i--) {
+				for (i = nonRollback.length - 1; i >= 0; i--) {
 					if (nonRollback[i].tableId == pre.tableId &&
 							((pre.operation == OraCdcV$LogmnrContents.DELETE &&
 								nonRollback[i].operation == OraCdcV$LogmnrContents.INSERT) ||

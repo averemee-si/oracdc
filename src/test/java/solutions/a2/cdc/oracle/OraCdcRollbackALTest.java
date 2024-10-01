@@ -34,7 +34,7 @@ public class OraCdcRollbackALTest {
 		BasicConfigurator.configure();
 
 		final OraCdcRollbackData testData = new OraCdcRollbackData(true);
-		final OraCdcTransaction transaction = testData.get();
+		OraCdcTransaction transaction = testData.get();
 
 		boolean AAAqvfABcAAEXtqAAN_At_008fdb97_0010 = false;
 		boolean AAAqvfABcAAEXtqAAO_At_008fdc24_010c = false;
@@ -93,6 +93,22 @@ public class OraCdcRollbackALTest {
 		assertEquals(count, 83);
 
 		testData.close();
+
+		final OraCdcRollbackZeroRows zeroRows = new  OraCdcRollbackZeroRows(true);
+		transaction = zeroRows.get();
+		
+		assertEquals(transaction.length(), 46);
+		count = 0;
+		do {
+			processTransaction = transaction.getStatement(stmt);
+			if (processTransaction) {
+				count++;
+			}
+		} while (processTransaction);
+		assertEquals(count, 0);
+
+		zeroRows.close();
+		
 	}
 
 }
