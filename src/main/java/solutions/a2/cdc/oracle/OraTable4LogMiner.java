@@ -851,8 +851,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 										final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
 										if (columnDefaultValue != null) {
 											LOGGER.warn(
-													"\n" +
-													"=====================\n" +
+													"\n=====================\n" +
 													"Substituting NULL value for column {}, table {} with DEFAULT value {}\n" +
 													"SCN={}, RBA='{}', SQL_REDO:\n\t{}\n" +
 													"=====================\n",
@@ -864,6 +863,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 											}
 											throwDataException = false;
 										}
+									} else {
+										LOGGER.error(
+												"\n=====================\n" +
+												"'{}' while setting '{}' to NULL in valueStruct in table {}.\n" +
+												"Please check that '{}' is NULLABLE and not member of keyStruct.\n" +
+												"=====================\n",
+												de.getMessage(), oraColumn.getColumnName(),
+												this.tableFqn, oraColumn.getColumnName());
 									}
 									if (throwDataException) {
 										if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
