@@ -287,7 +287,7 @@ export KAFKA_OPTS="\
 --add-opens java.base/java.util=ALL-UNNAMED"
 ```
 
-12. Please review [Latest GoldenGate/Database (OGG/RDBMS) Patch recommendations (Doc ID 2193391.1)](https://support.oracle.com/rs?type=doc&id=2193391.1) (for 11.2.0.3/11/2/0.4 - [Oracle GoldenGate -- Oracle RDBMS Server Recommended Patches](https://support.oracle.com/rs?type=doc&id=1557031.1)) and, if necessary, install the fixes listed in the **Oracle RDBMS software** section. If you are using Oracle Database 19c, be sure to install the patch (Patch 35034699: RTI 25675772 (TKLSDDN01V.DIFF) DIVERGENCE MAY OCCUR IN DISTRIBUTED TXN WITH PARTIAL ROLLBACK)[https://support.oracle.com/epmos/faces/PatchDetail?patchId=35034699]
+12. Please review [Latest GoldenGate/Database (OGG/RDBMS) Patch recommendations (Doc ID 2193391.1)](https://support.oracle.com/rs?type=doc&id=2193391.1) (for 11.2.0.3/11/2/0.4 - [Oracle GoldenGate -- Oracle RDBMS Server Recommended Patches](https://support.oracle.com/rs?type=doc&id=1557031.1)) and, if necessary, install the fixes listed in the **Oracle RDBMS software** section. If you are using Oracle Database 19c, be sure to install the patch [Patch 35034699: RTI 25675772 (TKLSDDN01V.DIFF) DIVERGENCE MAY OCCUR IN DISTRIBUTED TXN WITH PARTIAL ROLLBACK](https://support.oracle.com/epmos/faces/PatchDetail?patchId=35034699)
 
 ### Distribution
 1. [GitHub](https://github.com/averemee-si/oracdc/)
