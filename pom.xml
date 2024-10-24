@@ -18,6 +18,7 @@
 	<artifactId>oracdc-kafka</artifactId>
 	<version>2.5.2</version>
 	<packaging>jar</packaging>
+	<inceptionYear>2018</inceptionYear>
 
 	<name>oracdc-kafka</name>
 	<url>https://a2-solutions.eu/#oracdc</url>
