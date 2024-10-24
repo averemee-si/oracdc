@@ -255,7 +255,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE,
 					resultSet.getString("SEQUENCE"));
 				taskParam.put(ConnectorParams.SCHEMA_TYPE_PARAM,
-					Integer.toString(schemaType));
+					config.getString(ConnectorParams.SCHEMA_TYPE_PARAM));
 
 				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
 					taskParam.put(ConnectorParams.TOPIC_PREFIX_PARAM,
