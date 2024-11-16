@@ -21,6 +21,8 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 
+import solutions.a2.oracle.internals.RedoByteAddress;
+
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -34,7 +36,8 @@ public class OraCdcChronicleQueueTest {
 		final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
 		final OraCdcLogMinerStatement updIn =  new  OraCdcLogMinerStatement(
 				74590, (short)3, "update DEPT set DNAME='SALES' where DEPTNO=10",
-				System.currentTimeMillis(),275168436063l," 0x000098.000001b5.0010 ",
+				System.currentTimeMillis(),275168436063l,
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0010 "),
 				0, "AAAWbzAAEAAAB6FAAA", false);
 		String xid = "0000270016000000";
 		OraCdcTransaction transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, updIn);
@@ -42,7 +45,7 @@ public class OraCdcChronicleQueueTest {
 		transaction.getStatement(updOut);
 		transaction.close();
 
-		assertEquals(updIn.getRsId(), updOut.getRsId(), "Not same strings!");
+		assertEquals(updIn.getRba(), updOut.getRba(), "Not same RBA!");
 		assertEquals(updIn.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
 		assertEquals(updIn.getScn(), updOut.getScn(), "Not same longs!");
 		assertEquals(updIn.getTs(), updOut.getTs(), "Not same longs!");

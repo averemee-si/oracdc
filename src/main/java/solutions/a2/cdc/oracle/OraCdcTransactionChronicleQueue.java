@@ -32,6 +32,7 @@ import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.queue.TailerDirection;
+import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -204,7 +205,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
 							lmStmt.getOperation() == OraCdcV$LogmnrContents.UPDATE)) &&
 							StringUtils.equals(pre.rowId, lmStmt.getRowId())) {
-						final Map.Entry<String, Long> uniqueAddr = Map.entry(lmStmt.getRsId(), lmStmt.getSsn());
+						final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(lmStmt.getRba(), lmStmt.getSsn());
 						if (!rollbackPairs.contains(uniqueAddr)) {
 							rollbackPairs.add(uniqueAddr);
 							pairFound = true;
@@ -229,7 +230,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 					pre.operation = lmStmt.getOperation();
 					pre.rowId = lmStmt.getRowId();
 					pre.scn = lmStmt.getScn();
-					pre.rsId = lmStmt.getRsId();
+					pre.rsId = lmStmt.getRba();
 					pre.ssn = lmStmt.getSsn();
 					nonRollback[i++] = pre;
 				}
@@ -247,7 +248,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
 									nonRollback[i].operation == OraCdcV$LogmnrContents.UPDATE)) &&
 							StringUtils.equals(pre.rowId, nonRollback[i].rowId)) {
-						final Map.Entry<String, Long> uniqueAddr = Map.entry(nonRollback[i].rsId, nonRollback[i].ssn);
+						final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(nonRollback[i].rsId, nonRollback[i].ssn);
 						if (!rollbackPairs.contains(uniqueAddr)) {
 							rollbackPairs.add(uniqueAddr);
 							pairFound = true;

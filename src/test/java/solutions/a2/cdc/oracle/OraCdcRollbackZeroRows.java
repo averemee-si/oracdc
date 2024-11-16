@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 
+import solutions.a2.oracle.internals.RedoByteAddress;
+
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -34,7 +36,7 @@ public class OraCdcRollbackZeroRows implements Closeable {
 		final String xid = "1F000D00FB0D2600";
 		final OraCdcLogMinerStatement firstStmt  = new OraCdcLogMinerStatement(175041, (short)1,
 				"insert into \"WSH\".\"WSH_TRIPS\"(", 1727689803000L, 6084777349030L, 
-				" 0x00327b.00715538.00e0 ", 12, "AAAqvBABcAACu52AAM", false); 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00715538.00e0 "), 12, "AAAqvBABcAACu52AAM", false); 
 		if (arrayList) {
 			transaction = new OraCdcTransactionArrayList(xid, firstStmt);
 		} else {
@@ -44,139 +46,139 @@ public class OraCdcRollbackZeroRows implements Closeable {
 		}
 		transaction.addStatement(new OraCdcLogMinerStatement(175041, (short)3,
 				"update \"WSH\".\"WSH_TRIPS\" set", 1727689803000L, 6084777349087L, 
-				" 0x00327b.00715629.0030 ", 0, "AAAqvBABcAACu52AAM", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00715629.0030 "), 0, "AAAqvBABcAACu52AAM", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)1,
 				"insert into \"WSH\".\"WSH_TRIP_STOPS\"(", 1727689803000L, 6084777349166L, 
-				" 0x00327b.0071567f.00a0 ", 23, "AAAqvIABaAAItMFAAX", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.0071567f.00a0 "), 23, "AAAqvIABaAAItMFAAX", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777350237L, 
-				" 0x00327b.00715fa4.0128 ", 0, "AAAqvIABaAAItMFAAX", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00715fa4.0128 "), 0, "AAAqvIABaAAItMFAAX", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)1,
 				"insert into \"WSH\".\"WSH_TRIP_STOPS\"(", 1727689804000L, 6084777350257L, 
-				" 0x00327b.0071600e.00a8 ", 24, "AAAqvIABaAAItMFAAY", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.0071600e.00a8 "), 24, "AAAqvIABaAAItMFAAY", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351501L, 
-				" 0x00327b.00716cea.0080 ", 0, "AAAqvIABaAAItMFAAX", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716cea.0080 "), 0, "AAAqvIABaAAItMFAAX", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351503L, 
-				" 0x00327b.00716cee.0124 ", 0, "AAAqvIABaAAItMFAAY", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716cee.0124 "), 0, "AAAqvIABaAAItMFAAY", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175066, (short)1,
 				"insert into \"WSH\".\"WSH_DELIVERY_LEGS\"(", 1727689804000L, 6084777351515L, 
-				" 0x00327b.00716cfe.0010 ", 12, "AAAqvaAAuAANM13AAM", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716cfe.0010 "), 12, "AAAqvaAAuAANM13AAM", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351520L, 
-				" 0x00327b.00716d01.0078 ", 0, "AAAqvIABaAAItMFAAX", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d01.0078 "), 0, "AAAqvIABaAAItMFAAX", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351520L, 
-				" 0x00327b.00716d03.015c ", 0, "AAAqvIABaAAItMFAAY", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d03.015c "), 0, "AAAqvIABaAAItMFAAY", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351520L, 
-				" 0x00327b.00716d06.0038 ", 0, "AAAqvIABaAAItMFAAX", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d06.0038 "), 0, "AAAqvIABaAAItMFAAX", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351520L, 
-				" 0x00327b.00716d08.013c ", 0, "AAAqvIABaAAItMFAAY", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d08.013c "), 0, "AAAqvIABaAAItMFAAY", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175081, (short)3,
 				"update \"WSH\".\"WSH_NEW_DELIVERIES\" set", 1727689804000L, 6084777351532L, 
-				" 0x00327b.00716d26.01a4 ", 0, "AAAqvpAA3AALk2aAAL", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d26.01a4 "), 0, "AAAqvpAA3AALk2aAAL", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175066, (short)1,
 				"insert into \"WSH\".\"WSH_DELIVERY_LEGS\"(", 1727689804000L, 6084777351555L, 
-				" 0x00327b.00716d59.0010 ", 13, "AAAqvaAAuAANM13AAN", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d59.0010 "), 13, "AAAqvaAAuAANM13AAN", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351563L, 
-				" 0x00327b.00716d6a.0010 ", 0, "AAAqvIABaAAItMFAAX", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d6a.0010 "), 0, "AAAqvIABaAAItMFAAX", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351566L, 
-				" 0x00327b.00716d77.0010 ", 0, "AAAqvIABaAAItMFAAY", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d77.0010 "), 0, "AAAqvIABaAAItMFAAY", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351566L, 
-				" 0x00327b.00716d79.018c ", 0, "AAAqvIABaAAItMFAAX", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d79.018c "), 0, "AAAqvIABaAAItMFAAX", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351569L, 
-				" 0x00327b.00716d7d.0180 ", 0, "AAAqvIABaAAItMFAAY", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d7d.0180 "), 0, "AAAqvIABaAAItMFAAY", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175081, (short)3,
 				"update \"WSH\".\"WSH_NEW_DELIVERIES\" set", 1727689804000L, 6084777351576L, 
-				" 0x00327b.00716d92.005c ", 0, "AAAqvpAA3AALk2aAAK", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716d92.005c "), 0, "AAAqvpAA3AALk2aAAK", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175127, (short)1,
 				"insert into \"WSH\".\"WSH_FREIGHT_COSTS\"(", 1727689804000L, 6084777351600L, 
-				" 0x00327b.00716dc8.0170 ", 62, "AAAqwXABZAAIlgVAA+", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716dc8.0170 "), 62, "AAAqwXABZAAIlgVAA+", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175127, (short)1,
 				"insert into \"WSH\".\"WSH_FREIGHT_COSTS\"(", 1727689804000L, 6084777351607L, 
-				" 0x00327b.00716ddc.0010 ", 63, "AAAqwXABZAAIlgVAA/", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716ddc.0010 "), 63, "AAAqwXABZAAIlgVAA/", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175127, (short)1,
 				"insert into \"WSH\".\"WSH_FREIGHT_COSTS\"(", 1727689804000L, 6084777351613L, 
-				" 0x00327b.00716de5.0010 ", 64, "AAAqwXABZAAIlgVABA", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716de5.0010 "), 64, "AAAqwXABZAAIlgVABA", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175127, (short)1,
 				"insert into \"WSH\".\"WSH_FREIGHT_COSTS\"(", 1727689804000L, 6084777351613L, 
-				" 0x00327b.00716de7.00fc ", 65, "AAAqwXABZAAIlgVABB", false));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716de7.00fc "), 65, "AAAqwXABZAAIlgVABB", false));
 		transaction.addStatement(new OraCdcLogMinerStatement(175127, (short)2,
 				"delete from \"WSH\".\"WSH_FREIGHT_COSTS\" where", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716df5.0184 ", 0, "AAAqwXABZAAIlgVABB", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716df5.0184 "), 0, "AAAqwXABZAAIlgVABB", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175127, (short)2,
 				"delete from \"WSH\".\"WSH_FREIGHT_COSTS\" where", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716df7.0054 ", 0, "AAAqwXABZAAIlgVABA", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716df7.0054 "), 0, "AAAqwXABZAAIlgVABA", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175127, (short)2,
 				"delete from \"WSH\".\"WSH_FREIGHT_COSTS\" where", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716df8.0114 ", 0, "AAAqwXABZAAIlgVAA/", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716df8.0114 "), 0, "AAAqwXABZAAIlgVAA/", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175127, (short)2,
 				"delete from \"WSH\".\"WSH_FREIGHT_COSTS\" where", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716dfa.0010 ", 0, "AAAqwXABZAAIlgVAA+", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716dfa.0010 "), 0, "AAAqwXABZAAIlgVAA+", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175081, (short)3,
 				"update \"WSH\".\"WSH_NEW_DELIVERIES\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716dfb.003c ", 0, "AAAqvpAA3AALk2aAAK", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716dfb.003c "), 0, "AAAqvpAA3AALk2aAAK", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716dfe.0144 ", 0, "AAAqvIABaAAItMFAAY", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716dfe.0144 "), 0, "AAAqvIABaAAItMFAAY", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e00.016c ", 0, "AAAqvIABaAAItMFAAX", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e00.016c "), 0, "AAAqvIABaAAItMFAAX", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e02.0194 ", 0, "AAAqvIABaAAItMFAAY", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e02.0194 "), 0, "AAAqvIABaAAItMFAAY", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e04.01a0 ", 0, "AAAqvIABaAAItMFAAX", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e04.01a0 "), 0, "AAAqvIABaAAItMFAAX", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175066, (short)2,
 				"delete from \"WSH\".\"WSH_DELIVERY_LEGS\" where", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e07.017c ", 0, "AAAqvaAAuAANM13AAN", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e07.017c "), 0, "AAAqvaAAuAANM13AAN", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175081, (short)3,
 				"update \"WSH\".\"WSH_NEW_DELIVERIES\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e0e.00f0 ", 0, "AAAqvpAA3AALk2aAAL", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e0e.00f0 "), 0, "AAAqvpAA3AALk2aAAL", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e11.01e8 ", 0, "AAAqvIABaAAItMFAAY", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e11.01e8 "), 0, "AAAqvIABaAAItMFAAY", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e14.0010 ", 0, "AAAqvIABaAAItMFAAX", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e14.0010 "), 0, "AAAqvIABaAAItMFAAX", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e16.0014 ", 0, "AAAqvIABaAAItMFAAY", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e16.0014 "), 0, "AAAqvIABaAAItMFAAY", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e17.01e4 ", 0, "AAAqvIABaAAItMFAAX", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e17.01e4 "), 0, "AAAqvIABaAAItMFAAX", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175066, (short)2,
 				"delete from \"WSH\".\"WSH_DELIVERY_LEGS\" where", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e1a.01d8 ", 0, "AAAqvaAAuAANM13AAM", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e1a.01d8 "), 0, "AAAqvaAAuAANM13AAM", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e1b.0180 ", 0, "AAAqvIABaAAItMFAAY", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e1b.0180 "), 0, "AAAqvIABaAAItMFAAY", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351617L, 
-				" 0x00327b.00716e1d.015c ", 0, "AAAqvIABaAAItMFAAX", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e1d.015c "), 0, "AAAqvIABaAAItMFAAX", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)2,
 				"delete from \"WSH\".\"WSH_TRIP_STOPS\" where", 1727689804000L, 6084777351619L, 
-				" 0x00327b.00716e21.016c ", 0, "AAAqvIABaAAItMFAAY", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e21.016c "), 0, "AAAqvIABaAAItMFAAY", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)3,
 				"update \"WSH\".\"WSH_TRIP_STOPS\" set", 1727689804000L, 6084777351619L, 
-				" 0x00327b.00716e22.0104 ", 0, "AAAqvIABaAAItMFAAX", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e22.0104 "), 0, "AAAqvIABaAAItMFAAX", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175048, (short)2,
 				"delete from \"WSH\".\"WSH_TRIP_STOPS\" where", 1727689804000L, 6084777351620L, 
-				" 0x00327b.00716e2c.01d0 ", 0, "AAAqvIABaAAItMFAAX", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e2c.01d0 "), 0, "AAAqvIABaAAItMFAAX", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175041, (short)3,
 				"update \"WSH\".\"WSH_TRIPS\" set", 1727689804000L, 6084777351620L, 
-				" 0x00327b.00716e2d.0178 ", 0, "AAAqvBABcAACu52AAM", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e2d.0178 "), 0, "AAAqvBABcAACu52AAM", true));
 		transaction.addStatement(new OraCdcLogMinerStatement(175041, (short)2,
 				"delete from \"WSH\".\"WSH_TRIPS\" where", 1727689804000L, 6084777351622L, 
-				" 0x00327b.00716e46.00ac ", 0, "AAAqvBABcAACu52AAM", true));
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00716e46.00ac "), 0, "AAAqvBABcAACu52AAM", true));
 		transaction.setCommitScn(6084777351622L);
 	}
 

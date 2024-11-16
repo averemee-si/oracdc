@@ -21,6 +21,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.oracle.internals.RedoByteAddress;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -79,7 +81,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 					(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
 					lmStmt.getOperation() == OraCdcV$LogmnrContents.UPDATE)) &&
 					StringUtils.equals(pre.rowId, lmStmt.getRowId())) {
-					final Map.Entry<String, Long> uniqueAddr = Map.entry(lmStmt.getRsId(), lmStmt.getSsn());
+					final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(lmStmt.getRba(), lmStmt.getSsn());
 					if (!rollbackPairs.contains(uniqueAddr)) {
 						rollbackPairs.add(uniqueAddr);
 						pairFound = true;

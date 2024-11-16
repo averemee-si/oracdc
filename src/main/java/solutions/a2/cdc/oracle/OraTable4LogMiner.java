@@ -711,7 +711,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"Unable to perform delete operation on table {}, SCN={}, RBA='{}', ROWID='{}' without primary key!\n" +
 							"SQL_REDO:\n\t{}\n" +
 							"=====================\n",
-							this.fqn(), stmt.getScn(), stmt.getRsId(), stmt.getRowId(), stmt.getSqlRedo());
+							this.fqn(), stmt.getScn(), stmt.getRba(), stmt.getRowId(), stmt.getSqlRedo());
 				}
 			}
 		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
@@ -826,7 +826,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"UPDATE statement without WHERE clause for table {} at SCN='{}', RS_ID='{}', ROLLBACK='{}' for ROWID='{}'.\n" +
 							"We will try to get primary key values from table {} at ROWID='{}'.\n" +
 							"=====================\n",
-							fqn(), stmt.getScn(), stmt.getRsId(), stmt.isRollback(), stmt.getRowId(), fqn(), stmt.getRowId());
+							fqn(), stmt.getScn(), stmt.getRba(), stmt.isRollback(), stmt.getRowId(), fqn(), stmt.getRowId());
 					getMissedColumnValues(connection, stmt.getRowId(), keyStruct);
 				}
 			} else {
@@ -856,7 +856,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 													"SCN={}, RBA='{}', SQL_REDO:\n\t{}\n" +
 													"=====================\n",
 													oraColumn.getColumnName(), this.tableFqn, columnDefaultValue,
-													stmt.getScn(), stmt.getRsId(), stmt.getSqlRedo());
+													stmt.getScn(), stmt.getRba(), stmt.getSqlRedo());
 											valueStruct.put(oraColumn.getColumnName(), columnDefaultValue);
 											if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
 												mandatoryColumnsProcessed++;
@@ -1731,7 +1731,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						"Missed non-null values for columns in table {} at SCN={}, RS_ID()RBA=' {} '!\n" +
 						"Please check supplemental logging settings for table {}!\n" +
 						"=====================\n",
-						tableFqn, stmt.getScn(), stmt.getRsId(), tableFqn);
+						tableFqn, stmt.getScn(), stmt.getRba(), tableFqn);
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug(
 							"The following statement will be used to get missed data from {} using PK values:\n{}\n",
@@ -1801,7 +1801,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					"Unable to restore redo record for operation {} on table {} at SCN = {}, RS_ID(RBA) = '{}'!\n" +
 					"Only UPDATE (OPERATION_CODE=3) and INSERT (OPERATION_CODE=1) are supported!\n" +
 					"=====================\n",
-					stmt.getOperation(), tableFqn, stmt.getScn(), stmt.getRsId());
+					stmt.getOperation(), tableFqn, stmt.getScn(), stmt.getRba());
 		}
 		return result;
 	}
@@ -1816,7 +1816,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					"=====================\n" +
 					"Invalid HEX value \"{}\" for column {} in table {} at SCN={}, RBA='{}' is set to NULL\n" +
 					"=====================\n",
-					columnValue, columnName, tableFqn, stmt.getScn(), stmt.getRsId());
+					columnValue, columnName, tableFqn, stmt.getScn(), stmt.getRba());
 		}
 	}
 

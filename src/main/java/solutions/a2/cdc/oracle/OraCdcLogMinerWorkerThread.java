@@ -47,6 +47,7 @@ import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
+import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -86,13 +87,13 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final Map<String, String> prefixedTransactions;
-	private final TreeMap<String, Triple<Long, String, Long>> sortedByFirstScn;
+	private final TreeMap<String, Triple<Long, RedoByteAddress, Long>> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
 	private final OraCdcSourceConnectorConfig config;
 	private final boolean useChronicleQueue;
 	private long lastScn;
-	private String lastRsId;
+	private RedoByteAddress lastRsId;
 	private long lastSsn;
 	private final AtomicBoolean running;
 	private boolean isCdb;
@@ -295,9 +296,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		}
 	}
 
-	public void rewind(final long firstScn, final String firstRsId, final long firstSsn) throws SQLException {
+	public void rewind(final long firstScn, final RedoByteAddress firstRsId, final long firstSsn) throws SQLException {
 		if (logMinerReady) {
-			LOGGER.info("Rewinding LogMiner ResultSet to first position after SCN = {}, RS_ID = '{}', SSN = {}.",
+			LOGGER.info("Rewinding LogMiner ResultSet to first position after SCN= {}, RBA={}, SSN={}.",
 					firstScn, firstRsId, firstSsn);
 			rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
 			int recordCount = 0;
@@ -310,7 +311,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			while (rewindNeeded) {
 				if (rsLogMiner.next()) {
 					lastScn = rsLogMiner.getLong("SCN");
-					lastRsId = rsLogMiner.getString("RS_ID");
+					lastRsId = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getString("RS_ID"));
 					lastSsn = rsLogMiner.getLong("SSN");
 					if (recordCount == 0 && lastScn > firstScn) {
 						// Hit this with 10.2.0.5
@@ -322,7 +323,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					} else {
 						recordCount++;
 						if (firstScn == lastScn &&
-							(firstRsId == null || StringUtils.equals(firstRsId, lastRsId)) &&
+							(firstRsId == null || firstRsId.equals(lastRsId)) &&
 							(firstSsn == -1 || firstSsn == lastSsn) &&
 							!rsLogMiner.getBoolean("CSF")) {
 							rewindNeeded = false;
@@ -331,7 +332,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					}
 				} else {
 					if (errorCount < MAX_RETRIES) {
-						LOGGER.warn("Unable to rewind to SCN = {}, RS_ID = '{}', SSN = {}, empty ResultSet!",
+						LOGGER.warn("Unable to rewind to SCN = {}, RBA ={}, SSN = {}, empty ResultSet!",
 								firstScn, firstRsId, firstSsn);
 						rsLogMiner.close();
 						//TODO - do we need to re-initialize LogMiner here?
@@ -360,7 +361,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		long logMinerSessionStartMs = System.currentTimeMillis();
 		while (runLatch.getCount() > 0) {
 			long lastGuaranteedScn = 0;
-			String lastGuaranteedRsId = null;
+			RedoByteAddress lastGuaranteedRsId = null;
 			long lastGuaranteedSsn = 0;
 			String xid = null;
 			try {
@@ -375,7 +376,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						final boolean partialRollback = rsLogMiner.getBoolean("ROLLBACK");
 						xid = rsLogMiner.getString("XID");
 						lastScn = rsLogMiner.getLong("SCN");
-						lastRsId = rsLogMiner.getString("RS_ID");
+						lastRsId = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getString("RS_ID"));
 						lastSsn = rsLogMiner.getLong("SSN");
 						OraCdcTransaction transaction = activeTransactions.get(xid);
 						switch (operation) {
@@ -675,9 +676,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											"\n=====================\n" +
 											"Supplemental logging for table '{}' is not configured correctly!\n" +
 											"Please set it according to the oracdc documentation!\n" +
-											"Redo record is skipped for OPERATION={}, SCN={}, RBA='{}', XID='{}',\n\tREDO_DATA='{}'\n" +
+											"Redo record is skipped for OPERATION={}, SCN={}, RBA={}, XID='{}',\n\tREDO_DATA='{}'\n" +
 											"=====================\n",
-											oraTable.fqn(), operation, lastScn, StringUtils.trim(lastRsId), xid, sqlRedo);
+											oraTable.fqn(), operation, lastScn, lastRsId, xid, sqlRedo);
 								}
 							}
 							break;
@@ -959,7 +960,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		return lastScn;
 	}
 
-	public String getLastRsId() {
+	public RedoByteAddress getLastRsId() {
 		return lastRsId;
 	}
 

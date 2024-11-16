@@ -55,6 +55,7 @@ import solutions.a2.cdc.oracle.schema.FileUtils;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -103,7 +104,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private long lastProcessedCommitScn = 0;
 	private long lastInProgressCommitScn = 0;
 	private long lastInProgressScn = 0;
-	private String lastInProgressRsId = null;
+	private RedoByteAddress lastInProgressRsId = null;
 	private long lastInProgressSsn = 0;
 	private OraCdcSourceConnectorConfig config;
 	private int topicPartition;
@@ -400,7 +401,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					oraConnections.getLogMinerConnection(),
 					!(useStandby ||  rdbmsInfo.isStandby()));
 			long firstScn = firstAvailableScn;
-			String firstRsId = null;
+			RedoByteAddress firstRsId = null;
 			long firstSsn = -1;
 			final boolean startScnFromProps = props.containsKey(ParamConstants.LGMNR_START_SCN_PARAM) &&
 									config.getLong(ParamConstants.LGMNR_START_SCN_PARAM) > 0;
@@ -447,7 +448,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				} else {
 					// Use stored offset values for SCN and related from storage offset
 					firstScn = (long) offsetFromKafka.get("S:SCN");
-					firstRsId = (String) offsetFromKafka.get("S:RS_ID");
+					firstRsId = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get("S:RS_ID"));
 					firstSsn = (long) offsetFromKafka.get("S:SSN");
 					LOGGER.info("Point in time from offset data to start reading reading from SCN={}, RS_ID (RBA)='{}', SSN={}",
 							firstScn, firstRsId, firstSsn);
@@ -458,9 +459,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 						lastInProgressCommitScn = 0;
 					} else {
 						lastInProgressScn = (long) offsetFromKafka.get("SCN");
-						lastInProgressRsId = (String) offsetFromKafka.get("RS_ID");
+						lastInProgressRsId = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get("RS_ID"));
 						lastInProgressSsn = (long) offsetFromKafka.get("SSN");
-						LOGGER.info("Last sent SCN={}, RS_ID (RBA)='{}', SSN={} for  transaction with incomplete send",
+						LOGGER.info("Last sent SCN={}, RBA={}, SSN={} for  transaction with incomplete send",
 								lastInProgressScn, lastInProgressRsId, lastInProgressSsn);
 					}
 					if (firstScn < firstAvailableScn) {
@@ -804,7 +805,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 								}
 								lastStatementInTransaction = !processTransaction;
 								if (stmt.getScn() == lastInProgressScn &&
-										StringUtils.equals(stmt.getRsId(), lastInProgressRsId) &&
+										lastInProgressRsId.equals(stmt.getRba()) &&
 										stmt.getSsn() == lastInProgressSsn) {
 									// Rewind completed
 									break;
@@ -833,7 +834,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 								final OraTable4LogMiner oraTable = tablesInProcessing.get(stmt.getTableId());
 								if (oraTable == null) {
 									LOGGER.error("Strange consistency issue for DATA_OBJ# {}, transaction XID {}, statement SCN={}, RS_ID='{}', SSN={}.\n Exiting.",
-											stmt.getTableId(), transaction.getXid(), stmt.getScn(), stmt.getRsId(), stmt.getSsn());
+											stmt.getTableId(), transaction.getXid(), stmt.getScn(), stmt.getRba(), stmt.getSsn());
 									isPollRunning.set(false);
 									throw new ConnectException("Strange consistency issue!!!");
 								} else {
@@ -847,7 +848,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 										} else {
 											final long startParseTs = System.currentTimeMillis();
 											offset.put("SCN", stmt.getScn());
-											offset.put("RS_ID", stmt.getRsId());
+											offset.put("RS_ID", stmt.getRba());
 											offset.put("SSN", stmt.getSsn());
 											offset.put("COMMIT_SCN", transaction.getCommitScn());
 											final SourceRecord record = oraTable.parseRedoRecord(
@@ -1100,7 +1101,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		}
 	}
 
-	protected void putReadRestartScn(final Triple<Long, String, Long> transData) {
+	protected void putReadRestartScn(final Triple<Long, RedoByteAddress, Long> transData) {
 		offset.put("S:SCN", transData.getLeft());
 		offset.put("S:RS_ID", transData.getMiddle());
 		offset.put("S:SSN", transData.getRight());
