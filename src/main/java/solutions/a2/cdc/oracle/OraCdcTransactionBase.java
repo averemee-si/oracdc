@@ -191,34 +191,6 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		suspicious = true;
 	}
 
-	public static Logger getLogger() {
-		return LOGGER;
-	}
-
-	public static String getTransXid() {
-		return TRANS_XID;
-	}
-
-	public static String getTransFirstChange() {
-		return TRANS_FIRST_CHANGE;
-	}
-
-	public static String getTransNextChange() {
-		return TRANS_NEXT_CHANGE;
-	}
-
-	public static String getQueueSize() {
-		return QUEUE_SIZE;
-	}
-
-	public static String getQueueOffset() {
-		return QUEUE_OFFSET;
-	}
-
-	public static String getTransCommitScn() {
-		return TRANS_COMMIT_SCN;
-	}
-
 	public String getUsername() {
 		return username;
 	}
