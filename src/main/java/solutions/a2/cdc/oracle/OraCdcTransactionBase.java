@@ -51,7 +51,6 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	boolean partialRollback = false;
 	List<PartialRollbackEntry> rollbackEntriesList;
-	OraCdcLogMinerStatement lmStmt;
 	Set<Map.Entry<RedoByteAddress, Long>> rollbackPairs;
 	private boolean suspicious = false;
 
@@ -155,7 +154,6 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		if (partialRollback) {
 			// Need to process all entries in reverse order
 			rollbackPairs = new HashSet<>();
-			lmStmt = new OraCdcLogMinerStatement();
 			processRollbackEntries();
 		}
 		if (suspicious) {

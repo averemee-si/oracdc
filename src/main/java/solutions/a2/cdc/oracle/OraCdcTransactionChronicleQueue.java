@@ -180,6 +180,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	void processRollbackEntries() {
 		long nanos = System.nanoTime();
 		final ExcerptTailer reverse = statements.createTailer();
+		final OraCdcLogMinerStatement lmStmt = new OraCdcLogMinerStatement();
 		reverse.direction(TailerDirection.BACKWARD);
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Spent {} nanos to open the reverse tailer.", (System.nanoTime() - nanos));
@@ -275,6 +276,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 
 	void addToPrintOutput(final StringBuilder sb) {
 		final ExcerptTailer printTailer = statements.createTailer();
+		final OraCdcLogMinerStatement lmStmt = new OraCdcLogMinerStatement();
 		boolean readResult = false;
 		do {
 			readResult = printTailer.readDocument(lmStmt);

@@ -71,7 +71,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 			printPartialRollbackEntryDebug(pre);
 			boolean pairFound = false;
 			for (int i = (int) pre.index; i > -1; i--) {
-				lmStmt = statements.get(i);
+				final OraCdcLogMinerStatement lmStmt = statements.get(i);
 				if (!lmStmt.isRollback() &&
 					lmStmt.getTableId() == pre.tableId &&
 					((pre.operation == OraCdcV$LogmnrContents.DELETE &&
