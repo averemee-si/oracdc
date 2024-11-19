@@ -13,6 +13,7 @@
 
 package solutions.a2.cdc.oracle;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -42,13 +43,18 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
+import oracle.sql.CHAR;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
+
+import static java.nio.charset.StandardCharsets.US_ASCII;
+import static solutions.a2.cdc.oracle.OraCdcLogMinerStatement.APPROXIMATE_SIZE;
 
 /**
  * 
@@ -61,6 +67,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private static final int MAX_RETRIES = 63;
 	// XIDUSN || XIDSLT
 	private static final int TRANS_PREFIX = 8;
+	private static final byte[] SQUEEZE_PATTERN = "HEXTORAW(".getBytes(US_ASCII);
 
 	private final OraCdcLogMinerTask task;
 	private final int pollInterval;
@@ -616,24 +623,17 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							}
 
 							if (oraTable != null) {
-								String sqlRedo = readSqlRedo();
+								final byte[] redoBytes = readSqlRedo();
 								if (oraTable.isCheckSupplementalLogData()) {
 									final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
 									final String rowId = rsLogMiner.getString("ROW_ID");
-									// squeeze it!
-									sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
-									if (operation == OraCdcV$LogmnrContents.INSERT) {
-										sqlRedo = StringUtils.replace(sqlRedo, "')", "'");
-									} else {
-										sqlRedo = StringUtils.replace(sqlRedo, ")", "");
-									}
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
-											combinedDataObjectId, operation, sqlRedo, timestamp,
+											combinedDataObjectId, operation, redoBytes, timestamp,
 											lastScn, lastRsId, lastSsn, rowId, partialRollback);
 
 									// Catch the LOBs!!!
 									List<OraCdcLargeObjectHolder> lobs = 
-											catchTheLob(operation, xid, dataObjectId, oraTable, sqlRedo);
+											catchTheLob(operation, xid, dataObjectId, oraTable, redoBytes);
 
 									if (transaction == null) {
 										if (LOGGER.isDebugEnabled()) {
@@ -678,7 +678,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											"Please set it according to the oracdc documentation!\n" +
 											"Redo record is skipped for OPERATION={}, SCN={}, RBA={}, XID='{}',\n\tREDO_DATA='{}'\n" +
 											"=====================\n",
-											oraTable.fqn(), operation, lastScn, lastRsId, xid, sqlRedo);
+											oraTable.fqn(), operation, lastScn, lastRsId, xid, new String(redoBytes, US_ASCII));
 								}
 							}
 							break;
@@ -693,12 +693,13 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								// Handle DDL only for known table
 								final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
 								final String rowId = rsLogMiner.getString("ROW_ID");
-								final String originalDdl = readSqlRedo();
+								final byte[] ddlBytes = readSqlRedo();
+								final String originalDdl = new String(ddlBytes, US_ASCII);
 								final String preProcessedDdl = OraSqlUtils.alterTablePreProcessor(originalDdl);
 								if (preProcessedDdl != null) {
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
 											combinedDdlDataObjectId, operation, 
-											preProcessedDdl + "\n" + originalDdl,
+											(preProcessedDdl + "\n" + originalDdl).getBytes(US_ASCII),
 											timestamp, lastScn, lastRsId, lastSsn, rowId, false);
 									if (transaction == null) {
 										if (LOGGER.isDebugEnabled()) {
@@ -1064,12 +1065,13 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private List<OraCdcLargeObjectHolder> catchTheLob(
 			final short operation, final String xid,
 			final long dataObjectId, final OraTable4LogMiner oraTable,
-			final String redoData) throws SQLException {
+			final byte[] redoBytes) throws SQLException {
 		List<OraCdcLargeObjectHolder> lobs = null;
 		if (processLobs && oraTable.isWithLobs() &&
 				(operation == OraCdcV$LogmnrContents.INSERT ||
 				operation == OraCdcV$LogmnrContents.UPDATE ||
 				operation == OraCdcV$LogmnrContents.XML_DOC_BEGIN)) {
+			final String redoData = new String(redoBytes, US_ASCII);
 			final String tableOperationRsId = rsLogMiner.getString("RS_ID");
 			String lobStartRsId = tableOperationRsId; 
 			boolean searchLobObjects = true;
@@ -1107,7 +1109,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						// String is:
 						// XML DOC BEGIN:  select "COL 2" from "UNKNOWN"."OBJ# 28029"...
 						boolean multiLineSql = rsLogMiner.getBoolean("CSF");
-						final StringBuilder xmlHexColumnId = new StringBuilder(16000);
+						final StringBuilder xmlHexColumnId = new StringBuilder(APPROXIMATE_SIZE);
 						xmlHexColumnId.append(rsLogMiner.getString("SQL_REDO"));
 						while (multiLineSql) {
 							rsLogMiner.next();
@@ -1318,21 +1320,63 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		return xmlAsString;
 	}
 
-	private String readSqlRedo() throws SQLException {
-		final boolean multiLineSql = rsLogMiner.getBoolean("CSF");
-		if (multiLineSql) {
-			final StringBuilder sb = new StringBuilder(16000);
-			boolean moreRedoLines = multiLineSql;
-			while (moreRedoLines) {
-				sb.append(rsLogMiner.getString("SQL_REDO"));
-				moreRedoLines = rsLogMiner.getBoolean("CSF");
-				if (moreRedoLines) { 
+	private byte[] readSqlRedo() throws SQLException {
+		final byte[] array;
+		if (rsLogMiner.getBoolean("CSF")) {
+			ByteArrayOutputStream baos = new ByteArrayOutputStream(APPROXIMATE_SIZE);
+			while (true) {
+				try {
+					final CHAR oraChar = rsLogMiner.getCHAR("SQL_REDO");
+					if (!rsLogMiner.wasNull())
+						baos.write(oraChar.getBytes());
+				} catch (IOException ioe) {
+					throw new SQLException(ioe);
+				}
+				if (rsLogMiner.getBoolean("CSF")) { 
 					rsLogMiner.next();
+				} else {
+					break;
 				}
 			}
-			return sb.toString();
+			array = baos.toByteArray();
 		} else {
-			return rsLogMiner.getString("SQL_REDO");
+			array = rsLogMiner.getCHAR("SQL_REDO").getBytes();
+		}
+		if (array == null || array.length == 0) {
+			throw new SQLException("Unexpected NULL while reading SQL_REDO column!");
+		} else {
+			int start = 0;
+			int srcPos = 0;
+			int destPos = 0;
+			int currLength = 0;
+			byte[] squeezedArray = new byte[array.length];
+			while ((srcPos = BinaryUtils.indexOf(array, start, SQUEEZE_PATTERN)) > -1) {
+				currLength = srcPos - start;
+				System.arraycopy(array, start, squeezedArray, destPos, currLength);
+				start = srcPos + SQUEEZE_PATTERN.length;
+				destPos += currLength;
+
+				if ((srcPos = BinaryUtils.indexOf(array, start, (byte)0x29)) > -1) {
+					currLength = srcPos - start;
+					System.arraycopy(array, start, squeezedArray, destPos, currLength);
+					start = srcPos + 1;
+					destPos += currLength;
+				}
+			}
+			if (start < array.length) {
+				currLength = array.length - start;
+				System.arraycopy(array, start, squeezedArray, destPos, currLength);
+				destPos += currLength;
+			}
+
+			if (destPos < squeezedArray.length) {
+				final byte[] result = new byte[destPos];
+				System.arraycopy(squeezedArray, 0, result, 0, destPos);
+				squeezedArray = null;
+				return result;
+			} else {
+				return squeezedArray;
+			}
 		}
 	}
 

@@ -13,6 +13,7 @@
 
 package solutions.a2.cdc.oracle;
 
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -33,14 +34,14 @@ import solutions.a2.oracle.internals.RedoByteAddress;
  */
 public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshallable {
 
-	private static final int STRING_16K = 16384;
+	static final int APPROXIMATE_SIZE = 0x4000;
 
 	/** (((long)V$LOGMNR_CONTENTS.CON_ID) << 32) | (V$LOGMNR_CONTENTS.DATA_OBJ# & 0xFFFFFFFFL) */
 	private long tableId;
 	/** V$LOGMNR_CONTENTS.OPERATION_CODE */
 	private short operation;
 	/** V$LOGMNR_CONTENTS.SQL_REDO (concatenated!) */
-	private String sqlRedo;
+	private byte[] redoData;
 	/** V$LOGMNR_CONTENTS.TIMESTAMP (in millis) */
 	private long ts;
 	/** V$LOGMNR_CONTENTS.SCN */
@@ -74,20 +75,20 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	 * 
 	 * @param tableId     (((long)V$LOGMNR_CONTENTS.CON_ID) {@literal <}{@literal <} 32) | (V$LOGMNR_CONTENTS.DATA_OBJ# {@literal &} 0xFFFFFFFFL)
 	 * @param operation   V$LOGMNR_CONTENTS.OPERATION_CODE
-	 * @param sqlRedo     V$LOGMNR_CONTENTS.SQL_REDO (concatenated!)
+	 * @param redoData    V$LOGMNR_CONTENTS.SQL_REDO (concatenated!)
 	 * @param ts          V$LOGMNR_CONTENTS.TIMESTAMP (in millis)
 	 * @param scn         V$LOGMNR_CONTENTS.SCN
-	 * @param rba        V$LOGMNR_CONTENTS.RS_ID
+	 * @param rba         V$LOGMNR_CONTENTS.RS_ID
 	 * @param ssn         V$LOGMNR_CONTENTS.SSN
 	 * @param rowId       V$LOGMNR_CONTENTS.ROW_ID
 	 * @param rollback    V$LOGMNR_CONTENTS.ROLLBACK
 	 */
 	public OraCdcLogMinerStatement(long tableId, short operation,
-			String sqlRedo, long ts, long scn, RedoByteAddress rba, long ssn, String rowId, boolean rollback) {
+			byte[] redoData, long ts, long scn, RedoByteAddress rba, long ssn, String rowId, boolean rollback) {
 		this();
 		this.tableId = tableId;
 		this.operation = operation;
-		this.sqlRedo = sqlRedo;
+		this.redoData = redoData;
 		this.ts = ts;
 		this.scn = scn;
 		this.rba = rba;
@@ -96,8 +97,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		// No BLOB/CLOB initially
 		this.lobCount = 0;
 		// All strings are US7ASCII
-		holderSize += (
-				sqlRedo.length() + rowId.length());
+		holderSize +=  (Integer.BYTES +  redoData.length + rowId.length());
 		this.rollback = rollback;
 	}
 
@@ -110,7 +110,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	}
 
 	public String getSqlRedo() {
-		return sqlRedo;
+		return new String(redoData, StandardCharsets.US_ASCII);
 	}
 
 	public long getTs() {
@@ -155,7 +155,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 
 	@Override
 	public String toString() {
-		final StringBuilder sb = new StringBuilder(STRING_16K);
+		final StringBuilder sb = new StringBuilder(APPROXIMATE_SIZE);
 		final int conId = (int) (tableId >> 32);
 		sb.append("OraCdcLogMinerStatement [");
 			if (conId != 0) {
@@ -180,7 +180,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	public void clone(final OraCdcLogMinerStatement other) {
 		other.tableId = this.tableId;
 		other.operation = this.operation;
-		other.sqlRedo = this.sqlRedo;
+		other.redoData = this.redoData;
 		other.ts = this.ts;
 		other.scn = this.scn;
 		other.rba = this.rba;
@@ -196,14 +196,15 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		wire.bytes()
 			.writeLong(tableId)
 			.writeShort(operation)
-			.write8bit(sqlRedo)
 			.writeLong(ts)
 			.writeLong(scn)
 			.write(rba.toByteArray())
 			.writeLong(ssn)
 			.write8bit(rowId)
 			.writeByte(lobCount)
-			.writeBoolean(rollback);
+			.writeBoolean(rollback)
+			.writeInt(redoData.length)
+			.write(redoData);
 	}
 
 
@@ -212,20 +213,23 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 		Bytes<?> raw = wire.bytes();
 		tableId = raw.readLong();
 		operation = raw.readShort();
-		sqlRedo = raw.read8bit();
 		ts = raw.readLong();
 		scn = raw.readLong();
 		final byte[] ba = new byte[RedoByteAddress.BYTES];
 		if (raw.read(ba) != RedoByteAddress.BYTES) {
-			throw new IORuntimeException("Unable to read byte array!");
+			throw new IORuntimeException("Unable to read RBA as byte array!");
 		}
 		rba = RedoByteAddress.fromByteArray(ba);
 		ssn = raw.readLong();
 		rowId = raw.read8bit();
 		lobCount = raw.readByte();
 		rollback = raw.readBoolean();
+		final int size = raw.readInt();
+		redoData = new byte[size];
+		if (raw.read(redoData) != size) {
+			throw new IORuntimeException("Unable to read redo content!");
+		}
 	}
-
 
 	@Override
 	public boolean usesSelfDescribingMessage() {
@@ -234,7 +238,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 	}
 
 	public StringBuilder toStringBuilder() {
-		final StringBuilder sb = new StringBuilder(STRING_16K);
+		final StringBuilder sb = new StringBuilder(APPROXIMATE_SIZE);
 		final int objId = (int) tableId;
 		sb
 			.append("\tDATA_OBJ# = ")
@@ -255,7 +259,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 			.append("\n\tOPERATION_CODE = ")
 			.append(operation)
 			.append("\n\tSQL_REDO = ")
-			.append(sqlRedo)
+			.append(getSqlRedo())
 			.append("\n\tROLLBACK = ")
 			.append(rollback ? "1" : "0")
 			.append("\n");
@@ -293,7 +297,7 @@ public class OraCdcLogMinerStatement implements ReadMarshallable, WriteMarshalla
 
 	public StringBuilder toDelimitedRow(final String delimiter) {
 		final int objId = (int) tableId;
-		final StringBuilder sb = new StringBuilder(STRING_16K);
+		final StringBuilder sb = new StringBuilder(APPROXIMATE_SIZE);
 		sb
 			.append(scn)
 			.append(delimiter)

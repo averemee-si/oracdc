@@ -16,6 +16,7 @@ package solutions.a2.cdc.oracle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 
@@ -35,7 +36,8 @@ public class OraCdcChronicleQueueTest {
 		final String tmpDir = System.getProperty("java.io.tmpdir");
 		final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
 		final OraCdcLogMinerStatement updIn =  new  OraCdcLogMinerStatement(
-				74590, (short)3, "update DEPT set DNAME='SALES' where DEPTNO=10",
+				74590, (short)3,
+				"update DEPT set DNAME='SALES' where DEPTNO=10".getBytes(StandardCharsets.US_ASCII),
 				System.currentTimeMillis(),275168436063l,
 				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0010 "),
 				0, "AAAWbzAAEAAAB6FAAA", false);
