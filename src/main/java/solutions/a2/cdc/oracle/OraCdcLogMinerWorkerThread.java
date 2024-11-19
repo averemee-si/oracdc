@@ -311,7 +311,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			while (rewindNeeded) {
 				if (rsLogMiner.next()) {
 					lastScn = rsLogMiner.getLong("SCN");
-					lastRsId = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getString("RS_ID"));
+					lastRsId = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getCHAR("RS_ID").getBytes());
 					lastSsn = rsLogMiner.getLong("SSN");
 					if (recordCount == 0 && lastScn > firstScn) {
 						// Hit this with 10.2.0.5
@@ -339,7 +339,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
 						errorCount++;
 					} else {
-						LOGGER.error("Incorrect rewind to SCN = {}, RS_ID = '{}', SSN = {}",
+						LOGGER.error("Incorrect rewind to SCN = {}, RBA = {}, SSN = {}",
 								firstScn, firstRsId, firstSsn);
 						throw new SQLException("Incorrect rewind operation!!!");
 					}
