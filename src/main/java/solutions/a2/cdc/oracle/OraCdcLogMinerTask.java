@@ -848,7 +848,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 										} else {
 											final long startParseTs = System.currentTimeMillis();
 											offset.put("SCN", stmt.getScn());
-											offset.put("RS_ID", stmt.getRba());
+											offset.put("RS_ID", stmt.getRba().toString());
 											offset.put("SSN", stmt.getSsn());
 											offset.put("COMMIT_SCN", transaction.getCommitScn());
 											final SourceRecord record = oraTable.parseRedoRecord(
@@ -1103,7 +1103,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 	protected void putReadRestartScn(final Triple<Long, RedoByteAddress, Long> transData) {
 		offset.put("S:SCN", transData.getLeft());
-		offset.put("S:RS_ID", transData.getMiddle());
+		offset.put("S:RS_ID", transData.getMiddle().toString());
 		offset.put("S:SSN", transData.getRight());
 	}
 
