@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.RowId;
 
 
 /**
@@ -233,7 +234,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		long index;
 		long tableId;
 		short operation;
-		String rowId;
+		RowId rowId;
 		long scn;
 		RedoByteAddress rsId;
 		long ssn;

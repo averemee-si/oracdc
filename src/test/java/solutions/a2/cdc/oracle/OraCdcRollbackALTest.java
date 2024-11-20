@@ -55,28 +55,28 @@ public class OraCdcRollbackALTest {
 				assertFalse(stmt.isRollback());
 
 				if (stmt.getRba().toString().equals("0x0031f7.008fdb97.0010") &&
-						stmt.getRowId().equals("AAAqvfABcAAEXtqAAN")) {
+						stmt.getRowId().toString().equals("AAAqvfABcAAEXtqAAN")) {
 					AAAqvfABcAAEXtqAAN_At_008fdb97_0010 = true;
 				}
 				if (stmt.getRba().toString().equals("0x0031f7.008fdc24.010c") &&
-						stmt.getRowId().equals("AAAqvfABcAAEXtqAAO")) {
+						stmt.getRowId().toString().equals("AAAqvfABcAAEXtqAAO")) {
 					AAAqvfABcAAEXtqAAO_At_008fdc24_010c = true;
 				}
 				if (stmt.getRba().toString().equals("0x0031f7.008fdc32.0048") &&
-						stmt.getRowId().equals("AAAqvfABcAAEXtqAAO")) {
+						stmt.getRowId().toString().equals("AAAqvfABcAAEXtqAAO")) {
 					AAAqvfABcAAEXtqAAO_At_008fdc32_0048 = true;
 				}
 				if (stmt.getRba().toString().equals("0x0031f7.008fdc43.0010") &&
-						stmt.getRowId().equals("AAAqvfABcAAEXtqAAO")) {
+						stmt.getRowId().toString().equals("AAAqvfABcAAEXtqAAO")) {
 					AAAqvfABcAAEXtqAAO_At_008fdc43_0010 = true;
 				}
 
 				if (stmt.getRba().toString().equals("0x0031f7.008fe16a.0188") &&
-						stmt.getRowId().equals("AAAqvfABcAAEXtqAAN")) {
+						stmt.getRowId().toString().equals("AAAqvfABcAAEXtqAAN")) {
 					AAAqvfABcAAEXtqAAN_At_008fe16a_0188 = true;
 				}
 				if (stmt.getRba().toString().equals("0x0031f7.008fe23d.0158") &&
-						stmt.getRowId().equals("AAAqvfABcAAEXtqAAO")) {
+						stmt.getRowId().toString().equals("AAAqvfABcAAEXtqAAO")) {
 					AAAqvfABcAAEXtqAAO_At_008fe23d_0158 = true;
 				}
 			}

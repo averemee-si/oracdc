@@ -30,6 +30,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.RowId;
 
 /**
  *  
@@ -44,7 +45,7 @@ public class OraCdcPersistenceTest {
 			"update DEPT set DNAME='SALES' where DEPTNO=10".getBytes(StandardCharsets.US_ASCII),
 			System.currentTimeMillis(),275168436063l,
 			RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0010 "),
-			0, "AAAWbzAAEAAAB6FAAA", false);
+			0, new RowId("AAAWbzAAEAAAB6FAAA"), false);
 
 	private final static String xid2 = "00002700160000AA";
 	private final static OraCdcLogMinerStatement updIn2 =  new  OraCdcLogMinerStatement(
@@ -52,7 +53,7 @@ public class OraCdcPersistenceTest {
 			"update DEPT set DNAME='OPERATIONS' where DEPTNO=20".getBytes(StandardCharsets.US_ASCII),
 			System.currentTimeMillis(),275168436122l,
 			RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0020 "),
-			0, "AAAWbzAAEAAAB6FABB", false);
+			0, new RowId("AAAWbzAAEAAAB6FABB"), false);
 
 	private final static String xid3 = "00002700160000BB";
 	private final static OraCdcLogMinerStatement updIn3 =  new  OraCdcLogMinerStatement(
@@ -60,7 +61,7 @@ public class OraCdcPersistenceTest {
 			"update DEPT set DNAME='ACCOUNTING' where DEPTNO=30".getBytes(StandardCharsets.US_ASCII),
 			System.currentTimeMillis(),275168436125l,
 			RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0030 "),
-			0, "AAAWbzAAEAAAB6FACC", false);
+			0, new RowId("AAAWbzAAEAAAB6FACC"), false);
 
 
 

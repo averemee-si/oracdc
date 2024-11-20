@@ -50,6 +50,7 @@ import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -118,7 +119,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	private final Set<Long> lobObjects;
 	private final Set<Long> nonLobObjects;
-	private String lastRealRowId;
+	private RowId lastRealRowId;
 	private final long logMinerReconnectIntervalMs;
 	private final OraCdcPseudoColumnsProcessor pseudoColumns;
 
@@ -626,10 +627,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								final byte[] redoBytes = readSqlRedo();
 								if (oraTable.isCheckSupplementalLogData()) {
 									final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
-									final String rowId = rsLogMiner.getString("ROW_ID");
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
 											combinedDataObjectId, operation, redoBytes, timestamp,
-											lastScn, lastRsId, lastSsn, rowId, partialRollback);
+											lastScn, lastRsId, lastSsn, getRowId(), partialRollback);
 
 									// Catch the LOBs!!!
 									List<OraCdcLargeObjectHolder> lobs = 
@@ -692,7 +692,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							if (tablesInProcessing.containsKey(combinedDdlDataObjectId)) {
 								// Handle DDL only for known table
 								final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
-								final String rowId = rsLogMiner.getString("ROW_ID");
 								final byte[] ddlBytes = readSqlRedo();
 								final String originalDdl = new String(ddlBytes, US_ASCII);
 								final String preProcessedDdl = OraSqlUtils.alterTablePreProcessor(originalDdl);
@@ -700,7 +699,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
 											combinedDdlDataObjectId, operation, 
 											(preProcessedDdl + "\n" + originalDdl).getBytes(US_ASCII),
-											timestamp, lastScn, lastRsId, lastSsn, rowId, false);
+											timestamp, lastScn, lastRsId, lastSsn, getRowId(), false);
 									if (transaction == null) {
 										if (LOGGER.isDebugEnabled()) {
 											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
@@ -788,7 +787,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									}
 								}
 								if (readRowId) {
-									lastRealRowId = rsLogMiner.getString("ROW_ID");
+									lastRealRowId = getRowId();
 									if (LOGGER.isDebugEnabled()) {
 										LOGGER.debug("ROWID for skipped operaion - '{}'", lastRealRowId);
 									}
@@ -802,7 +801,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									lastScn,
 									rsLogMiner.getString("RS_ID"),
 									rsLogMiner.getLong("DATA_OBJ#"),
-									lastRealRowId == null ? rsLogMiner.getString("ROW_ID") : lastRealRowId,
+									lastRealRowId == null ? getRowId() : lastRealRowId,
 									rsLogMiner.getString("XID"));
 							LOGGER.warn("Possibly ignored LOB_ERASE or LOB_TRIM operation.");
 							final String checkSql =
@@ -1378,6 +1377,11 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 				return squeezedArray;
 			}
 		}
+	}
+
+	private RowId getRowId() throws SQLException {
+		final CHAR c = rsLogMiner.getCHAR("ROW_ID");
+		return rsLogMiner.wasNull() ? RowId.ZERO : RowId.fromLogmnrContents(c.getBytes());
 	}
 
 	private void initDictionaryStatements() throws SQLException {

@@ -205,7 +205,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 							lmStmt.getOperation() == OraCdcV$LogmnrContents.DELETE) ||
 							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
 							lmStmt.getOperation() == OraCdcV$LogmnrContents.UPDATE)) &&
-							StringUtils.equals(pre.rowId, lmStmt.getRowId())) {
+							pre.rowId.equals(lmStmt.getRowId())) {
 						final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(lmStmt.getRba(), lmStmt.getSsn());
 						if (!rollbackPairs.contains(uniqueAddr)) {
 							rollbackPairs.add(uniqueAddr);
@@ -248,7 +248,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 									nonRollback[i].operation == OraCdcV$LogmnrContents.DELETE) ||
 							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
 									nonRollback[i].operation == OraCdcV$LogmnrContents.UPDATE)) &&
-							StringUtils.equals(pre.rowId, nonRollback[i].rowId)) {
+							pre.rowId.equals(nonRollback[i].rowId)) {
 						final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(nonRollback[i].rsId, nonRollback[i].ssn);
 						if (!rollbackPairs.contains(uniqueAddr)) {
 							rollbackPairs.add(uniqueAddr);

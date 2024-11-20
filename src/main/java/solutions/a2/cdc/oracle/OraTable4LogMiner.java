@@ -50,6 +50,7 @@ import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 import solutions.a2.utils.ExceptionUtils;
@@ -1051,7 +1052,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						stmt.getSqlRedo(),
 						pdbName, tableOwner, tableName,
 						stmt.getScn(), stmt.getTs(),
-						xid, commitScn, stmt.getRowId());
+						xid, commitScn, stmt.getRowId().toString());
 				struct.put("source", source);
 				struct.put("before", keyStruct);
 				if (stmt.getOperation() != OraCdcV$LogmnrContents.DELETE ||
@@ -1621,14 +1622,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		return checkSupplementalLogData;
 	}
 
-	private void getMissedColumnValues(final Connection connection, final String rowId, final Struct keyStruct) throws SQLException {
+	private void getMissedColumnValues(final Connection connection, final RowId rowId, final Struct keyStruct) throws SQLException {
 		try {
 			if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
 				alterSessionSetContainer(connection, pdbName);
 			}
 			final PreparedStatement statement = connection .prepareStatement(sqlGetKeysUsingRowId,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			statement.setString(1, rowId);
+			statement.setString(1, rowId.toString());
 			final ResultSet resultSet = statement.executeQuery();
 			if (resultSet.next()) {
 				for (final Map.Entry<String, OraColumn> entry : pkColumns.entrySet()) {
@@ -1746,7 +1747,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final PreparedStatement statement = connection .prepareStatement(readData.toString(),
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 				if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
-					statement.setString(1, stmt.getRowId());
+					statement.setString(1, stmt.getRowId().toString());
 				} else {
 					//OraCdcV$LogmnrContents.INSERT
 					int bindNo = 0;

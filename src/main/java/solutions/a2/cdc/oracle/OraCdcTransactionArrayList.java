@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,7 +79,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 					lmStmt.getOperation() == OraCdcV$LogmnrContents.DELETE) ||
 					(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
 					lmStmt.getOperation() == OraCdcV$LogmnrContents.UPDATE)) &&
-					StringUtils.equals(pre.rowId, lmStmt.getRowId())) {
+					pre.rowId.equals(lmStmt.getRowId())) {
 					final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(lmStmt.getRba(), lmStmt.getSsn());
 					if (!rollbackPairs.contains(uniqueAddr)) {
 						rollbackPairs.add(uniqueAddr);
