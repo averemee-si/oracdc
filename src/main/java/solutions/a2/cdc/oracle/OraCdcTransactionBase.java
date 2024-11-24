@@ -67,7 +67,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		this.transSize = 0;
 	}
 
-	void checkForRollback(final OraCdcLogMinerStatement oraSql, final long index) {
+	void checkForRollback(final OraCdcStatementBase oraSql, final long index) {
 		if (firstRecord) {
 			firstRecord = false;
 			firstChange = oraSql.getScn();
@@ -107,7 +107,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	abstract void processRollbackEntries();
 
-	boolean willItRolledBack(final OraCdcLogMinerStatement oraSql) {
+	boolean willItRolledBack(final OraCdcStatementBase oraSql) {
 		if (partialRollback) {
 			if (oraSql.isRollback()) {
 				return true;
@@ -138,7 +138,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 			.append("COMMIT_SCN=")
 			.append(commitScn)
 			.append("\n")
-			.append(OraCdcLogMinerStatement.delimitedRowHeader());
+			.append(OraCdcStatementBase.delimitedRowHeader());
 		addToPrintOutput(sb);
 		sb.append("\n=====================\n");
 		if (errorOutput) {

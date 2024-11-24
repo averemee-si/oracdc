@@ -24,7 +24,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -172,7 +171,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	 * @throws IOException
 	 */
 	public OraCdcTransactionChronicleQueue(
-			final Path rootDir, final String xid, final OraCdcLogMinerStatement firstStatement) throws IOException {
+			final Path rootDir, final String xid, final OraCdcStatementBase firstStatement) throws IOException {
 		this(false, rootDir, xid);
 		this.addStatement(firstStatement);
 	}
@@ -180,7 +179,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	void processRollbackEntries() {
 		long nanos = System.nanoTime();
 		final ExcerptTailer reverse = statements.createTailer();
-		final OraCdcLogMinerStatement lmStmt = new OraCdcLogMinerStatement();
+		final OraCdcStatementBase lmStmt = new OraCdcStatementBase();
 		reverse.direction(TailerDirection.BACKWARD);
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Spent {} nanos to open the reverse tailer.", (System.nanoTime() - nanos));
@@ -276,7 +275,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 
 	void addToPrintOutput(final StringBuilder sb) {
 		final ExcerptTailer printTailer = statements.createTailer();
-		final OraCdcLogMinerStatement lmStmt = new OraCdcLogMinerStatement();
+		final OraCdcStatementBase lmStmt = new OraCdcStatementBase();
 		boolean readResult = false;
 		do {
 			readResult = printTailer.readDocument(lmStmt);
@@ -287,7 +286,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		printTailer.close();
 	}
 
-	private void addStatementInt(final OraCdcLogMinerStatement oraSql) {
+	private void addStatementInt(final OraCdcStatementBase oraSql) {
 		checkForRollback(oraSql, firstRecord ? - 1 : appender.lastIndexAppended());
 		appender.writeDocument(oraSql);
 		nextChange = oraSql.getScn();
@@ -296,11 +295,11 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	}
 
 	@Override
-	public void addStatement(final OraCdcLogMinerStatement oraSql) {
+	public void addStatement(final OraCdcStatementBase oraSql) {
 		addStatementInt(oraSql);
 	}
 
-	public void addStatement(final OraCdcLogMinerStatement oraSql, final List<OraCdcLargeObjectHolder> lobs) {
+	public void addStatement(final OraCdcStatementBase oraSql, final List<OraCdcLargeObjectHolder> lobs) {
 		final boolean lobsExists;
 		if (lobs == null) {
 			lobsExists = false;
@@ -319,7 +318,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	}
 
 	@Override
-	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
+	public boolean getStatement(OraCdcStatementBase oraSql) {
 		boolean result = false;
 		do {
 			result = tailer.readDocument(oraSql);
@@ -336,7 +335,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		return result;
 	}
 
-	public boolean getStatement(OraCdcLogMinerStatement oraSql, List<OraCdcLargeObjectHolder> lobs) {
+	public boolean getStatement(OraCdcStatementBase oraSql, List<OraCdcLargeObjectHolder> lobs) {
 		boolean result = getStatement(oraSql);
 		if (result) {
 			for (int i = 0; i < oraSql.getLobCount(); i++) {

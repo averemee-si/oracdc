@@ -55,7 +55,7 @@ import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static solutions.a2.cdc.oracle.OraCdcLogMinerStatement.APPROXIMATE_SIZE;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.APPROXIMATE_SIZE;
 
 /**
  * 

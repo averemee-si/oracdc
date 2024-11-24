@@ -32,7 +32,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
 
-	private final List<OraCdcLogMinerStatement> statements;
+	private final List<OraCdcStatementBase> statements;
 	private long nextChange;
 	private int queueSize;
 	private int tailerOffset;
@@ -59,7 +59,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 	 * @param xid
 	 * @param firstStatement
 	 */
-	public OraCdcTransactionArrayList(final String xid, final OraCdcLogMinerStatement firstStatement) {
+	public OraCdcTransactionArrayList(final String xid, final OraCdcStatementBase firstStatement) {
 		this(xid);
 		this.addStatement(firstStatement);
 	}
@@ -70,7 +70,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 			printPartialRollbackEntryDebug(pre);
 			boolean pairFound = false;
 			for (int i = (int) pre.index; i > -1; i--) {
-				final OraCdcLogMinerStatement lmStmt = statements.get(i);
+				final OraCdcStatementBase lmStmt = statements.get(i);
 				if (!lmStmt.isRollback() &&
 					lmStmt.getTableId() == pre.tableId &&
 					((pre.operation == OraCdcV$LogmnrContents.DELETE &&
@@ -107,7 +107,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 	}
 
 	@Override
-	public void addStatement(final OraCdcLogMinerStatement oraSql) {
+	public void addStatement(final OraCdcStatementBase oraSql) {
 		checkForRollback(oraSql, statements.size() - 1);
 
 		statements.add(oraSql);
@@ -117,9 +117,9 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 	}
 
 	@Override
-	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
+	public boolean getStatement(OraCdcStatementBase oraSql) {
 		while (tailerOffset < statements.size()) {
-			final OraCdcLogMinerStatement fromQueue = statements.get(tailerOffset++);
+			final OraCdcStatementBase fromQueue = statements.get(tailerOffset++);
 			if (!willItRolledBack(fromQueue)) {
 				fromQueue.clone(oraSql);
 				return true;
