@@ -20,6 +20,8 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 
+import java.util.Arrays;
+
 /**
  * Minimlistic presentation of V$LOGMNR_CONTENTS row for OPERATION_CODE = 1|2|3
  * 
@@ -57,9 +59,12 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 	@Override
 	public String getSqlRedo() {
 		final StringBuilder sql = new StringBuilder(APPROXIMATE_SIZE);
+		boolean first;
 		final int objId = (int) tableId;
 		if (operation == INSERT || operation == DELETE) {
-			final short colCount = (short) (redoData[0] << 8 | (redoData[1] & 0xFF));
+			final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
+			final int[][] colDefs = new int[colCount][3];
+			readAndSortColDefs(colDefs, Short.BYTES);
 			sql
 				.append(operation == INSERT ?
 							"insert into" :
@@ -69,8 +74,8 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 				.append('"');
 			if (operation == INSERT) {
 				sql.append('(');
-				boolean first = true;
-				for (int col = 1; col <= colCount; col++) {
+				first = true;
+				for (int i = 0; i < colCount; i++) {
 					if (first) {
 						first = false;
 					} else {
@@ -78,36 +83,28 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 					}
 					sql
 						.append("\"COL ")
-						.append(col)
+						.append(colDefs[i][0])
 						.append('"');
 				}
 				sql.append(") values(");
 			} else {
 				sql.append(" where ");
 			}
-			int pos = Short.BYTES;
-			boolean first = true;
-			for (int col = 1; col <= colCount; col++) {
-				boolean isNull = false;
+			first = true;
+			for (int i = 0; i < colCount; i++) {
 				if (first) {
 					first = false;
 				} else {
 					sql.append(operation == INSERT ? "," : " and ");
 				}
-				int colSize = Byte.toUnsignedInt(redoData[pos++]);
-				if (colSize ==  0xFE) {
-					colSize = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
-				} else if (colSize == 0xFF) {
-					colSize = 0;
-					isNull = true;
-				}
+				final int colSize = colDefs[i][1];
 				if (operation == DELETE) {
 					sql
 						.append("\"COL ")
-						.append(col)
+						.append(colDefs[i][0])
 						.append("\"");
 				}
-				if (isNull) {
+				if (colSize < 0) {
 					if (operation == DELETE) {
 						sql.append(" IS ");
 					}
@@ -117,8 +114,8 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 						sql.append(" = ");
 					}
 					sql.append('\'');
-					for (int i = 0; i < colSize; i++) {
-						sql.append(String.format("%02x", redoData[pos++]));
+					for (int j = 0; j < colSize; j++) {
+						sql.append(String.format("%02x", redoData[colDefs[i][2] + j]));
 					}
 					sql.append('\'');
 				}
@@ -127,71 +124,60 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 				sql.append(')');
 			}
 		} else if (operation == UPDATE) {
-			boolean first;
-			final short setColCount = (short) (redoData[0] << 8 | (redoData[1] & 0xFF));
+			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
+			final int[][] setColDefs = new int[setColCount][3];
+			int pos = readAndSortColDefs(setColDefs, Short.BYTES);
+			
 			sql
 				.append("update \"UNKNOWN\".\"OBJ# ")
 				.append(objId)
 				.append("\" set ");
 			first = true;
-			int pos = Short.BYTES;
-			for (int col = 1; col <= setColCount; col++) {
-				boolean isNull = false;
+			for (int i = 0; i < setColCount; i++) {
 				if (first) {
 					first = false;
 				} else {
 					sql.append(", ");
 				}
-				final int colNum = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
-				int colSize = Byte.toUnsignedInt(redoData[pos++]);
-				if (colSize ==  0xFE) {
-					colSize = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
-				} else if (colSize == 0xFF) {
-					colSize = 0;
-					isNull = true;
-				}
+				final int colSize = setColDefs[i][1];
 				sql
 					.append("\"COL ")
-					.append(colNum)
+					.append(setColDefs[i][0])
 					.append("\" = ");
-				if (isNull) {
+				if (colSize < 0) {
 					sql.append("NULL");
 				} else {
 					sql.append('\'');
-					for (int i = 0; i < colSize; i++) {
-						sql.append(String.format("%02x", redoData[pos++]));
+					for (int j = 0; j < colSize; j++) {
+						sql.append(String.format("%02x", redoData[setColDefs[i][2] + j]));
 					}
 					sql.append('\'');
 				}				
 			}
+	
 			sql.append(" where ");
-			final short whereColCount = (short) (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
+			final int whereColCount = redoData[pos++] << 8 | (redoData[pos++] & 0xFF);
+			final int[][] whereColDefs = new int[whereColCount][3];
+			readAndSortColDefs(whereColDefs, pos);
+			
 			first = true;
-			for (int col = 1; col <= whereColCount; col++) {
-				boolean isNull = false;
+			for (int i = 0; i < whereColCount; i++) {
 				if (first) {
 					first = false;
 				} else {
 					sql.append(" and ");
 				}
-				final int colNum = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
-				int colSize = Byte.toUnsignedInt(redoData[pos++]);
-				if (colSize ==  0xFE) {
-					colSize = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
-				} else if (colSize == 0xFF) {
-					colSize = 0;
-					isNull = true;
-				}
+				final int colSize = whereColDefs[i][1];
 				sql
 					.append("\"COL ")
-					.append(colNum)
+					.append(whereColDefs[i][0])
 					.append('"');		
-				if (isNull) {
+				if (colSize < 0) {
 					sql.append(" IS NULL");
 				} else {
 					sql.append(" = '");
-					for (int i = 0; i < colSize; i++) {
-						sql.append(String.format("%02x", redoData[pos++]));
+					for (int j = 0; j < colSize; j++) {
+						sql.append(String.format("%02x", redoData[whereColDefs[i][2] + j]));
 					}
 					sql.append('\'');
 				}
@@ -200,6 +186,27 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 			sql.append("TODO!\nNot implemented yet!!!\nTODO!");
 		}
 		return sql.toString();
+	}
+
+	private int readAndSortColDefs(final int[][] colDefs, int pos) {
+		final int colCount = colDefs.length;
+		for (int i = 0; i < colCount; i++) {
+			colDefs[i][0] = redoData[pos++] << 8 | redoData[pos++] & 0xFF;
+			int colSize = Byte.toUnsignedInt(redoData[pos++]);
+			if (colSize ==  0xFE) {
+				colSize = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
+			} else if (colSize == 0xFF) {
+				colSize = -1;
+			}
+			colDefs[i][1] = colSize;
+			colDefs[i][2] = pos;
+			if (colSize > 0) {
+				pos += colSize;
+			}
+		}
+		pos = colDefs[colCount - 1][2] + colDefs[colCount - 1][1]; 
+		Arrays.sort(colDefs, (a, b) -> Integer.compare(a[0], b[0]));
+		return pos;
 	}
 
 	@Override
