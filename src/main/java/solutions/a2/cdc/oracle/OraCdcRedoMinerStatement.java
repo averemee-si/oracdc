@@ -154,32 +154,34 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 					sql.append('\'');
 				}				
 			}
-	
-			sql.append(" where ");
+
 			final int whereColCount = redoData[pos++] << 8 | (redoData[pos++] & 0xFF);
-			final int[][] whereColDefs = new int[whereColCount][3];
-			readAndSortColDefs(whereColDefs, pos);
-			
-			first = true;
-			for (int i = 0; i < whereColCount; i++) {
-				if (first) {
-					first = false;
-				} else {
-					sql.append(" and ");
-				}
-				final int colSize = whereColDefs[i][1];
-				sql
-					.append("\"COL ")
-					.append(whereColDefs[i][0])
-					.append('"');		
-				if (colSize < 0) {
-					sql.append(" IS NULL");
-				} else {
-					sql.append(" = '");
-					for (int j = 0; j < colSize; j++) {
-						sql.append(String.format("%02x", redoData[whereColDefs[i][2] + j]));
+			if (whereColCount > 0) {
+				sql.append(" where ");
+				final int[][] whereColDefs = new int[whereColCount][3];
+				readAndSortColDefs(whereColDefs, pos);
+				
+				first = true;
+				for (int i = 0; i < whereColCount; i++) {
+					if (first) {
+						first = false;
+					} else {
+						sql.append(" and ");
 					}
-					sql.append('\'');
+					final int colSize = whereColDefs[i][1];
+					sql
+						.append("\"COL ")
+						.append(whereColDefs[i][0])
+						.append('"');		
+					if (colSize < 0) {
+						sql.append(" IS NULL");
+					} else {
+						sql.append(" = '");
+						for (int j = 0; j < colSize; j++) {
+							sql.append(String.format("%02x", redoData[whereColDefs[i][2] + j]));
+						}
+						sql.append('\'');
+					}
 				}
 			}
 		} else {
