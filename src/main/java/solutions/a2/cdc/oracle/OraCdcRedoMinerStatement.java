@@ -62,66 +62,73 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 		boolean first;
 		final int objId = (int) tableId;
 		if (operation == INSERT || operation == DELETE) {
-			final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
-			final int[][] colDefs = new int[colCount][3];
-			readAndSortColDefs(colDefs, Short.BYTES);
 			sql
 				.append(operation == INSERT ?
-							"insert into" :
-							"delete from")
+						"insert into" :
+						"delete from")
 				.append(" \"UNKNOWN\".\"OBJ# ")
 				.append(objId)
 				.append('"');
-			if (operation == INSERT) {
-				sql.append('(');
+			if (operation == DELETE && rollback) {
+				sql
+					.append(" where ROWID = '")
+					.append(rowId)
+					.append('\'');
+			} else {
+				final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
+				final int[][] colDefs = new int[colCount][3];
+				readAndSortColDefs(colDefs, Short.BYTES);
+				if (operation == INSERT) {
+					sql.append('(');
+					first = true;
+					for (int i = 0; i < colCount; i++) {
+						if (first) {
+							first = false;
+						} else {
+							sql.append(',');
+						}
+						sql
+							.append("\"COL ")
+							.append(colDefs[i][0])
+							.append('"');
+					}
+					sql.append(") values(");
+				} else {
+					sql.append(" where ");
+				}
 				first = true;
 				for (int i = 0; i < colCount; i++) {
 					if (first) {
 						first = false;
 					} else {
-						sql.append(',');
+						sql.append(operation == INSERT ? "," : " and ");
 					}
-					sql
-						.append("\"COL ")
-						.append(colDefs[i][0])
-						.append('"');
-				}
-				sql.append(") values(");
-			} else {
-				sql.append(" where ");
-			}
-			first = true;
-			for (int i = 0; i < colCount; i++) {
-				if (first) {
-					first = false;
-				} else {
-					sql.append(operation == INSERT ? "," : " and ");
-				}
-				final int colSize = colDefs[i][1];
-				if (operation == DELETE) {
-					sql
-						.append("\"COL ")
-						.append(colDefs[i][0])
-						.append("\"");
-				}
-				if (colSize < 0) {
+					final int colSize = colDefs[i][1];
 					if (operation == DELETE) {
-						sql.append(" IS ");
+						sql
+							.append("\"COL ")
+							.append(colDefs[i][0])
+							.append("\"");
 					}
-					sql.append("NULL");
-				} else {
-					if (operation == DELETE) {
-						sql.append(" = ");
+					if (colSize < 0) {
+						if (operation == DELETE) {
+							sql.append(" IS ");
+						}
+						sql.append("NULL");
+					} else {
+						if (operation == DELETE) {
+							sql.append(" = ");
+						}
+						sql.append('\'');
+						for (int j = 0; j < colSize; j++) {
+							sql.append(String.format("%02x", redoData[colDefs[i][2] + j]));
+						}
+						sql.append('\'');
 					}
-					sql.append('\'');
-					for (int j = 0; j < colSize; j++) {
-						sql.append(String.format("%02x", redoData[colDefs[i][2] + j]));
-					}
-					sql.append('\'');
 				}
-			}
-			if (operation == INSERT) {
-				sql.append(')');
+				if (operation == INSERT) {
+					sql.append(')');
+				}
 			}
 		} else if (operation == UPDATE) {
 			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
