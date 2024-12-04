@@ -469,7 +469,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											"and make sure that the necessary archive logs are available.\n\n" +
 											"If you have questions or need more information, please write to us at oracle@a2-solutions.eu\n\n" +
 											"\n=====================\n",
-											xid, operation, lastScn, lastRsId, lastSsn, xid,
+											xid, operation, lastScn, lastRsId, lastSsn,
 											logMiner.getFirstChange(), logMiner.getNextChange());
 								}
 							}
