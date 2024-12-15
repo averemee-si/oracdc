@@ -213,9 +213,9 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 				pos += colSize;
 			}
 		}
-		Arrays.sort(colDefs, (a, b) -> Integer.compare(a[0], b[0]));
 		pos = colDefs[colCount - 1][2] + 
 				(colDefs[colCount - 1][1] > 0 ? colDefs[colCount - 1][1] : 0);
+		Arrays.sort(colDefs, (a, b) -> Integer.compare(a[0], b[0]));
 		return pos;
 	}
 
