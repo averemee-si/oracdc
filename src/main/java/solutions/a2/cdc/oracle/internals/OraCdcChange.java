@@ -82,7 +82,7 @@ public class OraCdcChange {
 	public static final short _11_6_ORP = 0x0B06;
 	/** KDOCFA: Change Forwarding address */
 	public static final short _11_8_CFA = 0x0B08;
-	/** KDOSKL: Set Key Links - Change the forward & backward key links on a cluster key */
+	/** KDOSKL: Set Key Links - Change the forward and backward key links on a cluster key */
 	public static final short _11_10_SKL = 0x0B0A;
 	/** KDOQMI: Quick Multi-Insert */
 	public static final short _11_11_QMI = 0x0B0B;
