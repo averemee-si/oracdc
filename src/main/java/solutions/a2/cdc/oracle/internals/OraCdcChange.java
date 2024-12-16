@@ -958,7 +958,7 @@ public class OraCdcChange {
 		return sb.toString();
 	}
 
-	String binaryDump() {
+	public String binaryDump() {
 		final StringBuilder sb = new StringBuilder(record.length * Integer.BYTES);
 		for (int i = 0; i < coords.length; i++) {
 			sb
@@ -981,4 +981,11 @@ public class OraCdcChange {
 		return toDumpFormat().toString();
 	}
 
+	public short num() {
+		return num;
+	}
+
+	public int obj() {
+		return obj;
+	}
 }

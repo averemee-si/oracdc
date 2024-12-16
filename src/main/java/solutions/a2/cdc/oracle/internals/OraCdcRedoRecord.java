@@ -235,70 +235,74 @@ public class OraCdcRedoRecord {
 		}
 	}
 
-	final List<OraCdcChange> changeVectors() {
+	public final List<OraCdcChange> changeVectors() {
 		return changeVectors;
 	}
 
-	boolean has5_1() {
+	public RedoByteAddress rba() {
+		return rba;
+	}
+
+	public boolean has5_1() {
 		return indKTURDB > -1;
 	}
 
-	OraCdcChangeUndoBlock change5_1() {
+	public OraCdcChangeUndoBlock change5_1() {
 		if (has5_1())
 			return (OraCdcChangeUndoBlock) changeVectors.get(indKTURDB);
 		else
 			return null;
 	}
 
-	boolean has5_4() {
+	public boolean has5_4() {
 		return indKTURCM > -1;
 	}
 
-	OraCdcChangeRcm change5_4() {
+	public OraCdcChangeRcm change5_4() {
 		if (has5_4())
 			return (OraCdcChangeRcm) changeVectors.get(indKTURCM);
 		else
 			return null;
 	}
 
-	boolean has11_x() {
+	public boolean has11_x() {
 		return indKCOCODRW > -1;
 	}
 
-	OraCdcChangeRowOp change11_x() {
+	public OraCdcChangeRowOp change11_x() {
 		if (has11_x())
 			return (OraCdcChangeRowOp) changeVectors.get(indKCOCODRW);
 		else
 			return null;
 	}
 
-	boolean hasDdl() {
+	public boolean hasDdl() {
 		return indDDL > -1;
 	}
 
-	OraCdcChangeDdl changeDdl() {
+	public OraCdcChangeDdl changeDdl() {
 		if (hasDdl())
 			return (OraCdcChangeDdl) changeVectors.get(indDDL);
 		else
 			return null;
 	}
 
-	boolean hasAudit() {
+	public boolean hasAudit() {
 		return indKTUTSL > -1;
 	}
 
-	OraCdcChangeAudit changeAudit() {
+	public OraCdcChangeAudit changeAudit() {
 		if (hasAudit())
 			return (OraCdcChangeAudit) changeVectors.get(indKTUTSL);
 		else
 			return null;
 	}
 
-	boolean hasPrb() {
+	public boolean hasPrb() {
 		return indKTUIRB > -1;
 	}
 
-	OraCdcChangeUndo changePrb() {
+	public OraCdcChangeUndo changePrb() {
 		if (hasPrb())
 			return (OraCdcChangeUndo) changeVectors.get(indKTUIRB);
 		else
@@ -358,10 +362,6 @@ public class OraCdcRedoRecord {
 
 	boolean eligible() {
 		return eligible;
-	}
-
-	RedoByteAddress rba() {
-		return rba;
 	}
 
 	long scn() {
