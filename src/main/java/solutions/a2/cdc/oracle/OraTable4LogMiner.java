@@ -155,7 +155,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final Map<String, String> sourcePartition,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection,
 			final OraCdcPseudoColumnsProcessor pseudoColumns) {
-		this(pdbName, tableOwner, tableName, config.getSchemaType(), processLobs, transformLobs);
+		this(pdbName, tableOwner, tableName, config.schemaType(), processLobs, transformLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(config, odd, sourcePartition);
 		this.tableWithPk = true;

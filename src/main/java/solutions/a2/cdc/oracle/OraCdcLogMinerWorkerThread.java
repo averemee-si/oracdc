@@ -161,7 +161,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.metrics = metrics;
 		this.processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
 		this.transformLobs = transformLobs;
-		this.pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
+		this.pollInterval = config.pollIntervalMs();
 		this.connectionRetryBackoff = config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM);
 		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
 		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);

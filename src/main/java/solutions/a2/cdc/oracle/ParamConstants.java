@@ -20,24 +20,11 @@ package solutions.a2.cdc.oracle;
  */
 public class ParamConstants {
 
-	public static final String CONNECTION_WALLET_PARAM = "a2.wallet.location";
-	public static final String CONNECTION_WALLET_DOC = "Location of Oracle Wallet. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
-
 	public static final String CONNECTION_TNS_ADMIN_PARAM = "a2.tns.admin";
 	public static final String CONNECTION_TNS_ADMIN_DOC = "Location of tnsnames.ora file. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
 
 	public static final String CONNECTION_TNS_ALIAS_PARAM = "a2.tns.alias";
 	public static final String CONNECTION_TNS_ALIAS_DOC = "Connection TNS alias. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
-
-	public static final String POLL_INTERVAL_MS_PARAM = "a2.poll.interval";
-	public static final String POLL_INTERVAL_MS_DOC = "Frequency in ms to poll for new data in each table";
-	public static final int POLL_INTERVAL_MS_DEFAULT = 1000;
-
-	public static final String TABLE_EXCLUDE_PARAM = "a2.exclude";
-	public static final String TABLE_EXCLUDE_DOC = "List of tables to exclude from processing";
-
-	public static final String TABLE_INCLUDE_PARAM = "a2.include";
-	public static final String TABLE_INCLUDE_DOC = "List of table names to include in processing";
 
 	public static final String LGMNR_START_SCN_PARAM = "a2.first.change";
 	public static final String LGMNR_START_SCN_DOC = "When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set min(FIRST_CHANGE#) from V$ARCHIVED_LOG will used. Overrides SCN value  stored in offset file";
@@ -68,10 +55,6 @@ public class ParamConstants {
 	public static final String INITIAL_LOAD_IGNORE = "IGNORE";
 	public static final String INITIAL_LOAD_EXECUTE = "EXECUTE";
 	public static final String INITIAL_LOAD_COMPLETED = "COMPLETED";
-
-	public static final String KAFKA_TOPIC_PARAM = "a2.kafka.topic";
-	public static final String KAFKA_TOPIC_PARAM_DOC = "Target topic to send data";
-	public static final String KAFKA_TOPIC_PARAM_DEFAULT = "oracdc-topic";
 
 	public static final String TOPIC_PARTITION_PARAM = "a2.topic.partition";
 	public static final String TOPIC_PARTITION_DOC = "Kafka topic partition to write data. Default - 0";

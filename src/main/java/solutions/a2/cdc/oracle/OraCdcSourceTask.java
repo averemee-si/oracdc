@@ -28,12 +28,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.utils.Version;
-import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
+
+import static solutions.a2.kafka.ConnectorParams.BATCH_SIZE_PARAM;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
+
+import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MASTER;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_LOG;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_OWNER;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_ROWID;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_PK;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_SEQUENCE;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraCdcSourceTask extends SourceTask {
@@ -46,7 +55,7 @@ public class OraCdcSourceTask extends SourceTask {
 	private int pollInterval;
 	private int schemaType;
 	private String topic;
-	private OraCdcSourceConnectorConfig config;
+	private OraCdcSourceBaseConfig config;
 
 	@Override
 	public String version() {
@@ -56,33 +65,33 @@ public class OraCdcSourceTask extends SourceTask {
 	@Override
 	public void start(Map<String, String> props) {
 
-		LOGGER.info("Starting oracdc Source Task for {}", props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER));
+		LOGGER.info("Starting oracdc Source Task for {}", props.get(TASK_PARAM_MASTER));
 
 		try {
-			config = new OraCdcSourceConnectorConfig(props);
+			config = new OraCdcSourceBaseConfig(props);
 		} catch (ConfigException ce) {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
-		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
+		batchSize = config.getInt(BATCH_SIZE_PARAM);
 		LOGGER.debug("batchSize = {} records.", batchSize);
-		pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
+		pollInterval = config.pollIntervalMs();
 		LOGGER.debug("pollInterval = {} ms.", pollInterval);
-		schemaType = config.getInt(ConnectorParams.SCHEMA_TYPE_PARAM);
+		schemaType = config.schemaType();
 		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
-		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
-			topic = config.getTopicOrPrefix() + 
-					config.getString(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
+		if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
+			topic = config.topicOrPrefix() + 
+					props.get(TASK_PARAM_MASTER);
 		} else {
 			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-			topic = config.getString(ParamConstants.KAFKA_TOPIC_PARAM);
+			topic = config.kafkaTopic();
 		}
 		LOGGER.debug("topic set to {}.", topic);
 
 		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
 			LOGGER.trace("Checking for stored offset...");
-			final String tableName = config.getString(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
-			final String tableOwner = config.getString(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER); 
+			final String tableName = props.get(TASK_PARAM_MASTER);
+			final String tableOwner = props.get(TASK_PARAM_OWNER); 
 			OraRdbmsInfo rdbmsInfo = new OraRdbmsInfo(connDictionary);
 			LOGGER.trace("Setting source partition name for processing snapshot log");
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName() + ":" +
@@ -101,10 +110,10 @@ public class OraCdcSourceTask extends SourceTask {
 
 			oraTable = new OraTable(
 					tableOwner, tableName,
-					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_LOG),
-					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID)),
-					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK)),
-					"YES".equalsIgnoreCase(props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE)),
+					props.get(TASK_PARAM_MV_LOG),
+					"YES".equalsIgnoreCase(props.get(TASK_PARAM_MV_ROWID)),
+					"YES".equalsIgnoreCase(props.get(TASK_PARAM_MV_PK)),
+					"YES".equalsIgnoreCase(props.get(TASK_PARAM_MV_SEQUENCE)),
 					batchSize, schemaType, partition, offset, rdbmsInfo, config);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get table information.");

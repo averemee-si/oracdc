@@ -326,11 +326,11 @@ public class OraConnectionObjects {
 		connection.close();
 	}
 
-	public static Connection getConnection(OraCdcSourceConnectorConfig config) throws SQLException {
+	public static Connection getConnection(OraCdcSourceBaseConfig config) throws SQLException {
 		final Properties props = new Properties();
-		if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
+		if (StringUtils.isNotBlank(config.walletLocation())) {
 			props.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION,
-					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+					config.getString(config.walletLocation()));
 		} else {
 			props.put(OracleConnection.CONNECTION_PROPERTY_USER_NAME,
 					config.getString(ConnectorParams.CONNECTION_USER_PARAM));

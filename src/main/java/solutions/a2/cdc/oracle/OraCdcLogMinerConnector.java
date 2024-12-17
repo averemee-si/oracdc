@@ -121,7 +121,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM,
 				ParamConstants.DISTRIBUTED_URL_PARAM);
 
-		if (StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
+		if (StringUtils.isBlank(config.walletLocation())) {
 			if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
 						ConnectorParams.CONNECTION_USER_PARAM,
@@ -139,7 +139,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					config.getString(ConnectorParams.CONNECTION_USER_PARAM));
 		} else {
 			LOGGER.info("Connection to RDBMS will be performed using Oracle Wallet '{}'",
-					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+					config.walletLocation());
 		}
 
 		if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
@@ -198,13 +198,6 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 
 		if (config.getLong(ParamConstants.LGMNR_START_SCN_PARAM) < 1) {
 			connectorProperties.remove(ParamConstants.LGMNR_START_SCN_PARAM);
-		}
-
-		if (config.getList(ParamConstants.TABLE_EXCLUDE_PARAM).size() < 1) {
-			connectorProperties.remove(ParamConstants.TABLE_EXCLUDE_PARAM);
-		}
-		if (config.getList(ParamConstants.TABLE_INCLUDE_PARAM).size() < 1) {
-			connectorProperties.remove(ParamConstants.TABLE_INCLUDE_PARAM);
 		}
 
 		if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {

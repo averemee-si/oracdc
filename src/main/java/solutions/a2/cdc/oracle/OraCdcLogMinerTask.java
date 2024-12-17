@@ -25,7 +25,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -158,17 +157,17 @@ public class OraCdcLogMinerTask extends SourceTask {
 			state.set(true);
 		}
 		try {
-			if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
+			if (StringUtils.isNotBlank(config.walletLocation())) {
 				if (useRac) {
 					oraConnections = OraConnectionObjects.get4OraWallet(
 							connectorName,
 							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
-							config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+							config.walletLocation());
 				} else {
 					oraConnections = OraConnectionObjects.get4OraWallet(
 							connectorName,
 							config.getString(ConnectorParams.CONNECTION_URL_PARAM), 
-							config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+							config.walletLocation());
 				}
 			} else if (StringUtils.isNotBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM)) &&
 					StringUtils.isNotBlank(config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
@@ -197,12 +196,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 		}
 
 		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
-		pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
+		pollInterval = config.pollIntervalMs();
 		if (config.useOracdcSchemas()) {
 			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
 		}
 
-		schemaType = config.getSchemaType();
+		schemaType = config.schemaType();
 		useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
@@ -347,16 +346,12 @@ public class OraCdcLogMinerTask extends SourceTask {
 			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, rdbmsInfo.getDbId());
 			partition = Collections.singletonMap(sourcePartitionName, ((Long)rdbmsInfo.getDbId()).toString());
 
-			List<String> excludeList = null;
-			List<String> includeList = null;
-			if (props.containsKey(ParamConstants.TABLE_EXCLUDE_PARAM)) {
-				excludeList =
-						Arrays.asList(props.get(ParamConstants.TABLE_EXCLUDE_PARAM).split("\\s*,\\s*"));
-			}
-			if (props.containsKey(ParamConstants.TABLE_INCLUDE_PARAM)) {
-				includeList =
-						Arrays.asList(props.get(ParamConstants.TABLE_INCLUDE_PARAM).split("\\s*,\\s*"));
-			}
+			List<String> excludeList = config.excludeObj();
+			if (excludeList.size() < 1)
+				excludeList = null;
+			List<String> includeList = config.includeObj();
+			if (includeList.size() < 1)
+				includeList = null;
 			final boolean tableListGenerationStatic;
 			if (StringUtils.equalsIgnoreCase(
 					ParamConstants.TABLE_LIST_STYLE_STATIC, config.getString(ParamConstants.TABLE_LIST_STYLE_PARAM))) {
@@ -530,8 +525,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 						connDictionary, false, tableList);
 					if (StringUtils.contains(objectList, "()")) {
 						// and DATA_OBJ# in ()
-						LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
-							ParamConstants.TABLE_INCLUDE_PARAM, props.get(ParamConstants.TABLE_INCLUDE_PARAM));
+						LOGGER.error("a2.include parameter set to {} but there are no tables matching this condition.\nExiting.",
+								StringUtils.join(config.includeObj(), ","));
 						throw new ConnectException("Please check value of a2.include parameter or remove it from configuration!");
 					}
 					/*
@@ -583,8 +578,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList));
 					if (StringUtils.contains(objectList, "()")) {
 						// and DATA_OBJ# not in ()
-						LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
-								ParamConstants.TABLE_EXCLUDE_PARAM, props.get(ParamConstants.TABLE_EXCLUDE_PARAM));
+						LOGGER.error("a2.exclude parameter set to {} but there are no tables matching this condition.\nExiting.",
+								StringUtils.join(config.excludeObj(), ","));
 						throw new ConnectException("Please check value of a2.exclude parameter or remove it from configuration!");
 					}
 					mineDataSql += objectList + ")";

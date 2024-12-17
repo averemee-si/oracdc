@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -38,7 +37,7 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcSourceConnectorConfig extends AbstractConfig {
+public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnectorConfig.class);
 
@@ -52,15 +51,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public static final int PK_TYPE_INT_WELL_DEFINED = 1;
 	public static final int PK_TYPE_INT_ANY_UNIQUE = 2;
-
-
-	public static final String TASK_PARAM_MASTER = "master";
-	public static final String TASK_PARAM_MV_LOG = "mv.log";
-	public static final String TASK_PARAM_OWNER = "owner";
-	public static final String TASK_PARAM_SCHEMA_TYPE = "schema.type";
-	public static final String TASK_PARAM_MV_ROWID = "mvlog.rowid";
-	public static final String TASK_PARAM_MV_PK = "mvlog.pk";
-	public static final String TASK_PARAM_MV_SEQUENCE = "mvlog.seq";
 
 	private static final String ORACDC_SCHEMAS_PARAM = "a2.oracdc.schemas";
 	private static final String ORACDC_SCHEMAS_DOC = "Use oracdc extensions for Oracle datatypes. Default false";
@@ -221,42 +211,13 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
-	private int schemaType = -1;
 	private int pkType = -1;
 	private String connectorName;
 
 	public static ConfigDef config() {
-		return new ConfigDef()
-				.define(ConnectorParams.CONNECTION_URL_PARAM, Type.STRING, "",
-						Importance.HIGH, ConnectorParams.CONNECTION_URL_DOC)
-				.define(ConnectorParams.CONNECTION_USER_PARAM, Type.STRING, "",
-						Importance.HIGH, ConnectorParams.CONNECTION_USER_DOC)
-				.define(ConnectorParams.CONNECTION_PASSWORD_PARAM, Type.PASSWORD, "",
-						Importance.HIGH, ConnectorParams.CONNECTION_PASSWORD_DOC)
-				.define(ParamConstants.CONNECTION_WALLET_PARAM, Type.STRING, "",
-						Importance.HIGH, ParamConstants.CONNECTION_WALLET_DOC)
-				.define(ParamConstants.KAFKA_TOPIC_PARAM, Type.STRING, ParamConstants.KAFKA_TOPIC_PARAM_DEFAULT,
-						Importance.HIGH, ParamConstants.KAFKA_TOPIC_PARAM_DOC)
-				.define(ParamConstants.POLL_INTERVAL_MS_PARAM, Type.INT, ParamConstants.POLL_INTERVAL_MS_DEFAULT,
-						Importance.LOW, ParamConstants.POLL_INTERVAL_MS_DOC)
-				.define(ConnectorParams.BATCH_SIZE_PARAM, Type.INT,
-						ConnectorParams.BATCH_SIZE_DEFAULT,
-						Importance.LOW, ConnectorParams.BATCH_SIZE_DOC)
-				.define(ConnectorParams.SCHEMA_TYPE_PARAM, Type.STRING,
-						ConnectorParams.SCHEMA_TYPE_KAFKA,
-						ConfigDef.ValidString.in(
-								ConnectorParams.SCHEMA_TYPE_KAFKA,
-								ConnectorParams.SCHEMA_TYPE_SINGLE,
-								ConnectorParams.SCHEMA_TYPE_DEBEZIUM),
-						Importance.LOW, ConnectorParams.SCHEMA_TYPE_DOC)
-				.define(ConnectorParams.TOPIC_PREFIX_PARAM, Type.STRING, "",
-						Importance.MEDIUM, ConnectorParams.TOPIC_PREFIX_DOC)
+		return OraCdcSourceBaseConfig.config()
 				.define(ParamConstants.TOPIC_PARTITION_PARAM, Type.SHORT, (short) 0,
 						Importance.MEDIUM, ParamConstants.TOPIC_PARTITION_DOC)
-				.define(ParamConstants.TABLE_EXCLUDE_PARAM, Type.LIST, "",
-						Importance.MEDIUM, ParamConstants.TABLE_EXCLUDE_DOC)
-				.define(ParamConstants.TABLE_INCLUDE_PARAM, Type.LIST, "",
-						Importance.MEDIUM, ParamConstants.TABLE_INCLUDE_DOC)
 				.define(ParamConstants.LGMNR_START_SCN_PARAM, Type.LONG, 0,
 						Importance.MEDIUM, ParamConstants.LGMNR_START_SCN_DOC)
 				.define(ParamConstants.TEMP_DIR_PARAM, Type.STRING, "",
@@ -450,31 +411,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			}
 		}
 		return topicNameStyle;
-	}
-
-	public int getSchemaType() {
-		if (schemaType == -1) {
-			switch (getString(ConnectorParams.SCHEMA_TYPE_PARAM)) {
-			case ConnectorParams.SCHEMA_TYPE_KAFKA:
-				schemaType = ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
-				break;
-			case ConnectorParams.SCHEMA_TYPE_SINGLE:
-				schemaType = ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
-				break;
-			case ConnectorParams.SCHEMA_TYPE_DEBEZIUM:
-				schemaType = ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
-				break;
-			}
-		}
-		return schemaType;
-	}
-
-	public String getTopicOrPrefix() {
-		if (getSchemaType() != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-			return getString(ConnectorParams.TOPIC_PREFIX_PARAM);
-		} else {
-			return getString(ParamConstants.KAFKA_TOPIC_PARAM);
-		}
 	}
 
 	public int getPkType() {

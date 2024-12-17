@@ -36,8 +36,8 @@ public class OraCdcDefaultTopicNameMapper implements TopicNameMapper {
 
 	@Override
 	public void configure(OraCdcSourceConnectorConfig config) {
-		schemaType = config.getSchemaType();
-		topicParam = config.getTopicOrPrefix();
+		schemaType = config.schemaType();
+		topicParam = config.topicOrPrefix();
 		topicNameStyle = config.getTopicNameStyle();
 		delimiter = config.getTopicNameDelimiter();
 	}
