@@ -214,6 +214,17 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private int pkType = -1;
 	private String connectorName;
 
+	// Redo Miner only!
+	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
+	private static final String REDO_FILE_NAME_CONVERT_DOC =
+			"It converts the filename of a redo log to another path.\n" +
+			"It is specified as a string in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.";
+	private boolean fileNameConversionInited = false;
+	private boolean fileNameConversion = false;
+	private String originalPath;
+	private String anotherPath;
+	
+
 	public static ConfigDef config() {
 		return OraCdcSourceBaseConfig.config()
 				.define(ParamConstants.TOPIC_PARTITION_PARAM, Type.SHORT, (short) 0,
@@ -356,6 +367,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, LAST_SEQ_NOTIFIER_FILE_DOC)
 				.define(KEY_OVERRIDE_PARAM, Type.LIST, "",
 						Importance.MEDIUM, KEY_OVERRIDE_DOC)
+				// Redo Miner only!
+				.define(REDO_FILE_NAME_CONVERT_PARAM, Type.STRING, "",
+						Importance.HIGH, REDO_FILE_NAME_CONVERT_DOC)
 				;
 	}
 
@@ -708,6 +722,23 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		return Map.entry(
 				keyOverrideMap.getOrDefault(fqtn, OraCdcKeyOverrideTypes.NONE),
 				keyOverrideIndexMap.getOrDefault(fqtn, ""));
+	}
+
+	public String convertRedoFileName(final String originalName) {
+		if (!fileNameConversionInited) {
+			final String fileNameConvertParam = getString(REDO_FILE_NAME_CONVERT_PARAM);
+			if (StringUtils.isNotEmpty(fileNameConvertParam) &&
+					StringUtils.contains(fileNameConvertParam, ':')) {
+				originalPath = StringUtils.substringBefore(fileNameConvertParam, ":");
+				anotherPath = StringUtils.substringAfter(fileNameConvertParam, ":");
+			}
+			fileNameConversionInited = true;
+		}
+		if (fileNameConversion) {
+			return StringUtils.replace(originalName, originalPath, anotherPath);
+		} else {
+			return originalName;
+		}
 	}
 
 }
