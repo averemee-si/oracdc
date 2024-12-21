@@ -155,7 +155,7 @@ public class OraCdcChange {
 			"CR"	//Undefined/Unknown
 	};
 
-	static final byte FLG_ROWDEPENDENCIES = 0x40;
+	public static final byte FLG_ROWDEPENDENCIES = 0x40;
 
 	int length;
 	final short operation;
@@ -397,8 +397,8 @@ public class OraCdcChange {
 		}
 	}
 
-	static final int KDO_URP_NULL_POS = 0x1A;
-	static final int KDO_ORP_IRP_NULL_POS = 0x2D;
+	public static final int KDO_URP_NULL_POS = 0x1A;
+	public static final int KDO_ORP_IRP_NULL_POS = 0x2D;
 	private static final int KDO_NCOL_URP_POS = 0x16;
 	private static final int KDO_OPCODE_MIN_LENGTH = 0x10;
 	private static final int KDO_OPCODE_ORP_IRP_MIN_LENGTH = 0x30;
@@ -815,7 +815,7 @@ public class OraCdcChange {
 		}
 	}
 
-	int ncol(final int index) {
+	public int ncol(final int index) {
 		if (((op & 0x1F) | (KCOCODRW << 0x08)) == _11_5_URP) {
 			return Byte.toUnsignedInt(record[coords[index][0] + KDO_NCOL_URP_POS]);
 		} else {
@@ -835,7 +835,7 @@ public class OraCdcChange {
 		}
 	}
 
-	static StringBuilder printFbFlags(final byte rowFb) {
+	public static StringBuilder printFbFlags(final byte rowFb) {
 		final StringBuilder sb = new StringBuilder();
 		sb
 			.append((rowFb & 0x80) != 0 ? 'K' : '-')		// Cluster key
@@ -849,19 +849,19 @@ public class OraCdcChange {
 		return sb;
 	}
 
-	static boolean flgHeadPart(final byte flag) {
+	public static boolean flgHeadPart(final byte flag) {
 		return (flag & 0x20) != 0;
 	}
-	static boolean flgFirstPart(final byte flag) {
+	public static boolean flgFirstPart(final byte flag) {
 		return (flag & 0x08) != 0;
 	}
-	static boolean flgLastPart(final byte flag) {
+	public static boolean flgLastPart(final byte flag) {
 		return (flag & 0x04) != 0;
 	}
-	static boolean flgPrevPart(final byte flag) {
+	public static boolean flgPrevPart(final byte flag) {
 		return (flag & 0x02) != 0;
 	}
-	static boolean flgNextPart(final byte flag) {
+	public static boolean flgNextPart(final byte flag) {
 		return (flag & 0x01) != 0;
 	}
 
@@ -949,7 +949,7 @@ public class OraCdcChange {
 		return sb;
 	}
 
-	static String formatOpCode(final short op) {
+	public static String formatOpCode(final short op) {
 		final StringBuilder sb = new StringBuilder();
 		sb
 			.append(Byte.toUnsignedInt((byte)(op >>> 8)))
@@ -988,4 +988,57 @@ public class OraCdcChange {
 	public int obj() {
 		return obj;
 	}
+
+	public byte fb() {
+		return fb;
+	}
+
+	public short operation() {
+		return operation;
+	}
+
+	public int[][] coords() {
+		return coords;
+	}
+
+	public byte qmRowCount() {
+		return qmRowCount;
+	}
+
+	public byte[] record() {
+		return record;
+	}
+
+	public OraCdcRedoLog redoLog() {
+		return redoLog;
+	}
+
+	public byte op() {
+		return op;
+	}
+
+	public int dataObj() {
+		return dataObj;
+	}
+
+	public int bdba() {
+		return bdba;
+	}
+
+	public short conId() {
+		return conId;
+	}
+
+	public int columnCount() {
+		return columnCount;
+	}
+
+	public int columnCountNn() {
+		return columnCountNn;
+	}
+
+	public byte flags() {
+		return flags;
+	}
+
 }

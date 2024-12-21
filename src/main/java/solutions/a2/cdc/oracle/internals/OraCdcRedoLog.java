@@ -305,11 +305,11 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return recordTimestamp;
 	}
 
-	BinaryUtils bu() {
+	public BinaryUtils bu() {
 		return bu;
 	}
 
-	boolean cdb() {
+	public boolean cdb() {
 		return cdb;
 	}
 
@@ -325,11 +325,11 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return versionMajor;
 	}
 
-	boolean bigScn() {
+	public boolean bigScn() {
 		return bigScn;
 	}
 
-	String fileName() {
+	public String fileName() {
 		return fileName;
 	}
 

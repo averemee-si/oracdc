@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 
 public class OraCdcChangeRowOp extends OraCdcChange {
 
-	static int KDO_POS = 0x1;
+	public static int KDO_POS = 0x1;
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeRowOp.class);
 
 	OraCdcChangeRowOp(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {

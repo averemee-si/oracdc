@@ -31,7 +31,7 @@ import solutions.a2.oracle.internals.Xid;
 
 public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
-	static int KDO_POS = 0x3;
+	public static int KDO_POS = 0x3;
 	static final int SUPPL_LOG_MIN_LENGTH = 0x14;
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndoBlock.class);
 	private static final int KTUDB_MIN_LENGTH = 0x14;
@@ -229,6 +229,30 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	@Override
 	public String toString() {
 		return toDumpFormat().toString();
+	}
+
+	public byte supplementalFb() {
+		return supplementalFb;
+	}
+
+	public int supplementalCcNn() {
+		return supplementalCcNn;
+	}
+
+	public int suppDataStartIndex() {
+		return suppDataStartIndex;
+	}
+
+	public int supplementalCc() {
+		return supplementalCc;
+	}
+
+	public int suppOffsetUndo() {
+		return suppOffsetUndo;
+	}
+
+	public int suppOffsetRedo() {
+		return suppOffsetRedo;
 	}
 
 }

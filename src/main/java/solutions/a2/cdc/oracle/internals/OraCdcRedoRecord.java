@@ -309,7 +309,7 @@ public class OraCdcRedoRecord {
 			return null;
 	}
 
-	Xid xid() {
+	public Xid xid() {
 		if (has5_1()) {
 			return change5_1().xid;
 		} else if (has5_4()) {
@@ -323,7 +323,7 @@ public class OraCdcRedoRecord {
 		}
 	}
 
-	int halfDoneKey() {
+	public int halfDoneKey() {
 		if (has5_1() && has11_x()) {
 			if (change11_x().operation == _11_3_DRP)
 				return Objects.hash(false, _11_3_DRP, change5_1().xid, change11_x().dataObj);
@@ -336,7 +336,7 @@ public class OraCdcRedoRecord {
 		}
 	}
 
-	RowId rowid() {
+	public RowId rowid() {
 		if (has5_1() && has11_x()) {
 			final OraCdcChangeUndoBlock change = (OraCdcChangeUndoBlock) changeVectors.get(indKTURDB);
 			if (change.supplementalSlot > -1)
@@ -364,24 +364,24 @@ public class OraCdcRedoRecord {
 		return eligible;
 	}
 
-	long scn() {
+	public long scn() {
 		return scn;
 	}
 
-	short subScn() {
+	public short subScn() {
 		return subScn;
 	}
 
-	int len() {
+	public int len() {
 		return len;
 	}
 
-	OraCdcRedoLog redoLog() {
+	public OraCdcRedoLog redoLog() {
 		return redoLog;
 	}
 
 	//TODO
-	long unixMillis() {
+	public long unixMillis() {
 		return BinaryUtils.parseTimestamp(ts).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 	}
 
