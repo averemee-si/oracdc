@@ -77,7 +77,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private String stateFileName;
 	private OraRdbmsInfo rdbmsInfo;
 	private OraCdcLogMinerMgmt metrics;
-	private OraDumpDecoder odd;
 	private Map<Long, OraTable4LogMiner> tablesInProcessing;
 	private Set<Long> tablesOutOfScope;
 	private Map<String, OraCdcTransaction> activeTransactions;
@@ -338,7 +337,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 				}
 			}
 
-			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
 			pseudoColumns = new OraCdcPseudoColumnsProcessor(config);
 
@@ -375,7 +373,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 						LOGGER.info("{} table schema definitions loaded from file {}.",
 								tablesInProcessing.size(), schemaFileName);
 						tablesInProcessing.forEach((key, table) -> {
-							table.setTopicDecoderPartition(config, odd, partition);
+							table.setTopicDecoderPartition(config, rdbmsInfo.odd(), partition);
 							metrics.addTableInProcessing(table.fqn());
 						});
 					} catch (IOException ioe) {
@@ -662,7 +660,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 					tablesInProcessing,
 					tablesOutOfScope,
 					topicPartition,
-					odd,
 					queuesRoot,
 					activeTransactions,
 					committedTransactions,
@@ -1087,7 +1084,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							resultSet.getString("OWNER"), tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
 							config, processLobs, transformLobs, isCdb, topicPartition, 
-							odd, partition, rdbmsInfo, connection, pseudoColumns);
+							partition, rdbmsInfo, connection, pseudoColumns);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

@@ -87,6 +87,7 @@ public class OraRdbmsInfo {
 	private final String logMode;
 	private final String controlFileType;
 	private final String openMode;
+	private final OraDumpDecoder odd;
 
 	public final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -313,6 +314,7 @@ public class OraRdbmsInfo {
 		} else {
 			schema = null;
 		}
+		odd = new OraDumpDecoder(dbCharset, dbNCharCharset);
 	}
 
 	public Struct getStruct(final String query, final String pdbName, final String owner,
@@ -979,14 +981,6 @@ public class OraRdbmsInfo {
 		return schema;
 	}
 
-	public String getDbCharset() {
-		return dbCharset;
-	}
-
-	public String getDbNCharCharset() {
-		return dbNCharCharset;
-	}
-
 	public String getDbUniqueName() {
 		return dbUniqueName;
 	}
@@ -1050,6 +1044,10 @@ public class OraRdbmsInfo {
 
 	public String getOpenMode() {
 		return openMode;
+	}
+
+	public OraDumpDecoder odd() {
+		return odd;
 	}
 
 	@Override

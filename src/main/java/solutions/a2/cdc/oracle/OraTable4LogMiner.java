@@ -141,7 +141,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param transformLobs
 	 * @param isCdb
 	 * @param topicPartition
-	 * @param odd
 	 * @param sourcePartition
 	 * @param rdbmsInfo
 	 * @param connection
@@ -151,13 +150,13 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final String tableName, final boolean rowLevelScnDependency,
 			final OraCdcSourceConnectorConfig config,
 			final boolean processLobs, final OraCdcLobTransformationsIntf transformLobs,
-			final boolean isCdb, final int topicPartition, final OraDumpDecoder odd,
+			final boolean isCdb, final int topicPartition,
 			final Map<String, String> sourcePartition,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection,
 			final OraCdcPseudoColumnsProcessor pseudoColumns) {
 		this(pdbName, tableOwner, tableName, config.schemaType(), processLobs, transformLobs);
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
-		setTopicDecoderPartition(config, odd, sourcePartition);
+		setTopicDecoderPartition(config, rdbmsInfo.odd(), sourcePartition);
 		this.tableWithPk = true;
 		this.setRowLevelScn(rowLevelScnDependency);
 		this.rdbmsInfo = rdbmsInfo;

@@ -80,7 +80,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
 	private final Map<Long, Long> partitionsInProcessing;
 	private final Set<Long> tablesOutOfScope;
-	private final OraDumpDecoder odd;
 	private final OraLogMiner logMiner;
 	private Connection connLogMiner;
 	private OraclePreparedStatement psLogMiner;
@@ -132,7 +131,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final Map<Long, OraTable4LogMiner> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final int topicPartition,
-			final OraDumpDecoder odd,
 			final Path queuesRoot,
 			final Map<String, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
@@ -154,7 +152,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.partitionsInProcessing = new HashMap<>();
 		this.tablesOutOfScope = tablesOutOfScope;
 		this.queuesRoot = queuesRoot;
-		this.odd = odd;
 		this.topicPartition = topicPartition;
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
@@ -602,7 +599,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 												config, processLobs,
 												transformLobs, isCdb, topicPartition,
-												odd, partition, rdbmsInfo, connDictionary, pseudoColumns);
+												partition, rdbmsInfo, connDictionary, pseudoColumns);
 											task.putTableAndVersion(combinedDataObjectId, 1);
 
 											if (isPartition) {
