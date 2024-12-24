@@ -209,6 +209,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private Map<String, OraCdcKeyOverrideTypes> keyOverrideMap = null;
 	private Map<String, String> keyOverrideIndexMap = null;
 
+	private static final String PROCESS_LOBS_PARAM = "a2.process.lobs";
+	private static final String PROCESS_LOBS_DOC = "process Oracle LOB columns? Default - false";
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int pkType = -1;
@@ -265,8 +268,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						ConfigDef.ValidString.in(ParamConstants.TABLE_LIST_STYLE_STATIC,
 								ParamConstants.TABLE_LIST_STYLE_DYNAMIC),
 						Importance.LOW, ParamConstants.TABLE_LIST_STYLE_DOC)
-				.define(ParamConstants.PROCESS_LOBS_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.PROCESS_LOBS_DOC)
+				.define(PROCESS_LOBS_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, PROCESS_LOBS_DOC)
 				.define(ParamConstants.CONNECTION_BACKOFF_PARAM, Type.INT, ParamConstants.CONNECTION_BACKOFF_DEFAULT,
 						Importance.LOW, ParamConstants.CONNECTION_BACKOFF_DOC)
 				.define(ParamConstants.ARCHIVED_LOG_CAT_PARAM, Type.STRING, ParamConstants.ARCHIVED_LOG_CAT_DEFAULT,
@@ -722,6 +725,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		return Map.entry(
 				keyOverrideMap.getOrDefault(fqtn, OraCdcKeyOverrideTypes.NONE),
 				keyOverrideIndexMap.getOrDefault(fqtn, ""));
+	}
+
+	public boolean processLobs() {
+		return getBoolean(PROCESS_LOBS_PARAM);
 	}
 
 	public String convertRedoFileName(final String originalName) {

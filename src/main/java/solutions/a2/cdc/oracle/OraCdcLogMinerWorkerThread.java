@@ -156,7 +156,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
-		this.processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
+		this.processLobs = config.processLobs();
 		this.transformLobs = transformLobs;
 		this.pollInterval = config.pollIntervalMs();
 		this.connectionRetryBackoff = config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM);

@@ -204,7 +204,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
-		processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
+		processLobs = config.processLobs();
 		if (processLobs) {
 			if (!useChronicleQueue) {
 				LOGGER.error(
