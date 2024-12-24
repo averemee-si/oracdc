@@ -37,7 +37,6 @@ import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraTable4LogMiner;
-import solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -185,13 +184,11 @@ public class DatabaseObjects implements ActionListener {
 					conId = 0;
 					combinedDataObjectId = dataObjectId;
 				}
-				final boolean processLobs = true;
 				OraTable4LogMiner oraTable = new OraTable4LogMiner(
 						isCdb ? tablePdb : null,
 						isCdb ? (short) conId : -1,
 						tableOwner, tableName, "ENABLED".equalsIgnoreCase(rs.getString("DEPENDENCIES")),
-						config, processLobs, new OraCdcDefaultLobTransformationsImpl(),
-						isCdb, 0, null, null, rdbmsInfo, connection, pseudoColumns);
+						config, isCdb, 0, null, rdbmsInfo, connection, pseudoColumns);
 				return new AbstractMap.SimpleImmutableEntry<Long, OraTable4LogMiner>(combinedDataObjectId, oraTable);
 			} else {
 				throw new SQLException(

@@ -28,6 +28,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
@@ -212,10 +213,15 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String PROCESS_LOBS_PARAM = "a2.process.lobs";
 	private static final String PROCESS_LOBS_DOC = "process Oracle LOB columns? Default - false";
 
+	public static final String LOB_TRANSFORM_CLASS_PARAM = "a2.lob.transformation.class";
+	public static final String LOB_TRANSFORM_CLASS_DOC = "name of class which implements solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf interface. Default - solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation";
+	public static final String LOB_TRANSFORM_CLASS_DEFAULT = "solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl";
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int pkType = -1;
 	private String connectorName;
+	private OraCdcLobTransformationsIntf transformLobsImpl = null;
 
 	// Redo Miner only!
 	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
@@ -288,8 +294,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_HOST_DOC)
 				.define(ParamConstants.DISTRIBUTED_TARGET_PORT, Type.INT, ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT,
 						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_PORT_DOC)
-				.define(ParamConstants.LOB_TRANSFORM_CLASS_PARAM, Type.STRING, ParamConstants.LOB_TRANSFORM_CLASS_DEFAULT,
-						Importance.LOW, ParamConstants.LOB_TRANSFORM_CLASS_DOC)
+				.define(LOB_TRANSFORM_CLASS_PARAM, Type.STRING, LOB_TRANSFORM_CLASS_DEFAULT,
+						Importance.LOW, LOB_TRANSFORM_CLASS_DOC)
 				.define(ParamConstants.USE_RAC_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, ParamConstants.USE_RAC_DOC)
 				.define(PROTOBUF_SCHEMA_NAMING_PARAM, Type.BOOLEAN, false,
@@ -729,6 +735,38 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public boolean processLobs() {
 		return getBoolean(PROCESS_LOBS_PARAM);
+	}
+
+	public OraCdcLobTransformationsIntf transformLobsImpl() {
+		if (transformLobsImpl == null) {
+			final String transformLobsImplClass = getString(LOB_TRANSFORM_CLASS_PARAM);
+			LOGGER.info("oracdc will process Oracle LOBs using {} LOB transformations implementation",
+					transformLobsImplClass);
+			try {
+				final Class<?> classTransformLobs = Class.forName(transformLobsImplClass);
+				final Constructor<?> constructor = classTransformLobs.getConstructor();
+				transformLobsImpl = (OraCdcLobTransformationsIntf) constructor.newInstance();
+			} catch (ClassNotFoundException nfe) {
+				LOGGER.error("ClassNotFoundException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("ClassNotFoundException while instantiating " + transformLobsImplClass, nfe);
+			} catch (NoSuchMethodException nme) {
+				LOGGER.error("NoSuchMethodException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("NoSuchMethodException while instantiating " + transformLobsImplClass, nme);
+			} catch (SecurityException se) {
+				LOGGER.error("SecurityException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("SecurityException while instantiating " + transformLobsImplClass, se);
+			} catch (InvocationTargetException ite) {
+				LOGGER.error("InvocationTargetException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("InvocationTargetException while instantiating " + transformLobsImplClass, ite);
+			} catch (IllegalAccessException iae) {
+				LOGGER.error("IllegalAccessException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("IllegalAccessException while instantiating " + transformLobsImplClass, iae);
+			} catch (InstantiationException ie) {
+				LOGGER.error("InstantiationException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("InstantiationException while instantiating " + transformLobsImplClass, ie);
+			}
+		}
+		return transformLobsImpl;
 	}
 
 	public String convertRedoFileName(final String originalName) {

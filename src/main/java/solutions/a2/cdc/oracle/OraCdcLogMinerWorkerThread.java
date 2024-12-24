@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.CHAR;
-import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
@@ -105,7 +104,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final AtomicBoolean running;
 	private boolean isCdb;
 	private final boolean processLobs;
-	private final OraCdcLobTransformationsIntf transformLobs;
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
@@ -136,7 +134,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcLogMinerMgmt metrics,
 			final OraCdcSourceConnectorConfig config,
-			final OraCdcLobTransformationsIntf transformLobs,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraConnectionObjects oraConnections,
 			final OraCdcPseudoColumnsProcessor pseudoColumns) throws SQLException {
@@ -157,7 +154,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
 		this.processLobs = config.processLobs();
-		this.transformLobs = transformLobs;
 		this.pollInterval = config.pollIntervalMs();
 		this.connectionRetryBackoff = config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM);
 		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
@@ -597,7 +593,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												isCdb ? (short) conId : -1,
 												tableOwner, tableName,
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-												config, transformLobs, isCdb, topicPartition,
+												config, isCdb, topicPartition,
 												partition, rdbmsInfo, connDictionary, pseudoColumns);
 											task.putTableAndVersion(combinedDataObjectId, 1);
 

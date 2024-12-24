@@ -15,8 +15,6 @@ package solutions.a2.cdc.oracle;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.FileSystems;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -47,7 +45,6 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.schema.FileUtils;
@@ -95,7 +92,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private OraTable4InitialLoad table4InitialLoad;
 	private boolean lastRecordInTable = true;
 	private OraCdcInitialLoad initialLoadMetrics;
-	private OraCdcLobTransformationsIntf transformLobs;
 	private String connectorName; 
 	private OraConnectionObjects oraConnections;
 	private Map<String, Object> offset;
@@ -215,32 +211,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 						"and restart connector!!!\n" +
 						"=====================");
 				throw new ConnectException("LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!");
-			}
-			final String transformLobsImplClass = config.getString(ParamConstants.LOB_TRANSFORM_CLASS_PARAM);
-			LOGGER.info("oracdc will process Oracle LOBs using {} LOB transformations implementation",
-					transformLobsImplClass);
-			try {
-				final Class<?> classTransformLobs = Class.forName(transformLobsImplClass);
-				final Constructor<?> constructor = classTransformLobs.getConstructor();
-				transformLobs = (OraCdcLobTransformationsIntf) constructor.newInstance();
-			} catch (ClassNotFoundException nfe) {
-				LOGGER.error("ClassNotFoundException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("ClassNotFoundException while instantiating " + transformLobsImplClass, nfe);
-			} catch (NoSuchMethodException nme) {
-				LOGGER.error("NoSuchMethodException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("NoSuchMethodException while instantiating " + transformLobsImplClass, nme);
-			} catch (SecurityException se) {
-				LOGGER.error("SecurityException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("SecurityException while instantiating " + transformLobsImplClass, se);
-			} catch (InvocationTargetException ite) {
-				LOGGER.error("InvocationTargetException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("InvocationTargetException while instantiating " + transformLobsImplClass, ite);
-			} catch (IllegalAccessException iae) {
-				LOGGER.error("IllegalAccessException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("IllegalAccessException while instantiating " + transformLobsImplClass, iae);
-			} catch (InstantiationException ie) {
-				LOGGER.error("InstantiationException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("InstantiationException while instantiating " + transformLobsImplClass, ie);
 			}
 		}
 		offset = new ConcurrentHashMap<>();
@@ -369,7 +339,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 				if (StringUtils.isNotBlank(schemaFileName)) {
 					try {
 						LOGGER.info("Loading stored schema definitions from file {}.", schemaFileName);
-						tablesInProcessing = FileUtils.readDictionaryFile(schemaFileName, schemaType, transformLobs, rdbmsInfo);
+						tablesInProcessing = FileUtils.readDictionaryFile(
+								schemaFileName, schemaType, config.transformLobsImpl(), rdbmsInfo);
 						LOGGER.info("{} table schema definitions loaded from file {}.",
 								tablesInProcessing.size(), schemaFileName);
 						tablesInProcessing.forEach((key, table) -> {
@@ -665,7 +636,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 					committedTransactions,
 					metrics,
 					config,
-					transformLobs,
 					rdbmsInfo,
 					oraConnections,
 					pseudoColumns);
@@ -1083,7 +1053,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? (short) conId : -1,
 							resultSet.getString("OWNER"), tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
-							config, transformLobs, isCdb, topicPartition, 
+							config, isCdb, topicPartition, 
 							partition, rdbmsInfo, connection, pseudoColumns);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
