@@ -1083,7 +1083,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? (short) conId : -1,
 							resultSet.getString("OWNER"), tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
-							config, processLobs, transformLobs, isCdb, topicPartition, 
+							config, transformLobs, isCdb, topicPartition, 
 							partition, rdbmsInfo, connection, pseudoColumns);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}

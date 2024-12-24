@@ -597,8 +597,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												isCdb ? (short) conId : -1,
 												tableOwner, tableName,
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-												config, processLobs,
-												transformLobs, isCdb, topicPartition,
+												config, transformLobs, isCdb, topicPartition,
 												partition, rdbmsInfo, connDictionary, pseudoColumns);
 											task.putTableAndVersion(combinedDataObjectId, 1);
 
