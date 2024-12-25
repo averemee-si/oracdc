@@ -37,6 +37,9 @@ import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INTERNAL_DG4RAC_THREAD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INTERNAL_RAC_URLS_PARAM;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -323,14 +326,14 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		}
 		if (isRac) {
 			// We need to replace JDBC URL...
-			connectorProperties.put(ParamConstants.INTERNAL_RAC_URLS_PARAM, String.join(",", urls));
+			connectorProperties.put(INTERNAL_RAC_URLS_PARAM, String.join(",", urls));
 			for (int i = 0; i < instances.size(); i++) {
 				configs.add(connectorProperties);
 				LOGGER.info("Done with configuration of task #{} for Oracle RAC instance '{}'",
 						i, instances.get(i));
 			}
 		} else if (isSingleInstDg4Rac) {
-			connectorProperties.put(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, String.join(",", threads));
+			connectorProperties.put(INTERNAL_DG4RAC_THREAD_PARAM, String.join(",", threads));
 			for (int i = 0; i < instances.size(); i++) {
 				configs.add(connectorProperties);
 				LOGGER.info("Done with configuration of task#{} for Oracle Single Instance DataGuard for RAC thread# '{}'",

@@ -17,6 +17,7 @@ import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -233,6 +234,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String MAKE_STANDBY_ACTIVE_PARAM = "a2.standby.activate";
 	private static final String MAKE_STANDBY_ACTIVE_DOC = "Use standby database with V$DATABASE.OPEN_MODE = MOUNTED for LogMiner calls. Default - false"; 
 
+	private static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
+	static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
+	static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
@@ -352,10 +356,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM,
 						Type.BOOLEAN, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
 						Importance.MEDIUM, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DOC)
-				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
-						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
-				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
-						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
+				.define(INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
+						Importance.LOW, INTERNAL_PARAMETER_DOC)
+				.define(INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
+						Importance.LOW, INTERNAL_PARAMETER_DOC)
 				.define(TOPIC_MAPPER_PARAM, Type.STRING,
 						TOPIC_MAPPER_DEFAULT,
 						Importance.LOW, TOPIC_MAPPER_DOC)
@@ -812,6 +816,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public String activateStandbyParamName() {
 		return MAKE_STANDBY_ACTIVE_PARAM;
+	}
+
+	public List<String> racUrls() {
+		return getList(INTERNAL_RAC_URLS_PARAM);
+	}
+
+	public List<String> dg4RacThreads() {
+		return getList(INTERNAL_DG4RAC_THREAD_PARAM);
 	}
 
 	public String convertRedoFileName(final String originalName) {

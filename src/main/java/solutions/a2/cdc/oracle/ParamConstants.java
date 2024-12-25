@@ -126,8 +126,4 @@ public class ParamConstants {
 			"Unix/Linux only, on Windows oracdc creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called.\n" +
 			"Default - Long.MAX_VALUE";
 
-	public static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
-	public static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
-	public static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
-
 }

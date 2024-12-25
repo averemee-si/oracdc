@@ -121,12 +121,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 		final boolean useRac = config.useRac();
 		final boolean useStandby = config.activateStandby();
 		final boolean dg4RacSingleInst = useStandby &&
-				config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM) != null &&
-						config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM).size() > 1;
+				config.dg4RacThreads() != null && config.dg4RacThreads().size() > 1;
 		int threadNo = 1;
 		if (dg4RacSingleInst) {
 			// Single instance DataGuard for RAC
-			final List<String> standbyThreads = config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM);
+			final List<String> standbyThreads = config.dg4RacThreads();
 			while (!state.compareAndSet(true, false)) {
 				try {
 					Thread.sleep(1);
@@ -152,9 +151,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			if (StringUtils.isNotBlank(config.walletLocation())) {
 				if (useRac) {
 					oraConnections = OraConnectionObjects.get4OraWallet(
-							connectorName,
-							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
-							config.walletLocation());
+							connectorName, config.racUrls(), config.walletLocation());
 				} else {
 					oraConnections = OraConnectionObjects.get4OraWallet(
 							connectorName,
@@ -166,7 +163,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				if (useRac) {
 					oraConnections = OraConnectionObjects.get4UserPassword(
 							connectorName,
-							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
+							config.racUrls(),
 							config.getString(ConnectorParams.CONNECTION_USER_PARAM),
 							config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());					
 				} else {
