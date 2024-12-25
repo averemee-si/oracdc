@@ -32,9 +32,6 @@ public class ParamConstants {
 	public static final String TEMP_DIR_PARAM = "a2.tmpdir";
 	public static final String TEMP_DIR_DOC = "Temporary directory for non-heap storage. When not set, OS temp directory used"; 
 
-	public static final String MAKE_STANDBY_ACTIVE_PARAM = "a2.standby.activate";
-	public static final String MAKE_STANDBY_ACTIVE_DOC = "Use standby database with V$DATABASE.OPEN_MODE = MOUNTED for LogMiner calls. Default - false"; 
-
 	public static final String STANDBY_WALLET_PARAM = "a2.standby.wallet.location";
 	public static final String STANDBY_WALLET_DOC = "Location of Oracle Wallet for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
 

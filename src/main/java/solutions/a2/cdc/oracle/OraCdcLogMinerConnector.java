@@ -142,22 +142,22 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 					config.walletLocation());
 		}
 
-		if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
+		if (config.activateStandby()) {
 			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_URL_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.STANDBY_URL_PARAM,
-						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
+						config.activateStandbyParamName());
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
 						ParamConstants.STANDBY_WALLET_PARAM,
-						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
+						config.activateStandbyParamName());
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
 				LOGGER.warn("When the '{}' parameter is set to true, the '{}' parameter must be set to false!",
-						ParamConstants.MAKE_STANDBY_ACTIVE_PARAM,
+						config.activateStandbyParamName(),
 						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
 			}
 		}
@@ -277,7 +277,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 				throw new ConnectException(sqle);
 			}
-		} else if (config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)) {
+		} else if (config.activateStandby()) {
 			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getStandbyConnection(
 					config.getString(ParamConstants.STANDBY_URL_PARAM),
 					config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {

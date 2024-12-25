@@ -78,7 +78,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
 		this.rdbmsInfo = rdbmsInfo;
-		this.useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)  ||
+		this.useStandby = config.activateStandby()  ||
 							rdbmsInfo.isStandby();
 		this.stopOnOra1284 = config.stopOnOra1284();
 		this.connectorName = config.getConnectorName();

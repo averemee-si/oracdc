@@ -230,6 +230,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			"If oracdc is connected to Oracle RAC additional checks are performed and oracdc starts a separate task for each redo thread/RAC instance. " +
 			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
 	
+	private static final String MAKE_STANDBY_ACTIVE_PARAM = "a2.standby.activate";
+	private static final String MAKE_STANDBY_ACTIVE_DOC = "Use standby database with V$DATABASE.OPEN_MODE = MOUNTED for LogMiner calls. Default - false"; 
+
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
@@ -257,8 +260,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.MEDIUM, ParamConstants.LGMNR_START_SCN_DOC)
 				.define(ParamConstants.TEMP_DIR_PARAM, Type.STRING, "",
 						Importance.HIGH, ParamConstants.TEMP_DIR_DOC)
-				.define(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.MAKE_STANDBY_ACTIVE_DOC)
+				.define(MAKE_STANDBY_ACTIVE_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, MAKE_STANDBY_ACTIVE_DOC)
 				.define(ParamConstants.STANDBY_WALLET_PARAM, Type.STRING, "",
 						Importance.LOW, ParamConstants.STANDBY_WALLET_DOC)
 				.define(ParamConstants.STANDBY_URL_PARAM, Type.STRING, "",
@@ -801,6 +804,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public String useRacParamName() {
 		return USE_RAC_PARAM;
+	}
+
+	public boolean activateStandby() {
+		return getBoolean(MAKE_STANDBY_ACTIVE_PARAM);
+	}
+
+	public String activateStandbyParamName() {
+		return MAKE_STANDBY_ACTIVE_PARAM;
 	}
 
 	public String convertRedoFileName(final String originalName) {
