@@ -250,7 +250,7 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 		List<String> threads = null;
 		boolean isRac = false;
 		boolean isSingleInstDg4Rac = false;
-		if (config.getBoolean(ParamConstants.USE_RAC_PARAM)) {
+		if (config.useRac()) {
 			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getConnection(config)) {
 				instances = OraRdbmsInfo.getInstances(connection);
 				if (instances.size() > 0) {
@@ -268,10 +268,10 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 							instances);
 				} else {
 					LOGGER.warn("Parameter '{}' is set to 'true', but no Oracle RAC is detected!",
-							ParamConstants.USE_RAC_PARAM);
+							config.useRacParamName());
 					LOGGER.warn("Connector continues operations with parameter '{}'='false'",
-							ParamConstants.USE_RAC_PARAM);
-					connectorProperties.put(ParamConstants.USE_RAC_PARAM, Boolean.FALSE.toString());
+							config.useRacParamName());
+					connectorProperties.put(config.useRacParamName(), Boolean.FALSE.toString());
 				}
 			} catch (SQLException sqle) {
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));

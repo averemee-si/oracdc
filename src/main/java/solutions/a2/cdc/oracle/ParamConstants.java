@@ -97,14 +97,6 @@ public class ParamConstants {
 	public static final String DISTRIBUTED_TARGET_PORT_DOC = "port number on which shipping agent listens for requests";
 	public static final int DISTRIBUTED_TARGET_PORT_DEFAULT = 21521;
 
-	public static final String USE_RAC_PARAM = "a2.use.rac";
-	public static final String USE_RAC_DOC = 
-			"Default - false.\n" +
-			"When set to true oracdc first tried to detect is this connection to Oracle RAC.\n" + 
-			"If database is not RAC, only the warning message is printed.\n" + 
-			"If oracdc is connected to Oracle RAC additional checks are performed and oracdc starts a separate task for each redo thread/RAC instance. " +
-			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
-	
 	public static final String ORA_TRANSACTION_IMPL_PARAM = "a2.transaction.implementation";
 	public static final String ORA_TRANSACTION_IMPL_DOC = 
 			"Queue implementation for processing SQL statements within transactions.\n" +

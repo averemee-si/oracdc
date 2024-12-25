@@ -118,7 +118,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 		}
 		// pass connectorName to config container
 		config.setConnectorName(connectorName);
-		final boolean useRac = config.getBoolean(ParamConstants.USE_RAC_PARAM);
+		final boolean useRac = config.useRac();
 		final boolean useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
 		final boolean dg4RacSingleInst = useStandby &&
 				config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM) != null &&

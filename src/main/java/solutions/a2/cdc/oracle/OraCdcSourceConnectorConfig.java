@@ -222,6 +222,15 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String CONNECTION_BACKOFF_DOC = "backoff time in milliseconds between reconnectoion attempts. Default - " +
 														CONNECTION_BACKOFF_DEFAULT;
 
+	private static final String USE_RAC_PARAM = "a2.use.rac";
+	private static final String USE_RAC_DOC = 
+			"Default - false.\n" +
+			"When set to true oracdc first tried to detect is this connection to Oracle RAC.\n" + 
+			"If database is not RAC, only the warning message is printed.\n" + 
+			"If oracdc is connected to Oracle RAC additional checks are performed and oracdc starts a separate task for each redo thread/RAC instance. " +
+			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
+	
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int pkType = -1;
@@ -302,8 +311,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_PORT_DOC)
 				.define(LOB_TRANSFORM_CLASS_PARAM, Type.STRING, LOB_TRANSFORM_CLASS_DEFAULT,
 						Importance.LOW, LOB_TRANSFORM_CLASS_DOC)
-				.define(ParamConstants.USE_RAC_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.USE_RAC_DOC)
+				.define(USE_RAC_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, USE_RAC_DOC)
 				.define(PROTOBUF_SCHEMA_NAMING_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, PROTOBUF_SCHEMA_NAMING_DOC)
 				.define(ParamConstants.ORA_TRANSACTION_IMPL_PARAM, Type.STRING,
@@ -784,6 +793,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			pseudoColumns = new OraCdcPseudoColumnsProcessor(this);
 		}
 		return pseudoColumns;
+	}
+
+	public boolean useRac() {
+		return getBoolean(USE_RAC_PARAM);
+	}
+
+	public String useRacParamName() {
+		return USE_RAC_PARAM;
 	}
 
 	public String convertRedoFileName(final String originalName) {
