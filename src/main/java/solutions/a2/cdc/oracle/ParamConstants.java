@@ -64,10 +64,6 @@ public class ParamConstants {
 	public static final String TABLE_LIST_STYLE_STATIC = "static";
 	public static final String TABLE_LIST_STYLE_DYNAMIC = "dynamic";
 
-	public static final String CONNECTION_BACKOFF_PARAM = "a2.connection.backoff";
-	public static final String CONNECTION_BACKOFF_DOC = "backoff time in milliseconds between reconnectoion attempts. Default - 30000ms";
-	public static final int CONNECTION_BACKOFF_DEFAULT = 30000;
-
 	public static final String ARCHIVED_LOG_CAT_PARAM = "a2.archived.log.catalog";
 	public static final String ARCHIVED_LOG_CAT_DOC = "name of class which implements solutions.a2.cdc.oracle.OraLogMiner interface. Default - solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl which reads archived log information from V$ARCHIVED_LOG fixed view";
 	public static final String ARCHIVED_LOG_CAT_DEFAULT = "solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl";

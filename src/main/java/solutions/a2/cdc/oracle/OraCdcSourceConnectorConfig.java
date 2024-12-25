@@ -213,9 +213,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String PROCESS_LOBS_PARAM = "a2.process.lobs";
 	private static final String PROCESS_LOBS_DOC = "process Oracle LOB columns? Default - false";
 
-	public static final String LOB_TRANSFORM_CLASS_PARAM = "a2.lob.transformation.class";
-	public static final String LOB_TRANSFORM_CLASS_DOC = "name of class which implements solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf interface. Default - solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation";
-	public static final String LOB_TRANSFORM_CLASS_DEFAULT = "solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl";
+	private static final String LOB_TRANSFORM_CLASS_PARAM = "a2.lob.transformation.class";
+	private static final String LOB_TRANSFORM_CLASS_DOC = "name of class which implements solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf interface. Default - solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation";
+	private static final String LOB_TRANSFORM_CLASS_DEFAULT = "solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl";
+
+	private static final String CONNECTION_BACKOFF_PARAM = "a2.connection.backoff";
+	private static final int CONNECTION_BACKOFF_DEFAULT = 30000;
+	private static final String CONNECTION_BACKOFF_DOC = "backoff time in milliseconds between reconnectoion attempts. Default - " +
+														CONNECTION_BACKOFF_DEFAULT;
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
@@ -276,8 +281,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, ParamConstants.TABLE_LIST_STYLE_DOC)
 				.define(PROCESS_LOBS_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, PROCESS_LOBS_DOC)
-				.define(ParamConstants.CONNECTION_BACKOFF_PARAM, Type.INT, ParamConstants.CONNECTION_BACKOFF_DEFAULT,
-						Importance.LOW, ParamConstants.CONNECTION_BACKOFF_DOC)
+				.define(CONNECTION_BACKOFF_PARAM, Type.INT, CONNECTION_BACKOFF_DEFAULT,
+						Importance.LOW, CONNECTION_BACKOFF_DOC)
 				.define(ParamConstants.ARCHIVED_LOG_CAT_PARAM, Type.STRING, ParamConstants.ARCHIVED_LOG_CAT_DEFAULT,
 						Importance.LOW, ParamConstants.ARCHIVED_LOG_CAT_DOC)
 				.define(ParamConstants.FETCH_SIZE_PARAM, Type.INT, ParamConstants.FETCH_SIZE_DEFAULT,
@@ -767,6 +772,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			}
 		}
 		return transformLobsImpl;
+	}
+
+	public int connectionRetryBackoff() {
+		return getInt(CONNECTION_BACKOFF_PARAM);
 	}
 
 	public String convertRedoFileName(final String originalName) {
