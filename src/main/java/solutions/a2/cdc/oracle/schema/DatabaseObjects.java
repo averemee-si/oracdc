@@ -188,7 +188,7 @@ public class DatabaseObjects implements ActionListener {
 						isCdb ? tablePdb : null,
 						isCdb ? (short) conId : -1,
 						tableOwner, tableName, "ENABLED".equalsIgnoreCase(rs.getString("DEPENDENCIES")),
-						config, isCdb, 0, null, rdbmsInfo, connection, pseudoColumns);
+						config, 0, null, rdbmsInfo, connection, pseudoColumns);
 				return new AbstractMap.SimpleImmutableEntry<Long, OraTable4LogMiner>(combinedDataObjectId, oraTable);
 			} else {
 				throw new SQLException(

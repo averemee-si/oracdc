@@ -149,7 +149,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final String pdbName, final short conId, final String tableOwner,
 			final String tableName, final boolean rowLevelScnDependency,
 			final OraCdcSourceConnectorConfig config,
-			final boolean isCdb, final int topicPartition,
+			final int topicPartition,
 			final Map<String, String> sourcePartition,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection,
 			final OraCdcPseudoColumnsProcessor pseudoColumns) {
@@ -167,7 +167,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.printUnableToDeleteWarning = config.printUnableToDeleteWarning();
 		this.useOracdcSchemas = config.useOracdcSchemas();
 		this.pseudoColumns = pseudoColumns;
-
+		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		try {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -397,12 +397,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 
 			if (isCdb) {
-				// Restore container in session
-				if (isCdb) {
-					alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
-				}
+			// Restore container in session
+				alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
 			}
-
 
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get information about table {}.{}!", tableOwner, tableName);
