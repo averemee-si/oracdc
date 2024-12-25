@@ -100,7 +100,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private long lastInProgressSsn = 0;
 	private OraCdcSourceConnectorConfig config;
 	private int topicPartition;
-	private OraCdcPseudoColumnsProcessor pseudoColumns;
 
 	@Override
 	public String version() {
@@ -306,7 +305,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
-			pseudoColumns = new OraCdcPseudoColumnsProcessor(config);
+			OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
 
 			List<String> excludeList = config.excludeObj();
 			if (excludeList.size() < 1)
@@ -630,8 +629,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 					metrics,
 					config,
 					rdbmsInfo,
-					oraConnections,
-					pseudoColumns);
+					oraConnections);
 			if (rewind) {
 				worker.rewind(firstScn, firstRsId, firstSsn);
 			}
@@ -1047,7 +1045,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							resultSet.getString("OWNER"), tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
 							config, topicPartition, 
-							rdbmsInfo, connection, pseudoColumns);
+							rdbmsInfo, connection);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

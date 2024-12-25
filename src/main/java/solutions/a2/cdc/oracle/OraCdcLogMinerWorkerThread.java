@@ -117,7 +117,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final Set<Long> nonLobObjects;
 	private RowId lastRealRowId;
 	private final long logMinerReconnectIntervalMs;
-	private final OraCdcPseudoColumnsProcessor pseudoColumns;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
@@ -133,8 +132,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final OraCdcLogMinerMgmt metrics,
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo,
-			final OraConnectionObjects oraConnections,
-			final OraCdcPseudoColumnsProcessor pseudoColumns) throws SQLException {
+			final OraConnectionObjects oraConnections) throws SQLException {
 		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -157,7 +155,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
 		this.rdbmsInfo = rdbmsInfo;
 		this.oraConnections = oraConnections;
-		this.pseudoColumns = pseudoColumns;
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
@@ -355,6 +352,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	public void run()  {
 		LOGGER.info("BEGIN: OraCdcLogMinerWorkerThread.run()");
 		running.set(true);
+		OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
 		boolean firstTransaction = true;
 		long logMinerSessionStartMs = System.currentTimeMillis();
 		while (runLatch.getCount() > 0) {
@@ -591,7 +589,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												tableOwner, tableName,
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 												config, topicPartition,
-												rdbmsInfo, connDictionary, pseudoColumns);
+												rdbmsInfo, connDictionary);
 											task.putTableAndVersion(combinedDataObjectId, 1);
 
 											if (isPartition) {

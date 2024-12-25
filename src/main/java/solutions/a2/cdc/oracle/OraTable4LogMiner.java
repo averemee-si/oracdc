@@ -146,8 +146,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final String tableName, final boolean rowLevelScnDependency,
 			final OraCdcSourceConnectorConfig config,
 			final int topicPartition,
-			final OraRdbmsInfo rdbmsInfo, final Connection connection,
-			final OraCdcPseudoColumnsProcessor pseudoColumns) {
+			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
 		this(pdbName, tableOwner, tableName, config.schemaType(),
 				config.processLobs(), config.transformLobsImpl());
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
@@ -161,7 +160,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.useAllColsOnDelete = config.useAllColsOnDelete();
 		this.printUnableToDeleteWarning = config.printUnableToDeleteWarning();
 		this.useOracdcSchemas = config.useOracdcSchemas();
-		this.pseudoColumns = pseudoColumns;
+		this.pseudoColumns = config.pseudoColumnsProcessor();
 		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		try {
 			if (LOGGER.isDebugEnabled()) {

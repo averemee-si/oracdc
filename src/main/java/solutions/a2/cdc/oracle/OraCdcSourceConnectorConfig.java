@@ -227,6 +227,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private int pkType = -1;
 	private String connectorName;
 	private OraCdcLobTransformationsIntf transformLobsImpl = null;
+	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
 
 	// Redo Miner only!
 	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
@@ -776,6 +777,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public int connectionRetryBackoff() {
 		return getInt(CONNECTION_BACKOFF_PARAM);
+	}
+
+	public OraCdcPseudoColumnsProcessor pseudoColumnsProcessor() {
+		if (pseudoColumns == null) {
+			pseudoColumns = new OraCdcPseudoColumnsProcessor(this);
+		}
+		return pseudoColumns;
 	}
 
 	public String convertRedoFileName(final String originalName) {
