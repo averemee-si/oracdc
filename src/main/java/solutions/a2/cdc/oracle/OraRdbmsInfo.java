@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -88,6 +89,8 @@ public class OraRdbmsInfo {
 	private final String controlFileType;
 	private final String openMode;
 	private final OraDumpDecoder odd;
+	private final String sourcePartitionName;
+	private final Map<String, String> partition;
 
 	public final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -315,6 +318,11 @@ public class OraRdbmsInfo {
 			schema = null;
 		}
 		odd = new OraDumpDecoder(dbCharset, dbNCharCharset);
+		sourcePartitionName = instanceName + "_" + hostName;
+		partition = Collections.singletonMap(sourcePartitionName, Long.toString(dbId));
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, dbId);
+		}
 	}
 
 	public Struct getStruct(final String query, final String pdbName, final String owner,
@@ -1048,6 +1056,14 @@ public class OraRdbmsInfo {
 
 	public OraDumpDecoder odd() {
 		return odd;
+	}
+
+	public String sourcePartitionName() {
+		return sourcePartitionName;
+	}
+
+	public Map<String, String> partition() {
+		return partition;
 	}
 
 	@Override

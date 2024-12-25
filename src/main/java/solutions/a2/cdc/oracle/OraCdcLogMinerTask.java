@@ -23,7 +23,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -69,7 +68,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 	private int batchSize;
 	private int pollInterval;
-	private Map<String, String> partition;
 	private int schemaType;
 	private String stateFileName;
 	private OraRdbmsInfo rdbmsInfo;
@@ -310,10 +308,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
 			pseudoColumns = new OraCdcPseudoColumnsProcessor(config);
 
-			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName();
-			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, rdbmsInfo.getDbId());
-			partition = Collections.singletonMap(sourcePartitionName, ((Long)rdbmsInfo.getDbId()).toString());
-
 			List<String> excludeList = config.excludeObj();
 			if (excludeList.size() < 1)
 				excludeList = null;
@@ -344,7 +338,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 						LOGGER.info("{} table schema definitions loaded from file {}.",
 								tablesInProcessing.size(), schemaFileName);
 						tablesInProcessing.forEach((key, table) -> {
-							table.setTopicDecoderPartition(config, rdbmsInfo.odd(), partition);
+							table.setTopicDecoderPartition(config, rdbmsInfo.odd(), rdbmsInfo.partition());
 							metrics.addTableInProcessing(table.fqn());
 						});
 					} catch (IOException ioe) {
@@ -376,7 +370,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				execInitialLoad = true;
 				initialLoadStatus = ParamConstants.INITIAL_LOAD_EXECUTE;
 			}
-			Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(partition);
+			Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(rdbmsInfo.partition());
 
 			// New resiliency model
 			// Begin - initial load analysis...
@@ -442,7 +436,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				}
 			} else {
 				LOGGER.info("No data present in connector's offset storage for {}:{}",
-							sourcePartitionName, rdbmsInfo.getDbId());
+						rdbmsInfo.sourcePartitionName(), rdbmsInfo.getDbId());
 				if (startScnFromProps) {
 					// a2.first.change set in connector properties, restart data are not present
 					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
@@ -624,7 +618,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 			worker = new OraCdcLogMinerWorkerThread(
 					this,
-					partition,
 					firstScn,
 					mineDataSql,
 					checkTableSql,
@@ -1054,7 +1047,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							resultSet.getString("OWNER"), tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
 							config, topicPartition, 
-							partition, rdbmsInfo, connection, pseudoColumns);
+							rdbmsInfo, connection, pseudoColumns);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

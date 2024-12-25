@@ -75,7 +75,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final OraCdcLogMinerMgmt metrics;
 	private final CountDownLatch runLatch;
 	private boolean logMinerReady = false;
-	private final Map<String, String> partition;
 	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
 	private final Map<Long, Long> partitionsInProcessing;
 	private final Set<Long> tablesOutOfScope;
@@ -122,7 +121,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
-			final Map<String, String> partition,
 			final long firstScn,
 			final String mineDataSql,
 			final String checkTableSql,
@@ -141,7 +139,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
 		this.config = config;
-		this.partition = partition;
 		this.mineDataSql = mineDataSql;
 		this.checkTableSql = checkTableSql;
 		this.tablesInProcessing = tablesInProcessing;
@@ -594,7 +591,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												tableOwner, tableName,
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 												config, topicPartition,
-												partition, rdbmsInfo, connDictionary, pseudoColumns);
+												rdbmsInfo, connDictionary, pseudoColumns);
 											task.putTableAndVersion(combinedDataObjectId, 1);
 
 											if (isPartition) {
