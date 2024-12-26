@@ -40,9 +40,9 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcLogMinerMgmtBase {
+public class OraCdcMgmtBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMgmtBase.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcMgmtBase.class);
 
 	private List<String> tablesInProcessing = new ArrayList<>();
 	private List<String> nowProcessedArchivelogs;
@@ -63,7 +63,7 @@ public class OraCdcLogMinerMgmtBase {
 	private int partitionsCount = 0;
 	private int tableOutOfScopeCount = 0;
 
-	public OraCdcLogMinerMgmtBase(
+	public OraCdcMgmtBase(
 			final OraRdbmsInfo rdbmsInfo, final String connectorName, final String jmxTypeName) {
 		final StringBuilder sb = new StringBuilder(96);
 		sb.append("solutions.a2.oracdc:type=");

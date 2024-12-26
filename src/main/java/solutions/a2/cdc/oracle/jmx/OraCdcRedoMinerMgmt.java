@@ -27,7 +27,7 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcRedoMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdcRedoMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
+public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcRedoMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
 
 	private long totalRecordsCount = 0;
 	private long recordsRolledBackCount = 0;

@@ -32,7 +32,7 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcLogMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdcLogMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
+public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMgmt.class);
 
