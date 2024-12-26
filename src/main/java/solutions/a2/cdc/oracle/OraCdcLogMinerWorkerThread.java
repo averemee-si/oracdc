@@ -88,9 +88,6 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final Map<String, String> prefixedTransactions;
 	private final TreeMap<String, Triple<Long, RedoByteAddress, Long>> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
-	private long lastScn;
-	private RedoByteAddress lastRsId;
-	private long lastSsn;
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
@@ -263,14 +260,14 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			long rewindElapsed = System.currentTimeMillis();
 			boolean rewindNeeded = true;
 			lastScn = firstScn;
-			lastRsId = firstRsId;
-			lastSsn = firstSsn;
+			lastRba = firstRsId;
+			lastSubScn = firstSsn;
 			int errorCount = 0;
 			while (rewindNeeded) {
 				if (rsLogMiner.next()) {
 					lastScn = rsLogMiner.getLong("SCN");
-					lastRsId = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getCHAR("RS_ID").getBytes());
-					lastSsn = rsLogMiner.getLong("SSN");
+					lastRba = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getCHAR("RS_ID").getBytes());
+					lastSubScn = rsLogMiner.getLong("SSN");
 					if (recordCount == 0 && lastScn > firstScn) {
 						// Hit this with 10.2.0.5
 						rewindNeeded = false;
@@ -281,8 +278,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 					} else {
 						recordCount++;
 						if (firstScn == lastScn &&
-							(firstRsId == null || firstRsId.equals(lastRsId)) &&
-							(firstSsn == -1 || firstSsn == lastSsn) &&
+							(firstRsId == null || firstRsId.equals(lastRba)) &&
+							(firstSsn == -1 || firstSsn == lastSubScn) &&
 							!rsLogMiner.getBoolean("CSF")) {
 							rewindNeeded = false;
 							break;
@@ -335,8 +332,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						final boolean partialRollback = rsLogMiner.getBoolean("ROLLBACK");
 						xid = rsLogMiner.getString("XID");
 						lastScn = rsLogMiner.getLong("SCN");
-						lastRsId = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getString("RS_ID"));
-						lastSsn = rsLogMiner.getLong("SSN");
+						lastRba = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getString("RS_ID"));
+						lastSubScn = rsLogMiner.getLong("SSN");
 						OraCdcTransaction transaction = activeTransactions.get(xid);
 						switch (operation) {
 						case OraCdcV$LogmnrContents.COMMIT:
@@ -398,7 +395,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											"Suspicious XID {} is changed to {} for operation {} at SCN={}, RBA(RS_ID)={}, SSN={}\n" +
 											"LogMiner START_SCN={}, END_SCN={}.\n" +
 											"======================\n",
-											xid, substitutedXid, operation, lastScn, lastRsId, lastSsn,
+											xid, substitutedXid, operation, lastScn, lastRba, lastSubScn,
 											logMiner.getFirstChange(), logMiner.getNextChange());
 									transaction = activeTransactions.get(substitutedXid);
 									((OraCdcTransactionBase)transaction).setSuspicious();
@@ -420,7 +417,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											"and make sure that the necessary archive logs are available.\n\n" +
 											"If you have questions or need more information, please write to us at oracle@a2-solutions.eu\n\n" +
 											"\n=====================\n",
-											xid, operation, lastScn, lastRsId, lastSsn,
+											xid, operation, lastScn, lastRba, lastSubScn,
 											logMiner.getFirstChange(), logMiner.getNextChange());
 								}
 							}
@@ -578,7 +575,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 									final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
 											combinedDataObjectId, operation, redoBytes, timestamp,
-											lastScn, lastRsId, lastSsn, getRowId(), partialRollback);
+											lastScn, lastRba, lastSubScn, getRowId(), partialRollback);
 
 									// Catch the LOBs!!!
 									List<OraCdcLargeObjectHolder> lobs = 
@@ -608,7 +605,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
-													Triple.of(lastScn, lastRsId, lastSsn));
+													Triple.of(lastScn, lastRba, lastSubScn));
 										if (firstTransaction) {
 											firstTransaction = false;
 											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -627,7 +624,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											"Please set it according to the oracdc documentation!\n" +
 											"Redo record is skipped for OPERATION={}, SCN={}, RBA={}, XID='{}',\n\tREDO_DATA='{}'\n" +
 											"=====================\n",
-											oraTable.fqn(), operation, lastScn, lastRsId, xid, new String(redoBytes, US_ASCII));
+											oraTable.fqn(), operation, lastScn, lastRba, xid, new String(redoBytes, US_ASCII));
 								}
 							}
 							break;
@@ -648,7 +645,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
 											combinedDdlDataObjectId, operation, 
 											(preProcessedDdl + "\n" + originalDdl).getBytes(US_ASCII),
-											timestamp, lastScn, lastRsId, lastSsn, getRowId(), false);
+											timestamp, lastScn, lastRba, lastSubScn, getRowId(), false);
 									if (transaction == null) {
 										if (LOGGER.isDebugEnabled()) {
 											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
@@ -662,7 +659,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
-													Triple.of(lastScn, lastRsId, lastSsn));
+													Triple.of(lastScn, lastRba, lastSubScn));
 										if (firstTransaction) {
 											firstTransaction = false;
 											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -727,7 +724,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											}
 											if (isRsLogMinerRowAvailable) {
 												LOGGER.error("Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'",
-														lastScn, lastRsId, lastSsn, xid);
+														lastScn, lastRba, lastSubScn, xid);
 											}
 											LOGGER.error("Current query is:\n{}\n", mineDataSql);
 										}
@@ -771,8 +768,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} // switch(operation)
 						// Copy again, to protect from exception...
 						lastGuaranteedScn = lastScn;
-						lastGuaranteedRsId = lastRsId;
-						lastGuaranteedSsn = lastSsn;
+						lastGuaranteedRsId = lastRba;
+						lastGuaranteedSsn = lastSubScn;
 						if (fetchRsLogMinerNext) {
 							try {
 								isRsLogMinerRowAvailable = rsLogMiner.next();
@@ -789,7 +786,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											"=====================\n",
 											sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 									//TODO
-									//TODO Do we need to rewind to <lastScn, lastRsId, lastSsn>? 
+									//TODO Do we need to rewind to <lastScn, lastRba, lastSubScn>? 
 									//TODO
 								} else {
 									//TODO
@@ -887,14 +884,14 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 							sqle.getErrorCode(), sqle.getSQLState());
 					if (isRsLogMinerRowAvailable) {
 						LOGGER.error("Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'",
-								lastScn, lastRsId, lastSsn, xid);
+								lastScn, lastRba, lastSubScn, xid);
 					}
 					LOGGER.error("Current query is:\n{}\n", mineDataSql);
 				}
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 				lastScn = lastGuaranteedScn;
-				lastRsId = lastGuaranteedRsId;
-				lastSsn = lastGuaranteedSsn;
+				lastRba = lastGuaranteedRsId;
+				lastSubScn = lastGuaranteedSsn;
 				running.set(false);
 				task.stop(false);
 				throw new ConnectException(e);
@@ -903,18 +900,6 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		LOGGER.debug("End of LogMiner loop...");
 		running.set(false);
 		LOGGER.info("END: OraCdcLogMinerWorkerThread.run()");
-	}
-
-	public long getLastScn() {
-		return lastScn;
-	}
-
-	public RedoByteAddress getLastRsId() {
-		return lastRsId;
-	}
-
-	public long getLastSsn() {
-		return lastSsn;
 	}
 
 	private void restoreOraConnection(SQLException sqle) {

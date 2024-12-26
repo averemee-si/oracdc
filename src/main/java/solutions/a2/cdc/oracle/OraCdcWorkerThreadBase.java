@@ -24,6 +24,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.oracle.internals.RedoByteAddress;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -46,6 +48,9 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	final BlockingQueue<OraCdcTransaction> committedTransactions;
 	final boolean isCdb;
 	final int pollInterval;
+	long lastScn;
+	RedoByteAddress lastRba;
+	long lastSubScn;
 
 	public OraCdcWorkerThreadBase(final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceConnectorConfig config,
@@ -85,6 +90,18 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("call to shutdown() completed");
 		}
+	}
+
+	public long lastScn() {
+		return lastScn;
+	}
+
+	public RedoByteAddress lastRba() {
+		return lastRba;
+	}
+
+	public long lastSubScn() {
+		return lastSubScn;
 	}
 
 }

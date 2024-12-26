@@ -889,11 +889,11 @@ public class OraCdcLogMinerTask extends SourceTask {
 			initialLoadWorker.shutdown();
 		}
 		if (activeTransactions != null && activeTransactions.isEmpty()) {
-			if (worker != null && worker.getLastRsId() != null && worker.getLastScn() > 0) {
+			if (worker != null && worker.lastRba() != null && worker.lastScn() > 0) {
 				putReadRestartScn(Triple.of(
-						worker.getLastScn(),
-						worker.getLastRsId(),
-						worker.getLastSsn()));
+						worker.lastScn(),
+						worker.lastRba(),
+						worker.lastSubScn()));
 			}
 		}
 		if (activeTransactions != null && !activeTransactions.isEmpty()) {
@@ -940,9 +940,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 		ops.setInstanceName(rdbmsInfo.getInstanceName());
 		ops.setHostName(rdbmsInfo.getHostName());
 		ops.setLastOpTsMillis(System.currentTimeMillis());
-		ops.setLastScn(worker.getLastScn());
-		ops.setLastRsId(worker.getLastRsId());
-		ops.setLastSsn(worker.getLastSsn());
+		ops.setLastScn(worker.lastScn());
+		ops.setLastRsId(worker.lastRba());
+		ops.setLastSsn(worker.lastSubScn());
 		ops.setInitialLoad(initialLoadStatus);
 		if (saveFinalState && useChronicleQueue) {
 			if (transaction != null) {
