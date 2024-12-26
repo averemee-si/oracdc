@@ -99,7 +99,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private RedoByteAddress lastInProgressRsId = null;
 	private long lastInProgressSsn = 0;
 	private OraCdcSourceConnectorConfig config;
-	private int topicPartition;
 
 	@Override
 	public String version() {
@@ -213,11 +212,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			if (dg4RacSingleInst) {
 				rdbmsInfo.setRedoThread(threadNo);
 			}
-			if (useRac || dg4RacSingleInst) {
-				topicPartition = rdbmsInfo.getRedoThread() - 1;
-			} else {
-				topicPartition = config.getShort(ParamConstants.TOPIC_PARTITION_PARAM);
-			}
+			config.topicPartition(rdbmsInfo.getRedoThread() - 1);
 
 			LOGGER.info(
 					"\n" +
@@ -619,7 +614,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 					checkTableSql,
 					tablesInProcessing,
 					tablesOutOfScope,
-					topicPartition,
 					queuesRoot,
 					activeTransactions,
 					committedTransactions,
@@ -1041,8 +1035,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? (short) conId : -1,
 							resultSet.getString("OWNER"), tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
-							config, topicPartition, 
-							rdbmsInfo, connection);
+							config, rdbmsInfo, connection);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

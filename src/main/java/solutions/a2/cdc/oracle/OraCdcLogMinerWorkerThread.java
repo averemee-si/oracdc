@@ -108,7 +108,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final int fetchSize;
 	private final boolean traceSession;
 	private final OraConnectionObjects oraConnections;
-	private final int topicPartition;
 
 	private boolean fetchRsLogMinerNext;
 	private boolean isRsLogMinerRowAvailable;
@@ -125,7 +124,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final String checkTableSql,
 			final Map<Long, OraTable4LogMiner> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
-			final int topicPartition,
 			final Path queuesRoot,
 			final Map<String, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
@@ -144,7 +142,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		this.partitionsInProcessing = new HashMap<>();
 		this.tablesOutOfScope = tablesOutOfScope;
 		this.queuesRoot = queuesRoot;
-		this.topicPartition = topicPartition;
 		this.activeTransactions = activeTransactions;
 		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
@@ -588,8 +585,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 												isCdb ? (short) conId : -1,
 												tableOwner, tableName,
 												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-												config, topicPartition,
-												rdbmsInfo, connDictionary);
+												config, rdbmsInfo, connDictionary);
 											task.putTableAndVersion(combinedDataObjectId, 1);
 
 											if (isPartition) {

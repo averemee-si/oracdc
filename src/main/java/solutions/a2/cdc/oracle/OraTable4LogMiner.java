@@ -137,7 +137,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	 * @param tableName
 	 * @param rowLevelScnDependency
 	 * @param config
-	 * @param topicPartition
 	 * @param rdbmsInfo
 	 * @param connection
 	 */
@@ -145,7 +144,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final String pdbName, final short conId, final String tableOwner,
 			final String tableName, final boolean rowLevelScnDependency,
 			final OraCdcSourceConnectorConfig config,
-			final int topicPartition,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
 		this(pdbName, tableOwner, tableName, config.schemaType(),
 				config.processLobs(), config.transformLobsImpl());
@@ -154,7 +152,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.tableWithPk = true;
 		this.setRowLevelScn(rowLevelScnDependency);
 		this.rdbmsInfo = rdbmsInfo;
-		this.topicPartition = topicPartition;
+		this.topicPartition = config.topicPartition();
 		this.printInvalidHexValueWarning = config.isPrintInvalidHexValueWarning();
 		this.incompleteDataTolerance = config.getIncompleteDataTolerance();
 		this.useAllColsOnDelete = config.useAllColsOnDelete();

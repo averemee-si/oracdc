@@ -234,6 +234,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String MAKE_STANDBY_ACTIVE_PARAM = "a2.standby.activate";
 	private static final String MAKE_STANDBY_ACTIVE_DOC = "Use standby database with V$DATABASE.OPEN_MODE = MOUNTED for LogMiner calls. Default - false"; 
 
+	public static final String TOPIC_PARTITION_PARAM = "a2.topic.partition";
+	public static final String TOPIC_PARTITION_DOC = "Kafka topic partition to write data. Default - 0";
+
 	private static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
@@ -244,6 +247,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private String connectorName;
 	private OraCdcLobTransformationsIntf transformLobsImpl = null;
 	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
+	private int topicPartition = 0;
 
 	// Redo Miner only!
 	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
@@ -258,8 +262,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public static ConfigDef config() {
 		return OraCdcSourceBaseConfig.config()
-				.define(ParamConstants.TOPIC_PARTITION_PARAM, Type.SHORT, (short) 0,
-						Importance.MEDIUM, ParamConstants.TOPIC_PARTITION_DOC)
+				.define(TOPIC_PARTITION_PARAM, Type.INT, 0,
+						Importance.MEDIUM, TOPIC_PARTITION_DOC)
 				.define(ParamConstants.LGMNR_START_SCN_PARAM, Type.LONG, 0,
 						Importance.MEDIUM, ParamConstants.LGMNR_START_SCN_DOC)
 				.define(ParamConstants.TEMP_DIR_PARAM, Type.STRING, "",
@@ -824,6 +828,19 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public List<String> dg4RacThreads() {
 		return getList(INTERNAL_DG4RAC_THREAD_PARAM);
+	}
+
+	public int topicPartition() {
+		return topicPartition;
+	}
+
+	public void topicPartition(final int redoThread) {
+		if (useRac() || 
+			(activateStandby() && dg4RacThreads() != null && dg4RacThreads().size() > 1)) {
+			topicPartition = redoThread - 1;
+		} else {
+			topicPartition = getInt(TOPIC_PARTITION_PARAM);
+		}
 	}
 
 	public String convertRedoFileName(final String originalName) {
