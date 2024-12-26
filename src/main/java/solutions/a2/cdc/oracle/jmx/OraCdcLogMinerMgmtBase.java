@@ -15,6 +15,7 @@ package solutions.a2.cdc.oracle.jmx;
 
 import java.lang.management.ManagementFactory;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.management.InstanceAlreadyExistsException;
@@ -36,13 +37,14 @@ import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 
- * @author averemee
- *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+ * 
  */
 public class OraCdcLogMinerMgmtBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMgmtBase.class);
 
+	private List<String> tablesInProcessing = new ArrayList<>();
 	private List<String> nowProcessedArchivelogs;
 	private LimitedSizeQueue<String> lastHundredProcessed = new LimitedSizeQueue<>(100);
 	private long currentFirstScn;
@@ -58,6 +60,8 @@ public class OraCdcLogMinerMgmtBase {
 	private long redoReadTimeElapsed = 0;
 	private float redoReadMbPerSec = 0;
 	private int lagSeconds = -1;
+	private int partitionsCount = 0;
+	private int tableOutOfScopeCount = 0;
 
 	public OraCdcLogMinerMgmtBase(
 			final OraRdbmsInfo rdbmsInfo, final String connectorName, final String jmxTypeName) {
@@ -191,4 +195,24 @@ public class OraCdcLogMinerMgmtBase {
 		return lagSeconds;
 	}
 
+	public void addPartitionInProcessing() {
+		partitionsCount++;
+	}
+	int partitionsCount() {
+		return partitionsCount;
+	}
+
+	public void addTableInProcessing(final String tableName) {
+		tablesInProcessing.add(tableName);
+	}
+	List<String> tablesInProcessing() {
+		return tablesInProcessing;
+	}
+
+	public void addTableOutOfScope() {
+		tableOutOfScopeCount++;
+	}
+	int tableOutOfScopeCount() {
+		return tableOutOfScopeCount;
+	}
 }

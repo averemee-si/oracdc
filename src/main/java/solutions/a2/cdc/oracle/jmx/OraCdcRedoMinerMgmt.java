@@ -15,7 +15,6 @@ package solutions.a2.cdc.oracle.jmx;
 
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.math3.util.Precision;
@@ -30,9 +29,6 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  */
 public class OraCdcRedoMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCdcRedoMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
 
-	private List<String> tablesInProcessing = new ArrayList<>();
-	private int tableOutOfScopeCount = 0;
-	private int partitionsCount = 0;
 	private long totalRecordsCount = 0;
 	private long recordsRolledBackCount = 0;
 	private int transactionsRolledBackCount = 0;
@@ -70,32 +66,23 @@ public class OraCdcRedoMinerMgmt extends OraCdcLogMinerMgmtBase implements OraCd
 		return super.getStartScn();
 	}
 
-	public void addTableInProcessing(final String tableName) {
-		tablesInProcessing.add(tableName);
-	}
 	@Override
 	public int getTablesInProcessingCount() {
-		return tablesInProcessing.size();
+		return tablesInProcessing().size();
 	}
 	@Override
 	public String[] getTablesInProcessing() {
-		return tablesInProcessing.toArray(new String[0]);
+		return tablesInProcessing().toArray(new String[0]);
 	}
 
-	public void addTableOutOfScope() {
-		tableOutOfScopeCount++;
-	}
 	@Override
 	public int getTableOutOfScopeCount() {
-		return tableOutOfScopeCount;
+		return tableOutOfScopeCount();
 	}
 
-	public void addPartitionInProcessing() {
-		partitionsCount++;
-	}
 	@Override
 	public int getPartitionsInProcessingCount() {
-		return partitionsCount;
+		return partitionsCount();
 	}
 
 	@Override
