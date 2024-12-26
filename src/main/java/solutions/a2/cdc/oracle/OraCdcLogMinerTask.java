@@ -607,8 +607,10 @@ public class OraCdcLogMinerTask extends SourceTask {
 				LOGGER.debug("Mining SQL = {}", mineDataSql);
 				LOGGER.debug("Dictionary check SQL = {}", checkTableSql);
 			}
+			runLatch = new CountDownLatch(1);
 			worker = new OraCdcLogMinerWorkerThread(
 					this,
+					runLatch,
 					firstScn,
 					mineDataSql,
 					checkTableSql,
@@ -652,7 +654,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 			initialLoadWorker.start();
 		}
 		worker.start();
-		runLatch = new CountDownLatch(1);
 		isPollRunning = new AtomicBoolean(false);
 	}
 

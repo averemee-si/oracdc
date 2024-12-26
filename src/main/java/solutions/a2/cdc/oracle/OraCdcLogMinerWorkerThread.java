@@ -26,14 +26,12 @@ import java.sql.SQLRecoverableException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
@@ -61,7 +59,7 @@ import static solutions.a2.cdc.oracle.OraCdcStatementBase.APPROXIMATE_SIZE;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcLogMinerWorkerThread extends Thread {
+public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
 	private static final int MAX_RETRIES = 63;
@@ -70,10 +68,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private static final byte[] SQUEEZE_PATTERN = "HEXTORAW(".getBytes(US_ASCII);
 
 	private final OraCdcLogMinerTask task;
-	private final int pollInterval;
-	private final OraRdbmsInfo rdbmsInfo;
 	private final OraCdcLogMinerMgmt metrics;
-	private final CountDownLatch runLatch;
 	private boolean logMinerReady = false;
 	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
 	private final Map<Long, Long> partitionsInProcessing;
@@ -89,36 +84,27 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private final String mineDataSql;
 	private final String checkTableSql;
 	private Connection connDictionary;
-	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final Map<String, String> prefixedTransactions;
 	private final TreeMap<String, Triple<Long, RedoByteAddress, Long>> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
-	private final BlockingQueue<OraCdcTransaction> committedTransactions;
-	private final OraCdcSourceConnectorConfig config;
-	private final boolean useChronicleQueue;
 	private long lastScn;
 	private RedoByteAddress lastRsId;
 	private long lastSsn;
-	private final AtomicBoolean running;
-	private boolean isCdb;
-	private final boolean processLobs;
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
 	private final boolean traceSession;
-	private final OraConnectionObjects oraConnections;
 
 	private boolean fetchRsLogMinerNext;
 	private boolean isRsLogMinerRowAvailable;
 
-	private final Set<Long> lobObjects;
-	private final Set<Long> nonLobObjects;
 	private RowId lastRealRowId;
 	private final long logMinerReconnectIntervalMs;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
+			final CountDownLatch runLatch,
 			final long firstScn,
 			final String mineDataSql,
 			final String checkTableSql,
@@ -131,45 +117,25 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraConnectionObjects oraConnections) throws SQLException {
-		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
+		super(runLatch, rdbmsInfo, config, oraConnections, queuesRoot, committedTransactions);
+		LOGGER.info("Initializing oracdc LogMiner archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
-		this.config = config;
 		this.mineDataSql = mineDataSql;
 		this.checkTableSql = checkTableSql;
 		this.tablesInProcessing = tablesInProcessing;
 		// We do not need concurrency for this map
 		this.partitionsInProcessing = new HashMap<>();
 		this.tablesOutOfScope = tablesOutOfScope;
-		this.queuesRoot = queuesRoot;
 		this.activeTransactions = activeTransactions;
-		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
-		this.processLobs = config.processLobs();
-		this.pollInterval = config.pollIntervalMs();
 		this.connectionRetryBackoff = config.connectionRetryBackoff();
 		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
 		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
-		this.rdbmsInfo = rdbmsInfo;
-		this.oraConnections = oraConnections;
-		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
 
-		runLatch = new CountDownLatch(1);
-		running = new AtomicBoolean(false);
-
-		if (processLobs) {
-			lobObjects = new HashSet<>();
-			nonLobObjects = new HashSet<>();
-		} else {
-			lobObjects = null;
-			nonLobObjects = null;
-		}
-		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
-				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
-				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
 		this.logMinerReconnectIntervalMs = config.getLong(ParamConstants.LM_RECONNECT_INTERVAL_MS_PARAM);
 
 		try {
@@ -949,18 +915,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 
 	public long getLastSsn() {
 		return lastSsn;
-	}
-
-	public boolean isRunning() {
-		return running.get();
-	}
-
-	public void shutdown() {
-		LOGGER.info("Stopping oracdc logminer archivelog worker thread...");
-		while (runLatch.getCount() > 0) {
-			runLatch.countDown();
-		}
-		LOGGER.debug("call to shutdown() completed");
 	}
 
 	private void restoreOraConnection(SQLException sqle) {
