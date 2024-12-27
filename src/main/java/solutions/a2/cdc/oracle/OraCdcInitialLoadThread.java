@@ -56,7 +56,7 @@ public class OraCdcInitialLoadThread extends Thread {
 			final int waitInterval,
 			final long asOfScn,
 			final Map<Long, OraTable4LogMiner> tablesInProcessing,
-			final Path queuesRoot,
+			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraCdcInitialLoad metrics,
 			final BlockingQueue<OraTable4InitialLoad> tablesQueue,
@@ -66,7 +66,7 @@ public class OraCdcInitialLoadThread extends Thread {
 		this.waitInterval = waitInterval;
 		this.asOfScn = asOfScn;
 		this.tablesInProcessing = tablesInProcessing;
-		this.queuesRoot = queuesRoot;
+		this.queuesRoot = config.queuesRoot();
 		this.tablesQueue = tablesQueue;
 		this.oraConnections = oraConnections;
 		final int coreCount = Runtime.getRuntime().availableProcessors();

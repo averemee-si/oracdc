@@ -29,9 +29,6 @@ public class ParamConstants {
 	public static final String LGMNR_START_SCN_PARAM = "a2.first.change";
 	public static final String LGMNR_START_SCN_DOC = "When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set min(FIRST_CHANGE#) from V$ARCHIVED_LOG will used. Overrides SCN value  stored in offset file";
 
-	public static final String TEMP_DIR_PARAM = "a2.tmpdir";
-	public static final String TEMP_DIR_DOC = "Temporary directory for non-heap storage. When not set, OS temp directory used"; 
-
 	public static final String STANDBY_WALLET_PARAM = "a2.standby.wallet.location";
 	public static final String STANDBY_WALLET_DOC = "Location of Oracle Wallet for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
 

@@ -13,9 +13,6 @@
 
 package solutions.a2.cdc.oracle;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,10 +46,8 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerConnector.class);
 	private static final String DB_PARAM_ERROR_GENERIC = "Database connection parameters are not properly set!";
-	private static final String TMP_PARAM_ERROR_GENERIC = "Temp directory is not properly set!";
 	private static final String DB_PARAM_MUST_SET_WHEN = "Parameter value '{}' must be set when parameter value '{}' is set!";
 	private static final String DB_PARAM_MUST_SET_WHEN_TRUE = "Parameter '{}' must be set when '{}' set to true!";
-	private static final String VALUE_SET_TO = "Value of parameter '{}' is set to '{}'";
 
 	// Generated using 	https://patorjk.com/software/taag/#p=display&f=Ogre&t=A2%20oracdc
 	private static final String LOGO =
@@ -172,33 +167,6 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 		}
-		if (StringUtils.isBlank(config.getString(ParamConstants.TEMP_DIR_PARAM))) {
-			connectorProperties.put(ParamConstants.TEMP_DIR_PARAM, System.getProperty("java.io.tmpdir"));
-			LOGGER.info(VALUE_SET_TO,
-					ParamConstants.TEMP_DIR_PARAM,
-					System.getProperty("java.io.tmpdir"));
-		}
-		final String tempDir = connectorProperties.get(ParamConstants.TEMP_DIR_PARAM);
-		if (Files.isDirectory(Paths.get(tempDir))) {
-			if (!Files.isWritable(Paths.get(tempDir))) {
-				LOGGER.error(
-						"Parameter '{}' points to non-writable directory '{}'.",
-						ParamConstants.TEMP_DIR_PARAM,
-						tempDir);
-				throw new ConnectException(TMP_PARAM_ERROR_GENERIC);
-			}
-		} else {
-			try {
-				Files.createDirectories(Paths.get(tempDir));
-			} catch (IOException | UnsupportedOperationException | SecurityException  e) {
-				LOGGER.error(
-						"Unable to create directory! Parameter {} points to non-existent or invalid directory {}.",
-						ParamConstants.TEMP_DIR_PARAM,
-						tempDir);
-				throw new ConnectException(e);
-			}
-		}
-
 		if (config.getLong(ParamConstants.LGMNR_START_SCN_PARAM) < 1) {
 			connectorProperties.remove(ParamConstants.LGMNR_START_SCN_PARAM);
 		}

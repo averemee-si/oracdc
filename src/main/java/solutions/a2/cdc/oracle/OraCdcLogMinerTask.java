@@ -15,9 +15,6 @@ package solutions.a2.cdc.oracle;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileSystems;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -314,9 +311,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 				// TABLE_LIST_STYLE_DYNAMIC
 				tableListGenerationStatic = false;
 			}
-
-			final Path queuesRoot = FileSystems.getDefault().getPath(
-					config.getString(ParamConstants.TEMP_DIR_PARAM));
 
 			if (config.useOracdcSchemas()) {
 				// Use stored schema only in this mode
@@ -616,7 +610,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 					checkTableSql,
 					tablesInProcessing,
 					tablesOutOfScope,
-					queuesRoot,
 					activeTransactions,
 					committedTransactions,
 					metrics,
@@ -636,7 +629,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 						WAIT_FOR_WORKER_MILLIS,
 						firstScn,
 						tablesInProcessing,
-						queuesRoot,
+						config,
 						rdbmsInfo,
 						initialLoadMetrics,
 						tablesQueue,
@@ -644,7 +637,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 
 
-		} catch (SQLException | InvalidPathException e) {
+		} catch (SQLException e) {
 			LOGGER.error("Unable to start oracdc logminer task!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);

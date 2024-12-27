@@ -14,8 +14,15 @@
 package solutions.a2.cdc.oracle;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -234,8 +241,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String MAKE_STANDBY_ACTIVE_PARAM = "a2.standby.activate";
 	private static final String MAKE_STANDBY_ACTIVE_DOC = "Use standby database with V$DATABASE.OPEN_MODE = MOUNTED for LogMiner calls. Default - false"; 
 
-	public static final String TOPIC_PARTITION_PARAM = "a2.topic.partition";
-	public static final String TOPIC_PARTITION_DOC = "Kafka topic partition to write data. Default - 0";
+	private static final String TOPIC_PARTITION_PARAM = "a2.topic.partition";
+	private static final String TOPIC_PARTITION_DOC = "Kafka topic partition to write data. Default - 0";
+
+	private static final String TEMP_DIR_PARAM = "a2.tmpdir";
+	private static final String TEMP_DIR_DOC = "Temporary directory for non-heap storage. When not set, OS temp directory used"; 
 
 	private static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
@@ -248,6 +258,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private OraCdcLobTransformationsIntf transformLobsImpl = null;
 	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
 	private int topicPartition = 0;
+	private Path queuesRoot = null;
 
 	// Redo Miner only!
 	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
@@ -266,8 +277,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.MEDIUM, TOPIC_PARTITION_DOC)
 				.define(ParamConstants.LGMNR_START_SCN_PARAM, Type.LONG, 0,
 						Importance.MEDIUM, ParamConstants.LGMNR_START_SCN_DOC)
-				.define(ParamConstants.TEMP_DIR_PARAM, Type.STRING, "",
-						Importance.HIGH, ParamConstants.TEMP_DIR_DOC)
+				.define(TEMP_DIR_PARAM, Type.STRING, System.getProperty("java.io.tmpdir"),
+						Importance.HIGH, TEMP_DIR_DOC)
 				.define(MAKE_STANDBY_ACTIVE_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, MAKE_STANDBY_ACTIVE_DOC)
 				.define(ParamConstants.STANDBY_WALLET_PARAM, Type.STRING, "",
@@ -742,10 +753,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 								StringUtils.substringBetween(overrideValue, "(", ")"));
 					} else {
 						LOGGER.error(
-								"\n" +
-								"=====================\n" +
-								"Incorrect value {} for parameter {}!\n" +
-								"=====================\n",
+								"\n=====================\n" +
+								"Incorrect value {} for parameter {}!" +
+								"\n=====================\n",
 								token, KEY_OVERRIDE_PARAM);
 					}
 				} catch (Exception e) {
@@ -840,6 +850,39 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			topicPartition = redoThread - 1;
 		} else {
 			topicPartition = getInt(TOPIC_PARTITION_PARAM);
+		}
+	}
+
+	public Path queuesRoot() throws SQLException {
+		try {
+			if (queuesRoot == null) {
+				final String tempDir = getString(TEMP_DIR_PARAM);
+				if (Files.isDirectory(Paths.get(tempDir))) {
+					if (!Files.isWritable(Paths.get(tempDir))) {
+						LOGGER.error(
+								"\n=====================\n" +
+								"Parameter '{}' points to non-writable directory '{}'." +
+								"\n=====================\n",
+								TEMP_DIR_PARAM, tempDir);
+						throw new SQLException("Temp directory is not properly set!");
+					}
+				} else {
+					try {
+						Files.createDirectories(Paths.get(tempDir));
+					} catch (IOException | UnsupportedOperationException | SecurityException  e) {
+						LOGGER.error(
+								"\n=====================\n" +
+								"Unable to create directory! Parameter {} points to non-existent or invalid directory {}." +
+								"\n=====================\n",
+								TEMP_DIR_PARAM, tempDir);
+						throw new SQLException(e);
+					}
+				}
+				queuesRoot = FileSystems.getDefault().getPath(tempDir);
+			}
+			return queuesRoot;
+		} catch (InvalidPathException ipe) {
+			throw new SQLException(ipe);
 		}
 	}
 

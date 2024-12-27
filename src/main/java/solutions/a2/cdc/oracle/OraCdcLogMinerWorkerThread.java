@@ -17,7 +17,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -107,14 +106,13 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final String checkTableSql,
 			final Map<Long, OraTable4LogMiner> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
-			final Path queuesRoot,
 			final Map<String, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcLogMinerMgmt metrics,
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraConnectionObjects oraConnections) throws SQLException {
-		super(runLatch, rdbmsInfo, config, oraConnections, queuesRoot, committedTransactions);
+		super(runLatch, rdbmsInfo, config, oraConnections, committedTransactions);
 		LOGGER.info("Initializing oracdc LogMiner archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;

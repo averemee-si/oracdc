@@ -55,8 +55,8 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 
 	public OraCdcWorkerThreadBase(final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceConnectorConfig config,
-			final OraConnectionObjects oraConnections, final Path queuesRoot,
-			final BlockingQueue<OraCdcTransaction> committedTransactions) {
+			final OraConnectionObjects oraConnections,
+			final BlockingQueue<OraCdcTransaction> committedTransactions) throws SQLException {
 		this.runLatch = runLatch;
 		this.running = new AtomicBoolean(false);
 		this.rdbmsInfo = rdbmsInfo;
@@ -73,7 +73,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
-		this.queuesRoot = queuesRoot;
+		this.queuesRoot = config.queuesRoot();
 		this.committedTransactions = committedTransactions;
 		this.isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		this.pollInterval = config.pollIntervalMs();
