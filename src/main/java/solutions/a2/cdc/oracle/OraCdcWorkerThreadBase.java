@@ -14,6 +14,7 @@
 package solutions.a2.cdc.oracle;
 
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -103,5 +104,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	public long lastSubScn() {
 		return lastSubScn;
 	}
+
+	abstract void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSubScn) throws SQLException;
 
 }

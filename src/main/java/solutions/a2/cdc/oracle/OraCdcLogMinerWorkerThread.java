@@ -251,6 +251,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 	}
 
+	@Override
 	public void rewind(final long firstScn, final RedoByteAddress firstRsId, final long firstSsn) throws SQLException {
 		if (logMinerReady) {
 			LOGGER.info("Rewinding LogMiner ResultSet to first position after SCN= {}, RBA={}, SSN={}.",
