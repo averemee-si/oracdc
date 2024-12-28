@@ -380,6 +380,10 @@ public class OraCdcRedoRecord {
 		return redoLog;
 	}
 
+	public boolean supplementalLogData() {
+		return supplementalLogData;
+	}
+
 	//TODO
 	public long unixMillis() {
 		return BinaryUtils.parseTimestamp(ts).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
