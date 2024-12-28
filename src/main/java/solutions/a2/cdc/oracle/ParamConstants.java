@@ -26,9 +26,6 @@ public class ParamConstants {
 	public static final String CONNECTION_TNS_ALIAS_PARAM = "a2.tns.alias";
 	public static final String CONNECTION_TNS_ALIAS_DOC = "Connection TNS alias. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
 
-	public static final String LGMNR_START_SCN_PARAM = "a2.first.change";
-	public static final String LGMNR_START_SCN_DOC = "When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set min(FIRST_CHANGE#) from V$ARCHIVED_LOG will used. Overrides SCN value  stored in offset file";
-
 	public static final String STANDBY_WALLET_PARAM = "a2.standby.wallet.location";
 	public static final String STANDBY_WALLET_DOC = "Location of Oracle Wallet for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
 

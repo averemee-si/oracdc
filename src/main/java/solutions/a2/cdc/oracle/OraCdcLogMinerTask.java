@@ -346,8 +346,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			long firstScn = firstAvailableScn;
 			RedoByteAddress firstRsId = null;
 			long firstSsn = -1;
-			final boolean startScnFromProps = props.containsKey(ParamConstants.LGMNR_START_SCN_PARAM) &&
-									config.getLong(ParamConstants.LGMNR_START_SCN_PARAM) > 0;
+			final boolean startScnFromProps = config.startScn() > 0;
 			// Initial load
 			if (StringUtils.equalsIgnoreCase(
 					ParamConstants.INITIAL_LOAD_EXECUTE,
@@ -376,13 +375,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 				if (startScnFromProps) {
 					// a2.first.change set in connector properties, ignore stored offsets values
 					// for restart...
-					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
+					firstScn = config.startScn();
 					LOGGER.info("{}={} is set in connector properties, ignoring SCN related restart data from connector offset storage.",
-							ParamConstants.LGMNR_START_SCN_PARAM, firstScn);
+							config.startScnParam(), firstScn);
 					if (firstScn < firstAvailableScn) {
 						LOGGER.warn(
 								"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-								ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
+								config.startScnParam(), firstScn, config.startScnParam(), firstAvailableScn);
 						firstScn = firstAvailableScn;
 					} else {
 						// We need to rewind, potentially
@@ -424,13 +423,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 						rdbmsInfo.sourcePartitionName(), rdbmsInfo.getDbId());
 				if (startScnFromProps) {
 					// a2.first.change set in connector properties, restart data are not present
-					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
+					firstScn = config.startScn();
 					LOGGER.info("{}={} is set in connector properties, previous offset data is not available.",
-							ParamConstants.LGMNR_START_SCN_PARAM, firstScn);
+							config.startScnParam(), firstScn);
 					if (firstScn < firstAvailableScn) {
 						LOGGER.warn(
 								"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-								ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
+								config.startScnParam(), firstScn, config.startScnParam(), firstAvailableScn);
 						firstScn = firstAvailableScn;
 					} else {
 						// We need to rewind, potentially

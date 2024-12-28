@@ -247,6 +247,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String TEMP_DIR_PARAM = "a2.tmpdir";
 	private static final String TEMP_DIR_DOC = "Temporary directory for non-heap storage. When not set, OS temp directory used"; 
 
+	private static final String LGMNR_START_SCN_PARAM = "a2.first.change";
+	private static final String LGMNR_START_SCN_DOC = "When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set min(FIRST_CHANGE#) from V$ARCHIVED_LOG will used. Overrides SCN value  stored in offset file";
+
 	private static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
 	static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
@@ -275,8 +278,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		return OraCdcSourceBaseConfig.config()
 				.define(TOPIC_PARTITION_PARAM, Type.INT, 0,
 						Importance.MEDIUM, TOPIC_PARTITION_DOC)
-				.define(ParamConstants.LGMNR_START_SCN_PARAM, Type.LONG, 0,
-						Importance.MEDIUM, ParamConstants.LGMNR_START_SCN_DOC)
+				.define(LGMNR_START_SCN_PARAM, Type.STRING, "0",
+						Importance.MEDIUM, LGMNR_START_SCN_DOC)
 				.define(TEMP_DIR_PARAM, Type.STRING, System.getProperty("java.io.tmpdir"),
 						Importance.HIGH, TEMP_DIR_DOC)
 				.define(MAKE_STANDBY_ACTIVE_PARAM, Type.BOOLEAN, false,
@@ -884,6 +887,24 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		} catch (InvalidPathException ipe) {
 			throw new SQLException(ipe);
 		}
+	}
+
+	public long startScn() throws SQLException {
+		final String scnAsString = getString(LGMNR_START_SCN_PARAM);
+		try {
+			return Long.parseUnsignedLong(scnAsString);
+		} catch (NumberFormatException nfe) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Unable to parse value '{}' of parameter '{}' as unsigned long!" +
+					"\n=====================\n",
+					scnAsString, LGMNR_START_SCN_PARAM);
+			throw new SQLException(nfe);
+		}
+	}
+
+	public String startScnParam() {
+		return LGMNR_START_SCN_PARAM;
 	}
 
 	public String convertRedoFileName(final String originalName) {

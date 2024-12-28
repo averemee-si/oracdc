@@ -167,9 +167,6 @@ public class OraCdcLogMinerConnector extends SourceConnector {
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 		}
-		if (config.getLong(ParamConstants.LGMNR_START_SCN_PARAM) < 1) {
-			connectorProperties.remove(ParamConstants.LGMNR_START_SCN_PARAM);
-		}
 
 		if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
 			// When this set we need explicitly value of  a2.archived.log.catalog parameter
