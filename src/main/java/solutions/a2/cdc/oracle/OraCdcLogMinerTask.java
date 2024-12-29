@@ -268,20 +268,13 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 			MutableTriple<Long, RedoByteAddress, Long> coords = new MutableTriple<>();
 			boolean rewind = startPosition(coords);
 			activeTransactions = new HashMap<>();
-			worker = new OraCdcLogMinerWorkerThread(
-					this,
-					runLatch,
-					coords.getLeft(),
-					mineDataSql,
-					checkTableSql,
-					tablesInProcessing,
-					tablesOutOfScope,
-					activeTransactions,
-					committedTransactions,
-					metrics,
-					config,
-					rdbmsInfo,
-					oraConnections);
+
+			OraCdcDictionaryChecker checker = new OraCdcDictionaryChecker(this,
+					tablesInProcessing, tablesOutOfScope, checkTableSql, metrics);
+
+			worker = new OraCdcLogMinerWorkerThread(this,
+					checker, coords.getLeft(), mineDataSql, activeTransactions,
+					committedTransactions, metrics);
 			if (rewind) {
 				worker.rewind(coords.getLeft(), coords.getMiddle(), coords.getRight());
 			}

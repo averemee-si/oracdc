@@ -27,7 +27,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -69,19 +68,14 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final OraCdcLogMinerTask task;
 	private final OraCdcLogMinerMgmt metrics;
 	private boolean logMinerReady = false;
-	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
-	private final Map<Long, Long> partitionsInProcessing;
-	private final Set<Long> tablesOutOfScope;
 	private final OraLogMiner logMiner;
 	private Connection connLogMiner;
 	private OraclePreparedStatement psLogMiner;
-	private PreparedStatement psCheckTable;
 	private PreparedStatement psCheckLob;
 	private PreparedStatement psIsDataObjLob;
 	private OraclePreparedStatement psReadLob;
 	private OracleResultSet rsLogMiner;
 	private final String mineDataSql;
-	private final String checkTableSql;
 	private Connection connDictionary;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final Map<String, String> prefixedTransactions;
@@ -91,6 +85,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
 	private final boolean traceSession;
+	private final OraCdcDictionaryChecker checker;
 
 	private boolean fetchRsLogMinerNext;
 	private boolean isRsLogMinerRowAvailable;
@@ -100,28 +95,19 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
-			final CountDownLatch runLatch,
+			final OraCdcDictionaryChecker checker,
 			final long firstScn,
 			final String mineDataSql,
-			final String checkTableSql,
-			final Map<Long, OraTable4LogMiner> tablesInProcessing,
-			final Set<Long> tablesOutOfScope,
 			final Map<String, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
-			final OraCdcLogMinerMgmt metrics,
-			final OraCdcSourceConnectorConfig config,
-			final OraRdbmsInfo rdbmsInfo,
-			final OraConnectionObjects oraConnections) throws SQLException {
-		super(runLatch, rdbmsInfo, config, oraConnections, committedTransactions);
+			final OraCdcLogMinerMgmt metrics) throws SQLException {
+		super(task.runLatch(), task.rdbmsInfo(), task.config(), 
+				task.oraConnections(), committedTransactions);
 		LOGGER.info("Initializing oracdc LogMiner archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
+		this.checker = checker;
 		this.mineDataSql = mineDataSql;
-		this.checkTableSql = checkTableSql;
-		this.tablesInProcessing = tablesInProcessing;
-		// We do not need concurrency for this map
-		this.partitionsInProcessing = new HashMap<>();
-		this.tablesOutOfScope = tablesOutOfScope;
 		this.activeTransactions = activeTransactions;
 		this.metrics = metrics;
 		this.connectionRetryBackoff = config.connectionRetryBackoff();
@@ -432,141 +418,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								combinedDataObjectId = dataObjectId;
 							}
 							// First check for table definition...
-							OraTable4LogMiner oraTable = tablesInProcessing.get(combinedDataObjectId);
-							if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
-								// Check for partitions
-								Long combinedParentTableId = partitionsInProcessing.get(combinedDataObjectId);
-								if (combinedParentTableId != null) {
-									combinedDataObjectId = combinedParentTableId;
-									oraTable = tablesInProcessing.get(combinedDataObjectId);
-								} else {
-									// Check for object...
-									ResultSet rsCheckTable = null;
-									boolean wait4CheckTableCursor = true;
-									while (runLatch.getCount() > 0 && wait4CheckTableCursor) {
-										try {
-											psCheckTable.setLong(1, dataObjectId);
-											if (isCdb) {
-												psCheckTable.setLong(2, conId);
-											}
-											rsCheckTable = psCheckTable.executeQuery();
-											wait4CheckTableCursor = false;
-											break;
-										} catch (SQLException sqle) {
-											if (sqle.getErrorCode() == OraRdbmsInfo.ORA_2396 ||
-													sqle.getErrorCode() == OraRdbmsInfo.ORA_17002 ||
-													sqle.getErrorCode() == OraRdbmsInfo.ORA_17008 ||
-													sqle.getErrorCode() == OraRdbmsInfo.ORA_17410 || 
-													sqle instanceof SQLRecoverableException ||
-													(sqle.getCause() != null && sqle.getCause() instanceof SQLRecoverableException)) {
-												LOGGER.warn(
-														"\n=====================\n" +
-														"Encontered an 'ORA-{}: {}'\n" +
-														"Attempting to reconnect to dictionary...\n" +
-														"=====================\n",
-														sqle.getErrorCode(), sqle.getMessage());
-												try {
-													try {
-														connDictionary.close();
-														connDictionary = null;
-													} catch(SQLException unimportant) {
-														LOGGER.warn(
-																"\n=====================\n" +
-																"Unable to close inactive dictionary connection after 'ORA-{}'\n" +
-																"=====================\n",
-																sqle.getErrorCode());
-													}
-													boolean ready = false;
-													int retries = 0;
-													while (runLatch.getCount() > 0 && !ready) {
-														try {
-															connDictionary = oraConnections.getConnection();
-															initDictionaryStatements();
-														} catch(SQLException sqleRestore) {
-															if (retries > MAX_RETRIES) {
-																LOGGER.error(
-																		"\n=====================\n" +
-																		"Unable to restore dictionary connection after {} retries!\n" +
-																		"=====================\n",
-																		retries);
-																throw sqleRestore;
-															}
-														}
-														ready = true;
-														if (!ready) {
-															long waitTime = (long) Math.pow(2, retries++) + connectionRetryBackoff;
-															LOGGER.warn("Waiting {} ms for dictionary connection to restore...", waitTime);
-															try {
-																this.wait(waitTime);
-															} catch (InterruptedException ie) {}
-														}
-													}
-												} catch (SQLException ucpe) {
-													LOGGER.error(
-															"\n=====================\n" +
-															"SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables\n" +
-															"SQL error message = {}\n" +
-															"=====================\n",
-															ucpe.getErrorCode(), ucpe.getSQLState(), ucpe.getMessage());
-													throw new SQLException(sqle);
-												}
-											} else {
-												LOGGER.error(
-														"\n=====================\n" +
-														"SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dictionary tables\n" +
-														"SQL error message = {}\n" +
-														"=====================\n",
-														sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
-												throw new SQLException(sqle);
-											}
-										}
-									}
-									if (rsCheckTable.next()) {
-										//May be this is partition, so just check tablesInProcessing map for table
-										boolean needNewTableDefinition = true;
-										final boolean isPartition = StringUtils.equals("N", rsCheckTable.getString("IS_TABLE"));
-										if (isPartition) {
-											final long parentTableId = rsCheckTable.getLong("PARENT_OBJECT_ID");
-											combinedParentTableId = isCdb ?
-													((conId << 32) | (parentTableId & 0xFFFFFFFFL)) :
-													parentTableId;
-											oraTable = tablesInProcessing.get(combinedParentTableId);
-											if (oraTable != null) {
-												needNewTableDefinition = false;
-												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
-												metrics.addPartitionInProcessing();
-												combinedDataObjectId = combinedParentTableId;
-											}
-										}
-										//Get table definition from RDBMS
-										if (needNewTableDefinition) {
-											final String tableName = rsCheckTable.getString("TABLE_NAME");
-											final String tableOwner = rsCheckTable.getString("OWNER");
-											oraTable = new OraTable4LogMiner(
-												isCdb ? rsCheckTable.getString("PDB_NAME") : null,
-												isCdb ? (short) conId : -1,
-												tableOwner, tableName,
-												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-												config, rdbmsInfo, connDictionary);
-											task.putTableAndVersion(combinedDataObjectId, 1);
-
-											if (isPartition) {
-												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
-												metrics.addPartitionInProcessing();
-												combinedDataObjectId = combinedParentTableId;
-											}
-											tablesInProcessing.put(combinedDataObjectId, oraTable);
-											metrics.addTableInProcessing(oraTable.fqn());
-										}
-									} else {
-										tablesOutOfScope.add(combinedDataObjectId);
-										metrics.addTableOutOfScope();
-									}
-									rsCheckTable.close();
-									rsCheckTable = null;
-									psCheckTable.clearParameters();
-								}
-							}
+							OraTable4LogMiner oraTable = checker.getTable(combinedDataObjectId, dataObjectId, conId);
 
 							if (oraTable != null) {
 								final byte[] redoBytes = readSqlRedo();
@@ -634,7 +486,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 							} else {
 								combinedDdlDataObjectId = rsLogMiner.getLong("DATA_OBJ#");
 							}
-							if (tablesInProcessing.containsKey(combinedDdlDataObjectId)) {
+							if (checker.containsTable(combinedDdlDataObjectId)) {
 								// Handle DDL only for known table
 								final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
 								final byte[] ddlBytes = readSqlRedo();
@@ -957,8 +809,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		psLogMiner = (OraclePreparedStatement)connLogMiner.prepareStatement(
 				mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		psLogMiner.setRowPrefetch(fetchSize);
-		psCheckTable = connDictionary.prepareStatement(
-				checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		checker.initStatements();
 		if (processLobs) {
 			psReadLob = (OraclePreparedStatement) connLogMiner.prepareStatement(
 					isCdb ? OraDictSqlTexts.MINE_LOB_CDB :
@@ -974,8 +825,6 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			psReadLob.close();
 			psReadLob = null;
 		}
-		psCheckTable.close();
-		psCheckTable = null;
 		psLogMiner.close();
 		psLogMiner = null;
 		oraConnections.closeLogMinerConnection(connLogMiner);
@@ -1306,8 +1155,6 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private void initDictionaryStatements() throws SQLException {
-		psCheckTable = connDictionary.prepareStatement(
-				checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		if (processLobs) {
 			psCheckLob = connDictionary.prepareStatement(
 					isCdb ? OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_CDB :

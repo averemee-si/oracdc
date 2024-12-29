@@ -70,7 +70,6 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	OraConnectionObjects oraConnections;
 	Map<String, Object> offset;
 	Map<Long, OraTable4LogMiner> tablesInProcessing;
-	Map<Long, Long> partitionsInProcessing;
 	Set<Long> tablesOutOfScope;
 	BlockingQueue<OraCdcTransaction> committedTransactions;
 	OraCdcWorkerThreadBase worker;
@@ -190,7 +189,6 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		}
 		if (offset == null) offset = new ConcurrentHashMap<>();
 		if (tablesInProcessing == null) tablesInProcessing = new HashMap<>();
-		if (partitionsInProcessing == null) partitionsInProcessing = new HashMap<>();
 		if (tablesOutOfScope == null) tablesOutOfScope = new HashSet<>();
 		if (committedTransactions == null) committedTransactions = new LinkedBlockingQueue<>();
 
@@ -450,6 +448,22 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		coords.setMiddle(firstRba);
 		coords.setRight(firstSubScn);
 		return rewind;
+	}
+
+	OraConnectionObjects oraConnections() {
+		return oraConnections;
+	}
+
+	CountDownLatch runLatch() {
+		return runLatch;
+	}
+
+	OraCdcSourceConnectorConfig config() {
+		return config;
+	}
+
+	OraRdbmsInfo rdbmsInfo() {
+		return rdbmsInfo;
 	}
 
 	void putReadRestartScn(final Triple<Long, RedoByteAddress, Long> transData) {
