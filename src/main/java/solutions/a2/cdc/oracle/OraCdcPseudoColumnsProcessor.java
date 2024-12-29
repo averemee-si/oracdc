@@ -191,7 +191,7 @@ public class OraCdcPseudoColumnsProcessor {
 	}
 
 	public void addToStruct(
-			final Struct struct, final OraCdcLogMinerStatement stmt, final OraCdcTransaction transaction) {
+			final Struct struct, final OraCdcStatementBase stmt, final OraCdcTransaction transaction) {
 		if (addRowScn) {
 			//TODO
 			//TODO
