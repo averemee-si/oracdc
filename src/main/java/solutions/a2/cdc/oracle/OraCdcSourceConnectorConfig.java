@@ -272,7 +272,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private boolean fileNameConversion = false;
 	private String originalPath;
 	private String anotherPath;
-	
+	private boolean logMiner = true;
 
 	public static ConfigDef config() {
 		return OraCdcSourceBaseConfig.config()
@@ -905,6 +905,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public String startScnParam() {
 		return LGMNR_START_SCN_PARAM;
+	}
+
+	public boolean logMiner() {
+		return logMiner;
+	}
+
+	public void logMiner(final boolean logMiner) {
+		this.logMiner = logMiner;
 	}
 
 	public String convertRedoFileName(final String originalName) {
