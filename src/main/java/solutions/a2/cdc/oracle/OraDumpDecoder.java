@@ -267,7 +267,7 @@ public class OraDumpDecoder {
 		return data;
 	}
 
-	private static String rawToHex(final byte[] data) {
+	public static String rawToHex(final byte[] data) {
 		final StringBuilder sb = new StringBuilder(data.length * 3 + 0x20);
 		sb.append("HEXTORAW('");
 		for (int i = 0; i < data.length; i++) {
