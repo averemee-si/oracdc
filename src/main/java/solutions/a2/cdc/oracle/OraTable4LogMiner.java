@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -55,6 +56,10 @@ import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_SKIP;
+import static solutions.a2.cdc.oracle.OraDumpDecoder.rawToHex;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -78,6 +83,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private static final int TS_DATA_LENGTH = OracleTimestamp.DATA_LENGTH * 2;
 
 	private final Map<String, OraColumn> idToNameMap;
+	private final Map<Integer, OraColumn> pureIdMap;
 	private String pdbName;
 	private String kafkaTopic;
 	private OraDumpDecoder odd;
@@ -95,7 +101,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private String sqlGetKeysUsingRowId = null;
 	private boolean printSqlForMissedWhereInUpdate = true;
 	private boolean printInvalidHexValueWarning = false;
-	private int incompleteDataTolerance = OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
+	private int incompleteDataTolerance = INCOMPLETE_REDO_INT_ERROR;
 	private boolean onlyValue = false;
 	private boolean useAllColsOnDelete = false;
 	private int mandatoryColumnsCount = 0;
@@ -117,9 +123,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private OraTable4LogMiner(
 			final String pdbName, final String tableOwner, final String tableName,
 			final int schemaType, final boolean processLobs,
-			final OraCdcLobTransformationsIntf transformLobs) {
+			final OraCdcLobTransformationsIntf transformLobs, final boolean logMiner) {
 		super(tableOwner, tableName, schemaType);
-		this.idToNameMap = new HashMap<>();
+		if (logMiner) {
+			this.idToNameMap = new HashMap<>();
+			this.pureIdMap = null;
+		} else {
+			this.idToNameMap = null;
+			this.pureIdMap = new HashMap<>();
+		}
 		this.pdbName = pdbName;
 		this.tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
 				this.tableOwner + "." + this.tableName;
@@ -146,7 +158,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
 		this(pdbName, tableOwner, tableName, config.schemaType(),
-				config.processLobs(), config.transformLobsImpl());
+				config.processLobs(), config.transformLobsImpl(), config.logMiner());
 		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(config, rdbmsInfo.odd(), rdbmsInfo.partition());
 		this.tableWithPk = true;
@@ -248,6 +260,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			ResultSet rsColumns = statement.executeQuery();
 
 			maxColumnId = 0;
+			final boolean logMiner = config.logMiner();
 			while (rsColumns.next()) {
 				boolean columnAdded = false;
 				OraColumn column = null;
@@ -274,8 +287,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								lobColumnsNames = new HashMap<>();
 							}
 							allColumns.add(column);
-							idToNameMap.put(column.getNameFromId(), column);
-
+							if (logMiner)
+								idToNameMap.put(column.getNameFromId(), column);
+							else
+								pureIdMap.put(column.getColumnId(), column);
 							final String lobColumnName = column.getColumnName();
 							lobColumnsNames.put(lobColumnName, column);
 							final Schema lobSchema = transformLobs.transformSchema(pdbName, tableOwner, tableName, column, valueSchemaBuilder);
@@ -291,7 +306,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						}
 					} else {
 						allColumns.add(column);
-						idToNameMap.put(column.getNameFromId(), column);
+						if (logMiner)
+							idToNameMap.put(column.getNameFromId(), column);
+						else
+							pureIdMap.put(column.getColumnId(), column);
 						// Just add to value schema
 						if (!column.isPartOfPk() || 
 								schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
@@ -417,7 +435,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				(String) tableData.get("tableOwner"),
 				(String) tableData.get("tableName"),
 				schemaType, (boolean) tableData.get("processLobs"),
-				transformLobs);
+				transformLobs, true);
 		tableWithPk = (boolean) tableData.get("tableWithPk");
 		this.rdbmsInfo = rdbmsInfo;
 		final Boolean rowLevelScnDependency = (Boolean) tableData.get("rowLevelScn");
@@ -472,7 +490,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 	}
 
-	public SourceRecord parseRedoRecord(
+	SourceRecord parseRedoRecord(
 			final OraCdcLogMinerStatement stmt,
 			final List<OraCdcLargeObjectHolder> lobs,
 			final OraCdcTransaction transaction,
@@ -534,10 +552,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							valueStruct.put(oraColumn.getColumnName(), null);
 						} catch (DataException de) {
 							if (StringUtils.containsIgnoreCase(de.getMessage(), "null used for required field")) {
-								if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
+								if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
 									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 									throw de;
-								} else if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_SKIP) {
+								} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
 									printSkippingRedoRecordMessage(stmt, xid, commitScn);
 									return null;
 								} else {
@@ -787,12 +805,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			//BEGIN: where clause processing...
 			if (processWhereFromRow) {
-				if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
+				if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
 					final String message = 
 							"Missed where clause in UPDATE record for the table {}.\n";
 					printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
 					throw new ConnectException("Incomplete redo record!");
-				} else if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_SKIP) {
+				} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
 					final String message = 
 							"Missed where clause in UPDATE record for the table {}.\n";
 					printErrorMessage(Level.WARN,  message, stmt, xid, commitScn);
@@ -862,10 +880,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 												this.tableFqn, oraColumn.getColumnName());
 									}
 									if (throwDataException) {
-										if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
+										if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
 											printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 											throw de;
-										} else if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_SKIP) {
+										} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
 											printSkippingRedoRecordMessage(stmt, xid, commitScn);
 											return null;
 										} else {
@@ -1019,7 +1037,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							mandatoryColumnsProcessed +
 							" mandatory columns are returned from the redo record!\n" +
 							"Please check supplemental logging settings!\n";
-					if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR) {
+					if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
 						printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
 						throw new ConnectException("Incomplete redo record!");
 					} else {
@@ -1553,17 +1571,17 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	}
 
 	private void printSkippingRedoRecordMessage(
-			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
+			final OraCdcStatementBase stmt,final String xid, final long commitScn) {
 		printErrorMessage(Level.WARN, "Skipping incomplete redo record for table {}!", stmt, xid, commitScn);
 	}
 
 	private void printRedoRecordRecoveredMessage(
-			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
+			final OraCdcStatementBase stmt,final String xid, final long commitScn) {
 		printErrorMessage(Level.INFO, "Incomplete redo record restored from latest incarnation for table {}.", stmt, xid, commitScn);
 	}
 
 	private void printInvalidFieldValue(final OraColumn oraColumn,
-			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
+			final OraCdcStatementBase stmt,final String xid, final long commitScn) {
 		if (oraColumn.isNullable()) {
 			printErrorMessage(Level.ERROR,
 					"Redo record information for table {}:\n",
@@ -1576,12 +1594,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	}
 
 	private void printErrorMessage(final Level level, final String message,
-			final OraCdcLogMinerStatement stmt,final String xid, final long commitScn) {
+			final OraCdcStatementBase stmt, final String xid, final long commitScn) {
 		printErrorMessage(level, message, null, stmt, xid, commitScn);
 	}
 
 	private void printErrorMessage(final Level level, final String message, final String columnName,
-			final OraCdcLogMinerStatement stmt, final String xid, final long commitScn) {
+			final OraCdcStatementBase stmt, final String xid, final long commitScn) {
 		final StringBuilder sb = new StringBuilder(256);
 		sb
 			.append("\n=====================\n")
@@ -1653,7 +1671,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	}
 
 	private boolean getMissedColumnValues(
-			final Connection connection, final OraCdcLogMinerStatement stmt,
+			final Connection connection, final OraCdcStatementBase stmt,
 			final List<OraColumn> missedColumns, final Struct keyStruct, final Struct valueStruct,
 			String xid, long commitScn) throws SQLException {
 		boolean result = false;
@@ -1798,7 +1816,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private void printToLogInvalidHexValueWarning(
 			final String columnValue,
 			final String columnName,
-			final OraCdcLogMinerStatement stmt) {
+			final OraCdcStatementBase stmt) {
 		if (printInvalidHexValueWarning) {
 			LOGGER.warn(
 					"\n" +
@@ -1815,5 +1833,673 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		alterSession.close();
 		alterSession = null;
 	}
+
+	public int processDdl(final OraCdcRedoMinerStatement stmt,
+			final String xid,
+			final long commitScn) throws SQLException {
+		//TODO
+		//TODO
+		//TODO
+		//TODO
+		//TODO
+		return -1;
+	}
+
+	SourceRecord parseRedoRecord(
+			final OraCdcRedoMinerStatement stmt,
+			final List<OraCdcLargeObjectHolder> lobs,
+			final OraCdcTransaction transaction,
+			final Map<String, Object> offset,
+			final Connection connection) throws SQLException {
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("BEGIN: parseRedoRecord()");
+		}
+		if (stmt.rollback) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Redo record with partial rollback set to true in XID {}!\nDML operation details:\n{}\n" +
+					"\n=====================\n",
+					transaction.getXid(), stmt.toString());
+			return null;
+		}
+		final String xid = transaction.getXid();
+		final long commitScn = transaction.getCommitScn();
+		final Struct keyStruct;
+		if (onlyValue) {
+			keyStruct = null;
+		} else {
+			keyStruct = new Struct(keySchema);
+		}
+		final Struct valueStruct = new Struct(valueSchema);
+		boolean skipRedoRecord = false;
+		List<OraColumn> missedColumns = null;
+
+		if (LOGGER.isTraceEnabled()) {
+			printErrorMessage(
+					Level.TRACE,
+					"Parsing REDO record for table {}\nRedo record information:\n",
+					stmt, xid, commitScn);
+		}
+		if (!tableWithPk && keyStruct != null) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Do primary key substitution for table {}", tableFqn);
+			}
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace("{} is used as primary key for table {}", stmt.getRowId(), tableFqn);
+			}
+			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
+			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+				valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
+			}
+		}
+		mandatoryColumnsProcessed = 0;
+		final char opType;
+		final byte[] redoData = stmt.redoData();
+		if (stmt.getOperation() == OraCdcV$LogmnrContents.INSERT) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("parseRedoRecord() processing INSERT");
+			}
+			opType = 'c';
+			final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
+			final int[][] colDefs = new int[colCount][3];
+			stmt.readColDefs(colDefs, Short.BYTES);
+			for (int i = 0; i < colCount; i++) {
+				final OraColumn oraColumn = pureIdMap.get(colDefs[i][0]);
+				final int colSize = colDefs[i][1];
+				if (oraColumn != null) {
+					if (colSize < 0) {
+						try {
+							valueStruct.put(oraColumn.getColumnName(), null);
+						} catch (DataException de) {
+							if (StringUtils.containsIgnoreCase(de.getMessage(), "null used for required field")) {
+								if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
+									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+									throw de;
+								} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
+									printSkippingRedoRecordMessage(stmt, xid, commitScn);
+									return null;
+								} else {
+									//INCOMPLETE_REDO_INT_RESTORE
+									if (missedColumns == null) {
+										missedColumns = new ArrayList<>();
+									}
+									missedColumns.add(oraColumn);
+								}
+							} else {
+								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+								throw de;
+							}
+						}
+					} else {
+						final byte[] columnValue = Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize);
+						//TODO - BLOB/CLOB/NCLOB/SQLXML handling!
+						try {
+							parseRedoRecordValues(
+									oraColumn, columnValue,
+									keyStruct, valueStruct);
+							if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+									mandatoryColumnsProcessed++;
+							}
+						} catch (DataException de) {
+							LOGGER.error("Invalid value {} for column {} in table {}",
+									columnValue, oraColumn.getColumnName(), tableFqn);
+							printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+							throw new DataException(de);
+						} catch (SQLException sqle) {
+							if (oraColumn.isNullable()) {
+								printToLogInvalidHexValueWarning(
+										rawToHex(columnValue), oraColumn.getColumnName(), stmt);
+					} else {
+								LOGGER.error("Invalid value {} for column {} in table {}",
+										rawToHex(columnValue), oraColumn.getColumnName(), tableFqn);
+								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+								throw new SQLException(sqle);
+					}
+						}
+					}
+				} else {
+					LOGGER.warn(
+							"\n=====================\n" +
+							"Unable to map column with id {} to dictionary for table {} in XID {}!\nDML operation details:\n{}\n" +
+							"\n=====================\n",
+							colDefs[i][0], fqn(), xid, stmt.toString());
+				}
+			}
+		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("parseRedoRecord() processing DELETE");
+			}
+			opType = 'd';
+			final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
+			final int[][] colDefs = new int[colCount][3];
+			stmt.readColDefs(colDefs, Short.BYTES);
+			if (tableWithPk || pseudoKey) {
+				for (int i = 0; i < colCount; i++) {
+					final int colSize = colDefs[i][1];
+					if (useAllColsOnDelete) {
+						final OraColumn oraColumn = pureIdMap.get(colDefs[i][0]);
+						if (colSize < -1) {
+							try {
+								valueStruct.put(oraColumn.getColumnName(), null);
+							} catch (DataException de) {
+								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+								throw de;
+							}
+						} else {
+							if (oraColumn != null) {
+								// Column can be excluded
+								final byte[] columnValue = Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize);
+								try {
+									parseRedoRecordValues(oraColumn,
+											columnValue, keyStruct, valueStruct);
+									if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+										mandatoryColumnsProcessed++;
+									}
+								} catch (DataException de) {
+									LOGGER.error("Invalid value {} for column {} in table {}",
+											columnValue, oraColumn.getColumnName(), tableFqn);
+									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+									throw new DataException(de);
+								} catch (SQLException sqle) {
+									if (oraColumn.isNullable()) {
+										printToLogInvalidHexValueWarning(
+												rawToHex(columnValue), oraColumn.getColumnName(), stmt);
+									} else {
+										LOGGER.error("Invalid value {} for column {} in table {}",
+												columnValue, oraColumn.getColumnName(), tableFqn);
+										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+										throw new SQLException(sqle);
+									}
+								}
+							}
+						}
+					} else {
+						if (colSize > -1) {
+							// PK can't be null!!!
+							final OraColumn oraColumn = pureIdMap.get(colDefs[i][0]);
+							if (oraColumn != null && oraColumn.isPartOfPk()) {
+								final byte[] columnValue = Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize);
+								parseRedoRecordValues(
+										oraColumn,
+										columnValue,
+										keyStruct, valueStruct);
+								if (oraColumn.isPartOfPk()) {
+									mandatoryColumnsProcessed++;
+								}
+							}
+						}
+					}
+				}
+			} else if (onlyValue) {
+				// skip delete operation only when schema don't have key
+				skipRedoRecord = true;
+				if (printUnableToDeleteWarning) {
+					LOGGER.warn(
+							"\n" +
+							"=====================\n" +
+							"Unable to perform delete operation on table {}, SCN={}, RBA='{}', ROWID='{}' without primary key!\n" +
+							"SQL_REDO:\n\t{}\n" +
+							"=====================\n",
+							this.fqn(), stmt.getScn(), stmt.getRba(), stmt.getRowId(), stmt.getSqlRedo());
+				}
+			}
+		} else if (stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("parseRedoRecord() processing UPDATE");
+			}
+			opType = 'u';
+			final Set<Integer> setColumns = new HashSet<>();
+			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
+			final int[][] setColDefs = new int[setColCount][3];
+			int pos = stmt.readColDefs(setColDefs, Short.BYTES);
+			for (int i = 0; i < setColCount; i++) {
+				final int colSize = setColDefs[i][1];
+				final OraColumn oraColumn = pureIdMap.get(setColDefs[i][0]);
+				if (oraColumn != null) {
+					if (colSize < 0) {
+						try {
+							if (oraColumn.getJdbcType() == Types.BLOB ||
+									oraColumn.getJdbcType() == Types.CLOB ||
+									oraColumn.getJdbcType() == Types.NCLOB) {
+								// Explicit NULL for LOB!
+								valueStruct.put(oraColumn.getColumnName(), new byte[0]);
+							} else {
+								valueStruct.put(oraColumn.getColumnName(), null);
+							}
+							setColumns.add(setColDefs[i][0]);
+						} catch (DataException de) {
+							if (!oraColumn.isDefaultValuePresent()) {
+								// throw error only if we don't expect to get value from WHERE clause
+								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+								throw new DataException(de);
+							} else {
+								valueStruct.put(oraColumn.getColumnName(), oraColumn.getTypedDefaultValue());
+								if (LOGGER.isDebugEnabled()) {
+									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
+											oraColumn.getColumnName(), fqn(), oraColumn.getDefaultValue());
+								}
+							}
+						}
+					} else {
+						final byte[] columnValue = Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize);
+						//TODO - BLOB/CLOB/NCLOB/SQLXML handling!
+						try {
+							parseRedoRecordValues(
+									oraColumn, columnValue,
+									keyStruct, valueStruct);
+							if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+								mandatoryColumnsProcessed++;
+							}
+							setColumns.add(setColDefs[i][0]);
+						} catch (SQLException sqle ) {
+							if (oraColumn.isNullable()) {
+								printToLogInvalidHexValueWarning(
+										rawToHex(columnValue), oraColumn.getColumnName(), stmt);
+							} else {
+								LOGGER.error("Invalid value {} for column {} in table {}",
+										columnValue, oraColumn.getColumnName(), tableFqn);
+								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+								throw new SQLException(sqle);
+							}
+						}
+					}
+				}
+			}
+			//BEGIN: where clause processing...
+			final int whereColCount = redoData[pos++] << 8 | (redoData[pos++] & 0xFF);
+			if (whereColCount > 0) {
+				final int[][] whereColDefs = new int[whereColCount][3];
+				stmt.readColDefs(whereColDefs, pos);
+				for (int i = 0; i < whereColCount; i++) {
+					if (!setColumns.contains(whereColDefs[i][0])) {
+						final int colSize = whereColDefs[i][1];
+						final OraColumn oraColumn = pureIdMap.get(whereColDefs[i][0]);
+						if (colSize < 0) {
+							// Column can be excluded
+							try {
+								valueStruct.put(oraColumn.getColumnName(), null);
+							} catch (DataException de) {
+								// Check again for column default value...
+								// This is due "SUPPLEMENTAL LOG DATA (ALL) COLUMNS"
+								boolean throwDataException = true;
+								if (oraColumn.isDefaultValuePresent()) {
+									final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
+									if (columnDefaultValue != null) {
+										LOGGER.warn(
+												"\n=====================\n" +
+												"Substituting NULL value for column {}, table {} with DEFAULT value {}\n" +
+												"SCN={}, RBA='{}', SQL_REDO:\n\t{}\n" +
+												"=====================\n",
+												oraColumn.getColumnName(), this.tableFqn, columnDefaultValue,
+												stmt.getScn(), stmt.getRba(), stmt.getSqlRedo());
+										valueStruct.put(oraColumn.getColumnName(), columnDefaultValue);
+										if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+											mandatoryColumnsProcessed++;
+										}
+										throwDataException = false;
+									}
+								} else {
+									LOGGER.error(
+											"\n=====================\n" +
+											"'{}' while setting '{}' to NULL in valueStruct in table {}.\n" +
+											"Please check that '{}' is NULLABLE and not member of keyStruct.\n" +
+											"=====================\n",
+											de.getMessage(), oraColumn.getColumnName(),
+											this.tableFqn, oraColumn.getColumnName());
+								}
+								if (throwDataException) {
+									if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
+										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+										throw de;
+									} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
+										printSkippingRedoRecordMessage(stmt, xid, commitScn);
+										return null;
+									} else {
+										//INCOMPLETE_REDO_INT_RESTORE
+										if (missedColumns == null) {
+											missedColumns = new ArrayList<>();
+										}
+										missedColumns.add(oraColumn);
+									}
+								}
+							}
+						} else {
+							if (oraColumn != null) {
+								final byte[] columnValue = Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize);
+								try {
+									parseRedoRecordValues(
+										oraColumn, columnValue,
+										keyStruct, valueStruct);
+									if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+										mandatoryColumnsProcessed++;
+									}
+								} catch (DataException de) {
+									LOGGER.error("Invalid value {} for column {} in table {}",
+											columnValue, oraColumn.getColumnName(), tableFqn);
+									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+									throw new DataException(de);
+								} catch (SQLException sqle) {
+									if (oraColumn.isNullable()) {
+										printToLogInvalidHexValueWarning(
+												rawToHex(columnValue), oraColumn.getColumnName(), stmt);
+									} else {
+										LOGGER.error("Invalid value {} for column {} in table {}",
+												columnValue, oraColumn.getColumnName(), tableFqn);
+										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
+										throw new SQLException(sqle);
+									}
+								}
+							}
+						}
+					}
+				}
+			} else {
+				if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
+					final String message = 
+							"Missed where clause in UPDATE record for the table {}.\n";
+					printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
+					throw new ConnectException("Incomplete redo record!");
+				} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
+					final String message = 
+							"Missed where clause in UPDATE record for the table {}.\n";
+					printErrorMessage(Level.WARN,  message, stmt, xid, commitScn);
+					skipRedoRecord = true;
+				} else {
+					// OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE
+					if (printSqlForMissedWhereInUpdate) {
+						LOGGER.info(
+								"\n" +
+								"=====================\n" +
+								"{}\n" +
+								"Will be used to handle UPDATE statements without WHERE clause for table {}.\n" +
+								"=====================\n",
+								sqlGetKeysUsingRowId, fqn());
+						printSqlForMissedWhereInUpdate = false;
+					}
+					LOGGER.warn(
+							"\n" +
+							"=====================\n" +
+							"UPDATE statement without WHERE clause for table {} at SCN='{}', RS_ID='{}', ROLLBACK='{}' for ROWID='{}'.\n" +
+							"We will try to get primary key values from table {} at ROWID='{}'.\n" +
+							"=====================\n",
+							fqn(), stmt.getScn(), stmt.getRba(), stmt.isRollback(), stmt.getRowId(), fqn(), stmt.getRowId());
+					getMissedColumnValues(connection, stmt.getRowId(), keyStruct);
+				}
+			}
+			//END: where clause processing...
+		} else {
+			// We expect here only 1,2,3 as valid values for OPERATION_CODE (and 68 for special cases)
+			printErrorMessage(
+					Level.ERROR,
+					"Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:\n",
+					stmt, xid, commitScn);
+			throw new SQLException("Unknown OPERATION_CODE while parsing redo record!");
+		}
+
+		if (processLobs &&
+				(stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE ||
+				stmt.getOperation() == OraCdcV$LogmnrContents.INSERT) ||
+				stmt.getOperation() == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
+			if (lobs != null) {
+				for (int i = 0; i < lobs.size(); i++) {
+					final OraCdcLargeObjectHolder lob = lobs.get(i);
+					final String lobColumnName;
+					final OraColumn lobColumn;
+					if (lob.getLobId() > 0) {
+						lobColumn = lobColumnsObjectIds.get(lob.getLobId());
+						lobColumnName = lobColumn.getColumnName();
+					} else {
+						// lob.getLobId() == 0
+						lobColumn = idToNameMap.get(lob.getColumnId());
+						lobColumnName = lobColumn.getColumnName();
+					}
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("{}: setting value for BLOB/C column {}, value length={}.",
+							fqn(), lobColumnName, lob.getContent().length);
+					}
+					if (lobColumnSchemas != null &&
+							lobColumnSchemas.containsKey(lobColumnName)) {
+						valueStruct.put(lobColumnName,
+								transformLobs.transformData(
+										pdbName, tableOwner, tableName,
+										lobColumn, lob.getContent(),
+										keyStruct, lobColumnSchemas.get(lobColumnName)));
+					} else {
+						valueStruct.put(lobColumnName, lob.getContent());
+					}
+				}
+			}
+		}
+
+		if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE &&
+				missedColumns != null) {
+			if (getMissedColumnValues(connection, stmt, missedColumns, keyStruct, valueStruct, xid, commitScn)) {
+				printRedoRecordRecoveredMessage(stmt, xid, commitScn);
+			} else {
+				printSkippingRedoRecordMessage(stmt, xid, commitScn);
+			}
+		}
+
+		SourceRecord sourceRecord = null;
+		if (!skipRedoRecord) {
+			if (mandatoryColumnsProcessed < mandatoryColumnsCount) {
+				if (opType != 'd') {
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug(
+								"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
+								fqn(), mandatoryColumnsCount, mandatoryColumnsProcessed);
+					}
+					final String message = 
+							"Mandatory columns count for table {} is " +
+							mandatoryColumnsCount +
+							" but only " +
+							mandatoryColumnsProcessed +
+							" mandatory columns are returned from the redo record!\n" +
+							"Please check supplemental logging settings!\n";
+					if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
+						printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, xid, commitScn);
+						throw new ConnectException("Incomplete redo record!");
+					} else {
+						printErrorMessage(Level.ERROR,  message + "Skipping!\n", stmt, xid, commitScn);
+						return null;
+					}
+				} else if (!pseudoKey) {
+					// With ROWID we does not need more checks...
+					//TODO - logic for delete only with primary columns!
+					//TODO
+					//TODO - logic for delete with all columns
+				}
+			}
+
+			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+				final Struct struct = new Struct(schema);
+				final Struct source = rdbmsInfo.getStruct(
+						stmt.getSqlRedo(),
+						pdbName, tableOwner, tableName,
+						stmt.getScn(), stmt.getTs(),
+						xid, commitScn, stmt.getRowId().toString());
+				struct.put("source", source);
+				struct.put("before", keyStruct);
+				if (stmt.getOperation() != OraCdcV$LogmnrContents.DELETE ||
+						((stmt.getOperation() == OraCdcV$LogmnrContents.DELETE) && useAllColsOnDelete)) {
+					struct.put("after", valueStruct);
+				}
+				struct.put("op", String.valueOf(opType));
+				struct.put("ts_ms", System.currentTimeMillis());
+				sourceRecord = new SourceRecord(
+						sourcePartition,
+						offset,
+						kafkaTopic,
+						schema,
+						struct);
+			} else {
+				if (!(opType == 'd' && (!useAllColsOnDelete))) {
+					//TODO
+					//TODO Beter handling for 'debezium'-like schemas are required for this case...
+					//TODO
+					pseudoColumns.addToStruct(valueStruct, stmt, transaction);
+				}
+				if (onlyValue) {
+					sourceRecord = new SourceRecord(
+							sourcePartition,
+							offset,
+							kafkaTopic,
+							topicPartition,
+							valueSchema,
+							valueStruct);
+				} else {
+					if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
+						if (stmt.getOperation() == OraCdcV$LogmnrContents.DELETE &&
+								(!useAllColsOnDelete)) {
+							sourceRecord = new SourceRecord(
+									sourcePartition,
+									offset,
+									kafkaTopic,
+									topicPartition,
+									keySchema,
+									keyStruct,
+									null,
+									null);
+						} else {
+							sourceRecord = new SourceRecord(
+								sourcePartition,
+								offset,
+								kafkaTopic,
+								topicPartition,
+								keySchema,
+								keyStruct,
+								valueSchema,
+								valueStruct);
+						}
+					}
+				}
+				if (sourceRecord != null) {
+					sourceRecord.headers().addString("op", String.valueOf(opType));
+				}
+			}
+		}
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("END: parseRedoRecord()");
+		}
+		return sourceRecord;
+	}
+
+	
+	private void parseRedoRecordValues(
+			final OraColumn oraColumn, final byte[] data,
+			final Struct keyStruct, final Struct valueStruct) throws SQLException {
+		final String columnName = oraColumn.getColumnName();
+		final Object columnValue;
+		switch (oraColumn.getJdbcType()) {
+			case Types.DATE:
+			case Types.TIMESTAMP:
+				if (data.length == DATE_DATA_LENGTH || data.length == TS_DATA_LENGTH) {
+					columnValue = OraDumpDecoder.toTimestamp(data);
+				} else {
+					throw new SQLException("Invalid DATE (Typ=12) or TIMESTAMP (Typ=180)");
+				}
+				break;
+			case Types.TIMESTAMP_WITH_TIMEZONE:
+				columnValue = OraTimestamp.fromLogical(
+					data, oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
+				break;
+			case Types.TINYINT:
+				columnValue = OraDumpDecoder.toByte(data);
+				break;
+			case Types.SMALLINT:
+				columnValue = OraDumpDecoder.toShort(data);
+				break;
+			case Types.INTEGER:
+				columnValue = OraDumpDecoder.toInt(data);
+				break;
+			case Types.BIGINT:
+				columnValue = OraDumpDecoder.toLong(data);
+				break;
+			case Types.FLOAT:
+				if (oraColumn.isBinaryFloatDouble()) {
+					columnValue = OraDumpDecoder.fromBinaryFloat(data);
+				} else {
+					columnValue = OraDumpDecoder.toFloat(data);
+				}
+				break;
+			case Types.DOUBLE:
+				if (oraColumn.isBinaryFloatDouble()) {
+					columnValue = OraDumpDecoder.fromBinaryDouble(data);
+				} else {
+					columnValue = OraDumpDecoder.toDouble(data);
+				}
+				break;
+			case Types.DECIMAL:
+				BigDecimal bdValue = OraDumpDecoder.toBigDecimal(data);
+				if (bdValue.scale() > oraColumn.getDataScale()) {
+					LOGGER.warn(
+								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
+								columnName, this.fqn(), bdValue, bdValue.scale(), oraColumn.getDataScale());
+					columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
+				} else if (bdValue.scale() !=  oraColumn.getDataScale()) {
+					columnValue = bdValue.setScale(oraColumn.getDataScale());
+				} else {
+					columnValue = bdValue;
+				}
+				break;
+			case Types.BINARY:
+			case Types.NUMERIC:
+			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_BINARY:
+			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_BINARY:
+				// do not need to perform data type conversion here!
+				columnValue = data;
+				break;
+			case Types.CHAR:
+			case Types.VARCHAR:
+				columnValue = odd.fromVarchar2(data);
+				break;
+			case Types.NCHAR:
+			case Types.NVARCHAR:
+				columnValue = odd.fromNvarchar2(data);
+				break;
+			case Types.CLOB:
+			case Types.NCLOB:
+			case Types.BLOB:
+			case Types.SQLXML:
+				//TODO
+				columnValue = null;
+				break;
+			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING:
+			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING:
+				columnValue = OraInterval.fromLogical(data);
+				break;
+			default:
+				columnValue = oraColumn.unsupportedTypeValue();
+				break;
+		}
+		if (onlyValue) {
+			valueStruct.put(columnName, columnValue);
+		} else {
+			if (pkColumns.containsKey(columnName)) {
+				keyStruct.put(columnName, columnValue);
+				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+						valueStruct.put(columnName, columnValue);
+				}
+			} else {
+				if ((oraColumn.getJdbcType() == Types.BLOB ||
+							oraColumn.getJdbcType() == Types.CLOB ||
+							oraColumn.getJdbcType() == Types.NCLOB ||
+							oraColumn.getJdbcType() == Types.SQLXML) &&
+								(lobColumnSchemas != null &&
+								lobColumnSchemas.containsKey(columnName))) {
+					// Data are overloaded
+					valueStruct.put(columnName,
+								transformLobs.transformData(
+										pdbName, tableOwner, tableName, oraColumn,
+										(byte[]) columnValue, keyStruct,
+										lobColumnSchemas.get(columnName)));
+				} else {
+					valueStruct.put(columnName, columnValue);
+				}
+			}
+		}
+	}
+
+
 
 }
