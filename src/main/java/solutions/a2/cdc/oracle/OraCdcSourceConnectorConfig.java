@@ -267,11 +267,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
 	private static final String REDO_FILE_NAME_CONVERT_DOC =
 			"It converts the filename of a redo log to another path.\n" +
-			"It is specified as a string in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.";
+			"It is specified as a comma separated list of a strins in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.";
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
-	private String originalPath;
-	private String anotherPath;
+	private Map<String, String> fileNameConversionMap;
 	private boolean logMiner = true;
 
 	public static ConfigDef config() {
@@ -920,13 +919,56 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			final String fileNameConvertParam = getString(REDO_FILE_NAME_CONVERT_PARAM);
 			if (StringUtils.isNotEmpty(fileNameConvertParam) &&
 					StringUtils.contains(fileNameConvertParam, ':')) {
-				originalPath = StringUtils.substringBefore(fileNameConvertParam, ":");
-				anotherPath = StringUtils.substringAfter(fileNameConvertParam, ":");
+				String[] elements = StringUtils.split(fileNameConvertParam, ',');
+				int newSize = 0;
+				boolean[] processElement = new boolean[elements.length];
+				for (int i = 0; i < elements.length; i++) {
+					if (StringUtils.contains(elements[i], ":")) {
+						elements[i] = StringUtils.trim(elements[i]);
+						processElement[i] = true;
+						newSize += 1;
+					} else {
+						processElement[i] = false;
+					}
+				}
+				if (newSize > 0) {
+					fileNameConversionMap = new HashMap<>();
+					for (int i = 0; i < elements.length; i++) {
+						if (processElement[i]) {
+							fileNameConversionMap.put(
+								StringUtils.appendIfMissing(
+									StringUtils.trim(StringUtils.substringBefore(elements[i], ":")),
+									File.separator),
+							StringUtils.appendIfMissing(
+									StringUtils.trim(StringUtils.substringAfter(elements[i], ":")),
+									File.separator));
+						}
+					}
+					fileNameConversion = true;
+				}				
+				elements = null;
+				processElement = null;
 			}
 			fileNameConversionInited = true;
 		}
 		if (fileNameConversion) {
-			return StringUtils.replace(originalName, originalPath, anotherPath);
+			final String originalPrefix = StringUtils.trim(
+					StringUtils.substring(
+							originalName,
+							0,
+							StringUtils.lastIndexOf(originalName, File.separator) + 1));
+			final String replacementPrefix =  fileNameConversionMap.get(originalPrefix);
+			if (replacementPrefix == null) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to convert filename '{}' using parameter {}={} !\n" +
+						"Original filename will be returned!" +
+						"\n=====================\n",
+						originalName, REDO_FILE_NAME_CONVERT_PARAM, getString(REDO_FILE_NAME_CONVERT_PARAM));
+				return originalName;
+			} else {
+				return StringUtils.replace(originalName, originalPrefix, replacementPrefix);
+			}
 		} else {
 			return originalName;
 		}
