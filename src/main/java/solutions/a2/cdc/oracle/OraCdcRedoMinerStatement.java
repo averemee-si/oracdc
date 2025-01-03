@@ -56,6 +56,10 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 		super(tableId, operation, redoData, ts, scn, rba, ssn, rowId, rollback);
 	}
 
+	public byte[] redoData() {
+		return redoData;
+	}
+
 	@Override
 	public String getSqlRedo() {
 		final StringBuilder sql = new StringBuilder(APPROXIMATE_SIZE);
@@ -197,7 +201,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 		return sql.toString();
 	}
 
-	private int readAndSortColDefs(final int[][] colDefs, int pos) {
+	public int readColDefs(final int[][] colDefs, int pos) {
 		final int colCount = colDefs.length;
 		for (int i = 0; i < colCount; i++) {
 			colDefs[i][0] = redoData[pos++] << 8 | redoData[pos++] & 0xFF;
@@ -215,6 +219,11 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 		}
 		pos = colDefs[colCount - 1][2] + 
 				(colDefs[colCount - 1][1] > 0 ? colDefs[colCount - 1][1] : 0);
+		return pos;
+	}
+
+	private int readAndSortColDefs(final int[][] colDefs, int pos) {
+		pos = readColDefs(colDefs, pos);
 		Arrays.sort(colDefs, (a, b) -> Integer.compare(a[0], b[0]));
 		return pos;
 	}
