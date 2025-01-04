@@ -342,7 +342,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			return false;
 		} else {
 			is.close();
-			throw new IOException("Unable to find the mafic signature in file '" + fileName + "'!");
+			throw new IOException("Unable to find the magic signature in file '" + fileName + "'!");
 		}
 	}
 
@@ -519,24 +519,24 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	private RedoByteAddress endRba;
 	private OraCdcRedoRecord redoRecord;
 
-	private void initIterator() throws IOException {
+	private void initIterator(final int blocksToSkip) throws IOException {
 		if (iteratorInited) {
 			close();
 			fis = new BufferedInputStream(new FileInputStream(fileName));
 			// Read two blocks...
-			if (fis.skip(blockSize * 2) != (blockSize * 2)) {
+			if (fis.skip((long) (blockSize * blocksToSkip)) != (long) (blockSize * blocksToSkip)) {
 				LOGGER.error(
 						"\n=====================\n" +
 						"Unable to skip {} bytes in '{}'!" +
 						"\n=====================\n",
-						blockSize * 2, fileName);
+						blockSize * blocksToSkip, fileName);
 				fis.close();
-				throw new IOException("Unable to skip " + (blockSize * 2) + " bytesin '" + fileName + "'!");
+				throw new IOException("Unable to skip " + (blockSize * blocksToSkip) + " bytes in '" + fileName + "'!");
 			}
 		} else {
 			iteratorInited = true;
 		}
-		currentBlock = 1;
+		currentBlock = blocksToSkip - 1;
 		needNextBlock = true;
 		chainedRecord = false;
 		createRedoRecord = false;
@@ -553,14 +553,30 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		iteratorLimits = false;
 	}
 
+	/**
+	 * 
+	 * Creates an iterator over the entire redo log file
+	 * 
+	 * @return
+	 * @throws IOException
+	 */
 	public Iterator<OraCdcRedoRecord> iterator() throws IOException {
-		initIterator();
+		initIterator(0x2);
 		endScn = UnsignedLong.MAX_VALUE;
 		return this;
 	}
 
+	/**
+	 * 
+	 * Creates an iterator from the specified start SCN to the specified end SCN
+	 * 
+	 * @param startScn
+	 * @param endScn
+	 * @return
+	 * @throws IOException
+	 */
 	public Iterator<OraCdcRedoRecord> iterator(final long startScn, final long endScn) throws IOException {
-		initIterator();
+		initIterator(0x2);
 		limitedByScn = true;
 		this.endScn = endScn;
 		if (Long.compareUnsigned(startScn, firstScn) >= 0 &&
@@ -589,11 +605,20 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return this;
 	}
 
+	/**
+	 * 
+	 * Creates an iterator from the specified start RBA to the specified end RBA
+	 * 
+	 * @param startRba
+	 * @param endRba
+	 * @return
+	 * @throws IOException
+	 */
 	public Iterator<OraCdcRedoRecord> iterator(final RedoByteAddress startRba, final RedoByteAddress endRba) throws IOException {
-		initIterator();
-		limitedByScn = false;
-		this.endRba = endRba;
 		if (startRba.sqn() == sequence && endRba.sqn() == sequence) {
+			initIterator(startRba.blk());
+			limitedByScn = false;
+			this.endRba = endRba;
 			while (hasNext()) {
 				if (startRba.compareTo(recordRba) <= 0) {
 					iteratorLimits = true;
@@ -610,6 +635,50 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			}
 		}
 		return this;
+	}
+
+	/**
+	 * 
+	 * Creates an iterator from the specified start RBA to the specified end SCN
+	 * 
+	 * @param startRba
+	 * @param endScn
+	 * @return
+	 * @throws IOException
+	 */
+	public Iterator<OraCdcRedoRecord> iterator(final RedoByteAddress startRba, long endScn) throws IOException {
+		if (startRba.sqn() == sequence && endRba.sqn() == sequence) {
+			initIterator(startRba.blk());
+			limitedByScn = true;
+			this.endScn = endScn;
+			while (hasNext()) {
+				if (startRba.compareTo(recordRba) <= 0) {
+					iteratorLimits = true;
+					iteratorAlreadyAtNext = true;
+					break;
+				}
+			}
+		} else {
+			currentBlock = blockCount;
+			lastStatus = false;
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("The specified range RBA {} - SCN {} does not match the sequence {} of redo log file '{}'!",
+						startRba, endScn, sequence, fileName);
+			}
+		}
+		return this;
+	}
+
+	/**
+	 * 
+	 * Creates an iterator from the beginning of redo log file to the specified end SCN
+	 * 
+	 * @param endScn
+	 * @return
+	 * @throws IOException
+	 */
+	public Iterator<OraCdcRedoRecord> iterator(long endScn) throws IOException {
+			return iterator(firstScn, endScn);
 	}
 
 	@Override
