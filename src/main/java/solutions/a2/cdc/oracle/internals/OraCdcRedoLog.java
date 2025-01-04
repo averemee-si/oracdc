@@ -333,6 +333,10 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return fileName;
 	}
 
+	public int sequence() {
+		return sequence;
+	}
+
 	private static boolean chkEndiness(final byte[] buffer, InputStream is, final String fileName) throws IOException {
 		if (buffer[POS_MAGIC_1] == 0x7D && buffer[POS_MAGIC_2] == 0x7C &&
 			buffer[POS_MAGIC_3] == 0x7B && buffer[POS_MAGIC_4] == 0x7A) {
