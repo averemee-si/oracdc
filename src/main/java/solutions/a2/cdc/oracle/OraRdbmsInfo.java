@@ -91,6 +91,7 @@ public class OraRdbmsInfo {
 	private final OraDumpDecoder odd;
 	private final String sourcePartitionName;
 	private final Map<String, String> partition;
+	private final boolean littleEndian;
 
 	public final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -232,6 +233,20 @@ public class OraRdbmsInfo {
 			logMode = rs.getString("LOG_MODE");
 			dbCharset = rs.getString("NLS_CHARACTERSET");
 			dbNCharCharset = rs.getString("NLS_NCHAR_CHARACTERSET");
+			final String endianness = rs.getString("ENDIAN_FORMAT");
+			if (StringUtils.equalsIgnoreCase(endianness, "Little")) {
+				littleEndian = true;
+			} else if (StringUtils.equalsIgnoreCase(endianness, "Big")) {
+				littleEndian = false;
+			} else {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to detect platform endianness for database {} running on {}!\n" +
+						"V$TRANSPORTABLE_PLATFORM.ENDIAN_FORMAT {};" +
+						"\n=====================\n",
+						databaseName, platformName, endianness);
+				throw new SQLException("Unable to detect platform endianness!");
+			}
 			rs.close();
 			rs = null;
 			ps.close();
@@ -243,13 +258,11 @@ public class OraRdbmsInfo {
 			} catch (SQLException tze) {
 				dbTimeZone = ZoneId.systemDefault();
 				LOGGER.error(
-						"\n" +
-						"=====================\n" +
+						"\n=====================\n" +
 						"Database timezone is set to {}\n" +
 						"Unable to determine database timezone!\n" +
 						ExceptionUtils.getExceptionStackTrace(tze) + 
-						"\n" +
-						"=====================\n", dbTimeZone);
+						"\n=====================\n", dbTimeZone);
 			}
 			LOGGER.debug("Database timezone is set to {}", dbTimeZone);
 
@@ -260,13 +273,11 @@ public class OraRdbmsInfo {
 				} catch (DateTimeException dte) {
 					sessionTimeZone = ZoneId.systemDefault();
 					LOGGER.error(
-							"\n" +
-							"=====================\n" +
+							"\n=====================\n" +
 							"'{}' while converting '{}' to ZoneId!\n" +
 							"'{}' will be used as sessionTimeZone!\n" +
 							ExceptionUtils.getExceptionStackTrace(dte) + 
-							"\n" +
-							"=====================\n",
+							"\n=====================\n",
 							dte.getMessage(), sessionTZName, sessionTimeZone);
 				}
 			} else {
@@ -278,13 +289,13 @@ public class OraRdbmsInfo {
 			if (sqle.getErrorCode() == ORA_942) {
 				// ORA-00942: table or view does not exist
 				LOGGER.error(
-						"\n" +
-						"=====================\n" +
+						"\n=====================\n" +
 						"Please run as SYSDBA:\n" +
 						"\tgrant select on V_$DATABASE to {};\n" +
-						"And restart connector!\n" +
-						"=====================\n",
-						connection.getSchema());
+						"\tgrant select on V_$TRANSPORTABLE_PLATFORM to {};\n" +
+						"And restart connector!" +
+						"\n=====================\n",
+						connection.getSchema(), connection.getSchema());
 			}
 			throw sqle;
 		}
@@ -1064,6 +1075,10 @@ public class OraRdbmsInfo {
 
 	public Map<String, String> partition() {
 		return partition;
+	}
+
+	public boolean littleEndian() {
+		return littleEndian;
 	}
 
 	@Override
