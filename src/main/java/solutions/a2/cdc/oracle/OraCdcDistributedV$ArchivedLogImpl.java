@@ -301,7 +301,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 								redoFile.SEQUENCE = sequence;
 								redoFile.FIRST_CHANGE = rsArchivedLogFiles.getLong("FIRST_CHANGE#");
 								redoFile.NEXT_CHANGE = nextChange;
-								redoFile.BYTES = rsArchivedLogFiles.getLong("BYTES");
+								redoFile.BYTES = rsArchivedLogFiles.getShort("BLOCK_SIZE") * rsArchivedLogFiles.getInt("BLOCKS");
 								redoFile.FIRST_TIME = rsArchivedLogFiles.getTimestamp("FIRST_TIME");
 								// Get file
 								if (LOGGER.isDebugEnabled()) {

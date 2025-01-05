@@ -234,7 +234,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 						printRedoLogInfo(true, true,
 								fileName, rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"));
 						archLogAvailable = true;
-						archLogSize = rs.getLong("BYTES");
+						archLogSize = rs.getShort("BLOCK_SIZE") * rs.getInt("BLOCKS");
 						break;
 					}
 				}
