@@ -13,12 +13,13 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.io.BufferedInputStream;
 import java.io.Closeable;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Iterator;
 
@@ -105,7 +106,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		this.fileName = fileName;
 		this.validateChecksum = validateChecksum;
 		if (blockSize == 0) {
-			final InputStream tmpStream = new BufferedInputStream(new FileInputStream(fileName));
+			final InputStream tmpStream = openRedoLog();
 			final byte[] tmpBuffer = new byte[0x20];
 			if (tmpStream.read(tmpBuffer, 0, tmpBuffer.length) != tmpBuffer.length) {
 				LOGGER.error(
@@ -141,7 +142,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			throw new IOException("Only 512, 1024, or 4096 are valid values for blocksize!!!");
 		}
 
-		fis = new BufferedInputStream(new FileInputStream(fileName));
+		fis = openRedoLog();
 		block = new byte[this.blockSize];
 		//
 		// Block 0x00
@@ -523,22 +524,31 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	private RedoByteAddress endRba;
 	private OraCdcRedoRecord redoRecord;
 
-	private void initIterator(final int blocksToSkip) throws IOException {
+	private void initIterator(final long blocksToSkip) throws IOException {
+		final long deltaBytes;
 		if (iteratorInited) {
 			close();
-			fis = new BufferedInputStream(new FileInputStream(fileName));
-			// Read two blocks...
-			if (fis.skip((long) (blockSize * blocksToSkip)) != (long) (blockSize * blocksToSkip)) {
+			fis = openRedoLog();
+			deltaBytes = blockSize * blocksToSkip;
+		} else {
+			if (currentBlock < (blocksToSkip - 1)) {
+				deltaBytes = blockSize * (blocksToSkip - currentBlock - 1);
+			} else {
+				deltaBytes = 0;
+			}
+			iteratorInited = true;
+		}
+		if (deltaBytes > 0) {
+			final long skipped = fis.skip(deltaBytes);
+			if (skipped != deltaBytes) {
 				LOGGER.error(
 						"\n=====================\n" +
-						"Unable to skip {} bytes in '{}'!" +
+						"Of the {} bytes requested to be skipped, only {} were skipped. in '{}'!" +
 						"\n=====================\n",
-						blockSize * blocksToSkip, fileName);
+						deltaBytes, skipped, fileName);
 				fis.close();
-				throw new IOException("Unable to skip " + (blockSize * blocksToSkip) + " bytes in '" + fileName + "'!");
+				throw new IOException("Unable to skip " + deltaBytes + " bytes in '" + fileName + "'!");
 			}
-		} else {
-			iteratorInited = true;
 		}
 		currentBlock = blocksToSkip - 1;
 		needNextBlock = true;
@@ -885,6 +895,10 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			throw new IOException("Unable to read block # " + currentBlock + " !");
 		}
 		return true;
+	}
+
+	private InputStream openRedoLog() throws IOException {
+		return Files.newInputStream(Paths.get(fileName), StandardOpenOption.READ);
 	}
 
 }
