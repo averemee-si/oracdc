@@ -370,7 +370,12 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		long firstSubScn = -1;
 		final long firstScnFromProps = config.startScn();
 		final boolean startScnFromProps = Long.compareUnsigned(firstScnFromProps, 0) > 0;
-		Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(rdbmsInfo.partition());
+		final Map<String, Object> offsetFromKafka;
+		if (context != null && context.offsetStorageReader() != null) {
+			offsetFromKafka = context.offsetStorageReader().offset(rdbmsInfo.partition());
+		} else {
+			offsetFromKafka = null;
+		}
 
 		// New resiliency model
 		if (offsetFromKafka != null && offsetFromKafka.containsKey("C:COMMIT_SCN")) {
