@@ -15,10 +15,7 @@ package solutions.a2.cdc.oracle;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -30,12 +27,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
@@ -51,6 +45,7 @@ import solutions.a2.cdc.oracle.jmx.OraCdcRedoMinerMgmt;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.Xid;
+import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
@@ -96,6 +91,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final Map<Integer, Xid> prefixedTransactions;
 	private final TreeMap<Xid, Triple<Long, RedoByteAddress, Long>> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
+	private final BinaryUtils bu;
 
 	private Iterator<OraCdcRedoRecord> miner = null;
 
@@ -108,7 +104,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcRedoMinerTask task,
-			final long firstScn,
+			final Triple<Long, RedoByteAddress, Long> startFrom,
 			final int[] includeObjIds,
 			final int[] excludeObjIds,
 			final Map<Xid, OraCdcTransaction> activeTransactions,
@@ -136,10 +132,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
+		this.bu = BinaryUtils.get(rdbmsInfo.littleEndian());
 
 		try {
 			connDictionary = oraConnections.getConnection();
-			redoMiner = new OraRedoMiner(connDictionary, metrics, firstScn, config, runLatch, rdbmsInfo, oraConnections);
+			redoMiner = new OraRedoMiner(
+					connDictionary, metrics, startFrom, config, runLatch, rdbmsInfo, oraConnections, bu);
 			// Finally - prepare for mining...
 			redoMinerReady = redoMiner.next();
 
@@ -153,7 +151,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	@Override
-	public void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSsn) throws SQLException {
+	public void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSubScn) throws SQLException {
 		//TODO
 		//TODO
 		//TODO Must be rewritten to file specific!!!
@@ -161,14 +159,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		//TODO
 		if (redoMinerReady) {
 			LOGGER.info("Move through file to first position after SCN= {}, RBA={}, SSN={}.",
-					firstScn, firstRba, firstSsn);
+					firstScn, firstRba, firstSubScn);
 			miner = redoMiner.iterator();
 			int recordCount = 0;
 			long rewindElapsed = System.currentTimeMillis();
 			boolean rewindNeeded = true;
 			lastScn = firstScn;
 			lastRba = firstRba;
-			lastSubScn = firstSsn;
+			lastSubScn = firstSubScn;
 			while (rewindNeeded) {
 				if (miner.hasNext()) {
 					final OraCdcRedoRecord rr = miner.next();
@@ -178,13 +176,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					recordCount++;
 					if (firstScn == lastScn &&
 							(firstRba == null || firstRba.equals(lastRba)) &&
-							(firstSsn == -1 || firstSsn == lastSubScn)) {
+							(firstSubScn == -1 || firstSubScn == lastSubScn)) {
 						rewindNeeded = false;
 						break;
 					}
 				} else {
 					LOGGER.error("Incorrect rewind to SCN = {}, RBA = {}, SSN = {}",
-							firstScn, firstRba, firstSsn);
+							firstScn, firstRba, firstSubScn);
 					throw new SQLException("Incorrect rewind operation!!!");
 				}
 			}
@@ -192,7 +190,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			LOGGER.info("Total records skipped while rewinding: {}, elapsed time ms: {}", recordCount, rewindElapsed);
 		} else {
 			LOGGER.info("Values from offset (SCN = {}, RS_ID = '{}', SSN = {}) ignored, waiting for new redo log.",
-					firstScn, firstRba, firstSsn);
+					firstScn, firstRba, firstSubScn);
 		}
 	}
 
@@ -201,6 +199,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		LOGGER.info("BEGIN: OraCdcRedoMinerWorkerThread.run()");
 		running.set(true);
 		boolean firstTransaction = true;
+		boolean notFirstRecord = false;
 		while (runLatch.getCount() > 0) {
 			long lastGuaranteedScn = 0;
 			RedoByteAddress lastGuaranteedRsId = null;
@@ -208,9 +207,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			Xid xid = null;
 			try {
 				if (redoMinerReady) {
-					if (miner == null) {
-						miner = redoMiner.iterator();
-					}
+					miner = redoMiner.iterator();
+boolean firstInLoop = true;
 					while (miner.hasNext() && runLatch.getCount() > 0) {
 						final OraCdcRedoRecord record = miner.next();
 						if (record == null) {
@@ -220,6 +218,17 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (LOGGER.isTraceEnabled()) {
 							LOGGER.trace(record.toString());
 						}
+						if (notFirstRecord) {
+							if (record.rba().sqn() < lastRba.sqn()) {
+								break;
+							}
+						} else {
+							notFirstRecord = true;
+						}
+if (firstInLoop && lastRba != null) {
+	System.out.println(">>>>>lastRba=" + lastRba + "\trecord.rba()=" + record.rba());
+	firstInLoop = false;
+}
 						xid = record.xid();
 						lastScn = record.scn();
 						lastRba = record.rba();
@@ -391,29 +400,27 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						//END: Main decision tree
 
 					} // while (isRsLogMinerRowAvailable && runLatch.getCount() > 0)
-					redoMiner.stop();
+					//TODO - do we need to pass lastScn???
+					redoMiner.stop(lastRba, lastScn);
 					miner = null;
 					if (activeTransactions.isEmpty() && lastGuaranteedScn > 0) {
 						// Update restart point in time
 						task.putReadRestartScn(Triple.of(lastGuaranteedScn, lastGuaranteedRsId, lastGuaranteedSsn));
 					}
-					if (runLatch.getCount() > 0) {
-						redoMinerReady = redoMiner.next();
-					} else {
-						if (LOGGER.isDebugEnabled()) {
-							LOGGER.debug("Preparing to end main OraCdcRedoMinerWorkerThread.run() loop...");
-							redoMinerReady = false;
-							break;
-						}
-					}
-				} else {
+					redoMinerReady = false;
 					while (!redoMinerReady && runLatch.getCount() > 0) {
-						synchronized (this) {
+						redoMinerReady = redoMiner.next();
+						if (!redoMinerReady) {
 							if (LOGGER.isDebugEnabled()) {
 								LOGGER.debug("Waiting {} ms", pollInterval);
 							}
-							try {wait(pollInterval); } catch (InterruptedException ie) {}
-							redoMinerReady = redoMiner.next();
+							synchronized(this) {
+								try {wait(pollInterval); } catch (InterruptedException ie) {}
+							}
+						} else {
+							//TODO
+							//TODO - rewind here?
+							//TODO
 						}
 					}
 				}
@@ -1136,7 +1143,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				int colSize = Byte.toUnsignedInt(record[coords[index +2][0] + rowDiff++]);
 				if (colSize ==  0xFE) {
 					baos.write(0xFE);
-					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index + 2][0] + rowDiff));
+					colSize = Short.toUnsignedInt(bu.getU16(record, coords[index + 2][0] + rowDiff));
 					writeU16(baos, colSize);
 					rowDiff += Short.BYTES;
 				} else  if (colSize == 0xFF) {
@@ -1153,7 +1160,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final RowId rowId = new RowId(
 					change.dataObj(),
 					change.bdba(),
-					redoLog.bu().getU16(record, coords[index][0] + 0x14 + row * Short.BYTES));
+					bu.getU16(record, coords[index][0] + 0x14 + row * Short.BYTES));
 			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
 					redoLog.cdb() ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					lmOp, baos.toByteArray(), rr.unixMillis(), rr.scn(), rr.rba(),
@@ -1190,10 +1197,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final int nullPos, final int count, final int colNn) {
 		final byte[] record = change.record();
 		final int[][] coords = change.coords();
-		final OraCdcRedoLog redoLog = change.redoLog();
 		final int colNumOffset;
 		if (colNumIndex > 0) {
-			colNumOffset = offset - redoLog.bu().getU16(record, coords[colNumIndex][0]);
+			colNumOffset = offset - bu.getU16(record, coords[colNumIndex][0]);
 		} else {
 			colNumOffset = offset;
 		}
@@ -1203,7 +1209,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final int colDataIndex = index + i + (colNumIndex > 0 ? 2 : 1);
 			final int colNum;
 			if (colNumIndex > 0) {
-				colNum = redoLog.bu().getU16(record, coords[colNumIndex][0] + i * Short.BYTES) + colNumOffset;
+				colNum = bu.getU16(record, coords[colNumIndex][0] + i * Short.BYTES) + colNumOffset;
 			} else {
 				colNum = i  + colNumOffset;
 			}
@@ -1238,11 +1244,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		final int dataEndPos = supplColCount + change.suppDataStartIndex() + 0x3;
 		final byte[] record = change.record();
 		final int[][] coords = change.coords();
-		final OraCdcRedoLog redoLog = change.redoLog();
 		int colIndex = 0;
 		for (int i = change.suppDataStartIndex() + 0x3; i < dataEndPos; i++) {
 			if (i < coords.length) {
-				final int colNum = redoLog.bu().getU16(record, coords[colNumIndex][0] + colIndex * Short.BYTES);
+				final int colNum = bu.getU16(record, coords[colNumIndex][0] + colIndex * Short.BYTES);
 				writeU16(baos, colNum);
 				if (colIndex < supplColCountNn) {
 					final int colSize = coords[i][1];

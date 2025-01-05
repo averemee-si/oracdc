@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.MutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -106,7 +107,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			//TODO - we din't pass checker to worker thread (temporary!)
 			worker = new OraCdcRedoMinerWorkerThread(
 					this,
-					coords.getLeft(),
+					rewind ? coords : new ImmutableTriple<>(coords.getLeft(), null, -1l),
 					includeObjIds,
 					excludeObjIds,
 					activeTransactions,

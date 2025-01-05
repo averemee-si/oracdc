@@ -24,12 +24,15 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
+import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.utils.BinaryUtils;
 
 /**
  * 
@@ -44,19 +47,19 @@ public class OraRedoMiner {
 
 	private final OraCdcSourceConnectorConfig config;
 	private long firstChange;
-	private long currentFirstChange;
+	private RedoByteAddress firstRba;
+	private boolean inited = true;
 	private long nextChange = 0;
 	private long lastSequence = 0;
 	private final String connectorName;
-	private final boolean dictionaryAvailable;
 	private final boolean processOnlineRedoLogs;
 	private final int onlineRedoQueryMsMin;
 	private final OraCdcLogMinerMgmtIntf metrics;
 	private PreparedStatement psGetArchivedLogs;
 	private PreparedStatement psUpToCurrentScn;
-	private long archLogSize = 0;
+	private long redoLogSize;
 	private String currentRedoLog = null;
-	private String lastProcessedRedoLog = null;
+	private RedoByteAddress lastProcessedRba;
 	private long readStartMillis;
 	private final OraRdbmsInfo rdbmsInfo;
 	private long lastOnlineRedoTime = 0;
@@ -64,17 +67,20 @@ public class OraRedoMiner {
 	private long lastOnlineSequence = 0;
 	private final boolean useNotifier;
 	private final LastProcessedSeqNotifier notifier;
+	private final BinaryUtils bu;
 	private OraCdcRedoLog redoLog;
 	private Iterator<OraCdcRedoRecord> miner;
+	boolean processOnlineRedo = false;
 
 	public OraRedoMiner(
 			final Connection connection,
 			final OraCdcLogMinerMgmtIntf metrics,
-			final long firstChange,
+			final Triple<Long, RedoByteAddress, Long> startFrom,
 			final OraCdcSourceConnectorConfig config,
 			final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo,
-			final OraConnectionObjects oraConnections) throws SQLException {
+			final OraConnectionObjects oraConnections,
+			final BinaryUtils bu) throws SQLException {
 		this.config = config;
 		this.metrics = metrics;
 		this.rdbmsInfo = rdbmsInfo;
@@ -86,6 +92,7 @@ public class OraRedoMiner {
 			useNotifier = true;
 			notifier.configure(config);
 		}
+		this.bu = bu;
 
 		processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
 		if (processOnlineRedoLogs) {
@@ -96,7 +103,11 @@ public class OraRedoMiner {
 			onlineRedoQueryMsMin = Integer.MIN_VALUE;
 		}
 
-		this.firstChange = firstChange;
+		this.firstChange = startFrom.getLeft();
+		if (startFrom.getMiddle() != null) {
+			inited = false;
+			firstRba = startFrom.getMiddle();
+		}
 		createStatements(connection);
 
 		final StringBuilder sb = new StringBuilder(512);
@@ -104,14 +115,11 @@ public class OraRedoMiner {
 		if (rdbmsInfo.isStandby()) {
 			if (StringUtils.equals(OraRdbmsInfo.MOUNTED, rdbmsInfo.getOpenMode())) {
 				sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state to call LogMiner.\n");
-				dictionaryAvailable = false;
 			} else {
 				sb.append("oracdc will use connection to Oracle Active DataGuard Database with a unique name {} in {} state to call LogMiner.\n");
-				dictionaryAvailable = true;
 			}
 		} else {
 			sb.append("oracdc will use connection to Oracle Database with a unique name {} in {} state to call LogMiner and query the dictionary.\n");
-			dictionaryAvailable = true;
 		}
 		sb
 			.append("Oracle Database DBID is {}, LogMiner will start from SCN {}.")
@@ -150,10 +158,12 @@ public class OraRedoMiner {
 		psGetArchivedLogs.setInt(5, rdbmsInfo.getRedoThread());
 		ResultSet rs = psGetArchivedLogs.executeQuery();
 		int lagSeconds = 0;
+		short blockSize = 0x200;
 		while (rs.next()) {
 			final long sequence = rs.getLong("SEQUENCE#");
 			nextChange = rs.getLong("NEXT_CHANGE#");
 			lagSeconds = rs.getInt("ACTUAL_LAG_SECONDS");
+			blockSize = rs.getShort("BLOCK_SIZE");
 			if (sequence >= lastSequence && firstChange < nextChange) {
 				// #25 BEGIN - hole in SEQUENCE# numbering  in V$ARCHIVED_LOG
 				if ((lastSequence - sequence) > 1) {
@@ -182,7 +192,7 @@ public class OraRedoMiner {
 					printRedoLogInfo(true, true,
 								currentRedoLog, rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"));
 					redoLogAvailable = true;
-					archLogSize = rs.getLong("BYTES");
+					redoLogSize = rs.getShort("BLOCK_SIZE") * rs.getInt("BLOCKS");
 					break;
 				}
 			}
@@ -191,14 +201,12 @@ public class OraRedoMiner {
 		rs = null;
 		psGetArchivedLogs.clearParameters();
 
-/*
-		boolean processOnlineRedo = false;
+		processOnlineRedo = false;
 		if (!redoLogAvailable) {
 			if (!processOnlineRedoLogs) {
 				LOGGER.debug("END: no archived redo yet, return false");
 				return false;
 			} else {
-				// Both callDbmsLogmnrAddLogFile and processOnlineRedoLogs are TRUE
 				if (lastOnlineRedoTime != 0 && 
 						((int)(System.currentTimeMillis() - lastOnlineRedoTime) < onlineRedoQueryMsMin)) {
 					LOGGER.debug("END time is below threshold, return false");
@@ -215,6 +223,7 @@ public class OraRedoMiner {
 					lagSeconds = rsUpToCurrentScn.getInt(2);
 					onlineSequence = rsUpToCurrentScn.getLong(3);
 					onlineRedoMember = rsUpToCurrentScn.getString(4);
+					blockSize = rsUpToCurrentScn.getShort(5);
 				} else {
 					throw new SQLException("Unable to execute\n" + OraDictSqlTexts.UP_TO_CURRENT_SCN + "\n!!!");
 				}
@@ -225,14 +234,7 @@ public class OraRedoMiner {
 					return false;
 				}
 
-				if (!StringUtils.equals(onlineRedoMember, currentRedoLog)) {
-					lastProcessedRedoLog = currentRedoLog;
-					currentRedoLog = onlineRedoMember;
-				} else {
-					//TODO
-					//TODO - fast start from last RBA!
-					//TODO
-				}
+				currentRedoLog = onlineRedoMember;
 				if (printAllOnlineScnRanges) {
 					printRedoLogInfo(false, true, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
 				}
@@ -243,27 +245,52 @@ public class OraRedoMiner {
 							notifier.notify(Instant.now(), lastSequence, "ONLINE");
 						}
 						lastSequence = lastOnlineSequence;
-					}					
+					}
 					lastOnlineSequence = onlineSequence;
 					if (!printAllOnlineScnRanges) {
 						printRedoLogInfo(false, false, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
 					}
 				}
-				// This must be here as additional warranty against ORA-1291
 				lastOnlineRedoTime = System.currentTimeMillis();
+				redoLogAvailable = true;
 			}
 		}
-*/
+
 		if (redoLogAvailable) {
 			metrics.setNowProcessed(List.of(currentRedoLog), firstChange, nextChange, lagSeconds);
 			try {
-				redoLog = new OraCdcRedoLog(config.convertRedoFileName(currentRedoLog));
-				if (limits) {
-					miner = redoLog.iterator(firstChange, nextChange);
+				redoLog = new OraCdcRedoLog(
+						config.convertRedoFileName(currentRedoLog), blockSize, true, bu);
+				if (inited) {
+					if (limits || processOnlineRedo) {
+						if (lastProcessedRba != null && redoLog.sequence() == lastProcessedRba.sqn()) {
+							miner = redoLog.iterator(lastProcessedRba, nextChange);
+							if (miner.hasNext()) {
+								if (LOGGER.isDebugEnabled()) {
+									LOGGER.debug(
+											"Iterator started from lastProcessedRba {} to nextChange {}",
+											lastProcessedRba, nextChange);
+								}
+							} else {
+								if (LOGGER.isDebugEnabled()) {
+									LOGGER.debug(
+											"No next record after starting iterator from lastProcessedRba {} to nextChange {}",
+											lastProcessedRba, nextChange);
+								}
+								miner = null;
+								redoLog.close();
+								return false;
+							}
+						} else {
+							miner = redoLog.iterator(firstChange, nextChange);
+						}
+					} else {
+						miner = redoLog.iterator();
+					}
 				} else {
-					miner = redoLog.iterator();
+					miner = redoLog.iterator(firstRba, nextChange);
+					inited = true;
 				}
-				currentFirstChange = firstChange;
 				firstChange = nextChange;
 				readStartMillis = System.currentTimeMillis();
 			} catch (IOException ioe) {
@@ -273,41 +300,20 @@ public class OraRedoMiner {
 		return redoLogAvailable;
 	}
 
-	public void stop() throws SQLException, IOException {
-		lastProcessedRedoLog = currentRedoLog;
+	public void stop(final RedoByteAddress lastRba, final long lastScn) throws SQLException, IOException {
+		lastProcessedRba = lastRba;
+		if (processOnlineRedo) {
+			firstChange = lastScn;
+		}
 		miner = null;
 		redoLog.close();
 		// Add info about processed files to JMX
-		metrics.addAlreadyProcessed(List.of(currentRedoLog), 1, archLogSize,
+		metrics.addAlreadyProcessed(List.of(currentRedoLog), 1, redoLogSize,
 				System.currentTimeMillis() - readStartMillis);
 	}
 
 	public Iterator<OraCdcRedoRecord> iterator() {
 		return miner;
-	}
-
-	public boolean isDictionaryAvailable() {
-		return dictionaryAvailable;
-	}
-
-	public long getDbId() {
-		return rdbmsInfo.getDbId();
-	}
-
-	public String getDbUniqueName() {
-		return rdbmsInfo.getDbUniqueName();
-	}
-
-	public void setFirstChange(final long firstChange) throws SQLException {
-		this.firstChange = firstChange;
-	}
-
-	public long getFirstChange() {
-		return currentFirstChange;
-	}
-
-	public long getNextChange() {
-		return nextChange;
 	}
 
 	private void printRedoLogInfo(final boolean archived, final boolean printNextChange,
