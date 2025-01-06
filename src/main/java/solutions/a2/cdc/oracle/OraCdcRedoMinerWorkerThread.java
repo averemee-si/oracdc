@@ -208,7 +208,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			try {
 				if (redoMinerReady) {
 					miner = redoMiner.iterator();
-boolean firstInLoop = true;
+					boolean firstInMinerSession = true;
 					while (miner.hasNext() && runLatch.getCount() > 0) {
 						final OraCdcRedoRecord record = miner.next();
 						if (record == null) {
@@ -218,6 +218,15 @@ boolean firstInLoop = true;
 						if (LOGGER.isTraceEnabled()) {
 							LOGGER.trace(record.toString());
 						}
+						if (firstInMinerSession) {
+							if (LOGGER.isDebugEnabled()) {
+								if (!notFirstRecord) {
+									LOGGER.debug("Processing RBA {} after RBA {} in previous session",
+											record.rba(), lastRba);
+								}
+							}
+							firstInMinerSession = false;
+						}
 						if (notFirstRecord) {
 							if (record.rba().sqn() < lastRba.sqn()) {
 								break;
@@ -225,10 +234,6 @@ boolean firstInLoop = true;
 						} else {
 							notFirstRecord = true;
 						}
-if (firstInLoop && lastRba != null) {
-	System.out.println(">>>>>lastRba=" + lastRba + "\trecord.rba()=" + record.rba());
-	firstInLoop = false;
-}
 						xid = record.xid();
 						lastScn = record.scn();
 						lastRba = record.rba();
