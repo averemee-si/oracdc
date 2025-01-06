@@ -302,11 +302,12 @@
 							<title>Kafka Connect Oracle CDC</title>
 							<documentationUrl>https://github.com/averemee-si/oracdc</documentationUrl>
 							<description>
-								Changed data capture (CDC) for Oracle Database. Operates in two modes:
-								1) Oracle LogMiner is used as source for data changes.
-								2) Oracle RDBMS materialized view log's are used as source for data changes, oracdc materializes Oracle RDBMS materialized view log at heterogeneous database system or data lake.
-								No additional licensing of Oracle Database required.
-								JDBC sink connector optimized to work with PostgreSQL provided too.
+								Changed data capture (CDC) for Oracle Database. Contains three different Source connectors:
+								1) solutions.a2.cdc.oracle.OraCdcRedoMinerConnector - directly reads and parses Oracle RDBMS redo log files 
+								2) solutions.a2.cdc.oracle.OraCdcLogMinerConnector - reads and parses Oracle RDBMS redo log files using LogMiner
+								3) solutions.a2.cdc.oracle.OraCdcSourceConnector - uses Oracle RDBMS materialized view log's as source for data changes
+								No additional licensing of Oracle Database is required.
+								JDBC sink connector solutions.a2.kafka.sink.JdbcSinkConnector optimized to work with PostgreSQL is also provided.
 							</description>
 							<logo>logos/a2-oracdc.png</logo>
 
