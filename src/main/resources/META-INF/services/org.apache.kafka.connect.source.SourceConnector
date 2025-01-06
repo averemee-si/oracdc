@@ -1,1 +1,3 @@
+solutions.a2.cdc.oracle.OraCdcRedoMinerConnector
 solutions.a2.cdc.oracle.OraCdcLogMinerConnector
+solutions.a2.cdc.oracle.OraCdcSourceConnector
