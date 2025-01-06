@@ -16,6 +16,7 @@ package solutions.a2.cdc.oracle;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -285,7 +286,16 @@ public class OraConnectionObjects {
 					LOGGER.error(errMessage.toString());
 					System.setProperty(TZ_AS_REGION, "false");
 					return getConnection();
+				} else if (ucpe.getErrorCode() == 45001) {
+					//TODO - need to perform better checks here!
+					throw new SQLRecoverableException(
+							ucpe.getMessage(), "", OraRdbmsInfo.ORA_17002, ucpe);
 				} else {
+					LOGGER.error(
+							"\n=====================\n" +
+							"UCPE Error Code = {}" +
+							"\n=====================\n",
+							ucpe.getErrorCode());
 					throw sqle;
 				}
 			} else if (sqle.getCause() instanceof NoAvailableConnectionsException) {
