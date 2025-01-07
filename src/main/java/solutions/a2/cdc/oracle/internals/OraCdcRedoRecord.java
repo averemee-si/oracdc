@@ -99,14 +99,14 @@ public class OraCdcRedoRecord {
 	boolean supplementalLogData = false;
 	byte supplementalFb = 0;
 
-	OraCdcRedoRecord(final OraCdcRedoLog redoLog) {
+	OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn) {
 		this.redoLog = redoLog;
 		final byte[] record = redoLog.recordBytes();
+		this.scn = scn;
 		rba = redoLog.recordRba();
 		len = redoLog.bu().getU32(record, 0x00);
 		vld = record[0x04];
 		ts = redoLog.recordTimestamp();
-		scn = redoLog.bu().getScn4Record(record, 0x06);
 		subScn = redoLog.bu().getU16(record, 0x0C);
 		changeVectors = new ArrayList<>(0x8);
 

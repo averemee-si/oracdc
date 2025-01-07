@@ -844,7 +844,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			recordHeaderSize = 0x18;			
 		}
 		recordScn = bu.getScn4Record(recordBytes, 0x06);
-		redoRecord = new OraCdcRedoRecord(this);
+		redoRecord = new OraCdcRedoRecord(this, recordScn);
 		if (redoRecord.eligible()) {
 			return true;
 		} else {
