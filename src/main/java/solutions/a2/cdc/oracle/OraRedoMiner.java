@@ -277,6 +277,7 @@ public class OraRedoMiner {
 											"No next record after starting iterator from lastProcessedRba {} to nextChange {}",
 											lastProcessedRba, nextChange);
 								}
+								LOGGER.warn("Unexpected miner.hasNext() == false after RBA {}", lastProcessedRba);
 								miner = null;
 								redoLog.close();
 								return false;

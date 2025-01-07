@@ -766,6 +766,17 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			}
 			int recordLength = 0;
 			while ((!chainedRecord) && (recordLength = bu.getU32(block, offset)) > 0 && offset > 0) {
+				if (seq != sequence) {
+					if (LOGGER.isTraceEnabled()) {
+						LOGGER.trace(
+								"Sync problem in file {}, normal for online redo log processing, expected sequence {} but got {} in block {}.",
+								fileName, sequence, seq, blk);
+					}
+					createRedoRecord = false;
+					iteratorAlreadyAtNext = false;
+					lastStatus = false;
+					return lastStatus;
+				}
 				final int vld = Byte.toUnsignedInt(block[offset + 4]);
 				recordRba = new RedoByteAddress(seq, blk, offset);
 				if ((vld & OraCdcRedoRecord.KCRVALID) == OraCdcRedoRecord.KCRVALID) {
