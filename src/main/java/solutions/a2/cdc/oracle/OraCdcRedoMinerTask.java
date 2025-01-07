@@ -202,11 +202,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 							if (processTransaction) {
 								OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
-									LOGGER.error(
-											"\n=====================\n" +
-											"Strange consistency issue for DATA_OBJ# {}, transaction XID {}, statement SCN={}, RS_ID='{}', SSN={}.\nExiting." +
-											"\n=====================\n",
-											stmt.getTableId(), transaction.getXid(), stmt.getScn(), stmt.getRba(), stmt.getSsn());
+									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);
 									runLatch.countDown();
 									throw new ConnectException("Strange consistency issue!!!");

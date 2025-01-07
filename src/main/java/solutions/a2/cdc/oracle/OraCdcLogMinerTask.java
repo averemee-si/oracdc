@@ -62,6 +62,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 	private OraTable4InitialLoad table4InitialLoad;
 	private boolean lastRecordInTable = true;
 	private OraCdcInitialLoad initialLoadMetrics;
+	private OraCdcDictionaryChecker checker;
 
 	@Override
 	public void start(Map<String, String> props) {
@@ -269,7 +270,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 			boolean rewind = startPosition(coords);
 			activeTransactions = new HashMap<>();
 
-			OraCdcDictionaryChecker checker = new OraCdcDictionaryChecker(this,
+			checker = new OraCdcDictionaryChecker(this,
 					tablesInProcessing, tablesOutOfScope, checkTableSql, metrics);
 
 			worker = new OraCdcLogMinerWorkerThread(this,
@@ -427,10 +428,9 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 							lastStatementInTransaction = !processTransaction;
 
 							if (processTransaction) {
-								final OraTable4LogMiner oraTable = tablesInProcessing.get(stmt.getTableId());
+								final OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
-									LOGGER.error("Strange consistency issue for DATA_OBJ# {}, transaction XID {}, statement SCN={}, RS_ID='{}', SSN={}.\n Exiting.",
-											stmt.getTableId(), transaction.getXid(), stmt.getScn(), stmt.getRba(), stmt.getSsn());
+									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);
 									throw new ConnectException("Strange consistency issue!!!");
 								} else {

@@ -243,4 +243,34 @@ public class OraCdcDictionaryChecker {
 				checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 	}
 
+	void printConsistencyError(final OraCdcTransaction transaction, final OraCdcStatementBase stmt) {
+		final StringBuilder sb = new StringBuilder(0x800);
+		sb
+			.append("\n=====================\n")
+			.append("Strange consistence issue: DATA_OBJ# ")
+			.append((int)stmt.getTableId())
+			.append(" (combined_id=")
+			.append(stmt.getTableId())
+			.append(") is missed in connector dictionary.\n")
+			.append("Transaction details: XID=")
+			.append(transaction.getXid())
+			.append(", SCN=")
+			.append(stmt.getScn())
+			.append(", RBA=")
+			.append(stmt.getRba())
+			.append(", SUBSCN=")
+			.append(stmt.getSsn())
+			.append("\nThe connector dictionary contains only definitions of the following objects:");
+		tablesInProcessing.keySet().forEach(id ->
+			sb
+				.append("\n\t")
+				.append(tablesInProcessing.get(id).fqn())
+				.append("\tOBJ_ID=")
+				.append((int)id.longValue())
+				.append(" (")
+				.append(id)
+				.append(")"));
+		sb.append("\n=====================\n");
+		LOGGER.error(sb.toString());
+	}
 }
