@@ -602,9 +602,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("{} is used as primary key for table {}", stmt.getRowId(), tableFqn);
 			}
-			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
+			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
 			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-				valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
+				valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
 			}
 		}
 		mandatoryColumnsProcessed = 0;
@@ -1965,9 +1965,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("{} is used as primary key for table {}", stmt.getRowId(), tableFqn);
 			}
-			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
+			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
 			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-				valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId());
+				valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
 			}
 		}
 		mandatoryColumnsProcessed = 0;
