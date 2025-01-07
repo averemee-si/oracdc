@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.Map.Entry;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -159,7 +160,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
 		this(pdbName, tableOwner, tableName, config.schemaType(),
 				config.processLobs(), config.transformLobsImpl(), config.logMiner());
-		LOGGER.trace("BEGIN: Creating OraTable object from LogMiner data...");
 		setTopicDecoderPartition(config, rdbmsInfo.odd(), rdbmsInfo.partition());
 		this.tableWithPk = true;
 		this.setRowLevelScn(rowLevelScnDependency);
@@ -261,15 +261,40 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 			maxColumnId = 0;
 			final boolean logMiner = config.logMiner();
+			boolean undroppedPresent = false;
+			List<Pair<Integer, String>> undroppedColumns = null;
+			int minUndroppedId = Integer.MAX_VALUE;
 			while (rsColumns.next()) {
+				if (LOGGER.isTraceEnabled()) {
+					LOGGER.trace(
+							"\tColumn {}.{} information:\n" +
+							"\t\tDATA_TYPE={}, DATA_LENGTH={}, DATA_PRECISION={}, DATA_SCALE={}, NULLABLE={},\n" +
+							"\t\tCOLUMN_ID={}, HIDDEN_COLUMN={}, INTERNAL_COLUMN_ID={}",
+							tableFqn, rsColumns.getString("COLUMN_NAME"),
+							rsColumns.getString("DATA_TYPE"), rsColumns.getInt("DATA_LENGTH"), rsColumns.getInt("DATA_PRECISION"),
+									rsColumns.getInt("DATA_SCALE"), rsColumns.getString("NULLABLE"),
+							rsColumns.getInt("COLUMN_ID"), rsColumns.getString("HIDDEN_COLUMN"), rsColumns.getInt("INTERNAL_COLUMN_ID"));
+				}
 				boolean columnAdded = false;
 				OraColumn column = null;
-				try {
-					column = new OraColumn(false, useOracdcSchemas, processLobs, rsColumns, pkColsSet);
-					columnAdded = true;
-				} catch (UnsupportedColumnDataTypeException ucdte) {
-					LOGGER.warn("Column {} not added to definition of table {}.{}",
-							ucdte.getColumnName(), this.tableOwner, this.tableName);
+				if (StringUtils.equalsIgnoreCase(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
+					try {
+						column = new OraColumn(false, useOracdcSchemas, processLobs, rsColumns, pkColsSet);
+						columnAdded = true;
+					} catch (UnsupportedColumnDataTypeException ucdte) {
+						LOGGER.warn("Column {} not added to definition of table {}.{}",
+								ucdte.getColumnName(), this.tableOwner, this.tableName);
+					}
+				} else {
+					if (!undroppedPresent) {
+						undroppedColumns = new ArrayList<>();
+						undroppedPresent = true;
+					}
+					final int internalId = rsColumns.getInt("INTERNAL_COLUMN_ID");
+					undroppedColumns.add(Pair.of(internalId, rsColumns.getString("COLUMN_NAME")));
+					if (internalId < minUndroppedId) {
+						minUndroppedId = internalId;
+					}
 				}
 
 				if (columnAdded) {
@@ -329,21 +354,20 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							LOGGER.debug("\tDefault value is set to \"{}\"", column.getDefaultValue());
 						}
 					}
-				}
-
-				if (column.isPartOfPk()) {
-					pkColumns.put(column.getColumnName(), column);
-					// Schema addition
-					if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
-						keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+					if (column.isPartOfPk()) {
+						pkColumns.put(column.getColumnName(), column);
+						// Schema addition
+						if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
+							keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+						}
+						if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+							valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+						}
 					}
-					if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
-					}
-				}
 
-				if (column.isPartOfPk() || (!column.isNullable() && !column.isDefaultValuePresent())) {
-					mandatoryColumnsCount++;
+					if (column.isPartOfPk() || (!column.isNullable() && !column.isDefaultValuePresent())) {
+						mandatoryColumnsCount++;
+					}
 				}
 			}
 
@@ -351,6 +375,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			rsColumns = null;
 			statement.close();
 			statement = null;
+
+			if (undroppedPresent) {
+				printUndroppedColumnsMessage(undroppedColumns, minUndroppedId);
+				undroppedColumns = null;
+			}
 
 			// Handle empty WHERE for update
 			if (tableWithPk) {
@@ -416,7 +445,56 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 			throw new ConnectException(sqle);
 		}
-		LOGGER.trace("END: Creating OraTable object from LogMiner data...");
+	}
+
+	private void printUndroppedColumnsMessage(
+			final List<Pair<Integer, String>> undroppedColumns,
+			final int minUndroppedId) {
+		final StringBuilder sb = new StringBuilder(0x800);
+		sb
+			.append("\n=====================\n")
+			.append("The ")
+			.append(tableFqn)
+			.append(" table contains columns that are not dropped completely:");
+		for (final Pair<Integer, String> pair : undroppedColumns) {
+			sb
+				.append("\n\t")
+				.append(pair.getRight())
+				.append(", INTERNAL_COLUMN_ID=")
+				.append(pair.getLeft());
+		}
+		List<String> affected = new ArrayList<>();
+		for (final OraColumn oraColumn : allColumns) {
+			if (oraColumn.getColumnId() >= minUndroppedId) {
+				affected.add(oraColumn.getColumnName());
+			}
+		}
+		final boolean warning = affected.size() == 0;
+		if (!warning) {
+			sb.append("\n\nThe presence of these, not completely dropped, columns may lead to incorrect results for the columns:");
+			for (final String columnName : affected) {
+				sb
+					.append("\n\t")
+					.append(columnName);
+			}
+		}
+		affected.clear();
+		affected = null;
+		sb
+			.append("\n\nTo resolve this issue we recommend the following steps")
+			.append("\n1) Stop the connector")
+			.append("\n2) Run as table owner or DBA")
+			.append("\n\t ALTER TABLE ")
+			.append(tableOwner)
+			.append(".")
+			.append(tableName)
+			.append(" DROP UNUSED COLUMNS;")
+			.append("\n3) Restart the connector")
+			.append("\n=====================\n");		
+		if (warning)
+			LOGGER.warn(sb.toString());
+		else
+			LOGGER.error(sb.toString());
 	}
 
 	/**
