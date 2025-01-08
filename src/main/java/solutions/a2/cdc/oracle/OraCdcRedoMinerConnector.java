@@ -25,25 +25,24 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcLogMinerConnector extends OraCdcConnectorBase {
+public class OraCdcRedoMinerConnector extends OraCdcConnectorBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerConnector.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerConnector.class);
 
 	@Override
 	public void start(Map<String, String> props) {
-		LOGGER.info("Starting oracdc '{}' LogMiner source connector", props.get("name"));
+		LOGGER.info("Starting oracdc '{}' Redo Miner source connector", props.get("name"));
 		super.start(props);
 	}
 
 	@Override
 	public void stop() {
-		LOGGER.info("Stopping oracdc LogMiner source connector");
+		LOGGER.info("Stopping oracdc Redo Miner source connector");
 	}
 
 	@Override
 	public Class<? extends Task> taskClass() {
-		return OraCdcLogMinerTask.class;
+		return OraCdcRedoMinerTask.class;
 	}
-
 
 }

@@ -13,311 +13,348 @@
 
 package solutions.a2.cdc.oracle.utils.file;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.PrintStream;
+import java.util.Arrays;
+import java.util.Iterator;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionGroup;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.internals.OraCdcChange;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeUndo;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
+import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 
- * Based on
- *     Julian Dyke http://www.juliandyke.com/
- *   and
- *     Jure Kajzer https://www.abakus.si/download/events/2014_jure_kajzer_forenzicna_analiza_oracle_log_datotek.pdf
- * internals.
+ * Easy 'ALTER SYSTEM DUMP LOGFILE' alternative for opcode layer 11
+ *   also see <a href="http://www.juliandyke.com/Diagnostics/Dumps/RedoLogs.php">Redo Log Dump</a> 
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraRedoLogFile  {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraRedoLogFile.class);
 
-	private static final int TYPE_REDO_LOG_FILE = 0x22;
-	private static final int POS_BLOCK_SIZE = 0x15;
-	private static final int POS_BLOCK_COUNT = 0x18;
-	private static final int POS_RDBMS_VERSION = 0x14;
-	private static final int POS_DBID = 0x18;
-	private static final int POS_INSTANCE_NAME = 0x1c;
-	private static final int POS_ACTIVATION_ID = 0x34;
-	private static final int POS_DESCRIPTION = 0x5c;
-
-	private final String fileName;
-	private final long fileLength;
-	private final int fileBlockSize;
-	private final long blocksInFile;
-	private final String versionString;
-	private final int versionMajor;
-	private final String instanceName;
-	private final long dbId;
-	private final String fileDescription;
-	private final long activationId;
-	private final int threadNo;
-	private final long sequenceNo;
-	private final long firstScn;
-	private final long nextScn;
-
-	public OraRedoLogFile(String fileName) throws IOException {
-		this.fileName = fileName;
-		RandomAccessFile raf = new RandomAccessFile(fileName, "r");
-		if (raf.read() != 0) {
-			raf.close();
-			raf = null;
-			throw new IOException("First byte of redo log must be 0x0!");
-		}
-		if (raf.read() != TYPE_REDO_LOG_FILE) {
-			raf.close();
-			raf = null;
-			throw new IOException("Type of file (second byte) of redo log must be 0x22!");
-		}
-
-		//TODO Endianness!
-		raf.seek(POS_BLOCK_SIZE);
-		fileBlockSize = raf.readUnsignedShort();
-
-		fileLength = raf.length();
-		raf.seek(POS_BLOCK_COUNT);
-		blocksInFile = readU32LE(raf);
-		if (((blocksInFile + 1) * fileBlockSize) != fileLength) {
-			raf.close();
-			raf = null;
-			throw new IOException("Wrong redo log file size!!!");
-		}
-
-		// Block 0x01
-		raf.seek(fileBlockSize);
-		// Signature
-		if (raf.readUnsignedByte() != 0x01 || raf.readUnsignedByte() != TYPE_REDO_LOG_FILE) {
-			raf.close();
-			raf = null;
-			throw new IOException("Invalid signature for redo block 0x01!!!");
-		}
-		// RDBMS version
-		raf.seek(fileBlockSize + POS_RDBMS_VERSION);
-		final int version4th = raf.readUnsignedByte();
-		final int version3rd = raf.readUnsignedByte();
-		final int versionMinor = raf.readUnsignedByte() >> 4;
-		versionMajor = raf.readUnsignedByte();
-		versionString =  versionMajor + "." + versionMinor + "." + version3rd + "." + version4th;
-		// DB_ID
-		raf.seek(fileBlockSize + POS_DBID);
-		dbId = readU32LE(raf);
-
-		//$ORACLE_SID/Database name
-		raf.seek(fileBlockSize + POS_INSTANCE_NAME);
-		instanceName = readInstanceName(raf);
-
-		//Activation Id
-		raf.seek(fileBlockSize + POS_ACTIVATION_ID);
-		activationId = readU32LE(raf);
-
-		//Description
-		raf.seek(fileBlockSize + POS_DESCRIPTION);
-		fileDescription = readDescription(raf);
-		
-		//Parse description "T 0001, S 0000000149, SCN 0x00000000003cf3ec-0x00000000003cf3f1"
-		final String[] parts = fileDescription.split(",");
-		if (parts.length != 3) {
-			throw new IOException("Invalid archived redo description:'" + fileDescription + "'");
-		}
-		if (!StringUtils.startsWith(StringUtils.trim(parts[0]), "T")) {
-			throw new IOException("Invalid archived redo description:'" + fileDescription + "'");
-		} else {
-			try {
-				threadNo = Integer.parseInt(parts[0].trim().split(" ")[1]);
-			} catch (Exception e) {
-				throw new IOException("Can't parse THREAD# from description: '" +
-										fileDescription + "'", e);
-			}
-		}
-		if (!StringUtils.startsWith(StringUtils.trim(parts[1]), "S")) {
-			throw new IOException("Invalid archived redo description:'" + fileDescription + "'");
-		} else {
-			try {
-				sequenceNo = Long.parseLong(parts[1].trim().split(" ")[1]);
-			} catch (Exception e) {
-				throw new IOException("Can't parse SEQUENCE# from description: '" +
-										fileDescription + "'", e);
-			}
-		}
-		if (!StringUtils.startsWith(StringUtils.trim(parts[2]), "SCN")) {
-			throw new IOException("Invalid archived redo description:'" + fileDescription + "'");
-		} else {
-			final String[] scns = StringUtils.trim(StringUtils.remove(StringUtils.trim(parts[2]), "SCN")).split("-");
-			firstScn = Long.parseLong(StringUtils.remove(scns[0], "0x"), 16);
-			nextScn = Long.parseLong(StringUtils.remove(scns[1], "0x"), 16);
-		}
-
-		raf.close();
-		raf = null;
-	}
-
-	public String name() {
-		return fileName;
-	}
-
-	public long length() {
-		return fileLength;
-	}
-
-	public int blockSize() {
-		return fileBlockSize;
-	}
-
-	public long blockCount() {
-		return blocksInFile;
-	}
-
-	public String getVersionString() {
-		return versionString;
-	}
-
-	public int getVersionMajor() {
-		return versionMajor;
-	}
-
-	public String getInstanceName() {
-		return instanceName;
-	}
-
-	public long getDbId() {
-		return dbId;
-	}
-
-	public long getActivationId() {
-		return activationId;
-	}
-
-	public String description() {
-		return fileDescription;
-	}
-
-	public int thread() {
-		return threadNo;
-	}
-
-	public long sequence() {
-		return sequenceNo;
-	}
-
-	public long firstChange() {
-		return firstScn;
-	}
-
-	public long nextChange() {
-		return nextScn;
-	}
-
-	private long readU32LE(RandomAccessFile raf) throws IOException {
-		final int b0 = raf.readUnsignedByte();
-		final int b1 = raf.readUnsignedByte();
-		final int b2 = raf.readUnsignedByte();
-		final int b3 = raf.readUnsignedByte();
-		return (b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)) & 0x00000000FFFFFFFFL;
-	}
-
-	private String readInstanceName(RandomAccessFile raf) throws IOException {
-		final StringBuilder sb = new StringBuilder();
-		for (int i = 0; i < 8; i++) {
-			final char v = (char) raf.readUnsignedByte();
-			if (v == 0) {
-				break;
-			} else {
-				sb.append(v);
-			}
-		}
-		return sb.toString();
-	}
-
-	private String readDescription(RandomAccessFile raf) throws IOException {
-		final StringBuilder sb = new StringBuilder();
-		for (int i = 0; i < 64; i++) {
-			final char v = (char) raf.readUnsignedByte();
-			if (v == 0) {
-				break;
-			} else {
-				sb.append(v);
-			}
-		}
-		return sb.toString();
-	}
-
-	@Override
-	public String toString() {
-		final StringBuilder sb = new StringBuilder(256);
-		sb.append(fileName);
-		sb.append("\n");
-
-		sb.append("BLOCK_SIZE\t=\t");
-		sb.append(fileBlockSize);
-		sb.append("\n");
-
-		sb.append("ORACLE_SID\t=\t");
-		sb.append(instanceName);
-		sb.append("\n");
-
-		sb.append("VERSION\t=\t");
-		sb.append(versionString);
-		sb.append("\n");
-
-		sb.append("DBID\t=\t");
-		sb.append(dbId);
-		sb.append("\n");
-
-		sb.append("ACTIVATION_ID\t=\t");
-		sb.append(activationId);
-		sb.append("\n");
-
-		sb.append("DESCRIPTION\t=\t");
-		sb.append(fileDescription);
-		sb.append("\n");
-
-		sb.append("THREAD#\t=\t");
-		sb.append(threadNo);
-		sb.append("\n");
-
-		sb.append("SEQUENCE#\t=\t");
-		sb.append(sequenceNo);
-		sb.append("\n");
-
-		sb.append("FIRST_CHANGE#\t=\t");
-		sb.append(firstScn);
-		sb.append("\n");
-
-		sb.append("NEXT_CHANGE#\t=\t");
-		sb.append(nextScn);
-		sb.append("\n");
-
-		return sb.toString();
-	}
 
 	public static void main(String[] argv) {
+		BasicConfigurator.configure();
+		long millis = System.currentTimeMillis();
+		LOGGER.info("Starting...");
 
-		if (argv.length == 0) {
-			System.err.println("Usage:\n\tjava " + 
-					OraRedoLogFile.class.getCanonicalName() +
-					" <full path to archived Oracle RDBMS redo file>");
-			System.err.println("Exiting.");
+		// Command line options
+		final Options options = new Options();
+		setupCliOptions(options);
+
+		final CommandLineParser parser = new DefaultParser();
+		final HelpFormatter formatter = new HelpFormatter();
+		CommandLine cmd = null;
+		try {
+			cmd = parser.parse(options, argv);
+		} catch (ParseException pe) {
+			LOGGER.error(pe.getMessage());
+			formatter.printHelp(OraRedoLogFile.class.getCanonicalName(), options);
 			System.exit(1);
+		}
+
+		final String redoFile = cmd.getOptionValue("f");
+		OraCdcRedoLog orl = null;
+		try {
+			orl = new OraCdcRedoLog(cmd.getOptionValue("f"));
+		} catch (IOException ioe) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"'{}' opening redo file '{}'\nErrorstack:\n{}" +
+					"\n=====================\n",
+					ioe.getMessage(), redoFile, ExceptionUtils.getExceptionStackTrace(ioe));
+			System.exit(1);
+		}
+
+		boolean useFile = false;
+		PrintStream out = null;
+		final String outFileName = cmd.getOptionValue("o");
+		if (StringUtils.isBlank(outFileName)) {
+			out = System.out;
 		} else {
-			BasicConfigurator.configure();
-			org.apache.log4j.Logger.getRootLogger().setLevel(Level.INFO);
-			final String redoLog = argv[0];
 			try {
-				OraRedoLogFile redo = new OraRedoLogFile(redoLog);
-				System.out.println(redo);
-				System.exit(0);
-			} catch (IOException e) {
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+				out = new PrintStream(new FileOutputStream(outFileName));
+				useFile = true;
+			} catch (IOException ioe) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"'{}' opening output file '{}'\nErrorstack:\n{}" +
+						"\n=====================\n",
+						ioe.getMessage(), outFileName, ExceptionUtils.getExceptionStackTrace(ioe));
 				System.exit(1);
 			}
 		}
+		boolean records = cmd.hasOption("r");
+		boolean dumps = cmd.hasOption("b");
+		boolean limits = false;
+		boolean useRba = true;
+		RedoByteAddress startRba = null;
+		RedoByteAddress endRba = null;
+		long startScn = 0;
+		long endScn = 0;
+		if (cmd.hasOption("s")) {
+			try {
+				startRba = RedoByteAddress.fromLogmnrContentsRs_Id(cmd.getOptionValue("s"));
+			} catch (Exception e) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"'{}' parsing redo byte address '{}'\nErrorstack:\n{}" +
+						"\n=====================\n",
+						e.getMessage(), cmd.getOptionValue("s"), ExceptionUtils.getExceptionStackTrace(e));
+				System.exit(1);
+			}
+			if (cmd.hasOption("e")) {
+				try {
+					endRba = RedoByteAddress.fromLogmnrContentsRs_Id(cmd.getOptionValue("e"));
+				} catch (Exception e) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"'{}' parsing redo byte address '{}'\nErrorstack:\n{}" +
+							"\n=====================\n",
+							e.getMessage(), cmd.getOptionValue("e"), ExceptionUtils.getExceptionStackTrace(e));
+					System.exit(1);
+				}
+			} else {
+				LOGGER.error(
+						"\n=====================\n" +
+						"'if you specified an option -s/--start-rba, then you must specify the corresponding option -e/--end-rba!" +
+						"\n=====================\n");
+				System.exit(1);
+			}
+			limits = true;
+		} else if (cmd.hasOption("c")) {
+			try {
+				final String strStartScn =  cmd.getOptionValue("c");
+				if (StringUtils.startsWithIgnoreCase(strStartScn, "0x"))
+					startScn = Long.parseLong(StringUtils.substring(strStartScn, 2), 0x10);
+				else
+					startScn = Long.parseLong(strStartScn);
+			} catch (Exception e) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"'{}' parsing SCN '{}'\nErrorstack:\n{}" +
+						"\n=====================\n",
+						e.getMessage(), cmd.getOptionValue("c"), ExceptionUtils.getExceptionStackTrace(e));
+				System.exit(1);
+			}
+			if (cmd.hasOption("n")) {
+				try {
+					final String strEndScn =  cmd.getOptionValue("n");
+					if (StringUtils.startsWithIgnoreCase(strEndScn, "0x"))
+						endScn = Long.parseLong(StringUtils.substring(strEndScn, 2), 0x10);
+					else
+						endScn = Long.parseLong(strEndScn);
+				} catch (Exception e) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"'{}' parsing SCN '{}'\nErrorstack:\n{}" +
+							"\n=====================\n",
+							e.getMessage(), cmd.getOptionValue("n"), ExceptionUtils.getExceptionStackTrace(e));
+					System.exit(1);
+				}
+			} else {
+				LOGGER.error(
+						"\n=====================\n" +
+						"'if you specified an option -c/--start-scn, then you must specify the corresponding option -n/--end-scn!" +
+						"\n=====================\n");
+				System.exit(1);
+			}
+			limits = true;
+			useRba = false;
+		}
+
+		final boolean objFilter;
+		final int[] objects;
+		if (cmd.getOptionValues("d") == null || cmd.getOptionValues("d").length == 0) {
+			objects = null;
+			objFilter = false;
+		} else {
+			final String[] objIds = cmd.getOptionValues("d");
+			objects = new int[objIds.length];
+			for (int i = 0; i < objects.length; i++) {
+				try {
+					final String str =  objIds[i];
+					if (StringUtils.startsWithIgnoreCase(str, "0x"))
+						objects[i] = Integer.parseInt(StringUtils.substring(str, 2), 0x10);
+					else
+						objects[i] = Integer.parseInt(str);
+				} catch (Exception e) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"'{}' parsing objId '{}'\nErrorstack:\n{}" +
+							"\n=====================\n",
+							e.getMessage(), objIds[i], ExceptionUtils.getExceptionStackTrace(e));
+					System.exit(1);
+				}
+			}
+			if (objects.length > 0)
+				objFilter = true;
+			else
+				objFilter = false;
+			Arrays.sort(objects);
+		}
+
+		out.println(orl);
+		if (records || dumps) {
+			try {
+				final Iterator<OraCdcRedoRecord> iterator;
+				if (limits) {
+					if (useRba) {
+						iterator = orl.iterator(startRba, endRba);
+					} else {
+						iterator = orl.iterator(startScn, endScn);
+					}
+				} else {
+					iterator = orl.iterator();
+				}
+				while (iterator.hasNext()) {
+					final OraCdcRedoRecord record = iterator.next();
+					final boolean printRecord;
+					if (objFilter) {
+						if (record.has5_1() || record.hasPrb()) {
+							final OraCdcChangeUndo change;
+							if (record.has5_1())
+								change = record.change5_1();
+							else
+								change = record.changePrb();
+							if (Arrays.binarySearch(objects, change.obj()) >= 0)
+								printRecord = true;
+							else
+								printRecord = false;
+						} else {
+							printRecord = false;
+						}
+					} else {
+						printRecord = true;
+					}	
+					if (printRecord) {
+						if (records) {
+							out.println(record.toString());
+						}
+						if (dumps) {
+							if (!records) {
+								out.println("RBA: " + record.rba());
+							}
+							for (final OraCdcChange change : record.changeVectors()) {
+								out.println("\nChange # " + change.num() + change.binaryDump());
+							}
+						}
+					}
+				}
+			} catch (IOException ioe) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"'{}' processing redo file '{}'\nErrorstack:\n{}" +
+						"\n=====================\n",
+						ioe.getMessage(), redoFile, ExceptionUtils.getExceptionStackTrace(ioe));
+				System.exit(1);
+			}
+		}
+
+		if (useFile) {
+			out.flush();
+			out.close();
+		}
+
+		LOGGER.info("Completed in {} ms", (System.currentTimeMillis() - millis));
+	}
+
+	private static void setupCliOptions(final Options options) {
+		final Option redoFile = Option.builder("f")
+				.longOpt("redo-file")
+				.hasArg(true)
+				.required(true)
+				.desc("Full path to Oracle RDBMS archived or online redo file")
+				.build();
+		options.addOption(redoFile);
+
+		final Option outputFile = Option.builder("o")
+				.longOpt("output-file")
+				.hasArg(true)
+				.required(false)
+				.desc("Output file. If not specified, stdout will be used.")
+				.build();
+		options.addOption(outputFile);
+
+		final Option printRecords = Option.builder("r")
+				.longOpt("redo-records")
+				.hasArg(false)
+				.required(false)
+				.desc("If this option is specified, information about the redo records will be printed.")
+				.build();
+		options.addOption(printRecords);
+
+		final Option binaryDump = Option.builder("b")
+				.longOpt("binary-dump")
+				.hasArg(false)
+				.required(false)
+				.desc("If this option is specified, binary dump of change vectors will be printed.")
+				.build();
+		options.addOption(binaryDump);
+
+		final OptionGroup startAddr = new OptionGroup();
+		final Option startRba = Option.builder("s")
+				.longOpt("start-rba")
+				.hasArg(true)
+				.required(false)
+				.desc("The RBA from which information about the redo records will be printed. Must be used in pair with -e/--end-rba")
+				.build();
+		startAddr.addOption(startRba);
+
+		final Option startScn = Option.builder("c")
+				.longOpt("start-scn")
+				.hasArg(true)
+				.required(false)
+				.desc("The SCN from which information about the redo records will be printed. Must be used in pair with -n/--end-scn")
+				.build();
+		startAddr.addOption(startScn);
+		options.addOptionGroup(startAddr);
+
+		final OptionGroup endAddr = new OptionGroup();
+		final Option endRba = Option.builder("e")
+				.longOpt("end-rba")
+				.hasArg(true)
+				.required(false)
+				.desc("The RBA to which information about the redo records will be printed. Must be used in pair with -s/--start-rba")
+				.build();
+		endAddr.addOption(endRba);
+		
+		final Option endScn = Option.builder("n")
+				.longOpt("end-scn")
+				.hasArg(true)
+				.required(false)
+				.desc("The RBA to which information about the redo records will be printed. Must be used in pair with -c/--start-scn")
+				.build();
+		endAddr.addOption(endScn);
+		options.addOptionGroup(endAddr);
+
+		final Option objects = Option.builder("d")
+				.longOpt("data-objects")
+				.hasArgs()
+				.required(false)
+				.desc("Identifier of the object(s) for which information will be printed. By default, information about all objects is printed")
+				.build();
+		options.addOption(objects);
+
 	}
 
 }

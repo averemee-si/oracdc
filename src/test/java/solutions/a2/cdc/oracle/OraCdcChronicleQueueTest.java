@@ -16,10 +16,14 @@ package solutions.a2.cdc.oracle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
+
+import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.RowId;
 
 /**
  *  
@@ -33,18 +37,22 @@ public class OraCdcChronicleQueueTest {
 		final String tmpDir = System.getProperty("java.io.tmpdir");
 		final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
 		final OraCdcLogMinerStatement updIn =  new  OraCdcLogMinerStatement(
-				74590, (short)3, "update DEPT set DNAME='SALES' where DEPTNO=10",
-				System.currentTimeMillis(),275168436063l," 0x000098.000001b5.0010 ",
-				0, "AAAWbzAAEAAAB6FAAA", false);
+				74590, (short)3,
+				"update DEPT set DNAME='SALES' where DEPTNO=10".getBytes(StandardCharsets.US_ASCII),
+				System.currentTimeMillis(),275168436063l,
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0010 "),
+				0, 
+				new RowId("AAAWbzAAEAAAB6FAAA"), false);
 		String xid = "0000270016000000";
 		OraCdcTransaction transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, updIn);
 		OraCdcLogMinerStatement updOut = new OraCdcLogMinerStatement();
 		transaction.getStatement(updOut);
 		transaction.close();
 
-		assertEquals(updIn.getRsId(), updOut.getRsId(), "Not same strings!");
+		assertEquals(updIn.getRba(), updOut.getRba(), "Not same RBA!");
 		assertEquals(updIn.getSqlRedo(), updOut.getSqlRedo(), "Not same strings!");
 		assertEquals(updIn.getScn(), updOut.getScn(), "Not same longs!");
 		assertEquals(updIn.getTs(), updOut.getTs(), "Not same longs!");
+		assertEquals(updIn.getRowId(), updOut.getRowId(), "Not same ROWID!");
 	}
 }

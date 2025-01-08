@@ -16,6 +16,7 @@ package solutions.a2.cdc.oracle;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -285,7 +286,16 @@ public class OraConnectionObjects {
 					LOGGER.error(errMessage.toString());
 					System.setProperty(TZ_AS_REGION, "false");
 					return getConnection();
+				} else if (ucpe.getErrorCode() == 45001) {
+					//TODO - need to perform better checks here!
+					throw new SQLRecoverableException(
+							ucpe.getMessage(), "", OraRdbmsInfo.ORA_17002, ucpe);
 				} else {
+					LOGGER.error(
+							"\n=====================\n" +
+							"UCPE Error Code = {}" +
+							"\n=====================\n",
+							ucpe.getErrorCode());
 					throw sqle;
 				}
 			} else if (sqle.getCause() instanceof NoAvailableConnectionsException) {
@@ -326,11 +336,11 @@ public class OraConnectionObjects {
 		connection.close();
 	}
 
-	public static Connection getConnection(OraCdcSourceConnectorConfig config) throws SQLException {
+	public static Connection getConnection(OraCdcSourceBaseConfig config) throws SQLException {
 		final Properties props = new Properties();
-		if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
+		if (StringUtils.isNotBlank(config.walletLocation())) {
 			props.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION,
-					config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+					config.getString(config.walletLocation()));
 		} else {
 			props.put(OracleConnection.CONNECTION_PROPERTY_USER_NAME,
 					config.getString(ConnectorParams.CONNECTION_USER_PARAM));

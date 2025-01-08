@@ -15,46 +15,30 @@ package solutions.a2.cdc.oracle;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.nio.file.FileSystems;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.MutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
-import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.schema.FileUtils;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
-import solutions.a2.cdc.oracle.utils.Version;
-import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -62,33 +46,15 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcLogMinerTask extends SourceTask {
+public class OraCdcLogMinerTask extends OraCdcTaskBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerTask.class);
-	private static final int WAIT_FOR_WORKER_MILLIS = 50;
 
-	private static final AtomicBoolean state = new AtomicBoolean(true);
-	private static final AtomicInteger taskId = new AtomicInteger(0);
-
-	private int batchSize;
-	private int pollInterval;
-	private Map<String, String> partition;
-	private int schemaType;
 	private String stateFileName;
-	private OraRdbmsInfo rdbmsInfo;
 	private OraCdcLogMinerMgmt metrics;
-	private OraDumpDecoder odd;
-	private Map<Long, OraTable4LogMiner> tablesInProcessing;
-	private Set<Long> tablesOutOfScope;
 	private Map<String, OraCdcTransaction> activeTransactions;
-	private BlockingQueue<OraCdcTransaction> committedTransactions;
-	private OraCdcLogMinerWorkerThread worker;
 	private OraCdcTransaction transaction;
 	private boolean lastStatementInTransaction = true;
-	private boolean processLobs = false;
-	private boolean useChronicleQueue = true;
-	private CountDownLatch runLatch;
-	private AtomicBoolean isPollRunning;
 	private boolean execInitialLoad = false;
 	private String initialLoadStatus = ParamConstants.INITIAL_LOAD_IGNORE;
 	private OraCdcInitialLoadThread initialLoadWorker;
@@ -96,327 +62,26 @@ public class OraCdcLogMinerTask extends SourceTask {
 	private OraTable4InitialLoad table4InitialLoad;
 	private boolean lastRecordInTable = true;
 	private OraCdcInitialLoad initialLoadMetrics;
-	private OraCdcLobTransformationsIntf transformLobs;
-	private String connectorName; 
-	private OraConnectionObjects oraConnections;
-	private Map<String, Object> offset;
-	private long lastProcessedCommitScn = 0;
-	private long lastInProgressCommitScn = 0;
-	private long lastInProgressScn = 0;
-	private String lastInProgressRsId = null;
-	private long lastInProgressSsn = 0;
-	private OraCdcSourceConnectorConfig config;
-	private int topicPartition;
-	private OraCdcPseudoColumnsProcessor pseudoColumns;
-
-	@Override
-	public String version() {
-		return Version.getVersion();
-	}
+	private OraCdcDictionaryChecker checker;
 
 	@Override
 	public void start(Map<String, String> props) {
-		connectorName = props.get("name");
 		LOGGER.info("Starting oracdc logminer source task for connector {}.", connectorName);
+		super.start(props);
 
-		try {
-			config = new OraCdcSourceConnectorConfig(props);
-		} catch (ConfigException ce) {
-			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
-		}
-		// pass connectorName to config container
-		config.setConnectorName(connectorName);
-		final boolean useRac = config.getBoolean(ParamConstants.USE_RAC_PARAM);
-		final boolean useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM);
-		final boolean dg4RacSingleInst = useStandby &&
-				config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM) != null &&
-						config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM).size() > 1;
-		int threadNo = 1;
-		if (dg4RacSingleInst) {
-			// Single instance DataGuard for RAC
-			final List<String> standbyThreads = config.getList(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM);
-			while (!state.compareAndSet(true, false)) {
-				try {
-					Thread.sleep(1);
-				} catch (InterruptedException e) {
-				}
-			}
-			final int index = taskId.getAndAdd(1);
-			if (index > (standbyThreads.size() - 1)) {
-				LOGGER.error("Errors while processing following array of Oracle Signgle Instance DataGuard for RAC threads:");
-				standbyThreads.forEach(v -> LOGGER.error("\t{}", v));
-				LOGGER.error("Size equals {}, but current index equals {} !", standbyThreads.size(), index);
-				throw new ConnectException("Unable to properly assign Kafka tasks to Oracle Single Instance DataGuard for RAC!");
-			} else if (index == (standbyThreads.size() - 1)) {
-				// Last element - reset back to 0
-				taskId.set(0);
-			}
-			LOGGER.debug("Processing redo thread array element {} with value {}.",
-					index, standbyThreads.get(index));
-			threadNo = Integer.parseInt(standbyThreads.get(index));
-			state.set(true);
-		}
-		try {
-			if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
-				if (useRac) {
-					oraConnections = OraConnectionObjects.get4OraWallet(
-							connectorName,
-							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
-							config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
-				} else {
-					oraConnections = OraConnectionObjects.get4OraWallet(
-							connectorName,
-							config.getString(ConnectorParams.CONNECTION_URL_PARAM), 
-							config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
-				}
-			} else if (StringUtils.isNotBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM)) &&
-					StringUtils.isNotBlank(config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
-				if (useRac) {
-					oraConnections = OraConnectionObjects.get4UserPassword(
-							connectorName,
-							config.getList(ParamConstants.INTERNAL_RAC_URLS_PARAM),
-							config.getString(ConnectorParams.CONNECTION_USER_PARAM),
-							config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());					
-				} else {
-					oraConnections = OraConnectionObjects.get4UserPassword(
-							connectorName,
-							config.getString(ConnectorParams.CONNECTION_URL_PARAM),
-							config.getString(ConnectorParams.CONNECTION_USER_PARAM),
-							config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
-				}
-			} else {
-				throw new SQLException("Wrong connection parameters!");
-			}
-		} catch(SQLException sqle) {
-			LOGGER.error("Unable to connect to RDBMS for connector '{}'!",
-					connectorName);
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-			LOGGER.error("Stopping connector '{}'", connectorName);
-			throw new ConnectException("Unable to connect to RDBMS");
-		}
-
-		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
-		pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
-		if (config.useOracdcSchemas()) {
-			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
-		}
-
-		schemaType = config.getSchemaType();
-		useChronicleQueue = StringUtils.equalsIgnoreCase(
-				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
-				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
-		processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
-		if (processLobs) {
-			if (!useChronicleQueue) {
-				LOGGER.error(
-						"\n" +
-						"=====================\n" +
-						"LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!\n" +
-						"Please set a2.process.lobs to false if a2.transaction.implementation is set to ConcurrentLinkedQueue\n" +
-						"and restart connector!!!\n" +
-						"=====================");
-				throw new ConnectException("LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!");
-			}
-			final String transformLobsImplClass = config.getString(ParamConstants.LOB_TRANSFORM_CLASS_PARAM);
-			LOGGER.info("oracdc will process Oracle LOBs using {} LOB transformations implementation",
-					transformLobsImplClass);
-			try {
-				final Class<?> classTransformLobs = Class.forName(transformLobsImplClass);
-				final Constructor<?> constructor = classTransformLobs.getConstructor();
-				transformLobs = (OraCdcLobTransformationsIntf) constructor.newInstance();
-			} catch (ClassNotFoundException nfe) {
-				LOGGER.error("ClassNotFoundException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("ClassNotFoundException while instantiating " + transformLobsImplClass, nfe);
-			} catch (NoSuchMethodException nme) {
-				LOGGER.error("NoSuchMethodException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("NoSuchMethodException while instantiating " + transformLobsImplClass, nme);
-			} catch (SecurityException se) {
-				LOGGER.error("SecurityException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("SecurityException while instantiating " + transformLobsImplClass, se);
-			} catch (InvocationTargetException ite) {
-				LOGGER.error("InvocationTargetException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("InvocationTargetException while instantiating " + transformLobsImplClass, ite);
-			} catch (IllegalAccessException iae) {
-				LOGGER.error("IllegalAccessException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("IllegalAccessException while instantiating " + transformLobsImplClass, iae);
-			} catch (InstantiationException ie) {
-				LOGGER.error("InstantiationException while instantiating {}", transformLobsImplClass);
-				throw new ConnectException("InstantiationException while instantiating " + transformLobsImplClass, ie);
-			}
-		}
-		offset = new ConcurrentHashMap<>();
 		try (Connection connDictionary = oraConnections.getConnection()) {
-			rdbmsInfo = new OraRdbmsInfo(connDictionary);
-			if (dg4RacSingleInst) {
-				rdbmsInfo.setRedoThread(threadNo);
-			}
-			if (useRac || dg4RacSingleInst) {
-				topicPartition = rdbmsInfo.getRedoThread() - 1;
-			} else {
-				topicPartition = config.getShort(ParamConstants.TOPIC_PARTITION_PARAM);
-			}
 
-			LOGGER.info(
-					"\n" +
-					"=====================\n" +
-					"Connector {} connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.\n" +
-					"=====================",
-					connectorName,
-					rdbmsInfo.getRdbmsEdition(), rdbmsInfo.getVersionString(),
-					rdbmsInfo.getInstanceName(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
-
-			if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot() && !rdbmsInfo.isPdbConnectionAllowed()) {
-				LOGGER.error(
-						"Connector {} must be connected to CDB$ROOT while using oracdc for mining data using LogMiner!",
-						connectorName);
-				throw new ConnectException("Unable to run oracdc without connection to CDB$ROOT!");
-			} else {
-				LOGGER.debug("Oracle connection information:\n{}", rdbmsInfo.toString());
-			}
-			if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
-				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"Connected to PDB {} (RDBMS 19.10+ Feature)\n" +
-						"=====================",
-						rdbmsInfo.getPdbName());
-			}
-
-			if (useStandby) {
-				oraConnections.addStandbyConnection(
-						config.getString(ParamConstants.STANDBY_URL_PARAM),
-						config.getString(ParamConstants.STANDBY_WALLET_PARAM));
-				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"Connector {} will use connection to PHYSICAL STANDBY for LogMiner calls\n" +
-						"=====================",
-						connectorName);
-			}
-			if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
-				oraConnections.addDistributedConnection(
-						config.getString(ParamConstants.DISTRIBUTED_URL_PARAM),
-						config.getString(ParamConstants.DISTRIBUTED_WALLET_PARAM));
-				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"Connector {} will use remote database in distributed configuration for LogMiner calls\n" +
-						"=====================",
-						connectorName);
-			}
-
-			if (StringUtils.equalsIgnoreCase(rdbmsInfo.getSupplementalLogDataAll(), "YES")) {
-				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'YES'.\n" +
-						"\tNo additional checks for supplemental logging will performed at the table level.\n" +
-						"=====================");
-			} else {
-				if (StringUtils.equalsIgnoreCase(rdbmsInfo.getSupplementalLogDataMin(), "NO")) {
-					LOGGER.error(
-							"\n" +
-							"=====================\n" +
-							"Both V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL and V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN are set to 'NO'!\n" +
-							"For the connector to work properly, you need to set connecting Oracle RDBMS as SYSDBA:\n" +
-							"alter database add supplemental log data (ALL) columns;\n" +
-							"OR recommended but more time consuming settings\n" +
-							"alter database add supplemental log data;\n" +
-							"and then enable supplemental only for required tables:\n" +
-							"alter table <OWNER>.<TABLE_NAME> add supplemental log data (ALL) columns;\n" +
-							"=====================");
-					throw new ConnectException("Must set SUPPLEMENTAL LOGGING settings!");
-				} else {
-					LOGGER.info(
-							"\n" +
-							"=====================\n" +
-							"V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'NO'.\n" +
-							"V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN is set to '{}'.\n" + 
-							"\tAdditional checks for supplemental logging will performed at the table level.\n" +
-							"=====================",
-							rdbmsInfo.getSupplementalLogDataMin());
-				}
-			}
-
-			odd = new OraDumpDecoder(rdbmsInfo.getDbCharset(), rdbmsInfo.getDbNCharCharset());
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
-			pseudoColumns = new OraCdcPseudoColumnsProcessor(config);
+			OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
+			processStoredSchemas(metrics);
 
-			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName();
-			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, rdbmsInfo.getDbId());
-			partition = Collections.singletonMap(sourcePartitionName, ((Long)rdbmsInfo.getDbId()).toString());
-
-			List<String> excludeList = null;
-			List<String> includeList = null;
-			if (props.containsKey(ParamConstants.TABLE_EXCLUDE_PARAM)) {
-				excludeList =
-						Arrays.asList(props.get(ParamConstants.TABLE_EXCLUDE_PARAM).split("\\s*,\\s*"));
-			}
-			if (props.containsKey(ParamConstants.TABLE_INCLUDE_PARAM)) {
-				includeList =
-						Arrays.asList(props.get(ParamConstants.TABLE_INCLUDE_PARAM).split("\\s*,\\s*"));
-			}
-			final boolean tableListGenerationStatic;
-			if (StringUtils.equalsIgnoreCase(
-					ParamConstants.TABLE_LIST_STYLE_STATIC, config.getString(ParamConstants.TABLE_LIST_STYLE_PARAM))) {
-				// ParamConstants.TABLE_LIST_STYLE_STATIC
-				tableListGenerationStatic = true;
-			} else {
-				// TABLE_LIST_STYLE_DYNAMIC
-				tableListGenerationStatic = false;
-			}
-
-			final Path queuesRoot = FileSystems.getDefault().getPath(
-					config.getString(ParamConstants.TEMP_DIR_PARAM));
-
-			if (config.useOracdcSchemas()) {
-				// Use stored schema only in this mode
-				final String schemaFileName = config.getString(ParamConstants.DICTIONARY_FILE_PARAM);
-				if (StringUtils.isNotBlank(schemaFileName)) {
-					try {
-						LOGGER.info("Loading stored schema definitions from file {}.", schemaFileName);
-						tablesInProcessing = FileUtils.readDictionaryFile(schemaFileName, schemaType, transformLobs, rdbmsInfo);
-						LOGGER.info("{} table schema definitions loaded from file {}.",
-								tablesInProcessing.size(), schemaFileName);
-						tablesInProcessing.forEach((key, table) -> {
-							table.setTopicDecoderPartition(config, odd, partition);
-							metrics.addTableInProcessing(table.fqn());
-						});
-					} catch (IOException ioe) {
-						LOGGER.warn("Unable to read stored definition from {}.", schemaFileName);
-						LOGGER.warn(ExceptionUtils.getExceptionStackTrace(ioe));
-					}
-				}
-			}
-			if (tablesInProcessing == null) {
-				tablesInProcessing = new ConcurrentHashMap<>();
-			}
-			tablesOutOfScope = new HashSet<>();
-			activeTransactions = new HashMap<>();
-			committedTransactions = new LinkedBlockingQueue<>();
-
-			boolean rewind = false;
-			final long firstAvailableScn = rdbmsInfo.firstScnFromArchivedLogs(
-					oraConnections.getLogMinerConnection(),
-					!(useStandby ||  rdbmsInfo.isStandby()));
-			long firstScn = firstAvailableScn;
-			String firstRsId = null;
-			long firstSsn = -1;
-			final boolean startScnFromProps = props.containsKey(ParamConstants.LGMNR_START_SCN_PARAM) &&
-									config.getLong(ParamConstants.LGMNR_START_SCN_PARAM) > 0;
 			// Initial load
 			if (StringUtils.equalsIgnoreCase(
 					ParamConstants.INITIAL_LOAD_EXECUTE,
 					config.getString(ParamConstants.INITIAL_LOAD_PARAM))) {
 				execInitialLoad = true;
 				initialLoadStatus = ParamConstants.INITIAL_LOAD_EXECUTE;
-			}
-			Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(partition);
-
-			// New resiliency model
-			// Begin - initial load analysis...
-			if (execInitialLoad) {
-				// Need to check value from offset
+				final Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(rdbmsInfo.partition());
 				if (offsetFromKafka != null &&
 						StringUtils.equalsIgnoreCase(
 								ParamConstants.INITIAL_LOAD_COMPLETED,
@@ -428,78 +93,22 @@ public class OraCdcLogMinerTask extends SourceTask {
 				}
 			}
 			// End - initial load analysis...
-			if (offsetFromKafka != null && offsetFromKafka.containsKey("C:COMMIT_SCN")) {
-				if (startScnFromProps) {
-					// a2.first.change set in connector properties, ignore stored offsets values
-					// for restart...
-					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
-					LOGGER.info("{}={} is set in connector properties, ignoring SCN related restart data from connector offset storage.",
-							ParamConstants.LGMNR_START_SCN_PARAM, firstScn);
-					if (firstScn < firstAvailableScn) {
-						LOGGER.warn(
-								"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-								ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
-						firstScn = firstAvailableScn;
-					} else {
-						// We need to rewind, potentially
-						rewind = true;
-					}
-				} else {
-					// Use stored offset values for SCN and related from storage offset
-					firstScn = (long) offsetFromKafka.get("S:SCN");
-					firstRsId = (String) offsetFromKafka.get("S:RS_ID");
-					firstSsn = (long) offsetFromKafka.get("S:SSN");
-					LOGGER.info("Point in time from offset data to start reading reading from SCN={}, RS_ID (RBA)='{}', SSN={}",
-							firstScn, firstRsId, firstSsn);
-					lastProcessedCommitScn = (long) offsetFromKafka.get("C:COMMIT_SCN");
-					lastInProgressCommitScn = (long) offsetFromKafka.get("COMMIT_SCN");
-					if (lastProcessedCommitScn == lastInProgressCommitScn) {
-						// Rewind not required, reset back lastInProgressCommitScn
-						lastInProgressCommitScn = 0;
-					} else {
-						lastInProgressScn = (long) offsetFromKafka.get("SCN");
-						lastInProgressRsId = (String) offsetFromKafka.get("RS_ID");
-						lastInProgressSsn = (long) offsetFromKafka.get("SSN");
-						LOGGER.info("Last sent SCN={}, RS_ID (RBA)='{}', SSN={} for  transaction with incomplete send",
-								lastInProgressScn, lastInProgressRsId, lastInProgressSsn);
-					}
-					if (firstScn < firstAvailableScn) {
-						LOGGER.warn(
-								"\n" +
-								"=====================\n" +
-								"Ignoring Point in time {}:{}:{} from offset, and setting it to first available SCN in V$ARCHIVED_LOG {}.\n" +
-								"=====================",
-								firstScn, firstRsId, firstSsn, firstAvailableScn);
-						firstScn = firstAvailableScn;
-					} else {
-						rewind = true;
-					}
-				}
-			} else {
-				LOGGER.info("No data present in connector's offset storage for {}:{}",
-							sourcePartitionName, rdbmsInfo.getDbId());
-				if (startScnFromProps) {
-					// a2.first.change set in connector properties, restart data are not present
-					firstScn = Long.parseLong(props.get(ParamConstants.LGMNR_START_SCN_PARAM));
-					LOGGER.info("{}={} is set in connector properties, previous offset data is not available.",
-							ParamConstants.LGMNR_START_SCN_PARAM, firstScn);
-					if (firstScn < firstAvailableScn) {
-						LOGGER.warn(
-								"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-								ParamConstants.LGMNR_START_SCN_PARAM, firstScn, ParamConstants.LGMNR_START_SCN_PARAM, firstAvailableScn);
-						firstScn = firstAvailableScn;
-					} else {
-						// We need to rewind, potentially
-						rewind = true;
-					}
-				} else {
-					// No previous offset, no start scn - just use first available from V$ARCHIVED_LOG  
-					LOGGER.info("oracdc will start from minimum available SCN in V$ARCHIVED_LOG = {}.",
-							firstAvailableScn);
-					firstScn = firstAvailableScn;
-				}
-			}
 
+			List<String> excludeList = config.excludeObj();
+			if (excludeList.size() < 1)
+				excludeList = null;
+			List<String> includeList = config.includeObj();
+			if (includeList.size() < 1)
+				includeList = null;
+			final boolean tableListGenerationStatic;
+			if (StringUtils.equalsIgnoreCase(
+					ParamConstants.TABLE_LIST_STYLE_STATIC, config.getString(ParamConstants.TABLE_LIST_STYLE_PARAM))) {
+				// ParamConstants.TABLE_LIST_STYLE_STATIC
+				tableListGenerationStatic = true;
+			} else {
+				// TABLE_LIST_STYLE_DYNAMIC
+				tableListGenerationStatic = false;
+			}
 			String checkTableSql = null;
 			String mineDataSql = null;
 			String initialLoadSql = null;
@@ -529,8 +138,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 						connDictionary, false, tableList);
 					if (StringUtils.contains(objectList, "()")) {
 						// and DATA_OBJ# in ()
-						LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
-							ParamConstants.TABLE_INCLUDE_PARAM, props.get(ParamConstants.TABLE_INCLUDE_PARAM));
+						LOGGER.error("a2.include parameter set to {} but there are no tables matching this condition.\nExiting.",
+								StringUtils.join(config.includeObj(), ","));
 						throw new ConnectException("Please check value of a2.include parameter or remove it from configuration!");
 					}
 					/*
@@ -582,8 +191,8 @@ public class OraCdcLogMinerTask extends SourceTask {
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList));
 					if (StringUtils.contains(objectList, "()")) {
 						// and DATA_OBJ# not in ()
-						LOGGER.error("{} parameter set to {} but there are no tables matching this condition.\nExiting.",
-								ParamConstants.TABLE_EXCLUDE_PARAM, props.get(ParamConstants.TABLE_EXCLUDE_PARAM));
+						LOGGER.error("a2.exclude parameter set to {} but there are no tables matching this condition.\nExiting.",
+								StringUtils.join(config.excludeObj(), ","));
 						throw new ConnectException("Please check value of a2.exclude parameter or remove it from configuration!");
 					}
 					mineDataSql += objectList + ")";
@@ -657,27 +266,18 @@ public class OraCdcLogMinerTask extends SourceTask {
 				LOGGER.debug("Mining SQL = {}", mineDataSql);
 				LOGGER.debug("Dictionary check SQL = {}", checkTableSql);
 			}
-			worker = new OraCdcLogMinerWorkerThread(
-					this,
-					partition,
-					firstScn,
-					mineDataSql,
-					checkTableSql,
-					tablesInProcessing,
-					tablesOutOfScope,
-					topicPartition,
-					odd,
-					queuesRoot,
-					activeTransactions,
-					committedTransactions,
-					metrics,
-					config,
-					transformLobs,
-					rdbmsInfo,
-					oraConnections,
-					pseudoColumns);
+			MutableTriple<Long, RedoByteAddress, Long> coords = new MutableTriple<>();
+			boolean rewind = startPosition(coords);
+			activeTransactions = new HashMap<>();
+
+			checker = new OraCdcDictionaryChecker(this,
+					tablesInProcessing, tablesOutOfScope, checkTableSql, metrics);
+
+			worker = new OraCdcLogMinerWorkerThread(this,
+					checker, coords.getLeft(), mineDataSql, activeTransactions,
+					committedTransactions, metrics);
 			if (rewind) {
-				worker.rewind(firstScn, firstRsId, firstSsn);
+				worker.rewind(coords.getLeft(), coords.getMiddle(), coords.getRight());
 			}
 
 			if (execInitialLoad) {
@@ -687,9 +287,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 				initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, connectorName);
 				initialLoadWorker = new OraCdcInitialLoadThread(
 						WAIT_FOR_WORKER_MILLIS,
-						firstScn,
+						coords.getLeft(),
 						tablesInProcessing,
-						queuesRoot,
+						config,
 						rdbmsInfo,
 						initialLoadMetrics,
 						tablesQueue,
@@ -697,7 +297,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 			}
 
 
-		} catch (SQLException | InvalidPathException e) {
+		} catch (SQLException e) {
 			LOGGER.error("Unable to start oracdc logminer task!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
@@ -707,8 +307,6 @@ public class OraCdcLogMinerTask extends SourceTask {
 			initialLoadWorker.start();
 		}
 		worker.start();
-		runLatch = new CountDownLatch(1);
-		isPollRunning = new AtomicBoolean(false);
 	}
 
 	@Override
@@ -804,14 +402,14 @@ public class OraCdcLogMinerTask extends SourceTask {
 								}
 								lastStatementInTransaction = !processTransaction;
 								if (stmt.getScn() == lastInProgressScn &&
-										StringUtils.equals(stmt.getRsId(), lastInProgressRsId) &&
-										stmt.getSsn() == lastInProgressSsn) {
+										lastInProgressRba.equals(stmt.getRba()) &&
+										stmt.getSsn() == lastInProgressSubScn) {
 									// Rewind completed
 									break;
 								}
 								if (!processTransaction) {
 									LOGGER.error("Unable to rewind transaction {} with COMMIT_SCN={} till requested {}:'{}':{}!",
-											transaction.getXid(), transaction.getCommitScn(), lastInProgressScn, lastInProgressRsId, lastInProgressSsn);
+											transaction.getXid(), transaction.getCommitScn(), lastInProgressScn, lastInProgressRba, lastInProgressSubScn);
 									throw new ConnectException("Data corruption while restarting oracdc task!");
 								}
 							}
@@ -830,10 +428,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 							lastStatementInTransaction = !processTransaction;
 
 							if (processTransaction) {
-								final OraTable4LogMiner oraTable = tablesInProcessing.get(stmt.getTableId());
+								final OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
-									LOGGER.error("Strange consistency issue for DATA_OBJ# {}, transaction XID {}, statement SCN={}, RS_ID='{}', SSN={}.\n Exiting.",
-											stmt.getTableId(), transaction.getXid(), stmt.getScn(), stmt.getRsId(), stmt.getSsn());
+									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);
 									throw new ConnectException("Strange consistency issue!!!");
 								} else {
@@ -847,7 +444,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 										} else {
 											final long startParseTs = System.currentTimeMillis();
 											offset.put("SCN", stmt.getScn());
-											offset.put("RS_ID", stmt.getRsId());
+											offset.put("RS_ID", stmt.getRba().toString());
 											offset.put("SSN", stmt.getSsn());
 											offset.put("COMMIT_SCN", transaction.getCommitScn());
 											final SourceRecord record = oraTable.parseRedoRecord(
@@ -910,44 +507,17 @@ public class OraCdcLogMinerTask extends SourceTask {
 
 	@Override
 	public void stop() {
-		stop(true);
-	}
-
-	public void stop(boolean stopWorker) {
 		LOGGER.info("Stopping oracdc logminer source task.");
-		if (runLatch != null ) {
-			// We can stop before runLatch initialization due to invalid parameters
-			runLatch.countDown();
-			if (stopWorker) {
-				worker.shutdown();
-				while (worker.isRunning()) {
-					try {
-						LOGGER.debug("Waiting {} ms for worker thread to stop...", WAIT_FOR_WORKER_MILLIS);
-						Thread.sleep(WAIT_FOR_WORKER_MILLIS);
-					} catch (InterruptedException e) {
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-					}
-				}
-			} else {
-				while (isPollRunning.get()) {
-					try {
-						LOGGER.debug("Waiting {} ms for connector task to stop...", WAIT_FOR_WORKER_MILLIS);
-						Thread.sleep(WAIT_FOR_WORKER_MILLIS);
-					} catch (InterruptedException e) {
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-					}
-				}
-			}
-		}
+		super.stop(true);
 		if (initialLoadWorker != null && initialLoadWorker.isRunning()) {
 			initialLoadWorker.shutdown();
 		}
 		if (activeTransactions != null && activeTransactions.isEmpty()) {
-			if (worker != null && worker.getLastRsId() != null && worker.getLastScn() > 0) {
+			if (worker != null && worker.lastRba() != null && worker.lastScn() > 0) {
 				putReadRestartScn(Triple.of(
-						worker.getLastScn(),
-						worker.getLastRsId(),
-						worker.getLastSsn()));
+						worker.lastScn(),
+						worker.lastRba(),
+						worker.lastSubScn()));
 			}
 		}
 		if (activeTransactions != null && !activeTransactions.isEmpty()) {
@@ -957,25 +527,7 @@ public class OraCdcLogMinerTask extends SourceTask {
 				transaction.close();
 			});
 		}
-		if (useChronicleQueue && committedTransactions!= null && !committedTransactions.isEmpty()) {
-			// Clean only when we use ChronicleQueue
-			committedTransactions.forEach(transaction -> {
-				if (isPollRunning.get()) {
-					LOGGER.error("Unable to remove directory {}, please remove it manually",
-							((OraCdcTransactionChronicleQueue) transaction).getPath().toString());
-				} else {
-					transaction.close();
-				}
-			});
-		}
-		if (oraConnections != null) {
-			try {
-				oraConnections.destroy();
-			} catch (SQLException sqle) {
-				LOGGER.error("Unable to close all RDBMS connections!");
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-			}
-		}
+		super.stopEpilogue();
 	}
 
 	/**
@@ -994,9 +546,9 @@ public class OraCdcLogMinerTask extends SourceTask {
 		ops.setInstanceName(rdbmsInfo.getInstanceName());
 		ops.setHostName(rdbmsInfo.getHostName());
 		ops.setLastOpTsMillis(System.currentTimeMillis());
-		ops.setLastScn(worker.getLastScn());
-		ops.setLastRsId(worker.getLastRsId());
-		ops.setLastSsn(worker.getLastSsn());
+		ops.setLastScn(worker.lastScn());
+		ops.setLastRsId(worker.lastRba());
+		ops.setLastSsn(worker.lastSubScn());
 		ops.setInitialLoad(initialLoadStatus);
 		if (saveFinalState && useChronicleQueue) {
 			if (transaction != null) {
@@ -1090,24 +642,13 @@ public class OraCdcLogMinerTask extends SourceTask {
 							isCdb ? (short) conId : -1,
 							resultSet.getString("OWNER"), tableName,
 							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
-							config, processLobs, transformLobs, isCdb, topicPartition, 
-							odd, partition, rdbmsInfo, connection, pseudoColumns);
+							config, rdbmsInfo, connection);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}
 		} catch (SQLException sqle) {
 			throw new SQLException(sqle);
 		}
-	}
-
-	protected void putReadRestartScn(final Triple<Long, String, Long> transData) {
-		offset.put("S:SCN", transData.getLeft());
-		offset.put("S:RS_ID", transData.getMiddle());
-		offset.put("S:SSN", transData.getRight());
-	}
-
-	protected void putTableAndVersion(final long combinedDataObjectId, final int version) {
-		offset.put(Long.toString(combinedDataObjectId), Integer.toString(version));
 	}
 
 }

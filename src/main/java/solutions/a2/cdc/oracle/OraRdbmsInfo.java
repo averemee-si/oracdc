@@ -20,8 +20,10 @@ import java.sql.SQLException;
 import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -86,6 +88,10 @@ public class OraRdbmsInfo {
 	private final String logMode;
 	private final String controlFileType;
 	private final String openMode;
+	private final OraDumpDecoder odd;
+	private final String sourcePartitionName;
+	private final Map<String, String> partition;
+	private final boolean littleEndian;
 
 	public final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -227,6 +233,20 @@ public class OraRdbmsInfo {
 			logMode = rs.getString("LOG_MODE");
 			dbCharset = rs.getString("NLS_CHARACTERSET");
 			dbNCharCharset = rs.getString("NLS_NCHAR_CHARACTERSET");
+			final String endianness = rs.getString("ENDIAN_FORMAT");
+			if (StringUtils.equalsIgnoreCase(endianness, "Little")) {
+				littleEndian = true;
+			} else if (StringUtils.equalsIgnoreCase(endianness, "Big")) {
+				littleEndian = false;
+			} else {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to detect platform endianness for database {} running on {}!\n" +
+						"V$TRANSPORTABLE_PLATFORM.ENDIAN_FORMAT {};" +
+						"\n=====================\n",
+						databaseName, platformName, endianness);
+				throw new SQLException("Unable to detect platform endianness!");
+			}
 			rs.close();
 			rs = null;
 			ps.close();
@@ -238,13 +258,11 @@ public class OraRdbmsInfo {
 			} catch (SQLException tze) {
 				dbTimeZone = ZoneId.systemDefault();
 				LOGGER.error(
-						"\n" +
-						"=====================\n" +
+						"\n=====================\n" +
 						"Database timezone is set to {}\n" +
 						"Unable to determine database timezone!\n" +
 						ExceptionUtils.getExceptionStackTrace(tze) + 
-						"\n" +
-						"=====================\n", dbTimeZone);
+						"\n=====================\n", dbTimeZone);
 			}
 			LOGGER.debug("Database timezone is set to {}", dbTimeZone);
 
@@ -255,13 +273,11 @@ public class OraRdbmsInfo {
 				} catch (DateTimeException dte) {
 					sessionTimeZone = ZoneId.systemDefault();
 					LOGGER.error(
-							"\n" +
-							"=====================\n" +
+							"\n=====================\n" +
 							"'{}' while converting '{}' to ZoneId!\n" +
 							"'{}' will be used as sessionTimeZone!\n" +
 							ExceptionUtils.getExceptionStackTrace(dte) + 
-							"\n" +
-							"=====================\n",
+							"\n=====================\n",
 							dte.getMessage(), sessionTZName, sessionTimeZone);
 				}
 			} else {
@@ -273,13 +289,13 @@ public class OraRdbmsInfo {
 			if (sqle.getErrorCode() == ORA_942) {
 				// ORA-00942: table or view does not exist
 				LOGGER.error(
-						"\n" +
-						"=====================\n" +
+						"\n=====================\n" +
 						"Please run as SYSDBA:\n" +
 						"\tgrant select on V_$DATABASE to {};\n" +
-						"And restart connector!\n" +
-						"=====================\n",
-						connection.getSchema());
+						"\tgrant select on V_$TRANSPORTABLE_PLATFORM to {};\n" +
+						"And restart connector!" +
+						"\n=====================\n",
+						connection.getSchema(), connection.getSchema());
 			}
 			throw sqle;
 		}
@@ -311,6 +327,12 @@ public class OraRdbmsInfo {
 			schema = schemaBuilder.build();
 		} else {
 			schema = null;
+		}
+		odd = new OraDumpDecoder(dbCharset, dbNCharCharset);
+		sourcePartitionName = instanceName + "_" + hostName;
+		partition = Collections.singletonMap(sourcePartitionName, Long.toString(dbId));
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, dbId);
 		}
 	}
 
@@ -773,6 +795,53 @@ public class OraRdbmsInfo {
 		} else {
 			sb.append(" and (DATA_OBJ# in (");
 		}
+		int[] data = getMineObjectsIds(exclude, where, connection);
+		
+		boolean firstValue = true;
+		boolean lastValue = false;
+		int recordCount = 0;
+		for (int i = 0; i < data.length; i++) {
+			lastValue = false;
+			if (firstValue) {
+				firstValue = false;
+			} else {
+				sb.append(',');
+			}
+			sb.append(Integer.toUnsignedLong(data[i]));
+			recordCount++;
+			if (recordCount > 999) {
+				// ORA-01795
+				sb.append(")");
+				lastValue = true;
+				if (exclude) {
+					sb.append(" and DATA_OBJ# not in (");
+				} else {
+					sb.append(" or DATA_OBJ# in (");
+				}
+				firstValue = true;
+				recordCount = 0;
+			}
+		}
+		if (!lastValue) {
+			sb.append(')');
+		}
+		sb.append(')');
+		data = null;
+		return sb.toString();
+	}
+
+	/**
+	 * Returns array of obj id's to INCLUDE/EXCLUDE
+	 * 
+	 * @param exclude
+	 * @param where
+	 * @param connection - Connection to dictionary database
+	 * @return
+	 * @throws SQLException
+	 */
+	public int[] getMineObjectsIds(final boolean exclude,
+			final String where, final Connection connection) throws SQLException {
+		List<Integer> list = new ArrayList<>(0x100);
 		
 		//TODO
 		//TODO For CDB - pair required!!!
@@ -792,43 +861,16 @@ public class OraRdbmsInfo {
 		}
 		PreparedStatement ps = connection.prepareStatement(selectObjectIds,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		
 		ResultSet rs = ps.executeQuery();
-		boolean firstValue = true;
-		boolean lastValue = false;
-		int recordCount = 0;
-		int total = 0;
 		while (rs.next()) {
-			total++;
-			lastValue = false;
-			if (firstValue) {
-				firstValue = false;
-			} else {
-				sb.append(",");
-			}
-			sb.append(rs.getInt(1));
-			recordCount++;
-			if (recordCount > 999) {
-				// ORA-01795
-				sb.append(")");
-				lastValue = true;
-				if (exclude) {
-					sb.append(" and DATA_OBJ# not in (");
-				} else {
-					sb.append(" or DATA_OBJ# in (");
-				}
-				firstValue = true;
-				recordCount = 0;
-			}
+			list.add((int) rs.getInt(1));
 		}
-		if (!lastValue) {
-			sb.append(")");
-		}
-		sb.append(")");
 		rs.close();
 		rs = null;
 		ps.close();
 		ps = null;
-		if (total == 0 && !exclude) {
+		if (list.size() == 0 && !exclude) {
 			LOGGER.error(
 					"\n" +
 					"=====================\n" +
@@ -837,32 +879,58 @@ public class OraRdbmsInfo {
 					"=====================\n",
 					selectObjectIds);
 		}
-		return sb.toString();
+		if (list.size() > 0) {
+			Collections.sort(list);
+		}
+		final int[] result = new int[list.size()];
+		for (int i = 0; i < list.size(); i++) {
+			result[i] = list.get(i);
+		}
+		list = null;
+		return result;
 	}
 
 	public String getConUidsList(final Connection connection) throws SQLException {
-		if (cdb && !pdbConnectionAllowed) {
-			final StringBuilder sb = new StringBuilder(256);
+		long[] data = getConUidsArray(connection);
+		if (data == null) {
+			return null;
+		} else if (data.length == 0) {
+			data = null;
+			return "";
+		} else {
+			final StringBuilder sb = new StringBuilder(0x100);
 			sb.append(" and SRC_CON_UID in (");
+			for (int i = 0; i < data.length; i++) {
+				if (i > 0) {
+					sb.append(',');
+				}
+				sb.append(data[i]);
+			}
+			sb.append(')');
+			data = null;
+			return sb.toString();
+		}
+	}
+
+	public long[] getConUidsArray(final Connection connection) throws SQLException {
+		if (cdb && !pdbConnectionAllowed) {
+			List<Long> list = new ArrayList<>();
 			// We do not need CDB$ROOT and PDB$SEED
 			PreparedStatement statement = connection.prepareStatement(
 					"select CON_UID from V$CONTAINERS where CON_ID > 2");
 			ResultSet rs = statement.executeQuery();
-			boolean first = true;
 			while (rs.next()) {
-				if (first) {
-					first = false;
-				} else {
-					sb.append(",");
-				}
-				sb.append(rs.getLong(1));
+				list.add(rs.getLong(1));
 			}
-			sb.append("");
-			if (first) {
-				return "";
-			} else {
-				return sb.toString() + ")";
+			if (list.size() > 0) {
+				Collections.sort(list);
 			}
+			final long[] result = new long[list.size()];
+			for (int i = 0; i < list.size(); i++) {
+				result[i] = list.get(i);
+			}
+			list = null;
+			return result;
 		} else {
 			return null;
 		}
@@ -932,14 +1000,6 @@ public class OraRdbmsInfo {
 		return schema;
 	}
 
-	public String getDbCharset() {
-		return dbCharset;
-	}
-
-	public String getDbNCharCharset() {
-		return dbNCharCharset;
-	}
-
 	public String getDbUniqueName() {
 		return dbUniqueName;
 	}
@@ -1003,6 +1063,22 @@ public class OraRdbmsInfo {
 
 	public String getOpenMode() {
 		return openMode;
+	}
+
+	public OraDumpDecoder odd() {
+		return odd;
+	}
+
+	public String sourcePartitionName() {
+		return sourcePartitionName;
+	}
+
+	public Map<String, String> partition() {
+		return partition;
+	}
+
+	public boolean littleEndian() {
+		return littleEndian;
 	}
 
 	@Override

@@ -11,8 +11,8 @@ import java.sql.SQLException;
 public interface OraCdcTransaction {
 
 
-	public void addStatement(final OraCdcLogMinerStatement oraSql);
-	public boolean getStatement(OraCdcLogMinerStatement oraSql);
+	public void addStatement(final OraCdcStatementBase oraSql);
+	public boolean getStatement(OraCdcStatementBase oraSql);
 	public void close();
 	public int length();
 	public int offset();	

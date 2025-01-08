@@ -14,14 +14,21 @@
 package solutions.a2.cdc.oracle;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -29,6 +36,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
@@ -38,7 +46,7 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcSourceConnectorConfig extends AbstractConfig {
+public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnectorConfig.class);
 
@@ -52,15 +60,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 
 	public static final int PK_TYPE_INT_WELL_DEFINED = 1;
 	public static final int PK_TYPE_INT_ANY_UNIQUE = 2;
-
-
-	public static final String TASK_PARAM_MASTER = "master";
-	public static final String TASK_PARAM_MV_LOG = "mv.log";
-	public static final String TASK_PARAM_OWNER = "owner";
-	public static final String TASK_PARAM_SCHEMA_TYPE = "schema.type";
-	public static final String TASK_PARAM_MV_ROWID = "mvlog.rowid";
-	public static final String TASK_PARAM_MV_PK = "mvlog.pk";
-	public static final String TASK_PARAM_MV_SEQUENCE = "mvlog.seq";
 
 	private static final String ORACDC_SCHEMAS_PARAM = "a2.oracdc.schemas";
 	private static final String ORACDC_SCHEMAS_DOC = "Use oracdc extensions for Oracle datatypes. Default false";
@@ -219,50 +218,71 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 	private Map<String, OraCdcKeyOverrideTypes> keyOverrideMap = null;
 	private Map<String, String> keyOverrideIndexMap = null;
 
+	private static final String PROCESS_LOBS_PARAM = "a2.process.lobs";
+	private static final String PROCESS_LOBS_DOC = "process Oracle LOB columns? Default - false";
+
+	private static final String LOB_TRANSFORM_CLASS_PARAM = "a2.lob.transformation.class";
+	private static final String LOB_TRANSFORM_CLASS_DOC = "name of class which implements solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf interface. Default - solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation";
+	private static final String LOB_TRANSFORM_CLASS_DEFAULT = "solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl";
+
+	private static final String CONNECTION_BACKOFF_PARAM = "a2.connection.backoff";
+	private static final int CONNECTION_BACKOFF_DEFAULT = 30000;
+	private static final String CONNECTION_BACKOFF_DOC = "backoff time in milliseconds between reconnectoion attempts. Default - " +
+														CONNECTION_BACKOFF_DEFAULT;
+
+	private static final String USE_RAC_PARAM = "a2.use.rac";
+	private static final String USE_RAC_DOC = 
+			"Default - false.\n" +
+			"When set to true oracdc first tried to detect is this connection to Oracle RAC.\n" + 
+			"If database is not RAC, only the warning message is printed.\n" + 
+			"If oracdc is connected to Oracle RAC additional checks are performed and oracdc starts a separate task for each redo thread/RAC instance. " +
+			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
+	
+	private static final String MAKE_STANDBY_ACTIVE_PARAM = "a2.standby.activate";
+	private static final String MAKE_STANDBY_ACTIVE_DOC = "Use standby database with V$DATABASE.OPEN_MODE = MOUNTED for LogMiner calls. Default - false"; 
+
+	private static final String TOPIC_PARTITION_PARAM = "a2.topic.partition";
+	private static final String TOPIC_PARTITION_DOC = "Kafka topic partition to write data. Default - 0";
+
+	private static final String TEMP_DIR_PARAM = "a2.tmpdir";
+	private static final String TEMP_DIR_DOC = "Temporary directory for non-heap storage. When not set, OS temp directory used"; 
+
+	private static final String LGMNR_START_SCN_PARAM = "a2.first.change";
+	private static final String LGMNR_START_SCN_DOC = "When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set min(FIRST_CHANGE#) from V$ARCHIVED_LOG will used. Overrides SCN value  stored in offset file";
+
+	private static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
+	static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
+	static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
-	private int schemaType = -1;
 	private int pkType = -1;
 	private String connectorName;
+	private OraCdcLobTransformationsIntf transformLobsImpl = null;
+	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
+	private int topicPartition = 0;
+	private Path queuesRoot = null;
+
+	// Redo Miner only!
+	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
+	private static final String REDO_FILE_NAME_CONVERT_DOC =
+			"It converts the filename of a redo log to another path.\n" +
+			"It is specified as a comma separated list of a strins in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.";
+	private boolean fileNameConversionInited = false;
+	private boolean fileNameConversion = false;
+	private Map<String, String> fileNameConversionMap;
+	private boolean logMiner = true;
 
 	public static ConfigDef config() {
-		return new ConfigDef()
-				.define(ConnectorParams.CONNECTION_URL_PARAM, Type.STRING, "",
-						Importance.HIGH, ConnectorParams.CONNECTION_URL_DOC)
-				.define(ConnectorParams.CONNECTION_USER_PARAM, Type.STRING, "",
-						Importance.HIGH, ConnectorParams.CONNECTION_USER_DOC)
-				.define(ConnectorParams.CONNECTION_PASSWORD_PARAM, Type.PASSWORD, "",
-						Importance.HIGH, ConnectorParams.CONNECTION_PASSWORD_DOC)
-				.define(ParamConstants.CONNECTION_WALLET_PARAM, Type.STRING, "",
-						Importance.HIGH, ParamConstants.CONNECTION_WALLET_DOC)
-				.define(ParamConstants.KAFKA_TOPIC_PARAM, Type.STRING, ParamConstants.KAFKA_TOPIC_PARAM_DEFAULT,
-						Importance.HIGH, ParamConstants.KAFKA_TOPIC_PARAM_DOC)
-				.define(ParamConstants.POLL_INTERVAL_MS_PARAM, Type.INT, ParamConstants.POLL_INTERVAL_MS_DEFAULT,
-						Importance.LOW, ParamConstants.POLL_INTERVAL_MS_DOC)
-				.define(ConnectorParams.BATCH_SIZE_PARAM, Type.INT,
-						ConnectorParams.BATCH_SIZE_DEFAULT,
-						Importance.LOW, ConnectorParams.BATCH_SIZE_DOC)
-				.define(ConnectorParams.SCHEMA_TYPE_PARAM, Type.STRING,
-						ConnectorParams.SCHEMA_TYPE_KAFKA,
-						ConfigDef.ValidString.in(
-								ConnectorParams.SCHEMA_TYPE_KAFKA,
-								ConnectorParams.SCHEMA_TYPE_SINGLE,
-								ConnectorParams.SCHEMA_TYPE_DEBEZIUM),
-						Importance.LOW, ConnectorParams.SCHEMA_TYPE_DOC)
-				.define(ConnectorParams.TOPIC_PREFIX_PARAM, Type.STRING, "",
-						Importance.MEDIUM, ConnectorParams.TOPIC_PREFIX_DOC)
-				.define(ParamConstants.TOPIC_PARTITION_PARAM, Type.SHORT, (short) 0,
-						Importance.MEDIUM, ParamConstants.TOPIC_PARTITION_DOC)
-				.define(ParamConstants.TABLE_EXCLUDE_PARAM, Type.LIST, "",
-						Importance.MEDIUM, ParamConstants.TABLE_EXCLUDE_DOC)
-				.define(ParamConstants.TABLE_INCLUDE_PARAM, Type.LIST, "",
-						Importance.MEDIUM, ParamConstants.TABLE_INCLUDE_DOC)
-				.define(ParamConstants.LGMNR_START_SCN_PARAM, Type.LONG, 0,
-						Importance.MEDIUM, ParamConstants.LGMNR_START_SCN_DOC)
-				.define(ParamConstants.TEMP_DIR_PARAM, Type.STRING, "",
-						Importance.HIGH, ParamConstants.TEMP_DIR_DOC)
-				.define(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.MAKE_STANDBY_ACTIVE_DOC)
+		return OraCdcSourceBaseConfig.config()
+				.define(TOPIC_PARTITION_PARAM, Type.INT, 0,
+						Importance.MEDIUM, TOPIC_PARTITION_DOC)
+				.define(LGMNR_START_SCN_PARAM, Type.STRING, "0",
+						Importance.MEDIUM, LGMNR_START_SCN_DOC)
+				.define(TEMP_DIR_PARAM, Type.STRING, System.getProperty("java.io.tmpdir"),
+						Importance.HIGH, TEMP_DIR_DOC)
+				.define(MAKE_STANDBY_ACTIVE_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, MAKE_STANDBY_ACTIVE_DOC)
 				.define(ParamConstants.STANDBY_WALLET_PARAM, Type.STRING, "",
 						Importance.LOW, ParamConstants.STANDBY_WALLET_DOC)
 				.define(ParamConstants.STANDBY_URL_PARAM, Type.STRING, "",
@@ -293,10 +313,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						ConfigDef.ValidString.in(ParamConstants.TABLE_LIST_STYLE_STATIC,
 								ParamConstants.TABLE_LIST_STYLE_DYNAMIC),
 						Importance.LOW, ParamConstants.TABLE_LIST_STYLE_DOC)
-				.define(ParamConstants.PROCESS_LOBS_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.PROCESS_LOBS_DOC)
-				.define(ParamConstants.CONNECTION_BACKOFF_PARAM, Type.INT, ParamConstants.CONNECTION_BACKOFF_DEFAULT,
-						Importance.LOW, ParamConstants.CONNECTION_BACKOFF_DOC)
+				.define(PROCESS_LOBS_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, PROCESS_LOBS_DOC)
+				.define(CONNECTION_BACKOFF_PARAM, Type.INT, CONNECTION_BACKOFF_DEFAULT,
+						Importance.LOW, CONNECTION_BACKOFF_DOC)
 				.define(ParamConstants.ARCHIVED_LOG_CAT_PARAM, Type.STRING, ParamConstants.ARCHIVED_LOG_CAT_DEFAULT,
 						Importance.LOW, ParamConstants.ARCHIVED_LOG_CAT_DOC)
 				.define(ParamConstants.FETCH_SIZE_PARAM, Type.INT, ParamConstants.FETCH_SIZE_DEFAULT,
@@ -313,10 +333,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_HOST_DOC)
 				.define(ParamConstants.DISTRIBUTED_TARGET_PORT, Type.INT, ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT,
 						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_PORT_DOC)
-				.define(ParamConstants.LOB_TRANSFORM_CLASS_PARAM, Type.STRING, ParamConstants.LOB_TRANSFORM_CLASS_DEFAULT,
-						Importance.LOW, ParamConstants.LOB_TRANSFORM_CLASS_DOC)
-				.define(ParamConstants.USE_RAC_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.USE_RAC_DOC)
+				.define(LOB_TRANSFORM_CLASS_PARAM, Type.STRING, LOB_TRANSFORM_CLASS_DEFAULT,
+						Importance.LOW, LOB_TRANSFORM_CLASS_DOC)
+				.define(USE_RAC_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, USE_RAC_DOC)
 				.define(PROTOBUF_SCHEMA_NAMING_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, PROTOBUF_SCHEMA_NAMING_DOC)
 				.define(ParamConstants.ORA_TRANSACTION_IMPL_PARAM, Type.STRING,
@@ -353,10 +373,10 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 				.define(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM,
 						Type.BOOLEAN, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
 						Importance.MEDIUM, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DOC)
-				.define(ParamConstants.INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
-						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
-				.define(ParamConstants.INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
-						Importance.LOW, ParamConstants.INTERNAL_PARAMETER_DOC)
+				.define(INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
+						Importance.LOW, INTERNAL_PARAMETER_DOC)
+				.define(INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
+						Importance.LOW, INTERNAL_PARAMETER_DOC)
 				.define(TOPIC_MAPPER_PARAM, Type.STRING,
 						TOPIC_MAPPER_DEFAULT,
 						Importance.LOW, TOPIC_MAPPER_DOC)
@@ -395,6 +415,9 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 						Importance.LOW, LAST_SEQ_NOTIFIER_FILE_DOC)
 				.define(KEY_OVERRIDE_PARAM, Type.LIST, "",
 						Importance.MEDIUM, KEY_OVERRIDE_DOC)
+				// Redo Miner only!
+				.define(REDO_FILE_NAME_CONVERT_PARAM, Type.STRING, "",
+						Importance.HIGH, REDO_FILE_NAME_CONVERT_DOC)
 				;
 	}
 
@@ -450,31 +473,6 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 			}
 		}
 		return topicNameStyle;
-	}
-
-	public int getSchemaType() {
-		if (schemaType == -1) {
-			switch (getString(ConnectorParams.SCHEMA_TYPE_PARAM)) {
-			case ConnectorParams.SCHEMA_TYPE_KAFKA:
-				schemaType = ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
-				break;
-			case ConnectorParams.SCHEMA_TYPE_SINGLE:
-				schemaType = ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
-				break;
-			case ConnectorParams.SCHEMA_TYPE_DEBEZIUM:
-				schemaType = ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
-				break;
-			}
-		}
-		return schemaType;
-	}
-
-	public String getTopicOrPrefix() {
-		if (getSchemaType() != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-			return getString(ConnectorParams.TOPIC_PREFIX_PARAM);
-		} else {
-			return getString(ParamConstants.KAFKA_TOPIC_PARAM);
-		}
 	}
 
 	public int getPkType() {
@@ -757,10 +755,9 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 								StringUtils.substringBetween(overrideValue, "(", ")"));
 					} else {
 						LOGGER.error(
-								"\n" +
-								"=====================\n" +
-								"Incorrect value {} for parameter {}!\n" +
-								"=====================\n",
+								"\n=====================\n" +
+								"Incorrect value {} for parameter {}!" +
+								"\n=====================\n",
 								token, KEY_OVERRIDE_PARAM);
 					}
 				} catch (Exception e) {
@@ -772,6 +769,209 @@ public class OraCdcSourceConnectorConfig extends AbstractConfig {
 		return Map.entry(
 				keyOverrideMap.getOrDefault(fqtn, OraCdcKeyOverrideTypes.NONE),
 				keyOverrideIndexMap.getOrDefault(fqtn, ""));
+	}
+
+	public boolean processLobs() {
+		return getBoolean(PROCESS_LOBS_PARAM);
+	}
+
+	public OraCdcLobTransformationsIntf transformLobsImpl() {
+		if (transformLobsImpl == null) {
+			final String transformLobsImplClass = getString(LOB_TRANSFORM_CLASS_PARAM);
+			LOGGER.info("oracdc will process Oracle LOBs using {} LOB transformations implementation",
+					transformLobsImplClass);
+			try {
+				final Class<?> classTransformLobs = Class.forName(transformLobsImplClass);
+				final Constructor<?> constructor = classTransformLobs.getConstructor();
+				transformLobsImpl = (OraCdcLobTransformationsIntf) constructor.newInstance();
+			} catch (ClassNotFoundException nfe) {
+				LOGGER.error("ClassNotFoundException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("ClassNotFoundException while instantiating " + transformLobsImplClass, nfe);
+			} catch (NoSuchMethodException nme) {
+				LOGGER.error("NoSuchMethodException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("NoSuchMethodException while instantiating " + transformLobsImplClass, nme);
+			} catch (SecurityException se) {
+				LOGGER.error("SecurityException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("SecurityException while instantiating " + transformLobsImplClass, se);
+			} catch (InvocationTargetException ite) {
+				LOGGER.error("InvocationTargetException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("InvocationTargetException while instantiating " + transformLobsImplClass, ite);
+			} catch (IllegalAccessException iae) {
+				LOGGER.error("IllegalAccessException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("IllegalAccessException while instantiating " + transformLobsImplClass, iae);
+			} catch (InstantiationException ie) {
+				LOGGER.error("InstantiationException while instantiating {}", transformLobsImplClass);
+				throw new ConnectException("InstantiationException while instantiating " + transformLobsImplClass, ie);
+			}
+		}
+		return transformLobsImpl;
+	}
+
+	public int connectionRetryBackoff() {
+		return getInt(CONNECTION_BACKOFF_PARAM);
+	}
+
+	public OraCdcPseudoColumnsProcessor pseudoColumnsProcessor() {
+		if (pseudoColumns == null) {
+			pseudoColumns = new OraCdcPseudoColumnsProcessor(this);
+		}
+		return pseudoColumns;
+	}
+
+	public boolean useRac() {
+		return getBoolean(USE_RAC_PARAM);
+	}
+
+	public String useRacParamName() {
+		return USE_RAC_PARAM;
+	}
+
+	public boolean activateStandby() {
+		return getBoolean(MAKE_STANDBY_ACTIVE_PARAM);
+	}
+
+	public String activateStandbyParamName() {
+		return MAKE_STANDBY_ACTIVE_PARAM;
+	}
+
+	public List<String> racUrls() {
+		return getList(INTERNAL_RAC_URLS_PARAM);
+	}
+
+	public List<String> dg4RacThreads() {
+		return getList(INTERNAL_DG4RAC_THREAD_PARAM);
+	}
+
+	public int topicPartition() {
+		return topicPartition;
+	}
+
+	public void topicPartition(final int redoThread) {
+		if (useRac() || 
+			(activateStandby() && dg4RacThreads() != null && dg4RacThreads().size() > 1)) {
+			topicPartition = redoThread - 1;
+		} else {
+			topicPartition = getInt(TOPIC_PARTITION_PARAM);
+		}
+	}
+
+	public Path queuesRoot() throws SQLException {
+		try {
+			if (queuesRoot == null) {
+				final String tempDir = getString(TEMP_DIR_PARAM);
+				if (Files.isDirectory(Paths.get(tempDir))) {
+					if (!Files.isWritable(Paths.get(tempDir))) {
+						LOGGER.error(
+								"\n=====================\n" +
+								"Parameter '{}' points to non-writable directory '{}'." +
+								"\n=====================\n",
+								TEMP_DIR_PARAM, tempDir);
+						throw new SQLException("Temp directory is not properly set!");
+					}
+				} else {
+					try {
+						Files.createDirectories(Paths.get(tempDir));
+					} catch (IOException | UnsupportedOperationException | SecurityException  e) {
+						LOGGER.error(
+								"\n=====================\n" +
+								"Unable to create directory! Parameter {} points to non-existent or invalid directory {}." +
+								"\n=====================\n",
+								TEMP_DIR_PARAM, tempDir);
+						throw new SQLException(e);
+					}
+				}
+				queuesRoot = FileSystems.getDefault().getPath(tempDir);
+			}
+			return queuesRoot;
+		} catch (InvalidPathException ipe) {
+			throw new SQLException(ipe);
+		}
+	}
+
+	public long startScn() throws SQLException {
+		final String scnAsString = getString(LGMNR_START_SCN_PARAM);
+		try {
+			return Long.parseUnsignedLong(scnAsString);
+		} catch (NumberFormatException nfe) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Unable to parse value '{}' of parameter '{}' as unsigned long!" +
+					"\n=====================\n",
+					scnAsString, LGMNR_START_SCN_PARAM);
+			throw new SQLException(nfe);
+		}
+	}
+
+	public String startScnParam() {
+		return LGMNR_START_SCN_PARAM;
+	}
+
+	public boolean logMiner() {
+		return logMiner;
+	}
+
+	public void logMiner(final boolean logMiner) {
+		this.logMiner = logMiner;
+	}
+
+	public String convertRedoFileName(final String originalName) {
+		if (!fileNameConversionInited) {
+			final String fileNameConvertParam = getString(REDO_FILE_NAME_CONVERT_PARAM);
+			if (StringUtils.isNotEmpty(fileNameConvertParam) &&
+					StringUtils.contains(fileNameConvertParam, ':')) {
+				String[] elements = StringUtils.split(fileNameConvertParam, ',');
+				int newSize = 0;
+				boolean[] processElement = new boolean[elements.length];
+				for (int i = 0; i < elements.length; i++) {
+					if (StringUtils.contains(elements[i], ":")) {
+						elements[i] = StringUtils.trim(elements[i]);
+						processElement[i] = true;
+						newSize += 1;
+					} else {
+						processElement[i] = false;
+					}
+				}
+				if (newSize > 0) {
+					fileNameConversionMap = new HashMap<>();
+					for (int i = 0; i < elements.length; i++) {
+						if (processElement[i]) {
+							fileNameConversionMap.put(
+								StringUtils.appendIfMissing(
+									StringUtils.trim(StringUtils.substringBefore(elements[i], ":")),
+									File.separator),
+							StringUtils.appendIfMissing(
+									StringUtils.trim(StringUtils.substringAfter(elements[i], ":")),
+									File.separator));
+						}
+					}
+					fileNameConversion = true;
+				}				
+				elements = null;
+				processElement = null;
+			}
+			fileNameConversionInited = true;
+		}
+		if (fileNameConversion) {
+			final String originalPrefix = StringUtils.trim(
+					StringUtils.substring(
+							originalName,
+							0,
+							StringUtils.lastIndexOf(originalName, File.separator) + 1));
+			final String replacementPrefix =  fileNameConversionMap.get(originalPrefix);
+			if (replacementPrefix == null) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to convert filename '{}' using parameter {}={} !\n" +
+						"Original filename will be returned!" +
+						"\n=====================\n",
+						originalName, REDO_FILE_NAME_CONVERT_PARAM, getString(REDO_FILE_NAME_CONVERT_PARAM));
+				return originalName;
+			} else {
+				return StringUtils.replace(originalName, originalPrefix, replacementPrefix);
+			}
+		} else {
+			return originalName;
+		}
 	}
 
 }

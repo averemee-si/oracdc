@@ -82,7 +82,7 @@ public class OraTable extends OraTable4SourceConnector {
 			final boolean logWithRowIds, final boolean logWithPrimaryKey, final boolean logWithSequence,
 			final int batchSize, final int schemaType,
 			final Map<String, String> sourcePartition, final Map<String, Object> sourceOffset,
-			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceConnectorConfig config) throws SQLException {
+			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceBaseConfig config) throws SQLException {
 		super(tableOwner, masterTable, schemaType);
 		LOGGER.trace("Creating OraTable object for materialized view log...");
 		this.logWithRowIds = logWithRowIds;
@@ -118,7 +118,7 @@ public class OraTable extends OraTable4SourceConnector {
 			// We always process LOB's for snapshot logs - despite of value processLobs passed
 			buildColumnList(rsColumns, sourceOffset,
 					snapshotLog, mViewSelect, masterSelect, snapshotDelete,
-					logWithRowIds, logWithPrimaryKey, logWithSequence, config.useProtobufSchemaNaming());
+					logWithRowIds, logWithPrimaryKey, logWithSequence, true);
 
 			rsColumns.close();
 			rsColumns = null;

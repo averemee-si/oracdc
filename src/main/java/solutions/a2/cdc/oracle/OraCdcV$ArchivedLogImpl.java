@@ -78,7 +78,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		LOGGER.trace("BEGIN: OraLogMiner Constructor");
 		this.metrics = metrics;
 		this.rdbmsInfo = rdbmsInfo;
-		this.useStandby = config.getBoolean(ParamConstants.MAKE_STANDBY_ACTIVE_PARAM)  ||
+		this.useStandby = config.activateStandby()  ||
 							rdbmsInfo.isStandby();
 		this.stopOnOra1284 = config.stopOnOra1284();
 		this.connectorName = config.getConnectorName();
@@ -234,7 +234,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 						printRedoLogInfo(true, true,
 								fileName, rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"));
 						archLogAvailable = true;
-						archLogSize = rs.getLong("BYTES");
+						archLogSize = rs.getShort("BLOCK_SIZE") * rs.getInt("BLOCKS");
 						break;
 					}
 				}

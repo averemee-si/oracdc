@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +29,9 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
 
+import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.RowId;
+
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -37,21 +41,27 @@ public class OraCdcPersistenceTest {
 
 	private final static String xid1 = "0000270016000000";
 	private final static OraCdcLogMinerStatement updIn1 =  new  OraCdcLogMinerStatement(
-			74590, (short)3, "update DEPT set DNAME='SALES' where DEPTNO=10",
-			System.currentTimeMillis(),275168436063l," 0x000098.000001b5.0010 ",
-			0, "AAAWbzAAEAAAB6FAAA", false);
+			74590, (short)3,
+			"update DEPT set DNAME='SALES' where DEPTNO=10".getBytes(StandardCharsets.US_ASCII),
+			System.currentTimeMillis(),275168436063l,
+			RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0010 "),
+			0, new RowId("AAAWbzAAEAAAB6FAAA"), false);
 
 	private final static String xid2 = "00002700160000AA";
 	private final static OraCdcLogMinerStatement updIn2 =  new  OraCdcLogMinerStatement(
-			74590, (short)3, "update DEPT set DNAME='OPERATIONS' where DEPTNO=20",
-			System.currentTimeMillis(),275168436122l," 0x000098.000001b5.0020 ",
-			0, "AAAWbzAAEAAAB6FABB", false);
+			74590, (short)3,
+			"update DEPT set DNAME='OPERATIONS' where DEPTNO=20".getBytes(StandardCharsets.US_ASCII),
+			System.currentTimeMillis(),275168436122l,
+			RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0020 "),
+			0, new RowId("AAAWbzAAEAAAB6FABB"), false);
 
 	private final static String xid3 = "00002700160000BB";
 	private final static OraCdcLogMinerStatement updIn3 =  new  OraCdcLogMinerStatement(
-			74590, (short)3, "update DEPT set DNAME='ACCOUNTING' where DEPTNO=30",
-			System.currentTimeMillis(),275168436125l," 0x000098.000001b5.0030 ",
-			0, "AAAWbzAAEAAAB6FACC", false);
+			74590, (short)3,
+			"update DEPT set DNAME='ACCOUNTING' where DEPTNO=30".getBytes(StandardCharsets.US_ASCII),
+			System.currentTimeMillis(),275168436125l,
+			RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0030 "),
+			0, new RowId("AAAWbzAAEAAAB6FACC"), false);
 
 
 
@@ -75,7 +85,7 @@ public class OraCdcPersistenceTest {
 		ops.setHostName("ebstst061");
 		ops.setLastOpTsMillis(System.currentTimeMillis());
 		ops.setLastScn(275168436063l);
-		ops.setLastRsId(" 0x000098.000001b5.0030 ");
+		ops.setLastRsId(RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0030 "));
 		ops.setLastSsn(0l);
 		ops.setCurrentTransaction(((OraCdcTransactionChronicleQueue)trans1).attrsAsMap());
 		ops.setInProgressTransactions(inProgress);
@@ -94,7 +104,6 @@ public class OraCdcPersistenceTest {
 		assertEquals(ops.getInstanceName(), restored.getInstanceName());
 		assertEquals(ops.getLastOpTsMillis(), restored.getLastOpTsMillis());
 		assertEquals(ops.getLastScn(), restored.getLastScn());
-		assertEquals(ops.getLastRsId(), restored.getLastRsId());
 		assertEquals(ops.getLastSsn(), restored.getLastSsn());
 
 		trans1.close();

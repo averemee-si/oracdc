@@ -24,6 +24,9 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.RowId;
+
 
 /**
  * 
@@ -49,8 +52,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	boolean partialRollback = false;
 	List<PartialRollbackEntry> rollbackEntriesList;
-	OraCdcLogMinerStatement lmStmt;
-	Set<Map.Entry<String, Long>> rollbackPairs;
+	Set<Map.Entry<RedoByteAddress, Long>> rollbackPairs;
 	private boolean suspicious = false;
 
 	private String username;
@@ -65,7 +67,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		this.transSize = 0;
 	}
 
-	void checkForRollback(final OraCdcLogMinerStatement oraSql, final long index) {
+	void checkForRollback(final OraCdcStatementBase oraSql, final long index) {
 		if (firstRecord) {
 			firstRecord = false;
 			firstChange = oraSql.getScn();
@@ -91,13 +93,13 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 				pre.operation = oraSql.getOperation();
 				pre.rowId = oraSql.getRowId();
 				pre.scn = oraSql.getScn();
-				pre.rsId = oraSql.getRsId();
+				pre.rsId = oraSql.getRba();
 				pre.ssn = oraSql.getSsn();
 
 				rollbackEntriesList.add(pre);
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("New partial rollback entry at SCN={}, RS_ID(RBA)='{}' for ROWID={} added.",
-							oraSql.getScn(), oraSql.getRsId(), oraSql.getRowId());
+							oraSql.getScn(), oraSql.getRba(), oraSql.getRowId());
 				}
 			}
 		}
@@ -105,12 +107,12 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	abstract void processRollbackEntries();
 
-	boolean willItRolledBack(final OraCdcLogMinerStatement oraSql) {
+	boolean willItRolledBack(final OraCdcStatementBase oraSql) {
 		if (partialRollback) {
 			if (oraSql.isRollback()) {
 				return true;
 			} else {
-				final Map.Entry<String, Long> uniqueAddr = Map.entry(oraSql.getRsId(), oraSql.getSsn());
+				final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(oraSql.getRba(), oraSql.getSsn());
 				return rollbackPairs.contains(uniqueAddr);
 			}
 		} else {
@@ -136,7 +138,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 			.append("COMMIT_SCN=")
 			.append(commitScn)
 			.append("\n")
-			.append(OraCdcLogMinerStatement.delimitedRowHeader());
+			.append(OraCdcStatementBase.delimitedRowHeader());
 		addToPrintOutput(sb);
 		sb.append("\n=====================\n");
 		if (errorOutput) {
@@ -153,7 +155,6 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		if (partialRollback) {
 			// Need to process all entries in reverse order
 			rollbackPairs = new HashSet<>();
-			lmStmt = new OraCdcLogMinerStatement();
 			processRollbackEntries();
 		}
 		if (suspicious) {
@@ -187,34 +188,6 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	void setSuspicious() {
 		suspicious = true;
-	}
-
-	public static Logger getLogger() {
-		return LOGGER;
-	}
-
-	public static String getTransXid() {
-		return TRANS_XID;
-	}
-
-	public static String getTransFirstChange() {
-		return TRANS_FIRST_CHANGE;
-	}
-
-	public static String getTransNextChange() {
-		return TRANS_NEXT_CHANGE;
-	}
-
-	public static String getQueueSize() {
-		return QUEUE_SIZE;
-	}
-
-	public static String getQueueOffset() {
-		return QUEUE_OFFSET;
-	}
-
-	public static String getTransCommitScn() {
-		return TRANS_COMMIT_SCN;
 	}
 
 	public String getUsername() {
@@ -261,9 +234,9 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 		long index;
 		long tableId;
 		short operation;
-		String rowId;
+		RowId rowId;
 		long scn;
-		String rsId;
+		RedoByteAddress rsId;
 		long ssn;
 	}
 

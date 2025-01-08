@@ -30,6 +30,8 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
+import solutions.a2.oracle.internals.RedoByteAddress;
+
 /**
  * 
  * @author averemee
@@ -46,7 +48,7 @@ public class OraCdcPersistentState implements Serializable {
 	private String hostName;
 	private Long dbId;
 	private Long lastScn;
-	private String lastRsId;
+	private RedoByteAddress lastRsId;
 	private Long lastSsn;
 	private Long lastOpTsMillis;
 	private String initialLoad;
@@ -115,12 +117,12 @@ public class OraCdcPersistentState implements Serializable {
 		this.lastScn = lastScn;
 	}
 
-	public String getLastRsId() {
+	public RedoByteAddress getLastRsId() {
 		return lastRsId;
 	}
 
-	public void setLastRsId(String lastRsId) {
-		this.lastRsId = lastRsId;
+	public void setLastRsId(RedoByteAddress redoByteAddress) {
+		this.lastRsId = redoByteAddress;
 	}
 
 	public Long getLastSsn() {

@@ -15,7 +15,6 @@ package solutions.a2.cdc.oracle;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Hashtable;
@@ -59,105 +58,141 @@ public class OraDumpDecoder {
 		this.nlsNcharCharacterSet = charsetMap.get(nlsNcharCharacterSet);
 	}
 
-	public static byte toByte(String hex) throws SQLException {
+	public static byte toByte(final String hex) throws SQLException {
+		return toByte(toByteArray(hex));
+	}
+
+	public static byte toByte(final byte[] data) throws SQLException {
 		try {
-			return NUMBER.toByte(toByteArray(hex));
+			return NUMBER.toByte(data);
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public static short toShort(String hex) throws SQLException {
+	public static short toShort(final String hex) throws SQLException {
+		return toShort(toByteArray(hex));
+	}
+
+	public static short toShort(final byte[] data) throws SQLException {
 		try {
-			return NUMBER.toShort(toByteArray(hex));
+			return NUMBER.toShort(data);
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public static int toInt(String hex) throws SQLException {
+	public static int toInt(final String hex) throws SQLException {
+		return toInt(toByteArray(hex));
+	}
+
+	public static int toInt(final byte[] data) throws SQLException {
 		try {
-			return NUMBER.toInt(toByteArray(hex));
+			return NUMBER.toInt(data);
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public static long toLong(String hex) throws SQLException {
+	public static long toLong(final String hex) throws SQLException {
+		return toLong(toByteArray(hex));
+	}
+
+	public static long toLong(final byte[] data) throws SQLException {
 		try {
-			return NUMBER.toLong(toByteArray(hex));
+			return NUMBER.toLong(data);
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public static BigInteger toBigInteger(String hex) throws SQLException {
-		try {
-			return NUMBER.toBigInteger(toByteArray(hex));
-		} catch (Exception  e) {
-			throw new SQLException("Invalid Oracle NUMBER", e);
-		}
+	public static float toFloat(final String hex) throws SQLException {
+		return toFloat(toByteArray(hex));
 	}
 
-	public static float toFloat(String hex) throws SQLException {
+	public static float toFloat(final byte[] data) throws SQLException {
 		try {
-			return NUMBER.toFloat(toByteArray(hex));
+			return NUMBER.toFloat(data);
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public static float fromBinaryFloat(String hex) throws SQLException {
+	public static float fromBinaryFloat(final String hex) throws SQLException {
+		return fromBinaryFloat(toByteArray(hex));
+	}
+
+	public static float fromBinaryFloat(final byte[] data) throws SQLException {
 		try {
-			BINARY_FLOAT bf = new BINARY_FLOAT(toByteArray(hex));
+			BINARY_FLOAT bf = new BINARY_FLOAT(data);
 			return bf.floatValue();
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public static double toDouble(String hex) throws SQLException {
+	public static double toDouble(final String hex) throws SQLException {
+		return toDouble(toByteArray(hex));
+	}
+
+	public static double toDouble(final byte[] data) throws SQLException {
 		try {
-			return NUMBER.toDouble(toByteArray(hex));
+			return NUMBER.toDouble(data);
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public static double fromBinaryDouble(String hex) throws SQLException {
+	public static double fromBinaryDouble(final String hex) throws SQLException {
+		return fromBinaryDouble(toByteArray(hex));
+	}
+
+	public static double fromBinaryDouble(final byte[] data) throws SQLException {
 		try {
-			BINARY_DOUBLE bd = new BINARY_DOUBLE(toByteArray(hex));
+			BINARY_DOUBLE bd = new BINARY_DOUBLE(data);
 			return bd.doubleValue();
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public static BigDecimal toBigDecimal(String hex) throws SQLException {
+	public static BigDecimal toBigDecimal(final String hex) throws SQLException {
+		return NUMBER.toBigDecimal(toByteArray(hex));
+	}
+
+	public static BigDecimal toBigDecimal(final byte[] data) throws SQLException {
 		try {
-			return NUMBER.toBigDecimal(toByteArray(hex));
+			return NUMBER.toBigDecimal(data);
 		} catch (Exception e) {
 			throw new SQLException("Invalid Oracle NUMBER", e);
 		}
 	}
 
-	public String fromVarchar2(String hex) throws SQLException {
+	public String fromVarchar2(final String hex) throws SQLException {
+		return fromVarchar2(toByteArray(hex));
+	}
+
+	public String fromVarchar2(final byte[] data) throws SQLException {
 		try {
-			return new String(toByteArray(hex), nlsCharacterSet);
+			return new String(data, nlsCharacterSet);
 		} catch (UnsupportedEncodingException e) {
-			throw new SQLException("Invalid encoding " + nlsCharacterSet + " for HEXTORAW " + hex +  ".", e);
+			throw new SQLException("Invalid encoding " + nlsCharacterSet + " for " + rawToHex(data) +  ".", e);
 		}
 	}
 
-	public String fromNvarchar2(String hex) throws SQLException {
+	public String fromNvarchar2(final String hex) throws SQLException {
+		return fromNvarchar2(toByteArray(hex));
+	}
+
+	public String fromNvarchar2(final byte[] data) throws SQLException {
 		try {
-			return new String(toByteArray(hex), nlsNcharCharacterSet);
+			return new String(data, nlsNcharCharacterSet);
 		} catch (UnsupportedEncodingException e) {
-			throw new SQLException("Invalid encoding " + nlsNcharCharacterSet + " for HEXTORAW " + hex +  ".", e);
+			throw new SQLException("Invalid encoding " + nlsNcharCharacterSet + " for " + rawToHex(data) +  ".", e);
 		}
 	}
 
-	public static String fromClobNclob(String hex) throws SQLException {
+	public static String fromClobNclob(final String hex) throws SQLException {
 		try {
 			return new String(toByteArray(hex), "UTF-16");
 		} catch (UnsupportedEncodingException e) {
@@ -178,7 +213,7 @@ public class OraDumpDecoder {
 	 *              Oracle Type 181 TIMESTAMP WITH TIME ZONE
 	 * @return
 	 */
-	public static Timestamp toTimestamp(String hex) throws SQLException {
+	public static Timestamp toTimestamp(final String hex) throws SQLException {
 		int[] data = hexStringToIntArray(hex);
 		if (data.length == OracleDate.DATA_LENGTH) {
 			return OracleDate.toTimestamp(data);
@@ -191,7 +226,19 @@ public class OraDumpDecoder {
 		}
 	}
 
-	public static byte[] toByteArray(String hex) {
+	public static Timestamp toTimestamp(final byte[] data) throws SQLException {
+		if (data.length == OracleDate.DATA_LENGTH) {
+			return OracleDate.toTimestamp(data);
+		} else if (data.length == OracleTimestamp.DATA_LENGTH) {
+			return OracleTimestamp.toTimestamp(data);
+		} else if (data.length == TimestampWithTimeZone.DATA_LENGTH) {
+			return TimestampWithTimeZone.toTimestamp(data);
+		} else {
+			throw new SQLException("Invalid Oracle HEX value DATE/TIMESTAMP - " + rawToHex(data) + "!");
+		}
+	}
+
+	public static byte[] toByteArray(final String hex) {
 		int len = hex.length();
 		byte[] data = new byte[len / 2];
 		for (int i = 0; i < len; i += 2) {
@@ -201,7 +248,7 @@ public class OraDumpDecoder {
 		return data;
 	}
 
-	public static String toHexString(byte[] hex) {
+	public static String toHexString(final byte[] hex) {
 		final char[] data = new char[hex.length * 2];
 		for (int i = 0; i < hex.length; i++) {
 			data[i << 1] = HEX_CHARS_UPPER[(hex[i] >> 4) & 0xF];
@@ -210,7 +257,7 @@ public class OraDumpDecoder {
 		return new String(data);
 	}
 
-	private static int[] hexStringToIntArray(String hex) {
+	private static int[] hexStringToIntArray(final String hex) {
 		int len = hex.length();
 		int[] data = new int[len / 2];
 		for (int i = 0; i < len; i += 2) {
@@ -218,6 +265,16 @@ public class OraDumpDecoder {
 							Character.digit(hex.charAt(i+1), 16));
 		}
 		return data;
+	}
+
+	public static String rawToHex(final byte[] data) {
+		final StringBuilder sb = new StringBuilder(data.length * 3 + 0x20);
+		sb.append("HEXTORAW('");
+		for (int i = 0; i < data.length; i++) {
+			sb.append(String.format("%02x", data[i]));
+		}
+		sb.append("')");
+		return sb.toString();
 	}
 
 	static {

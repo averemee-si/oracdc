@@ -24,7 +24,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +31,7 @@ import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.queue.TailerDirection;
+import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -171,7 +171,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	 * @throws IOException
 	 */
 	public OraCdcTransactionChronicleQueue(
-			final Path rootDir, final String xid, final OraCdcLogMinerStatement firstStatement) throws IOException {
+			final Path rootDir, final String xid, final OraCdcStatementBase firstStatement) throws IOException {
 		this(false, rootDir, xid);
 		this.addStatement(firstStatement);
 	}
@@ -179,6 +179,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	void processRollbackEntries() {
 		long nanos = System.nanoTime();
 		final ExcerptTailer reverse = statements.createTailer();
+		final OraCdcStatementBase lmStmt = new OraCdcStatementBase();
 		reverse.direction(TailerDirection.BACKWARD);
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Spent {} nanos to open the reverse tailer.", (System.nanoTime() - nanos));
@@ -203,8 +204,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 							lmStmt.getOperation() == OraCdcV$LogmnrContents.DELETE) ||
 							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
 							lmStmt.getOperation() == OraCdcV$LogmnrContents.UPDATE)) &&
-							StringUtils.equals(pre.rowId, lmStmt.getRowId())) {
-						final Map.Entry<String, Long> uniqueAddr = Map.entry(lmStmt.getRsId(), lmStmt.getSsn());
+							pre.rowId.equals(lmStmt.getRowId())) {
+						final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(lmStmt.getRba(), lmStmt.getSsn());
 						if (!rollbackPairs.contains(uniqueAddr)) {
 							rollbackPairs.add(uniqueAddr);
 							pairFound = true;
@@ -229,7 +230,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 					pre.operation = lmStmt.getOperation();
 					pre.rowId = lmStmt.getRowId();
 					pre.scn = lmStmt.getScn();
-					pre.rsId = lmStmt.getRsId();
+					pre.rsId = lmStmt.getRba();
 					pre.ssn = lmStmt.getSsn();
 					nonRollback[i++] = pre;
 				}
@@ -246,8 +247,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 									nonRollback[i].operation == OraCdcV$LogmnrContents.DELETE) ||
 							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
 									nonRollback[i].operation == OraCdcV$LogmnrContents.UPDATE)) &&
-							StringUtils.equals(pre.rowId, nonRollback[i].rowId)) {
-						final Map.Entry<String, Long> uniqueAddr = Map.entry(nonRollback[i].rsId, nonRollback[i].ssn);
+							pre.rowId.equals(nonRollback[i].rowId)) {
+						final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(nonRollback[i].rsId, nonRollback[i].ssn);
 						if (!rollbackPairs.contains(uniqueAddr)) {
 							rollbackPairs.add(uniqueAddr);
 							pairFound = true;
@@ -274,6 +275,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 
 	void addToPrintOutput(final StringBuilder sb) {
 		final ExcerptTailer printTailer = statements.createTailer();
+		final OraCdcStatementBase lmStmt = new OraCdcStatementBase();
 		boolean readResult = false;
 		do {
 			readResult = printTailer.readDocument(lmStmt);
@@ -284,7 +286,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		printTailer.close();
 	}
 
-	private void addStatementInt(final OraCdcLogMinerStatement oraSql) {
+	private void addStatementInt(final OraCdcStatementBase oraSql) {
 		checkForRollback(oraSql, firstRecord ? - 1 : appender.lastIndexAppended());
 		appender.writeDocument(oraSql);
 		nextChange = oraSql.getScn();
@@ -293,11 +295,11 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	}
 
 	@Override
-	public void addStatement(final OraCdcLogMinerStatement oraSql) {
+	public void addStatement(final OraCdcStatementBase oraSql) {
 		addStatementInt(oraSql);
 	}
 
-	public void addStatement(final OraCdcLogMinerStatement oraSql, final List<OraCdcLargeObjectHolder> lobs) {
+	public void addStatement(final OraCdcStatementBase oraSql, final List<OraCdcLargeObjectHolder> lobs) {
 		final boolean lobsExists;
 		if (lobs == null) {
 			lobsExists = false;
@@ -316,7 +318,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	}
 
 	@Override
-	public boolean getStatement(OraCdcLogMinerStatement oraSql) {
+	public boolean getStatement(OraCdcStatementBase oraSql) {
 		boolean result = false;
 		do {
 			result = tailer.readDocument(oraSql);
@@ -333,7 +335,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		return result;
 	}
 
-	public boolean getStatement(OraCdcLogMinerStatement oraSql, List<OraCdcLargeObjectHolder> lobs) {
+	public boolean getStatement(OraCdcStatementBase oraSql, List<OraCdcLargeObjectHolder> lobs) {
 		boolean result = getStatement(oraSql);
 		if (result) {
 			for (int i = 0; i < oraSql.getLobCount(); i++) {

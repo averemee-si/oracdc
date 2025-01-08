@@ -37,7 +37,7 @@ import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraCdcSourceConnector extends SourceConnector {
@@ -45,13 +45,19 @@ public class OraCdcSourceConnector extends SourceConnector {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnector.class);
 	private static final int MAX_TABLES = 256;
 
-	private OraCdcSourceConnectorConfig config;
+	static final String TASK_PARAM_MASTER = "master";
+	static final String TASK_PARAM_MV_LOG = "mv.log";
+	static final String TASK_PARAM_OWNER = "owner";
+	static final String TASK_PARAM_MV_ROWID = "mvlog.rowid";
+	static final String TASK_PARAM_MV_PK = "mvlog.pk";
+	static final String TASK_PARAM_MV_SEQUENCE = "mvlog.seq";
+
+	private OraCdcSourceBaseConfig config;
 	private boolean validConfig = true;
 	private boolean mvLogPre11gR2 = false;
 	private int tableCount = 0;
 	private String whereExclude = null;
 	private String whereInclude = null;
-	private int schemaType;
 
 	@Override
 	public String version() {
@@ -61,7 +67,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 	@Override
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc materialized view log source connector");
-		config = new OraCdcSourceConnectorConfig(props);
+		config = new OraCdcSourceBaseConfig(props);
 
 		if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_URL_PARAM))) {
 			LOGGER.error("Database connection parameters are not properly set!\n'{}' must be set for running connector!",
@@ -71,11 +77,11 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 		// Initialize connection pool
 		try {
-			if (StringUtils.isNotBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM))) {
+			if (StringUtils.isNotBlank(config.walletLocation())) {
 				LOGGER.info("Connecting to Oracle RDBMS using Oracle Wallet");
 				OraPoolConnectionFactory.init(
 						config.getString(ConnectorParams.CONNECTION_URL_PARAM),
-						config.getString(ParamConstants.CONNECTION_WALLET_PARAM));
+						config.walletLocation());
 			} else if (StringUtils.isNotBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM)) &&
 					StringUtils.isNotBlank(config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
 				LOGGER.info("Connecting to Oracle RDBMS using JDBC URL, username, and password.");
@@ -85,8 +91,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
 			} else {
 				validConfig = false;
-				LOGGER.error("Database connection parameters are not properly set\n. Or {}, or pair of {}/{} are not set",
-						ParamConstants.CONNECTION_WALLET_PARAM,
+				LOGGER.error("Database connection parameters are not properly set\n. Or wallet.location, or pair of {}/{} are not set",
 						ConnectorParams.CONNECTION_USER_PARAM,
 						ConnectorParams.CONNECTION_PASSWORD_PARAM);
 				throw new ConnectException("Database connection parameters are not properly set!");
@@ -114,14 +119,14 @@ public class OraCdcSourceConnector extends SourceConnector {
 					sqlStatementText = OraDictSqlTexts.MVIEW_COUNT_PK_SEQ_NOSCN_NONV_NOOI;
 				}
 
-				final List<String> excludeList = config.getList(ParamConstants.TABLE_EXCLUDE_PARAM);
+				final List<String> excludeList = config.excludeObj();
 				if (excludeList.size() > 0) {
 					LOGGER.trace("Exclude table list set.");
 					whereExclude = OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_MVIEW_LOGS, excludeList);
 					LOGGER.debug("Excluded table list where clause:\n{}", whereExclude);
 					sqlStatementText += whereExclude;
 				}
-				final List<String> includeList = config.getList(ParamConstants.TABLE_INCLUDE_PARAM);
+				final List<String> includeList = config.includeObj();
 				if (includeList.size() > 0) {
 					LOGGER.trace("Include table list set.");
 					whereInclude = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_MVIEW_LOGS, includeList);
@@ -158,13 +163,6 @@ public class OraCdcSourceConnector extends SourceConnector {
 					throw new ConnectException(message);
 				}
 
-				final String schemaTypeString = config.getString(ConnectorParams.SCHEMA_TYPE_PARAM);
-				LOGGER.debug("a2.schema.type set to {}.", schemaTypeString);
-				if (ConnectorParams.SCHEMA_TYPE_DEBEZIUM.equals(schemaTypeString))
-					schemaType = ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
-				else
-					schemaType = ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
-
 			} catch (SQLException sqle) {
 				validConfig = false;
 				LOGGER.error("Unable to get table information.");
@@ -200,14 +198,14 @@ public class OraCdcSourceConnector extends SourceConnector {
 			final String message = 
 					"To run " + OraCdcSourceConnector.class.getName() +
 					" against " + (
-					StringUtils.isBlank(config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) ?
+					StringUtils.isBlank(config.walletLocation()) ?
 								config.getString(ConnectorParams.CONNECTION_URL_PARAM) +
 								" with username " +
 								config.getString(ConnectorParams.CONNECTION_USER_PARAM)
 							:
 								config.getString(ConnectorParams.CONNECTION_URL_PARAM) +
 								" using wallet " +
-								config.getString(ParamConstants.CONNECTION_WALLET_PARAM)) +
+								config.walletLocation()) +
 					" parameter tasks.max must set to " + tableCount;
 			LOGGER.error(message);
 			LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
@@ -240,30 +238,27 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 				taskParam.put(ConnectorParams.BATCH_SIZE_PARAM,
 					config.getInt(ConnectorParams.BATCH_SIZE_PARAM).toString());
-				taskParam.put(ParamConstants.POLL_INTERVAL_MS_PARAM,
-					config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM).toString());
-				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER,
+				config.pollIntervalMs(taskParam);
+				taskParam.put(TASK_PARAM_MASTER,
 					resultSet.getString("MASTER"));
-				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_LOG,
+				taskParam.put(TASK_PARAM_MV_LOG,
 					resultSet.getString("LOG_TABLE"));
-				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER,
+				taskParam.put(TASK_PARAM_OWNER,
 					resultSet.getString("LOG_OWNER"));
-				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_ROWID,
+				taskParam.put(TASK_PARAM_MV_ROWID,
 					resultSet.getString("ROWIDS"));
-				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_PK,
+				taskParam.put(TASK_PARAM_MV_PK,
 					resultSet.getString("PRIMARY_KEY"));
-				taskParam.put(OraCdcSourceConnectorConfig.TASK_PARAM_MV_SEQUENCE,
+				taskParam.put(TASK_PARAM_MV_SEQUENCE,
 					resultSet.getString("SEQUENCE"));
-				taskParam.put(ConnectorParams.SCHEMA_TYPE_PARAM,
-					config.getString(ConnectorParams.SCHEMA_TYPE_PARAM));
+				config.schemaType(taskParam);
 
-				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
+				if (config.schemaType() == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
 					taskParam.put(ConnectorParams.TOPIC_PREFIX_PARAM,
 							config.getString(ConnectorParams.TOPIC_PREFIX_PARAM));
 				} else {
 					// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-					taskParam.put(ParamConstants.KAFKA_TOPIC_PARAM,
-							config.getString(ParamConstants.KAFKA_TOPIC_PARAM));
+					config.kafkaTopic(taskParam);
 				}
 
 				configs.add(taskParam);
@@ -281,7 +276,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 	@Override
 	public ConfigDef config() {
-		return OraCdcSourceConnectorConfig.config();
+		return OraCdcSourceBaseConfig.config();
 	}
 
 }

@@ -18,6 +18,7 @@
 	<artifactId>oracdc-kafka</artifactId>
 	<version>2.5.2</version>
 	<packaging>jar</packaging>
+	<inceptionYear>2018</inceptionYear>
 
 	<name>oracdc-kafka</name>
 	<url>https://a2-solutions.eu/#oracdc</url>
@@ -63,8 +64,8 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>11</maven.compiler.source>
 		<maven.compiler.target>11</maven.compiler.target>
-		<junit.version>5.10.2</junit.version>
-		<kafka.version>3.7.1</kafka.version>
+		<junit.version>5.11.4</junit.version>
+		<kafka.version>3.9.0</kafka.version>
 		<commons.lang3.version>3.17.0</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<commons.cli.version>1.9.0</commons.cli.version>
@@ -73,10 +74,10 @@
 		<ora.jdbc.version>21.15.0.0</ora.jdbc.version>
 		<pg.jdbc.version>42.7.4</pg.jdbc.version>
 		<HikariCP.version>5.1.0</HikariCP.version>
-		<jackson.version>2.17.2</jackson.version>
-		<slf4j.version>2.0.13</slf4j.version>
+		<jackson.version>2.18.2</jackson.version>
+		<slf4j.version>2.0.16</slf4j.version>
 		<lz4.version>1.8.0</lz4.version>
-		<ojdbc.types.version>0.8.0</ojdbc.types.version>
+		<ojdbc.types.version>0.8.5</ojdbc.types.version>
 		<kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
 		<jar.plugin.version>3.3.0</jar.plugin.version>
 		<assembly.plugin.version>3.6.0</assembly.plugin.version>
@@ -301,11 +302,12 @@
 							<title>Kafka Connect Oracle CDC</title>
 							<documentationUrl>https://github.com/averemee-si/oracdc</documentationUrl>
 							<description>
-								Changed data capture (CDC) for Oracle Database. Operates in two modes:
-								1) Oracle LogMiner is used as source for data changes.
-								2) Oracle RDBMS materialized view log's are used as source for data changes, oracdc materializes Oracle RDBMS materialized view log at heterogeneous database system or data lake.
-								No additional licensing of Oracle Database required.
-								JDBC sink connector optimized to work with PostgreSQL provided too.
+								Changed data capture (CDC) for Oracle Database. Contains three different Source connectors:
+								1) solutions.a2.cdc.oracle.OraCdcRedoMinerConnector - directly reads and parses Oracle RDBMS redo log files 
+								2) solutions.a2.cdc.oracle.OraCdcLogMinerConnector - reads and parses Oracle RDBMS redo log files using LogMiner
+								3) solutions.a2.cdc.oracle.OraCdcSourceConnector - uses Oracle RDBMS materialized view log's as source for data changes
+								No additional licensing of Oracle Database is required.
+								JDBC sink connector solutions.a2.kafka.sink.JdbcSinkConnector optimized to work with PostgreSQL is also provided.
 							</description>
 							<logo>logos/a2-oracdc.png</logo>
 

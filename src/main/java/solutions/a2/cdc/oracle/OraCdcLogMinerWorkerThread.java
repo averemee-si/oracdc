@@ -13,10 +13,10 @@
 
 package solutions.a2.cdc.oracle;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -25,14 +25,11 @@ import java.sql.SQLRecoverableException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
@@ -42,141 +39,84 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
-import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
+import oracle.sql.CHAR;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
+import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.RowId;
+import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
+
+import static java.nio.charset.StandardCharsets.US_ASCII;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.APPROXIMATE_SIZE;
 
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcLogMinerWorkerThread extends Thread {
+public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
 	private static final int MAX_RETRIES = 63;
 	// XIDUSN || XIDSLT
 	private static final int TRANS_PREFIX = 8;
+	private static final byte[] SQUEEZE_PATTERN = "HEXTORAW(".getBytes(US_ASCII);
 
 	private final OraCdcLogMinerTask task;
-	private final int pollInterval;
-	private final OraRdbmsInfo rdbmsInfo;
 	private final OraCdcLogMinerMgmt metrics;
-	private final CountDownLatch runLatch;
 	private boolean logMinerReady = false;
-	private final Map<String, String> partition;
-	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
-	private final Map<Long, Long> partitionsInProcessing;
-	private final Set<Long> tablesOutOfScope;
-	private final OraDumpDecoder odd;
 	private final OraLogMiner logMiner;
 	private Connection connLogMiner;
 	private OraclePreparedStatement psLogMiner;
-	private PreparedStatement psCheckTable;
 	private PreparedStatement psCheckLob;
 	private PreparedStatement psIsDataObjLob;
 	private OraclePreparedStatement psReadLob;
 	private OracleResultSet rsLogMiner;
 	private final String mineDataSql;
-	private final String checkTableSql;
 	private Connection connDictionary;
-	private final Path queuesRoot;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final Map<String, String> prefixedTransactions;
-	private final TreeMap<String, Triple<Long, String, Long>> sortedByFirstScn;
+	private final TreeMap<String, Triple<Long, RedoByteAddress, Long>> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
-	private final BlockingQueue<OraCdcTransaction> committedTransactions;
-	private final OraCdcSourceConnectorConfig config;
-	private final boolean useChronicleQueue;
-	private long lastScn;
-	private String lastRsId;
-	private long lastSsn;
-	private final AtomicBoolean running;
-	private boolean isCdb;
-	private final boolean processLobs;
-	private final OraCdcLobTransformationsIntf transformLobs;
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
 	private final boolean traceSession;
-	private final OraConnectionObjects oraConnections;
-	private final int topicPartition;
+	private final OraCdcDictionaryChecker checker;
 
 	private boolean fetchRsLogMinerNext;
 	private boolean isRsLogMinerRowAvailable;
 
-	private final Set<Long> lobObjects;
-	private final Set<Long> nonLobObjects;
-	private String lastRealRowId;
+	private RowId lastRealRowId;
 	private final long logMinerReconnectIntervalMs;
-	private final OraCdcPseudoColumnsProcessor pseudoColumns;
 
 	public OraCdcLogMinerWorkerThread(
 			final OraCdcLogMinerTask task,
-			final Map<String, String> partition,
+			final OraCdcDictionaryChecker checker,
 			final long firstScn,
 			final String mineDataSql,
-			final String checkTableSql,
-			final Map<Long, OraTable4LogMiner> tablesInProcessing,
-			final Set<Long> tablesOutOfScope,
-			final int topicPartition,
-			final OraDumpDecoder odd,
-			final Path queuesRoot,
 			final Map<String, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
-			final OraCdcLogMinerMgmt metrics,
-			final OraCdcSourceConnectorConfig config,
-			final OraCdcLobTransformationsIntf transformLobs,
-			final OraRdbmsInfo rdbmsInfo,
-			final OraConnectionObjects oraConnections,
-			final OraCdcPseudoColumnsProcessor pseudoColumns) throws SQLException {
-		LOGGER.info("Initializing oracdc logminer archivelog worker thread");
+			final OraCdcLogMinerMgmt metrics) throws SQLException {
+		super(task.runLatch(), task.rdbmsInfo(), task.config(), 
+				task.oraConnections(), committedTransactions);
+		LOGGER.info("Initializing oracdc LogMiner archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
-		this.config = config;
-		this.partition = partition;
+		this.checker = checker;
 		this.mineDataSql = mineDataSql;
-		this.checkTableSql = checkTableSql;
-		this.tablesInProcessing = tablesInProcessing;
-		// We do not need concurrency for this map
-		this.partitionsInProcessing = new HashMap<>();
-		this.tablesOutOfScope = tablesOutOfScope;
-		this.queuesRoot = queuesRoot;
-		this.odd = odd;
-		this.topicPartition = topicPartition;
 		this.activeTransactions = activeTransactions;
-		this.committedTransactions = committedTransactions;
 		this.metrics = metrics;
-		this.processLobs = config.getBoolean(ParamConstants.PROCESS_LOBS_PARAM);
-		this.transformLobs = transformLobs;
-		this.pollInterval = config.getInt(ParamConstants.POLL_INTERVAL_MS_PARAM);
-		this.connectionRetryBackoff = config.getInt(ParamConstants.CONNECTION_BACKOFF_PARAM);
+		this.connectionRetryBackoff = config.connectionRetryBackoff();
 		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
 		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
-		this.rdbmsInfo = rdbmsInfo;
-		this.oraConnections = oraConnections;
-		this.pseudoColumns = pseudoColumns;
-		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
 
-		runLatch = new CountDownLatch(1);
-		running = new AtomicBoolean(false);
-
-		if (processLobs) {
-			lobObjects = new HashSet<>();
-			nonLobObjects = new HashSet<>();
-		} else {
-			lobObjects = null;
-			nonLobObjects = null;
-		}
-		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
-				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
-				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
 		this.logMinerReconnectIntervalMs = config.getLong(ParamConstants.LM_RECONNECT_INTERVAL_MS_PARAM);
 
 		try {
@@ -295,23 +235,24 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		}
 	}
 
-	public void rewind(final long firstScn, final String firstRsId, final long firstSsn) throws SQLException {
+	@Override
+	public void rewind(final long firstScn, final RedoByteAddress firstRsId, final long firstSsn) throws SQLException {
 		if (logMinerReady) {
-			LOGGER.info("Rewinding LogMiner ResultSet to first position after SCN = {}, RS_ID = '{}', SSN = {}.",
+			LOGGER.info("Rewinding LogMiner ResultSet to first position after SCN= {}, RBA={}, SSN={}.",
 					firstScn, firstRsId, firstSsn);
 			rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
 			int recordCount = 0;
 			long rewindElapsed = System.currentTimeMillis();
 			boolean rewindNeeded = true;
 			lastScn = firstScn;
-			lastRsId = firstRsId;
-			lastSsn = firstSsn;
+			lastRba = firstRsId;
+			lastSubScn = firstSsn;
 			int errorCount = 0;
 			while (rewindNeeded) {
 				if (rsLogMiner.next()) {
 					lastScn = rsLogMiner.getLong("SCN");
-					lastRsId = rsLogMiner.getString("RS_ID");
-					lastSsn = rsLogMiner.getLong("SSN");
+					lastRba = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getCHAR("RS_ID").getBytes());
+					lastSubScn = rsLogMiner.getLong("SSN");
 					if (recordCount == 0 && lastScn > firstScn) {
 						// Hit this with 10.2.0.5
 						rewindNeeded = false;
@@ -322,8 +263,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					} else {
 						recordCount++;
 						if (firstScn == lastScn &&
-							(firstRsId == null || StringUtils.equals(firstRsId, lastRsId)) &&
-							(firstSsn == -1 || firstSsn == lastSsn) &&
+							(firstRsId == null || firstRsId.equals(lastRba)) &&
+							(firstSsn == -1 || firstSsn == lastSubScn) &&
 							!rsLogMiner.getBoolean("CSF")) {
 							rewindNeeded = false;
 							break;
@@ -331,14 +272,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 					}
 				} else {
 					if (errorCount < MAX_RETRIES) {
-						LOGGER.warn("Unable to rewind to SCN = {}, RS_ID = '{}', SSN = {}, empty ResultSet!",
+						LOGGER.warn("Unable to rewind to SCN = {}, RBA ={}, SSN = {}, empty ResultSet!",
 								firstScn, firstRsId, firstSsn);
 						rsLogMiner.close();
 						//TODO - do we need to re-initialize LogMiner here?
 						rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
 						errorCount++;
 					} else {
-						LOGGER.error("Incorrect rewind to SCN = {}, RS_ID = '{}', SSN = {}",
+						LOGGER.error("Incorrect rewind to SCN = {}, RBA = {}, SSN = {}",
 								firstScn, firstRsId, firstSsn);
 						throw new SQLException("Incorrect rewind operation!!!");
 					}
@@ -356,11 +297,12 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	public void run()  {
 		LOGGER.info("BEGIN: OraCdcLogMinerWorkerThread.run()");
 		running.set(true);
+		OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
 		boolean firstTransaction = true;
 		long logMinerSessionStartMs = System.currentTimeMillis();
 		while (runLatch.getCount() > 0) {
 			long lastGuaranteedScn = 0;
-			String lastGuaranteedRsId = null;
+			RedoByteAddress lastGuaranteedRsId = null;
 			long lastGuaranteedSsn = 0;
 			String xid = null;
 			try {
@@ -375,8 +317,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						final boolean partialRollback = rsLogMiner.getBoolean("ROLLBACK");
 						xid = rsLogMiner.getString("XID");
 						lastScn = rsLogMiner.getLong("SCN");
-						lastRsId = rsLogMiner.getString("RS_ID");
-						lastSsn = rsLogMiner.getLong("SSN");
+						lastRba = RedoByteAddress.fromLogmnrContentsRs_Id(rsLogMiner.getString("RS_ID"));
+						lastSubScn = rsLogMiner.getLong("SSN");
 						OraCdcTransaction transaction = activeTransactions.get(xid);
 						switch (operation) {
 						case OraCdcV$LogmnrContents.COMMIT:
@@ -438,7 +380,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											"Suspicious XID {} is changed to {} for operation {} at SCN={}, RBA(RS_ID)={}, SSN={}\n" +
 											"LogMiner START_SCN={}, END_SCN={}.\n" +
 											"======================\n",
-											xid, substitutedXid, operation, lastScn, lastRsId, lastSsn,
+											xid, substitutedXid, operation, lastScn, lastRba, lastSubScn,
 											logMiner.getFirstChange(), logMiner.getNextChange());
 									transaction = activeTransactions.get(substitutedXid);
 									((OraCdcTransactionBase)transaction).setSuspicious();
@@ -460,7 +402,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											"and make sure that the necessary archive logs are available.\n\n" +
 											"If you have questions or need more information, please write to us at oracle@a2-solutions.eu\n\n" +
 											"\n=====================\n",
-											xid, operation, lastScn, lastRsId, lastSsn, xid,
+											xid, operation, lastScn, lastRba, lastSubScn,
 											logMiner.getFirstChange(), logMiner.getNextChange());
 								}
 							}
@@ -476,163 +418,19 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 								combinedDataObjectId = dataObjectId;
 							}
 							// First check for table definition...
-							OraTable4LogMiner oraTable = tablesInProcessing.get(combinedDataObjectId);
-							if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
-								// Check for partitions
-								Long combinedParentTableId = partitionsInProcessing.get(combinedDataObjectId);
-								if (combinedParentTableId != null) {
-									combinedDataObjectId = combinedParentTableId;
-									oraTable = tablesInProcessing.get(combinedDataObjectId);
-								} else {
-									// Check for object...
-									ResultSet rsCheckTable = null;
-									boolean wait4CheckTableCursor = true;
-									while (runLatch.getCount() > 0 && wait4CheckTableCursor) {
-										try {
-											psCheckTable.setLong(1, dataObjectId);
-											if (isCdb) {
-												psCheckTable.setLong(2, conId);
-											}
-											rsCheckTable = psCheckTable.executeQuery();
-											wait4CheckTableCursor = false;
-											break;
-										} catch (SQLException sqle) {
-											if (sqle.getErrorCode() == OraRdbmsInfo.ORA_2396 ||
-													sqle.getErrorCode() == OraRdbmsInfo.ORA_17002 ||
-													sqle.getErrorCode() == OraRdbmsInfo.ORA_17008 ||
-													sqle.getErrorCode() == OraRdbmsInfo.ORA_17410 || 
-													sqle instanceof SQLRecoverableException ||
-													(sqle.getCause() != null && sqle.getCause() instanceof SQLRecoverableException)) {
-												LOGGER.warn(
-														"\n=====================\n" +
-														"Encontered an 'ORA-{}: {}'\n" +
-														"Attempting to reconnect to dictionary...\n" +
-														"=====================\n",
-														sqle.getErrorCode(), sqle.getMessage());
-												try {
-													try {
-														connDictionary.close();
-														connDictionary = null;
-													} catch(SQLException unimportant) {
-														LOGGER.warn(
-																"\n=====================\n" +
-																"Unable to close inactive dictionary connection after 'ORA-{}'\n" +
-																"=====================\n",
-																sqle.getErrorCode());
-													}
-													boolean ready = false;
-													int retries = 0;
-													while (runLatch.getCount() > 0 && !ready) {
-														try {
-															connDictionary = oraConnections.getConnection();
-															initDictionaryStatements();
-														} catch(SQLException sqleRestore) {
-															if (retries > MAX_RETRIES) {
-																LOGGER.error(
-																		"\n=====================\n" +
-																		"Unable to restore dictionary connection after {} retries!\n" +
-																		"=====================\n",
-																		retries);
-																throw sqleRestore;
-															}
-														}
-														ready = true;
-														if (!ready) {
-															long waitTime = (long) Math.pow(2, retries++) + connectionRetryBackoff;
-															LOGGER.warn("Waiting {} ms for dictionary connection to restore...", waitTime);
-															try {
-																this.wait(waitTime);
-															} catch (InterruptedException ie) {}
-														}
-													}
-												} catch (SQLException ucpe) {
-													LOGGER.error(
-															"\n=====================\n" +
-															"SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables\n" +
-															"SQL error message = {}\n" +
-															"=====================\n",
-															ucpe.getErrorCode(), ucpe.getSQLState(), ucpe.getMessage());
-													throw new SQLException(sqle);
-												}
-											} else {
-												LOGGER.error(
-														"\n=====================\n" +
-														"SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dictionary tables\n" +
-														"SQL error message = {}\n" +
-														"=====================\n",
-														sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
-												throw new SQLException(sqle);
-											}
-										}
-									}
-									if (rsCheckTable.next()) {
-										//May be this is partition, so just check tablesInProcessing map for table
-										boolean needNewTableDefinition = true;
-										final boolean isPartition = StringUtils.equals("N", rsCheckTable.getString("IS_TABLE"));
-										if (isPartition) {
-											final long parentTableId = rsCheckTable.getLong("PARENT_OBJECT_ID");
-											combinedParentTableId = isCdb ?
-													((conId << 32) | (parentTableId & 0xFFFFFFFFL)) :
-													parentTableId;
-											oraTable = tablesInProcessing.get(combinedParentTableId);
-											if (oraTable != null) {
-												needNewTableDefinition = false;
-												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
-												metrics.addPartitionInProcessing();
-												combinedDataObjectId = combinedParentTableId;
-											}
-										}
-										//Get table definition from RDBMS
-										if (needNewTableDefinition) {
-											final String tableName = rsCheckTable.getString("TABLE_NAME");
-											final String tableOwner = rsCheckTable.getString("OWNER");
-											oraTable = new OraTable4LogMiner(
-												isCdb ? rsCheckTable.getString("PDB_NAME") : null,
-												isCdb ? (short) conId : -1,
-												tableOwner, tableName,
-												"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-												config, processLobs,
-												transformLobs, isCdb, topicPartition,
-												odd, partition, rdbmsInfo, connDictionary, pseudoColumns);
-											task.putTableAndVersion(combinedDataObjectId, 1);
-
-											if (isPartition) {
-												partitionsInProcessing.put(combinedDataObjectId, combinedParentTableId);
-												metrics.addPartitionInProcessing();
-												combinedDataObjectId = combinedParentTableId;
-											}
-											tablesInProcessing.put(combinedDataObjectId, oraTable);
-											metrics.addTableInProcessing(oraTable.fqn());
-										}
-									} else {
-										tablesOutOfScope.add(combinedDataObjectId);
-										metrics.addTableOutOfScope();
-									}
-									rsCheckTable.close();
-									rsCheckTable = null;
-									psCheckTable.clearParameters();
-								}
-							}
+							OraTable4LogMiner oraTable = checker.getTable(combinedDataObjectId, dataObjectId, conId);
 
 							if (oraTable != null) {
-								String sqlRedo = readSqlRedo();
+								final byte[] redoBytes = readSqlRedo();
 								if (oraTable.isCheckSupplementalLogData()) {
 									final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
-									final String rowId = rsLogMiner.getString("ROW_ID");
-									// squeeze it!
-									sqlRedo = StringUtils.replace(sqlRedo, "HEXTORAW(", "");
-									if (operation == OraCdcV$LogmnrContents.INSERT) {
-										sqlRedo = StringUtils.replace(sqlRedo, "')", "'");
-									} else {
-										sqlRedo = StringUtils.replace(sqlRedo, ")", "");
-									}
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
-											combinedDataObjectId, operation, sqlRedo, timestamp,
-											lastScn, lastRsId, lastSsn, rowId, partialRollback);
+											combinedDataObjectId, operation, redoBytes, timestamp,
+											lastScn, lastRba, lastSubScn, getRowId(), partialRollback);
 
 									// Catch the LOBs!!!
 									List<OraCdcLargeObjectHolder> lobs = 
-											catchTheLob(operation, xid, dataObjectId, oraTable, sqlRedo);
+											catchTheLob(operation, xid, dataObjectId, oraTable, redoBytes);
 
 									if (transaction == null) {
 										if (LOGGER.isDebugEnabled()) {
@@ -658,7 +456,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
-													Triple.of(lastScn, lastRsId, lastSsn));
+													Triple.of(lastScn, lastRba, lastSubScn));
 										if (firstTransaction) {
 											firstTransaction = false;
 											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -675,9 +473,9 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											"\n=====================\n" +
 											"Supplemental logging for table '{}' is not configured correctly!\n" +
 											"Please set it according to the oracdc documentation!\n" +
-											"Redo record is skipped for OPERATION={}, SCN={}, RBA='{}', XID='{}',\n\tREDO_DATA='{}'\n" +
+											"Redo record is skipped for OPERATION={}, SCN={}, RBA={}, XID='{}',\n\tREDO_DATA='{}'\n" +
 											"=====================\n",
-											oraTable.fqn(), operation, lastScn, StringUtils.trim(lastRsId), xid, sqlRedo);
+											oraTable.fqn(), operation, lastScn, lastRba, xid, new String(redoBytes, US_ASCII));
 								}
 							}
 							break;
@@ -688,17 +486,17 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							} else {
 								combinedDdlDataObjectId = rsLogMiner.getLong("DATA_OBJ#");
 							}
-							if (tablesInProcessing.containsKey(combinedDdlDataObjectId)) {
+							if (checker.containsTable(combinedDdlDataObjectId)) {
 								// Handle DDL only for known table
 								final long timestamp = rsLogMiner.getDate("TIMESTAMP").getTime();
-								final String rowId = rsLogMiner.getString("ROW_ID");
-								final String originalDdl = readSqlRedo();
+								final byte[] ddlBytes = readSqlRedo();
+								final String originalDdl = new String(ddlBytes, US_ASCII);
 								final String preProcessedDdl = OraSqlUtils.alterTablePreProcessor(originalDdl);
 								if (preProcessedDdl != null) {
 									final OraCdcLogMinerStatement lmStmt = new  OraCdcLogMinerStatement(
 											combinedDdlDataObjectId, operation, 
-											preProcessedDdl + "\n" + originalDdl,
-											timestamp, lastScn, lastRsId, lastSsn, rowId, false);
+											(preProcessedDdl + "\n" + originalDdl).getBytes(US_ASCII),
+											timestamp, lastScn, lastRba, lastSubScn, getRowId(), false);
 									if (transaction == null) {
 										if (LOGGER.isDebugEnabled()) {
 											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
@@ -712,7 +510,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
-													Triple.of(lastScn, lastRsId, lastSsn));
+													Triple.of(lastScn, lastRba, lastSubScn));
 										if (firstTransaction) {
 											firstTransaction = false;
 											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -777,7 +575,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											}
 											if (isRsLogMinerRowAvailable) {
 												LOGGER.error("Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'",
-														lastScn, lastRsId, lastSsn, xid);
+														lastScn, lastRba, lastSubScn, xid);
 											}
 											LOGGER.error("Current query is:\n{}\n", mineDataSql);
 										}
@@ -786,7 +584,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									}
 								}
 								if (readRowId) {
-									lastRealRowId = rsLogMiner.getString("ROW_ID");
+									lastRealRowId = getRowId();
 									if (LOGGER.isDebugEnabled()) {
 										LOGGER.debug("ROWID for skipped operaion - '{}'", lastRealRowId);
 									}
@@ -800,7 +598,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 									lastScn,
 									rsLogMiner.getString("RS_ID"),
 									rsLogMiner.getLong("DATA_OBJ#"),
-									lastRealRowId == null ? rsLogMiner.getString("ROW_ID") : lastRealRowId,
+									lastRealRowId == null ? getRowId() : lastRealRowId,
 									rsLogMiner.getString("XID"));
 							LOGGER.warn("Possibly ignored LOB_ERASE or LOB_TRIM operation.");
 							final String checkSql =
@@ -821,8 +619,8 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						} // switch(operation)
 						// Copy again, to protect from exception...
 						lastGuaranteedScn = lastScn;
-						lastGuaranteedRsId = lastRsId;
-						lastGuaranteedSsn = lastSsn;
+						lastGuaranteedRsId = lastRba;
+						lastGuaranteedSsn = lastSubScn;
 						if (fetchRsLogMinerNext) {
 							try {
 								isRsLogMinerRowAvailable = rsLogMiner.next();
@@ -839,7 +637,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 											"=====================\n",
 											sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 									//TODO
-									//TODO Do we need to rewind to <lastScn, lastRsId, lastSsn>? 
+									//TODO Do we need to rewind to <lastScn, lastRba, lastSubScn>? 
 									//TODO
 								} else {
 									//TODO
@@ -937,14 +735,14 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 							sqle.getErrorCode(), sqle.getSQLState());
 					if (isRsLogMinerRowAvailable) {
 						LOGGER.error("Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'",
-								lastScn, lastRsId, lastSsn, xid);
+								lastScn, lastRba, lastSubScn, xid);
 					}
 					LOGGER.error("Current query is:\n{}\n", mineDataSql);
 				}
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 				lastScn = lastGuaranteedScn;
-				lastRsId = lastGuaranteedRsId;
-				lastSsn = lastGuaranteedSsn;
+				lastRba = lastGuaranteedRsId;
+				lastSubScn = lastGuaranteedSsn;
 				running.set(false);
 				task.stop(false);
 				throw new ConnectException(e);
@@ -953,30 +751,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		LOGGER.debug("End of LogMiner loop...");
 		running.set(false);
 		LOGGER.info("END: OraCdcLogMinerWorkerThread.run()");
-	}
-
-	public long getLastScn() {
-		return lastScn;
-	}
-
-	public String getLastRsId() {
-		return lastRsId;
-	}
-
-	public long getLastSsn() {
-		return lastSsn;
-	}
-
-	public boolean isRunning() {
-		return running.get();
-	}
-
-	public void shutdown() {
-		LOGGER.info("Stopping oracdc logminer archivelog worker thread...");
-		while (runLatch.getCount() > 0) {
-			runLatch.countDown();
-		}
-		LOGGER.debug("call to shutdown() completed");
 	}
 
 	private void restoreOraConnection(SQLException sqle) {
@@ -1035,8 +809,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		psLogMiner = (OraclePreparedStatement)connLogMiner.prepareStatement(
 				mineDataSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		psLogMiner.setRowPrefetch(fetchSize);
-		psCheckTable = connDictionary.prepareStatement(
-				checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		checker.initStatements();
 		if (processLobs) {
 			psReadLob = (OraclePreparedStatement) connLogMiner.prepareStatement(
 					isCdb ? OraDictSqlTexts.MINE_LOB_CDB :
@@ -1052,8 +825,6 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 			psReadLob.close();
 			psReadLob = null;
 		}
-		psCheckTable.close();
-		psCheckTable = null;
 		psLogMiner.close();
 		psLogMiner = null;
 		oraConnections.closeLogMinerConnection(connLogMiner);
@@ -1063,12 +834,13 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 	private List<OraCdcLargeObjectHolder> catchTheLob(
 			final short operation, final String xid,
 			final long dataObjectId, final OraTable4LogMiner oraTable,
-			final String redoData) throws SQLException {
+			final byte[] redoBytes) throws SQLException {
 		List<OraCdcLargeObjectHolder> lobs = null;
 		if (processLobs && oraTable.isWithLobs() &&
 				(operation == OraCdcV$LogmnrContents.INSERT ||
 				operation == OraCdcV$LogmnrContents.UPDATE ||
 				operation == OraCdcV$LogmnrContents.XML_DOC_BEGIN)) {
+			final String redoData = new String(redoBytes, US_ASCII);
 			final String tableOperationRsId = rsLogMiner.getString("RS_ID");
 			String lobStartRsId = tableOperationRsId; 
 			boolean searchLobObjects = true;
@@ -1106,7 +878,7 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 						// String is:
 						// XML DOC BEGIN:  select "COL 2" from "UNKNOWN"."OBJ# 28029"...
 						boolean multiLineSql = rsLogMiner.getBoolean("CSF");
-						final StringBuilder xmlHexColumnId = new StringBuilder(16000);
+						final StringBuilder xmlHexColumnId = new StringBuilder(APPROXIMATE_SIZE);
 						xmlHexColumnId.append(rsLogMiner.getString("SQL_REDO"));
 						while (multiLineSql) {
 							rsLogMiner.next();
@@ -1317,27 +1089,72 @@ public class OraCdcLogMinerWorkerThread extends Thread {
 		return xmlAsString;
 	}
 
-	private String readSqlRedo() throws SQLException {
-		final boolean multiLineSql = rsLogMiner.getBoolean("CSF");
-		if (multiLineSql) {
-			final StringBuilder sb = new StringBuilder(16000);
-			boolean moreRedoLines = multiLineSql;
-			while (moreRedoLines) {
-				sb.append(rsLogMiner.getString("SQL_REDO"));
-				moreRedoLines = rsLogMiner.getBoolean("CSF");
-				if (moreRedoLines) { 
+	private byte[] readSqlRedo() throws SQLException {
+		final byte[] array;
+		if (rsLogMiner.getBoolean("CSF")) {
+			ByteArrayOutputStream baos = new ByteArrayOutputStream(APPROXIMATE_SIZE);
+			while (true) {
+				try {
+					final CHAR oraChar = rsLogMiner.getCHAR("SQL_REDO");
+					if (!rsLogMiner.wasNull())
+						baos.write(oraChar.getBytes());
+				} catch (IOException ioe) {
+					throw new SQLException(ioe);
+				}
+				if (rsLogMiner.getBoolean("CSF")) { 
 					rsLogMiner.next();
+				} else {
+					break;
 				}
 			}
-			return sb.toString();
+			array = baos.toByteArray();
 		} else {
-			return rsLogMiner.getString("SQL_REDO");
+			array = rsLogMiner.getCHAR("SQL_REDO").getBytes();
+		}
+		if (array == null || array.length == 0) {
+			throw new SQLException("Unexpected NULL while reading SQL_REDO column!");
+		} else {
+			int start = 0;
+			int srcPos = 0;
+			int destPos = 0;
+			int currLength = 0;
+			byte[] squeezedArray = new byte[array.length];
+			while ((srcPos = BinaryUtils.indexOf(array, start, SQUEEZE_PATTERN)) > -1) {
+				currLength = srcPos - start;
+				System.arraycopy(array, start, squeezedArray, destPos, currLength);
+				start = srcPos + SQUEEZE_PATTERN.length;
+				destPos += currLength;
+
+				if ((srcPos = BinaryUtils.indexOf(array, start, (byte)0x29)) > -1) {
+					currLength = srcPos - start;
+					System.arraycopy(array, start, squeezedArray, destPos, currLength);
+					start = srcPos + 1;
+					destPos += currLength;
+				}
+			}
+			if (start < array.length) {
+				currLength = array.length - start;
+				System.arraycopy(array, start, squeezedArray, destPos, currLength);
+				destPos += currLength;
+			}
+
+			if (destPos < squeezedArray.length) {
+				final byte[] result = new byte[destPos];
+				System.arraycopy(squeezedArray, 0, result, 0, destPos);
+				squeezedArray = null;
+				return result;
+			} else {
+				return squeezedArray;
+			}
 		}
 	}
 
+	private RowId getRowId() throws SQLException {
+		final CHAR c = rsLogMiner.getCHAR("ROW_ID");
+		return rsLogMiner.wasNull() ? RowId.ZERO : RowId.fromLogmnrContents(c.getBytes());
+	}
+
 	private void initDictionaryStatements() throws SQLException {
-		psCheckTable = connDictionary.prepareStatement(
-				checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		if (processLobs) {
 			psCheckLob = connDictionary.prepareStatement(
 					isCdb ? OraDictSqlTexts.MAP_DATAOBJ_TO_COLUMN_CDB :

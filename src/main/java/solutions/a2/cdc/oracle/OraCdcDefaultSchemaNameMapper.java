@@ -29,7 +29,7 @@ public class OraCdcDefaultSchemaNameMapper implements SchemaNameMapper {
 
 	@Override
 	public void configure(OraCdcSourceConnectorConfig config) {
-		schemaType = config.getSchemaType();
+		schemaType = config.schemaType();
 		protobufSchemaNaming = config.useProtobufSchemaNaming();
 	}
 

@@ -13,18 +13,13 @@
 
 package solutions.a2.cdc.oracle.jmx;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.apache.commons.math3.util.Precision;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.OraCdcLogMinerTask;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.utils.ExceptionUtils;
 import solutions.a2.utils.OraCdcMBeanUtils;
 
 /**
@@ -32,9 +27,7 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMgmt.class);
+public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcRedoMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
 
 	private long totalRecordsCount = 0;
 	private long recordsRolledBackCount = 0;
@@ -55,12 +48,9 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 	private int maxTransProcessingCount = 0;
 	private long lastProcessedSequence = 0;
 
-	private final OraCdcLogMinerTask task;
-
-	public OraCdcLogMinerMgmt(
-			final OraRdbmsInfo rdbmsInfo, final String connectorName, final OraCdcLogMinerTask task) {
-		super(rdbmsInfo, connectorName, "LogMiner-metrics");
-		this.task = task;
+	public OraCdcRedoMinerMgmt(
+			final OraRdbmsInfo rdbmsInfo, final String connectorName) {
+		super(rdbmsInfo, connectorName, "RedoMiner-metrics");
 	}
 
 	@Override
@@ -102,8 +92,8 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 		super.setNowProcessed(nowProcessedArchiveLogs, currentFirstScn, currentNextScn, lagSeconds);
 	}
 	@Override
-	public String[] getNowProcessedArchivelogs() {
-		return super.getNowProcessedArchiveLogsList().toArray(new String[0]);
+	public String getCurrentlyProcessedRedoLog() {
+		return super.getNowProcessedArchiveLogsList().get(0);
 	}
 	@Override
 	public long getCurrentFirstScn() {
@@ -120,19 +110,19 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 		super.addAlreadyProcessed(lastProcessed, count, size, redoReadMillis);
 	}
 	@Override
-	public String[] getLast100ProcessedArchivelogs() {
+	public String[] getLast100ProcessedRedoLogs() {
 		return super.getLastHundredProcessed().toArray(new String[0]);
 	}
 	@Override
-	public int getProcessedArchivelogsCount() {
+	public int getProcessedRedoLogsCount() {
 		return super.getProcessedArchivedRedoCount();
 	}
 	@Override
-	public float getProcessedArchivelogsSizeGb() {
+	public float getProcessedRedoLogsSizeGb() {
 		return Precision.round((float)((float)super.getProcessedArchivedRedoSize() / (float)(1024*1024*1024)), 3);
 	}
 	@Override
-	public String getLastProcessedArchivelog() {
+	public String getLastProcessedRedoLog() {
 		return super.getLastRedoLog();
 	}
 	@Override
@@ -343,30 +333,6 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 	@Override
 	public void setLastProcessedSequence(final long lastProcessedSequence) {
 		this.lastProcessedSequence = lastProcessedSequence;
-	}
-
-	@Override
-	public void saveCurrentState() {
-		if (task != null) {
-			try {
-				task.saveState(false);
-			} catch (IOException ioe) {
-				LOGGER.error("Unable to save state to file from JMX subsys!");
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-			}
-		}
-	}
-
-	@Override
-	public void saveCurrentTablesSchema() {
-		if (task != null) {
-			try {
-				task.saveTablesSchema();
-			} catch (IOException ioe) {
-				LOGGER.error("Unable to schemas to file from JMX subsys!");
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-			}
-		}
 	}
 
 }

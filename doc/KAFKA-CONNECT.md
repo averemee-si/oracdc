@@ -201,3 +201,7 @@ Default - *${connectorName}.seq*
 `a2.distributed.target.host` - hostname of the target (where dbms_logmnr runs) database on which the shipment agent is running
 
 `a2.distributed.target.port` - port number on which shipping agent listens for requests
+
+### Redo miner (direct reading of redo without LogMiner) specific parameters
+
+`a2.redo.filename.convert` - It converts the filename of a redo log to another path. It is specified as a string in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.
