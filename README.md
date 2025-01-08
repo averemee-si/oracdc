@@ -2,7 +2,7 @@
 
 **oracdc** is a software package for near real-time data integration and replication in heterogeneous IT environments. **oracdc** consist of two  [Apache Kafka](http://kafka.apache.org/) Source Connector's and JDBC sink connector. **oracdc** provides data integration, [transactional change data capture](https://en.wikipedia.org/wiki/Change_data_capture), and data replication between operational and analytical IT systems. 
 Starting from Oracle RDBMS 12c various Oracle tools for [CDC](https://en.wikipedia.org/wiki/Change_data_capture) and/or replication are [deprecated and desupported](https://docs.oracle.com/database/121/UPGRD/deprecated.htm) and replaced by [Oracle Golden Gate](https://www.oracle.com/middleware/technologies/goldengate.html). This project is not intended to be 100% replacement of [expensive](https://www.oracle.com/assets/technology-price-list-070617.pdf) Oracle Golden Gate licenses however may help in many practical cases. Project was tested using [Oracle E-Business Suite](https://www.oracle.com/applications/ebusiness/) customer instance for transferring various information (mostly INV, ONT, WSH, GL & XLA tables) to further reporting and analytics in [PostgreSQL](https://www.postgresql.org/) database. We tested both short transactions (human data entry) and long transactions (various accounting programs) changing millions of rows in dozens of tables (description of some tables used: [WSH_NEW_DELIVERIES](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_NEW_DELIVERIES_tbl.htm), [WSH_DELIVERY_ASSIGNMENTS](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_DELIVERY_ASSIGNMENTS_tbl.htm), [WSH_DELIVERY_DETAILS](https://docs.oracle.com/cd/E51367_01/scmop_gs/OEDSC/WSH_DELIVERY_DETAILS_tbl.htm)).
-**oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, 19c, 21c, 23c, and 23ai. If you need support for Oracle Database 9i and please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+**oracdc** Source Connector's compatible with [Oracle RDBMS](https://www.oracle.com/database/index.html) versions 10g, 11g, 12c, 18c, 19c, 21c, 23c, and 23ai. If you need support for Oracle Database 9i and please send us an email at [oracle@a2.solutions](mailto:oracle@a2.solutions).
 
 ## solutions.a2.cdc.oracle.OraCdcLogMinerConnector
 This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) as source for data changes. Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with **DBMS_LOGMNR.CONTINUOUS_MINE** feature support **oracdc** does not use it. Instead, **oracdc** reads **V$LOGMNR_CONTENTS** and saves information with **V$LOGMNR_CONTENTS.OPERATION in ('INSERT', 'DELETE', 'UPDATE')** in Java off-heap memory structures provided by [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue). This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with **oracdc** installed. Since version **2.0**, the connector supports online redo log processing when `a2.process.online.redo.logs` is set to **true**. Starting from version **1.5** in addition to [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue), the use of Java Heap Structures is also supported. Large object operations are not supported in this mode, but you do not need any disk space to store the [Chronicle Queue](https://github.com/OpenHFT/Chronicle-Queue) in memory-mapped files. To enable this mode you need to set `a2.transaction.implementation=ArrayList` and also you need to set Java heap size to the appropriate value using JVM [-Xmx](https://docs.oracle.com/en/java/javase/17/docs/specs/man/java.html) option.
@@ -18,7 +18,7 @@ This Source Connector uses [Oracle LogMiner](https://docs.oracle.com/en/database
 _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ publishes a number of metrics about the connector’s activities that can be monitored through JMX. For complete list of metrics please refer to [LOGMINER-METRICS.md](doc/LOGMINER-METRICS.md)
 
 ### Oracle Database SecureFiles and Large Objects including SYS.XMLTYPE
-Oracle Database SecureFiles and Large Objects i.e. LOB's are supported from v0.9.7 when parameter `a2.process.lobs` set to true. CLOB type supported only for columns with **DBA_LOBS.FORMAT='ENDIAN NEUTRAL'**. If you need support for CLOB columns with **DBA_LOBS.FORMAT='ENDIAN SPECIFIC'** or **XMLTYPE** please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+Oracle Database SecureFiles and Large Objects i.e. LOB's are supported from v0.9.7 when parameter `a2.process.lobs` set to true. CLOB type supported only for columns with **DBA_LOBS.FORMAT='ENDIAN NEUTRAL'**. If you need support for CLOB columns with **DBA_LOBS.FORMAT='ENDIAN SPECIFIC'** or **XMLTYPE** please send us an email at [oracle@a2.solutions](mailto:oracle@a2.solutions).
 SYS.XMLTYPE data are supported from v0.9.8.2 when parameter `a2.process.lobs` set to true.
 For processing LOB's and SYS.XMLTYPE please do not forget to set Apache Kafka parameters according to size of LOB's:
 1. For Source connector: _producer.max.request.size_
@@ -26,7 +26,7 @@ For processing LOB's and SYS.XMLTYPE please do not forget to set Apache Kafka pa
 By default CLOB, NCLOB, and SYS.XMLTYPE data are compressed using [LZ4](https://en.wikipedia.org/wiki/LZ4_(compression_algorithm)) compression algorithm.
 
 #### Large objects (BLOB/CLOB/NCLOB/XMLTYPE) operations LOB_TRIM and LOB_ERASE
-[Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) generate unparseable (at moment) output when operates without connection to dictionary. Currently **oracdc** ignores these operations. Starting from **oracdc** v1.2.2 additional debug information about these operations is printed to log. If you need support for these operations please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu)
+[Oracle LogMiner](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html) generate unparseable (at moment) output when operates without connection to dictionary. Currently **oracdc** ignores these operations. Starting from **oracdc** v1.2.2 additional debug information about these operations is printed to log. If you need support for these operations please send us an email at [oracle@a2.solutions](mailto:oracle@a2.solutions)
 
 #### Large objects (BLOB/CLOB/NCLOB/XMLTYPE) transformation feature (oracdc 0.9.8.3+)
 Apache Kafka is not meant to handle large messages with size over 1MB. But Oracle RDBMS often is used as storage for unstructured information too. For breaking this barrier we designed LOB transformation features.
@@ -300,7 +300,7 @@ export KAFKA_OPTS="\
 5. [Maven Central](https://mvnrepository.com/artifact/solutions.a2.oracle/oracdc-kafka/)
 
 ## solutions.a2.cdc.oracle.OraCdcSourceConnector
-This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2-solutions.eu](mailto:oracle@a2-solutions.eu).
+This Source Connector uses Oracle RDBMS [materialized view log's](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html) as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by **oracdc**. Unlike _solutions.a2.cdc.oracle.OraCdcLogMinerConnector_ this SourceConnector works with BLOB, and CLOB data types. If you need support for Oracle Database _LONG_, and/or _LONG RAW_ data types please send us an email at [oracle@a2.solutions](mailto:oracle@a2.solutions).
 In addition to read privileges on the underlying base tables and materialized view logs, the user running connector must have access to
 
 ```
@@ -610,6 +610,7 @@ When `a2.process.lobs` set to true **oracdc** uses its own extensions for Oracle
 
 ## TODO
 
+* reading ASM files (aka DBMS_DISKGROUP) for **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector
 * better resilience to RDBMS errors
 * **oracdc** as audit information source
 * better schema management including ideas from [timestamp of creation of a schema version](https://github.com/confluentinc/schema-registry/issues/1899)
@@ -905,6 +906,12 @@ New parameter to set a SQL statement(s) that will be executed for all new connec
 1) SMT converters for
     solutions.a2.cdc.oracle.data.OraNumber/solutions.a2.cdc.oracle.data.OraIntervalYM/solutions.a2.cdc.oracle.data.OraIntervalDS (oracle.sql.NUMBER/oracle.sql.INTERVALYM/oracle.sql.INTERVALDS)
 2) Dockerfile enhancements (Schema registry client updated to Confluent 7.7.1), Dockerfile.snowflake to quickly create a data delivery pipeline between transactional Oracle and analytical Snowflake
+
+#####2.6.0 (JAN-2025)
+
+1) This version includes a **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector (in addition to LogMiner based connector **solutions.a2.cdc.oracle.OraCdcLogMinerConnector** and materialized view based **solutions.a2.cdc.oracle.OraCdcSourceConnector**) that reads redo files directly and does not use a LogMiner. For more information, please send us an email at [oracle@a2.solutions](mailto:oracle@a2.solutions) or request a meeting on [https://a2.solutions/](https://a2.solutions/)
+2) improved **solutions.a2.cdc.oracle.utils.file.OraRedoLogFile** CLI utility which produces output similar to the [ALTER SYSTEM DUMP LOGFILE](http://www.juliandyke.com/Diagnostics/Dumps/RedoLogs.php) command (currently only for changes Layer 5 and [11](http://www.juliandyke.com/Internals/Redo/Redo11.php)) and includes additional supplemental logging  information
+3) Checking for the presence of columns in the table that have not been dropped completely and printing recommendations to the log
 
 
 ## Authors
