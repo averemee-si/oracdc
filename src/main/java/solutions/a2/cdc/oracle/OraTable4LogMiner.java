@@ -243,8 +243,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
 					pseudoKey = true;
 				}
-				LOGGER.warn("No primary key detected for table {}. {}",
-						tableFqn, 
+				LOGGER.warn(
+						"\n=====================\n" +
+						"No primary key detected for table {}. {}" +
+						"\n=====================\n",
+						tableFqn,
 						onlyValue ? "" : " ROWID will be used as primary key.");
 			}
 
