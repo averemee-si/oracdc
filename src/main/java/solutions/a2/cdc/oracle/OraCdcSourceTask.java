@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -27,6 +28,7 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import oracle.ucp.UniversalConnectionPoolException;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -77,11 +79,19 @@ public class OraCdcSourceTask extends SourceTask {
 		LOGGER.debug("batchSize = {} records.", batchSize);
 		pollInterval = config.pollIntervalMs();
 		LOGGER.debug("pollInterval = {} ms.", pollInterval);
+<<<<<<< HEAD
 		schemaType = config.schemaType();
 		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
 		if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
 			topic = config.topicOrPrefix() + 
 					props.get(TASK_PARAM_MASTER);
+=======
+		schemaType = config.getSchemaType();
+		LOGGER.debug("schemaType (Integer value 1 for Debezium, 2 for Kafka STD) = {} .", schemaType);
+		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
+			topic = config.getTopicOrPrefix() + 
+					props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
+>>>>>>> e9eb0afd2222b1fb863bf205f5115efc1a1e02c5
 		} else {
 			// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
 			topic = config.kafkaTopic();
@@ -90,8 +100,13 @@ public class OraCdcSourceTask extends SourceTask {
 
 		try (Connection connDictionary = OraPoolConnectionFactory.getConnection()) {
 			LOGGER.trace("Checking for stored offset...");
+<<<<<<< HEAD
 			final String tableName = props.get(TASK_PARAM_MASTER);
 			final String tableOwner = props.get(TASK_PARAM_OWNER); 
+=======
+			final String tableName = props.get(OraCdcSourceConnectorConfig.TASK_PARAM_MASTER);
+			final String tableOwner = props.get(OraCdcSourceConnectorConfig.TASK_PARAM_OWNER); 
+>>>>>>> e9eb0afd2222b1fb863bf205f5115efc1a1e02c5
 			OraRdbmsInfo rdbmsInfo = new OraRdbmsInfo(connDictionary);
 			LOGGER.trace("Setting source partition name for processing snapshot log");
 			final String sourcePartitionName = rdbmsInfo.getInstanceName() + "_" + rdbmsInfo.getHostName() + ":" +
@@ -150,6 +165,10 @@ public class OraCdcSourceTask extends SourceTask {
 				synchronized (this) {
 					this.wait(pollInterval);
 				}
+			} else if (sqle.getCause() != null &&
+					sqle.getCause() instanceof UniversalConnectionPoolException &&
+					StringUtils.contains(sqle.getCause().getMessage(), "Universal Connection Pool is about to shutdown")) {
+				LOGGER.warn("Got '{}' while stopping task.", sqle.getCause().getMessage());
 			} else {
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 				throw new ConnectException(sqle);
