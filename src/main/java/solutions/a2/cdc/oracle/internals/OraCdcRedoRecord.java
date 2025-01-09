@@ -21,6 +21,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_11_BRB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_19_TSL;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_20_TSC;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_2_LIN;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_4_LDE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_8_LNE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_18_LUP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
@@ -216,15 +217,10 @@ public class OraCdcRedoRecord {
 			}
 			//TODO - require rewriting to filter only really REQUIRED changes!!!
 			if (eligible && prevOperation == _5_1_RDB && (
-					// Ignore 10.4 (KDICLDE: Mark leaf row deleted)
-					change.operation == 0x0A04 ||
-					//TODO - LOB's
 					change.operation == _10_2_LIN ||
-					//TODO - LOB's
+					change.operation == _10_4_LDE ||
 					change.operation == _10_8_LNE ||
-					//TODO - LOB's
 					change.operation == _10_18_LUP ||
-					//TODO - LOB's
 					change.operation == _26_2_REDO)) {
 				eligible = false;
 			}

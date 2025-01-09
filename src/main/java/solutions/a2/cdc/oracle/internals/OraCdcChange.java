@@ -59,6 +59,8 @@ public class OraCdcChange {
 	public static final byte KCOCODIX = 0x0A;
 	/** KDICLIN: Insert leaf row */
 	public static final short _10_2_LIN = 0x0A02;
+	/** KDICLDE: Mark leaf row deleted */
+	public static final short _10_4_LDE = 0x0A04;
 	/** KDICLNE: Initialize new leaf block */
 	public static final short _10_8_LNE = 0x0A08;
 	/** KDICLUP: Update keydata in row */
