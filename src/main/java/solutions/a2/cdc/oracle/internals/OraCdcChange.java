@@ -239,6 +239,19 @@ public class OraCdcChange {
 		xid = new Xid(usn, slt, sqn);
 	}
 
+	void elementLengthCheck(final String part, final String abbreviation, final int index, final int minLength, final String addClause) {
+		if (coords[index][1] < minLength) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Unable to parse '{}' {} element for change #{} at RBA {} in '{}'.\n" +
+					"Actual size {} is smaller than required {}{}!" +
+					"Change contents:\n{}\n" +
+					"\n=====================\n",
+					part, abbreviation, num, rba, redoLog.fileName(), coords[index][1], minLength, addClause, binaryDump());
+			throw new IllegalArgumentException();
+		}
+	}
+
 	/**
 	 * 
 	 * <a href="http://www.juliandyke.com/Internals/Redo/KTBRedo.php">KTB Redo</a>
@@ -288,7 +301,7 @@ public class OraCdcChange {
 		switch (opKtbRedo) {
 		case 0x01:
 		case 0x11:
-			checkKtbRedoSize("record 'F'", coords[index][1], start + 0x10);
+			checkKtbRedoSize("record 'F'", index, start + 0x10);
 			sb
 				.append("\nop: F  xid:  ")
 				.append((new Xid(
@@ -299,7 +312,7 @@ public class OraCdcChange {
 				.append((new UndoByteAddress(redoLog.bu().getU56(record, coords[index][0] + start + 0x08))).toString());
 			break;
 		case 0x02:
-			checkKtbRedoSize("record 'C'", coords[index][1], start + 0x08);
+			checkKtbRedoSize("record 'C'", index, start + 0x08);
 			sb
 				.append("\nop: C  uba: ")
 				.append((new UndoByteAddress(redoLog.bu().getU56(record, coords[index][0] + start))).toString());
@@ -308,7 +321,7 @@ public class OraCdcChange {
 			sb.append("\nop: Z");
 			break;
 		case 0x04:
-			checkKtbRedoSize("record 'L'", coords[index][1], start + 0x18);
+			checkKtbRedoSize("record 'L'", index, start + 0x18);
 			final StringBuilder sbFlagsL = new StringBuilder("----");
 			final short flgLkc = redoLog.bu().getU16(record, coords[index][0] + start + 0x10);
 			if (((byte)(flgLkc >>> 8) & 0x80) != 0) {
@@ -355,7 +368,7 @@ public class OraCdcChange {
 		}
 		// Block cleanout
 		if ((opKtbRedo & 0x10) != 0) {
-			checkKtbRedoSize("block cleanout record", coords[index][1], start + 0x30);
+			checkKtbRedoSize("block cleanout record", index, start + 0x30);
 			sb
 				.append("\nBlock cleanout record, scn:  0x")
 				.append(FormattingUtils.leftPad(redoLog.bu().getScn(record, coords[index][0] + start + 0x28), 16))
@@ -371,7 +384,7 @@ public class OraCdcChange {
 				.append(", entries follow...");
 
 			final int noOfLines = Byte.toUnsignedInt(record[coords[index][0] + start + 0x25]);
-			checkKtbRedoSize("block cleanout record", coords[index][1], start + 0x30 + noOfLines * 0x8);
+			checkKtbRedoSize("block cleanout record", index, start + 0x30 + noOfLines * 0x8);
 			for (int i = 0; i < noOfLines; i++) {
 				sb
 					.append("\n  itli: ")
@@ -386,17 +399,8 @@ public class OraCdcChange {
 		}
 	}
 
-	private void checkKtbRedoSize(final String partName, final int actual, final int required) {
-		if (actual < required) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse 'KTB Redo' {} for change #{} at RBA {} in '{}'.\n" +
-					"Actual size {} is smaller than required {}!\n" +
-					"Change contents:\n{}\n" +
-					"=====================\n",
-				partName, num, rba, redoLog.fileName(), actual, required, binaryDump());
-			throw new IllegalArgumentException();
-		}
+	private void checkKtbRedoSize(final String abbreviation, final int index, final int minLength) {
+		elementLengthCheck("KTB Redo", abbreviation, index, minLength, "");
 	}
 
 	public static final int KDO_URP_NULL_POS = 0x1A;
@@ -526,15 +530,7 @@ public class OraCdcChange {
 	}
 
 	private void kdoOpElemLengthCheck(final int index, final int minLength, final String abbreviation, final String addClause) {
-		if (coords[index][1] < minLength) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse 'KDO Op code' {} element for change #{} at RBA {} in '{}'.\n" +
-					"Actual size {} is smaller than required {}{}!" +
-					"\n=====================\n",
-					abbreviation, num, rba, redoLog.fileName(), coords[index][1], minLength, addClause);
-			throw new IllegalArgumentException();
-		}
+		elementLengthCheck("KDO Op code", abbreviation, index, minLength, addClause);
 	}
 
 	private void kdoNullElemLengthCheck(final int index, final int minLength) {
