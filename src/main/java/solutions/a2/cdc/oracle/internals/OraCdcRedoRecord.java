@@ -38,6 +38,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_17_LLB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_22_CMP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_1_DDL;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_6_BIMG;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -187,10 +188,7 @@ public class OraCdcRedoRecord {
 				}
 				break;
 			case _11_17_LLB:
-				//TODO
-				//TODO This change contains URP data, always before IRP on table with LOB columns
-				//TODO
-				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
+				change = new OraCdcChangeLlb(changeNo, this, operation, record, offset, changeHeaderLen);
 				if (!eligible) {
 					eligible = true;
 				}
@@ -202,6 +200,18 @@ public class OraCdcRedoRecord {
 					if (!eligible) {
 						eligible = true;
 					}
+				}
+				break;
+			case _26_2_REDO:
+				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
+				if (!eligible) {
+					eligible = true;
+				}
+				break;
+			case _26_6_BIMG:
+				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
+				if (!eligible) {
+					eligible = true;
 				}
 				break;
 			default:
@@ -220,8 +230,7 @@ public class OraCdcRedoRecord {
 					change.operation == _10_2_LIN ||
 					change.operation == _10_4_LDE ||
 					change.operation == _10_8_LNE ||
-					change.operation == _10_18_LUP ||
-					change.operation == _26_2_REDO)) {
+					change.operation == _10_18_LUP)) {
 				eligible = false;
 			}
 			changeNo++;
