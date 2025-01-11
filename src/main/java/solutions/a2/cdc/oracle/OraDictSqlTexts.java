@@ -769,7 +769,7 @@ from     DBA_IND_COLUMNS
 where    TABLE_OWNER='SCOTT' and TABLE_NAME='DEPT' and INDEX_NAME='PK_DEPT'
 order by COLUMN_POSITION;
 	 */
-	public static String INDEX_COLUMNS_NON_CDB =
+	public static final String INDEX_COLUMNS_NON_CDB =
 			"select   INDEX_OWNER, COLUMN_NAME\n" +
 			"from     DBA_IND_COLUMNS\n" +
 			"where    TABLE_OWNER=? and TABLE_NAME=? and INDEX_NAME=?\n" +
@@ -781,7 +781,7 @@ from     CDB_IND_COLUMNS
 where    TABLE_OWNER='SCOTT' and TABLE_NAME='DEPT' and INDEX_NAME='PK_DEPT' and CON_ID=4
 order by COLUMN_POSITION;
 	 */
-	public static String INDEX_COLUMNS_CDB =
+	public static final String INDEX_COLUMNS_CDB =
 			"select   INDEX_OWNER, COLUMN_NAME\n" +
 			"from     CDB_IND_COLUMNS\n" +
 			"where    TABLE_OWNER=? and TABLE_NAME=? and INDEX_NAME=? and CON_ID=?\n" +
