@@ -268,6 +268,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String REDO_FILE_NAME_CONVERT_DOC =
 			"It converts the filename of a redo log to another path.\n" +
 			"It is specified as a comma separated list of a strins in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.";
+	private static final String ASM_ACTICATE_PARAM = "a2.asm";
+	private static final String ASM_ACTICATE_DOC = "Use Oracle ASM storage. Default - false"; 
+	private static final String ASM_JDBC_URL_PARAM = "a2.asm.jdbc.url";
+	private static final String ASM_JDBC_URL_DOC = "JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above";
+	private static final String ASM_USER_PARAM = "a2.asm.username";
+	private static final String ASM_USER_DOC = "Username for connecting to Oracle ASM instance, must have SYSASM role";
+	private static final String ASM_PASSWORD_PARAM = "a2.asm.password";
+	private static final String ASM_PASSWORD_DOC = "User password for connecting to Oracle ASM instance";
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
@@ -418,6 +426,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				// Redo Miner only!
 				.define(REDO_FILE_NAME_CONVERT_PARAM, Type.STRING, "",
 						Importance.HIGH, REDO_FILE_NAME_CONVERT_DOC)
+				.define(ASM_ACTICATE_PARAM, Type.BOOLEAN, false,
+						Importance.LOW, ASM_ACTICATE_DOC)
+				.define(ASM_JDBC_URL_PARAM, Type.STRING, "",
+						Importance.LOW, ASM_JDBC_URL_DOC)
+				.define(ASM_USER_PARAM, Type.STRING, "",
+						Importance.LOW, ASM_USER_DOC)
+				.define(ASM_PASSWORD_PARAM, Type.PASSWORD, "",
+						Importance.LOW, ASM_PASSWORD_DOC)
 				;
 	}
 
@@ -972,6 +988,22 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		} else {
 			return originalName;
 		}
+	}
+
+	public boolean useAsm() {
+		return getBoolean(ASM_ACTICATE_PARAM);
+	}
+
+	public String asmJdbcUrl() {
+		return getString(ASM_JDBC_URL_PARAM);
+	}
+
+	public String getAsmUser() {
+		return getString(ASM_USER_PARAM);
+	}
+
+	public String getAsmPassword() {	
+		return getPassword(ASM_PASSWORD_PARAM).value();
 	}
 
 }

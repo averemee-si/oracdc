@@ -59,6 +59,7 @@ public class OraConnectionObjects {
 	private boolean standby = false;
 	private boolean distributed = false;
 	private Connection connection4LogMiner;
+	private Connection connection4Asm;
 	private String auxDbUrl, auxWallet;
 	private int version = 0;
 
@@ -365,6 +366,21 @@ public class OraConnectionObjects {
 				throw new SQLException(ucpe);
 			}
 		}
+	}
+
+	public Connection getAsmConnection(final OraCdcSourceConnectorConfig config) throws SQLException {
+		if (connection4Asm == null) {
+			final Properties props = new Properties();
+			props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysasm");
+			props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
+			final OracleDataSource ods = new OracleDataSource();
+			ods.setConnectionProperties(props);
+			ods.setURL(config.asmJdbcUrl());
+			ods.setUser(config.getAsmUser());
+			ods.setPassword(config.getAsmPassword());
+			connection4Asm =  ods.getConnection();
+		}
+		return connection4Asm;
 	}
 
 }

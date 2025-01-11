@@ -205,3 +205,11 @@ Default - *${connectorName}.seq*
 ### Redo miner (direct reading of redo without LogMiner) specific parameters
 
 `a2.redo.filename.convert` - It converts the filename of a redo log to another path. It is specified as a string in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.
+
+`a2.asm` - Use Oracle ASM storage. Default - _false_
+
+`a2.asm.jdbc.url` - JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above
+
+`a2.asm.username` - Username for connecting to Oracle ASM instance, must have SYSASM role
+
+`a2.asm.password` - User password for connecting to Oracle ASM instance
