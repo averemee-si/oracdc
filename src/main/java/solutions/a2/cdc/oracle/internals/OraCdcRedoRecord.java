@@ -203,13 +203,8 @@ public class OraCdcRedoRecord {
 				}
 				break;
 			case _26_2_REDO:
-				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
-				if (!eligible) {
-					eligible = true;
-				}
-				break;
 			case _26_6_BIMG:
-				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
+				change = new OraCdcChangeLobs(changeNo, this, operation, record, offset, changeHeaderLen);
 				if (!eligible) {
 					eligible = true;
 				}
