@@ -42,10 +42,8 @@ public class OraCdcChangeLlb extends OraCdcChange {
 	public static final byte TYPE_4 = 0x4;
 
 	private final byte type;
-	private byte[] lid;
 	private short fsiz;
 	private int lobColumnCount = -1;
-	private short columnId = -1;
 
 	OraCdcChangeLlb(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
@@ -68,7 +66,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 					redoLog.bu().getU16(record, coords[2][0] + 0x06),
 					redoLog.bu().getU32(record, coords[2][0] + 0x08));
 			lid = Arrays.copyOfRange(record, coords[2][0] + 0xC, coords[2][0] + 0x16);
-			columnId = redoLog.bu().getU16(record, coords[2][0] + 0x16);
+			lColId = redoLog.bu().getU16(record, coords[2][0] + 0x16);
 			fsiz = redoLog.bu().getU16(record, coords[2][0] + 0x20);
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x24);
 			break;
@@ -79,7 +77,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 					redoLog.bu().getU16(record, coords[2][0] + 0x02),
 					redoLog.bu().getU32(record, coords[2][0] + 0x04));
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x08);
-			columnId = redoLog.bu().getU16(record, coords[2][0] + 0x22);
+			lColId = redoLog.bu().getU16(record, coords[2][0] + 0x22);
 			break;
 		case TYPE_4:
 			// Base table supplemental data
@@ -156,7 +154,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 		if (type == TYPE_1 || type == TYPE_3) {
 			sb
 				.append(" column_id: ")
-				.append(Short.toUnsignedInt(columnId));
+				.append(Short.toUnsignedInt(lColId));
 		}
 		return sb;
 	}

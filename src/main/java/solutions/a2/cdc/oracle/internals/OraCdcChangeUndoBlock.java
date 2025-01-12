@@ -49,6 +49,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	private boolean ktub = false;
 	private boolean ktbRedo = false;
 	private boolean kdoOpCode = false;
+	private boolean kdliCommon = false;
 
 	OraCdcChangeUndoBlock(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _5_1_RDB, record, offset, headerLength);
@@ -86,18 +87,10 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			} else {
 				switch (opc) {
 				case _10_22_ULK:
-				case _26_1_UINDO:
 					// Element 3: KTB Redo
 					ktbRedo(2);
 					ktbRedo = true;
 					//TODO  - LOB related
-					break;
-				case _14_8_OPUTRN:
-					if (LOGGER.isDebugEnabled()) {
-						//TODO - truncate
-						LOGGER.debug("TODO skipping opc {} (OP:5.1) for change #{} at RBA {} in '{}'.",
-								formatOpCode(opc), num, rba, redoLog.fileName());
-					}
 					break;
 				case _11_1_IUR:
 					// Element 3: KTB Redo
@@ -151,6 +144,25 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 							supplementalBdba = redoLog.bu().getU32(record, coords[suppDataStartIndex][0] + 0x14);
 							supplementalSlot = redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x18);
 						}
+					}
+					break;
+				case _26_1_UINDO:
+					// Element 3: KTB Redo
+					ktbRedo(2);
+					ktbRedo = true;
+					if (coords.length > 3) {
+						kdliCommon = true;
+						kdliCommon(3);
+						for (int index = 0x4; index < coords.length; index++) {
+							kdli(index);
+						}
+					}
+					break;
+				case _14_8_OPUTRN:
+					if (LOGGER.isDebugEnabled()) {
+						//TODO - truncate
+						LOGGER.debug("TODO skipping opc {} (OP:5.1) for change #{} at RBA {} in '{}'.",
+								formatOpCode(opc), num, rba, redoLog.fileName());
 					}
 					break;
 				default:
@@ -221,6 +233,12 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				} else {
 					break;
 				}
+			}
+		}
+		if (kdliCommon) {
+			kdliCommon(sb, 3);
+			for (int index = 0x4; index < coords.length; index++) {
+				kdli(sb, index);
 			}
 		}
 		return sb;

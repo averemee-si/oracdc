@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import java.util.Arrays;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -183,12 +185,15 @@ public class OraCdcChange {
 	byte flags;
 	private final short cls;
 	private final short afn;
-	private final int dba;
+	private int dba;
 	private final long scn;
 	private final byte seq;
 	private final byte typ;
 	private final byte encrypted;
 	private final int changeDataObj;
+	byte[] lid;
+	short lColId = -1;
+	int lobDataOffset = -1;
 
 	OraCdcChange(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		this.num = num;
@@ -284,6 +289,8 @@ public class OraCdcChange {
 		if (coords[index][1] < KTB_REDO_MIN_LENGTH) {
 			return;
 		}
+		if (opc == _26_1_UINDO)
+			sb.append("\nKDLI undo record:");
 		final byte opKtbRedo = record[coords[index][0]];
 		final byte flgKtbRedo = record[coords[index][0] + 1];
 		final int start = (Byte.toUnsignedInt(flgKtbRedo) & 0x08) == 0 ? 4 : 8;
@@ -825,7 +832,7 @@ public class OraCdcChange {
 		if (kdoOpCode > KDO_OP_CODES.length) {
 			LOGGER.error(
 					"\n=====================\n" +
-					"Unable to find abbreviation for KDO Op Code {}. Please contact us at oracle@a2-solutions.eu" +
+					"Unable to find abbreviation for KDO Op Code {}. Please contact us at oracle@a2.solutions" +
 					"\n=====================\n", kdoOpCode);
 			return String.format("%03d", kdoOpCode);
 		} else {
@@ -900,6 +907,266 @@ public class OraCdcChange {
 			}
 			return (rowDiff + colSize);
 		}
+	}
+
+	private static final int KDLI_LOAD_DATA = 0x04;
+	private static final int KDLI_FILL = 0x06;
+	private static final int KDLI_SUPLOG = 0x09;
+	private static final int KDLI_LOAD_DATA_MIN_LENGTH = 0x38;
+	private static final int KDLI_FILL_MIN_LENGTH = 0x08;
+	private static final int KDLI_SUPLOG_MIN_LENGTH = 0x18;
+	private static final int KDLI_COMMON_MIN_LENGTH = 0xC;
+	private static final String[] KDLI_OPERATIONS = {
+			"REDO", "UNDO", "CR", "FRMT", "INVL", "LOAD", "BIMG", "SINV" };
+	/**
+	 * 
+	 * Local LOB Related - KCOCOLOB [kdli3.h]
+	 * 
+	 * @param index
+	 */
+	void kdli(final int index) {
+		elementLengthCheck("KDLI", "", index, 0x1, "");
+		switch (record[coords[index][0]]) {
+		case KDLI_LOAD_DATA:
+			elementLengthCheck("KDLI", "load data", index, KDLI_LOAD_DATA_MIN_LENGTH, "");
+			if (lid == null) {
+				lid = Arrays.copyOfRange(record, coords[index][0] + 0xC, coords[index][0] + 0x16);
+			}
+			break;
+		case KDLI_FILL:
+			elementLengthCheck("KDLI", "fill", index, KDLI_FILL_MIN_LENGTH, "");
+			if (lobDataOffset < 0)
+				lobDataOffset = coords[index][0] + 0x8;
+			break;
+		case KDLI_SUPLOG:
+			elementLengthCheck("KDLI", "suplog", index, KDLI_SUPLOG_MIN_LENGTH, "");
+			if (lColId < 0)
+				lColId = redoLog.bu().getU16(record, coords[index][0] + 0x12);
+			break;
+		default:
+			LOGGER.error(
+					"\n=====================\n" +
+					"KDLI operation {} is not implemented yet! Please contact us at oracle@a2.solutions" +
+					"\n=====================\n",
+					record[coords[index][0]]);
+		}
+	}
+
+	private static final int LOB_BYTES_PER_LINE = 26;
+	void kdli(final StringBuilder sb, final int index) {
+		switch (record[coords[index][0]]) {
+		case KDLI_LOAD_DATA:
+			sb
+				.append("\nKDLI load data [")
+				.append(KDLI_LOAD_DATA)
+				.append('.')
+				.append(coords[index][1])
+				.append(']')
+				.append("\nbdba    [0x")
+				.append(String.format("%08x", Integer.toUnsignedLong(dba)))
+				.append(']')
+				.append("\nkdlich")
+				.append("\n  flg0  0x")
+				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xA])))
+				.append(getKdliFlg0(record[coords[index][0] + 0xA]))
+				.append("\n  flg1  0x")
+				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xB])))
+				.append("\n  scn   0x")
+				.append(FormattingUtils.leftPad(redoLog.bu().getScn4Record(record, coords[index][0] + 0x2), 0x10))
+				.append("\n  lid   ");
+			for (int i = 0; i < lid.length; i++)
+				sb.append(String.format("%02x", lid[i]));
+			sb
+				.append("\n  spare 0x")
+				.append(String.format("%08x", Integer.toUnsignedLong(record[coords[index][0] + 0x18])))
+				.append("\nkdlidh")
+				.append("\n  flg2  0x")
+				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x1C])))
+				.append(getKdliFlg2(record[coords[index][0] + 0x1C]))
+				.append("\n  flg3  0x")
+				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x1D])))
+				.append("\n  pskip ")
+				.append(Byte.toUnsignedInt(record[coords[index][0] + 0x1E]))
+				.append("\n  sskip ")
+				.append(Byte.toUnsignedInt(record[coords[index][0] + 0x1F]))
+				.append("\n  hash  ");
+			for (int i = 0; i < 0x14; i++)
+				sb.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x20 + i])));
+			sb
+				.append("\n  hwm   ")
+				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x34)))
+				.append("\n  spr   ")
+				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x36)));
+			break;
+		case KDLI_FILL:
+			sb
+				.append("\nKDLI fill [")
+				.append(KDLI_FILL)
+				.append('.')
+				.append(coords[index][1])
+				.append(']')
+				.append("\n  foff  0x")
+				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x2))))
+				.append("\n  fsiz  ")
+				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x4)))
+				.append("\n  flen  ")
+				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x6)))
+				.append("\n  data\n");
+			for (int i = 0; i < coords[index][1] - 0x8; i++) {
+				sb.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x8 + i])));
+				if (i % LOB_BYTES_PER_LINE < (LOB_BYTES_PER_LINE - 1)) 
+					sb.append(' ');
+				else {
+					sb.append('\n');
+				}
+			}
+			sb.append('\n');
+			break;
+		case KDLI_SUPLOG:
+			sb
+				.append("\nKDLI suplog [")
+				.append(KDLI_SUPLOG)
+				.append('.')
+				.append(coords[index][1])
+				.append(']')
+				.append("\n  xid   ")
+				.append((new Xid(
+						redoLog.bu().getU16(record, coords[index][0] + 0x4),
+						redoLog.bu().getU16(record, coords[index][0] + 0x6),
+						redoLog.bu().getU32(record, coords[index][0] + 0x8))).toString())
+				.append("\n  objn  ")
+				.append(Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + 0xC)))
+				.append("\n  objv# ")
+				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x10)))
+				.append("\n  col#  ")
+				.append(lColId)
+				.append("\n  flag  0x")
+				.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + 0x14))));
+			break;
+			
+		}
+	}
+
+	/**
+	 * 
+	 * Local LOB Related - KCOCOLOB [kdli3.h]
+	 * 
+	 * @param index
+	 */
+	void kdliCommon(final int index) {
+		elementLengthCheck("KDLI", "common", index, KDLI_COMMON_MIN_LENGTH, "");
+		dba = redoLog.bu().getU32(record, coords[index][0] + 0x08);
+	}
+
+	void kdliCommon(final StringBuilder sb, final int index) {
+		final int kdliOperation = Byte.toUnsignedInt(record[coords[index][0]]);
+		if (kdliOperation > KDLI_OPERATIONS.length) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Unable to find abbreviation for KDLI operation {}. Please contact us at oracle@a2.solutions\nChange dump:\n{}\n" +
+					"\n=====================\n",
+					kdliOperation, binaryDump());
+			return;
+		}
+		final byte kdliType = record[coords[index][0] + 1];
+		sb
+			.append("\nKDLI common [")
+			.append(coords[index][1])
+			.append(']')
+			.append("\n  op    0x")
+			.append(String.format("%02x", kdliOperation))
+			.append(" [")
+			.append(KDLI_OPERATIONS[kdliOperation])
+			.append(']')
+			.append("\n  type  0x")
+			.append(String.format("%02x", kdliType))
+			.append(" [")
+			.append(getKdliTypeName(kdliType))
+			.append(']')
+			.append("\n  flg0  0x")
+			.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x2])))
+			.append("\n  flg1  0x")
+			.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x3])))
+			.append("\n  psiz  ")
+			.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x4)))
+			.append("\n  poff  ")
+			.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x6)))
+			.append("\n  dba   0x")
+			.append(String.format("%08x", Integer.toUnsignedLong(dba)));
+	}
+
+	private static String getKdliTypeName(final byte kdliType) {
+		switch (kdliType & 0x70) {
+		case 0x00:
+			return "new";
+		case 0x10:
+			return "lhb";
+		case 0x20:
+			return "data";
+		case 0x30:
+			return "btree";
+		case 0x40:
+			return "itree";
+		case 0x60:
+			return "aux";
+		default:
+			return "unknown";			
+		}
+	}
+
+	private static StringBuilder getKdliFlg0(final byte flg0) {
+		final StringBuilder sb = new StringBuilder(0x20);
+		sb
+			.append(" [ver=")
+			.append((flg0 & 0x80) == 0 ? "0" : "1")
+			.append(" typ=");
+		switch (flg0 & 0x70) {
+		case 0x00:
+			sb.append("new");
+			break;
+		case 0x10:
+			sb.append("lhb");
+			break;
+		case 0x20:
+			sb.append("data");
+			break;
+		case 0x30:
+			sb.append("btree");
+			break;
+		case 0x40:
+			sb.append("itree");
+			break;
+		case 0x60:
+			sb.append("aux");
+			break;
+		default:
+			sb
+				.append("unknown(")
+				.append(String.format("0x%02x", flg0 & 0x70))
+				.append(')');
+		}
+		sb
+			.append(" lock=")
+			.append((flg0 & 0x08) == 0 ? "n" : "y")
+			.append(']');
+		return sb;
+	}
+
+	private static StringBuilder getKdliFlg2(final byte flg2) {
+		final StringBuilder sb = new StringBuilder(0x40);
+		sb
+			.append(" [ver=")
+			.append((flg2 & 0x80) == 0 ? "0" : "1")
+			.append(" lid=")
+			.append((flg2 & 0x40) == 0 ? "short-rowid" : "lhb-dba")
+			.append(" hash=")
+			.append((flg2 & 0x20) == 0 ? "n" : "y")
+			.append(" cmap=")
+			.append((flg2 & 0x10) == 0 ? "n" : "y")
+			.append(" pfill=")
+			.append((flg2 & 0x08) == 0 ? "n" : "y")
+			.append(']');
+		return sb;
 	}
 
 	StringBuilder toDumpFormat() {
