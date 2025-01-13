@@ -15,7 +15,7 @@ package solutions.a2.cdc.oracle.internals;
 
 /**
  * 
- * Layer 26 opcodes 2 & 6
+ * Layer 26 opcodes 2 and 6
  * 
  * Based on
  *     <a href="https://www.linkedin.com/in/julian-dyke-9a27837/">Julian Dyke</a> <a href="http://www.juliandyke.com/Presentations/RedoInternals.ppt">Redo Internals</a>
