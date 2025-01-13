@@ -28,31 +28,66 @@ package solutions.a2.cdc.oracle.internals;
 
 public class OraCdcChangeLobs extends OraCdcChange {
 
-	private final int kdliCommonIndex;
 
 	OraCdcChangeLobs(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
+		elementNumberCheck(2);
 		if (operation == _26_2_REDO) {
 			ktbRedo(0);
-			kdliCommonIndex = 1;
+			kdliCommon(1);
+			if (coords.length > 3)
+				for (int i = 2; i < coords.length; i++)
+					kdli(i);
 		} else {
-			kdliCommonIndex = 0;
-		}
-		kdliCommon(kdliCommonIndex);
-		for (int i = kdliCommonIndex + 1; i < coords.length; i++) {
-			kdli(i);
+			kdliCommon(0);
+			kdli(1);
+			if (coords.length > 2) {
+				kdli(2);
+			}
+			if (coords.length > 3) {
+				if (lobBimg) {
+					if (lobDataOffset < 0)
+						lobDataOffset = coords[3][0];
+				} else {
+					kdli(3);
+				}
+			}
+			if (coords.length > 4) {
+				for (int i = 4; i < coords.length; i++) {
+					kdli(i);
+				}
+			}
 		}
 	}
-
 
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
-		if (operation == _26_2_REDO)
+		if (operation == _26_2_REDO) {
 			ktbRedo(sb, 0);
-		kdliCommon(sb, kdliCommonIndex);
-		for (int i = kdliCommonIndex + 1; i < coords.length; i++) {
-			kdli(sb, i);
+			kdliCommon(sb, 1);
+			for (int i = 2; i < coords.length; i++) {
+				kdli(sb, i);
+			}
+		} else {
+			kdliCommon(sb, 0);
+			kdli(sb, 1);
+			if (coords.length > 2) {
+				kdli(sb, 2);
+			}
+			if (coords.length > 3) {
+				if (lobBimg) {
+					sb.append("\nKDLI data load\n");
+					printLobContent(sb, 3, 0);
+				} else {
+					kdli(sb, 3);
+				}
+			}
+			if (coords.length > 4) {
+				for (int i = 4; i < coords.length; i++) {
+					kdli(sb, i);
+				}
+			}
 		}
 		return sb;
 	}
