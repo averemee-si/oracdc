@@ -13,9 +13,6 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * 
  * Table level operations
@@ -32,19 +29,10 @@ import org.slf4j.LoggerFactory;
 public class OraCdcChangeRowOp extends OraCdcChange {
 
 	public static int KDO_POS = 0x1;
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeRowOp.class);
 
 	OraCdcChangeRowOp(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
-		if (coords.length < 2) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse mandatory elements for row change #{} at RBA {} in '{}'.\n" +
-					"Change contents:\n{}\n" +
-					"=====================\n",
-					num, rba, redoLog.fileName(), binaryDump());
-			throw new IllegalArgumentException();
-		}
+		elementNumberCheck(2);
 
 		// Element 1: KTB Redo
 		ktbRedo(0);
