@@ -713,7 +713,7 @@ where  L.STATUS = 'CURRENT'
 	 */
 	public static final String UP_TO_CURRENT_SCN =
 			"select CURRENT_SCN, (SYSDATE - CAST(SCN_TO_TIMESTAMP(?) as DATE)) * 86400,\n" +
-	        "       L.SEQUENCE#, F.MEMBER, L.BLOCKSIZE\n" +
+	        "       L.SEQUENCE#, F.MEMBER, L.BLOCKSIZE, L.BYTES\n" +
 			"from   V$DATABASE D, V$LOG L, V$LOGFILE F\n" +
 	        "where  L.STATUS = 'CURRENT'\n" +
 			"  and  L.GROUP# = F.GROUP#\n" +
@@ -810,6 +810,14 @@ order by COLUMN_POSITION;
 	public static final String ASM_CLOSE =
 			"begin\n" +
 			"  DBMS_DISKGROUP.CLOSE(?);\n" +
+			"end;\n";
+
+	public static final String ASM_FILE_ATTR =
+			"declare\n" +
+			"  l_FILETYPE binary_integer;\n" +
+			"  l_BLOCK_SIZE binary_integer;\n" +
+			"begin\n" +
+			"  DBMS_DISKGROUP.GETFILEATTR(?, l_FILETYPE, ?, l_BLOCK_SIZE);\n" +
 			"end;\n";
 
 }
