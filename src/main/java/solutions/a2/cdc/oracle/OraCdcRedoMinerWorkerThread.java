@@ -55,6 +55,7 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCODRW;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_ORP_IRP_NULL_POS;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_URP_NULL_POS;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_KDOM2;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_10_SKL;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
@@ -959,8 +960,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					for (final OraCdcRedoRecord rr : row.records) {
 						final OraCdcChangeUndoBlock change = rr.change5_1();
 						final OraCdcChangeRowOp rowChange = rr.change11_x();
-						if ((rowChange.flags() & 0x80) != 0) {
-							//TODO
+						if (rowChange.operation() == _11_5_URP &&
+								(rowChange.flags() & KDO_KDOM2) != 0) {
+							if (rowChange.coords()[OraCdcChangeRowOp.KDO_POS + 1][1] > 1 &&
+									OraCdcChangeRowOp.KDO_POS + 2 < rowChange.coords().length) {
+								writeKdoKdom2(baos, rowChange, OraCdcChangeRowOp.KDO_POS);
+							} else {
+								LOGGER.warn("Not enough data to process KDO_KDOM2 structure at RBA {}, change #{}",
+										rr.rba(), rowChange.num());
+							}
 							LOGGER.warn("TODO! Element {} contains SET part of UPDATE statement at RBA {}, change #{}",
 									OraCdcChangeRowOp.KDO_POS + 1, rr.rba(), rowChange.num());
 						} else if (rowChange.operation() == _11_5_URP &&
@@ -996,10 +1004,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							}
 							if (change.columnCount() > 0) {
 								final short selector = (short) ((change.op() & 0x1F) | (KCOCODRW << 0x08));
-								if ((change.flags() & 0x80) != 0) {
-									//TODO
-									LOGGER.warn("TODO! Element {} contains WHERE part of UPDATE statement at RBA {}, change #{}",
-											OraCdcChangeRowOp.KDO_POS + 1, rr.rba(), change.num());
+								if (change.operation() == _11_5_URP &&
+										(change.flags() & KDO_KDOM2) != 0) {
+									if (change.coords()[OraCdcChangeUndoBlock.KDO_POS + 1][1] > 1 &&
+											OraCdcChangeUndoBlock.KDO_POS + 2 < change.coords().length) {
+										writeKdoKdom2(baos, change, OraCdcChangeUndoBlock.KDO_POS);
+									} else {
+										LOGGER.warn("Not enough data to process KDO_KDOM2 structure at RBA {}, change #{}",
+												rr.rba(), change.num());
+									}
 								} else if (selector == _11_5_URP &&
 										OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCountNn() < change.coords().length) {
 									writeColsWithNulls(baos, change, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
@@ -1271,6 +1284,32 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						i, rba);
 				break;
 			}
+		}
+	}
+
+	private void writeKdoKdom2(final ByteArrayOutputStream baos, final OraCdcChange change, final int index) {
+		final int[][] coords = change.coords();
+		final byte[] record = change.record();
+		final short colNumOffset = bu.getU16(record, coords[index + 1][0]);
+		int rowDiff = 0;
+		for (int i = 0; i < change.columnCount(); i++) {
+			writeU16(baos, i + colNumOffset);
+			int colSize = Byte.toUnsignedInt(record[coords[index +2][0] + rowDiff++]);
+			if (colSize ==  0xFE) {
+				baos.write(0xFE);
+				colSize = Short.toUnsignedInt(bu.getU16(record, coords[index + 2][0] + rowDiff));
+				writeU16(baos, colSize);
+				rowDiff += Short.BYTES;
+			} else if (colSize == 0xFF) {
+				colSize = 0;
+				baos.write(0xFF);
+			} else {
+				baos.write(colSize);
+			}
+			if (colSize != 0) {
+				baos.write(record, coords[index + 2][0] + rowDiff, colSize);
+				rowDiff += colSize;
+			}									
 		}
 	}
 

@@ -424,6 +424,7 @@ public class OraCdcChange {
 		elementLengthCheck("KTB Redo", abbreviation, index, minLength, "");
 	}
 
+	public static final int KDO_KDOM2 = 0x80;
 	public static final int KDO_URP_NULL_POS = 0x1A;
 	public static final int KDO_ORP_IRP_NULL_POS = 0x2D;
 	private static final int KDO_NCOL_URP_POS = 0x16;
@@ -500,6 +501,8 @@ public class OraCdcChange {
 				if (LOGGER.isTraceEnabled()) {
 					LOGGER.trace("Trailing NULL's cc adjustment at RBA {} in '{}'", rba, redoLog.fileName());
 				}
+			} else if ((flags & KDO_KDOM2) != 0) {
+				columnCountNn = columnCount;
 			} else {
 				kdoNullElemLengthCheck(index, KDO_URP_NULL_POS + (columnCount + 7) / 8);
 				columnCountNn = 0;
@@ -507,6 +510,7 @@ public class OraCdcChange {
 				int diff = KDO_URP_NULL_POS;
 				for (int i = 0; i < columnCount; i++) {
 					if ((record[coords[index][0] + diff] & mask) != 0 &&
+							(index + i + 0x2) < coords.length &&
 							coords[index + i + 0x2][1] > 0) {
 						break;
 					} else {
@@ -565,7 +569,11 @@ public class OraCdcChange {
 			.append(" row dependencies ")
 			.append((op & FLG_ROWDEPENDENCIES) == 0 ? "Disabled" : "Enabled")
 			.append("\n  xtype: ")
-			.append(KDO_XTYPES[(flags & 0x03) - 1])
+			.append(KDO_XTYPES[(flags & 0x03) - 1]);
+		if ((flags & KDO_KDOM2) != 0) {
+			sb.append("xtype KDO_KDOM2");
+		}
+		sb
 			.append(" flags: ")
 			.append(String.format("0x%08x", flags & 0xFC))
 			.append("  bdba: ")
@@ -705,11 +713,17 @@ public class OraCdcChange {
 				.append(" size: ")
 				.append(redoLog.bu().getU16(record, coords[index][0] + 0x18));	// Signed short!
 			if (index + 1 < coords.length) {
-				if ((flags & 0x80) != 0) {
-					//
-					//TODO Element [index+1] contains row data
-					//
-					sb.append("\nTODO\nTODO - read row data from single element!\nTODO!");
+				if ((flags & KDO_KDOM2) != 0) {
+					if (coords[index + 1][1] > 1 && index + 2 < coords.length) {
+						sb.append("\nVector content:");
+						final short colNumOffset = redoLog.bu().getU16(record, coords[index + 1][0]);
+						int rowDiff = 0;
+						for (int i = 0; i < columnCount; i++) {
+							rowDiff = printColumnBytes(sb, i + colNumOffset, index + 2, rowDiff);						}
+					} else {
+						LOGGER.warn("Not enough data to process KDO_KDOM2 structure at RBA {}, change #{}",
+								rba, num);
+					}
 				} else if ((index + 1 + columnCountNn) < coords.length) {
 					final int colNumIndex = index + 1;
 					for (int i = 0; i < columnCount; i++) {
