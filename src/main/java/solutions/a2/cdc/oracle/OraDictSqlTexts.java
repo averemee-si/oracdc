@@ -787,39 +787,6 @@ order by COLUMN_POSITION;
 			"where    TABLE_OWNER=? and TABLE_NAME=? and INDEX_NAME=? and CON_ID=?\n" +
 			"order by COLUMN_POSITION";
 
-	public static final String ASM_OPEN =
-			"declare\n" +
-			"  l_ASM_FILENAME varchar2(4000);\n" +
-			"  l_HANDLE binary_integer;\n" +
-			"  l_PLK_SIZE binary_integer;\n" +
-			"  l_FILETYPE binary_integer;\n" +
-			"  l_BLOCKS binary_integer;\n" +
-			"  l_BLOCK_SIZE binary_integer;\n" +
-			"begin\n" +
-			"  l_ASM_FILENAME := ?;\n" +
-			"  DBMS_DISKGROUP.GETFILEATTR(l_ASM_FILENAME, l_FILETYPE, l_BLOCKS, l_BLOCK_SIZE);\n" +
-			"  DBMS_DISKGROUP.OPEN(l_ASM_FILENAME, 'r', l_FILETYPE, l_BLOCK_SIZE, l_HANDLE, l_PLK_SIZE, l_BLOCKS);\n" +
-			"  ? := l_HANDLE;\n" +
-			"end;\n";
-
-	public static final String ASM_READ =
-			"begin\n" +
-			"  DBMS_DISKGROUP.READ(?, ?, ?, ?);\n" +
-			"end;\n";
-
-	public static final String ASM_CLOSE =
-			"begin\n" +
-			"  DBMS_DISKGROUP.CLOSE(?);\n" +
-			"end;\n";
-
-	public static final String ASM_FILE_ATTR =
-			"declare\n" +
-			"  l_FILETYPE binary_integer;\n" +
-			"  l_BLOCK_SIZE binary_integer;\n" +
-			"begin\n" +
-			"  DBMS_DISKGROUP.GETFILEATTR(?, l_FILETYPE, ?, l_BLOCK_SIZE);\n" +
-			"end;\n";
-
 }
 
 
