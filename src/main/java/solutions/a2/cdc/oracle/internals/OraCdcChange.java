@@ -1259,7 +1259,7 @@ public class OraCdcChange {
 		FormattingUtils.leftPad(sb, scn, 16);
 		sb
 			.append(" SEQ:")
-			.append(seq)
+			.append(Byte.toUnsignedInt(seq))
 			.append(" OP:")
 			.append(formatOpCode(operation))
 			.append(" ENC:")
