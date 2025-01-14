@@ -1,3 +1,8 @@
+[![License](https://img.shields.io/:license-apache-blue.svg)](https://raw.githubusercontent.com/averemee-si/oracdc/refs/heads/master/LICENSE)
+[![Maven Central](https://img.shields.io/maven-central/v/solutions.a2.oracle/oracdc-kafka)](https://search.maven.org/artifact/solutions.a2.oracle/oracdc-kafka/2.6.0/jar?eh=)
+[![Docker Pulls](https://img.shields.io/docker/pulls/averemee/oracdc)](https://hub.docker.com/r/averemee/oracdc/)
+
+
 # oracdc
 
 **oracdc** is a software package for near real-time data integration and replication in heterogeneous IT environments. **oracdc** consist of two  [Apache Kafka](http://kafka.apache.org/) Source Connector's and JDBC sink connector. **oracdc** provides data integration, [transactional change data capture](https://en.wikipedia.org/wiki/Change_data_capture), and data replication between operational and analytical IT systems. 
