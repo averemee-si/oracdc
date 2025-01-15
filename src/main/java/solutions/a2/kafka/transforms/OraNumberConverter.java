@@ -156,6 +156,36 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 				}
 			}
 		});
+		CONVERTERS.put(TARGET_TYPE_INT, new OraNumberTranslator() {
+			@Override
+			public Schema typeSchema(final boolean isOptional, final ParamHolder params) {
+				return isOptional ? Schema.OPTIONAL_INT32_SCHEMA : Schema.INT32_SCHEMA;
+			}
+			@Override
+			public Long toType(final ParamHolder params, final NUMBER number) {
+				try {
+					return number.longValue();
+				} catch (SQLException sqle) {
+					LOGGER.error(CONV_ERROR_MSG, TARGET_TYPE_INT, sqle.getMessage());
+					return null;
+				}
+			}
+		});
+		CONVERTERS.put(TARGET_TYPE_SHORT, new OraNumberTranslator() {
+			@Override
+			public Schema typeSchema(final boolean isOptional, final ParamHolder params) {
+				return isOptional ? Schema.OPTIONAL_INT16_SCHEMA : Schema.INT16_SCHEMA;
+			}
+			@Override
+			public Long toType(final ParamHolder params, final NUMBER number) {
+				try {
+					return number.longValue();
+				} catch (SQLException sqle) {
+					LOGGER.error(CONV_ERROR_MSG, TARGET_TYPE_SHORT, sqle.getMessage());
+					return null;
+				}
+			}
+		});
 	}
 
 	private final ParamHolder params = new ParamHolder();
@@ -263,7 +293,18 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 				final SchemaBuilder builder = copySchemaBasics(schema, SchemaBuilder.struct());
 				for (Field field : schema.fields()) {
 					if (StringUtils.equals(field.name(), params.field)) {
-						builder.field(field.name(), CONVERTERS.get(params.targetType).typeSchema(field.schema().isOptional(), params));
+						final OraNumberTranslator translator = CONVERTERS.get(params.targetType);
+						if (translator == null) {
+							LOGGER.error(
+									"\n=====================\n" +
+									"Unable to find mapping for field '{}' and target type '{}'!\n" +
+									"Original data are passed back to Sink connector!" +
+									"\n=====================\n",
+									params.field, params.targetType);
+							builder.field(field.name(), field.schema());
+						} else {
+							builder.field(field.name(), translator.typeSchema(field.schema().isOptional(), params));
+						}
 					} else {
 						builder.field(field.name(), field.schema());
 					}
