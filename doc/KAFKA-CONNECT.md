@@ -213,3 +213,5 @@ Default - *${connectorName}.seq*
 `a2.asm.username` - Username for connecting to Oracle ASM instance, must have SYSASM role
 
 `a2.asm.password` - User password for connecting to Oracle ASM instance
+
+`a2.asm.read.ahead` - When set to true (the default), the connector reads data from the redo logs in advance, with chunks larger than the redo log file block size.

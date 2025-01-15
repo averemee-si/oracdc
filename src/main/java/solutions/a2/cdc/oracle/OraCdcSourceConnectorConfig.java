@@ -276,6 +276,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String ASM_USER_DOC = "Username for connecting to Oracle ASM instance, must have SYSASM role";
 	private static final String ASM_PASSWORD_PARAM = "a2.asm.password";
 	private static final String ASM_PASSWORD_DOC = "User password for connecting to Oracle ASM instance";
+	private static final String ASM_READ_AHEAD_PARAM = "a2.asm.read.ahead";
+	private static final String ASM_READ_AHEAD_DOC = "When set to true (the default), the connector reads data from the redo logs in advance, with chunks larger than the redo log file block size.";
+	private static final boolean ASM_READ_AHEAD_DEFAULT = true;
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
@@ -434,6 +437,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, ASM_USER_DOC)
 				.define(ASM_PASSWORD_PARAM, Type.PASSWORD, "",
 						Importance.LOW, ASM_PASSWORD_DOC)
+				.define(ASM_READ_AHEAD_PARAM, Type.BOOLEAN, ASM_READ_AHEAD_DEFAULT,
+						Importance.LOW, ASM_READ_AHEAD_DOC)
 				;
 	}
 
@@ -1004,6 +1009,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public String getAsmPassword() {	
 		return getPassword(ASM_PASSWORD_PARAM).value();
+	}
+
+	public boolean asmReadAhead() {	
+		return getBoolean(ASM_READ_AHEAD_PARAM);
 	}
 
 }
