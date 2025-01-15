@@ -16,8 +16,10 @@ package solutions.a2.cdc.oracle.utils.file;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Properties;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -32,11 +34,17 @@ import org.apache.log4j.BasicConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import oracle.jdbc.OracleConnection;
+import oracle.jdbc.pool.OracleDataSource;
 import solutions.a2.cdc.oracle.internals.OraCdcChange;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndo;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -50,7 +58,10 @@ import solutions.a2.utils.ExceptionUtils;
 public class OraRedoLogFile  {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraRedoLogFile.class);
-
+	private static final String ASM_URL = "asm-jdbc-url";
+	private static final String ASM_USER = "asm-username";
+	private static final String ASM_PASSWORD = "asm-password";
+	private static final String BIG_ENDIAN = "big-endian";
 
 	public static void main(String[] argv) {
 		BasicConfigurator.configure();
@@ -73,9 +84,45 @@ public class OraRedoLogFile  {
 		}
 
 		final String redoFile = cmd.getOptionValue("f");
+		final BinaryUtils bu = BinaryUtils.get(!cmd.hasOption(BIG_ENDIAN));
+		OraCdcRedoLogFactory rlf = null;
+		if (StringUtils.startsWith(redoFile, "+")) {
+			final String asmUrl = cmd.getOptionValue(ASM_URL);
+			final String asmUser = cmd.getOptionValue(ASM_USER);
+			final String asmPassword = cmd.getOptionValue(ASM_PASSWORD);
+			if (StringUtils.isAnyBlank(asmUrl, asmUser, asmPassword)) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"To work with file '{}' located on Oracle ASM, parameters --{}, --{}, and --{} must be set!" +
+						"\n=====================\n",
+						redoFile, ASM_URL, ASM_USER, ASM_PASSWORD);
+				System.exit(1);
+			}
+			try {
+				final Properties props = new Properties();
+				props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysasm");
+				props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
+				final OracleDataSource ods = new OracleDataSource();
+				ods.setConnectionProperties(props);
+				ods.setURL(asmUrl);
+				ods.setUser(asmUser);
+				ods.setPassword(asmPassword);
+				rlf = new OraCdcRedoLogAsmFactory(ods.getConnection(), bu, true, true);
+			} catch (SQLException sqle) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to connect to Oracle ASM Instance at {} as {} with passord {}!\n" +
+						"Exception: '{}'\nStack trace:\n{}\n" +
+						"\n=====================\n",
+						asmUrl, asmUser, asmPassword, sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
+				System.exit(1);
+			}
+		} else {
+			rlf = new OraCdcRedoLogFileFactory(bu, true);
+		}
 		OraCdcRedoLog orl = null;
 		try {
-			orl = new OraCdcRedoLog(cmd.getOptionValue("f"));
+			orl = rlf.get(redoFile);
 		} catch (IOException ioe) {
 			LOGGER.error(
 					"\n=====================\n" +
@@ -354,6 +401,37 @@ public class OraRedoLogFile  {
 				.desc("Identifier of the object(s) for which information will be printed. By default, information about all objects is printed")
 				.build();
 		options.addOption(objects);
+
+		final Option asmUrl = Option.builder("l")
+				.longOpt(ASM_URL)
+				.hasArg()
+				.required(false)
+				.desc("A valid JDBC URL pointing to an Oracle ASM instance. For example: -l jdbc:oracle:thin:@localhost:1521/+ASM")
+				.build();
+		options.addOption(asmUrl);
+
+		final Option asmUser = Option.builder("u")
+				.longOpt(ASM_USER)
+				.hasArg()
+				.required(false)
+				.desc("Oracle ASM user with SYSASM or SYSDBA role")
+				.build();
+		options.addOption(asmUser);
+
+		final Option asmPassword = Option.builder("p")
+				.longOpt(ASM_PASSWORD)
+				.hasArg()
+				.required(false)
+				.desc("Password of Oracle ASM User")
+				.build();
+		options.addOption(asmPassword);
+
+		final Option endianness = Option.builder("a")
+				.longOpt(BIG_ENDIAN)
+				.required(false)
+				.desc("When specified, Oracle redo log files are treated as big endian. By default, Oracle redo log files are assumed to be little endian.")
+				.build();
+		options.addOption(endianness);
 
 	}
 

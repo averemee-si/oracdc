@@ -13,15 +13,11 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.io.Closeable;
 import java.io.IOException;
 
-public interface OraCdcRedoReader extends Closeable {
+public interface OraCdcRedoLogFactory {
 
-	int read(byte b[], int off, int len) throws IOException;
-	long skip(long n) throws IOException;
-	void reset() throws IOException;
-	int blockSize();
-	String redoLog();
+	OraCdcRedoLog get(final String redoLog) throws IOException;
+	OraCdcRedoLog get(final String redoLog, final int blockSize, final long blockCount) throws IOException;
 
 }

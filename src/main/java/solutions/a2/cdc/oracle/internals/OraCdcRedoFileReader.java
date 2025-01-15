@@ -19,12 +19,19 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 
-public class OraCdcRedoFileReader implements OraCdcRedoReader{
+public class OraCdcRedoFileReader implements OraCdcRedoReader {
 
-	private final InputStream is;
+	private InputStream is;
+	private final String redoLog;
+	private final int blockSize;
 
-	OraCdcRedoFileReader(final String redoLog) throws IOException {
+	OraCdcRedoFileReader(final String redoLog, final int blockSize) throws IOException {
 		is = Files.newInputStream(Paths.get(redoLog), StandardOpenOption.READ);
+		if (is.skip(blockSize) != blockSize) {
+			throw new IOException("Unable to skip " + blockSize + " bytes!");
+		}
+		this.redoLog = redoLog;
+		this.blockSize = blockSize;
 	}
 
 	@Override
@@ -34,12 +41,29 @@ public class OraCdcRedoFileReader implements OraCdcRedoReader{
 	
 	@Override
 	public long skip(long n) throws IOException {
-		return is.skip(n);
+		return is.skip(n * blockSize);
 	}
 
 	@Override
 	public void close() throws IOException {
 		is.close();
+	}
+
+	@Override
+	public void reset()  throws IOException {
+		is.close();
+		is = null;
+		is = Files.newInputStream(Paths.get(redoLog), StandardOpenOption.READ);
+	}
+
+	@Override
+	public int blockSize() {
+		return blockSize;
+	}
+
+	@Override
+	public String redoLog() {
+		return redoLog;
 	}
 
 }

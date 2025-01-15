@@ -29,6 +29,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -67,10 +70,11 @@ public class OraRedoMiner {
 	private long lastOnlineSequence = 0;
 	private final boolean useNotifier;
 	private final LastProcessedSeqNotifier notifier;
-	private final BinaryUtils bu;
 	private OraCdcRedoLog redoLog;
 	private Iterator<OraCdcRedoRecord> miner;
-	boolean processOnlineRedo = false;
+	private boolean processOnlineRedo = false;
+	private final boolean asm;
+	private final OraCdcRedoLogFactory rlf;
 
 	public OraRedoMiner(
 			final Connection connection,
@@ -85,6 +89,7 @@ public class OraRedoMiner {
 		this.metrics = metrics;
 		this.rdbmsInfo = rdbmsInfo;
 		this.connectorName = config.getConnectorName();
+		this.asm = config.useAsm();
 		this.notifier = config.getLastProcessedSeqNotifier();
 		if (notifier == null) {
 			useNotifier = false;
@@ -92,7 +97,12 @@ public class OraRedoMiner {
 			useNotifier = true;
 			notifier.configure(config);
 		}
-		this.bu = bu;
+		if (asm) {
+			rlf = new OraCdcRedoLogAsmFactory(oraConnections.getAsmConnection(config),
+					bu, true, config.asmReadAhead());
+		} else {
+			rlf = new OraCdcRedoLogFileFactory(bu, true);
+		}
 
 		processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
 		if (processOnlineRedoLogs) {
@@ -150,6 +160,7 @@ public class OraRedoMiner {
 	public boolean next() throws SQLException {
 		boolean redoLogAvailable = false;
 		boolean limits = false;
+		long blocks = 0;
 
 		psGetArchivedLogs.setLong(1, firstChange);
 		psGetArchivedLogs.setLong(2, firstChange);
@@ -192,7 +203,8 @@ public class OraRedoMiner {
 					printRedoLogInfo(true, true,
 								currentRedoLog, rs.getShort("THREAD#"), lastSequence, rs.getLong("FIRST_CHANGE#"));
 					redoLogAvailable = true;
-					redoLogSize = rs.getShort("BLOCK_SIZE") * rs.getInt("BLOCKS");
+					blocks = rs.getLong("BLOCKS");
+					redoLogSize = rs.getShort("BLOCK_SIZE") * blocks;
 					break;
 				}
 			}
@@ -224,6 +236,7 @@ public class OraRedoMiner {
 					onlineSequence = rsUpToCurrentScn.getLong(3);
 					onlineRedoMember = rsUpToCurrentScn.getString(4);
 					blockSize = rsUpToCurrentScn.getShort(5);
+					blocks = rsUpToCurrentScn.getLong(6)/blockSize;
 				} else {
 					throw new SQLException("Unable to execute\n" + OraDictSqlTexts.UP_TO_CURRENT_SCN + "\n!!!");
 				}
@@ -259,8 +272,10 @@ public class OraRedoMiner {
 		if (redoLogAvailable) {
 			metrics.setNowProcessed(List.of(currentRedoLog), firstChange, nextChange, lagSeconds);
 			try {
-				redoLog = new OraCdcRedoLog(
-						config.convertRedoFileName(currentRedoLog), blockSize, true, bu);
+				//TODO - addd here code to reconnect to ASM!
+				redoLog = rlf.get(
+						asm ? currentRedoLog : config.convertRedoFileName(currentRedoLog),
+						blockSize, blocks);
 				if (inited) {
 					if (limits || processOnlineRedo) {
 						if (lastProcessedRba != null && redoLog.sequence() == lastProcessedRba.sqn()) {

@@ -15,11 +15,7 @@ package solutions.a2.cdc.oracle.internals;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Iterator;
 
@@ -46,19 +42,18 @@ import solutions.a2.oracle.utils.BinaryUtils;
 public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLog.class);
-	private static final int POS_MAGIC_1 = 0x001C;
-	private static final int POS_MAGIC_2 = 0x001D;
-	private static final int POS_MAGIC_3 = 0x001E;
-	private static final int POS_MAGIC_4 = 0x001F;
-	private static final int POS_BLOCK_SIZE = 0x0015;
 	private static final int POS_RDBMS_VERSION = 0x0014;
 	private static final int POS_INSTANCE_NAME = 0x001c;
 	private static final int RECORD_SIZE_THRESHOLD = 0x18;
 
 	private static final int ORA_CDB_START = 0x0C;
 
+	static final int BLOCK_SIZE_0512 = 0x0200;
+	static final int BLOCK_SIZE_1024 = 0x0400;
+	static final int BLOCK_SIZE_4096 = 0x1000;
+
 	private final String fileName;
-	private InputStream fis;
+	private OraCdcRedoReader reader;
 	private final boolean littleEndian;
 	private final int blockSize;
 	private final byte[] block;
@@ -97,138 +92,45 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	private long recordScn = 0;
 	private int recordHeaderSize = 0;
 
-	public OraCdcRedoLog(final String fileName) throws IOException {
-		this(fileName, 0, true, null);
-	}
-
-	public OraCdcRedoLog(final String fileName, final int blockSize,
-			final boolean validateChecksum, final BinaryUtils bu) throws IOException {
-		this.fileName = fileName;
+	public OraCdcRedoLog(final OraCdcRedoReader reader, final boolean validateChecksum,
+			final BinaryUtils bu, final long blockCount) throws IOException {
+		this.reader = reader;
+		this.fileName = reader.redoLog();
 		this.validateChecksum = validateChecksum;
-		if (blockSize == 0) {
-			final InputStream tmpStream = openRedoLog();
-			final byte[] tmpBuffer = new byte[0x20];
-			if (tmpStream.read(tmpBuffer, 0, tmpBuffer.length) != tmpBuffer.length) {
-				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to read {} bytes from '{}'!" +
-						"\n=====================\n",
-						tmpBuffer.length, fileName);
-				tmpStream.close();
-				throw new IOException("Invalid Oracle RDBMS redo file'" + fileName + "'!");
-			}
-			this.blockSize = readBlockSize(tmpBuffer, POS_BLOCK_SIZE, chkEndiness(tmpBuffer, tmpStream, fileName));
-			tmpStream.close();
-		} else {
-			this.blockSize = blockSize;
-		}
-
-		switch (this.blockSize) {
-		case 0x0200:
-			redoFileTypeByte = (byte) 0x22;
-			break;
-		case 0x1000:
-			redoFileTypeByte = (byte) 0x82;
-			break;
-		case 0x0400:
-			redoFileTypeByte = (byte) 0x42;
-			break;
-		default:
-			LOGGER.error(
-					"\n=====================\n" +
-					"The blocksize of '{}' is {}, but the only valid values for blocksize are 512, 1024, or 4096!" +
-					"\n=====================\n",
-					fileName, this.blockSize);
-			throw new IOException("Only 512, 1024, or 4096 are valid values for blocksize!!!");
-		}
-
-		fis = openRedoLog();
-		block = new byte[this.blockSize];
-		//
-		// Block 0x00
-		//
-		currentBlock = 0;
-		if (fis.read(block, 0, this.blockSize) != this.blockSize) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to read {} bytes from '{}'!" +
-					"\n=====================\n",
-					this.blockSize, fileName);
-			fis.close();
-			throw new IOException("Invalid Oracle RDBMS redo file'" + fileName + "'!");
-		}
-		if (block[0] != 0x00 || block[1] != redoFileTypeByte) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Invalid Oracle RDBMS redo file signature bytes '{}' & '{}' in file '{}'!" +
-					"\n=====================\n",
-					String.format("0x%02x", Byte.toUnsignedInt(block[0])),
-					String.format("0x%02x", Byte.toUnsignedInt(block[1])),
-					fileName);
-			fis.close();
-			throw new IOException("Invalid Oracle RDBMS redo file signature in '" + fileName + "'!");
-		}
-		littleEndian = chkEndiness(block, fis, fileName);
-
-		if (bu == null) {
-			this.bu = BinaryUtils.get(littleEndian);
-		} else {
-			if (littleEndian && !bu.isLittleEndian()) {
-				fis.close();
-				throw new IOException("The magic bytes in file '" + fileName + "' are little endian, but the decoder passed is not!");
-			}
-			if (!littleEndian && bu.isLittleEndian()) {
-				fis.close();
-				throw new IOException("The magic bytes in file '" + fileName + "' are big endian, but the decoder passed is not!");
-			}
-			this.bu = bu;
-		}
-
-		if (validateChecksum && checksum(block) != 0x00) {
-			fis.close();
-			throw new IOException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
-		}
-		if (readBlockSize(block, POS_BLOCK_SIZE, littleEndian) != this.blockSize) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Blocksize {} in redo file {} is not equal to expected blocksize {}!" +
-					"\n=====================\n",
-					readBlockSize(block, POS_BLOCK_SIZE, littleEndian),
-					this.blockSize,
-					fileName);
-			fis.close();
-			throw new IOException("Invalid block size in Oracle RDBMS redo file '" + fileName + "'!");
-		}
-		blockCount = this.bu.getU32(block, 0x18);
+		this.blockSize = reader.blockSize();
+		this.redoFileTypeByte = redoFileTypeByte(blockSize, fileName);
+		this.bu = bu;
+		this.littleEndian = bu.isLittleEndian();
+		this.blockCount = blockCount;
+		this.block = new byte[this.blockSize];
 		//
 		// Block 0x01
 		//
 		currentBlock = 1;
-		if (fis.read(block, 0, this.blockSize) != this.blockSize) {
+		if (reader.read(block, 0, this.blockSize) != this.blockSize) {
 			LOGGER.error(
 					"\n=====================\n" +
 					"Unable to read {} bytes from '{}'!" +
 					"\n=====================\n",
 					this.blockSize, fileName);
-			fis.close();
+			reader.close();
 			throw new IOException("Invalid Oracle RDBMS redo file!");
 		}
 		if (block[0] != 0x01 || block[1] != redoFileTypeByte) {
 			LOGGER.error(
 					"\n=====================\n" +
-					"Invalid Oracle RDBMS redo block signature bytes '{}' & '{}' in file '{}'!" +
+					"Invalid Oracle RDBMS redo block signature bytes '{}' & '{}' in block {} of file '{}'!" +
 					"\n=====================\n",
 					String.format("0x%02x", Byte.toUnsignedInt(block[0])),
 					String.format("0x%02x", Byte.toUnsignedInt(block[1])),
-					fileName);
-			fis.close();
+					currentBlock, fileName);
+			reader.close();
 			throw new IOException("Invalid Oracle RDBMS redo block signature!");
 		}
 		if (validateChecksum && checksum(block) != 0x00) {
-			fis.close();
+			reader.close();
 			throw new IOException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
 		}
-
 		sequence = this.bu.getU32(block, 0x08);
 		controlSeq = this.bu.getU32(block, 0x24);
 		fileSize = this.bu.getU32(block, 0x28);
@@ -246,7 +148,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		thread = this.bu.getU16(block, 0xB0);
 		largestLwn = this.bu.getU32(block,  0x10C);
 		compatibilityVsn = this.bu.getU32(block, POS_RDBMS_VERSION);
-		description = new String(Arrays.copyOfRange(block, 0x5C, 0x9C), StandardCharsets.US_ASCII);
+		description = new String(Arrays.copyOfRange(block, 0x5C, 0x9B), StandardCharsets.US_ASCII);
 		nab = this.bu.getU32(block,  0x9C);
 		// RDBMS version
 		versionString = new StringBuilder();
@@ -338,25 +240,6 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return sequence;
 	}
 
-	private static boolean chkEndiness(final byte[] buffer, InputStream is, final String fileName) throws IOException {
-		if (buffer[POS_MAGIC_1] == 0x7D && buffer[POS_MAGIC_2] == 0x7C &&
-			buffer[POS_MAGIC_3] == 0x7B && buffer[POS_MAGIC_4] == 0x7A) {
-			return true;
-		} else if (buffer[POS_MAGIC_1] == 0x7A && buffer[POS_MAGIC_2] == 0x7B &&
-					buffer[POS_MAGIC_3] == 0x7C && buffer[POS_MAGIC_4] == 0x7D) {
-			return false;
-		} else {
-			is.close();
-			throw new IOException("Unable to find the magic signature in file '" + fileName + "'!");
-		}
-	}
-
-	private static int readBlockSize(final byte[] buffer, final int offset, final boolean little) {
-		return 
-				buffer[offset + (little ? 0 : 1)] << 8 & 0xFF00 |
-				buffer[offset + (little ? 1 : 0)] & 0xFF;
-	}
-
 	private static int checksum(final byte[] buffer) {
 		final byte[] block1 = new byte[16];
 		final byte[] block2 = new byte[16];
@@ -412,8 +295,8 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 
 	@Override
 	public void close() throws IOException {
-		fis.close();
-		fis = null;
+		reader.close();
+		reader = null;
 	}
 
 	public String toString(
@@ -526,27 +409,30 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 
 	private void initIterator(final long blocksToSkip) throws IOException {
 		final long deltaBytes;
+		final long relBlocks2Skip;
 		if (iteratorInited) {
-			close();
-			fis = openRedoLog();
+			reader.reset();
 			deltaBytes = blockSize * blocksToSkip;
+			relBlocks2Skip = blocksToSkip;
 		} else {
 			if (currentBlock < (blocksToSkip - 1)) {
-				deltaBytes = blockSize * (blocksToSkip - currentBlock - 1);
+				relBlocks2Skip = blocksToSkip - currentBlock - 1;
+				deltaBytes = blockSize * relBlocks2Skip;
 			} else {
 				deltaBytes = 0;
+				relBlocks2Skip = 0;
 			}
 			iteratorInited = true;
 		}
-		if (deltaBytes > 0) {
-			final long skipped = fis.skip(deltaBytes);
+		if (relBlocks2Skip > 0) {
+			final long skipped = reader.skip(relBlocks2Skip);
 			if (skipped != deltaBytes) {
 				LOGGER.error(
 						"\n=====================\n" +
 						"Of the {} bytes requested to be skipped, only {} were skipped. in '{}'!" +
 						"\n=====================\n",
 						deltaBytes, skipped, fileName);
-				fis.close();
+				reader.close();
 				throw new IOException("Unable to skip " + deltaBytes + " bytes in '" + fileName + "'!");
 			}
 		}
@@ -879,9 +765,9 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	}
 
 	private boolean nextBlock() throws IOException {
-		if (blockSize == fis.read(block, 0, blockSize)) {
+		if (blockSize == reader.read(block, 0, blockSize)) {
 			if (validateChecksum && checksum(block) != 0x00) {
-				fis.close();
+				reader.close();
 				throw new IOException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
 			}
 			if (block[0] != 0x01 || block[1] != redoFileTypeByte) {
@@ -892,7 +778,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 						String.format("0x%02x", Byte.toUnsignedInt(block[0])),
 						String.format("0x%02x", Byte.toUnsignedInt(block[1])),
 						fileName, currentBlock, blockSize);
-				fis.close();
+				reader.close();
 				throw new IOException("Invalid Oracle RDBMS redo file block signature!");
 			}
 			currentBlock++;
@@ -902,14 +788,28 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 					"Unable to read block {} with size {} from '{}'!" +
 					"\n=====================\n",
 					currentBlock, blockSize, fileName);
-			fis.close();
+			reader.close();
 			throw new IOException("Unable to read block # " + currentBlock + " !");
 		}
 		return true;
 	}
 
-	private InputStream openRedoLog() throws IOException {
-		return Files.newInputStream(Paths.get(fileName), StandardOpenOption.READ);
+	static byte redoFileTypeByte(final int blockSize, final String fileName) throws IOException {
+		switch (blockSize) {
+		case BLOCK_SIZE_0512:
+			return (byte) 0x22;
+		case BLOCK_SIZE_4096:
+			return (byte) 0x82;
+		case BLOCK_SIZE_1024:
+			return (byte) 0x42;
+		default:
+			LOGGER.error(
+					"\n=====================\n" +
+					"The blocksize of '{}' is {}, but the only valid values for blocksize are {}, {}, or {}!" +
+					"\n=====================\n",
+					fileName, blockSize, BLOCK_SIZE_0512, BLOCK_SIZE_1024, BLOCK_SIZE_4096);
+			throw new IOException("The only valid values for blocksize are 512, 1024, or 4096!!!");
+		}
 	}
 
 }
