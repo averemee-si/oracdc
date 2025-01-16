@@ -969,8 +969,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								LOGGER.warn("Not enough data to process KDO_KDOM2 structure at RBA {}, change #{}",
 										rr.rba(), rowChange.num());
 							}
-							LOGGER.warn("TODO! Element {} contains SET part of UPDATE statement at RBA {}, change #{}",
-									OraCdcChangeRowOp.KDO_POS + 1, rr.rba(), rowChange.num());
 						} else if (rowChange.operation() == _11_5_URP &&
 								OraCdcChangeRowOp.KDO_POS + 1 + rowChange.columnCount() < rowChange.coords().length) {
 							writeColsWithNulls(
