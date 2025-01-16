@@ -384,6 +384,10 @@ public class OraCdcRedoRecord {
 		return supplementalLogData;
 	}
 
+	public int conUid() {
+		return conUid;
+	}
+
 	//TODO
 	public long unixMillis() {
 		return BinaryUtils.parseTimestamp(ts).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
