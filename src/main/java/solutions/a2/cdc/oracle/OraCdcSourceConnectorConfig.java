@@ -254,6 +254,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
 	static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
 
+	static final String TABLE_LIST_STYLE_PARAM = "a2.table.list.style";
+	static final String TABLE_LIST_STYLE_DOC = "When set to 'static' (default) oracdc reads tables and partition list to process only at startup according to values of a2.include and a2.exclude parameters. When set to 'dynamic' oracdc builds list of objects to process on the fly";
+	static final String TABLE_LIST_STYLE_STATIC = "static";
+	static final String TABLE_LIST_STYLE_DYNAMIC = "dynamic";
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int pkType = -1;
@@ -319,11 +324,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 								TOPIC_NAME_DELIMITER_DASH,
 								TOPIC_NAME_DELIMITER_DOT),
 						Importance.LOW, TOPIC_NAME_DELIMITER_DOC)
-				.define(ParamConstants.TABLE_LIST_STYLE_PARAM, Type.STRING,
-						ParamConstants.TABLE_LIST_STYLE_STATIC,
-						ConfigDef.ValidString.in(ParamConstants.TABLE_LIST_STYLE_STATIC,
-								ParamConstants.TABLE_LIST_STYLE_DYNAMIC),
-						Importance.LOW, ParamConstants.TABLE_LIST_STYLE_DOC)
+				.define(TABLE_LIST_STYLE_PARAM, Type.STRING,
+						TABLE_LIST_STYLE_STATIC,
+						ConfigDef.ValidString.in(TABLE_LIST_STYLE_STATIC,
+								TABLE_LIST_STYLE_DYNAMIC),
+						Importance.LOW, TABLE_LIST_STYLE_DOC)
 				.define(PROCESS_LOBS_PARAM, Type.BOOLEAN, false,
 						Importance.LOW, PROCESS_LOBS_DOC)
 				.define(CONNECTION_BACKOFF_PARAM, Type.INT, CONNECTION_BACKOFF_DEFAULT,
@@ -933,6 +938,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public void logMiner(final boolean logMiner) {
 		this.logMiner = logMiner;
+	}
+
+	public boolean staticObjIds() {
+		return StringUtils.equalsIgnoreCase(
+				TABLE_LIST_STYLE_STATIC, getString(TABLE_LIST_STYLE_PARAM));
 	}
 
 	public String convertRedoFileName(final String originalName) {

@@ -100,15 +100,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 			List<String> includeList = config.includeObj();
 			if (includeList.size() < 1)
 				includeList = null;
-			final boolean tableListGenerationStatic;
-			if (StringUtils.equalsIgnoreCase(
-					ParamConstants.TABLE_LIST_STYLE_STATIC, config.getString(ParamConstants.TABLE_LIST_STYLE_PARAM))) {
-				// ParamConstants.TABLE_LIST_STYLE_STATIC
-				tableListGenerationStatic = true;
-			} else {
-				// TABLE_LIST_STYLE_DYNAMIC
-				tableListGenerationStatic = false;
-			}
+			final boolean tableListGenerationStatic = config.staticObjIds();
 			String checkTableSql = null;
 			String mineDataSql = null;
 			String initialLoadSql = null;
