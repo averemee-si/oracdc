@@ -2474,7 +2474,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		switch (oraColumn.getJdbcType()) {
 			case Types.DATE:
 			case Types.TIMESTAMP:
-				if (data.length == DATE_DATA_LENGTH || data.length == TS_DATA_LENGTH) {
+				if (data.length == OracleDate.DATA_LENGTH || data.length == OracleTimestamp.DATA_LENGTH) {
 					columnValue = OraDumpDecoder.toTimestamp(data);
 				} else {
 					throw new SQLException("Invalid DATE (Typ=12) or TIMESTAMP (Typ=180)");
