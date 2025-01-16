@@ -352,7 +352,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 				});
 				LOGGER.error(
 						"\n=====================\n" +
-						"Unable to execute\\n\\t{}\\n\\tusing STARTSCN={} and ENDSCN={}!\n" +
+						"Unable to execute\n\t{}\n\tusing STARTSCN={} and ENDSCN={}!\n" +
 						"\tLogMiner redo files:\n{}" +
 						"\n=====================\n",
 							OraDictSqlTexts.START_LOGMINER,
