@@ -310,7 +310,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									transaction = new OraCdcTransactionArrayList(xid.toString());
 								}
 								activeTransactions.put(xid, transaction);
-								createTransactionPrefix(xid);
+								createTransactionPrefix(xid, lastRba);
 								sortedByFirstScn.put(xid,
 											Triple.of(lastScn, lastRba, lastSubScn));
 								if (firstTransaction) {
@@ -479,7 +479,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 	}
 
-	private void createTransactionPrefix(final Xid xid) {
+	private void createTransactionPrefix(final Xid xid, final RedoByteAddress rba) {
 		final int partial = xid.partial();
 		final Xid prevXid = prefixedTransactions.put(partial, xid);
 		if (prevXid != null) {
@@ -490,9 +490,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				.append(String.format("0x%03x", Short.toUnsignedInt((short)partial)));
 			LOGGER.warn(
 					"\n=====================\n" +
-					"Transaction prefix {} binding changed from {} to {}.\n" +
+					"Transaction prefix {} binding changed from {} to {} at RBA {}.\n" +
 					"=====================\n",
-					sb.toString(), prevXid, xid);
+					sb.toString(), prevXid, xid, rba);
 		}
 	}
 
