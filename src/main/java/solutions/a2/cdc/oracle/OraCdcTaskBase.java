@@ -293,7 +293,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		if (runLatch != null ) {
 			// We can stop before runLatch initialization due to invalid parameters
 			runLatch.countDown();
-			if (stopWorker) {
+			if (stopWorker && worker != null) {
 				worker.shutdown();
 				while (worker.isRunning()) {
 					try {
