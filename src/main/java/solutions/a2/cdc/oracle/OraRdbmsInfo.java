@@ -891,7 +891,7 @@ public class OraRdbmsInfo {
 	}
 
 	public String getConUidsList(final Connection connection) throws SQLException {
-		long[] data = getConUidsArray(connection);
+		int[] data = getConUidsArray(connection);
 		if (data == null) {
 			return null;
 		} else if (data.length == 0) {
@@ -904,7 +904,7 @@ public class OraRdbmsInfo {
 				if (i > 0) {
 					sb.append(',');
 				}
-				sb.append(data[i]);
+				sb.append(Integer.toUnsignedLong(data[i]));
 			}
 			sb.append(')');
 			data = null;
@@ -912,20 +912,20 @@ public class OraRdbmsInfo {
 		}
 	}
 
-	public long[] getConUidsArray(final Connection connection) throws SQLException {
+	public int[] getConUidsArray(final Connection connection) throws SQLException {
 		if (cdb && !pdbConnectionAllowed) {
-			List<Long> list = new ArrayList<>();
+			List<Integer> list = new ArrayList<>();
 			// We do not need CDB$ROOT and PDB$SEED
 			PreparedStatement statement = connection.prepareStatement(
 					"select CON_UID from V$CONTAINERS where CON_ID > 2");
 			ResultSet rs = statement.executeQuery();
 			while (rs.next()) {
-				list.add(rs.getLong(1));
+				list.add((int) rs.getLong(1));
 			}
 			if (list.size() > 0) {
 				Collections.sort(list);
 			}
-			final long[] result = new long[list.size()];
+			final int[] result = new int[list.size()];
 			for (int i = 0; i < list.size(); i++) {
 				result[i] = list.get(i);
 			}

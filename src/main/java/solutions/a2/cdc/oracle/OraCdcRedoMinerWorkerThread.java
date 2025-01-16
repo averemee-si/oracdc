@@ -102,12 +102,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final boolean includeFilter;
 	private final int[] excludeObjIds;
 	private final boolean excludeFilter;
+	private final int[] conUids;
+	private final boolean conFilter;
 
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcRedoMinerTask task,
 			final Triple<Long, RedoByteAddress, Long> startFrom,
 			final int[] includeObjIds,
 			final int[] excludeObjIds,
+			final int[] conUids,
 			final Map<Xid, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcRedoMinerMgmt metrics) throws SQLException {
@@ -130,6 +133,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			excludeFilter = false;
 		else
 			excludeFilter = true;
+		this.conUids = conUids;
+		if (conUids == null || conUids.length == 0)
+			conFilter = false;
+		else
+			conFilter = true;
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
@@ -215,6 +223,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (record == null) {
 							LOGGER.warn("Unexpected termination of redo records stream after RBA {}", lastGuaranteedRsId);
 							break;
+						}
+						if (conFilter && 
+								Arrays.binarySearch(conUids, record.conUid()) < 0) {
+							if (LOGGER.isDebugEnabled()) {
+								LOGGER.debug("Skipping RBA {} with CON_UID {}",
+										record.rba(), record.conUid());
+							}
+							continue;
 						}
 						if (LOGGER.isTraceEnabled()) {
 							LOGGER.trace(record.toString());

@@ -69,10 +69,13 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 
 			processStoredSchemas(metrics);
 
+			final int[] conUids;
 			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
+				conUids = rdbmsInfo.getConUidsArray(connDictionary);
 			} else {
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
+				conUids = null;
 			}
 			int[] includeObjIds = null;
 			if (includeList != null && includeList.size() > 0) {
@@ -110,6 +113,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 					rewind ? coords : new ImmutableTriple<>(coords.getLeft(), null, -1l),
 					includeObjIds,
 					excludeObjIds,
+					conUids,
 					activeTransactions,
 					committedTransactions,
 					metrics);
