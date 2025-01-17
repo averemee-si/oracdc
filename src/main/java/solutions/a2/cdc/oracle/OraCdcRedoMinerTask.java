@@ -36,6 +36,12 @@ import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraCdcSourceBaseConfig.TABLE_EXCLUDE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcSourceBaseConfig.TABLE_INCLUDE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.TABLE_LIST_STYLE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.TABLE_LIST_STYLE_STATIC;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.TABLE_LIST_STYLE_DYNAMIC;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -62,8 +68,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		try (Connection connDictionary = oraConnections.getConnection()) {
 			metrics = new OraCdcRedoMinerMgmt(rdbmsInfo, connectorName);
 
-			//TODO
-			staticObjIds = true;
+			staticObjIds = config.staticObjIds();
 			List<String> excludeList = config.excludeObj();
 			List<String> includeList = config.includeObj();
 
@@ -101,6 +106,19 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 				}
 				final String tableList = OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList);
 				checkTableSql += tableList;
+			}
+			if (staticObjIds &&
+					(includeObjIds == null || includeObjIds.length == 0)) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Parameter {} is set to '{}' (default value) and parameter {} is not set.\n" + 
+						"Set the desired value for parameter {} and, if desired, set parameter {},\n" +
+						"or set parameter {} to '{}'" +
+						"\n=====================\n",
+						TABLE_LIST_STYLE_PARAM, TABLE_LIST_STYLE_STATIC, TABLE_INCLUDE_PARAM,
+						TABLE_INCLUDE_PARAM, TABLE_EXCLUDE_PARAM,
+						TABLE_LIST_STYLE_PARAM, TABLE_LIST_STYLE_DYNAMIC);
+				throw new ConnectException("Check oracdc parameters!");
 			}
 			MutableTriple<Long, RedoByteAddress, Long> coords = new MutableTriple<>();
 			boolean rewind = startPosition(coords);

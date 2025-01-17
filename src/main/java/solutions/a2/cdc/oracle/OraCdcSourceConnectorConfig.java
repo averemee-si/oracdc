@@ -255,7 +255,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
 
 	static final String TABLE_LIST_STYLE_PARAM = "a2.table.list.style";
-	static final String TABLE_LIST_STYLE_DOC = "When set to 'static' (default) oracdc reads tables and partition list to process only at startup according to values of a2.include and a2.exclude parameters. When set to 'dynamic' oracdc builds list of objects to process on the fly";
+	private static final String TABLE_LIST_STYLE_DOC = "When set to 'static' (default) oracdc reads tables and partition list to process only at startup according to values of a2.include and a2.exclude parameters. When set to 'dynamic' oracdc builds list of objects to process on the fly";
 	static final String TABLE_LIST_STYLE_STATIC = "static";
 	static final String TABLE_LIST_STYLE_DYNAMIC = "dynamic";
 
