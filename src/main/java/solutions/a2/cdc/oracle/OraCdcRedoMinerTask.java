@@ -56,7 +56,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 	private String checkTableSql;
 	private OraCdcTransaction transaction;
 	private boolean lastStatementInTransaction = true;
-	private boolean staticObjIds;
 	private OraCdcDictionaryChecker checker;
 
 	@Override
@@ -68,7 +67,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		try (Connection connDictionary = oraConnections.getConnection()) {
 			metrics = new OraCdcRedoMinerMgmt(rdbmsInfo, connectorName);
 
-			staticObjIds = config.staticObjIds();
 			List<String> excludeList = config.excludeObj();
 			List<String> includeList = config.includeObj();
 
@@ -107,7 +105,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 				final String tableList = OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList);
 				checkTableSql += tableList;
 			}
-			if (staticObjIds &&
+			if (config.staticObjIds() &&
 					(includeObjIds == null || includeObjIds.length == 0)) {
 				LOGGER.error(
 						"\n=====================\n" +
@@ -125,13 +123,13 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			activeTransactions = new HashMap<>();
 			checker = new OraCdcDictionaryChecker(this,
 					tablesInProcessing, tablesOutOfScope, checkTableSql, metrics);
-			//TODO - we din't pass checker to worker thread (temporary!)
 			worker = new OraCdcRedoMinerWorkerThread(
 					this,
 					rewind ? coords : new ImmutableTriple<>(coords.getLeft(), null, -1l),
 					includeObjIds,
 					excludeObjIds,
 					conUids,
+					checker,
 					activeTransactions,
 					committedTransactions,
 					metrics);

@@ -104,6 +104,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final boolean excludeFilter;
 	private final int[] conUids;
 	private final boolean conFilter;
+	private final OraCdcDictionaryChecker checker;
 
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcRedoMinerTask task,
@@ -111,6 +112,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final int[] includeObjIds,
 			final int[] excludeObjIds,
 			final int[] conUids,
+			final OraCdcDictionaryChecker checker,
 			final Map<Xid, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcRedoMinerMgmt metrics) throws SQLException {
@@ -123,7 +125,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.metrics = metrics;
 		this.halfDone = new HashMap<>();
 		this.includeObjIds = includeObjIds;
-		this.staticObjIds = true;	//TODO - temporary!!!
+		this.staticObjIds = config.staticObjIds();
 		if (includeObjIds == null || includeObjIds.length == 0)
 			includeFilter = false;
 		else
@@ -138,6 +140,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			conFilter = false;
 		else
 			conFilter = true;
+		this.checker = checker;
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
@@ -296,13 +299,19 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 						} else if (record.has5_1() && record.has11_x()) {
-							if (includeFilter &&
-									Arrays.binarySearch(includeObjIds, record.change5_1().obj()) < 0) {
-								continue;
-							}
-							if (excludeFilter &&
-									Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1) {
-								continue;
+							if (staticObjIds) {
+								if (includeFilter &&
+										Arrays.binarySearch(includeObjIds, record.change5_1().obj()) < 0) {
+									continue;
+								}
+								if (excludeFilter &&
+										Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1) {
+									continue;
+								}
+							} else {
+								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId())) {
+									continue;
+								}
 							}
 							if (transaction == null) {
 								if (LOGGER.isDebugEnabled()) {
@@ -368,13 +377,19 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							}
 							continue;
 						} else if (record.hasPrb() && record.has11_x()) {
-							if (includeFilter &&
-									Arrays.binarySearch(includeObjIds, record.changePrb().obj()) < 0) {
-								continue;
-							}
-							if (excludeFilter &&
-									Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1) {
-								continue;
+							if (staticObjIds) {
+								if (includeFilter &&
+										Arrays.binarySearch(includeObjIds, record.changePrb().obj()) < 0) {
+									continue;
+								}
+								if (excludeFilter &&
+										Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1) {
+									continue;
+								}
+							} else {
+								if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId())) {
+									continue;
+								}
 							}
 							boolean suspiciousRecord = false;
 							if (transaction == null) {
@@ -447,15 +462,31 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					}
 				}
 			} catch (SQLException | IOException e) {
-				LOGGER.error(e.getMessage());
+				final StringBuilder sb = new StringBuilder(0x400);
+				sb.append("\n=====================\n");
+				sb
+					.append("Exception: ")
+					.append(e.getMessage());
 				if (e instanceof SQLException) {
 					SQLException sqle = (SQLException) e;
-					LOGGER.error("SQL errorCode = {}, SQL state = '{}'",
-							sqle.getErrorCode(), sqle.getSQLState());
+					sb
+						.append("\nSQL errorCode = ")
+						.append(sqle.getErrorCode())
+						.append(", SQL state = '")
+						.append(sqle.getSQLState())
+						.append("'");
 				}
-				LOGGER.error("Last read row information: SCN={}, RBA={}, SSN={}, XID={}",
-						lastScn, lastRba, lastSubScn, xid);
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+				sb
+					.append("\nLast read row information: SCN=")
+					.append(lastScn)
+					.append(", RBA=")
+					.append(lastRba.toString())
+					.append(", SUBSCN=")
+					.append(lastSubScn)
+					.append(", XID=")
+					.append(xid.toString())
+					.append("\n=====================\n");
+				LOGGER.error(sb.toString());
 				lastScn = lastGuaranteedScn;
 				lastRba = lastGuaranteedRsId;
 				lastSubScn = lastGuaranteedSsn;
@@ -631,7 +662,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				break;
 			case _11_3_DRP:
 				row.lmOp = DELETE;
-				//TODO Always one record? - need to check more!
 				row.complete = true;
 				break;
 			}
@@ -1121,7 +1151,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		final OraCdcRedoMinerStatement orm;
 		if (row.oppositeOrder)
 			orm = new OraCdcRedoMinerStatement(
-					first.redoLog().cdb() ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
+					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					row.lmOp, redoBytes,
 					last.unixMillis(), last.scn(), row.rba,
 					(long) last.subScn(),
@@ -1129,7 +1159,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					row.partialRollback);
 		else
 			orm = new OraCdcRedoMinerStatement(
-					first.redoLog().cdb() ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
+					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					row.lmOp, redoBytes,
 					first.unixMillis(), first.scn(), row.rba,
 					(long) first.subScn(),
@@ -1194,7 +1224,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					change.bdba(),
 					bu.getU16(record, coords[index][0] + 0x14 + row * Short.BYTES));
 			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
-					redoLog.cdb() ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
+					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					lmOp, baos.toByteArray(), rr.unixMillis(), rr.scn(), rr.rba(),
 					(long) rr.subScn(), rowId, false);
 			transaction.addStatement(orm);

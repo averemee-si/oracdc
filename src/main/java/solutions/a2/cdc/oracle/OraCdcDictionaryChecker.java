@@ -90,13 +90,6 @@ public class OraCdcDictionaryChecker {
 				(combinedDataObjectId >> 32)  & 0xFFFFFFFFL);
 	}
 
-	OraTable4LogMiner getTable(final long dataObjectId, final long conId) throws SQLException {
-		return getTable(
-				(conId << 32) | (dataObjectId & 0xFFFFFFFFL),
-				dataObjectId,
-				conId);
-	}
-
 	OraTable4LogMiner getTable(long combinedDataObjectId, final long dataObjectId, final long conId) throws SQLException {
 		OraTable4LogMiner oraTable = tablesInProcessing.get(combinedDataObjectId);
 		if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
@@ -272,5 +265,28 @@ public class OraCdcDictionaryChecker {
 				.append(")"));
 		sb.append("\n=====================\n");
 		LOGGER.error(sb.toString());
+	}
+
+	public boolean notNeeded(final int obj, final short conId) throws SQLException {
+		final long combinedDataObjectId = isCdb ?
+				(((long)conId) << 32) | ((long)obj & 0xFFFFFFFFL) :
+				obj;
+		if (tablesOutOfScope.contains(combinedDataObjectId)) {
+			return true;
+		} else {
+			if (tablesInProcessing.containsKey(combinedDataObjectId)) {
+				return false;
+			} else {
+				if (partitionsInProcessing.containsKey(combinedDataObjectId)) {
+					return false;
+				} else {
+					if (getTable(combinedDataObjectId, obj, conId) == null) {
+						return true;
+					} else {
+						return false;
+					}
+				}
+			}
+		}
 	}
 }
