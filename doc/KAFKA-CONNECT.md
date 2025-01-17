@@ -215,3 +215,5 @@ Default - *${connectorName}.seq*
 `a2.asm.password` - User password for connecting to Oracle ASM instance
 
 `a2.asm.read.ahead` - When set to true (the default), the connector reads data from the redo logs in advance, with chunks larger than the redo log file block size.
+
+`a2.asm.reconnect.ms` - The time interval in milleseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection. Default - 604,800,000 ms (one week)

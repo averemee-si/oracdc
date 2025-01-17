@@ -75,6 +75,10 @@ public class OraRedoMiner {
 	private boolean processOnlineRedo = false;
 	private final boolean asm;
 	private final OraCdcRedoLogFactory rlf;
+	private final long asmReconnectIntervalMs;
+	private final OraConnectionObjects oraConnections;
+	private long asmSessionStartMs = 0;
+	private final int backofMs;
 
 	public OraRedoMiner(
 			final Connection connection,
@@ -91,6 +95,7 @@ public class OraRedoMiner {
 		this.connectorName = config.getConnectorName();
 		this.asm = config.useAsm();
 		this.notifier = config.getLastProcessedSeqNotifier();
+		this.backofMs = config.connectionRetryBackoff();
 		if (notifier == null) {
 			useNotifier = false;
 		} else {
@@ -100,9 +105,12 @@ public class OraRedoMiner {
 		if (asm) {
 			rlf = new OraCdcRedoLogAsmFactory(oraConnections.getAsmConnection(config),
 					bu, true, config.asmReadAhead());
+			this.oraConnections = oraConnections;
 		} else {
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
+			this.oraConnections = null;
 		}
+		asmReconnectIntervalMs = config.asmReconnectIntervalMs();
 
 		processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
 		if (processOnlineRedoLogs) {
@@ -140,6 +148,10 @@ public class OraRedoMiner {
 				rdbmsInfo.getDbUniqueName(), rdbmsInfo.getOpenMode(), rdbmsInfo.getDbId(), firstChange);
 		// It's time to init JMS metrics...
 		metrics.start(firstChange);
+
+		if (asm) {
+			asmSessionStartMs = System.currentTimeMillis();
+		}
 	}
 
 	public void createStatements(final Connection connection) throws SQLException {
@@ -272,7 +284,54 @@ public class OraRedoMiner {
 		if (redoLogAvailable) {
 			metrics.setNowProcessed(List.of(currentRedoLog), firstChange, nextChange, lagSeconds);
 			try {
-				//TODO - addd here code to reconnect to ASM!
+				if (asm) {
+					final long asmElapsed = System.currentTimeMillis() - asmSessionStartMs;
+					if (asmElapsed > asmReconnectIntervalMs) {
+						if (LOGGER.isDebugEnabled()) {
+							LOGGER.debug("Recreating Oracle ASM connection after {} ms.", asmElapsed);
+						}
+						boolean done = false;
+						int attempt = 0;
+						final long reconnectStart = System.currentTimeMillis();
+						final OraCdcRedoLogAsmFactory rlaf = (OraCdcRedoLogAsmFactory) rlf;
+						SQLException lastException = null;
+						while (!done) {
+							if (attempt > Byte.MAX_VALUE)
+								break;
+							else
+								attempt++;
+							try {
+								rlaf.reset(oraConnections.getAsmConnection(config));
+								done = true;
+								asmSessionStartMs = System.currentTimeMillis();
+							} catch (SQLException sqle) {
+								lastException = sqle;
+								LOGGER.error(
+										"\n=====================\n" +
+										"Failed to reconnect (attempt #{}) to Oracle ASM due to '{}'.\nSQL Error Code = {}, SQL State = '{}'" +
+										"oarcdc will try again to reconnect in {} ms." + 
+										"\n=====================\n",
+										attempt, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(), backofMs);
+								try {Thread.sleep(backofMs);} catch (InterruptedException ie) {}
+							}
+						}
+						if (!done) {
+							LOGGER.error(
+									"\n=====================\n" +
+									"Failed to reconnect to Oracle ASM after {} attempts in {} ms." +
+									"\n=====================\n",
+									attempt, (System.currentTimeMillis() - reconnectStart));
+							if (lastException != null)
+								throw new SQLException(lastException);
+							else
+								throw new SQLException("Unable to reconnect to Oracle ASM!");
+						} else {
+							LOGGER.info(
+									"Reconnection to Oracle ASM completed in {} ms.",
+									(System.currentTimeMillis() - reconnectStart));
+						}
+					}
+				}
 				redoLog = rlf.get(
 						asm ? currentRedoLog : config.convertRedoFileName(currentRedoLog),
 						blockSize, blocks);

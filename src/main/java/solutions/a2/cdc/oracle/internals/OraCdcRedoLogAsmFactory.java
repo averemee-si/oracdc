@@ -62,6 +62,7 @@ public class OraCdcRedoLogAsmFactory implements OraCdcRedoLogFactory {
 	private final BinaryUtils bu;
 	private final boolean valCheckSum;
 	private final boolean readAhead;
+	private Connection connection;
 	private OracleCallableStatement open;
 	private OracleCallableStatement read;
 	private OracleCallableStatement close;
@@ -132,11 +133,17 @@ public class OraCdcRedoLogAsmFactory implements OraCdcRedoLogFactory {
 									printCloseWarningMessage("close file handle", sqle);}
 			close = null;
 		}
+		if (this.connection != null) {
+			try {this.connection.close();} catch (SQLException sqle) {
+									printCloseWarningMessage("close ASM connection", sqle);}
+			this.connection = null;
+		}
+		this.connection = connection;
+
 		open = (OracleCallableStatement) connection.prepareCall(ASM_OPEN);
 		read = (OracleCallableStatement) connection.prepareCall(ASM_READ);
 		close = (OracleCallableStatement) connection.prepareCall(ASM_CLOSE);
 	}
-
 
 	private void printCloseWarningMessage(final String blockName, final SQLException sqle) {
 		LOGGER.warn(
