@@ -116,8 +116,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
-
-		this.logMinerReconnectIntervalMs = config.getLong(ParamConstants.LM_RECONNECT_INTERVAL_MS_PARAM);
+		this.logMinerReconnectIntervalMs = config.logMinerReconnectIntervalMs();
 
 		try {
 			connLogMiner = oraConnections.getLogMinerConnection(traceSession);

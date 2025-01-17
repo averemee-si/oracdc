@@ -259,6 +259,12 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	static final String TABLE_LIST_STYLE_STATIC = "static";
 	static final String TABLE_LIST_STYLE_DYNAMIC = "dynamic";
 
+	private static final String LM_RECONNECT_INTERVAL_MS_PARAM = "a2.log.miner.reconnect.ms";
+	private static final String LM_RECONNECT_INTERVAL_MS_DOC =
+			"The time interval in milleseconds after which a reconnection to LogMiner occurs, including the re-creation of the Oracle connection.\n" +
+			"Unix/Linux only, on Windows oracdc creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called.\n" +
+			"Default - Long.MAX_VALUE";
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int pkType = -1;
@@ -375,8 +381,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, INCOMPLETE_REDO_TOLERANCE_DOC)
 				.define(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM, Type.BOOLEAN, true,
 						Importance.LOW, ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_DOC)
-				.define(ParamConstants.LM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, Long.MAX_VALUE,
-						Importance.LOW, ParamConstants.LM_RECONNECT_INTERVAL_MS_DOC)
+				.define(LM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, Long.MAX_VALUE,
+						Importance.LOW, LM_RECONNECT_INTERVAL_MS_DOC)
 				.define(PK_TYPE_PARAM, Type.STRING,
 						PK_TYPE_WELL_DEFINED,
 						ConfigDef.ValidString.in(
@@ -932,17 +938,21 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		return LGMNR_START_SCN_PARAM;
 	}
 
+	public boolean staticObjIds() {
+		return StringUtils.equalsIgnoreCase(
+				TABLE_LIST_STYLE_STATIC, getString(TABLE_LIST_STYLE_PARAM));
+	}
+
+	public long logMinerReconnectIntervalMs() {
+		return getLong(LM_RECONNECT_INTERVAL_MS_PARAM);
+	}
+
 	public boolean logMiner() {
 		return logMiner;
 	}
 
 	public void logMiner(final boolean logMiner) {
 		this.logMiner = logMiner;
-	}
-
-	public boolean staticObjIds() {
-		return StringUtils.equalsIgnoreCase(
-				TABLE_LIST_STYLE_STATIC, getString(TABLE_LIST_STYLE_PARAM));
 	}
 
 	public String convertRedoFileName(final String originalName) {

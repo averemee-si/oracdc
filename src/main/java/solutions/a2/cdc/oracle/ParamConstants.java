@@ -106,10 +106,4 @@ public class ParamConstants {
 			"If set to true oracdc prints detailed information about SCN ranges when working with the online log every time interval specified by the a2.scn.query.interval.ms parameter.\n" +
 			"If set to false oracdc prints information about current online redo only when SEQUENCE# is changed.";
 
-	public static final String LM_RECONNECT_INTERVAL_MS_PARAM = "a2.log.miner.reconnect.ms";
-	public static final String LM_RECONNECT_INTERVAL_MS_DOC =
-			"The time interval in milleseconds after which a reconnection to LogMiner occurs, including the re-creation of the Oracle connection.\n" +
-			"Unix/Linux only, on Windows oracdc creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called.\n" +
-			"Default - Long.MAX_VALUE";
-
 }
