@@ -312,7 +312,8 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		if (activeTransactions != null && !activeTransactions.isEmpty()) {
 			// Clean it!
 			activeTransactions.forEach((name, transaction) -> {
-				LOGGER.warn("Removing uncompleted transaction {}", name);
+				LOGGER.warn("Removing uncompleted transaction {} with size {}, first SCN {}",
+						name, transaction.size(), transaction.getFirstChange());
 				transaction.close();
 			});
 		}
