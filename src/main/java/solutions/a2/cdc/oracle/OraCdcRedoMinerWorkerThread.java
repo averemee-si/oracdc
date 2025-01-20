@@ -326,7 +326,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 												"\n=====================\n" +
 												"'{}' while initializing Chronicle Queue.\n" +
 												"\tREF. https://github.com/OpenHFT/Chronicle-Queue/issues/1446\n" +
-												"Please send errorstack below to oracle@a2-solutions.eu\n{}\n" +
+												"Please send errorstack below to oracle@a2.solutions\n{}\n" +
 												"=====================\n",
 												cqe.getMessage(), ExceptionUtils.getExceptionStackTrace(cqe));
 										throw new ConnectException(cqe);
@@ -334,7 +334,17 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								} else {
 									transaction = new OraCdcTransactionArrayList(xid.toString());
 								}
-								activeTransactions.put(xid, transaction);
+								final OraCdcTransaction duplicateXid = activeTransactions.put(xid, transaction);
+								if (duplicateXid != null) {
+									
+									LOGGER.error(
+											"\n=====================\n" +
+											"Duplicate hash value for '{}' and '{}'!\n" +
+											"Please send this message to oracle@a2.solutions" +
+											"\n=====================\n",
+											xid.toString(), duplicateXid.getXid());
+									throw new ConnectException("Duplicate XID/hash function error!");
+								}
 								createTransactionPrefix(xid, lastRba);
 								sortedByFirstScn.put(xid,
 											Triple.of(lastScn, lastRba, lastSubScn));
@@ -408,7 +418,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 										"\n=====================\n\n" +
 										"The transaction with XID='{}' starts with with the record with PARTIAL ROLLBACK flagset to true!\n" +
 										"SCN={}, RBA={}, redo Record details:\n{}\n" +
-										"If you have questions or need more information, please write to us at oracle@a2-solutions.eu\n\n" +
+										"If you have questions or need more information, please write to us at oracle@a2.solutions\n\n" +
 										"\n=====================\n",
 										xid, lastScn, lastRba, record.toString());
 							} else {
@@ -901,7 +911,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					LOGGER.error(
 							"\nPlease send message above along with the resulting dump of command execution\n\n" +
 							"alter system dump logfile '{}' scn min {} scn max {};\n\n" +
-							"to oracle@a2-solutions.eu" +
+							"to oracle@a2.solutions" +
 							"\n=====================\n",
 							first.redoLog().fileName(), first.scn(), row.last().scn());
 					return;
