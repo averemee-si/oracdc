@@ -56,6 +56,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	long lastScn;
 	RedoByteAddress lastRba;
 	long lastSubScn;
+	private final int concTransThreshold;
 
 	public OraCdcWorkerThreadBase(final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceConnectorConfig config,
@@ -82,6 +83,8 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		this.committedTransactions = committedTransactions;
 		this.isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		this.pollInterval = config.pollIntervalMs();
+		this.concTransThreshold = config.transactionsThreshold();
+		LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 	}
 
 	public boolean isRunning() {
@@ -112,9 +115,28 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 
 	abstract void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSubScn) throws SQLException;
 
-	OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString) {
+	OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString, int inProgress) {
 		int attempt = 0;
-		final long createQueueStart = System.currentTimeMillis();
+		long start = System.currentTimeMillis();
+		while (true) {
+			if (attempt > Byte.MAX_VALUE) {
+				break;
+			} else
+				attempt++;
+			int readyToSend = committedTransactions.size();
+			if ((readyToSend + inProgress) > concTransThreshold && readyToSend > 0) {
+				try {
+					LOGGER.info(
+							"Currently {} transactions are ready to send and {} are in the process of reading from RDBMS. Wait {}ms to reduce the load on the system",
+							readyToSend, inProgress, backofMs);
+					Thread.sleep(backofMs);
+				} catch (InterruptedException ie) {}
+			} else {
+				break;
+			}
+		}
+		start = System.currentTimeMillis();
+		attempt = 0;
 		Exception lastException = null;
 		while (true) {
 			if (attempt > Byte.MAX_VALUE)
@@ -151,7 +173,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 					"\n=====================\n" +
 					"Failed to reconnect to create Chronicle Queue after {} attempts in {} ms.\n{}" +
 					"\n=====================\n",
-					attempt, (System.currentTimeMillis() - createQueueStart),
+					attempt, (System.currentTimeMillis() - start),
 					lastException != null ? ExceptionUtils.getExceptionStackTrace(lastException) : "");
 		if (lastException != null)
 			throw new ConnectException(lastException);

@@ -437,7 +437,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 													xid, timestamp, lastScn);
 										}
 										if (useChronicleQueue) {
-											transaction = getChronicleQueue(xid);
+											transaction = getChronicleQueue(xid, activeTransactions.size());
 										} else {
 											transaction = new OraCdcTransactionArrayList(xid);
 										}

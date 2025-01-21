@@ -15,6 +15,7 @@ package solutions.a2.cdc.oracle;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.FileSystems;
@@ -264,6 +265,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			"The time interval in milleseconds after which a reconnection to LogMiner occurs, including the re-creation of the Oracle connection.\n" +
 			"Unix/Linux only, on Windows oracdc creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called.\n" +
 			"Default - Long.MAX_VALUE";
+	private static final String CONC_TRANSACTIONS_THRESHOLD_PARAM = "a2.transactions.threshold";
+	private static final String CONC_TRANSACTIONS_THRESHOLD_DOC = "Maximum threshold of simultaneously processed (both in the process of reading from the database and in the process of sending) transactions in the connector on Linux systems. When not specified (0, default) value is calculated as (vm.max_map_count/16) *7";
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
@@ -443,6 +446,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, LAST_SEQ_NOTIFIER_FILE_DOC)
 				.define(KEY_OVERRIDE_PARAM, Type.LIST, "",
 						Importance.MEDIUM, KEY_OVERRIDE_DOC)
+				.define(CONC_TRANSACTIONS_THRESHOLD_PARAM, Type.INT, 0,
+						Importance.LOW, CONC_TRANSACTIONS_THRESHOLD_DOC)
 				// Redo Miner only!
 				.define(REDO_FILE_NAME_CONVERT_PARAM, Type.STRING, "",
 						Importance.HIGH, REDO_FILE_NAME_CONVERT_DOC)
@@ -953,6 +958,30 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public long logMinerReconnectIntervalMs() {
 		return getLong(LM_RECONNECT_INTERVAL_MS_PARAM);
+	}
+
+	public int transactionsThreshold() {
+		int threshold = getInt(CONC_TRANSACTIONS_THRESHOLD_PARAM);
+		boolean isLinux = StringUtils.containsIgnoreCase(System.getProperty("os.name"), "nux");
+		if (threshold > 0) {
+			return threshold;
+		} else if (isLinux) {
+			int maxMapCount = 0x10000;
+			try (InputStream is = Files.newInputStream(Path.of("/proc/sys/vm/max_map_count"))) {
+				final byte[] buffer = new byte[0x10];
+				final int size = is.read(buffer, 0, buffer.length);
+				maxMapCount = Integer.parseInt(StringUtils.trim(new String(buffer, 0, size)));
+			} catch (IOException | NumberFormatException e) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to read and parse value of vm.max_map_count from  '/proc/sys/vm/max_map_count'!\nException:{}\n{}" +
+						"\n=====================\n",
+						e.getMessage(), ExceptionUtils.getExceptionStackTrace(e));
+			}
+			return ((int)(maxMapCount / 0x10)) * 0x7;
+		} else {
+			return 0x7000;
+		}
 	}
 
 	public boolean logMiner() {

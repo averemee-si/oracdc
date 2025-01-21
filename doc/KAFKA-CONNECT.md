@@ -180,6 +180,8 @@ Default - *<EMPTY_STRING>*
 `a2.last.sequence.notifier.file` - The name of the file in which the last processed number will be written.
 Default - *${connectorName}.seq*
 
+`a2.transactions.threshold` - Maximum threshold of simultaneously processed (both in the process of reading from the database and in the process of sending) transactions in the connector on Linux systems. When not specified (0, default) value is calculated as (vm.max_map_count/16) * 7 for Linux or default to 0x7000 on other platforms.
+
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 

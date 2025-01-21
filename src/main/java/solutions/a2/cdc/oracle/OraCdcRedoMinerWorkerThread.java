@@ -318,7 +318,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 											xid, Instant.ofEpochMilli(record.unixMillis()), lastScn);
 								}
 								if (useChronicleQueue) {
-									transaction = getChronicleQueue(xid.toString());
+									transaction = getChronicleQueue(xid.toString(), activeTransactions.size());
 								} else {
 									transaction = new OraCdcTransactionArrayList(xid.toString());
 								}
