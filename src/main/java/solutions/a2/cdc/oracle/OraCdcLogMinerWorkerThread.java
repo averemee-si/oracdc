@@ -437,18 +437,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 													xid, timestamp, lastScn);
 										}
 										if (useChronicleQueue) {
-											try {
-												transaction = new OraCdcTransactionChronicleQueue(processLobs, queuesRoot, xid);
-											} catch (Exception cqe) {
-												LOGGER.error(
-														"\n=====================\n" +
-														"'{}' while initializing Chronicle Queue.\n" +
-														"\tThis might be issue https://github.com/OpenHFT/Chronicle-Queue/issues/1446 or you don't have enough open files limit.\n" +
-														"Please send errorstack below to oracle@a2-solutions.eu\n{}\n" +
-														"=====================\n",
-														cqe.getMessage(), ExceptionUtils.getExceptionStackTrace(cqe));
-												throw new ConnectException(cqe);
-											}
+											transaction = getChronicleQueue(xid);
 										} else {
 											transaction = new OraCdcTransactionArrayList(xid);
 										}

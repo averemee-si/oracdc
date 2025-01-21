@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
@@ -319,18 +320,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 											xid, Instant.ofEpochMilli(record.unixMillis()), lastScn);
 								}
 								if (useChronicleQueue) {
-									try {
-										transaction = new OraCdcTransactionChronicleQueue(processLobs, queuesRoot, xid.toString());
-									} catch (Exception cqe) {
-										LOGGER.error(
-												"\n=====================\n" +
-												"'{}' while initializing Chronicle Queue.\n" +
-												"\tREF. https://github.com/OpenHFT/Chronicle-Queue/issues/1446\n" +
-												"Please send errorstack below to oracle@a2.solutions\n{}\n" +
-												"=====================\n",
-												cqe.getMessage(), ExceptionUtils.getExceptionStackTrace(cqe));
-										throw new ConnectException(cqe);
-									}
+									transaction = getChronicleQueue(xid.toString());
 								} else {
 									transaction = new OraCdcTransactionArrayList(xid.toString());
 								}
