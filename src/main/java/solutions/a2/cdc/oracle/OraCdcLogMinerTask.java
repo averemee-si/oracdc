@@ -64,6 +64,11 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 	private OraCdcInitialLoad initialLoadMetrics;
 	private OraCdcDictionaryChecker checker;
 
+	private final List<SourceRecord> result = new ArrayList<>();
+	private final OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
+	private final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
+
+
 	@Override
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc logminer source task for connector {}.", connectorName);
@@ -310,7 +315,10 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 			return null;
 		}
 		isPollRunning.set(true);
-		List<SourceRecord> result = new ArrayList<>();
+		result.clear();
+		if (processLobs) {
+			lobs.clear();
+		}
 		if (execInitialLoad) {
 			// Execute initial load...
 			if (!initialLoadWorker.isRunning() && tablesQueue.isEmpty() && table4InitialLoad == null) {
@@ -358,8 +366,6 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 		} else {
 			// Load data from archived redo...
 			try (Connection connDictionary = oraConnections.getConnection()) {
-				final OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
-				final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
 				int recordCount = 0;
 				int parseTime = 0;
 				while (recordCount < batchSize) {

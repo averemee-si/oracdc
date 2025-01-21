@@ -58,6 +58,10 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 	private boolean lastStatementInTransaction = true;
 	private OraCdcDictionaryChecker checker;
 
+	private final List<SourceRecord> result = new ArrayList<>();
+	private final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
+	private final OraCdcRedoMinerStatement stmt = new OraCdcRedoMinerStatement();
+
 	@Override
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc Redo Miner source task for connector {}.", connectorName);
@@ -155,11 +159,12 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			return null;
 		}
 		isPollRunning.set(true);
-		List<SourceRecord> result = new ArrayList<>();
+		result.clear();
+		if (processLobs) {
+			lobs.clear();
+		}
 			// Load data from archived redo...
 			try (Connection connDictionary = oraConnections.getConnection()) {
-				final OraCdcRedoMinerStatement stmt = new OraCdcRedoMinerStatement();
-				final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
 				int recordCount = 0;
 				int parseTime = 0;
 				while (recordCount < batchSize) {
