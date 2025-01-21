@@ -131,7 +131,10 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 						StringUtils.containsIgnoreCase(cqe.getCause().getMessage(), "many") &&
 						StringUtils.containsIgnoreCase(cqe.getCause().getMessage(), "open") &&
 						StringUtils.containsIgnoreCase(cqe.getCause().getMessage(), "files")) {
-					try {Thread.sleep(backofMs);} catch (InterruptedException ie) {}
+					try {
+						LOGGER.info("Wait {}ms until OS resources become available to create a Chronicle Queue", backofMs);
+						Thread.sleep(backofMs);
+					} catch (InterruptedException ie) {}
 				} else {
 					LOGGER.error(
 							"\n=====================\n" +
