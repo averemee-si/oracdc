@@ -273,15 +273,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							} else {
 								if (rollback) {
-									metrics.addRolledBackRecords(transaction.length(), transaction.size(),
-											activeTransactions.size() - 1);
 									transaction.close();
 									transaction = null;
 								} else {
 									transaction.setCommitScn(lastScn);
 									committedTransactions.add(transaction);
-									metrics.addCommittedRecords(transaction.length(), transaction.size(),
-											committedTransactions.size(), activeTransactions.size());
 								}
 								activeTransactions.remove(xid);
 								prefixedTransactions.remove(xid.partial());
@@ -291,12 +287,19 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								} else {
 									firstTransaction = true;
 								}
+								if (rollback)
+									metrics.addRolledBackRecords(transaction.length(), transaction.size(),
+											activeTransactions.size());
+								else
+									metrics.addCommittedRecords(transaction.length(), transaction.size(),
+											committedTransactions.size(), activeTransactions.size());
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Performing {} at SCN={}, RBA={} for transaction XID {}",
 											rollback ? "ROLLBACK" : "COMMIT",
 											lastScn, lastRba, xid);
 								}
 							}
+							continue;
 						} else if (record.has5_1() && record.has11_x()) {
 							if (staticObjIds) {
 								if (includeFilter &&
