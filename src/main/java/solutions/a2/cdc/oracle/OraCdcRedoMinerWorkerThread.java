@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
@@ -47,7 +46,6 @@ import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.BinaryUtils;
-import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
