@@ -369,18 +369,32 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Closing Cronicle Queue and deleting memory-mapped files for transaction {}.", getXid());
 		}
+		if (tailer != null) {
+			tailer.close();
+			tailer = null;
+		}
+		if (appender != null) {
+			appender.close();
+			appender = null;
+		}
 		if (processLobs) {
 			if (lobs != null) {
+				if (lobsTailer != null) {
+					lobsTailer.close();
+					lobsTailer = null;
+				}
+				if (lobsAppender != null) {
+					lobsAppender.close();
+					lobsAppender = null;
+				}
 				lobs.close();
+				lobs = null;
 			}
-			lobs = null;
+			deleteDir(lobsQueueDirectory);
 		}
 		if (statements != null) {
 			statements.close();
-		}
-		statements = null;
-		if (processLobs) {
-			deleteDir(lobsQueueDirectory);
+			statements = null;
 		}
 		deleteDir(queueDirectory);
 	}
