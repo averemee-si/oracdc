@@ -1366,4 +1366,7 @@ public class OraCdcChange {
 		return flags;
 	}
 
+	public long scn() {
+		return scn;
+	}
 }
