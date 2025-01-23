@@ -53,8 +53,6 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 	private String stateFileName;
 	private OraCdcLogMinerMgmt metrics;
 	private Map<String, OraCdcTransaction> activeTransactions;
-	private OraCdcTransaction transaction;
-	private boolean lastStatementInTransaction = true;
 	private boolean execInitialLoad = false;
 	private String initialLoadStatus = ParamConstants.INITIAL_LOAD_IGNORE;
 	private OraCdcInitialLoadThread initialLoadWorker;
@@ -62,11 +60,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 	private OraTable4InitialLoad table4InitialLoad;
 	private boolean lastRecordInTable = true;
 	private OraCdcInitialLoad initialLoadMetrics;
-	private OraCdcDictionaryChecker checker;
-
-	private final List<SourceRecord> result = new ArrayList<>();
 	private final OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
-	private final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
 
 
 	@Override

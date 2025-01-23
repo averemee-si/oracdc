@@ -16,6 +16,7 @@ package solutions.a2.cdc.oracle;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +34,7 @@ import org.apache.commons.lang3.tuple.MutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
+import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +74,12 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	Map<Long, OraTable4LogMiner> tablesInProcessing;
 	Set<Long> tablesOutOfScope;
 	BlockingQueue<OraCdcTransaction> committedTransactions;
+	OraCdcTransaction transaction;
 	OraCdcWorkerThreadBase worker;
+	OraCdcDictionaryChecker checker;
+	boolean lastStatementInTransaction = true;
+	final List<SourceRecord> result = new ArrayList<>();
+	final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
 
 	long lastProcessedCommitScn = 0;
 	long lastInProgressCommitScn = 0;
