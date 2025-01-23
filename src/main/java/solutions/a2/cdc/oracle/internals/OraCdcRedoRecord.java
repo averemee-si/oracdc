@@ -13,6 +13,7 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCODRW;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_1_RDB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_2_RDH;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_4_RCM;
@@ -20,10 +21,6 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_6_IRB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_11_BRB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_19_TSL;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_20_TSC;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_2_LIN;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_4_LDE;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_8_LNE;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_18_LUP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_4_LKR;
@@ -89,7 +86,6 @@ public class OraCdcRedoRecord {
 	private final int ts;
 	private final RedoByteAddress rba;
 	private final int conUid;
-	private boolean eligible;
 	private final List<OraCdcChange> changeVectors;
 	private int indKTURDB = -1;
 	private int indKTURCM = -1;
@@ -122,10 +118,7 @@ public class OraCdcRedoRecord {
 		}
 	
 		int offset = redoLog.recordHeaderSize();
-		short prevOperation = -1;
-		OraCdcChange prevChange = null;
 		short changeNo = 1;
-		eligible = false;
 		while (offset < len) {
 			final byte layer = record[offset + 0x00];
 			final short operation = (short)(
@@ -137,38 +130,23 @@ public class OraCdcRedoRecord {
 				supplementalLogData = ((OraCdcChangeUndoBlock)change).supplementalLogData;
 				supplementalFb = ((OraCdcChangeUndoBlock)change).supplementalFb;
 				indKTURDB = changeNo - 1;
-				if (!eligible) {
-					eligible = true;
-				}
 				break;
 			case _5_2_RDH:
 				change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
-				if (!eligible) {
-					eligible = true;
-				}
 				break;
 			case _5_4_RCM:
 				change = new OraCdcChangeRcm(changeNo, this, operation, record, offset, changeHeaderLen);
 				indKTURCM = changeNo - 1;
-				if (!eligible) {
-					eligible = true;
-				}
 				break;
 			case _5_6_IRB:
 			case _5_11_BRB:
 				change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
 				indKTUIRB = changeNo - 1;
-				if (!eligible) {
-					eligible = true;
-				}
 				break;
 			case _5_19_TSL:
 			case _5_20_TSC:
 				change = new OraCdcChangeAudit(changeNo, this, operation, record, offset, changeHeaderLen);
 				indKTUTSL = changeNo - 1;
-				if (!eligible) {
-					eligible = true;
-				}
 				break;
 			case _11_2_IRP:
 			case _11_3_DRP:
@@ -183,55 +161,30 @@ public class OraCdcRedoRecord {
 			case _11_22_CMP:
 				change = new OraCdcChangeRowOp(changeNo, this, operation, record, offset, changeHeaderLen);
 				indKCOCODRW = changeNo - 1;
-				if (!eligible) {
-					eligible = true;
-				}
 				break;
 			case _11_17_LLB:
 				change = new OraCdcChangeLlb(changeNo, this, operation, record, offset, changeHeaderLen);
-				if (!eligible) {
-					eligible = true;
-				}
 				break;
 			case _24_1_DDL:
 				change = new OraCdcChangeDdl(changeNo, this, operation, record, offset, changeHeaderLen);
 				if (((OraCdcChangeDdl)change).valid()) {
 					indDDL = changeNo - 1;
-					if (!eligible) {
-						eligible = true;
-					}
 				}
 				break;
 			case _26_2_REDO:
 			case _26_6_BIMG:
 				change = new OraCdcChangeLobs(changeNo, this, operation, record, offset, changeHeaderLen);
-				if (!eligible) {
-					eligible = true;
-				}
 				break;
 			default:
 				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
 			}
 			changeVectors.add(change);
-			if (prevOperation == _5_1_RDB) {
-				if (layer == OraCdcChange.KCOCODRW) {
-					change.dataObj = prevChange.dataObj;
-					change.obj = prevChange.obj;
-				}
-				//TODO more ops?
-			}
-			//TODO - require rewriting to filter only really REQUIRED changes!!!
-			if (eligible && prevOperation == _5_1_RDB && (
-					change.operation == _10_2_LIN ||
-					change.operation == _10_4_LDE ||
-					change.operation == _10_8_LNE ||
-					change.operation == _10_18_LUP)) {
-				eligible = false;
+			if (has5_1() && layer == KCOCODRW) {
+				change.dataObj = change5_1().dataObj;
+				change.obj = change5_1().obj;
 			}
 			changeNo++;
 			offset += change.length;
-			prevOperation = operation;
-			prevChange = change;
 		}
 	}
 
@@ -358,10 +311,6 @@ public class OraCdcRedoRecord {
 		} else {
 			return RowId.ZERO;
 		}
-	}
-
-	boolean eligible() {
-		return eligible;
 	}
 
 	public long scn() {

@@ -642,11 +642,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 					bytesRemaining = 0;
 					bytesCopied = 0;
 					if (createRedoRecord) {
-						if (eligibilityTest()) {
-							return preParse4Iterator();
-						} else {
-							createRedoRecord = false;
-						}
+						return preParse4Iterator();
 					}
 				}
 			}
@@ -699,11 +695,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 						}
 					}
 					if (createRedoRecord) {
-						if (eligibilityTest()) {
-							return preParse4Iterator();
-						} else {
-							createRedoRecord = false;
-						}
+						return preParse4Iterator();
 					}
 				}
 			}
@@ -722,7 +714,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		}
 	}
 
-	private boolean eligibilityTest() {
+	private boolean preParse4Iterator() {
 		if ((recordBytes[0x04] & OraCdcRedoRecord.KCRDEPND) != 0) {
 			recordHeaderSize = 0x44;
 			recordTimestamp = bu.getU32(recordBytes, 0x40);
@@ -731,16 +723,6 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		}
 		recordScn = bu.getScn4Record(recordBytes, 0x06);
 		redoRecord = new OraCdcRedoRecord(this, recordScn);
-		if (redoRecord.eligible()) {
-			return true;
-		} else {
-			redoRecord = null;
-			recordBytes = null;
-			return false;
-		}
-	}
-
-	private boolean preParse4Iterator() {
 		lastStatus = true;
 		if (iteratorLimits) {
 			if (limitedByScn) {
