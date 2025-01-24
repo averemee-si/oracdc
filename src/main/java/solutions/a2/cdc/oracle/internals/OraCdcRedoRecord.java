@@ -34,6 +34,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_17_LLB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_22_CMP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_1_DDL;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_4_MISC;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_6_BIMG;
 
@@ -170,6 +171,9 @@ public class OraCdcRedoRecord {
 				if (((OraCdcChangeDdl)change).valid()) {
 					indDDL = changeNo - 1;
 				}
+				break;
+			case _24_4_MISC:
+				change = new OraCdcChangeKrvMisc(changeNo, this, operation, record, offset, changeHeaderLen);
 				break;
 			case _26_2_REDO:
 			case _26_6_BIMG:

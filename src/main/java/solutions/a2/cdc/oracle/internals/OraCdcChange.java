@@ -118,6 +118,8 @@ public class OraCdcChange {
 	public static final byte KCOCOKRV = 0x18;
 	/** KRVDDL: common portion of the ddl */
 	public static final short _24_1_DDL = 0x1801;
+	/** KRVMISC:  misc TX info */
+	public static final short _24_4_MISC = 0x1804;
 
 	//TODO
 	//TODO
