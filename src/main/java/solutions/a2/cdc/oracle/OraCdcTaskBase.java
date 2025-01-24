@@ -306,18 +306,14 @@ public abstract class OraCdcTaskBase extends SourceTask {
 					try {
 						LOGGER.debug("Waiting {} ms for worker thread to stop...", WAIT_FOR_WORKER_MILLIS);
 						Thread.sleep(WAIT_FOR_WORKER_MILLIS);
-					} catch (InterruptedException e) {
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-					}
+					} catch (InterruptedException e) {}
 				}
 			} else {
 				while (isPollRunning.get()) {
 					try {
 						LOGGER.debug("Waiting {} ms for connector task to stop...", WAIT_FOR_WORKER_MILLIS);
 						Thread.sleep(WAIT_FOR_WORKER_MILLIS);
-					} catch (InterruptedException e) {
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-					}
+					} catch (InterruptedException e) {}
 				}
 			}
 		}
