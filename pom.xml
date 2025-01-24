@@ -69,7 +69,7 @@
 		<commons.lang3.version>3.17.0</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<commons.cli.version>1.9.0</commons.cli.version>
-		<chronicle.queue.version>5.23.37</chronicle.queue.version>
+		<chronicle.queue.version>5.25ea17</chronicle.queue.version>
 		<chronicle.affinity.version>3.23.3</chronicle.affinity.version>
 		<ora.jdbc.version>21.15.0.0</ora.jdbc.version>
 		<pg.jdbc.version>42.7.4</pg.jdbc.version>

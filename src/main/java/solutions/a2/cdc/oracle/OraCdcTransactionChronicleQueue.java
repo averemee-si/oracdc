@@ -19,6 +19,8 @@ import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -69,6 +71,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	private ChronicleQueue lobs;
 	private ExcerptAppender lobsAppender;
 	private ExcerptTailer lobsTailer;
+	private long lastIndexAppended;
 
 	/**
 	 * 
@@ -122,8 +125,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 				LOGGER.error(CQ_ISSUE_1446_MSG, lastException.getMessage());
 				throw lastException;
 			}
-			tailer = statements.createTailer();
-			appender = statements.acquireAppender();
+			appender = statements.createAppender();
 			queueSize = 0;
 			tailerOffset = 0;
 			if (processLobs) {
@@ -150,7 +152,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 					throw lastException;
 				}
 				lobsTailer = lobs.createTailer();
-				lobsAppender = lobs.acquireAppender();
+				lobsAppender = lobs.createAppender();
 			}
 		} catch (Exception e) {
 			LOGGER.error("Unable to create Chronicle Queue!");
@@ -218,7 +220,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 			}
 		} else {
 			// Step I
-			reverse.moveToIndex(appender.lastIndexAppended());
+			reverse.moveToIndex(lastIndexAppended);
 			int i= 0;
 			final PartialRollbackEntry[] nonRollback = new PartialRollbackEntry[this.queueSize - rollbackEntriesList.size()];
 			do {
@@ -497,6 +499,20 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	@Override
 	public long size() {
 		return transSize;
+	}
+
+	@Override
+	public void setCommitScn(long commitScn) {
+		lastIndexAppended = appender.lastIndexAppended();
+		appender.close();
+		appender = null;
+		tailer = statements.createTailer();		
+		super.setCommitScn(commitScn);
+	}
+
+	@Override
+	public void setCommitScn(long commitScn, OraCdcPseudoColumnsProcessor pseudoColumns, ResultSet resultSet) throws SQLException {
+		super.setCommitScn(commitScn, pseudoColumns, resultSet);
 	}
 
 }
