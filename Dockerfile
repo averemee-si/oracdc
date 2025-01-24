@@ -14,7 +14,7 @@
 ARG    CONFLUENT_VERSION=7.7.1
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
 
-FROM   eclipse-temurin:17-jdk AS build-sr-client
+FROM   eclipse-temurin:21-jdk AS build-sr-client
 RUN    set -eux && apt-get --yes install wget 
 
 # Add schema registry dependencies
@@ -226,7 +226,7 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && cd / && rm -rf WORKDIR
 
 
-FROM   eclipse-temurin:17-jre
+FROM   eclipse-temurin:21-jre
 LABEL  maintainer="oracle@a2-solutions.eu"
 LABEL  vendor="A2 Rešitve d.o.o."
 LABEL  version="2.6.0"
