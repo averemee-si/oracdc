@@ -365,7 +365,7 @@ public class OraCdcRedoRecord {
 				.append(Integer.toUnsignedString(conUid));
 		}
 		sb
-			.append("\nSCN: ")
+			.append("\nSCN: 0x")
 			.append(FormattingUtils.leftPad(scn, 0x10))
 			.append(" SUBSCN: ")
 			.append(Short.toUnsignedInt(subScn));
