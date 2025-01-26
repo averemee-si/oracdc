@@ -273,9 +273,19 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							} else {
 								if (rollback) {
+									if (LOGGER.isDebugEnabled()) {
+										LOGGER.debug(
+												"Rolling back transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
+												transaction.getXid(), record.scn(), record.rba(), transaction.getFirstChange(), transaction.length(), transaction.size());
+									}
 									transaction.close();
 									transaction = null;
 								} else {
+									if (LOGGER.isDebugEnabled()) {
+										LOGGER.debug(
+												"Committing transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
+												transaction.getXid(), record.scn(), record.rba(), transaction.getFirstChange(), transaction.length(), transaction.size());
+									}
 									transaction.setCommitScn(lastScn);
 									committedTransactions.add(transaction);
 								}
@@ -324,6 +334,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									transaction = getChronicleQueue(xid.toString(), activeTransactions.size());
 								} else {
 									transaction = new OraCdcTransactionArrayList(xid.toString());
+								}
+								if (LOGGER.isDebugEnabled()) {
+									LOGGER.debug(
+											"Starting transaction {} at SCN={}, RBA={}",
+											transaction.getXid(), record.scn(), record.rba());
 								}
 								final OraCdcTransaction duplicateXid = activeTransactions.put(xid, transaction);
 								if (duplicateXid != null) {
@@ -531,16 +546,48 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		final int partial = xid.partial();
 		final Xid prevXid = prefixedTransactions.put(partial, xid);
 		if (prevXid != null) {
-			final StringBuilder sb = new StringBuilder();
+			final StringBuilder sb = new StringBuilder((committedTransactions.size() + activeTransactions.size()) * 0x80 + 0x200);
 			sb
+				.append("\n=====================\nTransaction prefix ")
 				.append(String.format("0x%04x", partial >> 16))
 				.append('.')
-				.append(String.format("0x%03x", Short.toUnsignedInt((short)partial)));
-			LOGGER.warn(
-					"\n=====================\n" +
-					"Transaction prefix {} binding changed from {} to {} at RBA {}.\n" +
-					"=====================\n",
-					sb.toString(), prevXid, xid, rba);
+				.append(String.format("0x%03x", Short.toUnsignedInt((short)partial)))
+				.append(" binding changed from ")
+				.append(prevXid.toString())
+				.append(" to ")
+				.append(xid.toString())
+				.append(" at RBA ")
+				.append(rba.toString())
+				.append("\n\nList of transactions ready to be sent to Kafka (XID, FIRST_CHANGE#, COMMIT_SCN#, NUMBBER_OF_CHANGES, SIZE_IN_BYTES)");
+			Iterator<OraCdcTransaction> iterator = committedTransactions.iterator();
+			while (iterator.hasNext()) {
+				final OraCdcTransaction t = iterator.next();
+				sb
+					.append("\n\t")
+					.append(t.getXid().toString())
+					.append('\t')
+					.append(t.getFirstChange())
+					.append('\t')
+					.append(t.getCommitScn())
+					.append('\t')
+					.append(t.length())
+					.append('\t')
+					.append(t.size());
+			}
+			sb.append("\n\nList of transactions in progress (XID, FIRST_CHANGE#, NUMBBER_OF_CHANGES, SIZE_IN_BYTES)");
+			for (final OraCdcTransaction t : activeTransactions.values()) {
+				sb
+					.append("\n\t")
+					.append(t.getXid().toString())
+					.append('\t')
+					.append(t.getFirstChange())
+					.append('\t')
+					.append(t.length())
+					.append('\t')
+					.append(t.size());
+			}
+			sb.append("\n=====================\n");
+			LOGGER.error(sb.toString());
 		}
 	}
 
