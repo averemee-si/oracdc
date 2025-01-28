@@ -13,6 +13,9 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.FormattingUtils;
 
@@ -31,31 +34,56 @@ import solutions.a2.oracle.utils.FormattingUtils;
 
 public class OraCdcChangeKrvMisc extends OraCdcChange {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeKrvMisc.class);
+	private final long startScn;
+	private final boolean full;
+
 	OraCdcChangeKrvMisc(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _24_4_MISC, record, offset, headerLength);
-	}
-
-	@Override
-	StringBuilder toDumpFormat() {
-		final StringBuilder sb = super.toDumpFormat();
 		if (coords.length > 0x3 && 
 				coords[0][1] > 0xA &&
 				coords[1][1] > 0x3 &&
 				coords[2][1] > 0x5 &&
 				coords[3][1] > 0x7) {
+			startScn = redoLog.bu().getScn(record, coords[3][0]);
+			full = true;
+		} else if (coords.length > 0x1 &&
+				coords[0][1] > 0xF &&
+				coords[1][1] > 0xF) {
+			startScn = redoLog.bu().getScn(record, coords[1][0]);			
+			full = false;
+		} else {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Not enough data to create OP:24.4 at RBA {}.\nChange binary dump:\n{}" +
+					"\n=====================\n",
+					rba, binaryDump());
+			startScn = 0;
+			full = false;
+		}
+	}
+
+	public long startScn() {
+		return startScn;
+	}
+
+	@Override
+	StringBuilder toDumpFormat() {
+		final StringBuilder sb = super.toDumpFormat();
+		if (full) {
 			final int outcome = record[coords[1][0]];
 			sb
-			.append("\nLMNR xact finalize marker:  xid: ")
-			.append((new Xid(
-					redoLog.bu().getU16(record, coords[0][0] + 0x04),
-					redoLog.bu().getU16(record, coords[0][0] + 0x06),
-					redoLog.bu().getU32(record, coords[0][0] + 0x08))))
-			.append(" outcome: ")
-			.append(outcome)
-			.append(" - ")
-			.append(outcome == 1 ? "COMMIT" : "ABORT/ROLLBACK")
-			.append("  start scn: 0x");
-		FormattingUtils.leftPad(sb, redoLog.bu().getScn(record, coords[3][0]), 16);
+				.append("\nLMNR xact finalize marker:  xid: ")
+				.append((new Xid(
+						redoLog.bu().getU16(record, coords[0][0] + 0x04),
+						redoLog.bu().getU16(record, coords[0][0] + 0x06),
+						redoLog.bu().getU32(record, coords[0][0] + 0x08))))
+				.append(" outcome: ")
+				.append(outcome)
+				.append(" - ")
+				.append(outcome == 1 ? "COMMIT" : "ABORT/ROLLBACK")
+				.append("  start scn: 0x");
+			FormattingUtils.leftPad(sb, startScn, 16);
 		}
 		return sb;
 	}
