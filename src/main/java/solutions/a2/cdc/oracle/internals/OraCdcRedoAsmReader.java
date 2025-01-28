@@ -150,9 +150,9 @@ public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 				} catch (SQLException sqle) {
 					LOGGER.error(
 							"\n=====================\n" +
-							"Unable to read '{}': SQL Error Code={}, SQL State='{}'!" +
+							"Unable to read '{}': SQL Error Code={}, SQL State='{}'\nError message:\n'{}'!" +
 							"\n=====================\n",
-							redoLog, sqle.getErrorCode(), sqle.getSQLState());
+							redoLog, sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
 					throw new IOException(sqle);
 				}
 			}

@@ -611,9 +611,9 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 				} catch (IOException e) {
 					LOGGER.error(
 							"\n=====================\n" +
-							"Unable to read '{}'!" +
+							"Unable to read '{}' at block {}!" +
 							"\n=====================\n",
-							fileName);
+							fileName, currentBlock);
 					needNextBlock = false;
 					lastStatus = false;
 					return lastStatus;
