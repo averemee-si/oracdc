@@ -589,7 +589,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			return lastStatus;
 		}
 		while (true) {
-			if (currentBlock >= blockCount) {
+			if (currentBlock > blockCount) {
 				needNextBlock = false;
 				lastStatus = false;
 				return lastStatus;
@@ -603,6 +603,10 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 						seq = bu.getU32(block, 0x08);
 						blk = bu.getU32(block, 0x04);
 						offset = bu.getU16Special(block, 0x0C);
+						if (currentBlock > blockCount) {
+							lastStatus = false;
+							return lastStatus;
+						}
 					}
 				} catch (IOException e) {
 					LOGGER.error(
