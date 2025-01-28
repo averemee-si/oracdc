@@ -751,7 +751,8 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	}
 
 	private boolean nextBlock() throws IOException {
-		if (blockSize == reader.read(block, 0, blockSize)) {
+		final int bytesRead = reader.read(block, 0, blockSize);
+		if (blockSize == bytesRead) {
 			if (validateChecksum && checksum(block) != 0x00) {
 				reader.close();
 				throw new IOException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
@@ -768,6 +769,8 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 				throw new IOException("Invalid Oracle RDBMS redo file block signature!");
 			}
 			currentBlock++;
+		} else if (bytesRead == Integer.MIN_VALUE) {
+			return false;
 		} else {
 			LOGGER.error(
 					"\n=====================\n" +

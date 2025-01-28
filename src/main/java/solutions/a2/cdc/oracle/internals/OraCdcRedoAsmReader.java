@@ -128,7 +128,11 @@ public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 				if ((currentBlock + readAheadBlocks) <= blockCount)  {
 					bytesToRead = readAheadBytes;
 				} else {
-					bytesToRead = new NUMBER((blockCount - currentBlock + 1) * blockSize);
+					final long needed = blockCount - currentBlock + 1;
+					if (needed > 0)
+						bytesToRead = new NUMBER(needed * blockSize);
+					else
+						return Integer.MIN_VALUE;
 				}
 				try {
 					read.setNUMBER(1, handle);
