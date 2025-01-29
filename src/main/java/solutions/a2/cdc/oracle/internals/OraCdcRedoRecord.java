@@ -65,19 +65,19 @@ public class OraCdcRedoRecord {
 
 	/* VLD field constants */
 	/** The contents are not valid */
-	static int KCRVOID = 0;
+	final static int KCRVOID = 0;
 	/** Includes change vectors */
-	static int KCRVALID = 1;
+	final static int KCRVALID = 1;
 	/** Includes commit SCN */
-	static int KCRCOMIT = 2;
+	final static int KCRCOMIT = 2;
 	/** Includes dependent SCN */
-	static int KCRDEPND = 4;
+	final static int KCRDEPND = 4;
 	/** New SCN mark record. SCN allocated exactly at this point in the redo log by this instance */
-	static int KCRNMARK = 8;
+	final static int KCRNMARK = 8;
 	/** Old SCN mark record. SCN allocated at or before this point in the redo. May be allocated by another instance */
-	static int KCROMARK = 16;
+	final static int KCROMARK = 16;
 	/** New SCN was allocated to ensure redo for some block would be ordered by inc/seq# when redo sorted by SCN */
-	static int KCRORDER = 32;
+	final static int KCRORDER = 32;
 
 	private final OraCdcRedoLog redoLog;
 	private final int len;
