@@ -54,7 +54,7 @@ public class OraCdcChangeKrvMisc extends OraCdcChange {
 				redoLog.bu().getU16(record, coords[0][0] + 0x06),
 				redoLog.bu().getU32(record, coords[0][0] + 0x08));
 		if (coords.length > 0x3 && coords[3][1] > 0x7) {
-			startScn = redoLog.bu().getScn(record, coords[1][0]);
+			startScn = redoLog.bu().getScn(record, coords[3][0]);
 			outcome = record[coords[1][0]];
 		} else if (coords.length > 0x1 && coords[1][1] > 0xF) {
 			startScn = redoLog.bu().getScn(record, coords[1][0]);
