@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import java.time.Instant;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +38,9 @@ public class OraCdcChangeRcm extends OraCdcChange {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeRcm.class);
 	private static final int KTUCM_MIN_LENGTH = 0x14;
 	private static final int KTUCF_MIN_LENGTH = 0x10;
-	private static final int ROLLBACK = 0x04; 
+	private static final int ROLLBACK = 0x04;
+
+	private final int unixTime;
 
 	OraCdcChangeRcm(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _5_4_RCM, record, offset, headerLength);
@@ -53,6 +57,12 @@ public class OraCdcChangeRcm extends OraCdcChange {
 		xid(redoLog.bu().getU16(record, coords[0][0] + 0x00), 
 				redoLog.bu().getU32(record, coords[0][0] + 0x04));
 		flg = record[coords[0][0] + 0x10];
+		if (coords[coords.length - 1][1] == 0x4) {
+			unixTime = redoLog.bu().getU32(record, coords[coords.length - 1][0]);
+		} else {
+			unixTime = 0;
+		}
+		
 	}
 
 	public boolean rollback() {
@@ -61,6 +71,14 @@ public class OraCdcChangeRcm extends OraCdcChange {
 		} else {
 			return false;
 		}
+	}
+
+	public int unixTime() {
+		return unixTime;
+	}
+
+	public Instant unixInstant() {
+		return Instant.ofEpochSecond(Integer.toUnsignedLong(unixTime));
 	}
 
 	@Override
