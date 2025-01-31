@@ -30,5 +30,6 @@ public interface OraCdcTransaction {
 	public long getAuditSessionId();
 	public String getSessionInfo();
 	public String getClientId();
+	public boolean startsWithBeginTrans();
 	
 }

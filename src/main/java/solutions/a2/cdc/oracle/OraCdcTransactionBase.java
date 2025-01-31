@@ -48,6 +48,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 	private long firstChange = 0;
 	private final String xid;
 	private long commitScn;
+	private boolean startsWithBeginTrans = true;
 	long transSize;
 
 	boolean partialRollback = false;
@@ -82,6 +83,11 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 						xid);
 			}
 		} else {
+			if (startsWithBeginTrans &&
+					Long.compareUnsigned(firstChange, oraSql.getScn()) > 0) {
+				firstChange = oraSql.getScn();
+				startsWithBeginTrans = false;
+			}
 			if (oraSql.isRollback()) {
 				if (!partialRollback) {
 					partialRollback = true;
@@ -184,6 +190,10 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 			}
 			clientId = resultSet.getString("CLIENT_ID");
 		}
+	}
+
+	public boolean startsWithBeginTrans() {
+		return startsWithBeginTrans;
 	}
 
 	public long getFirstChange() {
