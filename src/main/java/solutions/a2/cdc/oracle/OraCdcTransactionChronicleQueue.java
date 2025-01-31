@@ -430,7 +430,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		transAsMap.put(QUEUE_DIR, queueDirectory.toString());
 		transAsMap.put(TRANS_XID, getXid());
 		transAsMap.put(PROCESS_LOBS, processLobs);
-		transAsMap.put(TRANS_FIRST_CHANGE, firstChange);
+		transAsMap.put(TRANS_FIRST_CHANGE, getFirstChange());
 		transAsMap.put(TRANS_NEXT_CHANGE, nextChange);
 		transAsMap.put(QUEUE_SIZE, queueSize);
 		transAsMap.put(QUEUE_OFFSET, tailerOffset);
@@ -460,7 +460,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		sb.append(", ");
 		sb.append(TRANS_FIRST_CHANGE);
 		sb.append(" = ");
-		sb.append(firstChange);
+		sb.append(getFirstChange());
 		sb.append(", ");
 		sb.append(TRANS_NEXT_CHANGE);
 		sb.append(" = ");
@@ -480,11 +480,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		sb.append(".");
 
 		return sb.toString();
-	}
-
-	@Override
-	public long getFirstChange() {
-		return firstChange;
 	}
 
 	@Override

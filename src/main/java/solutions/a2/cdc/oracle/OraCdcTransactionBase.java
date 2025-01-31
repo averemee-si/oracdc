@@ -45,7 +45,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 	protected static final String TRANS_COMMIT_SCN = "commitScn";
 
 	boolean firstRecord = true;
-	long firstChange = 0;
+	private long firstChange = 0;
 	private final String xid;
 	private long commitScn;
 	long transSize;
@@ -184,6 +184,10 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 			}
 			clientId = resultSet.getString("CLIENT_ID");
 		}
+	}
+
+	public long getFirstChange() {
+		return firstChange;
 	}
 
 	void setSuspicious() {
