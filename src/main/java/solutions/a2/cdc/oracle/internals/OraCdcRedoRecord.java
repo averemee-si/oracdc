@@ -354,6 +354,10 @@ public class OraCdcRedoRecord {
 		return conUid;
 	}
 
+	public int ts() {
+		return ts;
+	}
+
 	//TODO
 	public long unixMillis() {
 		return BinaryUtils.parseTimestamp(ts).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
