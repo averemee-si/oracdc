@@ -41,7 +41,7 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
+public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionChronicleQueue.class);

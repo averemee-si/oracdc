@@ -27,7 +27,7 @@ import solutions.a2.oracle.internals.RedoByteAddress;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
+public class OraCdcTransactionArrayList extends OraCdcTransaction {
 
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);

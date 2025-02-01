@@ -382,7 +382,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											xid, substitutedXid, operation, lastScn, lastRba, lastSubScn,
 											logMiner.getFirstChange(), logMiner.getNextChange());
 									transaction = activeTransactions.get(substitutedXid);
-									((OraCdcTransactionBase)transaction).setSuspicious();
+									transaction.setSuspicious();
 								} else {
 									LOGGER.error(
 											"\n=====================\n\n" +
