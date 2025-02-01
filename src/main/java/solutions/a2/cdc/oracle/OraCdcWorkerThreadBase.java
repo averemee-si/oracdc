@@ -57,6 +57,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	RedoByteAddress lastRba;
 	long lastSubScn;
 	private final int concTransThreshold;
+	private final int reduceLoadMs;
 
 	public OraCdcWorkerThreadBase(final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceConnectorConfig config,
@@ -84,6 +85,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		this.isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		this.pollInterval = config.pollIntervalMs();
 		this.concTransThreshold = config.transactionsThreshold();
+		this.reduceLoadMs = config.reduceLoadMs();
 		LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 	}
 
@@ -128,8 +130,8 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 				try {
 					LOGGER.info(
 							"Currently {} transactions are ready to send and {} are in the process of reading from RDBMS. Wait {}ms to reduce the load on the system",
-							readyToSend, inProgress, backofMs);
-					Thread.sleep(backofMs);
+							readyToSend, inProgress, reduceLoadMs);
+					Thread.sleep(reduceLoadMs);
 				} catch (InterruptedException ie) {}
 			} else {
 				break;

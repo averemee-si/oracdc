@@ -268,6 +268,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String CONC_TRANSACTIONS_THRESHOLD_PARAM = "a2.transactions.threshold";
 	private static final String CONC_TRANSACTIONS_THRESHOLD_DOC = "Maximum threshold of simultaneously processed (both in the process of reading from the database and in the process of sending) transactions in the connector on Linux systems. When not specified (0, default) value is calculated as (vm.max_map_count/16) *7";
 
+	private static final int REDUCE_LOAD_MS_DEFAULT = 60_000;
+	private static final String REDUCE_LOAD_MS_PARAM = "a2.reduce.load.ms";
+	private static final String REDUCE_LOAD_MS_DOC = 
+			"Wait time in ms to reduce the number of simultaneously processed transactions.\n" + 
+			"Sending of processed messages continues, pause occurs only for the process of reading from the database.\n" +
+			"Default - " + REDUCE_LOAD_MS_DEFAULT;
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int pkType = -1;
@@ -448,6 +455,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.MEDIUM, KEY_OVERRIDE_DOC)
 				.define(CONC_TRANSACTIONS_THRESHOLD_PARAM, Type.INT, 0,
 						Importance.LOW, CONC_TRANSACTIONS_THRESHOLD_DOC)
+				.define(REDUCE_LOAD_MS_PARAM, Type.INT, REDUCE_LOAD_MS_DEFAULT,
+						Importance.LOW, REDUCE_LOAD_MS_DOC)
 				// Redo Miner only!
 				.define(REDO_FILE_NAME_CONVERT_PARAM, Type.STRING, "",
 						Importance.HIGH, REDO_FILE_NAME_CONVERT_DOC)
@@ -982,6 +991,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		} else {
 			return 0x7000;
 		}
+	}
+
+	public int reduceLoadMs() {
+		return getInt(REDUCE_LOAD_MS_PARAM);
 	}
 
 	public boolean logMiner() {
