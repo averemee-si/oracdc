@@ -152,7 +152,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 				.singleBuilder(queueDirectory)
 				.build();
 			tailer = this.tableRows.createTailer();
-			appender = this.tableRows.acquireAppender();
+			appender = this.tableRows.createAppender();
 			queueSize = 0;
 			tailerOffset = 0;
 		} catch (Exception e) {
