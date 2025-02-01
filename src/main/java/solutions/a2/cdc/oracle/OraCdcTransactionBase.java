@@ -46,6 +46,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	boolean firstRecord = true;
 	private long firstChange = 0;
+	private long nextChange = 0;
 	private final String xid;
 	private long commitScn;
 	private boolean startsWithBeginTrans = true;
@@ -69,6 +70,7 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 	}
 
 	void checkForRollback(final OraCdcStatementBase oraSql, final long index) {
+		nextChange = oraSql.getScn();
 		if (firstRecord) {
 			firstRecord = false;
 			firstChange = oraSql.getScn();
@@ -198,6 +200,10 @@ public abstract class OraCdcTransactionBase implements OraCdcTransaction {
 
 	public long getFirstChange() {
 		return firstChange;
+	}
+
+	public long getNextChange() {
+		return nextChange;
 	}
 
 	void setSuspicious() {

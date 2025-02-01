@@ -33,7 +33,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
 
 	private final List<OraCdcStatementBase> statements;
-	private long nextChange;
 	private int queueSize;
 	private int tailerOffset;
 
@@ -111,7 +110,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 		checkForRollback(oraSql, statements.size() - 1);
 
 		statements.add(oraSql);
-		nextChange = oraSql.getScn();
 		queueSize++;
 		transSize += oraSql.size();
 	}
@@ -162,7 +160,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 		sb.append(", ");
 		sb.append(TRANS_NEXT_CHANGE);
 		sb.append(" = ");
-		sb.append(nextChange);
+		sb.append(getNextChange());
 		if (getCommitScn() != 0) {
 			sb.append(", ");
 			sb.append(TRANS_COMMIT_SCN);
@@ -178,11 +176,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransactionBase {
 		sb.append(".");
 
 		return sb.toString();
-	}
-
-	@Override
-	public long getNextChange() {
-		return nextChange;
 	}
 
 	@Override

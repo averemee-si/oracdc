@@ -59,7 +59,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	private static final int LOCK_RETRY = 5;
 	private static final int PARTIAL_ROLLBACK_HEAP_THRESHOLD = 10;
 
-	private long nextChange;
 	private final Path queueDirectory;
 	private final Path lobsQueueDirectory;
 	private final boolean processLobs;
@@ -291,7 +290,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 	private void addStatementInt(final OraCdcStatementBase oraSql) {
 		checkForRollback(oraSql, firstRecord ? - 1 : appender.lastIndexAppended());
 		appender.writeDocument(oraSql);
-		nextChange = oraSql.getScn();
 		queueSize++;
 		transSize += oraSql.size();
 	}
@@ -431,7 +429,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		transAsMap.put(TRANS_XID, getXid());
 		transAsMap.put(PROCESS_LOBS, processLobs);
 		transAsMap.put(TRANS_FIRST_CHANGE, getFirstChange());
-		transAsMap.put(TRANS_NEXT_CHANGE, nextChange);
+		transAsMap.put(TRANS_NEXT_CHANGE, getNextChange());
 		transAsMap.put(QUEUE_SIZE, queueSize);
 		transAsMap.put(QUEUE_OFFSET, tailerOffset);
 		if (getCommitScn() != 0) {
@@ -464,7 +462,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		sb.append(", ");
 		sb.append(TRANS_NEXT_CHANGE);
 		sb.append(" = ");
-		sb.append(nextChange);
+		sb.append(getNextChange());
 		if (getCommitScn() != 0) {
 			sb.append(", ");
 			sb.append(TRANS_COMMIT_SCN);
@@ -480,11 +478,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransactionBase {
 		sb.append(".");
 
 		return sb.toString();
-	}
-
-	@Override
-	public long getNextChange() {
-		return nextChange;
 	}
 
 	public Path getPath() {
