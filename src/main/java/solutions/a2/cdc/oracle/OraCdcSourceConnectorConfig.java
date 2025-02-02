@@ -303,7 +303,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String ASM_RECONNECT_INTERVAL_MS_PARAM = "a2.asm.reconnect.ms";
 	private static final long ASM_RECONNECT_INTERVAL_MS_DEFAULT = 604_800_000;
 	private static final String ASM_RECONNECT_INTERVAL_MS_DOC =
-			"The time interval in milleseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection.\n" +
+			"The time interval in milliseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection.\n" +
 			"Default - " + ASM_RECONNECT_INTERVAL_MS_DEFAULT + " (one week)";
 
 	private boolean fileNameConversionInited = false;

@@ -182,6 +182,7 @@ Default - *${connectorName}.seq*
 
 `a2.transactions.threshold` - Maximum threshold of simultaneously processed (both in the process of reading from the database and in the process of sending) transactions in the connector on Linux systems. When not specified (0, default) value is calculated as (vm.max_map_count/16) * 7 for Linux or default to 0x7000 on other platforms.
 
+`a2.reduce.load.ms` - Wait time in ms to reduce the number of simultaneously processed transactions. Sending of processed messages continues, pause occurs only for the process of reading from the database. Default - 60_000 
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
