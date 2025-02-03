@@ -79,6 +79,9 @@ public class OraCdcRedoRecord {
 	/** New SCN was allocated to ensure redo for some block would be ordered by inc/seq# when redo sorted by SCN */
 	final static int KCRORDER = 32;
 
+	private final static int HEADER_LEN_PLAIN = 0x18;
+	private final static int HEADER_LEN_LWN = 0x44;
+
 	private final OraCdcRedoLog redoLog;
 	private final int len;
 	private final byte vld;
@@ -87,7 +90,10 @@ public class OraCdcRedoRecord {
 	private final int ts;
 	private final RedoByteAddress rba;
 	private final int conUid;
+	private final byte[] record;
 	private final List<OraCdcChange> changeVectors;
+	private final boolean hasLwn;
+	private final int lwnLen;
 	private int indKTURDB = -1;
 	private int indKTURCM = -1;
 	private int indKTUTSL = -1;
@@ -101,12 +107,11 @@ public class OraCdcRedoRecord {
 
 	OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn) {
 		this.redoLog = redoLog;
-		final byte[] record = redoLog.recordBytes();
 		this.scn = scn;
+		record = redoLog.recordBytes();
 		rba = redoLog.recordRba();
 		len = redoLog.bu().getU32(record, 0x00);
 		vld = record[0x04];
-		ts = redoLog.recordTimestamp();
 		subScn = redoLog.bu().getU16(record, 0x0C);
 		changeVectors = new ArrayList<>(0x8);
 
@@ -118,8 +123,19 @@ public class OraCdcRedoRecord {
 			changeHeaderLen = 0x18;
 			conUid = -1;
 		}
+		int offset;
+		if ((vld & KCRDEPND) != 0) {
+			hasLwn = true;
+			lwnLen = redoLog.bu().getU32(record, 0x20);
+			ts = redoLog.bu().getU32(record, 0x40);
+			offset = HEADER_LEN_LWN;
+		} else {
+			hasLwn = false;
+			lwnLen = 0;
+			ts = 0;
+			offset = HEADER_LEN_PLAIN;
+		}
 	
-		int offset = redoLog.recordHeaderSize();
 		short changeNo = 1;
 		while (offset < len) {
 			final byte layer = record[offset + 0x00];
@@ -358,6 +374,14 @@ public class OraCdcRedoRecord {
 		return ts;
 	}
 
+	public boolean hasLwn() {
+		return hasLwn;
+	}
+
+	public int lwnLen() {
+		return lwnLen;
+	}
+
 	//TODO
 	public long unixMillis() {
 		return BinaryUtils.parseTimestamp(ts).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
@@ -386,11 +410,24 @@ public class OraCdcRedoRecord {
 			.append(FormattingUtils.leftPad(scn, 0x10))
 			.append(" SUBSCN: ")
 			.append(Short.toUnsignedInt(subScn));
-		//TODO - replace to ts!!!
-		if (redoLog.recordTimestamp() != 0) {
+		if (ts != 0) {
 			sb
 				.append(" ")
 				.append(BinaryUtils.parseTimestamp(ts));
+		}
+		if (hasLwn) {
+			sb
+				.append("\n(LWN RBA: ")
+				.append(rba.toString())
+				.append(" LEN: ")
+				.append(String.format("0x%08x", Integer.toUnsignedLong(lwnLen)))
+				.append(" NST: ")
+				.append(String.format("0x%04x", Short.toUnsignedInt(
+									redoLog.bu().getU16(record, 0x1A))))
+				.append(" SCN: 0x")
+				.append(FormattingUtils.leftPad(
+									redoLog.bu().getScn(record, 0x28), 0x10))
+				.append(")");
 		}
 		for (OraCdcChange change : changeVectors) {
 			sb

@@ -27,6 +27,8 @@ import solutions.a2.oracle.jdbc.types.UnsignedLong;
 import solutions.a2.oracle.utils.FormattingUtils;
 import solutions.a2.oracle.utils.BinaryUtils;
 
+import static solutions.a2.cdc.oracle.internals.OraCdcRedoRecord.KCRVALID;
+
 /**
  * 
  * Based on
@@ -88,9 +90,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	// Used in Iterator too
 	private boolean iteratorInited = false;
 	private long currentBlock = 0;
-	private int recordTimestamp = 0;
 	private long recordScn = 0;
-	private int recordHeaderSize = 0;
 
 	public OraCdcRedoLog(final OraCdcRedoReader reader, final boolean validateChecksum,
 			final BinaryUtils bu, final long blockCount) throws IOException {
@@ -193,19 +193,10 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			}
 		}
 		recordScn = firstScn;
-		recordTimestamp = firstTime;
 	}
 
 	int thread() {
 		return thread;
-	}
-
-	int recordHeaderSize() {
-		return recordHeaderSize;
-	}
-
-	int recordTimestamp() {
-		return recordTimestamp;
 	}
 
 	public BinaryUtils bu() {
@@ -447,7 +438,6 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		blk = -1;
 		offset = -1;
 		lastStatus = false;
-		recordTimestamp = 0;
 		recordScn = 0;
 		iteratorAlreadyAtNext = false;
 		iteratorLimits = false;
@@ -665,7 +655,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 				}
 				final int vld = Byte.toUnsignedInt(block[offset + 4]);
 				recordRba = new RedoByteAddress(seq, blk, offset);
-				if ((vld & OraCdcRedoRecord.KCRVALID) == OraCdcRedoRecord.KCRVALID) {
+				if ((vld & KCRVALID) == KCRVALID) {
 					recordBytes = new byte[recordLength];
 					createRedoRecord = true;
 				} else {
@@ -719,12 +709,6 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	}
 
 	private boolean preParse4Iterator() {
-		if ((recordBytes[0x04] & OraCdcRedoRecord.KCRDEPND) != 0) {
-			recordHeaderSize = 0x44;
-			recordTimestamp = bu.getU32(recordBytes, 0x40);
-		} else {
-			recordHeaderSize = 0x18;			
-		}
 		recordScn = bu.getScn4Record(recordBytes, 0x06);
 		redoRecord = new OraCdcRedoRecord(this, recordScn);
 		lastStatus = true;
