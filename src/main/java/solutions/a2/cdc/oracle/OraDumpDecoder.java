@@ -17,6 +17,7 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.Hashtable;
 
 import oracle.sql.BINARY_DOUBLE;
@@ -180,6 +181,15 @@ public class OraDumpDecoder {
 		}
 	}
 
+	public String fromVarchar2(final byte[] data, final int offset, final int length) throws SQLException {
+		try {
+			return new String(data, offset, length, nlsCharacterSet);
+		} catch (UnsupportedEncodingException e) {
+			throw new SQLException("Invalid encoding " + nlsCharacterSet + " for " +
+					rawToHex(Arrays.copyOfRange(data, offset, offset + length)) +  ".", e);
+		}
+	}
+
 	public String fromNvarchar2(final String hex) throws SQLException {
 		return fromNvarchar2(toByteArray(hex));
 	}
@@ -189,6 +199,15 @@ public class OraDumpDecoder {
 			return new String(data, nlsNcharCharacterSet);
 		} catch (UnsupportedEncodingException e) {
 			throw new SQLException("Invalid encoding " + nlsNcharCharacterSet + " for " + rawToHex(data) +  ".", e);
+		}
+	}
+
+	public String fromNvarchar2(final byte[] data, final int offset, final int length) throws SQLException {
+		try {
+			return new String(data, offset, length, nlsNcharCharacterSet);
+		} catch (UnsupportedEncodingException e) {
+			throw new SQLException("Invalid encoding " + nlsNcharCharacterSet + " for " + 
+					rawToHex(Arrays.copyOfRange(data, offset, offset + length)) +  ".", e);
 		}
 	}
 

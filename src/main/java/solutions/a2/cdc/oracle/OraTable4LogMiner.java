@@ -2012,30 +2012,32 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							}
 						}
 					} else {
-						final byte[] columnValue = Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize);
 						//TODO - BLOB/CLOB/NCLOB/SQLXML handling!
 						try {
 							parseRedoRecordValues(
-									oraColumn, columnValue,
+									oraColumn, redoData, colDefs[i][2], colSize,
 									keyStruct, valueStruct);
 							if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
 									mandatoryColumnsProcessed++;
 							}
 						} catch (DataException de) {
 							LOGGER.error("Invalid value {} for column {} in table {}",
-									columnValue, oraColumn.getColumnName(), tableFqn);
+									rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
+									oraColumn.getColumnName(), tableFqn);
 							printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 							throw new DataException(de);
 						} catch (SQLException sqle) {
 							if (oraColumn.isNullable()) {
 								printToLogInvalidHexValueWarning(
-										rawToHex(columnValue), oraColumn.getColumnName(), stmt);
-					} else {
+										rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
+										oraColumn.getColumnName(), stmt);
+							} else {
 								LOGGER.error("Invalid value {} for column {} in table {}",
-										rawToHex(columnValue), oraColumn.getColumnName(), tableFqn);
+									rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
+									oraColumn.getColumnName(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw new SQLException(sqle);
-					}
+							}
 						}
 					}
 				} else {
@@ -2069,25 +2071,27 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						} else {
 							if (oraColumn != null) {
 								// Column can be excluded
-								final byte[] columnValue = Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize);
 								try {
-									parseRedoRecordValues(oraColumn,
-											columnValue, keyStruct, valueStruct);
+									parseRedoRecordValues(oraColumn, redoData, colDefs[i][2], colSize,
+											keyStruct, valueStruct);
 									if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
 										mandatoryColumnsProcessed++;
 									}
 								} catch (DataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
-											columnValue, oraColumn.getColumnName(), tableFqn);
+											rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
+											oraColumn.getColumnName(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 									throw new DataException(de);
 								} catch (SQLException sqle) {
 									if (oraColumn.isNullable()) {
 										printToLogInvalidHexValueWarning(
-												rawToHex(columnValue), oraColumn.getColumnName(), stmt);
+												rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
+												oraColumn.getColumnName(), stmt);
 									} else {
 										LOGGER.error("Invalid value {} for column {} in table {}",
-												columnValue, oraColumn.getColumnName(), tableFqn);
+												rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
+												oraColumn.getColumnName(), tableFqn);
 										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 										throw new SQLException(sqle);
 									}
@@ -2099,10 +2103,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							// PK can't be null!!!
 							final OraColumn oraColumn = pureIdMap.get(colDefs[i][0]);
 							if (oraColumn != null && oraColumn.isPartOfPk()) {
-								final byte[] columnValue = Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize);
 								parseRedoRecordValues(
 										oraColumn,
-										columnValue,
+										redoData, colDefs[i][2], colSize,
 										keyStruct, valueStruct);
 								if (oraColumn.isPartOfPk()) {
 									mandatoryColumnsProcessed++;
@@ -2162,11 +2165,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							}
 						}
 					} else {
-						final byte[] columnValue = Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize);
 						//TODO - BLOB/CLOB/NCLOB/SQLXML handling!
 						try {
 							parseRedoRecordValues(
-									oraColumn, columnValue,
+									oraColumn, redoData, setColDefs[i][2], colSize,
 									keyStruct, valueStruct);
 							if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
 								mandatoryColumnsProcessed++;
@@ -2175,10 +2177,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						} catch (SQLException sqle ) {
 							if (oraColumn.isNullable()) {
 								printToLogInvalidHexValueWarning(
-										rawToHex(columnValue), oraColumn.getColumnName(), stmt);
+										rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
+										oraColumn.getColumnName(), stmt);
 							} else {
 								LOGGER.error("Invalid value {} for column {} in table {}",
-										columnValue, oraColumn.getColumnName(), tableFqn);
+										rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
+										oraColumn.getColumnName(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw new SQLException(sqle);
 							}
@@ -2246,26 +2250,28 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							}
 						} else {
 							if (oraColumn != null) {
-								final byte[] columnValue = Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize);
 								try {
 									parseRedoRecordValues(
-										oraColumn, columnValue,
+										oraColumn, redoData, whereColDefs[i][2], colSize,
 										keyStruct, valueStruct);
 									if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
 										mandatoryColumnsProcessed++;
 									}
 								} catch (DataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
-											columnValue, oraColumn.getColumnName(), tableFqn);
+											rawToHex(Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize)),
+											oraColumn.getColumnName(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 									throw new DataException(de);
 								} catch (SQLException sqle) {
 									if (oraColumn.isNullable()) {
 										printToLogInvalidHexValueWarning(
-												rawToHex(columnValue), oraColumn.getColumnName(), stmt);
+											rawToHex(Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize)),
+											oraColumn.getColumnName(), stmt);
 									} else {
 										LOGGER.error("Invalid value {} for column {} in table {}",
-												columnValue, oraColumn.getColumnName(), tableFqn);
+												rawToHex(Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize)),
+											oraColumn.getColumnName(), tableFqn);
 										printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 										throw new SQLException(sqle);
 									}
@@ -2467,51 +2473,52 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	
 	private void parseRedoRecordValues(
-			final OraColumn oraColumn, final byte[] data,
+			final OraColumn oraColumn, final byte[] data, final int offset, final int length,
 			final Struct keyStruct, final Struct valueStruct) throws SQLException {
 		final String columnName = oraColumn.getColumnName();
 		final Object columnValue;
 		switch (oraColumn.getJdbcType()) {
 			case Types.DATE:
 			case Types.TIMESTAMP:
-				if (data.length == OracleDate.DATA_LENGTH || data.length == OracleTimestamp.DATA_LENGTH) {
-					columnValue = OraDumpDecoder.toTimestamp(data);
+				if (length == OracleDate.DATA_LENGTH || length == OracleTimestamp.DATA_LENGTH) {
+					columnValue = OraDumpDecoder.toTimestamp(Arrays.copyOfRange(data, offset, offset + length));
 				} else {
 					throw new SQLException("Invalid DATE (Typ=12) or TIMESTAMP (Typ=180)");
 				}
 				break;
 			case Types.TIMESTAMP_WITH_TIMEZONE:
 				columnValue = OraTimestamp.fromLogical(
-					data, oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
+						Arrays.copyOfRange(data, offset, offset + length),
+						oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
 				break;
 			case Types.TINYINT:
-				columnValue = OraDumpDecoder.toByte(data);
+				columnValue = OraDumpDecoder.toByte(Arrays.copyOfRange(data, offset, offset + length));
 				break;
 			case Types.SMALLINT:
-				columnValue = OraDumpDecoder.toShort(data);
+				columnValue = OraDumpDecoder.toShort(Arrays.copyOfRange(data, offset, offset + length));
 				break;
 			case Types.INTEGER:
-				columnValue = OraDumpDecoder.toInt(data);
+				columnValue = OraDumpDecoder.toInt(Arrays.copyOfRange(data, offset, offset + length));
 				break;
 			case Types.BIGINT:
-				columnValue = OraDumpDecoder.toLong(data);
+				columnValue = OraDumpDecoder.toLong(Arrays.copyOfRange(data, offset, offset + length));
 				break;
 			case Types.FLOAT:
 				if (oraColumn.isBinaryFloatDouble()) {
-					columnValue = OraDumpDecoder.fromBinaryFloat(data);
+					columnValue = OraDumpDecoder.fromBinaryFloat(Arrays.copyOfRange(data, offset, offset + length));
 				} else {
-					columnValue = OraDumpDecoder.toFloat(data);
+					columnValue = OraDumpDecoder.toFloat(Arrays.copyOfRange(data, offset, offset + length));
 				}
 				break;
 			case Types.DOUBLE:
 				if (oraColumn.isBinaryFloatDouble()) {
-					columnValue = OraDumpDecoder.fromBinaryDouble(data);
+					columnValue = OraDumpDecoder.fromBinaryDouble(Arrays.copyOfRange(data, offset, offset + length));
 				} else {
-					columnValue = OraDumpDecoder.toDouble(data);
+					columnValue = OraDumpDecoder.toDouble(Arrays.copyOfRange(data, offset, offset + length));
 				}
 				break;
 			case Types.DECIMAL:
-				BigDecimal bdValue = OraDumpDecoder.toBigDecimal(data);
+				BigDecimal bdValue = OraDumpDecoder.toBigDecimal(Arrays.copyOfRange(data, offset, offset + length));
 				if (bdValue.scale() > oraColumn.getDataScale()) {
 					LOGGER.warn(
 								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
@@ -2528,15 +2535,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_BINARY:
 			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_BINARY:
 				// do not need to perform data type conversion here!
-				columnValue = data;
+				columnValue = Arrays.copyOfRange(data, offset, offset + length);
 				break;
 			case Types.CHAR:
 			case Types.VARCHAR:
-				columnValue = odd.fromVarchar2(data);
+				columnValue = odd.fromVarchar2(data, offset, length);
 				break;
 			case Types.NCHAR:
 			case Types.NVARCHAR:
-				columnValue = odd.fromNvarchar2(data);
+				columnValue = odd.fromNvarchar2(data, offset, length);
 				break;
 			case Types.CLOB:
 			case Types.NCLOB:
@@ -2547,7 +2554,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				break;
 			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING:
 			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING:
-				columnValue = OraInterval.fromLogical(data);
+				columnValue = OraInterval.fromLogical(Arrays.copyOfRange(data, offset, offset + length));
 				break;
 			default:
 				columnValue = oraColumn.unsupportedTypeValue();
