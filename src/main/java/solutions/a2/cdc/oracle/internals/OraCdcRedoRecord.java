@@ -38,7 +38,6 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_4_MISC;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_6_BIMG;
 
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -380,11 +379,6 @@ public class OraCdcRedoRecord {
 
 	public int lwnLen() {
 		return lwnLen;
-	}
-
-	//TODO
-	public long unixMillis() {
-		return BinaryUtils.parseTimestamp(ts).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 	}
 
 	@Override

@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,6 +73,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgNextPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgPrevPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.printFbFlags;
+import static solutions.a2.oracle.utils.BinaryUtils.parseTimestamp;
 
 /**
  * 
@@ -104,6 +106,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final int[] conUids;
 	private final boolean conFilter;
 	private final OraCdcDictionaryChecker checker;
+	private boolean firstTransaction;
+	private long lastCommitScn = 0;
+	private long lwnUnixMillis = 0;
+	private final TreeMap<Long, List<OraCdcRedoRecord>> halfDoneRcm;
+
 
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcRedoMinerTask task,
@@ -144,6 +151,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
 		this.bu = BinaryUtils.get(rdbmsInfo.littleEndian());
+		this.halfDoneRcm  = new TreeMap<>(new Comparator<Long>() {
+			@Override
+			public int compare(Long l1, Long l2) {
+				return Long.compareUnsigned(l1, l2);
+			}
+		});
 
 		try {
 			connDictionary = oraConnections.getConnection();
@@ -209,8 +222,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	public void run()  {
 		LOGGER.info("BEGIN: OraCdcRedoMinerWorkerThread.run()");
 		running.set(true);
-		boolean firstTransaction = true;
+		firstTransaction = true;
 		boolean notFirstRecord = false;
+		final ZoneId dbZoneId = rdbmsInfo.getDbTimeZone();
 		while (runLatch.getCount() > 0) {
 			long lastGuaranteedScn = 0;
 			RedoByteAddress lastGuaranteedRsId = null;
@@ -226,6 +240,31 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							LOGGER.warn("Unexpected termination of redo records stream after RBA {}", lastGuaranteedRsId);
 							break;
 						}
+						lastScn = record.scn();
+						if (record.hasLwn()) {
+							lwnUnixMillis = parseTimestamp(record.ts()).atZone(dbZoneId).toInstant().toEpochMilli();
+							while (halfDoneRcm.size() > 0) {
+								if (Long.compareUnsigned(halfDoneRcm.firstKey(), lastScn) > 0) {
+									break;
+								} else {
+									final Map.Entry<Long, List<OraCdcRedoRecord>> rcmList = halfDoneRcm.firstEntry();
+									for (final OraCdcRedoRecord delayed : rcmList.getValue()) {
+										emitRcm(delayed, delayed.xid());
+										if (LOGGER.isDebugEnabled()) {
+											LOGGER.debug("Emitting delayed OP:5.4 XID {}, Original SCN {}, Original RBA at SCN {}, RBA{}",
+													delayed.xid(), delayed.scn(), delayed.rba(), record.scn(), record.rba());
+										}
+									}
+									halfDoneRcm.remove(rcmList.getKey());
+								}
+							}
+							if (LOGGER.isDebugEnabled()) {
+								LOGGER.debug(
+										"Start processing LWN at RBA {} with length {} blocks.",
+										record.rba(), record.lwnLen());
+							}
+						}
+						xid = record.xid();
 						if (conFilter && 
 								Arrays.binarySearch(conUids, record.conUid()) < 0) {
 							if (LOGGER.isDebugEnabled()) {
@@ -253,71 +292,18 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} else {
 							notFirstRecord = true;
 						}
-						xid = record.xid();
-						lastScn = record.scn();
 						lastRba = record.rba();
 						lastSubScn = record.subScn();
-						OraCdcTransaction transaction = null;
-						if (xid != null) {
-							transaction = activeTransactions.get(xid);
-						}
 						//BEGIN: Main decision tree
 						if (record.has5_4()) {
-							final boolean rollback = record.change5_4().rollback();
-							if (transaction == null) {
-								if (LOGGER.isDebugEnabled()) {
-									LOGGER.debug(
-											"Skipping {} at SCN={}, RBA={} for transaction XID {}",
-											rollback ? "ROLLBACK" : "COMMIT",
-											lastScn, lastRba, xid);
-								}
-							} else {
-								if (rollback) {
-									if (LOGGER.isDebugEnabled()) {
-										LOGGER.debug(
-												"Rolling back transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
-												transaction.getXid(), record.scn(), record.rba(), transaction.getFirstChange(), transaction.length(), transaction.size());
-									}
-									transaction.close();
-									transaction = null;
-								} else {
-									if (LOGGER.isDebugEnabled()) {
-										LOGGER.debug(
-												"Committing transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
-												transaction.getXid(), record.scn(), record.rba(), transaction.getFirstChange(), transaction.length(), transaction.size());
-									}
-									transaction.setCommitScn(lastScn);
-									committedTransactions.add(transaction);
-								}
-								activeTransactions.remove(xid);
-								prefixedTransactions.remove(xid.partial());
-								sortedByFirstScn.remove(xid);
-								if (!sortedByFirstScn.isEmpty()) {
-									task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
-								} else {
-									firstTransaction = true;
-								}
-								if (rollback)
-									metrics.addRolledBackRecords(transaction.length(), transaction.size(),
-											activeTransactions.size());
-								else
-									metrics.addCommittedRecords(transaction.length(), transaction.size(),
-											committedTransactions.size(), activeTransactions.size());
-								if (LOGGER.isDebugEnabled()) {
-									LOGGER.debug("Performing {} at SCN={}, RBA={} for transaction XID {}",
-											rollback ? "ROLLBACK" : "COMMIT",
-											lastScn, lastRba, xid);
-								}
-							}
+							addToHalfDoneRcm(record);
 							continue;
 						} else if (record.has5_1() && record.has11_x()) {
 							if (staticObjIds) {
-								if (includeFilter &&
-										Arrays.binarySearch(includeObjIds, record.change5_1().obj()) < 0) {
-									continue;
-								}
-								if (excludeFilter &&
-										Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1) {
+								if ((includeFilter &&
+										Arrays.binarySearch(includeObjIds, record.change5_1().obj()) < 0) ||
+									(excludeFilter &&
+											Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1)) {
 									continue;
 								}
 							} else {
@@ -325,10 +311,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									continue;
 								}
 							}
+							OraCdcTransaction transaction = activeTransactions.get(xid);
 							if (transaction == null) {
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
-											xid, Instant.ofEpochMilli(record.unixMillis()), lastScn);
+											xid, Instant.ofEpochMilli(lwnUnixMillis), lastScn);
 								}
 								if (useChronicleQueue) {
 									transaction = getChronicleQueue(xid.toString(), activeTransactions.size());
@@ -394,12 +381,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							continue;
 						} else if (record.hasPrb() && record.has11_x()) {
 							if (staticObjIds) {
-								if (includeFilter &&
-										Arrays.binarySearch(includeObjIds, record.changePrb().obj()) < 0) {
-									continue;
-								}
-								if (excludeFilter &&
-										Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1) {
+								if ((includeFilter &&
+										Arrays.binarySearch(includeObjIds, record.changePrb().obj()) < 0) ||
+									(excludeFilter &&
+												Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1)) {
 									continue;
 								}
 							} else {
@@ -408,6 +393,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 							boolean suspiciousRecord = false;
+							OraCdcTransaction transaction = activeTransactions.get(xid);
 							if (transaction == null) {
 								final Xid substitutedXid = prefixedTransactions.get(record.xid().partial());
 								if (substitutedXid == null) {
@@ -445,10 +431,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							//TODO
 							//TODO
 							//TODO
+							continue;
 						} else {
 							if (LOGGER.isDebugEnabled()) {
 								LOGGER.debug("Skipping redo record at RBA {}", record.rba());
 							}
+							continue;
 						}
 						//END: Main decision tree
 
@@ -477,7 +465,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						}
 					}
 				}
-			} catch (SQLException | IOException e) {
+			} catch (Exception e) {
 				final StringBuilder sb = new StringBuilder(0x400);
 				sb.append("\n=====================\n");
 				sb
@@ -546,7 +534,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		final int partial = xid.partial();
 		final Xid prevXid = prefixedTransactions.put(partial, xid);
 		if (prevXid != null) {
-			final StringBuilder sb = new StringBuilder((committedTransactions.size() + activeTransactions.size()) * 0x80 + 0x200);
+			final StringBuilder sb = new StringBuilder(
+					(halfDoneRcm.size() + committedTransactions.size() + activeTransactions.size()) * 0x80 + 0x200);
 			sb
 				.append("\n=====================\nTransaction prefix ")
 				.append(String.format("0x%04x", partial >> 16))
@@ -557,34 +546,41 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				.append(" to ")
 				.append(xid.toString())
 				.append(" at RBA ")
-				.append(rba.toString())
-				.append("\n\nList of transactions ready to be sent to Kafka (XID, FIRST_CHANGE#, COMMIT_SCN#, NUMBBER_OF_CHANGES, SIZE_IN_BYTES)");
-			Iterator<OraCdcTransaction> iterator = committedTransactions.iterator();
-			while (iterator.hasNext()) {
-				final OraCdcTransaction t = iterator.next();
-				sb
-					.append("\n\t")
-					.append(t.getXid().toString())
-					.append('\t')
-					.append(t.getFirstChange())
-					.append('\t')
-					.append(t.getCommitScn())
-					.append('\t')
-					.append(t.length())
-					.append('\t')
-					.append(t.size());
+				.append(rba.toString());
+			if (committedTransactions.size() > 0) {
+				sb.append("\n\nList of transactions ready to be sent to Kafka (XID, FIRST_CHANGE#, COMMIT_SCN#, NUMBBER_OF_CHANGES, SIZE_IN_BYTES)");
+				Iterator<OraCdcTransaction> iterator = committedTransactions.iterator();
+				while (iterator.hasNext()) {
+					final OraCdcTransaction t = iterator.next();
+					sb
+						.append("\n\t")
+						.append(t.getXid().toString())
+						.append('\t')
+						.append(t.getFirstChange())
+						.append('\t')
+						.append(t.getCommitScn())
+						.append('\t')
+						.append(t.length())
+						.append('\t')
+						.append(t.size());
+				}
 			}
-			sb.append("\n\nList of transactions in progress (XID, FIRST_CHANGE#, NUMBBER_OF_CHANGES, SIZE_IN_BYTES)");
-			for (final OraCdcTransaction t : activeTransactions.values()) {
-				sb
-					.append("\n\t")
-					.append(t.getXid().toString())
-					.append('\t')
-					.append(t.getFirstChange())
-					.append('\t')
-					.append(t.length())
-					.append('\t')
-					.append(t.size());
+			sb.append(printHalfDoneRcmContents());
+			if (activeTransactions.size() > 0) {
+				sb.append("\n\nList of transactions in progress (XID, FIRST_CHANGE#, NEXT_CHANGE#, NUMBBER_OF_CHANGES, SIZE_IN_BYTES)");
+				for (final OraCdcTransaction t : activeTransactions.values()) {
+					sb
+						.append("\n\t")
+						.append(t.getXid().toString())
+						.append('\t')
+						.append(t.getFirstChange())
+						.append('\t')
+						.append(t.getNextChange())
+						.append('\t')
+						.append(t.length())
+						.append('\t')
+						.append(t.size());
+				}
 			}
 			sb.append("\n=====================\n");
 			LOGGER.error(sb.toString());
@@ -1201,7 +1197,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					row.lmOp, redoBytes,
-					last.unixMillis(), last.scn(), row.rba,
+					lwnUnixMillis, last.scn(), row.rba,
 					(long) last.subScn(),
 					last.rowid(),
 					row.partialRollback);
@@ -1209,7 +1205,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					row.lmOp, redoBytes,
-					first.unixMillis(), first.scn(), row.rba,
+					lwnUnixMillis, first.scn(), row.rba,
 					(long) first.subScn(),
 					first.rowid(),
 					row.partialRollback);
@@ -1273,7 +1269,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					bu.getU16(record, coords[index][0] + 0x14 + row * Short.BYTES));
 			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
-					lmOp, baos.toByteArray(), rr.unixMillis(), rr.scn(), rr.rba(),
+					lmOp, baos.toByteArray(), lwnUnixMillis, rr.scn(), rr.rba(),
 					(long) rr.subScn(), rowId, false);
 			transaction.addStatement(orm);
 			metrics.addRecord();
@@ -1552,6 +1548,133 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			for (int index = 0; index < sortedRecs.size(); index++)
 				records.add(sortedRecs.get(index));
 			sortedRecs = null;
+		}
+	}
+
+	private void emitRcm(final OraCdcRedoRecord record, final Xid xid) {
+		OraCdcTransaction transaction = activeTransactions.get(xid);
+		final boolean rollback = record.change5_4().rollback();
+		if (transaction == null) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug(
+						"Skipping {} at SCN={}, RBA={} for transaction XID {}",
+						rollback ? "ROLLBACK" : "COMMIT",
+						lastScn, lastRba, xid);
+			}
+		} else {
+			if (rollback) {
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug(
+							"Rolling back transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
+							transaction.getXid(), record.scn(), record.rba(), transaction.getFirstChange(), transaction.length(), transaction.size());
+				}
+				transaction.close();
+			} else {
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug(
+							"Committing transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
+							transaction.getXid(), record.scn(), record.rba(), transaction.getFirstChange(), transaction.length(), transaction.size());
+				}
+				final long commitScn = record.scn();
+				transaction.setCommitScn(commitScn);
+				committedTransactions.add(transaction);
+				if (Long.compareUnsigned(commitScn, lastCommitScn) < 0) {
+					LOGGER.warn(
+							"Committing transaction {} with a commit SCN {} lower than the previous one {}!",
+							transaction.getXid(), commitScn, lastCommitScn);
+				} else {
+					lastCommitScn = commitScn;
+				}
+			}
+			activeTransactions.remove(xid);
+			prefixedTransactions.remove(xid.partial());
+			sortedByFirstScn.remove(xid);
+			if (!sortedByFirstScn.isEmpty()) {
+				task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+			} else {
+				firstTransaction = true;
+			}
+			if (rollback) {
+				metrics.addRolledBackRecords(transaction.length(), transaction.size(),
+						activeTransactions.size());
+				transaction = null;
+			}
+			else {
+				metrics.addCommittedRecords(transaction.length(), transaction.size(),
+						committedTransactions.size(), activeTransactions.size());
+			}
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("Performing {} at SCN={}, RBA={} for transaction XID {}",
+						rollback ? "ROLLBACK" : "COMMIT",
+						lastScn, lastRba, xid);
+			}
+		}
+	}
+
+	@Override
+	public void shutdown() {
+		if (halfDoneRcm.size() > 0) {
+			final StringBuilder sb = new StringBuilder(halfDoneRcm.size() * 0x40 + 0x10);
+			sb
+				.append("\n=====================\n")
+				.append(printHalfDoneRcmContents())
+				.append("\n=====================\n");
+			LOGGER.warn(sb.toString());
+		}
+		super.shutdown();
+	}
+
+	private StringBuilder printHalfDoneRcmContents() {
+		final StringBuilder sb = new StringBuilder(halfDoneRcm.size() * 0x40 + 0x10);
+		if (halfDoneRcm.size() > 0) {
+			sb.append("\n\nList of transactions with delayed commit (XID, RBA, FIRST_CHANGE#, COMMIT_SCN#)");
+			for (final Map.Entry<Long, List<OraCdcRedoRecord>> entry : halfDoneRcm.entrySet()) {
+				for (final OraCdcRedoRecord record : entry.getValue()) {
+					if (activeTransactions.containsKey(record.xid())) {
+						sb
+							.append("\n\t")
+							.append(record.xid().toString())
+							.append('\t')
+							.append(record.rba().toString())
+							.append('\t')
+							.append(record.hasKrvMisc() ? record.changeKrvMisc().startScn() : "N/A")
+							.append('\t')
+							.append(entry.getKey());
+					}
+				}
+			}
+		}
+		return sb;
+	}
+
+	private void addToHalfDoneRcm(final OraCdcRedoRecord record) {
+		if (LOGGER.isDebugEnabled()) {
+			final int size = halfDoneRcm.size();
+			LOGGER.debug("Adding XID {}, SCN {}, RBA {}  to delayed list with size {}, last delayed commit SCN {}",
+					record.xid(), record.scn(), record.rba(), size, size > 0 ? halfDoneRcm.lastKey() : 0);
+		}
+		List<OraCdcRedoRecord> rcm = halfDoneRcm.get(record.scn());
+		if (rcm == null) {
+			rcm = new ArrayList<>(0x8);
+			halfDoneRcm.put(record.scn(), rcm);
+		}
+		rcm.add(record);
+		prefixedTransactions.remove(record.xid().partial());
+		if (LOGGER.isDebugEnabled()) {
+			if (rcm.size() > 1) {
+				final StringBuilder sb = new StringBuilder(0x400);
+				sb
+					.append("\nDuplicate commit SCN ")
+					.append(record.scn())
+					.append(".\nList of transactions at this commit SCN (XID, RBA):");
+				rcm.forEach(rr ->
+					sb
+						.append("\n\t")
+						.append(rr.xid().toString())
+						.append('\t')
+						.append(rr.rba().toString()));
+				
+			}
 		}
 	}
 
