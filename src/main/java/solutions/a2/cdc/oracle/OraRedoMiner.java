@@ -132,15 +132,15 @@ public class OraRedoMiner {
 		sb.append("\n=====================\n");
 		if (rdbmsInfo.isStandby()) {
 			if (StringUtils.equals(OraRdbmsInfo.MOUNTED, rdbmsInfo.getOpenMode())) {
-				sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state to call LogMiner.\n");
+				sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state.\n");
 			} else {
-				sb.append("oracdc will use connection to Oracle Active DataGuard Database with a unique name {} in {} state to call LogMiner.\n");
+				sb.append("oracdc will use connection to Oracle Active DataGuard Database with a unique name {} in {} state.\n");
 			}
 		} else {
-			sb.append("oracdc will use connection to Oracle Database with a unique name {} in {} state to call LogMiner and query the dictionary.\n");
+			sb.append("oracdc will use connection to Oracle Database with a unique name {} in {} state to query the dictionary.\n");
 		}
 		sb
-			.append("Oracle Database DBID is {}, LogMiner will start from SCN {}.")
+			.append("Oracle Database DBID is {}, RedoMiner will start from SCN {}.")
 			.append("\n=====================\n");
 			
 		LOGGER.info(
