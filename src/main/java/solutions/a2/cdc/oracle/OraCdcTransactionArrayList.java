@@ -41,14 +41,13 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	 * Creates OraCdcTransaction for new transaction
 	 * 
 	 * @param xid
+	 * @param capacity
 	 */
-	public OraCdcTransactionArrayList(final String xid) {
+	public OraCdcTransactionArrayList(final String xid, final int capacity) {
 		super(xid);
-		LOGGER.debug("BEGIN: create OraCdcTransactionArrayList for new transaction");
-		statements = new ArrayList<>();
+		statements = new ArrayList<>(capacity);
 		queueSize = 0;
 		tailerOffset = 0;
-		LOGGER.trace("END: create OraCdcTransactionArrayList for new transaction");
 	}
 
 	/**
@@ -59,7 +58,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	 * @param firstStatement
 	 */
 	public OraCdcTransactionArrayList(final String xid, final OraCdcStatementBase firstStatement) {
-		this(xid);
+		this(xid, 0x20);
 		this.addStatement(firstStatement);
 	}
 

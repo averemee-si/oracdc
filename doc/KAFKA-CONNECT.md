@@ -184,6 +184,8 @@ Default - *${connectorName}.seq*
 
 `a2.reduce.load.ms` - Wait time in ms to reduce the number of simultaneously processed transactions. Sending of processed messages continues, pause occurs only for the process of reading from the database. Default - 60_000 
 
+`a2.array.list.default.capacity` - Initial capacity of ArrayList storing Oracle Database transaction data. Default - 32.
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - *false*.

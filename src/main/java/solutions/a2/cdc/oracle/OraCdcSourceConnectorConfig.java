@@ -275,6 +275,12 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			"Sending of processed messages continues, pause occurs only for the process of reading from the database.\n" +
 			"Default - " + REDUCE_LOAD_MS_DEFAULT;
 
+	private static final int AL_CAPACITY_DEFAULT = 0x20;
+	private static final String AL_CAPACITY_PARAM = "a2.array.list.default.capacity";
+	private static final String AL_CAPACITY_DOC = 
+			"Initial capacity of ArrayList storing Oracle Database transaction data.\n" + 
+			"Default - " + AL_CAPACITY_DEFAULT;
+
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int pkType = -1;
@@ -457,6 +463,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, CONC_TRANSACTIONS_THRESHOLD_DOC)
 				.define(REDUCE_LOAD_MS_PARAM, Type.INT, REDUCE_LOAD_MS_DEFAULT,
 						Importance.LOW, REDUCE_LOAD_MS_DOC)
+				.define(AL_CAPACITY_PARAM, Type.INT, AL_CAPACITY_DEFAULT,
+						Importance.LOW, AL_CAPACITY_DOC)
 				// Redo Miner only!
 				.define(REDO_FILE_NAME_CONVERT_PARAM, Type.STRING, "",
 						Importance.HIGH, REDO_FILE_NAME_CONVERT_DOC)
@@ -995,6 +1003,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public int reduceLoadMs() {
 		return getInt(REDUCE_LOAD_MS_PARAM);
+	}
+
+	public int arrayListCapacity() {
+		return getInt(AL_CAPACITY_PARAM);
 	}
 
 	public boolean logMiner() {

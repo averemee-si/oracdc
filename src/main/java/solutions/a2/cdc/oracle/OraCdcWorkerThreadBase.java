@@ -47,18 +47,19 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	final boolean processLobs;
 	final Set<Long> lobObjects;
 	final Set<Long> nonLobObjects;
-	final boolean useChronicleQueue;
 	final int backofMs;
-	final Path queuesRoot;
 	final BlockingQueue<OraCdcTransaction> committedTransactions;
 	final boolean isCdb;
 	final int pollInterval;
 	long lastScn;
 	RedoByteAddress lastRba;
 	long lastSubScn;
+	private final Path queuesRoot;
+	private final boolean useChronicleQueue;
 	private final int concTransThreshold;
 	private final int reduceLoadMs;
 	private final Runtime runtime;
+	private final int initialCapacity;
 
 	public OraCdcWorkerThreadBase(final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceConnectorConfig config,
@@ -88,6 +89,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		this.concTransThreshold = config.transactionsThreshold();
 		this.reduceLoadMs = config.reduceLoadMs();
 		this.runtime = Runtime.getRuntime();
+		this.initialCapacity = config.arrayListCapacity();
 		LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 	}
 
@@ -146,7 +148,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		if (useChronicleQueue)
 			return getChronicleQueue(xidAsString);
 		else
-			return new OraCdcTransactionArrayList(xidAsString);
+			return new OraCdcTransactionArrayList(xidAsString, initialCapacity);
 	}
 
 	private OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString) {
