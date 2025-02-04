@@ -257,6 +257,18 @@ public class OraDumpDecoder {
 		}
 	}
 
+	public static Timestamp toTimestamp(final byte[] data, final int offset, final int length) throws SQLException {
+		if (length == OracleDate.DATA_LENGTH) {
+			return OracleDate.toTimestamp(data, offset);
+		} else if (length == OracleTimestamp.DATA_LENGTH) {
+			return OracleTimestamp.toTimestamp(data, offset);
+		} else if (length == TimestampWithTimeZone.DATA_LENGTH) {
+			return TimestampWithTimeZone.toTimestamp(data, offset);
+		} else {
+			throw new SQLException("Invalid Oracle HEX value DATE/TIMESTAMP - " + rawToHex(data) + "!");
+		}
+	}
+
 	public static byte[] toByteArray(final String hex) {
 		int len = hex.length();
 		byte[] data = new byte[len / 2];
