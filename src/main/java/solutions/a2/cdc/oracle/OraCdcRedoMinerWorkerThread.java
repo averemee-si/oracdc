@@ -317,11 +317,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
 											xid, Instant.ofEpochMilli(lwnUnixMillis), lastScn);
 								}
-								if (useChronicleQueue) {
-									transaction = getChronicleQueue(xid.toString(), activeTransactions.size());
-								} else {
-									transaction = new OraCdcTransactionArrayList(xid.toString());
-								}
+								transaction = createTransaction(xid.toString(), activeTransactions.size());
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug(
 											"Starting transaction {} at SCN={}, RBA={}",

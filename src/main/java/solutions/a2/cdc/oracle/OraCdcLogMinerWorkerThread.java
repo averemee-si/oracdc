@@ -436,11 +436,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
 													xid, timestamp, lastScn);
 										}
-										if (useChronicleQueue) {
-											transaction = getChronicleQueue(xid, activeTransactions.size());
-										} else {
-											transaction = new OraCdcTransactionArrayList(xid);
-										}
+										transaction = createTransaction(xid, activeTransactions.size());
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,

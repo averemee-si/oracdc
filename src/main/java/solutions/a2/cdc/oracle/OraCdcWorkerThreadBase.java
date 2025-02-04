@@ -58,6 +58,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	long lastSubScn;
 	private final int concTransThreshold;
 	private final int reduceLoadMs;
+	private final Runtime runtime;
 
 	public OraCdcWorkerThreadBase(final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceConnectorConfig config,
@@ -86,6 +87,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		this.pollInterval = config.pollIntervalMs();
 		this.concTransThreshold = config.transactionsThreshold();
 		this.reduceLoadMs = config.reduceLoadMs();
+		this.runtime = Runtime.getRuntime();
 		LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 	}
 
@@ -117,16 +119,20 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 
 	abstract void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSubScn) throws SQLException;
 
-	OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString, int inProgress) {
+	OraCdcTransaction createTransaction(final String xidAsString, int inProgress) {
 		int attempt = 0;
-		long start = System.currentTimeMillis();
 		while (true) {
 			if (attempt > Byte.MAX_VALUE) {
 				break;
 			} else
 				attempt++;
 			int readyToSend = committedTransactions.size();
-			if ((readyToSend + inProgress) > concTransThreshold && readyToSend > 0) {
+			boolean waitCondition = (readyToSend + inProgress) > concTransThreshold && readyToSend > 0;
+			if (!useChronicleQueue &&
+					(float)(runtime.freeMemory()/runtime.totalMemory()) > 0.24f) {
+				waitCondition = false;
+			}
+			if (waitCondition) {
 				try {
 					LOGGER.info(
 							"Currently {} transactions are ready to send and {} are in the process of reading from RDBMS. Wait {}ms to reduce the load on the system",
@@ -137,8 +143,15 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 				break;
 			}
 		}
-		start = System.currentTimeMillis();
-		attempt = 0;
+		if (useChronicleQueue)
+			return getChronicleQueue(xidAsString);
+		else
+			return new OraCdcTransactionArrayList(xidAsString);
+	}
+
+	private OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString) {
+		long start = System.currentTimeMillis();
+		int attempt = 0;
 		Exception lastException = null;
 		while (true) {
 			if (attempt > Byte.MAX_VALUE)
@@ -182,4 +195,5 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		else
 			throw new ConnectException("Unable to create Chronicle Queue!");
 	}
+
 }
