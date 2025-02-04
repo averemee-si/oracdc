@@ -755,6 +755,8 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			currentBlock++;
 		} else if (bytesRead == Integer.MIN_VALUE) {
 			return false;
+		} else if (blockCount == currentBlock) {
+			return false;
 		} else {
 			LOGGER.error(
 					"\n=====================\n" +
