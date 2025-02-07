@@ -31,7 +31,7 @@ import solutions.a2.oracle.internals.Xid;
 
 public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
-	public static int KDO_POS = 0x3;
+	public static final int KDO_POS = 0x3;
 	static final int SUPPL_LOG_MIN_LENGTH = 0x14;
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndoBlock.class);
 	private static final int KTUDB_MIN_LENGTH = 0x14;

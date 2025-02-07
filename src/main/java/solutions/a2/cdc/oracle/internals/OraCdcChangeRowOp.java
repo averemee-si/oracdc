@@ -28,7 +28,7 @@ package solutions.a2.cdc.oracle.internals;
 
 public class OraCdcChangeRowOp extends OraCdcChange {
 
-	public static int KDO_POS = 0x1;
+	public final static int KDO_POS = 0x1;
 
 	OraCdcChangeRowOp(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
