@@ -39,7 +39,7 @@ public class ParamConstants {
 	public static final String STANDBY_TNS_ALIAS_DOC = "Connection TNS alias for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
 
 	public static final String DICTIONARY_FILE_PARAM = "a2.dictionary.file";
-	public static final String DICTIONARY_FILE_DOC = "File with stored columns data type mapping. For more details contact us at oracle@a2-solutions.eu";
+	public static final String DICTIONARY_FILE_DOC = "File with stored columns data type mapping. For more details contact us at oracle@a2.solutions";
 
 	public static final String INITIAL_LOAD_PARAM = "a2.initial.load";
 	public static final String INITIAL_LOAD_DOC = "A mode for performing initial load of data from tables when set to EXECUTE. Default - IGNORE";

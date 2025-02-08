@@ -399,7 +399,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											"which are in the first part of the transaction, are not available to the connector.\n" + 
 											"In this case, you need to set the connector's 'a2.first.change' parameter to the correct value\n" +
 											"and make sure that the necessary archive logs are available.\n\n" +
-											"If you have questions or need more information, please write to us at oracle@a2-solutions.eu\n\n" +
+											"If you have questions or need more information, please write to us at oracle@a2.solutions\n\n" +
 											"\n=====================\n",
 											xid, operation, lastScn, lastRba, lastSubScn,
 											logMiner.getFirstChange(), logMiner.getNextChange());
@@ -777,7 +777,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 					"\n=====================\n" +
 					"Unhandled '{}', SQL errorCode = {}, SQL state = '{}'\n" +
 					"in restoreOraConnection(sqle) !\n" +
-					"To fix - please send this message to oracle@a2-solutions.eu\n" +
+					"To fix - please send this message to oracle@a2.solutions\n" +
 					"=====================\n",
 					sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 			throw new ConnectException(sqle);

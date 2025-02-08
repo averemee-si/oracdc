@@ -1053,7 +1053,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			// We expect here only 1,2,3 as valid values for OPERATION_CODE (and 68 for special cases)
 			printErrorMessage(
 					Level.ERROR,
-					"Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:\n",
+					"Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2.solutions with record details below:\n",
 					stmt, xid, commitScn);
 			throw new SQLException("Unknown OPERATION_CODE while parsing redo record!");
 		}
@@ -2318,7 +2318,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			// We expect here only 1,2,3 as valid values for OPERATION_CODE (and 68 for special cases)
 			printErrorMessage(
 					Level.ERROR,
-					"Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2-solutions.eu with record details below:\n",
+					"Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2.solutions with record details below:\n",
 					stmt, xid, commitScn);
 			throw new SQLException("Unknown OPERATION_CODE while parsing redo record!");
 		}

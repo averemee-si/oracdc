@@ -12,7 +12,7 @@
 #
 
 FROM   averemee/oracdc:latest
-LABEL  maintainer="oracle@a2-solutions.eu"
+LABEL  maintainer="oracle@a2.solutions"
 LABEL  vendor="A2 Rešitve d.o.o."
 LABEL  version="2.5.2"
 LABEL  release="2.5.2"

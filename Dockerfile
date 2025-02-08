@@ -227,7 +227,7 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
 
 
 FROM   eclipse-temurin:21-jre
-LABEL  maintainer="oracle@a2-solutions.eu"
+LABEL  maintainer="oracle@a2.solutions"
 LABEL  vendor="A2 Rešitve d.o.o."
 LABEL  version="2.6.0"
 LABEL  release="2.6.0"
