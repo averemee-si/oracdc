@@ -297,7 +297,7 @@ export KAFKA_OPTS="\
 ### Distribution
 1. [GitHub](https://github.com/averemee-si/oracdc/)
 2. [Confluent Hub](https://www.confluent.io/hub/a2solutions/oracdc-kafka)
-3. [DockerHub](https://hub.docker.com/r/averemee/oracdc)
+3. [DockerHub](https://hub.docker.com/r/a2solutions/oracdc)
 4. [AWS Marketplace](https://aws.amazon.com/marketplace/seller-profile?id=07173d1d-0e5c-4e97-8db7-5c701176865c) - optimized for [Amazon MSK](https://aws.amazon.com/msk/) and [AWS Glue Schema Registry](https://docs.aws.amazon.com/glue/latest/dg/schema-registry.html)
 4.1. [x86_64 CloudFormation Stack](https://aws.amazon.com/marketplace/pp/prodview-cqki33xso6s6a)
 4.2. [AWS Graviton CloudFormation Stack](https://aws.amazon.com/marketplace/pp/prodview-fn6bpplwp4m6y)
