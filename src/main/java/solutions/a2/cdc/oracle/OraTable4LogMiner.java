@@ -59,7 +59,14 @@ import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_SKIP;
+import static solutions.a2.cdc.oracle.OraDumpDecoder.hexToRaw;
 import static solutions.a2.cdc.oracle.OraDumpDecoder.rawToHex;
+import static solutions.a2.oracle.jdbc.types.OracleNumber.toByte;
+import static solutions.a2.oracle.jdbc.types.OracleNumber.toShort;
+import static solutions.a2.oracle.jdbc.types.OracleNumber.toInt;
+import static solutions.a2.oracle.jdbc.types.OracleNumber.toLong;
+import static solutions.a2.oracle.jdbc.types.OracleNumber.toFloat;
+import static solutions.a2.oracle.jdbc.types.OracleNumber.toDouble;
 
 /**
  * 
@@ -1224,32 +1231,32 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				break;
 			case Types.TIMESTAMP_WITH_TIMEZONE:
 				columnValue = OraTimestamp.fromLogical(
-					OraDumpDecoder.toByteArray(hex), oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
+					hexToRaw(hex), oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
 				break;
 			case Types.TINYINT:
-				columnValue = OraDumpDecoder.toByte(hex);
+				columnValue = toByte(hexToRaw(hex));
 				break;
 			case Types.SMALLINT:
-				columnValue = OraDumpDecoder.toShort(hex);
+				columnValue = toShort(hexToRaw(hex));
 				break;
 			case Types.INTEGER:
-				columnValue = OraDumpDecoder.toInt(hex);
+				columnValue = toInt(hexToRaw(hex));
 				break;
 			case Types.BIGINT:
-				columnValue = OraDumpDecoder.toLong(hex);
+				columnValue = toLong(hexToRaw(hex));
 				break;
 			case Types.FLOAT:
 				if (oraColumn.isBinaryFloatDouble()) {
 					columnValue = OraDumpDecoder.fromBinaryFloat(hex);
 				} else {
-					columnValue = OraDumpDecoder.toFloat(hex);
+					columnValue = toFloat(hexToRaw(hex));
 				}
 				break;
 			case Types.DOUBLE:
 				if (oraColumn.isBinaryFloatDouble()) {
 					columnValue = OraDumpDecoder.fromBinaryDouble(hex);
 				} else {
-					columnValue = OraDumpDecoder.toDouble(hex);
+					columnValue = toDouble(hexToRaw(hex));
 				}
 				break;
 			case Types.DECIMAL:
@@ -1270,7 +1277,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_BINARY:
 			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_BINARY:
 				// do not need to perform data type conversion here!
-				columnValue = OraDumpDecoder.toByteArray(hex);
+				columnValue = hexToRaw(hex);
 				break;
 			case Types.CHAR:
 			case Types.VARCHAR:
@@ -1305,11 +1312,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
 						columnValue = new byte[0];
 					} else {
-						columnValue = OraDumpDecoder.toByteArray(StringUtils.substring(hex,
+						columnValue = hexToRaw(StringUtils.substring(hex,
 								LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
 					}
 				} else {
-					columnValue = OraDumpDecoder.toByteArray(
+					columnValue = hexToRaw(
 								StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
 				}
 				break;
@@ -1320,7 +1327,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				break;
 			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING:
 			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING:
-				columnValue = OraInterval.fromLogical(OraDumpDecoder.toByteArray(hex));
+				columnValue = OraInterval.fromLogical(hexToRaw(hex));
 				break;
 			default:
 				columnValue = oraColumn.unsupportedTypeValue();
@@ -2492,29 +2499,29 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
 				break;
 			case Types.TINYINT:
-				columnValue = OraDumpDecoder.toByte(Arrays.copyOfRange(data, offset, offset + length));
+				columnValue = toByte(data, offset, length);
 				break;
 			case Types.SMALLINT:
-				columnValue = OraDumpDecoder.toShort(Arrays.copyOfRange(data, offset, offset + length));
+				columnValue = toShort(data, offset, length);
 				break;
 			case Types.INTEGER:
-				columnValue = OraDumpDecoder.toInt(Arrays.copyOfRange(data, offset, offset + length));
+				columnValue = toInt(data, offset, length);
 				break;
 			case Types.BIGINT:
-				columnValue = OraDumpDecoder.toLong(Arrays.copyOfRange(data, offset, offset + length));
+				columnValue = toLong(data, offset, length);
 				break;
 			case Types.FLOAT:
 				if (oraColumn.isBinaryFloatDouble()) {
 					columnValue = OraDumpDecoder.fromBinaryFloat(Arrays.copyOfRange(data, offset, offset + length));
 				} else {
-					columnValue = OraDumpDecoder.toFloat(Arrays.copyOfRange(data, offset, offset + length));
+					columnValue = toFloat(data, offset, length);
 				}
 				break;
 			case Types.DOUBLE:
 				if (oraColumn.isBinaryFloatDouble()) {
 					columnValue = OraDumpDecoder.fromBinaryDouble(Arrays.copyOfRange(data, offset, offset + length));
 				} else {
-					columnValue = OraDumpDecoder.toDouble(Arrays.copyOfRange(data, offset, offset + length));
+					columnValue = toDouble(data, offset, length);
 				}
 				break;
 			case Types.DECIMAL:

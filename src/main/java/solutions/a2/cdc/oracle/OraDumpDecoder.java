@@ -45,7 +45,7 @@ public class OraDumpDecoder {
 	private final String nlsCharacterSet;
 	private final String nlsNcharCharacterSet;
 
-	private final static Hashtable<String, String> charsetMap = new Hashtable<>(131);
+	private final static Hashtable<String, String> charsetMap = new Hashtable<>();
 	private static final char[] HEX_CHARS_UPPER = new char[]
 			{0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46};
 
@@ -59,68 +59,8 @@ public class OraDumpDecoder {
 		this.nlsNcharCharacterSet = charsetMap.get(nlsNcharCharacterSet);
 	}
 
-	public static byte toByte(final String hex) throws SQLException {
-		return toByte(toByteArray(hex));
-	}
-
-	public static byte toByte(final byte[] data) throws SQLException {
-		try {
-			return NUMBER.toByte(data);
-		} catch (Exception e) {
-			throw new SQLException("Invalid Oracle NUMBER", e);
-		}
-	}
-
-	public static short toShort(final String hex) throws SQLException {
-		return toShort(toByteArray(hex));
-	}
-
-	public static short toShort(final byte[] data) throws SQLException {
-		try {
-			return NUMBER.toShort(data);
-		} catch (Exception e) {
-			throw new SQLException("Invalid Oracle NUMBER", e);
-		}
-	}
-
-	public static int toInt(final String hex) throws SQLException {
-		return toInt(toByteArray(hex));
-	}
-
-	public static int toInt(final byte[] data) throws SQLException {
-		try {
-			return NUMBER.toInt(data);
-		} catch (Exception e) {
-			throw new SQLException("Invalid Oracle NUMBER", e);
-		}
-	}
-
-	public static long toLong(final String hex) throws SQLException {
-		return toLong(toByteArray(hex));
-	}
-
-	public static long toLong(final byte[] data) throws SQLException {
-		try {
-			return NUMBER.toLong(data);
-		} catch (Exception e) {
-			throw new SQLException("Invalid Oracle NUMBER", e);
-		}
-	}
-
-	public static float toFloat(final String hex) throws SQLException {
-		return toFloat(toByteArray(hex));
-	}
-
-	public static float toFloat(final byte[] data) throws SQLException {
-		try {
-			return NUMBER.toFloat(data);
-		} catch (Exception e) {
-			throw new SQLException("Invalid Oracle NUMBER", e);
-		}
-	}
-
 	public static float fromBinaryFloat(final String hex) throws SQLException {
-		return fromBinaryFloat(toByteArray(hex));
+		return fromBinaryFloat(hexToRaw(hex));
 	}
 
 	public static float fromBinaryFloat(final byte[] data) throws SQLException {
@@ -132,20 +72,8 @@ public class OraDumpDecoder {
 		}
 	}
 
-	public static double toDouble(final String hex) throws SQLException {
-		return toDouble(toByteArray(hex));
-	}
-
-	public static double toDouble(final byte[] data) throws SQLException {
-		try {
-			return NUMBER.toDouble(data);
-		} catch (Exception e) {
-			throw new SQLException("Invalid Oracle NUMBER", e);
-		}
-	}
-
 	public static double fromBinaryDouble(final String hex) throws SQLException {
-		return fromBinaryDouble(toByteArray(hex));
+		return fromBinaryDouble(hexToRaw(hex));
 	}
 
 	public static double fromBinaryDouble(final byte[] data) throws SQLException {
@@ -158,7 +86,7 @@ public class OraDumpDecoder {
 	}
 
 	public static BigDecimal toBigDecimal(final String hex) throws SQLException {
-		return NUMBER.toBigDecimal(toByteArray(hex));
+		return NUMBER.toBigDecimal(hexToRaw(hex));
 	}
 
 	public static BigDecimal toBigDecimal(final byte[] data) throws SQLException {
@@ -170,7 +98,7 @@ public class OraDumpDecoder {
 	}
 
 	public String fromVarchar2(final String hex) throws SQLException {
-		return fromVarchar2(toByteArray(hex));
+		return fromVarchar2(hexToRaw(hex));
 	}
 
 	public String fromVarchar2(final byte[] data) throws SQLException {
@@ -191,7 +119,7 @@ public class OraDumpDecoder {
 	}
 
 	public String fromNvarchar2(final String hex) throws SQLException {
-		return fromNvarchar2(toByteArray(hex));
+		return fromNvarchar2(hexToRaw(hex));
 	}
 
 	public String fromNvarchar2(final byte[] data) throws SQLException {
@@ -213,7 +141,7 @@ public class OraDumpDecoder {
 
 	public static String fromClobNclob(final String hex) throws SQLException {
 		try {
-			return new String(toByteArray(hex), "UTF-16");
+			return new String(hexToRaw(hex), "UTF-16");
 		} catch (UnsupportedEncodingException e) {
 			throw new SQLException("Invalid encoding UTF-16 encoded CLOB/NCLOB for HEXTORAW " + hex +  ".", e);
 		}
@@ -233,16 +161,7 @@ public class OraDumpDecoder {
 	 * @return
 	 */
 	public static Timestamp toTimestamp(final String hex) throws SQLException {
-		int[] data = hexStringToIntArray(hex);
-		if (data.length == OracleDate.DATA_LENGTH) {
-			return OracleDate.toTimestamp(data);
-		} else if (data.length == OracleTimestamp.DATA_LENGTH) {
-			return OracleTimestamp.toTimestamp(data);
-		} else if (data.length == TimestampWithTimeZone.DATA_LENGTH) {
-			return TimestampWithTimeZone.toTimestamp(data);
-		} else {
-			throw new SQLException("Invalid Oracle HEX value DATE/TIMESTAMP - " + hex + "!");
-		}
+		return toTimestamp(hexToRaw(hex));
 	}
 
 	public static Timestamp toTimestamp(final byte[] data) throws SQLException {
@@ -269,9 +188,20 @@ public class OraDumpDecoder {
 		}
 	}
 
+	@Deprecated
 	public static byte[] toByteArray(final String hex) {
 		int len = hex.length();
 		byte[] data = new byte[len / 2];
+		for (int i = 0; i < len; i += 2) {
+			data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4) +
+									Character.digit(hex.charAt(i+1), 16));
+		}
+		return data;
+	}
+
+	public static byte[] hexToRaw(final String hex) {
+		final int len = hex.length();
+		final byte[] data = new byte[len / 2];
 		for (int i = 0; i < len; i += 2) {
 			data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4) +
 									Character.digit(hex.charAt(i+1), 16));
@@ -286,16 +216,6 @@ public class OraDumpDecoder {
 			data[(i << 1) + 1] = HEX_CHARS_UPPER[(hex[i] & 0xF)];
 		}
 		return new String(data);
-	}
-
-	private static int[] hexStringToIntArray(final String hex) {
-		int len = hex.length();
-		int[] data = new int[len / 2];
-		for (int i = 0; i < len; i += 2) {
-			data[i / 2] = ((Character.digit(hex.charAt(i), 16) << 4) +
-							Character.digit(hex.charAt(i+1), 16));
-		}
-		return data;
 	}
 
 	public static String rawToHex(final byte[] data) {

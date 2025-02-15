@@ -67,8 +67,8 @@ public class OraNumberTest {
 				OraNumber.builder().build());
 		Schema schema = schemaBuilder.build();
 		Struct struct = new Struct(schema);
-		struct.put("NUMBER01", OraDumpDecoder.toByteArray("3f534966"));
-		struct.put("NUMBER02", OraDumpDecoder.toByteArray("c1024a153351"));
+		struct.put("NUMBER01", OraDumpDecoder.hexToRaw("3f534966"));
+		struct.put("NUMBER02", OraDumpDecoder.hexToRaw("c1024a153351"));
 
 		System.out.println(struct.schema().field("NUMBER01").schema().name());
 		assertTrue(struct.schema().field("NUMBER01").schema().name().equals(OraNumber.LOGICAL_NAME));
