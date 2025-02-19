@@ -925,6 +925,10 @@ public class OraColumn {
 		}
 	}
 
+	public void setSchema(Schema schema) {
+		this.schema = schema;
+	}
+
 	public Schema getSchema() {
 		return schema;
 	}
