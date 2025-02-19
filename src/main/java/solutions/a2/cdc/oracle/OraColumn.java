@@ -107,6 +107,7 @@ public class OraColumn {
 	private Schema schema;
 	private String oracleName;
 	private boolean partOfKeyStruct;
+	private boolean number = false;
 
 	/**
 	 * 
@@ -401,6 +402,7 @@ public class OraColumn {
 					// A FLOAT value is represented internally as NUMBER.
 					// The precision p can range from 1 to 126 binary digits.
 					// A FLOAT value requires from 1 to 22 bytes.
+					number = true;
 					if (useOracdcSchemas) {
 						jdbcType = Types.NUMERIC;
 						oraNumberField();
@@ -411,6 +413,7 @@ public class OraColumn {
 					}
 					break;
 				case TYPE_NUMBER:
+					number = true;
 					if (dataScale != null && dataPrecision == null) {
 						//DATA_SCALE set but DATA_PRECISION is unknown....
 						//Set it to MAX
@@ -1545,6 +1548,10 @@ public class OraColumn {
 		return partOfKeyStruct ?
 					keyStruct.get(columnName).toString() :
 						valueStruct.get(columnName).toString();
+	}
+
+	public boolean isNumber() {
+		return number;
 	}
 
 }
