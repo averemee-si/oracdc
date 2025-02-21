@@ -754,6 +754,62 @@ public class OraColumn {
 		this.nameFromId = null;
 	}
 
+	/**
+	 * Used internally for mapping support
+	 * 
+	 * @param columnName
+	 * @param jdbcType
+	 * @param scale
+	 */
+	OraColumn(
+			final String columnName,
+			final int jdbcType,
+			final int scale) {
+		this.columnName = columnName;
+		this.jdbcType = jdbcType;
+		this.dataScale = scale;
+		
+	}
+
+	public void remap(final OraColumn newDef) {
+		if (newDef.jdbcType != Types.NULL && jdbcType != newDef.jdbcType) {
+			jdbcType = newDef.jdbcType;
+			switch (jdbcType) {
+			case Types.BOOLEAN:
+				schema = nullable ? Schema.OPTIONAL_BOOLEAN_SCHEMA :
+									Schema.BOOLEAN_SCHEMA;
+				break;
+			case Types.TINYINT:
+				schema = nullable ? Schema.OPTIONAL_INT8_SCHEMA :
+									Schema.INT8_SCHEMA;
+				break;
+			case Types.SMALLINT:
+				schema = nullable ? Schema.OPTIONAL_INT16_SCHEMA :
+									Schema.INT16_SCHEMA;
+				break;
+			case Types.INTEGER:
+				schema = nullable ? Schema.OPTIONAL_INT32_SCHEMA :
+									Schema.INT32_SCHEMA;
+				break;
+			case Types.BIGINT:
+				schema = nullable ? Schema.OPTIONAL_INT64_SCHEMA :
+									Schema.INT64_SCHEMA;
+				break;
+			case Types.FLOAT:
+				schema = nullable ? Schema.OPTIONAL_FLOAT32_SCHEMA :
+									Schema.FLOAT32_SCHEMA;
+				break;
+			case Types.DOUBLE:
+				schema = nullable ? Schema.OPTIONAL_FLOAT64_SCHEMA :
+									Schema.FLOAT64_SCHEMA;
+				break;
+			case Types.DECIMAL:
+				schema = optionalOrRequired(Decimal.builder(newDef.dataScale));
+				break;
+			}
+		}
+	}
+
 	/*
 	 * New Style call... ... ...
 	 */
@@ -1131,11 +1187,9 @@ public class OraColumn {
 	}
 
 	private Schema optionalOrRequired(SchemaBuilder builder) {
-		if (partOfPk || !nullable) {
-			return builder.required().build();
-		} else {
-			return builder.optional().build();
-		}
+		return partOfPk || !nullable
+				? builder.required().build()
+				: builder.optional().build();
 	}
 
 	private void stringField() {
