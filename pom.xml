@@ -125,6 +125,10 @@
 					<groupId>javax.ws.rs</groupId>
 					<artifactId>javax.ws.rs-api</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>com.github.luben</groupId>
+					<artifactId>zstd-jni</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
