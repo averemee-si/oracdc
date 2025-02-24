@@ -265,7 +265,7 @@ RUN    chown -R kafka:kafka ${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
 RUN    chown -R kafka:kafka ${KAFKA_HOME}/config
 ENV    ORACDC_JAR=${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
 ARG    MAIN_CONFIG=solutions.a2.cdc.oracle.utils.file.Env2Property
-RUN    mkdir ${BASEDIR}/oracdc \
+RUN    mkdir -p ${BASEDIR}/oracdc/licenses \
        && touch ${BASEDIR}/oracdc/run.sh \
        && chmod +x ${BASEDIR}/oracdc/run.sh \
        && echo "#!/bin/sh" > ${BASEDIR}/oracdc/run.sh \
@@ -277,6 +277,8 @@ RUN    mkdir ${BASEDIR}/oracdc \
 USER   kafka
 RUN    mkdir ${KAFKA_HOME}/logs
 RUN    touch ${KAFKA_HOME}/logs/connect.log
+COPY   LICENSE* ${BASEDIR}/oracdc
+COPY   licenses/* ${BASEDIR}/oracdc/licenses
 
 RUN    echo "" > ${PROPS_FILE} \
        && echo "offset.flush.interval.ms=10000" >> ${PROPS_FILE} \

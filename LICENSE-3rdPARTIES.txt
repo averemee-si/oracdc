@@ -1,0 +1,34 @@
+===============================================================================
+This product bundles various third-party components under other open source
+licenses. This file summarizes those components and their licenses.
+See licenses/ folder for text of these licenses.
+
+
+----------------------------------------
+Oracle Free Use Terms and Conditions
+
+
+- ojdbc11-21.17.0.0, see: licenses/oracle-FUTC
+- ucp11-21.17.0.0, see: licenses/oracle-FUTC
+- oraclepki-21.17.0.0, see: licenses/oracle-FUTC
+- osdt_core-21.17.0.0, see: licenses/oracle-FUTC
+- osdt_cert-21.17.0.0, see: licenses/oracle-FUTC
+- xmlparserv2-21.17.0.0, see: licenses/oracle-FUTC
+- xdb-21.17.0.0, see: licenses/oracle-FUTC
+
+
+----------------------------------------
+Dual License LGPL-2.1 or later, or Apache-2.0
+
+
+- jna-5.8.0, see: licenses/lgpl-3.0
+- jna-platform-5.8.0, see: licenses/lgpl-3.0
+
+----------------------------------------
+MIT License
+
+
+- slf4j-api-2.0.16, see: licenses/MIT-slf4j 
+- slf4j-reload4j-2.0.16, see: licenses/MIT-slf4j
+- reload4j-1.2.22, see: licenses/MIT-slf4j
+- checker-qual-3.42.0, see: licenses/MIT-checker-qual
