@@ -258,7 +258,7 @@ public class OraCdcLargeObjectWorker {
 			}
 			break;
 		case Types.BLOB:
-			ba = OraDumpDecoder.toByteArray(lobHexData.toString());
+			ba = OraDumpDecoder.hexToRaw(lobHexData.toString());
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("BLOB column {}, XID='{}' processing completed, processing time {} ms, data length={}",
 						oraColumn.getColumnName(), xid, (System.currentTimeMillis() - processingStartMillis), ba.length);

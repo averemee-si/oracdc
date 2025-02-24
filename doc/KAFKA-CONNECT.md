@@ -186,6 +186,17 @@ Default - *${connectorName}.seq*
 
 `a2.array.list.default.capacity` - Initial capacity of ArrayList storing Oracle Database transaction data. Default - 32.
 
+`a2.number.map.[PDB_NAME.]SCHEMA_NAME.TABLE_NAME.COL_NAME_OR_PATTERN` - Overrides the Kafka data type for an Oracle column with data type NUMBER. The *%* symbol can be used as a control sign in the column name, its use is supported as a start symbol (i.e. the column name ends with) and as a terminal symbol (i.e. the column name begins with). Possible values ​​of data types:
+- BOOL, BOOLEAN 
+- BYTE, TINYINT
+- SHORT, SMALLINT
+- INT, INTEGER
+- LONG, BIGINT
+- FLOAT
+- DOUBLE
+- DECIMAL([P],S), NUMERIC([P],S)
+
+
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 
 `a2.standby.activate` - activate running LogMiner at physical standby database. Default - *false*.

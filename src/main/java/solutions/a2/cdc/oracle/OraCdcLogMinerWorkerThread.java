@@ -1059,7 +1059,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			xmlHexData.append(rsLogMiner.getString("SQL_REDO"));
 		}
 		final String xmlAsString = new String(
-				OraDumpDecoder.toByteArray(
+				OraDumpDecoder.hexToRaw(
 						StringUtils.substringBetween(xmlHexData.toString(), "HEXTORAW('", ")'")));
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("{} column {} content:\n{}",

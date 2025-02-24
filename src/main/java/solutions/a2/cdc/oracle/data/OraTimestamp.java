@@ -51,13 +51,17 @@ public class OraTimestamp {
 	}
 
 	public static String fromLogical(final byte[] dumpValue, final boolean isLocal, ZoneId dbTimeZone) {
+		return fromLogical(dumpValue, 0, dumpValue.length, isLocal, dbTimeZone);
+	}
+
+	public static String fromLogical(final byte[] dumpValue, final int offset, final int length, final boolean isLocal, ZoneId dbTimeZone) {
 		if (dumpValue == null) {
 			throw new DataException("oracle.sql.TIMESTAMPTZ/oracle.sql.TIMESTAMPTZ representation is null!");
 		}
 		final ZonedDateTime zdt;
 		if (isLocal) {
 			try {
-				zdt = OracleTimestamp.toZonedDateTime(dumpValue, dbTimeZone);
+				zdt = OracleTimestamp.toZonedDateTime(dumpValue, offset, length, dbTimeZone);
 			} catch (SQLException sqle) {
 				throw new DataException("Unable to convert " +
 							OraDumpDecoder.toHexString(dumpValue) +
@@ -65,7 +69,7 @@ public class OraTimestamp {
 			}
 		} else {
 			try {				
-				zdt = TimestampWithTimeZone.toZonedDateTime(dumpValue);
+				zdt = TimestampWithTimeZone.toZonedDateTime(dumpValue, offset);
 			} catch (SQLException sqle) {
 				throw new DataException("Unable to convert " +
 							OraDumpDecoder.toHexString(dumpValue) +

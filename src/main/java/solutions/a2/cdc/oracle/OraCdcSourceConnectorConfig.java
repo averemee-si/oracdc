@@ -24,12 +24,18 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.SQLException;
+import java.sql.Types;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -280,6 +286,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String AL_CAPACITY_DOC = 
 			"Initial capacity of ArrayList storing Oracle Database transaction data.\n" + 
 			"Default - " + AL_CAPACITY_DEFAULT;
+	
+	private static final String NUMBER_MAP_PREFIX = "a2.map.number.";
 
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
@@ -289,6 +297,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
 	private int topicPartition = 0;
 	private Path queuesRoot = null;
+	private Map<String, Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberColumnsMap = new LinkedHashMap<>();
 
 	// Redo Miner only!
 	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
@@ -483,8 +492,178 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				;
 	}
 
-	public OraCdcSourceConnectorConfig(Map<?, ?> originals) {
+	public OraCdcSourceConnectorConfig(Map<String, String> originals) {
 		super(config(), originals);
+		// parse numberColumnsMap
+		Map<String, String> numberMapParams = originals.entrySet().stream()
+				.filter(prop -> StringUtils.startsWith(prop.getKey(), NUMBER_MAP_PREFIX))
+				.collect(Collectors.toMap(
+						prop -> StringUtils.replace(prop.getKey(), NUMBER_MAP_PREFIX, ""),
+						Map.Entry::getValue));
+				
+		numberMapParams.forEach((param, value) -> {
+			final int lastDotPos = StringUtils.lastIndexOf(param, '.');
+			final String column = StringUtils.substring(param, lastDotPos + 1);
+			final String fqn = StringUtils.substring(param, 0, lastDotPos);
+			if (!numberColumnsMap.containsKey(fqn)) {
+				numberColumnsMap.put(fqn, Triple.of(
+						new ArrayList<Pair<String, OraColumn>>(),
+						new HashMap<String, OraColumn>(),
+						new ArrayList<Pair<String, OraColumn>>()));
+			}
+			final int jdbcType;
+			int scale = 0;
+			switch (StringUtils.upperCase(StringUtils.trim(StringUtils.substringBefore(value, '(')))) {
+			case "BOOL":
+			case "BOOLEAN":
+				jdbcType = Types.BOOLEAN;
+				break;
+			case "BYTE":
+			case "TINYINT":
+				jdbcType = Types.TINYINT;
+				break;
+			case "SHORT":
+			case "SMALLINT":
+				jdbcType = Types.SMALLINT;
+				break;
+			case "INT":
+			case "INTEGER":
+				jdbcType = Types.INTEGER;
+				break;
+			case "LONG":
+			case "BIGINT":
+				jdbcType = Types.BIGINT;
+				break;
+			case "FLOAT":
+				jdbcType = Types.FLOAT;
+				break;
+			case "DOUBLE":
+				jdbcType = Types.DOUBLE;
+				break;
+			case "DECIMAL":
+			case "NUMERIC":
+				final String precisionScale = StringUtils.trim(StringUtils.substringBetween(value, "(", ")"));
+				if (StringUtils.countMatches(precisionScale, ',') == 1) {
+					try {
+						scale = Integer.parseInt(StringUtils.trim(StringUtils.split(precisionScale, ',')[1]));
+					} catch (Exception e) {
+						LOGGER.error(
+								"\n=====================\n" +
+								"Unable to parse decimal scale in '{}' for parameter '{}'!\n" +
+								"\n=====================\n",
+								value, NUMBER_MAP_PREFIX + param);
+						scale = -1;
+					}
+					if (scale == -1) {
+						jdbcType = Types.NULL;
+					} else {
+						jdbcType = Types.DECIMAL;
+					}
+				} else {
+					jdbcType = Types.NULL;
+					LOGGER.error(
+							"\n=====================\n" +
+							"Mapping '{}' for parameter '' will be ignored!" +
+							"\n=====================\n",
+							value, NUMBER_MAP_PREFIX + param);
+				}
+				break;
+			default:
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to recognize datatype '{}' for parameter '{}'!\n" +
+						"\n=====================\n",
+						value, NUMBER_MAP_PREFIX + param);
+				jdbcType = Types.NULL;
+			}
+			if (jdbcType != Types.NULL) {
+				if (StringUtils.endsWith(column, "%")) {
+					numberColumnsMap.get(fqn).getLeft().add(Pair.of(
+							StringUtils.substring(column, 0, column.length() - 1),
+							new OraColumn(column, jdbcType, scale)));
+				} else if (StringUtils.startsWith(column, "%")) {
+					numberColumnsMap.get(fqn).getRight().add(Pair.of(
+							StringUtils.substring(column, 1),
+							new OraColumn(column, jdbcType, scale)));
+				} else {
+					numberColumnsMap.get(fqn).getMiddle().put(column, new OraColumn(column, jdbcType, scale));
+				}
+			}
+		});
+	}
+
+	public List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+			tableNumberMapping(final String tableOwner, final String tableName) {
+		return tableNumberMapping(null, tableOwner, tableName);
+	}
+
+	public List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+			tableNumberMapping(final String pdbName, final String tableOwner, final String tableName) {
+		final String fqn =  tableOwner + "." + tableName;
+		if (pdbName == null) {
+			if (numberColumnsMap.containsKey(fqn)) {
+				List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> result =
+						new ArrayList<>(1);
+				result.add(numberColumnsMap.get(fqn));
+				return result;
+			} else {
+				return null;
+			}
+		} else {
+			final Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>> forAll =
+					numberColumnsMap.get(fqn);
+			final Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>> exact =
+					numberColumnsMap.get(pdbName + "." + fqn);
+			if (exact != null && forAll == null) {
+				List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> result =
+						new ArrayList<>(1);
+				result.add(exact);
+				return result;
+			} else if (exact != null && forAll != null) {
+				List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> result =
+						new ArrayList<>(2);
+				result.add(exact);
+				result.add(forAll);
+				return result;
+			} else if (forAll != null) {
+				List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> result =
+						new ArrayList<>(1);
+				result.add(forAll);
+				return result;
+			} else {
+				return null;
+			}
+		}
+	}
+
+	public OraColumn columnNumberMapping(
+			List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+				numberRemap, final String columnName) {
+		if (numberRemap != null)
+			for (int i = 0; i < numberRemap.size(); i++) {
+				Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>> reDefs =
+						numberRemap.get(i);
+				OraColumn result = reDefs.getMiddle().get(columnName);
+				if (result != null) {
+					return result;
+				} else if ((result = remapUsingPattern(reDefs.getLeft(), columnName, true)) != null) {
+					return result;
+				} else if ((result = remapUsingPattern(reDefs.getRight(), columnName, false)) != null) {
+					return result;
+				}
+			}
+		return null;
+	}
+
+	private OraColumn remapUsingPattern(final List<Pair<String, OraColumn>> patterns, final String columnName, final boolean startsWith) {
+		for (final Pair<String, OraColumn> pattern : patterns)
+			if (startsWith &&
+					StringUtils.startsWith(columnName, pattern.getKey()))
+				return pattern.getValue();
+			else if (!startsWith &&
+					StringUtils.endsWith(columnName, pattern.getKey()))
+				return pattern.getValue();
+		return null;
 	}
 
 	public boolean useOracdcSchemas() {
