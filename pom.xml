@@ -129,6 +129,10 @@
 					<groupId>com.github.luben</groupId>
 					<artifactId>zstd-jni</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>org.xerial.snappy</groupId>
+					<artifactId>snappy-java</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
