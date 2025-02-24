@@ -1,6 +1,7 @@
 [![License](https://img.shields.io/:license-apache-blue.svg)](https://raw.githubusercontent.com/averemee-si/oracdc/refs/heads/master/LICENSE)
 [![Maven Central](https://img.shields.io/maven-central/v/solutions.a2.oracle/oracdc-kafka.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22solutions.a2.oracle%22%20AND%20a:%22oracdc-kafka%22)
 [![Docker Pulls](https://img.shields.io/docker/pulls/averemee/oracdc)](https://hub.docker.com/r/averemee/oracdc/)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Faveremee-si%2Foracdc.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Faveremee-si%2Foracdc?ref=badge_shield)
 
 
 # oracdc
@@ -933,3 +934,6 @@ New parameter to set a SQL statement(s) that will be executed for all new connec
 
 This project is licensed under the Apache License - see the [LICENSE](LICENSE) file for details
 
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Faveremee-si%2Foracdc.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Faveremee-si%2Foracdc?ref=badge_large)
