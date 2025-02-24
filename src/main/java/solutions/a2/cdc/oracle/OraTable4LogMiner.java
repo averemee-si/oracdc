@@ -32,6 +32,7 @@ import java.util.Map.Entry;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -258,8 +259,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						onlyValue ? "" : " ROWID will be used as primary key.");
 			}
 
+			final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberRemap;
 			if (isCdb) {
 				alterSessionSetContainer(connection, pdbName);
+				numberRemap = config.tableNumberMapping(pdbName, tableOwner, tableName);
+			} else {
+				numberRemap = config.tableNumberMapping(tableOwner, tableName);
 			}
 			PreparedStatement statement = connection.prepareStatement(
 					OraDictSqlTexts.COLUMN_LIST_PLAIN,
@@ -290,6 +295,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (StringUtils.equalsIgnoreCase(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
 					try {
 						column = new OraColumn(false, useOracdcSchemas, processLobs, rsColumns, pkColsSet);
+						if (column.isNumber() && numberRemap != null) {
+							final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
+							if (newDefinition != null) {
+								column.remap(newDefinition);
+							}
+						}
 						columnAdded = true;
 					} catch (UnsupportedColumnDataTypeException ucdte) {
 						LOGGER.warn("Column {} not added to definition of table {}.{}",
