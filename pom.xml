@@ -120,6 +120,12 @@
 			<groupId>org.apache.kafka</groupId>
 			<artifactId>connect-api</artifactId>
 			<version>${kafka.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>javax.ws.rs</groupId>
+					<artifactId>javax.ws.rs-api</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
 		<dependency>
