@@ -248,3 +248,5 @@ Default - *${connectorName}.seq*
 Default - 3_600_000 (one hour)
 
 `a2.ssh.buffer` - SSH read buffer size. Can be `small` (65536 bytes), `medium` (262144 bytes), or `large` (1048576 bytes). Default - `large`
+
+`a2.ssh.strict.host.key.checking` - SSH strict host key checking. Default - false.

@@ -344,6 +344,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String SSH_BUFFER_LARGE = "large";
 	private static final String SSH_BUFFER_PARAM = "a2.ssh.buffer";
 	private static final String SSH_BUFFER_DOC = "SSH read buffer size. Can be 'small' (65536 bytes), 'medium' (262144 bytes), or 'large' (1048576 bytes). Default - 'large'";
+	private static final String SSH_STRICT_HOST_KEY_CHECKING_PARAM = "a2.ssh.strict.host.key.checking";
+	private static final String SSH_STRICT_HOST_KEY_CHECKING_DOC = "SSH strict host key checking. Default - false.";
 
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
@@ -537,6 +539,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 								SSH_BUFFER_MEDIUM,
 								SSH_BUFFER_LARGE),
 						Importance.HIGH, SSH_BUFFER_DOC)
+				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, Type.BOOLEAN, false,
+						Importance.MEDIUM, SSH_STRICT_HOST_KEY_CHECKING_DOC)
 				;
 	}
 
@@ -1365,6 +1369,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		default:
 			return 0x100_000;
 		}
+	}
+
+	public boolean sshStrictHostKeyChecking() {
+		return getBoolean(SSH_STRICT_HOST_KEY_CHECKING_PARAM);
 	}
 
 }
