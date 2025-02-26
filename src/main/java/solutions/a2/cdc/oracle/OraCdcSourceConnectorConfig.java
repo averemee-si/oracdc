@@ -1349,7 +1349,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	}
 
 	public String sshKey() {
-		return getPassword(SSH_USER_PARAM).value();
+		return getPassword(SSH_KEY_PARAM).value();
 	}
 
 	public String sshPassword() {
