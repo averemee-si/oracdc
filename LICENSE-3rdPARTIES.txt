@@ -32,3 +32,21 @@ MIT License
 - slf4j-reload4j-2.0.16, see: licenses/MIT-slf4j
 - reload4j-1.2.22, see: licenses/MIT-slf4j
 - checker-qual-3.42.0, see: licenses/MIT-checker-qual
+
+
+----------------------------------------
+BSD-style license
+
+
+- JSch 0.0.* was released under the GNU LGPL license.  Later, they have switched 
+  over to a BSD-style license, see licenses/BSD-JSch
+- JZlib 0.0.* were released under the GNU LGPL license.  Later, they have switched 
+  over to a BSD-style license, see licenses/BSD-JZlib
+
+----------------------------------------
+ISC license
+
+
+- jBCrypt, see licenses/ISC-jBCrypt
+
+  
