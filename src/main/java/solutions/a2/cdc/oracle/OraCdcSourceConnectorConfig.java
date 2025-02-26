@@ -323,6 +323,27 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String ASM_RECONNECT_INTERVAL_MS_DOC =
 			"The time interval in milliseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection.\n" +
 			"Default - " + ASM_RECONNECT_INTERVAL_MS_DEFAULT + " (one week)";
+	private static final String SSH_HOST_PARAM = "a2.ssh.hostname";
+	private static final String SSH_HOST_DOC = "FQDN or IP address of the remote server with redo log files";
+	private static final String SSH_PORT_PARAM = "a2.ssh.port";
+	private static final String SSH_PORT_DOC = "SSH port of the remote server with redo log files";
+	private static final int SSH_PORT_DEFAULT = 22;
+	private static final String SSH_USER_PARAM = "a2.ssh.user";
+	private static final String SSH_USER_DOC = "Username for the authentication to the remote server with redo log files";
+	private static final String SSH_KEY_PARAM = "a2.ssh.private.key";
+	private static final String SSH_KEY_DOC = "Private key for the authentication to the remote server with redo log files";
+	private static final String SSH_PASSWORD_PARAM = "a2.ssh.password";
+	private static final String SSH_PASSWORD_DOC = "Password for the authentication to the remote server with redo log files";
+	private static final String SSH_RECONNECT_INTERVAL_MS_PARAM = "a2.ssh.reconnect.ms";
+	private static final long SSH_RECONNECT_INTERVAL_MS_DEFAULT = 3_600_000;
+	private static final String SSH_RECONNECT_INTERVAL_MS_DOC =
+			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SSH connection.\n" +
+			"Default - " + SSH_RECONNECT_INTERVAL_MS_DEFAULT + " (one hour)";
+	private static final String SSH_BUFFER_SMALL = "small";
+	private static final String SSH_BUFFER_MEDIUM = "medium";
+	private static final String SSH_BUFFER_LARGE = "large";
+	private static final String SSH_BUFFER_PARAM = "a2.ssh.buffer";
+	private static final String SSH_BUFFER_DOC = "SSH read buffer size. Can be 'small' (65536 bytes), 'medium' (262144 bytes), or 'large' (1048576 bytes). Default - 'large'";
 
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
@@ -497,6 +518,25 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, ASM_READ_AHEAD_DOC)
 				.define(ASM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, ASM_RECONNECT_INTERVAL_MS_DEFAULT,
 						Importance.LOW, ASM_RECONNECT_INTERVAL_MS_DOC)
+				.define(SSH_HOST_PARAM, Type.STRING, "",
+						Importance.LOW, SSH_HOST_DOC)
+				.define(SSH_PORT_PARAM, Type.INT, SSH_PORT_DEFAULT,
+						Importance.LOW, SSH_PORT_DOC)
+				.define(SSH_USER_PARAM, Type.STRING, "",
+						Importance.LOW, SSH_USER_DOC)
+				.define(SSH_KEY_PARAM, Type.PASSWORD, "",
+						Importance.LOW, SSH_KEY_DOC)
+				.define(SSH_PASSWORD_PARAM, Type.PASSWORD, "",
+						Importance.LOW, SSH_PASSWORD_DOC)
+				.define(SSH_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, SSH_RECONNECT_INTERVAL_MS_DEFAULT,
+						Importance.LOW, SSH_RECONNECT_INTERVAL_MS_DOC)
+				.define(SSH_BUFFER_PARAM, Type.STRING,
+						SSH_BUFFER_LARGE,
+						ConfigDef.ValidString.in(
+								SSH_BUFFER_SMALL,
+								SSH_BUFFER_MEDIUM,
+								SSH_BUFFER_LARGE),
+						Importance.HIGH, SSH_BUFFER_DOC)
 				;
 	}
 
@@ -1290,6 +1330,41 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public long asmReconnectIntervalMs() {
 		return getLong(ASM_RECONNECT_INTERVAL_MS_PARAM);
+	}
+
+	public String sshHostname() {
+		return getString(SSH_HOST_PARAM);
+	}
+
+	public int sshPort() {
+		return getInt(SSH_PORT_PARAM);
+	}
+
+	public String sshUser() {
+		return getString(SSH_USER_PARAM);
+	}
+
+	public String sshKey() {
+		return getPassword(SSH_USER_PARAM).value();
+	}
+
+	public String sshPassword() {
+		return getPassword(SSH_PASSWORD_PARAM).value();
+	}
+
+	public long sshReconnectIntervalMs() {
+		return getLong(SSH_RECONNECT_INTERVAL_MS_PARAM);
+	}
+
+	public int sshBufferSize() {
+		switch (getString(SSH_BUFFER_PARAM)) {
+		case SSH_BUFFER_SMALL:
+			return 0x10_000;
+		case SSH_BUFFER_MEDIUM:
+			return 0x40_000;
+		default:
+			return 0x100_000;
+		}
 	}
 
 }

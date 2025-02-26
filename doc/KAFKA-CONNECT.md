@@ -233,3 +233,18 @@ Default - *${connectorName}.seq*
 `a2.asm.read.ahead` - When set to true (the default), the connector reads data from the redo logs in advance, with chunks larger than the redo log file block size.
 
 `a2.asm.reconnect.ms` - The time interval in milleseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection. Default - 604,800,000 ms (one week)
+
+`a2.ssh.hostname` - FQDN or IP address of the remote server with redo log files
+
+`a2.ssh.port` - SSH port of the remote server with redo log files. Default - 22
+
+`a2.ssh.user` - Username for the authentication to the remote server with redo log files
+
+`a2.ssh.private.key` - Private key for the authentication to the remote server with redo log files
+
+`a2.ssh.password` - Password for the authentication to the remote server with redo log files
+
+`a2.ssh.reconnect.ms` - The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SSH connection.
+Default - 3_600_000 (one hour)
+
+`a2.ssh.buffer` - SSH read buffer size. Can be `small` (65536 bytes), `medium` (262144 bytes), or `large` (1048576 bytes). Default - `large`
