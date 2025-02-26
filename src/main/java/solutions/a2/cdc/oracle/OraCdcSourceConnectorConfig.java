@@ -304,8 +304,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String REDO_FILE_NAME_CONVERT_DOC =
 			"It converts the filename of a redo log to another path.\n" +
 			"It is specified as a comma separated list of a strins in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.";
-	private static final String ASM_ACTICATE_PARAM = "a2.asm";
-	private static final String ASM_ACTICATE_DOC = "Use Oracle ASM storage. Default - false"; 
+	private static final String REDO_FILE_MEDIUM_FS = "FS";
+	private static final String REDO_FILE_MEDIUM_ASM = "ASM";
+	private static final String REDO_FILE_MEDIUM_SSH = "SSH";
+	private static final String REDO_FILE_MEDIUM_PARAM = "a2.storage.media";
+	private static final String REDO_FILE_MEDIUM_DOC = "Parameter defining the storage medium for redo log files: FS - redo files will be read from the local file system, ASM - redo files will be read from the Oracle ASM, SSH - redo files will be read from the remote file syystem using ssh. Default - FS"; 
 	private static final String ASM_JDBC_URL_PARAM = "a2.asm.jdbc.url";
 	private static final String ASM_JDBC_URL_DOC = "JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above";
 	private static final String ASM_USER_PARAM = "a2.asm.username";
@@ -477,8 +480,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				// Redo Miner only!
 				.define(REDO_FILE_NAME_CONVERT_PARAM, Type.STRING, "",
 						Importance.HIGH, REDO_FILE_NAME_CONVERT_DOC)
-				.define(ASM_ACTICATE_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ASM_ACTICATE_DOC)
+				.define(REDO_FILE_MEDIUM_PARAM, Type.STRING,
+						REDO_FILE_MEDIUM_FS,
+						ConfigDef.ValidString.in(
+								REDO_FILE_MEDIUM_FS,
+								REDO_FILE_MEDIUM_ASM,
+								REDO_FILE_MEDIUM_SSH),
+						Importance.HIGH, REDO_FILE_MEDIUM_DOC)
 				.define(ASM_JDBC_URL_PARAM, Type.STRING, "",
 						Importance.LOW, ASM_JDBC_URL_DOC)
 				.define(ASM_USER_PARAM, Type.STRING, "",
@@ -1257,7 +1265,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	}
 
 	public boolean useAsm() {
-		return getBoolean(ASM_ACTICATE_PARAM);
+		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_ASM);
+	}
+
+	public boolean useSsh() {
+		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_SSH);
 	}
 
 	public String asmJdbcUrl() {
