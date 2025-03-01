@@ -73,6 +73,7 @@ public class OraCdcSshConnection implements AutoCloseable {
 				jsch.addIdentity(secret);
 			}
 			session = jsch.getSession(sUser, sHost, sPort);
+			session.setDaemonThread(true);
 			session.setConfig("StrictHostKeyChecking", strictHostKeyChecking ? "yes" : "no");
 			if (usePassword) {
 				session.setConfig("PreferredAuthentications", "password,keyboard-interactive");
