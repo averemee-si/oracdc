@@ -14,30 +14,30 @@
 package solutions.a2.cdc.oracle.internals;
 
 import java.io.IOException;
+import java.nio.file.Path;
 
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import com.jcraft.jsch.ChannelSftp;
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.Session;
-import com.jcraft.jsch.Slf4jLogger;
+import com.sshtools.client.SshClient;
+import com.sshtools.client.SshClient.SshClientBuilder;
+import com.sshtools.client.sftp.SftpClient;
+import com.sshtools.client.sftp.SftpClient.SftpClientBuilder;
+import com.sshtools.common.knownhosts.KnownHostsKeyVerification;
+import com.sshtools.common.permissions.PermissionDeniedException;
+import com.sshtools.common.ssh.SshException;
 
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 
 public class OraCdcSshConnection implements AutoCloseable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSshConnection.class);
-
+	private final String username;
+	private final String hostname;
+	private final int port;
 	private final boolean usePassword;
+	private final boolean strictHostKeyChecking;
 	private final String secret;
-	private final JSch jsch;
-	private final Session session;
-	private ChannelSftp channel;
-	private boolean connected;
-	private boolean channelReady;
+	private SshClient ssh;
+	private SftpClient sftp;
 
 	public OraCdcSshConnection(final OraCdcSourceConnectorConfig config) throws IOException {
 		this(config.sshUser(),
@@ -52,13 +52,9 @@ public class OraCdcSshConnection implements AutoCloseable {
 			final String sUser, final String sHost, final int sPort,
 			final String sKeyFile, final String sPassword,
 			final boolean strictHostKeyChecking) throws IOException {
-		if (JSch.getLogger() == null ||
-				JSch.getLogger().getClass() == null ||
-				!StringUtils.endsWith(JSch.getLogger().getClass().getCanonicalName(), "Slf4jLogger")) {
-			JSch.setLogger(new Slf4jLogger());
-		}
-		connected = false;
-		channelReady = false;
+		username = sUser;
+		hostname = sHost;
+		port = sPort;
 		if (StringUtils.isBlank(sKeyFile)) {
 			usePassword = true;
 			secret = sPassword;
@@ -66,60 +62,76 @@ public class OraCdcSshConnection implements AutoCloseable {
 			usePassword = false;
 			secret = sKeyFile;
 		}
-		jsch = new JSch();
-
+		this.strictHostKeyChecking = strictHostKeyChecking;
 		try {
-			if (!usePassword) {
-				jsch.addIdentity(secret);
+			createSsh();
+			createSftp();
+		} catch (SshException | PermissionDeniedException e) {
+			throw new IOException(e);
+		}
+		
+	}
+
+	private void createSsh() throws IOException, SshException {
+		SshClientBuilder sshBuilder = SshClientBuilder.create()
+				.withHostname(hostname)
+				.withPort(port)
+				.withUsername(username);
+		if (usePassword)
+			sshBuilder = sshBuilder.withPassword(secret);
+		else
+			sshBuilder = sshBuilder.withPrivateKeyFile(Path.of(secret));
+		ssh = sshBuilder.build();
+		if (strictHostKeyChecking)
+			ssh.getContext().setHostKeyVerification(new KnownHostsKeyVerification());
+	}
+
+	private void createSftp() throws IOException, SshException, PermissionDeniedException {
+		try {
+			sftp =  SftpClientBuilder.create()
+					.withClient(ssh)
+					.build();
+		} catch (IllegalStateException ise) {
+			if (StringUtils.startsWithIgnoreCase(ise.getMessage(), "Could not open session channel")) {
+				ssh = null;
+				createSsh();
+				createSftp();
+			} else {
+				throw ise;
 			}
-			session = jsch.getSession(sUser, sHost, sPort);
-			session.setDaemonThread(true);
-			session.setConfig("StrictHostKeyChecking", strictHostKeyChecking ? "yes" : "no");
-			if (usePassword) {
-				session.setConfig("PreferredAuthentications", "password,keyboard-interactive");
-				session.setPassword(secret);
-			}
-		} catch (JSchException jsse) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to connect to {}@{}:{} !" + 
-					"\n=====================\n",
-					sUser, sHost, sPort);
-			throw new IOException(jsse);
+		}
+		sftp.setTransferMode(SftpClient.MODE_BINARY);
+	}
+
+	private void closeSftp() {
+		if (sftp != null && sftp.isConnected()) {
+			try {
+				sftp.close();
+			} catch (IOException ioe) {}
+			sftp = null;
 		}
 	}
 
-	public ChannelSftp getConnection() throws IOException {
-		try {
-			close();
-			session.connect();
-			connected = true;
-			openChannel();
-			return channel;
-		} catch (JSchException jsse) {
-			throw new IOException(jsse);
-		}
+	public SftpClient getClient() {
+		return sftp;
 	}
 
 	@Override
 	public void close() {
-		closeChannel();
-		if (connected) {
-			session.disconnect();
-			connected = false;
+		closeSftp();
+		if (ssh != null && ssh.isConnected()) {
+			try {
+				ssh.close();
+			} catch (IOException ioe) {}
 		}
 	}
 
-	public void openChannel() throws JSchException {
-		channel = (ChannelSftp) session.openChannel("sftp");
-		channel.connect();
-		channelReady = true;
-	}
-
-	public void closeChannel() {
-		if (channelReady) {
-			channel.disconnect();
-			channelReady = false;			
+	public void reset() throws IOException {
+		try {
+			closeSftp();
+			createSftp();
+		} catch (SshException | PermissionDeniedException e) {
+			throw new IOException(e);
 		}
 	}
 

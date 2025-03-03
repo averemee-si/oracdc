@@ -18,6 +18,16 @@ Oracle Free Use Terms and Conditions
 
 
 ----------------------------------------
+LGPL-3.0 or later
+
+
+maverick-base-3.1.2, see: licenses/lgpl-3.0
+maverick-logging-3.1.2, see: licenses/lgpl-3.0
+maverick-synergy-client-3.1.2, see: licenses/lgpl-3.0
+maverick-synergy-common-3.1.2, see: licenses/lgpl-3.0
+maverick-utils-3.1.2, see: licenses/lgpl-3.0
+
+----------------------------------------
 Dual License LGPL-2.1 or later, or Apache-2.0
 
 
@@ -34,19 +44,3 @@ MIT License
 - checker-qual-3.42.0, see: licenses/MIT-checker-qual
 
 
-----------------------------------------
-BSD-style license
-
-
-- JSch 0.0.* was released under the GNU LGPL license.  Later, they have switched 
-  over to a BSD-style license, see licenses/BSD-JSch
-- JZlib 0.0.* were released under the GNU LGPL license.  Later, they have switched 
-  over to a BSD-style license, see licenses/BSD-JZlib
-
-----------------------------------------
-ISC license
-
-
-- jBCrypt, see licenses/ISC-jBCrypt
-
-  
