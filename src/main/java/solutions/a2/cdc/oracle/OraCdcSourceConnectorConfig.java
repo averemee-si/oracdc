@@ -303,9 +303,12 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
 	private static final String REDO_FILE_NAME_CONVERT_DOC =
 			"It converts the filename of a redo log to another path.\n" +
-			"It is specified as a comma separated list of a strins in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.";
-	private static final String ASM_ACTICATE_PARAM = "a2.asm";
-	private static final String ASM_ACTICATE_DOC = "Use Oracle ASM storage. Default - false"; 
+			"It is specified as a comma separated list of a strins in the <ORIGINAL_PATH>=<NEW_PATH> format. If not specified (default), no conversion occurs.";
+	private static final String REDO_FILE_MEDIUM_FS = "FS";
+	private static final String REDO_FILE_MEDIUM_ASM = "ASM";
+	private static final String REDO_FILE_MEDIUM_SSH = "SSH";
+	private static final String REDO_FILE_MEDIUM_PARAM = "a2.storage.media";
+	private static final String REDO_FILE_MEDIUM_DOC = "Parameter defining the storage medium for redo log files: FS - redo files will be read from the local file system, ASM - redo files will be read from the Oracle ASM, SSH - redo files will be read from the remote file syystem using ssh. Default - FS"; 
 	private static final String ASM_JDBC_URL_PARAM = "a2.asm.jdbc.url";
 	private static final String ASM_JDBC_URL_DOC = "JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above";
 	private static final String ASM_USER_PARAM = "a2.asm.username";
@@ -320,11 +323,31 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String ASM_RECONNECT_INTERVAL_MS_DOC =
 			"The time interval in milliseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection.\n" +
 			"Default - " + ASM_RECONNECT_INTERVAL_MS_DEFAULT + " (one week)";
+	private static final String SSH_HOST_PARAM = "a2.ssh.hostname";
+	private static final String SSH_HOST_DOC = "FQDN or IP address of the remote server with redo log files";
+	private static final String SSH_PORT_PARAM = "a2.ssh.port";
+	private static final String SSH_PORT_DOC = "SSH port of the remote server with redo log files";
+	private static final int SSH_PORT_DEFAULT = 22;
+	private static final String SSH_USER_PARAM = "a2.ssh.user";
+	private static final String SSH_USER_DOC = "Username for the authentication to the remote server with redo log files";
+	private static final String SSH_KEY_PARAM = "a2.ssh.private.key";
+	private static final String SSH_KEY_DOC = "Private key for the authentication to the remote server with redo log files";
+	private static final String SSH_PASSWORD_PARAM = "a2.ssh.password";
+	private static final String SSH_PASSWORD_DOC = "Password for the authentication to the remote server with redo log files";
+	private static final String SSH_RECONNECT_INTERVAL_MS_PARAM = "a2.ssh.reconnect.ms";
+	private static final long SSH_RECONNECT_INTERVAL_MS_DEFAULT = 86_400_000;
+	private static final String SSH_RECONNECT_INTERVAL_MS_DOC =
+			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SSH connection.\n" +
+			"Default - " + SSH_RECONNECT_INTERVAL_MS_DEFAULT + " (24 hours)";
+	private static final String SSH_STRICT_HOST_KEY_CHECKING_PARAM = "a2.ssh.strict.host.key.checking";
+	private static final String SSH_STRICT_HOST_KEY_CHECKING_DOC = "SSH strict host key checking. Default - false.";
 
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
 	private boolean logMiner = true;
+	private boolean msWindows = false;
+	private String fileSeparator = File.separator;
 
 	public static ConfigDef config() {
 		return OraCdcSourceBaseConfig.config()
@@ -477,8 +500,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				// Redo Miner only!
 				.define(REDO_FILE_NAME_CONVERT_PARAM, Type.STRING, "",
 						Importance.HIGH, REDO_FILE_NAME_CONVERT_DOC)
-				.define(ASM_ACTICATE_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ASM_ACTICATE_DOC)
+				.define(REDO_FILE_MEDIUM_PARAM, Type.STRING,
+						REDO_FILE_MEDIUM_FS,
+						ConfigDef.ValidString.in(
+								REDO_FILE_MEDIUM_FS,
+								REDO_FILE_MEDIUM_ASM,
+								REDO_FILE_MEDIUM_SSH),
+						Importance.HIGH, REDO_FILE_MEDIUM_DOC)
 				.define(ASM_JDBC_URL_PARAM, Type.STRING, "",
 						Importance.LOW, ASM_JDBC_URL_DOC)
 				.define(ASM_USER_PARAM, Type.STRING, "",
@@ -489,6 +517,20 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, ASM_READ_AHEAD_DOC)
 				.define(ASM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, ASM_RECONNECT_INTERVAL_MS_DEFAULT,
 						Importance.LOW, ASM_RECONNECT_INTERVAL_MS_DOC)
+				.define(SSH_HOST_PARAM, Type.STRING, "",
+						Importance.LOW, SSH_HOST_DOC)
+				.define(SSH_PORT_PARAM, Type.INT, SSH_PORT_DEFAULT,
+						Importance.LOW, SSH_PORT_DOC)
+				.define(SSH_USER_PARAM, Type.STRING, "",
+						Importance.LOW, SSH_USER_DOC)
+				.define(SSH_KEY_PARAM, Type.PASSWORD, "",
+						Importance.LOW, SSH_KEY_DOC)
+				.define(SSH_PASSWORD_PARAM, Type.PASSWORD, "",
+						Importance.LOW, SSH_PASSWORD_DOC)
+				.define(SSH_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, SSH_RECONNECT_INTERVAL_MS_DEFAULT,
+						Importance.LOW, SSH_RECONNECT_INTERVAL_MS_DOC)
+				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, Type.BOOLEAN, false,
+						Importance.MEDIUM, SSH_STRICT_HOST_KEY_CHECKING_DOC)
 				;
 	}
 
@@ -1196,16 +1238,21 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		this.logMiner = logMiner;
 	}
 
+	public void msWindows(final boolean msWindows) {
+		this.msWindows = msWindows;
+		this.fileSeparator = msWindows ? "\\" : File.separator;
+	}
+
 	public String convertRedoFileName(final String originalName) {
 		if (!fileNameConversionInited) {
 			final String fileNameConvertParam = getString(REDO_FILE_NAME_CONVERT_PARAM);
 			if (StringUtils.isNotEmpty(fileNameConvertParam) &&
-					StringUtils.contains(fileNameConvertParam, ':')) {
+					StringUtils.contains(fileNameConvertParam, '=')) {
 				String[] elements = StringUtils.split(fileNameConvertParam, ',');
 				int newSize = 0;
 				boolean[] processElement = new boolean[elements.length];
 				for (int i = 0; i < elements.length; i++) {
-					if (StringUtils.contains(elements[i], ":")) {
+					if (StringUtils.contains(elements[i], "=")) {
 						elements[i] = StringUtils.trim(elements[i]);
 						processElement[i] = true;
 						newSize += 1;
@@ -1219,11 +1266,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						if (processElement[i]) {
 							fileNameConversionMap.put(
 								StringUtils.appendIfMissing(
-									StringUtils.trim(StringUtils.substringBefore(elements[i], ":")),
-									File.separator),
+									StringUtils.trim(StringUtils.substringBefore(elements[i], "=")),
+									fileSeparator),
 							StringUtils.appendIfMissing(
-									StringUtils.trim(StringUtils.substringAfter(elements[i], ":")),
-									File.separator));
+									StringUtils.trim(StringUtils.substringAfter(elements[i], "=")),
+									fileSeparator));
 						}
 					}
 					fileNameConversion = true;
@@ -1238,7 +1285,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 					StringUtils.substring(
 							originalName,
 							0,
-							StringUtils.lastIndexOf(originalName, File.separator) + 1));
+							StringUtils.lastIndexOf(originalName, fileSeparator) + 1));
 			final String replacementPrefix =  fileNameConversionMap.get(originalPrefix);
 			if (replacementPrefix == null) {
 				LOGGER.error(
@@ -1249,7 +1296,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						originalName, REDO_FILE_NAME_CONVERT_PARAM, getString(REDO_FILE_NAME_CONVERT_PARAM));
 				return originalName;
 			} else {
-				return StringUtils.replace(originalName, originalPrefix, replacementPrefix);
+				if (msWindows)
+					return  StringUtils.replace(
+							StringUtils.replace(originalName, originalPrefix, replacementPrefix),
+							"\\",
+							"/");
+				else
+					return StringUtils.replace(originalName, originalPrefix, replacementPrefix);
 			}
 		} else {
 			return originalName;
@@ -1257,7 +1310,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	}
 
 	public boolean useAsm() {
-		return getBoolean(ASM_ACTICATE_PARAM);
+		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_ASM);
+	}
+
+	public boolean useSsh() {
+		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_SSH);
 	}
 
 	public String asmJdbcUrl() {
@@ -1278,6 +1335,34 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public long asmReconnectIntervalMs() {
 		return getLong(ASM_RECONNECT_INTERVAL_MS_PARAM);
+	}
+
+	public String sshHostname() {
+		return getString(SSH_HOST_PARAM);
+	}
+
+	public int sshPort() {
+		return getInt(SSH_PORT_PARAM);
+	}
+
+	public String sshUser() {
+		return getString(SSH_USER_PARAM);
+	}
+
+	public String sshKey() {
+		return getPassword(SSH_KEY_PARAM).value();
+	}
+
+	public String sshPassword() {
+		return getPassword(SSH_PASSWORD_PARAM).value();
+	}
+
+	public long sshReconnectIntervalMs() {
+		return getLong(SSH_RECONNECT_INTERVAL_MS_PARAM);
+	}
+
+	public boolean sshStrictHostKeyChecking() {
+		return getBoolean(SSH_STRICT_HOST_KEY_CHECKING_PARAM);
 	}
 
 }

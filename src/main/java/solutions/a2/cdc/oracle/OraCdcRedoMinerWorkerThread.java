@@ -490,7 +490,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					.append(", SUBSCN=")
 					.append(lastSubScn)
 					.append(", XID=")
-					.append(xid.toString())
+					.append(xid == null ? "NULL" : xid.toString())
 					.append("\n=====================\n");
 				LOGGER.error(sb.toString());
 				lastScn = lastGuaranteedScn;

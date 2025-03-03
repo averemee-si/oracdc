@@ -220,9 +220,9 @@ Default - *${connectorName}.seq*
 
 ### Redo miner (direct reading of redo without LogMiner) specific parameters
 
-`a2.redo.filename.convert` - It converts the filename of a redo log to another path. It is specified as a string in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.
+`a2.redo.filename.convert` - It converts the filename of a redo log to another path. It is specified as a string in the <ORIGINAL_PATH>=<NEW_PATH> format. If not specified (default), no conversion occurs.
 
-`a2.asm` - Use Oracle ASM storage. Default - _false_
+`a2.storage.media` - Parameter defining the storage medium for redo log files: `FS` - redo files will be read from the local file system, `ASM` - redo files will be read from the Oracle ASM, `SSH` - redo files will be read from the remote file syystem using ssh. Default - FS
 
 `a2.asm.jdbc.url` - JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above
 
@@ -233,3 +233,18 @@ Default - *${connectorName}.seq*
 `a2.asm.read.ahead` - When set to true (the default), the connector reads data from the redo logs in advance, with chunks larger than the redo log file block size.
 
 `a2.asm.reconnect.ms` - The time interval in milleseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection. Default - 604,800,000 ms (one week)
+
+`a2.ssh.hostname` - FQDN or IP address of the remote server with redo log files
+
+`a2.ssh.port` - SSH port of the remote server with redo log files. Default - 22
+
+`a2.ssh.user` - Username for the authentication to the remote server with redo log files
+
+`a2.ssh.private.key` - Private key for the authentication to the remote server with redo log files
+
+`a2.ssh.password` - Password for the authentication to the remote server with redo log files
+
+`a2.ssh.reconnect.ms` - The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SSH connection.
+Default - 86,400,000 (24 hours)
+
+`a2.ssh.strict.host.key.checking` - SSH strict host key checking. Default - false.

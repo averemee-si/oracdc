@@ -27,7 +27,7 @@ import solutions.a2.oracle.utils.BinaryUtils;
 import static oracle.jdbc.OracleTypes.INTEGER;
 import static oracle.jdbc.OracleTypes.BIGINT;
 
-public class OraCdcRedoLogAsmFactory implements OraCdcRedoLogFactory {
+public class OraCdcRedoLogAsmFactory extends OraCdcRedoLogFactoryBase implements OraCdcRedoLogFactory {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLogAsmFactory.class);
 	private static final String ASM_OPEN =
@@ -59,8 +59,6 @@ public class OraCdcRedoLogAsmFactory implements OraCdcRedoLogFactory {
 			"  DBMS_DISKGROUP.GETFILEATTR(?, l_FILETYPE, ?, ?);\n" +
 			"end;\n";
 
-	private final BinaryUtils bu;
-	private final boolean valCheckSum;
 	private final boolean readAhead;
 	private Connection connection;
 	private OracleCallableStatement open;
@@ -68,8 +66,7 @@ public class OraCdcRedoLogAsmFactory implements OraCdcRedoLogFactory {
 	private OracleCallableStatement close;
 
 	public OraCdcRedoLogAsmFactory(final Connection connection, final BinaryUtils bu, final boolean valCheckSum, final boolean readAhead) throws SQLException {
-		this.bu = bu;
-		this.valCheckSum = valCheckSum;
+		super(bu, valCheckSum);
 		this.readAhead = readAhead;
 		try {
 			reset(connection);
