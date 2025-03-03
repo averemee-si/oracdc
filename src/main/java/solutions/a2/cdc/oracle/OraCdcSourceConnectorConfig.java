@@ -339,11 +339,6 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String SSH_RECONNECT_INTERVAL_MS_DOC =
 			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SSH connection.\n" +
 			"Default - " + SSH_RECONNECT_INTERVAL_MS_DEFAULT + " (one hour)";
-	private static final String SSH_BUFFER_SMALL = "small";
-	private static final String SSH_BUFFER_MEDIUM = "medium";
-	private static final String SSH_BUFFER_LARGE = "large";
-	private static final String SSH_BUFFER_PARAM = "a2.ssh.buffer";
-	private static final String SSH_BUFFER_DOC = "SSH read buffer size. Can be 'small' (65536 bytes), 'medium' (262144 bytes), or 'large' (1048576 bytes). Default - 'large'";
 	private static final String SSH_STRICT_HOST_KEY_CHECKING_PARAM = "a2.ssh.strict.host.key.checking";
 	private static final String SSH_STRICT_HOST_KEY_CHECKING_DOC = "SSH strict host key checking. Default - false.";
 
@@ -532,13 +527,6 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, SSH_PASSWORD_DOC)
 				.define(SSH_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, SSH_RECONNECT_INTERVAL_MS_DEFAULT,
 						Importance.LOW, SSH_RECONNECT_INTERVAL_MS_DOC)
-				.define(SSH_BUFFER_PARAM, Type.STRING,
-						SSH_BUFFER_LARGE,
-						ConfigDef.ValidString.in(
-								SSH_BUFFER_SMALL,
-								SSH_BUFFER_MEDIUM,
-								SSH_BUFFER_LARGE),
-						Importance.HIGH, SSH_BUFFER_DOC)
 				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, Type.BOOLEAN, false,
 						Importance.MEDIUM, SSH_STRICT_HOST_KEY_CHECKING_DOC)
 				;
@@ -1358,17 +1346,6 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public long sshReconnectIntervalMs() {
 		return getLong(SSH_RECONNECT_INTERVAL_MS_PARAM);
-	}
-
-	public int sshBufferSize() {
-		switch (getString(SSH_BUFFER_PARAM)) {
-		case SSH_BUFFER_SMALL:
-			return 0x10_000;
-		case SSH_BUFFER_MEDIUM:
-			return 0x40_000;
-		default:
-			return 0x100_000;
-		}
 	}
 
 	public boolean sshStrictHostKeyChecking() {
