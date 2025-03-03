@@ -101,6 +101,7 @@ public class OraRedoMiner {
 		this.ssh = config.useSsh();
 		this.notifier = config.getLastProcessedSeqNotifier();
 		this.backofMs = config.connectionRetryBackoff();
+		config.msWindows(rdbmsInfo.isWindows());
 		if (notifier == null) {
 			useNotifier = false;
 		} else {

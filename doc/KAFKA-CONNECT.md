@@ -220,7 +220,7 @@ Default - *${connectorName}.seq*
 
 ### Redo miner (direct reading of redo without LogMiner) specific parameters
 
-`a2.redo.filename.convert` - It converts the filename of a redo log to another path. It is specified as a string in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.
+`a2.redo.filename.convert` - It converts the filename of a redo log to another path. It is specified as a string in the <ORIGINAL_PATH>=<NEW_PATH> format. If not specified (default), no conversion occurs.
 
 `a2.storage.media` - Parameter defining the storage medium for redo log files: `FS` - redo files will be read from the local file system, `ASM` - redo files will be read from the Oracle ASM, `SSH` - redo files will be read from the remote file syystem using ssh. Default - FS
 

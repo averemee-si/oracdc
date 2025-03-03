@@ -303,7 +303,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
 	private static final String REDO_FILE_NAME_CONVERT_DOC =
 			"It converts the filename of a redo log to another path.\n" +
-			"It is specified as a comma separated list of a strins in the <ORIGINAL_PATH>:<NEW_PATH> format. If not specified (default), no conversion occurs.";
+			"It is specified as a comma separated list of a strins in the <ORIGINAL_PATH>=<NEW_PATH> format. If not specified (default), no conversion occurs.";
 	private static final String REDO_FILE_MEDIUM_FS = "FS";
 	private static final String REDO_FILE_MEDIUM_ASM = "ASM";
 	private static final String REDO_FILE_MEDIUM_SSH = "SSH";
@@ -346,6 +346,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
 	private boolean logMiner = true;
+	private boolean msWindows = false;
+	private String fileSeparator = File.separator;
 
 	public static ConfigDef config() {
 		return OraCdcSourceBaseConfig.config()
@@ -1236,16 +1238,21 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		this.logMiner = logMiner;
 	}
 
+	public void msWindows(final boolean msWindows) {
+		this.msWindows = msWindows;
+		this.fileSeparator = msWindows ? "\\" : File.separator;
+	}
+
 	public String convertRedoFileName(final String originalName) {
 		if (!fileNameConversionInited) {
 			final String fileNameConvertParam = getString(REDO_FILE_NAME_CONVERT_PARAM);
 			if (StringUtils.isNotEmpty(fileNameConvertParam) &&
-					StringUtils.contains(fileNameConvertParam, ':')) {
+					StringUtils.contains(fileNameConvertParam, '=')) {
 				String[] elements = StringUtils.split(fileNameConvertParam, ',');
 				int newSize = 0;
 				boolean[] processElement = new boolean[elements.length];
 				for (int i = 0; i < elements.length; i++) {
-					if (StringUtils.contains(elements[i], ":")) {
+					if (StringUtils.contains(elements[i], "=")) {
 						elements[i] = StringUtils.trim(elements[i]);
 						processElement[i] = true;
 						newSize += 1;
@@ -1259,11 +1266,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						if (processElement[i]) {
 							fileNameConversionMap.put(
 								StringUtils.appendIfMissing(
-									StringUtils.trim(StringUtils.substringBefore(elements[i], ":")),
-									File.separator),
+									StringUtils.trim(StringUtils.substringBefore(elements[i], "=")),
+									fileSeparator),
 							StringUtils.appendIfMissing(
-									StringUtils.trim(StringUtils.substringAfter(elements[i], ":")),
-									File.separator));
+									StringUtils.trim(StringUtils.substringAfter(elements[i], "=")),
+									fileSeparator));
 						}
 					}
 					fileNameConversion = true;
@@ -1278,7 +1285,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 					StringUtils.substring(
 							originalName,
 							0,
-							StringUtils.lastIndexOf(originalName, File.separator) + 1));
+							StringUtils.lastIndexOf(originalName, fileSeparator) + 1));
 			final String replacementPrefix =  fileNameConversionMap.get(originalPrefix);
 			if (replacementPrefix == null) {
 				LOGGER.error(
@@ -1289,7 +1296,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						originalName, REDO_FILE_NAME_CONVERT_PARAM, getString(REDO_FILE_NAME_CONVERT_PARAM));
 				return originalName;
 			} else {
-				return StringUtils.replace(originalName, originalPrefix, replacementPrefix);
+				if (msWindows)
+					return  StringUtils.replace(
+							StringUtils.replace(originalName, originalPrefix, replacementPrefix),
+							"\\",
+							"/");
+				else
+					return StringUtils.replace(originalName, originalPrefix, replacementPrefix);
 			}
 		} else {
 			return originalName;

@@ -29,11 +29,12 @@ public class OraCdcRedoFileNameConvertTest {
 
 	@Test
 	public void test() {
+		OraCdcSourceConnectorConfig config = null;
 		final Map<String, String> props = new HashMap<>();
 		props.put(
 				"a2.redo.filename.convert",
-				"/opt/oracle/oradata/archive:/Users/averemee/polyxena/oracle/oradata/KAFKA19/archive,/opt/oracle/oradata/KAFKA19:/Users/averemee/polyxena/oracle/oradata/KAFKA19/KAFKA19");
-		final OraCdcSourceConnectorConfig config = new OraCdcSourceConnectorConfig(props);
+				"/opt/oracle/oradata/archive=/Users/averemee/polyxena/oracle/oradata/KAFKA19/archive,/opt/oracle/oradata/KAFKA19=/Users/averemee/polyxena/oracle/oradata/KAFKA19/KAFKA19");
+		config = new OraCdcSourceConnectorConfig(props);
 
 		assertEquals(
 				config.convertRedoFileName("/opt/oracle/oradata/archive/1_700_1155880919.dbf"),
@@ -42,5 +43,15 @@ public class OraCdcRedoFileNameConvertTest {
 				config.convertRedoFileName("/opt/oracle/oradata/KAFKA19/log01.redo"),
 				"/Users/averemee/polyxena/oracle/oradata/KAFKA19/KAFKA19/log01.redo");
 
+		props.clear();
+		props.put(
+				"a2.redo.filename.convert",
+				"C:\\ORACLE\\ORADATA\\WINTEST=/C:/ORACLE/ORADATA/WINTEST");
+		config = new OraCdcSourceConnectorConfig(props);
+		config.msWindows(true);
+
+		assertEquals(
+				config.convertRedoFileName("C:\\ORACLE\\ORADATA\\WINTEST\\REDO01.LOG"),
+				"/C:/ORACLE/ORADATA/WINTEST/REDO01.LOG");
 	}
 }
