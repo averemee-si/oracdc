@@ -16,7 +16,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>solutions.a2.oracle</groupId>
 	<artifactId>oracdc-kafka</artifactId>
-	<version>2.7.0</version>
+	<version>2.8.0</version>
 	<packaging>jar</packaging>
 	<inceptionYear>2018</inceptionYear>
 
@@ -324,7 +324,7 @@
 							<documentationUrl>https://github.com/averemee-si/oracdc</documentationUrl>
 							<description>
 								Changed data capture (CDC) for Oracle Database. Contains three different Source connectors:
-								1) solutions.a2.cdc.oracle.OraCdcRedoMinerConnector - directly reads and parses Oracle RDBMS redo log files 
+								1) solutions.a2.cdc.oracle.OraCdcRedoMinerConnector - directly reads and parses Oracle RDBMS redo log files from local filesystem, Oracle ASM, or from remote filesystem via SSH 
 								2) solutions.a2.cdc.oracle.OraCdcLogMinerConnector - reads and parses Oracle RDBMS redo log files using LogMiner
 								3) solutions.a2.cdc.oracle.OraCdcSourceConnector - uses Oracle RDBMS materialized view log's as source for data changes
 								No additional licensing of Oracle Database is required.
@@ -386,6 +386,7 @@
 								<requirement>Oracle RAC</requirement>
 								<requirement>Oracle Real Application Clusters</requirement>
 								<requirement>Single Instance Physical Standby for Oracle RAC</requirement>
+								<requirement>Oracle ASM</requirement>
 							</requirements>
 
 							<deliveryGuarantee>
