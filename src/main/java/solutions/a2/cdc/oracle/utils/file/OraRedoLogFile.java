@@ -42,7 +42,9 @@ import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
+import solutions.a2.cdc.oracle.internals.OraCdcSshConnection;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
@@ -62,6 +64,9 @@ public class OraRedoLogFile  {
 	private static final String ASM_USER = "asm-username";
 	private static final String ASM_PASSWORD = "asm-password";
 	private static final String BIG_ENDIAN = "big-endian";
+	private static final String SSH_PASSWORD = "ssh-password";
+	private static final String SSH_IDENTITY = "ssh-identity-file";
+	private static final String SSH_PORT = "ssh-port";
 
 	public static void main(String[] argv) {
 		BasicConfigurator.configure();
@@ -83,7 +88,7 @@ public class OraRedoLogFile  {
 			System.exit(1);
 		}
 
-		final String redoFile = cmd.getOptionValue("f");
+		String redoFile = cmd.getOptionValue("f");
 		final BinaryUtils bu = BinaryUtils.get(!cmd.hasOption(BIG_ENDIAN));
 		OraCdcRedoLogFactory rlf = null;
 		if (StringUtils.startsWith(redoFile, "+")) {
@@ -117,8 +122,85 @@ public class OraRedoLogFile  {
 						asmUrl, asmUser, asmPassword, sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 				System.exit(1);
 			}
-		} else {
+		} else if (StringUtils.startsWith(redoFile, "/") ||
+				(redoFile.length() > 2) &&
+				StringUtils.isAlpha(StringUtils.substring(redoFile, 0, 1)) &&
+				StringUtils.equals(StringUtils.substring(redoFile, 1, 2), ":")) {
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
+		} else {
+			final String userName = StringUtils.substringBefore(redoFile, '@');
+			if (StringUtils.isBlank(userName) ||
+					StringUtils.equals(redoFile, userName)) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to get username part from {}!\n" +
+						"ssh file specification must be in format  username@hostname:file" +
+						"\n=====================\n",
+						redoFile);
+				System.exit(1);
+			}
+			final String hostname = StringUtils.substringBetween(redoFile, "@", ":");
+			if (StringUtils.isBlank(hostname) ||
+					StringUtils.equals(redoFile, hostname)) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to get hostname part from {}!\n" +
+						"ssh file specification must be in format  username@hostname:file" +
+						"\n=====================\n",
+						redoFile);
+				System.exit(1);
+			}
+			final String fileName = StringUtils.substringAfter(redoFile, ':');
+			if (StringUtils.isBlank(fileName) ||
+					StringUtils.equals(redoFile, fileName)) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to get filename part from {}!\n" +
+						"ssh file specification must be in format  username@hostname:file" +
+						"\n=====================\n",
+						redoFile);
+				System.exit(1);
+			}
+			redoFile = fileName;
+			final String password = cmd.getOptionValue(SSH_PASSWORD);
+			final String identityFile = cmd.getOptionValue(SSH_IDENTITY);
+			int sshPort = 0x16;
+			final String sshPortString =  cmd.getOptionValue(SSH_PORT);
+			if (StringUtils.isNotBlank(sshPortString)) {
+				try {
+					sshPort = Integer.parseInt(sshPortString);
+				} catch (Exception e) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Unable to parse {}!\n" +
+							"{} is set as value for {}!" +
+							"\n=====================\n",
+							sshPortString, sshPort, SSH_PORT);
+				}
+			}
+			if (StringUtils.isAllBlank(password, identityFile)) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Both parameters {} and {} are not specified!\n" +
+						"Must specify {} or {} parameter to work with remote file" +
+						"\n=====================\n",
+						SSH_PASSWORD, SSH_IDENTITY, SSH_PASSWORD, SSH_IDENTITY);
+				System.exit(1);
+			}
+			OraCdcSshConnection ssh = null;
+			try {
+				ssh = new OraCdcSshConnection(
+						userName, hostname, sshPort,
+						identityFile, password, false);
+				rlf = new OraCdcRedoLogSshFactory(ssh, bu, true);
+			} catch (IOException ioe) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to connect to remote server {} using ssh!\n" +
+						"\n=====================\n",
+						hostname);
+				System.exit(1);
+			}
 		}
 		OraCdcRedoLog orl = null;
 		try {
@@ -321,7 +403,6 @@ public class OraRedoLogFile  {
 			out.flush();
 			out.close();
 		}
-
 		LOGGER.info("Completed in {} ms", (System.currentTimeMillis() - millis));
 	}
 
@@ -432,6 +513,29 @@ public class OraRedoLogFile  {
 				.desc("When specified, Oracle redo log files are treated as big endian. By default, Oracle redo log files are assumed to be little endian.")
 				.build();
 		options.addOption(endianness);
+
+		final Option sshPassword = Option.builder("S")
+				.longOpt(SSH_PASSWORD)
+				.hasArg()
+				.required(false)
+				.desc("Password for ssh connection, if the redo file is specified in ssh notation (username@hostname:filename)")
+				.build();
+		options.addOption(sshPassword);
+
+		final Option sshIdentity = Option.builder("i")
+				.longOpt(SSH_IDENTITY)
+				.hasArg()
+				.required(false)
+				.desc("File from which the identity (private key) for public key authentication is read, if the redo file is specified in ssh notation (username@hostname:filename)")
+				.build();
+		options.addOption(sshIdentity);
+
+		final Option sshPort = Option.builder("P")
+				.longOpt(SSH_PORT)
+				.required(false)
+				.desc("Port to connect on the remote host, if the redo file is specified in ssh notation (username@hostname:filename)")
+				.build();
+		options.addOption(sshPort);
 
 	}
 
