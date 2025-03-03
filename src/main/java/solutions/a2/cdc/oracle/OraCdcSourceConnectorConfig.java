@@ -335,10 +335,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String SSH_PASSWORD_PARAM = "a2.ssh.password";
 	private static final String SSH_PASSWORD_DOC = "Password for the authentication to the remote server with redo log files";
 	private static final String SSH_RECONNECT_INTERVAL_MS_PARAM = "a2.ssh.reconnect.ms";
-	private static final long SSH_RECONNECT_INTERVAL_MS_DEFAULT = 3_600_000;
+	private static final long SSH_RECONNECT_INTERVAL_MS_DEFAULT = 86_400_000;
 	private static final String SSH_RECONNECT_INTERVAL_MS_DOC =
 			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SSH connection.\n" +
-			"Default - " + SSH_RECONNECT_INTERVAL_MS_DEFAULT + " (one hour)";
+			"Default - " + SSH_RECONNECT_INTERVAL_MS_DEFAULT + " (24 hours)";
 	private static final String SSH_STRICT_HOST_KEY_CHECKING_PARAM = "a2.ssh.strict.host.key.checking";
 	private static final String SSH_STRICT_HOST_KEY_CHECKING_DOC = "SSH strict host key checking. Default - false.";
 

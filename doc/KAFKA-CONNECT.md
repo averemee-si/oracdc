@@ -245,8 +245,6 @@ Default - *${connectorName}.seq*
 `a2.ssh.password` - Password for the authentication to the remote server with redo log files
 
 `a2.ssh.reconnect.ms` - The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SSH connection.
-Default - 3_600_000 (one hour)
-
-`a2.ssh.buffer` - SSH read buffer size. Can be `small` (65536 bytes), `medium` (262144 bytes), or `large` (1048576 bytes). Default - `large`
+Default - 86,400,000 (24 hours)
 
 `a2.ssh.strict.host.key.checking` - SSH strict host key checking. Default - false.
