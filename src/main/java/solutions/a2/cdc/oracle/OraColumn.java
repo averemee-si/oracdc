@@ -83,6 +83,9 @@ public class OraColumn {
 	private static final String TYPE_DATE = "DATE";
 	private static final String TYPE_TIMESTAMP = "TIMESTAMP";
 	private static final String TYPE_NUMBER = "NUMBER";
+	private static final String TYPE_INTEGER = "INTEGER";
+	private static final String TYPE_INT = "INT";
+	private static final String TYPE_SMALLINT = "SMALLINT";
 	private static final String TYPE_BINARY_FLOAT = "BINARY_FLOAT";
 	private static final String TYPE_BINARY_DOUBLE = "BINARY_DOUBLE";
 	private static final String TYPE_BLOB = "BLOB";
@@ -454,6 +457,18 @@ public class OraColumn {
 						// Decimal values
 						jdbcType = Types.DECIMAL;
 						decimalField(dataScale);
+					}
+					break;
+				case TYPE_INTEGER:
+				case TYPE_INT:
+				case TYPE_SMALLINT:
+					// NUMBER(38, 0)
+					if (useOracdcSchemas) {
+						jdbcType = Types.NUMERIC;
+						oraNumberField();
+					} else {
+						jdbcType = Types.DECIMAL;
+						decimalField(0);
 					}
 					break;
 				case TYPE_BINARY_FLOAT:
