@@ -14,13 +14,21 @@
 package solutions.a2.cdc.oracle.internals;
 
 import java.io.InputStream;
+
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 
 import com.sshtools.client.sftp.SftpClient;
 import com.sshtools.common.sftp.SftpStatusException;
 import com.sshtools.common.ssh.SshException;
+import com.sshtools.common.ssh.SshIOException;
 
 public class OraCdcRedoSshReader implements OraCdcRedoReader {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoSshReader.class);
 
 	private InputStream is;
 	private final String redoLog;
@@ -48,7 +56,16 @@ public class OraCdcRedoSshReader implements OraCdcRedoReader {
 	
 	@Override
 	public long skip(long n) throws IOException {
-		return is.skip(n * blockSize);
+		try {
+			return is.skip(n * blockSize);
+		} catch (SshIOException sioe) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"{} while skipping {} blocks of size {} in {}!\n{}" +
+					"\n=====================\n",
+					sioe.getMessage(), n, blockSize, redoLog, ExceptionUtils.getStackTrace(sioe));
+			throw new IOException(sioe);
+		}
 	}
 
 	@Override
