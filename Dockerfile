@@ -247,7 +247,7 @@ ARG    KAFKA_FILENAME=kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz
 ENV    KAFKA_HOME=${BASEDIR}/kafka
 ENV    PATH=${PATH}:${KAFKA_HOME}/bin:${KAFKA_HOME}/connect/bin
 ENV    PROPS_FILE=${KAFKA_HOME}/config/oracdc-distributed.properties
-ENV    KAFKA_OPTS="-Dchronicle.analytics.disable=true -Dchronicle.disk.monitor.disable=true -Dchronicle.queue.warnSlowAppenderMs=500 --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-exports java.base/sun.nio.ch=ALL-UNNAMED --add-exports jdk.unsupported/sun.misc=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED"
+ENV    KAFKA_OPTS="-Dchronicle.analytics.disable=true -Dchronicle.disk.monitor.disable=true -Dchronicle.queue.warnSlowAppenderMs=500 -Dmaverick.log.nothread=true -Dmaverick.log.console=true --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-exports java.base/sun.nio.ch=ALL-UNNAMED --add-exports jdk.unsupported/sun.misc=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED"
 RUN    wget -q "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_FILENAME}" -O "/tmp/${KAFKA_FILENAME}" \
        && tar xvfz /tmp/${KAFKA_FILENAME} -C ${BASEDIR} \
        && rm /tmp/${KAFKA_FILENAME} \
