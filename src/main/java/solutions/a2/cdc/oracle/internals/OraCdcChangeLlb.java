@@ -71,13 +71,15 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x24);
 			break;
 		case TYPE_3:
-			elementLengthCheck("11.17 (LLB)", "Type 3", 2, 0x24, "");
+			elementLengthCheck("11.17 (LLB)", "Type 3", 2, 0xC, "");
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0]),
 					redoLog.bu().getU16(record, coords[2][0] + 0x02),
 					redoLog.bu().getU32(record, coords[2][0] + 0x04));
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x08);
-			lColId = redoLog.bu().getU16(record, coords[2][0] + 0x22);
+			if (coords[2][1] >= 0x24) {
+				lColId = redoLog.bu().getU16(record, coords[2][0] + 0x22);
+			}
 			break;
 		case TYPE_4:
 			// Base table supplemental data
@@ -151,7 +153,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			}
 			sb.append("]");
 		}
-		if (type == TYPE_1 || type == TYPE_3) {
+		if (lColId > -1) {
 			sb
 				.append(" column_id: ")
 				.append(Short.toUnsignedInt(lColId));
