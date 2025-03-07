@@ -49,9 +49,19 @@ public class OraCdcRedoFileNameConvertTest {
 				"C:\\ORACLE\\ORADATA\\WINTEST=/C:/ORACLE/ORADATA/WINTEST");
 		config = new OraCdcSourceConnectorConfig(props);
 		config.msWindows(true);
-
 		assertEquals(
 				config.convertRedoFileName("C:\\ORACLE\\ORADATA\\WINTEST\\REDO01.LOG"),
 				"/C:/ORACLE/ORADATA/WINTEST/REDO01.LOG");
+
+		props.clear();
+		props.put(
+				"a2.redo.filename.convert",
+				"C:\\APP\\ORACLE=/C:/APP/ORACLE");
+		config = new OraCdcSourceConnectorConfig(props);
+		config.msWindows(true);
+		assertEquals(
+				config.convertRedoFileName("C:\\APP\\ORACLE\\FAST_RECOVERY_AREA\\MATADOR\\ARCHIVELOG\\2025_03_07\\O1_MF_1_601466_MWO3L9SX_.ARC"),
+				"/C:/APP/ORACLE/FAST_RECOVERY_AREA/MATADOR/ARCHIVELOG/2025_03_07/O1_MF_1_601466_MWO3L9SX_.ARC");
+
 	}
 }

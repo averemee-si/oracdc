@@ -1281,13 +1281,17 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			fileNameConversionInited = true;
 		}
 		if (fileNameConversion) {
-			final String originalPrefix = StringUtils.trim(
-					StringUtils.substring(
-							originalName,
-							0,
-							StringUtils.lastIndexOf(originalName, fileSeparator) + 1));
-			final String replacementPrefix =  fileNameConversionMap.get(originalPrefix);
-			if (replacementPrefix == null) {
+			int maxPrefixSize = -1;
+			String originalPrefix = null;
+			for (final String prefix : fileNameConversionMap.keySet()) {
+				if (StringUtils.startsWith(originalName, prefix)) {
+					if (prefix.length() > maxPrefixSize) {
+						maxPrefixSize = prefix.length();
+						originalPrefix = prefix;
+					}
+				}
+			}
+			if (maxPrefixSize == -1) {
 				LOGGER.error(
 						"\n=====================\n" +
 						"Unable to convert filename '{}' using parameter {}={} !\n" +
@@ -1296,6 +1300,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						originalName, REDO_FILE_NAME_CONVERT_PARAM, getString(REDO_FILE_NAME_CONVERT_PARAM));
 				return originalName;
 			} else {
+				final String replacementPrefix =  fileNameConversionMap.get(originalPrefix);
 				if (msWindows)
 					return  StringUtils.replace(
 							StringUtils.replace(originalName, originalPrefix, replacementPrefix),
