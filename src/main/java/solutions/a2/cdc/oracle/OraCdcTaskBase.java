@@ -382,51 +382,38 @@ public abstract class OraCdcTaskBase extends SourceTask {
 
 		// New resiliency model
 		if (offsetFromKafka != null && offsetFromKafka.containsKey("C:COMMIT_SCN")) {
+			// Use stored offset values for SCN and related from storage offset
 			if (startScnFromProps) {
-				// a2.first.change set in connector properties, ignore stored offsets values
-				// for restart...
-				firstScn = firstScnFromProps;
-				LOGGER.info("{}={} is set in connector properties, ignoring SCN related restart data from connector offset storage.",
-						config.startScnParam(), firstScn);
-				if (firstScn < firstAvailableScn) {
-					LOGGER.warn(
-							"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-							config.startScnParam(), firstScn, config.startScnParam(), firstAvailableScn);
-					firstScn = firstAvailableScn;
-				} else {
-					// We need to rewind, potentially
-					rewind = true;
-				}
-			} else {
-				// Use stored offset values for SCN and related from storage offset
-				firstScn = (long) offsetFromKafka.get("S:SCN");
-				firstRba = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get("S:RS_ID"));
-				firstSubScn = (long) offsetFromKafka.get("S:SSN");
-				LOGGER.info("Point in time from offset data to start reading reading from SCN={}, RS_ID (RBA)='{}', SSN={}",
+				LOGGER.info("Ignoring the value of parameter a2.first.change={}, since the offset is already present in the connector offset data!",
+						firstScnFromProps);
+			}
+			firstScn = (long) offsetFromKafka.get("S:SCN");
+			firstRba = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get("S:RS_ID"));
+			firstSubScn = (long) offsetFromKafka.get("S:SSN");
+			LOGGER.info("Point in time from offset data to start reading reading from SCN={}, RS_ID (RBA)='{}', SSN={}",
 						firstScn, firstRba, firstSubScn);
-				lastProcessedCommitScn = (long) offsetFromKafka.get("C:COMMIT_SCN");
-				lastInProgressCommitScn = (long) offsetFromKafka.get("COMMIT_SCN");
-				if (lastProcessedCommitScn == lastInProgressCommitScn) {
-					// Rewind not required, reset back lastInProgressCommitScn
-					lastInProgressCommitScn = 0;
-				} else {
-					lastInProgressScn = (long) offsetFromKafka.get("SCN");
-					lastInProgressRba = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get("RS_ID"));
-					lastInProgressSubScn = (long) offsetFromKafka.get("SSN");
-					LOGGER.info("Last sent SCN={}, RBA={}, SSN={} for  transaction with incomplete send",
+			lastProcessedCommitScn = (long) offsetFromKafka.get("C:COMMIT_SCN");
+			lastInProgressCommitScn = (long) offsetFromKafka.get("COMMIT_SCN");
+			if (lastProcessedCommitScn == lastInProgressCommitScn) {
+				// Rewind not required, reset back lastInProgressCommitScn
+				lastInProgressCommitScn = 0;
+			} else {
+				lastInProgressScn = (long) offsetFromKafka.get("SCN");
+				lastInProgressRba = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get("RS_ID"));
+				lastInProgressSubScn = (long) offsetFromKafka.get("SSN");
+				LOGGER.info("Last sent SCN={}, RBA={}, SSN={} for  transaction with incomplete send",
 							lastInProgressScn, lastInProgressRba, lastInProgressSubScn);
-				}
-				if (firstScn < firstAvailableScn) {
-					LOGGER.warn(
-							"\n" +
-							"=====================\n" +
-							"Ignoring Point in time {}:{}:{} from offset, and setting it to first available SCN in V$ARCHIVED_LOG {}.\n" +
-							"=====================",
+			}
+			if (firstScn < firstAvailableScn) {
+				LOGGER.warn(
+						"\n" +
+						"=====================\n" +
+						"Ignoring Point in time {}:{}:{} from offset, and setting it to first available SCN in V$ARCHIVED_LOG {}.\n" +
+						"=====================",
 							firstScn, firstRba, firstSubScn, firstAvailableScn);
-					firstScn = firstAvailableScn;
-				} else {
-					rewind = true;
-				}
+				firstScn = firstAvailableScn;
+			} else {
+				rewind = true;
 			}
 		} else {
 			LOGGER.info("No data present in connector's offset storage for {}:{}",
