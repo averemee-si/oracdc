@@ -2,3 +2,5 @@ solutions.a2.kafka.transforms.OraNumberConverter$Key
 solutions.a2.kafka.transforms.OraNumberConverter$Value
 solutions.a2.kafka.transforms.OraIntervalConverter$Key
 solutions.a2.kafka.transforms.OraIntervalConverter$Value
+solutions.a2.kafka.transforms.HeaderToFieldConverter$Key
+solutions.a2.kafka.transforms.HeaderToFieldConverter$Value
