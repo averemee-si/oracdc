@@ -46,6 +46,8 @@ import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -86,6 +88,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	long lastInProgressScn = 0;
 	RedoByteAddress lastInProgressRba = null;
 	long lastInProgressSubScn = 0;
+	boolean restoreIncompleteRecord = false;
 
 	@Override
 	public String version() {
@@ -104,6 +107,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
 		pollInterval = config.pollIntervalMs();
 		schemaType = config.schemaType();
+		restoreIncompleteRecord = config.getIncompleteDataTolerance() == INCOMPLETE_REDO_INT_RESTORE;
 
 		useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),

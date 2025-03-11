@@ -157,7 +157,12 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			lobs.clear();
 		}
 
-		try (Connection connDictionary = oraConnections.getConnection()) {
+		try {
+			Connection connDictionary;
+			if (restoreIncompleteRecord)
+				connDictionary = oraConnections.getConnection();
+			else
+				connDictionary = null;
 			int recordCount = 0;
 			int parseTime = 0;
 			while (recordCount < batchSize) {
@@ -274,6 +279,10 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 				}
 			} else {
 				metrics.addSentRecords(result.size(), parseTime);
+			}
+			if (restoreIncompleteRecord) {
+				connDictionary.close();
+				connDictionary = null;
 			}
 		} catch (SQLException sqle) {
 			if (!isPollRunning.get() || runLatch.getCount() == 0) {
