@@ -237,7 +237,7 @@ LABEL  summary="oracdc and all dependencies for optimal work. When started, it w
 ARG    CONFLUENT_VERSION
 ARG    MVN_BASE
 
-RUN    set -eux && apt-get update && apt-get --yes install netcat-traditional tzdata bash wget adduser 
+RUN    set -eux && apt-get update && apt-get dist-upgrade && apt-get --yes install netcat-traditional tzdata bash wget adduser 
 RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka 
 ARG    BASEDIR=/opt
 
