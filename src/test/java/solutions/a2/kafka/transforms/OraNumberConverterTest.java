@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import oracle.sql.NUMBER;
+import solutions.a2.cdc.oracle.data.OraNumber;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -47,11 +48,11 @@ public class OraNumberConverterTest {
 		final Map<String, String> props = new HashMap<>();
 		OraNumberConverter<SinkRecord> fromOra;
 		final Schema schema = SchemaBuilder.struct()
-				.field("LINE_ID", Schema.BYTES_SCHEMA)
-				.field("ORG_ID", Schema.BYTES_SCHEMA)
-				.field("INVOICING_RULE_ID", Schema.BYTES_SCHEMA)
-				.field("QUANTITY", Schema.OPTIONAL_BYTES_SCHEMA)
-				.field("ACCEPTED_QUANTITY", Schema.OPTIONAL_BYTES_SCHEMA)
+				.field("LINE_ID", OraNumber.builder().build())
+				.field("ORG_ID", OraNumber.builder().build())
+				.field("INVOICING_RULE_ID", OraNumber.builder().build())
+				.field("QUANTITY", OraNumber.builder().optional().build())
+				.field("ACCEPTED_QUANTITY", OraNumber.builder().optional().build())
 				.build();
 		final Struct struct = new Struct(schema);
 		struct.put("LINE_ID", new NUMBER(lineId).getBytes());
@@ -89,6 +90,8 @@ public class OraNumberConverterTest {
 		fromOra.close();
 
 		// oracle.sql.NUMBER -> short
+		props.clear();
+		fromOra = null;
 		props.put("field", "INVOICING_RULE_ID");
 		props.put("target.type", "short");
 		fromOra = new OraNumberConverter.Value<>();
@@ -98,6 +101,8 @@ public class OraNumberConverterTest {
 		fromOra.close();
 
 		// oracle.sql.NUMBER -> decimal
+		props.clear();
+		fromOra = null;
 		props.put("field", "QUANTITY");
 		props.put("target.type", "decimal");
 		props.put("decimal.scale", "2");
@@ -108,12 +113,43 @@ public class OraNumberConverterTest {
 		fromOra.close();
 
 		// oracle.sql.NUMBER -> double
+		props.clear();
+		fromOra = null;
 		props.put("field", "ACCEPTED_QUANTITY");
 		props.put("target.type", "double");
 		fromOra = new OraNumberConverter.Value<>();
 		fromOra.configure(props);
 		updated = (Struct) fromOra.apply(original).value();
 		assertEquals(acceptedQuantity, updated.get("ACCEPTED_QUANTITY"));
+		fromOra.close();
+
+		// Wildcard: oracle.sql.NUMBER -> decimal(,5)
+		int singleScale = 5;
+		props.clear();
+		fromOra = null;
+		props.put("target.type", "decimal");
+		props.put("decimal.scale", Integer.toString(singleScale));
+		fromOra = new OraNumberConverter.Value<>();
+		fromOra.configure(props);
+		updated = (Struct) fromOra.apply(original).value();
+		assertEquals(BigDecimal.valueOf(lineId, 0).setScale(singleScale), updated.get("LINE_ID"));
+		assertEquals(BigDecimal.valueOf(orgId, 0).setScale(singleScale), updated.get("ORG_ID"));
+		assertEquals(BigDecimal.valueOf(invoicingRuleId, 0).setScale(singleScale), updated.get("INVOICING_RULE_ID"));
+		assertEquals(quantity.setScale(singleScale), updated.get("QUANTITY"));
+		assertEquals(BigDecimal.valueOf(acceptedQuantity).setScale(singleScale), updated.get("ACCEPTED_QUANTITY"));
+		fromOra.close();
+
+		// Wildcard: oracle.sql.NUMBER named %ID -> long
+		props.clear();
+		fromOra = null;
+		props.put("field", "%ID");
+		props.put("target.type", "long");
+		fromOra = new OraNumberConverter.Value<>();
+		fromOra.configure(props);
+		updated = (Struct) fromOra.apply(original).value();
+		assertEquals(lineId, updated.get("LINE_ID"));
+		assertEquals((long) orgId, updated.get("ORG_ID"));
+		assertEquals((long) invoicingRuleId, updated.get("INVOICING_RULE_ID"));
 		fromOra.close();
 
 	}

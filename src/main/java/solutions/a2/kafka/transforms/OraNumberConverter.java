@@ -13,9 +13,14 @@
 
 package solutions.a2.kafka.transforms;
 
+import static solutions.a2.kafka.transforms.ConversionType.ALL;
+import static solutions.a2.kafka.transforms.ConversionType.STARTS_WITH;
+import static solutions.a2.kafka.transforms.ConversionType.ENDS_WITH;
+import static solutions.a2.kafka.transforms.ConversionType.SPECIFIC;
 import static solutions.a2.kafka.transforms.SchemaAndStructUtils.copySchemaBasics;
 import static solutions.a2.kafka.transforms.SchemaAndStructUtils.requireMap;
 import static solutions.a2.kafka.transforms.SchemaAndStructUtils.requireStructOrNull;
+
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -61,6 +66,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 	private static final String TARGET_TYPE_LONG = "long";
 	private static final String TARGET_TYPE_INT = "int";
 	private static final String TARGET_TYPE_SHORT = "short";
+	private static final String TARGET_TYPE_BYTE = "byte";
 	private static final String TARGET_TYPE_DECIMAL = "decimal";
 
 	private static final String DECIMAL_SCALE_PARAM = "decimal.scale";
@@ -186,6 +192,21 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 				}
 			}
 		});
+		CONVERTERS.put(TARGET_TYPE_BYTE, new OraNumberTranslator() {
+			@Override
+			public Schema typeSchema(final boolean isOptional, final ParamHolder params) {
+				return isOptional ? Schema.OPTIONAL_INT8_SCHEMA : Schema.INT8_SCHEMA;
+			}
+			@Override
+			public Byte toType(final ParamHolder params, final NUMBER number) {
+				try {
+					return number.byteValue();
+				} catch (SQLException sqle) {
+					LOGGER.error(CONV_ERROR_MSG, TARGET_TYPE_SHORT, sqle.getMessage());
+					return null;
+				}
+			}
+		});
 	}
 
 	private final ParamHolder params = new ParamHolder();
@@ -196,6 +217,18 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 	public void configure(Map<String, ?> configs) {
 		final SimpleConfig simpleConfig = new SimpleConfig(CONFIG_DEF, configs);
 		params.field = simpleConfig.getString(FIELD_PARAM);
+		if (StringUtils.isBlank(params.field)) {
+			params.convType = ALL;
+		}
+		else if (StringUtils.startsWith(params.field, "%")) {
+			params.convType = ENDS_WITH;
+			params.field = StringUtils.substring(params.field, 1);
+		} else if (StringUtils.endsWith(params.field, "%")) {
+			params.convType = STARTS_WITH;
+			params.field = StringUtils.substring(params.field, 0, params.field.length() - 1);
+		} else {
+			params.convType = SPECIFIC;
+		}
 		params.targetType = simpleConfig.getString(TARGET_TYPE_PARAM);
 		params.scale = simpleConfig.getInt(DECIMAL_SCALE_PARAM);
 		replaceNullWithDefault = simpleConfig.getBoolean(REPLACE_NULL_WITH_DEFAULT_PARAM);
@@ -266,9 +299,9 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 		final Schema schema = operatingSchema(record);
 		final Struct value = requireStructOrNull(operatingValue(record), PURPOSE);
 		Schema updatedSchema = schemaUpdateCache.get(schema);
-		if (StringUtils.isBlank(params.field)) {
-			if (updatedSchema == null) {
-				final SchemaBuilder builder = copySchemaBasics(schema, SchemaBuilder.struct());
+		if (updatedSchema == null) {
+			final SchemaBuilder builder = copySchemaBasics(schema, SchemaBuilder.struct());
+			if (params.convType == ALL) {
 				for (Field field: schema.fields()) {
 					if (field.schema().type() == Schema.Type.BYTES &&
 							StringUtils.equals(field.schema().name(), OraNumber.LOGICAL_NAME)) {
@@ -277,20 +310,19 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 						builder.field(field.name(), field.schema());
 					}					
 				}
-				if (schema.isOptional()) {
-					builder.optional();
-				}
-				if (schema.defaultValue() != null) {
-					Struct updatedDefaultValue = applyValueWithSchema((Struct) schema.defaultValue(), builder);
-					builder.defaultValue(updatedDefaultValue);
-				}
-
-				updatedSchema = builder.build();
-				schemaUpdateCache.put(schema, updatedSchema);
-			}
-		} else {
-			if (updatedSchema == null) {
-				final SchemaBuilder builder = copySchemaBasics(schema, SchemaBuilder.struct());
+			} else if (params.convType == STARTS_WITH ||
+					params.convType == ENDS_WITH) {
+				for (Field field: schema.fields()) {
+					if (field.schema().type() == Schema.Type.BYTES &&
+							StringUtils.equals(field.schema().name(), OraNumber.LOGICAL_NAME) && (
+							(params.convType == STARTS_WITH && field.name().startsWith(params.field)) ||
+							(params.convType == ENDS_WITH && field.name().endsWith(params.field)))) {
+						builder.field(field.name(), CONVERTERS.get(params.targetType).typeSchema(field.schema().isOptional(), params));
+					} else {
+						builder.field(field.name(), field.schema());
+					}					
+				}				
+			} else {
 				for (Field field : schema.fields()) {
 					if (StringUtils.equals(field.name(), params.field)) {
 						final OraNumberTranslator translator = CONVERTERS.get(params.targetType);
@@ -309,18 +341,19 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 						builder.field(field.name(), field.schema());
 					}
 				}
-				if (schema.isOptional()) {
-					builder.optional();
-				}
-				if (schema.defaultValue() != null) {
-					Struct updatedDefaultValue = applyValueWithSchema((Struct) schema.defaultValue(), builder);
-					builder.defaultValue(updatedDefaultValue);
-				}
-
-				updatedSchema = builder.build();
-				schemaUpdateCache.put(schema, updatedSchema);
 			}
-        }
+			if (schema.isOptional()) {
+				builder.optional();
+			}
+			if (schema.defaultValue() != null) {
+				Struct updatedDefaultValue = applyValueWithSchema((Struct) schema.defaultValue(), builder);
+				builder.defaultValue(updatedDefaultValue);
+			}
+			updatedSchema = builder.build();
+			schemaUpdateCache.put(schema, updatedSchema);
+			
+		}
+
 		final Struct updatedValue = applyValueWithSchema(value, updatedSchema);
 		return newRecord(record, updatedSchema, updatedValue);
 	}
@@ -330,16 +363,20 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 			return null;
 		} else {
 			Struct updatedValue = new Struct(updatedSchema);
-			final boolean processAll = StringUtils.isBlank(params.field);
 			for (Field field : value.schema().fields()) {
 				final Object updatedFieldValue;
-				if (processAll && (
+				if (params.convType == ALL && (
 						field.schema().type() == Schema.Type.BYTES &&
 						StringUtils.equals(field.schema().name(), OraNumber.LOGICAL_NAME))) {
 					updatedFieldValue = convertOraNumber(getFieldValue(value, field));
-				} else  if (!processAll &&
+				} else  if (params.convType == SPECIFIC &&
 						StringUtils.equals(field.name(), params.field)) {
 						updatedFieldValue = convertOraNumber(getFieldValue(value, field));
+				} else 	if (field.schema().type() == Schema.Type.BYTES &&
+						StringUtils.equals(field.schema().name(), OraNumber.LOGICAL_NAME) && (
+						(params.convType == STARTS_WITH && field.name().startsWith(params.field)) ||
+						(params.convType == ENDS_WITH && field.name().endsWith(params.field)))) {
+					updatedFieldValue = convertOraNumber(getFieldValue(value, field));
 				} else {
 						updatedFieldValue = getFieldValue(value, field);
 				}
@@ -401,6 +438,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 		String field;
 		String targetType;
 		int scale;
+		ConversionType convType;
 	}
 
 }
