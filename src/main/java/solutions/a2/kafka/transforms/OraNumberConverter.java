@@ -162,9 +162,9 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 				return isOptional ? Schema.OPTIONAL_INT32_SCHEMA : Schema.INT32_SCHEMA;
 			}
 			@Override
-			public Long toType(final ParamHolder params, final NUMBER number) {
+			public Integer toType(final ParamHolder params, final NUMBER number) {
 				try {
-					return number.longValue();
+					return number.intValue();
 				} catch (SQLException sqle) {
 					LOGGER.error(CONV_ERROR_MSG, TARGET_TYPE_INT, sqle.getMessage());
 					return null;
@@ -177,9 +177,9 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 				return isOptional ? Schema.OPTIONAL_INT16_SCHEMA : Schema.INT16_SCHEMA;
 			}
 			@Override
-			public Long toType(final ParamHolder params, final NUMBER number) {
+			public Short toType(final ParamHolder params, final NUMBER number) {
 				try {
-					return number.longValue();
+					return number.shortValue();
 				} catch (SQLException sqle) {
 					LOGGER.error(CONV_ERROR_MSG, TARGET_TYPE_SHORT, sqle.getMessage());
 					return null;
