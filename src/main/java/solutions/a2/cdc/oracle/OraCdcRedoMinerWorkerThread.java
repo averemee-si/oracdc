@@ -1001,7 +1001,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							LOGGER.warn("Unable to read column data for DELETE at RBA {}, change #{}",
 									rr.rba(), change.num());
 						}
-					} else if (row.lmOp != INSERT) {
+					} else if (row.lmOp != INSERT && !rr.hasPrb()) {
 						LOGGER.warn("Redo record {} does not contains expected operation 5.1!", rr.rba());
 					}
 					if (row.lmOp != DELETE) {
