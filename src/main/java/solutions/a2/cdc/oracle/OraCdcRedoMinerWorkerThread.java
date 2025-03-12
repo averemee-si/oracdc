@@ -425,7 +425,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									emitMultiRowChange(transaction, record, true);
 									break;
 								default:
-									LOGGER.warn("Skipping partial rollback OP:{} at RBA {}", formatOpCode(operation), record.rba());
+									if (operation == _11_4_LKR) {
+										if (LOGGER.isDebugEnabled())
+											LOGGER.debug("Skipping partial rollback OP:{} at RBA {}", formatOpCode(operation), record.rba());
+									} else {
+										LOGGER.warn("Skipping partial rollback OP:{} at RBA {}", formatOpCode(operation), record.rba());
+									}
 								}
 							}
 							continue;
