@@ -44,3 +44,10 @@ MIT License
 - checker-qual-3.42.0, see: licenses/MIT-checker-qual
 
 
+----------------------------------------
+Bouncy Castle License
+
+
+- bcprov-jdk18on - 1.8.0, see: licenses/bouncycastle
+
+

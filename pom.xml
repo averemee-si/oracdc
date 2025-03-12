@@ -79,6 +79,7 @@
 		<lz4.version>1.8.0</lz4.version>
 		<ojdbc.types.version>0.9.1</ojdbc.types.version>
 		<maverick.version>3.1.2</maverick.version>
+		<bouncycastle.version>1.80</bouncycastle.version>
 		<kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
 		<jar.plugin.version>3.3.0</jar.plugin.version>
 		<assembly.plugin.version>3.6.0</assembly.plugin.version>
@@ -273,6 +274,12 @@
 			<groupId>com.sshtools</groupId>
 			<artifactId>maverick-synergy-client</artifactId>
 			<version>${maverick.version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on -->
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk18on</artifactId>
+			<version>${bouncycastle.version}</version>
 		</dependency>
 	</dependencies>
 
