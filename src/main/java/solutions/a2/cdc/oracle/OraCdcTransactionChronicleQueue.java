@@ -491,7 +491,10 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 	@Override
 	public void setCommitScn(long commitScn) {
-		lastIndexAppended = appender.lastIndexAppended();
+		if (queueSize > 0)
+			lastIndexAppended = appender.lastIndexAppended();
+		else
+			lastIndexAppended = 0;
 		appender.close();
 		appender = null;
 		tailer = statements.createTailer();		
