@@ -47,6 +47,7 @@ import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.BinaryUtils;
+import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
@@ -1650,6 +1651,17 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				.append(printHalfDoneRcmContents())
 				.append("\n=====================\n");
 			LOGGER.warn(sb.toString());
+		}
+		if (redoMiner != null) {
+			try {
+				redoMiner.stop(lastRba, lastScn);
+			} catch (IOException | SQLException e) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"{} while stopping RedoMiner. Stack trace:\n{}" +
+						"\n=====================\n",
+						e.getMessage(), ExceptionUtils.getExceptionStackTrace(e));
+			}
 		}
 		super.shutdown();
 	}
