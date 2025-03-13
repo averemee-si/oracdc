@@ -323,12 +323,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		super.stopEpilogue();
 	}
 
-	protected void putReadRestartScn(final Triple<Long, RedoByteAddress, Long> transData) {
-		offset.put("S:SCN", transData.getLeft());
-		offset.put("S:RS_ID", transData.getMiddle().toString());
-		offset.put("S:SSN", transData.getRight());
-	}
-
 	protected void putTableAndVersion(final long combinedDataObjectId, final int version) {
 		offset.put(Long.toString(combinedDataObjectId), Integer.toString(version));
 	}
