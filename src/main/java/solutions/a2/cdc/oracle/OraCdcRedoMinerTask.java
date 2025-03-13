@@ -323,9 +323,4 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		super.stopEpilogue();
 	}
 
-	protected void putTableAndVersion(final long combinedDataObjectId, final int version) {
-		offset.put(Long.toString(combinedDataObjectId), Integer.toString(version));
-	}
-
-
 }
