@@ -80,7 +80,9 @@
 		<ojdbc.types.version>0.9.1</ojdbc.types.version>
 		<maverick.version>3.1.2</maverick.version>
 		<sshj.version>0.39.0</sshj.version>
+		<smbj.version>0.14.0</smbj.version>
 		<bouncycastle.version>1.80</bouncycastle.version>
+		<mbassador.version>1.3.2</mbassador.version>
 		<kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
 		<jar.plugin.version>3.3.0</jar.plugin.version>
 		<assembly.plugin.version>3.6.0</assembly.plugin.version>
@@ -282,6 +284,12 @@
 			<artifactId>sshj</artifactId>
 			<version>${sshj.version}</version>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.hierynomus/smbj -->
+		<dependency>
+			<groupId>com.hierynomus</groupId>
+			<artifactId>smbj</artifactId>
+			<version>${smbj.version}</version>
+		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on -->
 		<dependency>
 			<groupId>org.bouncycastle</groupId>
@@ -299,6 +307,12 @@
 			<groupId>org.bouncycastle</groupId>
 			<artifactId>bcutil-jdk18on</artifactId>
 			<version>${bouncycastle.version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/net.engio/mbassador -->
+		<dependency>
+			<groupId>net.engio</groupId>
+			<artifactId>mbassador</artifactId>
+			<version>${mbassador.version}</version>
 		</dependency>
 	</dependencies>
 
