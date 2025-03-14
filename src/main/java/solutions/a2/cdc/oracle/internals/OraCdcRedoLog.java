@@ -286,8 +286,10 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 
 	@Override
 	public void close() throws IOException {
-		reader.close();
-		reader = null;
+		if (reader != null) {
+			reader.close();
+			reader = null;
+		}
 	}
 
 	public String toString(
