@@ -141,6 +141,8 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		}
 		LOGGER.trace("Starting worker thread.");
 		worker.start();
+		taskThreadId.set(Thread.currentThread().getId());
+		return;
 	}
 
 	@Override
@@ -222,7 +224,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 						}
 						lastStatementInTransaction = !processTransaction;
 
-						if (processTransaction) {
+						if (processTransaction && runLatch.getCount() > 0) {
 							OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
 							if (oraTable == null) {
 								checker.printConsistencyError(transaction, stmt);
@@ -273,9 +275,11 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 				}
 			}
 			if (recordCount == 0) {
-				synchronized (this) {
+				try {
 					LOGGER.debug("Waiting {} ms", pollInterval);
 					Thread.sleep(pollInterval);
+				} catch (InterruptedException ie) {
+					Thread.currentThread().interrupt();
 				}
 			} else {
 				metrics.addSentRecords(result.size(), parseTime);
@@ -303,24 +307,26 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 	@Override
 	public void stop() {
 		LOGGER.info("Stopping oracdc Redo Miner source task.");
-		super.stop(true);
-		if (activeTransactions != null && activeTransactions.isEmpty()) {
-			if (worker != null && worker.lastRba() != null && worker.lastScn() > 0) {
-				putReadRestartScn(Triple.of(
-						worker.lastScn(),
-						worker.lastRba(),
-						worker.lastSubScn()));
+		if (taskThreadId.longValue() == Thread.currentThread().getId()) {
+			super.stop(true);
+			if (activeTransactions != null && activeTransactions.isEmpty()) {
+				if (worker != null && worker.lastRba() != null && worker.lastScn() > 0) {
+					putReadRestartScn(Triple.of(
+							worker.lastScn(),
+							worker.lastRba(),
+							worker.lastSubScn()));
+				}
 			}
+			if (activeTransactions != null && !activeTransactions.isEmpty()) {
+				// Clean it!
+				activeTransactions.forEach((name, transaction) -> {
+					LOGGER.warn("Removing uncompleted transaction {} with size {}, first SCN {}",
+							name, transaction.size(), transaction.getFirstChange());
+					transaction.close();
+				});
+			}
+			super.stopEpilogue();
 		}
-		if (activeTransactions != null && !activeTransactions.isEmpty()) {
-			// Clean it!
-			activeTransactions.forEach((name, transaction) -> {
-				LOGGER.warn("Removing uncompleted transaction {} with size {}, first SCN {}",
-						name, transaction.size(), transaction.getFirstChange());
-				transaction.close();
-			});
-		}
-		super.stopEpilogue();
 	}
 
 }

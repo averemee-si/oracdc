@@ -28,6 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.MutableTriple;
@@ -82,6 +83,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	boolean lastStatementInTransaction = true;
 	final List<SourceRecord> result = new ArrayList<>();
 	final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
+	final AtomicLong taskThreadId = new AtomicLong(0);
 
 	long lastProcessedCommitScn = 0;
 	long lastInProgressCommitScn = 0;
@@ -300,7 +302,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	}
 
 	void stop(boolean stopWorker) {
-		LOGGER.info("Stopping oracdc logminer source task.");
+		LOGGER.info("Stopping oracdc source task");
 		if (runLatch != null ) {
 			// We can stop before runLatch initialization due to invalid parameters
 			runLatch.countDown();
