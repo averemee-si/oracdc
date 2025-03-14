@@ -32,9 +32,9 @@ import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
-import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshjFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshtoolsMaverickFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
-import solutions.a2.cdc.oracle.internals.OraCdcSshConnection;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.utils.BinaryUtils;
@@ -116,8 +116,10 @@ public class OraRedoMiner {
 		} else if (ssh) {
 			needNameChange = rdbmsInfo.isWindows();
 			try {
-				rlf = new OraCdcRedoLogSshFactory(
-						new OraCdcSshConnection(config), bu, true);
+				if (config.sshProviderMaverick())
+					rlf = new OraCdcRedoLogSshtoolsMaverickFactory(config, bu, true);
+				else
+					rlf = new OraCdcRedoLogSshjFactory(config, bu, true);
 			} catch (IOException ioe) {
 				throw new SQLException(ioe);
 			}
@@ -324,7 +326,7 @@ public class OraRedoMiner {
 								if (asm)
 									((OraCdcRedoLogAsmFactory) rlf).reset(oraConnections.getAsmConnection(config));
 								else
-									((OraCdcRedoLogSshFactory) rlf).reset();
+									((OraCdcRedoLogSshjFactory) rlf).reset();
 								done = true;
 								sessionStartMs = System.currentTimeMillis();
 							} catch (SQLException sqle) {

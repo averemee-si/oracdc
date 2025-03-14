@@ -26,21 +26,21 @@ import com.sshtools.common.sftp.SftpStatusException;
 import com.sshtools.common.ssh.SshException;
 import com.sshtools.common.ssh.SshIOException;
 
-public class OraCdcRedoSshReader implements OraCdcRedoReader {
+public class OraCdcRedoSshtoolsMaverickReader implements OraCdcRedoReader {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoSshReader.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoSshtoolsMaverickReader.class);
 
-	private InputStream is;
-	private final String redoLog;
-	private final int blockSize;
-	private final SftpClient sftp;
+    private InputStream is;
+    private final String redoLog;
+    private final int blockSize;
+    private final SftpClient sftp;
 
-	OraCdcRedoSshReader(final SftpClient sftp, final String redoLog, final int blockSize, final long blockCount) throws IOException {
+	OraCdcRedoSshtoolsMaverickReader(final SftpClient sftp, final String redoLog, final int blockSize, final long blockCount) throws IOException {
 		this.sftp = sftp;
 		try {
 			is = sftp.getInputStream(redoLog);
-		} catch (SshException | SftpStatusException sftpe) {
-			throw new IOException(sftpe);
+		} catch (SshException | SftpStatusException e) {
+			throw new IOException(e);
 		}
 		if (is.skip(blockSize) != blockSize) {
 			throw new IOException("Unable to skip " + blockSize + " bytes!");
@@ -70,8 +70,10 @@ public class OraCdcRedoSshReader implements OraCdcRedoReader {
 
 	@Override
 	public void close() throws IOException {
-		is.close();
-		is = null;
+		if (is != null) {
+			is.close();
+			is = null;
+		}
 	}
 
 	@Override

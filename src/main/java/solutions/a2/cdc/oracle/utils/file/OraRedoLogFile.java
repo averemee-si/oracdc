@@ -42,9 +42,8 @@ import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
-import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
-import solutions.a2.cdc.oracle.internals.OraCdcSshConnection;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
@@ -187,12 +186,9 @@ public class OraRedoLogFile  {
 						SSH_PASSWORD, SSH_IDENTITY, SSH_PASSWORD, SSH_IDENTITY);
 				System.exit(1);
 			}
-			OraCdcSshConnection ssh = null;
 			try {
-				ssh = new OraCdcSshConnection(
-						userName, hostname, sshPort,
-						identityFile, password, false);
-				rlf = new OraCdcRedoLogSshFactory(ssh, bu, true);
+				rlf = new OraCdcRedoLogSshjFactory(userName, hostname, sshPort,
+						identityFile, password, false, 0x100, 0x8000, bu, true);
 			} catch (IOException ioe) {
 				LOGGER.error(
 						"\n=====================\n" +

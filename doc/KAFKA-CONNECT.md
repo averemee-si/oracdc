@@ -248,3 +248,9 @@ Default - *${connectorName}.seq*
 Default - 86,400,000 (24 hours)
 
 `a2.ssh.strict.host.key.checking` - SSH strict host key checking. Default - false.
+
+`a2.ssh.provider` - Library that provides SSH connection: maverick for Maverick Synergy (https://jadaptive.com/) or sshj for Hierynomus sshj (https://github.com/hierynomus/sshj). Default - maverick
+
+`a2.ssh.max.unconfirmed.reads` - Maximum number of unconfirmed reads from SFTP server when using Hierynomus sshj. Default - 256
+
+`a2.ssh.buffer.size` - Read-ahead buffer size in bytes for fata from SFTP server when using Hierynomus sshj. Default - 32768

@@ -307,6 +307,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String REDO_FILE_MEDIUM_FS = "FS";
 	private static final String REDO_FILE_MEDIUM_ASM = "ASM";
 	private static final String REDO_FILE_MEDIUM_SSH = "SSH";
+	//TODO
+	private static final String REDO_FILE_MEDIUM_SMB = "SMB";
+	private static final String REDO_FILE_MEDIUM_BFILE = "BFILE";
 	private static final String REDO_FILE_MEDIUM_PARAM = "a2.storage.media";
 	private static final String REDO_FILE_MEDIUM_DOC = "Parameter defining the storage medium for redo log files: FS - redo files will be read from the local file system, ASM - redo files will be read from the Oracle ASM, SSH - redo files will be read from the remote file syystem using ssh. Default - FS"; 
 	private static final String ASM_JDBC_URL_PARAM = "a2.asm.jdbc.url";
@@ -341,6 +344,18 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			"Default - " + SSH_RECONNECT_INTERVAL_MS_DEFAULT + " (24 hours)";
 	private static final String SSH_STRICT_HOST_KEY_CHECKING_PARAM = "a2.ssh.strict.host.key.checking";
 	private static final String SSH_STRICT_HOST_KEY_CHECKING_DOC = "SSH strict host key checking. Default - false.";
+	private static final String SSH_PROVIDER_MAVERICK = "maverick";
+	private static final String SSH_PROVIDER_SSHJ = "sshj";
+	private static final String SSH_PROVIDER_PARAM = "a2.ssh.provider";
+	private static final String SSH_PROVIDER_DOC = 
+			"Library that provides SSH connection: maverick for Maverick Synergy (https://jadaptive.com/) or sshj for Hierynomus sshj (https://github.com/hierynomus/sshj)\n" +
+			"Default - " + SSH_PROVIDER_MAVERICK;
+	private static final int SSH_UNCONFIRMED_READS_DEFAULT = 0x100;
+	private static final String SSH_UNCONFIRMED_READS_PARAM = "a2.ssh.max.unconfirmed.reads";
+	private static final String SSH_UNCONFIRMED_READS_DOC = "Maximum number of unconfirmed reads from SFTP server when using Hierynomus sshj. Default - " + SSH_UNCONFIRMED_READS_DEFAULT;
+	private static final int SSH_BUFFER_SIZE_DEFAULT = 0x8000;
+	private static final String SSH_BUFFER_SIZE_PARAM = "a2.ssh.buffer.size";
+	private static final String SSH_BUFFER_SIZE_DOC = "Read-ahead buffer size in bytes for fata from SFTP server when using Hierynomus sshj. Default - " + SSH_BUFFER_SIZE_DEFAULT;
 
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
@@ -531,6 +546,16 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, SSH_RECONNECT_INTERVAL_MS_DOC)
 				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, Type.BOOLEAN, false,
 						Importance.MEDIUM, SSH_STRICT_HOST_KEY_CHECKING_DOC)
+				.define(SSH_PROVIDER_PARAM, Type.STRING,
+						SSH_PROVIDER_MAVERICK,
+						ConfigDef.ValidString.in(
+								SSH_PROVIDER_MAVERICK,
+								SSH_PROVIDER_SSHJ),
+						Importance.LOW, SSH_PROVIDER_DOC)
+				.define(SSH_UNCONFIRMED_READS_PARAM, Type.INT, SSH_UNCONFIRMED_READS_DEFAULT,
+						Importance.LOW, SSH_UNCONFIRMED_READS_DOC)
+				.define(SSH_BUFFER_SIZE_PARAM, Type.INT, SSH_BUFFER_SIZE_DEFAULT,
+						Importance.LOW, SSH_BUFFER_SIZE_DOC)
 				;
 	}
 
@@ -1368,6 +1393,18 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public boolean sshStrictHostKeyChecking() {
 		return getBoolean(SSH_STRICT_HOST_KEY_CHECKING_PARAM);
+	}
+
+	public boolean sshProviderMaverick() {
+		return StringUtils.equals(getString(SSH_PROVIDER_PARAM), SSH_PROVIDER_MAVERICK);
+	}
+
+	public int sshUnconfirmedReads() {
+		return getInt(SSH_UNCONFIRMED_READS_PARAM);
+	}
+
+	public int sshBufferSize() {
+		return getInt(SSH_BUFFER_SIZE_PARAM);
 	}
 
 }
