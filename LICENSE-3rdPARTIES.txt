@@ -52,3 +52,9 @@ Bouncy Castle License
 - bcpkix-jdk18on-1.80, see: licenses/bouncycastle
 - bcutil-jdk18on-1.80, see: licenses/bouncycastle
 
+
+----------------------------------------
+Creative Commons Zero v1.0 Universal License
+
+
+- eddsa-0.3.0, see: licenses/CC0-1.0-Universal
