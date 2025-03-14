@@ -45,7 +45,7 @@ public abstract class OraCdcTransaction {
 	protected static final String TRANS_COMMIT_SCN = "commitScn";
 
 	boolean firstRecord = true;
-	private long firstChange = 0;
+	private final long firstChange;
 	private long nextChange = 0;
 	private final String xid;
 	private long commitScn;
@@ -65,15 +65,15 @@ public abstract class OraCdcTransaction {
 	private String sessionInfo;
 	private String clientId;
 
-	OraCdcTransaction(final String xid) {
+	OraCdcTransaction(final String xid, final long firstChange) {
 		this.xid = xid;
+		this.firstChange = firstChange;
 		this.transSize = 0;
 	}
 
 	void checkForRollback(final OraCdcStatementBase oraSql, final long index) {
 		if (firstRecord) {
 			firstRecord = false;
-			firstChange = oraSql.getScn();
 			nextChange = oraSql.getScn();
 			if (oraSql.isRollback()) {
 				suspicious = true;
@@ -88,7 +88,6 @@ public abstract class OraCdcTransaction {
 		} else {
 			if (startsWithBeginTrans &&
 					Long.compareUnsigned(firstChange, oraSql.getScn()) > 0) {
-				firstChange = oraSql.getScn();
 				startsWithBeginTrans = false;
 				needsSorting = true;
 			}

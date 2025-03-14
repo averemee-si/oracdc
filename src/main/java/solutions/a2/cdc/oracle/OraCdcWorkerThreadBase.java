@@ -121,7 +121,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 
 	abstract void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSubScn) throws SQLException;
 
-	OraCdcTransaction createTransaction(final String xidAsString, int inProgress) {
+	OraCdcTransaction createTransaction(final String xidAsString, final long firstScn, int inProgress) {
 		int attempt = 0;
 		while (true) {
 			if (attempt > Byte.MAX_VALUE) {
@@ -146,12 +146,12 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 			}
 		}
 		if (useChronicleQueue)
-			return getChronicleQueue(xidAsString);
+			return getChronicleQueue(xidAsString, firstScn);
 		else
-			return new OraCdcTransactionArrayList(xidAsString, initialCapacity);
+			return new OraCdcTransactionArrayList(xidAsString, firstScn, initialCapacity);
 	}
 
-	private OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString) {
+	private OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString, final long firstScn) {
 		long start = System.currentTimeMillis();
 		int attempt = 0;
 		Exception lastException = null;
@@ -161,7 +161,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 			else
 				attempt++;
 			try {
-				return new OraCdcTransactionChronicleQueue(processLobs, queuesRoot, xidAsString);
+				return new OraCdcTransactionChronicleQueue(processLobs, queuesRoot, xidAsString, firstScn);
 			} catch (Exception cqe) {
 				lastException = cqe;
 				if (cqe.getCause() != null &&

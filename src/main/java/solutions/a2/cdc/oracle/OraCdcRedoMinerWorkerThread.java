@@ -232,9 +232,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			long lastGuaranteedScn = 0;
 			RedoByteAddress lastGuaranteedRsId = null;
 			long lastGuaranteedSsn = 0;
-			Xid xid = null;
 			try {
-				if (redoMinerReady) {
+				if (redoMinerReady && runLatch.getCount() > 0) {
 					miner = redoMiner.iterator();
 					boolean firstInMinerSession = true;
 					while (miner.hasNext() && runLatch.getCount() > 0) {
@@ -267,7 +266,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 										record.rba(), record.lwnLen());
 							}
 						}
-						xid = record.xid();
 						if (conFilter && 
 								Arrays.binarySearch(conUids, record.conUid()) < 0) {
 							if (LOGGER.isDebugEnabled()) {
@@ -314,47 +312,16 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									continue;
 								}
 							}
-							OraCdcTransaction transaction = activeTransactions.get(xid);
-							if (transaction == null) {
-								if (LOGGER.isDebugEnabled()) {
-									LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
-											xid, Instant.ofEpochMilli(lwnUnixMillis), lastScn);
-								}
-								transaction = createTransaction(xid.toString(), activeTransactions.size());
-								if (LOGGER.isDebugEnabled()) {
-									LOGGER.debug(
-											"Starting transaction {} at SCN={}, RBA={}",
-											transaction.getXid(), record.scn(), record.rba());
-								}
-								final OraCdcTransaction duplicateXid = activeTransactions.put(xid, transaction);
-								if (duplicateXid != null) {
-									
-									LOGGER.error(
-											"\n=====================\n" +
-											"Duplicate hash value for '{}' and '{}'!\n" +
-											"Please send this message to oracle@a2.solutions" +
-											"\n=====================\n",
-											xid.toString(), duplicateXid.getXid());
-									throw new ConnectException("Duplicate XID/hash function error!");
-								}
-								createTransactionPrefix(xid, lastRba);
-								sortedByFirstScn.put(xid,
-											Triple.of(lastScn, lastRba, lastSubScn));
-								if (firstTransaction) {
-									firstTransaction = false;
-									task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
-								}
-							}
 							final short operation = record.change11_x().operation();
 							switch (operation) {
 							case _11_2_IRP:
 							case _11_3_DRP:
 							case _11_5_URP:
 							case _11_6_ORP:
-								processRowChange(transaction, record, false);
+								processRowChange(getTransaction(record), record, false);
 								break;
 							case _11_16_LMN:
-								processRowChangeLmnUpdate(transaction, record);
+								processRowChangeLmnUpdate(getTransaction(record), record);
 								break;
 							case _11_4_LKR:
 							case _11_8_CFA:
@@ -365,7 +332,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								break;
 							case _11_11_QMI:
 							case _11_12_QMD:
-								emitMultiRowChange(transaction, record, false);
+								emitMultiRowChange(getTransaction(record), record, false);
 								break;
 							default:
 								if (LOGGER.isDebugEnabled()) {
@@ -392,9 +359,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 							boolean suspiciousRecord = false;
+							final Xid xid = record.xid();
 							OraCdcTransaction transaction = activeTransactions.get(xid);
 							if (transaction == null) {
-								final Xid substitutedXid = prefixedTransactions.get(record.xid().partial());
+								final Xid substitutedXid = prefixedTransactions.get(xid.partial());
 								if (substitutedXid == null) {
 									suspiciousRecord = true;
 								} else {
@@ -404,16 +372,21 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									}
 								}
 							}
+							final short operation = record.change11_x().operation();
 							if (suspiciousRecord) {
-								LOGGER.error(
+								final String suspiciousMsg =
 										"\n=====================\n\n" +
-										"The transaction with XID='{}' starts with with the record with PARTIAL ROLLBACK flagset to true!\n" +
+										"The transaction with XID='{}' starts with with the record with PARTIAL ROLLBACK flag set to true!\n" +
 										"SCN={}, RBA={}, redo Record details:\n{}\n" +
 										"If you have questions or need more information, please write to us at oracle@a2.solutions\n\n" +
-										"\n=====================\n",
-										xid, lastScn, lastRba, record.toString());
+										"\n=====================\n";
+								if (operation == _11_4_LKR)
+									LOGGER.debug(suspiciousMsg,
+											xid, lastScn, lastRba, record.toString());
+								else
+									LOGGER.error(suspiciousMsg,
+											xid, lastScn, lastRba, record.toString());
 							} else {
-								final short operation = record.change11_x().operation();
 								switch (operation) {
 								case _11_2_IRP:
 								case _11_3_DRP:
@@ -495,8 +468,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					.append(lastRba.toString())
 					.append(", SUBSCN=")
 					.append(lastSubScn)
-					.append(", XID=")
-					.append(xid == null ? "NULL" : xid.toString())
 					.append("\n=====================\n");
 				LOGGER.error(sb.toString());
 				lastScn = lastGuaranteedScn;
@@ -529,7 +500,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 			OraCdcTransaction firstOraTran = activeTransactions.get(first);
 			OraCdcTransaction secondOraTran = activeTransactions.get(second);
-			if (firstOraTran != null && secondOraTran != null && firstOraTran.getFirstChange() >= secondOraTran.getFirstChange()) {
+
+			if (firstOraTran != null && secondOraTran != null && Long.compareUnsigned(firstOraTran.getFirstChange(), secondOraTran.getFirstChange()) >= 0) {
 				return 1;
 			}
 
@@ -1617,9 +1589,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					lastCommitScn = commitScn;
 				}
 			}
+			sortedByFirstScn.remove(xid);
 			activeTransactions.remove(xid);
 			prefixedTransactions.remove(xid.partial());
-			sortedByFirstScn.remove(xid);
 			if (!sortedByFirstScn.isEmpty()) {
 				task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
 			} else {
@@ -1720,4 +1692,39 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 	}
 
+	private OraCdcTransaction getTransaction(final OraCdcRedoRecord record) {
+		final Xid xid = record.xid();
+		OraCdcTransaction transaction = activeTransactions.get(xid);
+		if (transaction == null) {
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
+						xid, Instant.ofEpochMilli(lwnUnixMillis), lastScn);
+			}
+			transaction = createTransaction(xid.toString(), record.scn(), activeTransactions.size());
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug(
+						"Starting transaction {} at SCN={}, RBA={}",
+						transaction.getXid(), record.scn(), record.rba());
+			}
+			final OraCdcTransaction duplicateXid = activeTransactions.put(xid, transaction);
+			if (duplicateXid != null) {
+				
+				LOGGER.error(
+						"\n=====================\n" +
+						"Duplicate hash value for '{}' and '{}'!\n" +
+						"Please send this message to oracle@a2.solutions" +
+						"\n=====================\n",
+						xid.toString(), duplicateXid.getXid());
+				throw new ConnectException("Duplicate XID/hash function error!");
+			}
+			createTransactionPrefix(xid, lastRba);
+			sortedByFirstScn.put(xid,
+						Triple.of(lastScn, lastRba, lastSubScn));
+			if (firstTransaction) {
+				firstTransaction = false;
+				task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+			}
+		}
+		return transaction;
+	}
 }

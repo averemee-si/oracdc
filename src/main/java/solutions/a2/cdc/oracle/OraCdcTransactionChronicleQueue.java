@@ -81,8 +81,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	 * @param xid
 	 * @throws IOException
 	 */
-	public OraCdcTransactionChronicleQueue(final boolean processLobs, final Path rootDir, final String xid) throws IOException {
-		super(xid);
+	public OraCdcTransactionChronicleQueue(final boolean processLobs,
+			final Path rootDir, final String xid, final long firstChange) throws IOException {
+		super(xid, firstChange);
 		LOGGER.debug("BEGIN: create OraCdcTransactionChronicleQueue for new transaction");
 		this.processLobs = processLobs;
 		queueDirectory = Files.createTempDirectory(rootDir, xid + ".");
@@ -173,7 +174,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	 */
 	public OraCdcTransactionChronicleQueue(
 			final Path rootDir, final String xid, final OraCdcStatementBase firstStatement) throws IOException {
-		this(false, rootDir, xid);
+		this(false, rootDir, xid, firstStatement.getScn());
 		this.addStatement(firstStatement);
 	}
 

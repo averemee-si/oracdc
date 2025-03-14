@@ -43,8 +43,9 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	 * @param xid
 	 * @param capacity
 	 */
-	public OraCdcTransactionArrayList(final String xid, final int capacity) {
-		super(xid);
+	public OraCdcTransactionArrayList(
+			final String xid, final long firstChange, final int capacity) {
+		super(xid, firstChange);
 		statements = new ArrayList<>(capacity);
 		queueSize = 0;
 		tailerOffset = 0;
@@ -58,7 +59,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	 * @param firstStatement
 	 */
 	public OraCdcTransactionArrayList(final String xid, final OraCdcStatementBase firstStatement) {
-		this(xid, 0x20);
+		this(xid, firstStatement.getScn(), 0x20);
 		this.addStatement(firstStatement);
 	}
 

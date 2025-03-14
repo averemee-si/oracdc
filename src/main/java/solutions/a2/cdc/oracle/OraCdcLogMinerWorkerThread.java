@@ -436,7 +436,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
 													xid, timestamp, lastScn);
 										}
-										transaction = createTransaction(xid, activeTransactions.size());
+										transaction = createTransaction(xid, lastScn, activeTransactions.size());
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
@@ -486,7 +486,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 											LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
 													xid, timestamp, lastScn);
 										}
-										transaction = createTransaction(xid, activeTransactions.size());
+										transaction = createTransaction(xid, lastScn, activeTransactions.size());
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
