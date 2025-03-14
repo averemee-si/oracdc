@@ -106,7 +106,7 @@ public class OraCdcRedoLogAsmFactory extends OraCdcRedoLogFactoryBase implements
 	}
 
 	@Override
-	public OraCdcRedoLog get(String redoLog, int blockSize, long blockCount) throws IOException {
+	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
 		return new OraCdcRedoLog(
 				new OraCdcRedoAsmReader(open, read, close, redoLog, blockSize, blockCount, readAhead),
 				valCheckSum,

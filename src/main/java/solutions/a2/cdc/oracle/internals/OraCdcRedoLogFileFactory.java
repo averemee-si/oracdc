@@ -43,7 +43,7 @@ public class OraCdcRedoLogFileFactory extends OraCdcRedoLogFactoryBase implement
 	}
 
 	@Override
-	public OraCdcRedoLog get(String redoLog, int blockSize, long blockCount) throws IOException {
+	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
 		return new OraCdcRedoLog(
 				new OraCdcRedoFileReader(redoLog, blockSize),
 				valCheckSum,

@@ -258,7 +258,6 @@ public class OraRedoMiner {
 					LOGGER.debug("END time is below threshold, return false");
 					return false;
 				}
-				processOnlineRedo = true;
 				psUpToCurrentScn.setLong(1, firstChange);
 				psUpToCurrentScn.setInt(2, rdbmsInfo.getRedoThread());
 				long onlineSequence = 0;
@@ -299,6 +298,7 @@ public class OraRedoMiner {
 					}
 				}
 				lastOnlineRedoTime = System.currentTimeMillis();
+				processOnlineRedo = true;
 				redoLogAvailable = true;
 			}
 		}
@@ -367,7 +367,7 @@ public class OraRedoMiner {
 				}
 				redoLog = rlf.get(
 						(needNameChange) ? config.convertRedoFileName(currentRedoLog) : currentRedoLog,
-						blockSize, blocks);
+						processOnlineRedo, blockSize, blocks);
 				if (inited) {
 					if (limits || processOnlineRedo) {
 						if (lastProcessedRba != null && redoLog.sequence() == lastProcessedRba.sqn()) {

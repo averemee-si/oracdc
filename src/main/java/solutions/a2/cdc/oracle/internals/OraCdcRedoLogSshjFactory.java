@@ -93,11 +93,11 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 		long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
 		fis.close();
 		fis = null;
-		return get(redoLog, (int)blockSizeAndCount[0], blockSizeAndCount[1]); 
+		return get(redoLog, false, (int)blockSizeAndCount[0], blockSizeAndCount[1]); 
 	}
 
 	@Override
-	public OraCdcRedoLog get(String redoLog, int blockSize, long blockCount) throws IOException {
+	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
 		return new OraCdcRedoLog(
 				new OraCdcRedoSshjReader(sftp, unconfirmedReads, bufferSize, redoLog, blockSize, blockCount),
 				valCheckSum,

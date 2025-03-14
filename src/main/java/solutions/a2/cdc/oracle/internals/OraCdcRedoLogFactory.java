@@ -18,6 +18,6 @@ import java.io.IOException;
 public interface OraCdcRedoLogFactory {
 
 	OraCdcRedoLog get(final String redoLog) throws IOException;
-	OraCdcRedoLog get(final String redoLog, final int blockSize, final long blockCount) throws IOException;
+	OraCdcRedoLog get(final String redoLog, final boolean online, final int blockSize, final long blockCount) throws IOException;
 
 }
