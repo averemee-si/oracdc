@@ -2079,7 +2079,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					final int colSize = colDefs[i][1];
 					if (useAllColsOnDelete) {
 						final OraColumn oraColumn = pureIdMap.get(colDefs[i][0]);
-						if (colSize < -1) {
+						if (colSize < 0) {
 							try {
 								valueStruct.put(oraColumn.getColumnName(), null);
 							} catch (DataException de) {
