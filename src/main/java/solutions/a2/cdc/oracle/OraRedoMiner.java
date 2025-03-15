@@ -83,6 +83,7 @@ public class OraRedoMiner {
 	private long sessionStartMs = 0;
 	private final int backofMs;
 	private final boolean needNameChange;
+	private boolean sshMaverick;
 
 	public OraRedoMiner(
 			final Connection connection,
@@ -116,10 +117,13 @@ public class OraRedoMiner {
 		} else if (ssh) {
 			needNameChange = rdbmsInfo.isWindows();
 			try {
-				if (config.sshProviderMaverick())
+				if (config.sshProviderMaverick()) {
 					rlf = new OraCdcRedoLogSshtoolsMaverickFactory(config, bu, true);
-				else
+					sshMaverick = true;
+				} else {
 					rlf = new OraCdcRedoLogSshjFactory(config, bu, true);
+					sshMaverick = false;
+				}
 			} catch (IOException ioe) {
 				throw new SQLException(ioe);
 			}
@@ -326,7 +330,10 @@ public class OraRedoMiner {
 								if (asm)
 									((OraCdcRedoLogAsmFactory) rlf).reset(oraConnections.getAsmConnection(config));
 								else
-									((OraCdcRedoLogSshjFactory) rlf).reset();
+									if (sshMaverick)
+										((OraCdcRedoLogSshtoolsMaverickFactory) rlf).reset();
+									else
+										((OraCdcRedoLogSshjFactory) rlf).reset();
 								done = true;
 								sessionStartMs = System.currentTimeMillis();
 							} catch (SQLException sqle) {
