@@ -307,11 +307,12 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String REDO_FILE_MEDIUM_FS = "FS";
 	private static final String REDO_FILE_MEDIUM_ASM = "ASM";
 	private static final String REDO_FILE_MEDIUM_SSH = "SSH";
-	//TODO
 	private static final String REDO_FILE_MEDIUM_SMB = "SMB";
+	//TODO
 	private static final String REDO_FILE_MEDIUM_BFILE = "BFILE";
 	private static final String REDO_FILE_MEDIUM_PARAM = "a2.storage.media";
-	private static final String REDO_FILE_MEDIUM_DOC = "Parameter defining the storage medium for redo log files: FS - redo files will be read from the local file system, ASM - redo files will be read from the Oracle ASM, SSH - redo files will be read from the remote file syystem using ssh. Default - FS"; 
+	private static final String REDO_FILE_MEDIUM_DOC = "Parameter defining the storage medium for redo log files: FS - redo files will be read from the local file system, ASM - redo files will be read from the Oracle ASM, SSH - redo files will be read from the remote file system using ssh, SMB  - redo files will be read from the remote file system using smb. Default - FS"; 
+
 	private static final String ASM_JDBC_URL_PARAM = "a2.asm.jdbc.url";
 	private static final String ASM_JDBC_URL_DOC = "JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above";
 	private static final String ASM_USER_PARAM = "a2.asm.username";
@@ -326,6 +327,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String ASM_RECONNECT_INTERVAL_MS_DOC =
 			"The time interval in milliseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection.\n" +
 			"Default - " + ASM_RECONNECT_INTERVAL_MS_DEFAULT + " (one week)";
+
 	private static final String SSH_HOST_PARAM = "a2.ssh.hostname";
 	private static final String SSH_HOST_DOC = "FQDN or IP address of the remote server with redo log files";
 	private static final String SSH_PORT_PARAM = "a2.ssh.port";
@@ -356,6 +358,33 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final int SSH_BUFFER_SIZE_DEFAULT = 0x8000;
 	private static final String SSH_BUFFER_SIZE_PARAM = "a2.ssh.buffer.size";
 	private static final String SSH_BUFFER_SIZE_DOC = "Read-ahead buffer size in bytes for fata from SFTP server when using Hierynomus sshj. Default - " + SSH_BUFFER_SIZE_DEFAULT;
+
+	private static final String SMB_SERVER_PARAM = "a2.smb.server";
+	private static final String SMB_SERVER_DOC = "FQDN or IP address of the remote SMB (Windows) server with redo log files";
+	private static final String SMB_SHARE_ONLINE_PARAM = "a2.smb.share.online";
+	private static final String SMB_SHARE_ONLINE_DOC = "Name of the SMB (Windows) share with online redo logs";
+	private static final String SMB_SHARE_ARCHIVE_PARAM = "a2.smb.share.archive";
+	private static final String SMB_SHARE_ARCHIVE_DOC = "Name of the SMB (Windows) share with archived redo logs";
+	private static final String SMB_USER_PARAM = "a2.smb.user";
+	private static final String SMB_USER_DOC = "Username for the authentication to the remote SMB (Windows) server with redo log files";
+	private static final String SMB_PASSWORD_PARAM = "a2.smb.password";
+	private static final String SMB_PASSWORD_DOC = "Password for the authentication to the remote SMB (Windows) server with redo log files";
+	private static final String SMB_DOMAIN_PARAM = "a2.smb.domain";
+	private static final String SMB_DOMAIN_DOC = "SMB (Windows) authentication domain name";
+	private static final int SMB_TIMEOUT_MS_DEFAULT = 180_000;
+	private static final String SMB_TIMEOUT_MS_PARAM = "a2.smb.timeout";
+	private static final String SMB_TIMEOUT_MS_DOC = "SMB read timeout in ms. Default - " + SMB_TIMEOUT_MS_DEFAULT;
+	private static final int SMB_SOCKET_TIMEOUT_MS_DEFAULT = 180_000;
+	private static final String SMB_SOCKET_TIMEOUT_MS_PARAM = "a2.smb.socket.timeout";
+	private static final String SMB_SOCKET_TIMEOUT_MS_DOC = "SMB read timeout in ms. Default - " + SMB_SOCKET_TIMEOUT_MS_DEFAULT;
+	private static final long SMB_RECONNECT_INTERVAL_MS_DEFAULT = 86_400_000;
+	private static final String SMB_RECONNECT_INTERVAL_MS_PARAM = "a2.smb.reconnect.ms";
+	private static final String SMB_RECONNECT_INTERVAL_MS_DOC =
+			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SMB (Windows) connection.\n" +
+			"Default - " + SMB_RECONNECT_INTERVAL_MS_DEFAULT + " (24 hours)";
+	private static final int SMB_BUFFER_SIZE_DEFAULT = 0x8000;
+	private static final String SMB_BUFFER_SIZE_PARAM = "a2.smb.buffer.size";
+	private static final String SMB_BUFFER_SIZE_DOC = "Read-ahead buffer size in bytes for fata from SMB (Windows) server. Default - " + SMB_BUFFER_SIZE_DEFAULT;
 
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
@@ -520,7 +549,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						ConfigDef.ValidString.in(
 								REDO_FILE_MEDIUM_FS,
 								REDO_FILE_MEDIUM_ASM,
-								REDO_FILE_MEDIUM_SSH),
+								REDO_FILE_MEDIUM_SSH,
+								REDO_FILE_MEDIUM_SMB),
 						Importance.HIGH, REDO_FILE_MEDIUM_DOC)
 				.define(ASM_JDBC_URL_PARAM, Type.STRING, "",
 						Importance.LOW, ASM_JDBC_URL_DOC)
@@ -556,6 +586,26 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, SSH_UNCONFIRMED_READS_DOC)
 				.define(SSH_BUFFER_SIZE_PARAM, Type.INT, SSH_BUFFER_SIZE_DEFAULT,
 						Importance.LOW, SSH_BUFFER_SIZE_DOC)
+				.define(SMB_SERVER_PARAM, Type.STRING, "",
+						Importance.LOW, SMB_SERVER_DOC)
+				.define(SMB_SHARE_ONLINE_PARAM, Type.STRING, "",
+						Importance.LOW, SMB_SHARE_ONLINE_DOC)
+				.define(SMB_SHARE_ARCHIVE_PARAM, Type.STRING, "",
+						Importance.LOW, SMB_SHARE_ARCHIVE_DOC)
+				.define(SMB_USER_PARAM, Type.STRING, "",
+						Importance.LOW, SMB_USER_DOC)
+				.define(SMB_PASSWORD_PARAM, Type.PASSWORD, "",
+						Importance.LOW, SMB_PASSWORD_DOC)
+				.define(SMB_DOMAIN_PARAM, Type.STRING, "",
+						Importance.LOW, SMB_DOMAIN_DOC)
+				.define(SMB_TIMEOUT_MS_PARAM, Type.INT, SMB_TIMEOUT_MS_DEFAULT,
+						Importance.LOW, SMB_TIMEOUT_MS_DOC)
+				.define(SMB_SOCKET_TIMEOUT_MS_PARAM, Type.INT, SMB_SOCKET_TIMEOUT_MS_DEFAULT,
+						Importance.LOW, SMB_SOCKET_TIMEOUT_MS_DOC)
+				.define(SMB_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, SMB_RECONNECT_INTERVAL_MS_DEFAULT,
+						Importance.LOW, SMB_RECONNECT_INTERVAL_MS_DOC)
+				.define(SMB_BUFFER_SIZE_PARAM, Type.INT, SMB_BUFFER_SIZE_DEFAULT,
+						Importance.LOW, SMB_BUFFER_SIZE_DOC)
 				;
 	}
 
@@ -1347,6 +1397,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_SSH);
 	}
 
+	public boolean useSmb() {
+		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_SMB);
+	}
+
 	public String asmJdbcUrl() {
 		return getString(ASM_JDBC_URL_PARAM);
 	}
@@ -1405,6 +1459,46 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public int sshBufferSize() {
 		return getInt(SSH_BUFFER_SIZE_PARAM);
+	}
+
+	public String smbServer() {
+		return getString(SMB_SERVER_PARAM);
+	}
+
+	public String smbShareOnline() {
+		return getString(SMB_SHARE_ONLINE_PARAM);
+	}
+
+	public String smbShareArchive() {
+		return getString(SMB_SHARE_ARCHIVE_PARAM);
+	}
+
+	public String smbUser() {
+		return getString(SMB_USER_PARAM);
+	}
+
+	public String smbPassword() {
+		return getPassword(SMB_PASSWORD_PARAM).value();
+	}
+
+	public String smbDomain() {
+		return getString(SMB_DOMAIN_PARAM);
+	}
+
+	public int smbTimeoutMs() {
+		return getInt(SMB_TIMEOUT_MS_PARAM);
+	}
+
+	public int smbSocketTimeoutMs() {
+		return getInt(SMB_SOCKET_TIMEOUT_MS_PARAM);
+	}
+
+	public long smbReconnectIntervalMs() {
+		return getLong(SMB_RECONNECT_INTERVAL_MS_PARAM);
+	}
+
+	public int smbBufferSize() {
+		return getInt(SMB_BUFFER_SIZE_PARAM);
 	}
 
 }

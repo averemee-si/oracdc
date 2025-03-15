@@ -222,7 +222,7 @@ Default - *${connectorName}.seq*
 
 `a2.redo.filename.convert` - It converts the filename of a redo log to another path. It is specified as a string in the <ORIGINAL_PATH>=<NEW_PATH> format. If not specified (default), no conversion occurs.
 
-`a2.storage.media` - Parameter defining the storage medium for redo log files: `FS` - redo files will be read from the local file system, `ASM` - redo files will be read from the Oracle ASM, `SSH` - redo files will be read from the remote file syystem using ssh. Default - FS
+`a2.storage.media` - Parameter defining the storage medium for redo log files: `FS` - redo files will be read from the local file system, `ASM` - redo files will be read from the Oracle ASM, `SSH` - redo files will be read from the remote file system using ssh, `SMB`  - redo files will be read from the remote file system using smb. Default - FS
 
 `a2.asm.jdbc.url` - JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above
 
@@ -254,3 +254,24 @@ Default - 86,400,000 (24 hours)
 `a2.ssh.max.unconfirmed.reads` - Maximum number of unconfirmed reads from SFTP server when using Hierynomus sshj. Default - 256
 
 `a2.ssh.buffer.size` - Read-ahead buffer size in bytes for fata from SFTP server when using Hierynomus sshj. Default - 32768
+
+`a2.smb.server` - FQDN or IP address of the remote SMB (Windows) server with redo log files
+
+`a2.smb.share.online` - Name of the SMB (Windows) share with online redo logs
+
+`a2.smb.share.archive` - Name of the SMB (Windows) share with archived redo logs
+
+`a2.smb.user` - Username for the authentication to the remote SMB (Windows) server with redo log files
+
+`a2.smb.password` - Password for the authentication to the remote SMB (Windows) server with redo log files
+
+`a2.smb.domain` - SMB (Windows) authentication domain name
+
+`a2.smb.timeout` - SMB read timeout in ms. Default - 180_000
+
+`a2.smb.socket.timeout` - SMB read timeout in ms. Default - 180_000
+
+`a2.smb.reconnect.ms` - The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SMB (Windows) connection.
+Default - 86,400,000 (24 hours)
+
+`a2.smb.buffer.size` - Read-ahead buffer size in bytes for fata from SMB (Windows) server. Default - 32768
