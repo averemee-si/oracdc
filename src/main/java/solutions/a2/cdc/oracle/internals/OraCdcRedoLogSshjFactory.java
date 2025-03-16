@@ -34,10 +34,11 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 	private final String hostname;
 	private final int port;
 	private final boolean usePassword;
+	private final boolean strictHostKeyChecking;
 	private final String secret;
-	private final SSHClient ssh;
 	private final int unconfirmedReads;
 	private final int bufferSize;
+	private SSHClient ssh;
 	private SFTPClient sftp;
 
 	public OraCdcRedoLogSshjFactory(
@@ -51,6 +52,7 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 		this.port = port;
 		this.unconfirmedReads = unconfirmedReads;
 		this.bufferSize = bufferSize;
+		this.strictHostKeyChecking = strictHostKeyChecking;
 		if (StringUtils.isBlank(keyFile)) {
 			usePassword = true;
 			secret = password;
@@ -58,18 +60,16 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 			usePassword = false;
 			secret = keyFile;
 		}
+		create();
+	}
+
+	private void create() throws IOException {
 		ssh = new SSHClient();
 		if (strictHostKeyChecking)
 			//TODO - pass file!!!
 			ssh.loadKnownHosts();
 		else
 			ssh.addHostKeyVerifier(new PromiscuousVerifier());
-		
-		create();
-
-	}
-
-	private void create() throws IOException {
 		ssh.connect(hostname, port);
 		if (usePassword)
 			ssh.authPassword(username, secret);
@@ -111,6 +111,7 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 			try {
 				sftp.close();
 				ssh.close();
+				ssh = null;
 			} catch (IOException ioe) {}
 		}
 	}
