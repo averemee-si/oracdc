@@ -32,6 +32,7 @@ import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSmbjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshtoolsMaverickFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
@@ -77,6 +78,9 @@ public class OraRedoMiner {
 	private boolean processOnlineRedo = false;
 	private final boolean asm;
 	private final boolean ssh;
+	private final boolean smb;
+	private final boolean bfile;
+	private final boolean reconnect;
 	private final OraCdcRedoLogFactory rlf;
 	private final long reconnectIntervalMs;
 	private final OraConnectionObjects oraConnections;
@@ -100,6 +104,10 @@ public class OraRedoMiner {
 		this.connectorName = config.getConnectorName();
 		this.asm = config.useAsm();
 		this.ssh = config.useSsh();
+		this.smb = config.useSmb();
+		//TODO
+		this.bfile = false;
+		this.reconnect = asm || ssh || bfile || smb;
 		this.notifier = config.getLastProcessedSeqNotifier();
 		this.backofMs = config.connectionRetryBackoff();
 		config.msWindows(rdbmsInfo.isWindows());
@@ -128,6 +136,14 @@ public class OraRedoMiner {
 				throw new SQLException(ioe);
 			}
 			this.oraConnections = null;
+		} else if (smb) {
+			needNameChange = true;
+			try {
+				rlf = new OraCdcRedoLogSmbjFactory(config, bu, true);
+			} catch (IOException ioe) {
+				throw new SQLException(ioe);
+			}
+			this.oraConnections = null;
 		} else {
 			needNameChange = true;
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
@@ -135,8 +151,10 @@ public class OraRedoMiner {
 		}
 		if (asm)
 			reconnectIntervalMs = config.asmReconnectIntervalMs();
-		else
+		else if (ssh)
 			reconnectIntervalMs = config.sshReconnectIntervalMs();
+		else
+			reconnectIntervalMs = config.smbReconnectIntervalMs();
 
 		processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
 		if (processOnlineRedoLogs) {
@@ -310,12 +328,12 @@ public class OraRedoMiner {
 		if (redoLogAvailable) {
 			metrics.setNowProcessed(List.of(currentRedoLog), firstChange, nextChange, lagSeconds);
 			try {
-				if (asm || ssh) {
+				if (reconnect) {
 					final long sessionElapsed = System.currentTimeMillis() - sessionStartMs;
 					if (sessionElapsed > reconnectIntervalMs) {
 						if (LOGGER.isDebugEnabled()) {
 							LOGGER.debug("Recreating {} connection after {} ms.",
-									asm ? "Oracle ASM" : "SSH", sessionElapsed);
+									readerName(), sessionElapsed);
 						}
 						boolean done = false;
 						int attempt = 0;
@@ -329,29 +347,31 @@ public class OraRedoMiner {
 							try {
 								if (asm)
 									((OraCdcRedoLogAsmFactory) rlf).reset(oraConnections.getAsmConnection(config));
-								else
+								else if (ssh)
 									if (sshMaverick)
 										((OraCdcRedoLogSshtoolsMaverickFactory) rlf).reset();
 									else
 										((OraCdcRedoLogSshjFactory) rlf).reset();
+								else
+									((OraCdcRedoLogSmbjFactory) rlf).reset();
 								done = true;
 								sessionStartMs = System.currentTimeMillis();
 							} catch (SQLException sqle) {
 								lastException = sqle;
-								if (asm)
+								if (asm || bfile)
 									LOGGER.error(
 										"\n=====================\n" +
-										"Failed to reconnect (attempt #{}) to Oracle ASM due to '{}'.\nSQL Error Code = {}, SQL State = '{}'" +
+										"Failed to reconnect (attempt #{}) to {} due to '{}'.\nSQL Error Code = {}, SQL State = '{}'" +
 										"oarcdc will try again to reconnect in {} ms." + 
 										"\n=====================\n",
-										attempt, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(), backofMs);
+										attempt, readerName(), sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(), backofMs);
 								else
 									LOGGER.error(
 										"\n=====================\n" +
-										"Failed to reconnect (attempt #{}) to SSH due to '{}'.\n" +
+										"Failed to reconnect (attempt #{}) to {} due to '{}'.\n" +
 										"oarcdc will try again to reconnect in {} ms." + 
 										"\n=====================\n",
-										attempt, sqle.getMessage(), backofMs);
+										readerName(), attempt, sqle.getMessage(), backofMs);
 								try {Thread.sleep(backofMs);} catch (InterruptedException ie) {}
 							}
 						}
@@ -360,15 +380,15 @@ public class OraRedoMiner {
 									"\n=====================\n" +
 									"Failed to reconnect to {} after {} attempts in {} ms." +
 									"\n=====================\n",
-									asm ? "Oracle ASM" : "SSH", attempt, (System.currentTimeMillis() - reconnectStart));
+									readerName(), attempt, (System.currentTimeMillis() - reconnectStart));
 							if (lastException != null)
 								throw new SQLException(lastException);
 							else
-								throw new SQLException("Unable to reconnect to " + (asm ? "Oracle ASM" : "SSH"));
+								throw new SQLException("Unable to reconnect to " + readerName());
 						} else {
 							LOGGER.info(
 									"Reconnection to {} completed in {} ms.",
-									asm ? "Oracle ASM" : "SSH", (System.currentTimeMillis() - reconnectStart));
+									readerName(), (System.currentTimeMillis() - reconnectStart));
 						}
 					}
 				}
@@ -453,6 +473,14 @@ public class OraRedoMiner {
 				.append(nextChange);
 		}
 		LOGGER.info(sb.toString());
+	}
+
+	private String readerName() {
+		return
+				asm ? "Oracle ASM" :
+					ssh ? "SSH" :
+						bfile ? "Oracle BFILE store" :
+							smb ? "SMB" : "FS reader";
 	}
 
 }

@@ -18,7 +18,9 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.commons.cli.CommandLine;
@@ -36,12 +38,14 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.pool.OracleDataSource;
+import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.internals.OraCdcChange;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndo;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSmbjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -66,6 +70,8 @@ public class OraRedoLogFile  {
 	private static final String SSH_PASSWORD = "ssh-password";
 	private static final String SSH_IDENTITY = "ssh-identity-file";
 	private static final String SSH_PORT = "ssh-port";
+	private static final String SMB_USER = "smb-user";
+	private static final String SMB_PASSWORD = "smb-password";
 
 	public static void main(String[] argv) {
 		BasicConfigurator.configure();
@@ -115,7 +121,7 @@ public class OraRedoLogFile  {
 			} catch (SQLException sqle) {
 				LOGGER.error(
 						"\n=====================\n" +
-						"Unable to connect to Oracle ASM Instance at {} as {} with passord {}!\n" +
+						"Unable to connect to Oracle ASM Instance at {} as {} with password {}!\n" +
 						"Exception: '{}'\nStack trace:\n{}\n" +
 						"\n=====================\n",
 						asmUrl, asmUser, asmPassword, sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
@@ -126,6 +132,42 @@ public class OraRedoLogFile  {
 				StringUtils.isAlpha(StringUtils.substring(redoFile, 0, 1)) &&
 				StringUtils.equals(StringUtils.substring(redoFile, 1, 2), ":")) {
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
+		} else if (StringUtils.startsWith(redoFile, "\\\\")) {
+			final int shareIndex = StringUtils.indexOf(StringUtils.substring(redoFile, 2), "\\");
+			final int pathIndex = StringUtils.indexOf(StringUtils.substring(redoFile, shareIndex + 3), "\\");
+			final String smbServer = StringUtils.substring(redoFile, 2, shareIndex + 2);
+			final String shareName = StringUtils.substring(redoFile, shareIndex + 3, pathIndex + shareIndex + 3);
+			final String fileName = StringUtils.substring(redoFile, shareIndex + pathIndex + 4);
+			final String smbDomain = StringUtils.substringBefore(cmd.getOptionValue(SMB_USER), "\\");
+			final String smbUser = StringUtils.substringAfter(cmd.getOptionValue(SMB_USER), "\\");
+			final String smbPassword = cmd.getOptionValue(SMB_PASSWORD);
+			if (StringUtils.isAnyBlank(smbServer, shareName, fileName, smbUser, smbDomain, smbPassword)) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to get required parameters for SMB connection!\n" +
+						"\n=====================\n");
+				System.exit(1);
+			}
+			final Map<String, String> smbProps = new HashMap<>();
+			smbProps.put("a2.smb.server", smbServer);
+			smbProps.put("a2.smb.share.online", shareName);
+			smbProps.put("a2.smb.share.archive", shareName);
+			smbProps.put("a2.smb.user", smbUser);
+			smbProps.put("a2.smb.password", smbPassword);
+			smbProps.put("a2.smb.domain", smbDomain);
+			redoFile = fileName;
+			try {
+				rlf = new OraCdcRedoLogSmbjFactory(
+						new OraCdcSourceConnectorConfig(smbProps),
+						bu, true);
+			} catch (IOException ioe) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to connect to smb server {}!\n" +
+						"\n=====================\n",
+						smbServer);
+				System.exit(1);
+			}
 		} else {
 			final String userName = StringUtils.substringBefore(redoFile, '@');
 			if (StringUtils.isBlank(userName) ||
@@ -528,10 +570,27 @@ public class OraRedoLogFile  {
 
 		final Option sshPort = Option.builder("P")
 				.longOpt(SSH_PORT)
+				.hasArg()
 				.required(false)
 				.desc("Port to connect on the remote host, if the redo file is specified in ssh notation (username@hostname:filename)")
 				.build();
 		options.addOption(sshPort);
+
+		final Option smbUser = Option.builder("U")
+				.longOpt(SMB_USER)
+				.hasArg()
+				.required(false)
+				.desc("SMB (Windows) user in form of DOMAIN\\User, if the redo file is specified in SMB notation \\\\sewrver\\share\\path-to-file")
+				.build();
+		options.addOption(smbUser);
+
+		final Option smbPassword = Option.builder("W")
+				.longOpt(SMB_PASSWORD)
+				.hasArg()
+				.required(false)
+				.desc("Password for connection to SMB server")
+				.build();
+		options.addOption(smbPassword);
 
 	}
 
