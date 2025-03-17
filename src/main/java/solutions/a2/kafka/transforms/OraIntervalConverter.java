@@ -93,6 +93,7 @@ public abstract class OraIntervalConverter <R extends ConnectRecord<R>> implemen
 
 	@Override
 	public void close() {
+		schemaUpdateCache = null;
 	}
 
 	protected abstract Schema operatingSchema(R record);

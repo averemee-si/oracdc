@@ -104,6 +104,7 @@ public abstract class HeaderToFieldConverter <R extends ConnectRecord<R>> implem
 
 	@Override
 	public void close() {
+		schemaUpdateCache = null;
 	}
 
 	protected abstract Schema operatingSchema(R record);

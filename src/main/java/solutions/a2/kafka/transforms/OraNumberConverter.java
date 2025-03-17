@@ -251,6 +251,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 
 	@Override
 	public void close() {
+		schemaUpdateCache = null;
 	}
 
 	protected abstract Schema operatingSchema(R record);
