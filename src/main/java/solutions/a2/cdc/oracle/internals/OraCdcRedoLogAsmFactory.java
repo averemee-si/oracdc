@@ -117,17 +117,17 @@ public class OraCdcRedoLogAsmFactory extends OraCdcRedoLogFactoryBase implements
 	public void reset(final Connection connection) throws SQLException {
 		if (open != null) {
 			try {open.close();} catch (SQLException sqle) {
-									printCloseWarningMessage("open file handle", sqle);}
+									printCloseWarningMessage("open file handle anonymous PL/SQL block", sqle);}
 			open = null;
 		}
 		if (read != null) {
 			try {read.close();} catch (SQLException sqle) {
-									printCloseWarningMessage("read file", sqle);}
+									printCloseWarningMessage("read file anonymous PL/SQL block", sqle);}
 			read = null;
 		}
 		if (close != null) {
 			try {close.close();} catch (SQLException sqle) {
-									printCloseWarningMessage("close file handle", sqle);}
+									printCloseWarningMessage("close file handle anonymous PL/SQL block", sqle);}
 			close = null;
 		}
 		if (this.connection != null) {
@@ -145,7 +145,7 @@ public class OraCdcRedoLogAsmFactory extends OraCdcRedoLogFactoryBase implements
 	private void printCloseWarningMessage(final String blockName, final SQLException sqle) {
 		LOGGER.warn(
 				"\n=====================\n" +
-				"Unable to close ASM '{}' anonymous PL/SQL block due to SQL Exception {}\n\tSQL Error code={}, SQL State='{}'!" +
+				"Unable to '{}' due to SQL Exception {}\n\tSQL Error code={}, SQL State='{}'!" +
 				"\n=====================\n",
 				blockName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 	}
