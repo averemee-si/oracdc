@@ -8,13 +8,11 @@ See licenses/ folder for text of these licenses.
 Oracle Free Use Terms and Conditions
 
 
-- ojdbc11-21.17.0.0, see: licenses/oracle-FUTC
-- ucp11-21.17.0.0, see: licenses/oracle-FUTC
-- oraclepki-21.17.0.0, see: licenses/oracle-FUTC
-- osdt_core-21.17.0.0, see: licenses/oracle-FUTC
-- osdt_cert-21.17.0.0, see: licenses/oracle-FUTC
-- xmlparserv2-21.17.0.0, see: licenses/oracle-FUTC
-- xdb-21.17.0.0, see: licenses/oracle-FUTC
+- ojdbc11-23.7.0.25.01, see: licenses/oracle-FUTC
+- ucp11-23.7.0.25.01, see: licenses/oracle-FUTC
+- oraclepki-23.7.0.25.01, see: licenses/oracle-FUTC
+- xmlparserv2-23.7.0.25.01, see: licenses/oracle-FUTC
+- xdb-23.7.0.25.01, see: licenses/oracle-FUTC
 
 
 ----------------------------------------
