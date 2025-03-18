@@ -4,3 +4,4 @@ solutions.a2.kafka.transforms.OraIntervalConverter$Key
 solutions.a2.kafka.transforms.OraIntervalConverter$Value
 solutions.a2.kafka.transforms.HeaderToFieldConverter$Key
 solutions.a2.kafka.transforms.HeaderToFieldConverter$Value
+solutions.a2.kafka.transforms.KeyToValueConverter
