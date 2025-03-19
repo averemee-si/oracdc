@@ -20,63 +20,90 @@ import com.hierynomus.mssmb2.SMB2ShareAccess;
 import com.hierynomus.smbj.share.DiskShare;
 import com.hierynomus.smbj.share.File;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 
 public class OraCdcRedoSmbjReader implements OraCdcRedoReader {
 
-	private File file;
-	private InputStream is;
+	private final File file;
 	private final String redoLog;
 	private final int blockSize;
-	private final DiskShare share;
+	private final long blockCount;
 	private final int bufferSize;
+	private final int bufferBlocks;
+	private final byte[] buffer;
+	private long currentBlock;
+	private boolean needToreadAhead;
+	private long startPos;
 
-	OraCdcRedoSmbjReader(DiskShare share, final int bufferSize,
+	OraCdcRedoSmbjReader(DiskShare share, final byte[] buffer,
 			final String redoLog, final int blockSize, final long blockCount) throws IOException {
-		this.share = share;
-		this.bufferSize = bufferSize;
+		this.buffer = buffer;
+		this.bufferSize = buffer.length;
 		this.redoLog = redoLog;
 		this.blockSize = blockSize;
-		open();
-		if (is.skip(blockSize) != blockSize) {
-			throw new IOException("Unable to skip " + blockSize + " bytes!");
+		this.blockCount = blockCount;
+		bufferBlocks = bufferSize / blockSize;
+		if (bufferSize % blockSize != 0) {
+			throw new IOException(
+					"The buffer size (" + bufferSize  + 
+					") must be a multiple of the block size (" + blockSize +
+					")!");
 		}
-	}
-
-	private void open() throws IOException {
+		needToreadAhead = true;
 		file = share.openFile(redoLog,
 				EnumSet.of(AccessMask.FILE_READ_DATA), null, SMB2ShareAccess.ALL, null, null);
-		is = new BufferedInputStream(file.getInputStream(), bufferSize);
+		currentBlock = 1;
+		startPos = 1;		
 	}
 
 	@Override
 	public int read(byte b[], int off, int len) throws IOException {
-		return is.read(b, off, len);
+		if (needToreadAhead) {
+			final int bytesToRead;
+			if ((currentBlock + bufferBlocks) <= blockCount)  {
+				bytesToRead = bufferSize;
+			} else {
+				final long needed = blockCount - currentBlock + 1;
+				if (needed > 0)
+					bytesToRead = (int) needed * blockSize;
+				else
+					return Integer.MIN_VALUE;
+			}
+			final int actual = file.read(buffer, currentBlock * blockSize, 0, bytesToRead);
+			if (actual != bytesToRead) {
+				throw new IOException(
+						"The actual number of bytes read (" + actual + ")" +
+						" from the SMB remote file is not equal to the expected number of (" + bytesToRead + ")!");
+			}
+			needToreadAhead = false;
+		}
+		int srcPos = (int) (((currentBlock - startPos) % bufferBlocks) * blockSize);
+		System.arraycopy(buffer, srcPos, b, 0, len);
+		currentBlock += 1;
+		if (((currentBlock - startPos) % bufferBlocks) == 0) {
+			needToreadAhead = true;
+		}
+		return len;
 	}
 	
 	@Override
 	public long skip(long n) throws IOException {
-		return is.skip(n * blockSize);
+		currentBlock += n;
+		startPos = currentBlock;
+		needToreadAhead = true;
+		return n * blockSize;
 	}
 
 	@Override
 	public void close() throws IOException {
-		if (is != null) {
-			is.close();
-			is = null;
-		}
 		if (file != null) {
 			file.close();
-			file = null;
 		}
 	}
 
 	@Override
 	public void reset()  throws IOException {
-		close();
-		open();
+		currentBlock = 1;
 	}
 
 	@Override

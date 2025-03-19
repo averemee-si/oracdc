@@ -38,24 +38,25 @@ public class OraCdcRedoLogSmbjFactory extends OraCdcRedoLogFactoryBase implement
 	
 	private final String server;
 	private final String username;
-	private final String password;
+	private final char[] password;
 	private final String domain;
 	private final String shareNameOnline;
 	private final String shareNameArchive;
 	private final boolean singleShare;
 	private final int bufferSize;
+	private final byte[] buffer;
 	
 	private final SMBClient smb;
 	private Connection connection;
 	private Session session;
 	private DiskShare shareOnline;
 	private DiskShare shareArchive;
-
+	
 	public OraCdcRedoLogSmbjFactory(final OraCdcSourceConnectorConfig config, final BinaryUtils bu, final boolean valCheckSum) throws IOException {
 		super(bu, valCheckSum);
 		server = config.smbServer();
 		username = config.smbUser();
-		password = config.smbPassword();
+		password = config.smbPassword().toCharArray();
 		domain = config.smbDomain();
 		shareNameOnline = config.smbShareOnline();
 		shareNameArchive = config.smbShareArchive();
@@ -64,6 +65,7 @@ public class OraCdcRedoLogSmbjFactory extends OraCdcRedoLogFactoryBase implement
 		else
 			singleShare = false;
 		bufferSize = config.smbBufferSize();
+		buffer = new byte[bufferSize];
 		final SmbConfig smbConfig = SmbConfig.builder()
 				.withTimeout(config.smbTimeoutMs(), TimeUnit.MILLISECONDS)
 				.withSoTimeout(config.smbSocketTimeoutMs(), TimeUnit.MILLISECONDS)
@@ -71,12 +73,11 @@ public class OraCdcRedoLogSmbjFactory extends OraCdcRedoLogFactoryBase implement
 		smb = new SMBClient(smbConfig);
 
 		create();
-
 	}
 
 	private void create() throws IOException {
 		connection = smb.connect(server);
-		final AuthenticationContext ac = new AuthenticationContext(username, password.toCharArray(), domain);
+		final AuthenticationContext ac = new AuthenticationContext(username, password, domain);
 		session = connection.authenticate(ac);
 		shareOnline = (DiskShare) session.connectShare(shareNameOnline);
 		if (singleShare)
@@ -103,7 +104,7 @@ public class OraCdcRedoLogSmbjFactory extends OraCdcRedoLogFactoryBase implement
 	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
 		return new OraCdcRedoLog(
 				new OraCdcRedoSmbjReader(
-						online ? shareOnline : shareArchive, bufferSize, redoLog, blockSize, blockCount),
+						online ? shareOnline : shareArchive, buffer, redoLog, blockSize, blockCount),
 				valCheckSum,
 				bu,
 				blockCount);
