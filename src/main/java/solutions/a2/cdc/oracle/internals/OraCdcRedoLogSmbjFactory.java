@@ -89,7 +89,7 @@ public class OraCdcRedoLogSmbjFactory extends OraCdcRedoLogFactoryBase implement
 	@Override
 	public OraCdcRedoLog get(final String redoLog) throws IOException {
 		File file = shareOnline.openFile(redoLog,
-				EnumSet.of(AccessMask.FILE_READ_DATA), null, EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ), null, null);
+				EnumSet.of(AccessMask.FILE_READ_DATA), null, SMB2ShareAccess.ALL, null, null);
 		InputStream fis = file.getInputStream();
 		long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
 		fis.close();

@@ -47,7 +47,7 @@ public class OraCdcRedoSmbjReader implements OraCdcRedoReader {
 
 	private void open() throws IOException {
 		file = share.openFile(redoLog,
-				EnumSet.of(AccessMask.FILE_READ_DATA), null, EnumSet.of(SMB2ShareAccess.FILE_SHARE_READ), null, null);
+				EnumSet.of(AccessMask.FILE_READ_DATA), null, SMB2ShareAccess.ALL, null, null);
 		is = new BufferedInputStream(file.getInputStream(), bufferSize);
 	}
 
