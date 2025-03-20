@@ -206,6 +206,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							(firstSubScn == -1 || firstSubScn == lastSubScn)) {
 						rewindNeeded = false;
 						break;
+					} else if (Long.compareUnsigned(lastScn, firstScn) > 0 &&
+							firstRba == null) {
+						if (lastRba.blk() > 0x2)
+							LOGGER.warn("Requested SCN {} not found, starting from SCN {} at RBA {} ", 
+									Long.toUnsignedString(firstScn), Long.toUnsignedString(lastScn), lastRba);
+						rewindNeeded = false;
+						break;
 					}
 				} else {
 					LOGGER.error("Incorrect rewind to SCN = {}, RBA = {}, SSN = {}",
