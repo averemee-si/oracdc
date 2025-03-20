@@ -37,10 +37,10 @@ public class OraCdcRedoFileNameConvertTest {
 		config = new OraCdcSourceConnectorConfig(props);
 
 		assertEquals(
-				config.convertRedoFileName("/opt/oracle/oradata/archive/1_700_1155880919.dbf"),
+				config.convertRedoFileName("/opt/oracle/oradata/archive/1_700_1155880919.dbf", false),
 				"/Users/averemee/polyxena/oracle/oradata/KAFKA19/archive/1_700_1155880919.dbf");
 		assertEquals(
-				config.convertRedoFileName("/opt/oracle/oradata/KAFKA19/log01.redo"),
+				config.convertRedoFileName("/opt/oracle/oradata/KAFKA19/log01.redo", false),
 				"/Users/averemee/polyxena/oracle/oradata/KAFKA19/KAFKA19/log01.redo");
 
 		props.clear();
@@ -50,7 +50,7 @@ public class OraCdcRedoFileNameConvertTest {
 		config = new OraCdcSourceConnectorConfig(props);
 		config.msWindows(true);
 		assertEquals(
-				config.convertRedoFileName("C:\\ORACLE\\ORADATA\\WINTEST\\REDO01.LOG"),
+				config.convertRedoFileName("C:\\ORACLE\\ORADATA\\WINTEST\\REDO01.LOG", false),
 				"/C:/ORACLE/ORADATA/WINTEST/REDO01.LOG");
 
 		props.clear();
@@ -60,8 +60,14 @@ public class OraCdcRedoFileNameConvertTest {
 		config = new OraCdcSourceConnectorConfig(props);
 		config.msWindows(true);
 		assertEquals(
-				config.convertRedoFileName("C:\\APP\\ORACLE\\FAST_RECOVERY_AREA\\MATADOR\\ARCHIVELOG\\2025_03_07\\O1_MF_1_601466_MWO3L9SX_.ARC"),
+				config.convertRedoFileName("C:\\APP\\ORACLE\\FAST_RECOVERY_AREA\\MATADOR\\ARCHIVELOG\\2025_03_07\\O1_MF_1_601466_MWO3L9SX_.ARC", false),
 				"/C:/APP/ORACLE/FAST_RECOVERY_AREA/MATADOR/ARCHIVELOG/2025_03_07/O1_MF_1_601466_MWO3L9SX_.ARC");
+
+		props.clear();
+		config = new OraCdcSourceConnectorConfig(props);
+		assertEquals(
+				config.convertRedoFileName("/data/archive/1_2636_1185479976.dbf", true),
+				"1_2636_1185479976.dbf");
 
 	}
 }

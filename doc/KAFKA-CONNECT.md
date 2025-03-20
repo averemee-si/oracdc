@@ -222,7 +222,7 @@ Default - *${connectorName}.seq*
 
 `a2.redo.filename.convert` - It converts the filename of a redo log to another path. It is specified as a string in the <ORIGINAL_PATH>=<NEW_PATH> format. If not specified (default), no conversion occurs.
 
-`a2.storage.media` - Parameter defining the storage medium for redo log files: `FS` - redo files will be read from the local file system, `ASM` - redo files will be read from the Oracle ASM, `SSH` - redo files will be read from the remote file system using ssh, `SMB`  - redo files will be read from the remote file system using smb. Default - FS
+`a2.storage.media` - Parameter defining the storage medium for redo log files: `FS` - redo files will be read from the local file system, `ASM` - redo files will be read from the Oracle ASM, `SSH` - redo files will be read from the remote file system using ssh, `SMB`  - redo files will be read from the remote file system using smb, BFILE - access remode files via Oracle Net as Oracle BFILE's. Default - FS
 
 `a2.asm.jdbc.url` - JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above
 
@@ -274,4 +274,13 @@ Default - 86,400,000 (24 hours)
 `a2.smb.reconnect.ms` - The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SMB (Windows) connection.
 Default - 86,400,000 (24 hours)
 
-`a2.smb.buffer.size` - Read-ahead buffer size in bytes for fata from SMB (Windows) server. Default - 32768
+`a2.smb.buffer.size` - Read-ahead buffer size in bytes for fata from SMB (Windows) server. Default - 1,048,576
+
+`a2.bfile.directory.online` - The name of the Oracle database directory that contains the online redo logs
+
+`a2.bfile.directory.archive` - The name of the Oracle database directory that contains the archived redo logs
+
+`a2.bfile.reconnect.ms` - The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the Oracle Net connection. Default -  3,600,000 (1 hour)
+
+`a2.bfile.buffer.size` - Oracle BFILE read-ahead buffer size in bytes. Default - 4,194,304
+

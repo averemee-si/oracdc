@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogBfileFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSmbjFactory;
@@ -105,8 +106,7 @@ public class OraRedoMiner {
 		this.asm = config.useAsm();
 		this.ssh = config.useSsh();
 		this.smb = config.useSmb();
-		//TODO
-		this.bfile = false;
+		this.bfile = config.useBfile();
 		this.reconnect = asm || ssh || bfile || smb;
 		this.notifier = config.getLastProcessedSeqNotifier();
 		this.backofMs = config.connectionRetryBackoff();
@@ -119,11 +119,13 @@ public class OraRedoMiner {
 		}
 		if (asm) {
 			needNameChange = false;
+			reconnectIntervalMs = config.asmReconnectIntervalMs();
 			rlf = new OraCdcRedoLogAsmFactory(oraConnections.getAsmConnection(config),
 					bu, true, config.asmReadAhead());
 			this.oraConnections = oraConnections;
 		} else if (ssh) {
 			needNameChange = rdbmsInfo.isWindows();
+			reconnectIntervalMs = config.sshReconnectIntervalMs();
 			try {
 				if (config.sshProviderMaverick()) {
 					rlf = new OraCdcRedoLogSshtoolsMaverickFactory(config, bu, true);
@@ -136,8 +138,16 @@ public class OraRedoMiner {
 				throw new SQLException(ioe);
 			}
 			this.oraConnections = null;
+		} else if (bfile) {
+			needNameChange = true;
+			reconnectIntervalMs = config.bfileReconnectIntervalMs();
+			rlf = new OraCdcRedoLogBfileFactory(oraConnections.getConnection(),
+					config.bfileDirOnline(), config.bfileDirArchive(), config.bfileBufferSize(),
+					bu, true);
+			this.oraConnections = oraConnections;
 		} else if (smb) {
 			needNameChange = true;
+			reconnectIntervalMs = config.smbReconnectIntervalMs();
 			try {
 				rlf = new OraCdcRedoLogSmbjFactory(config, bu, true);
 			} catch (IOException ioe) {
@@ -146,15 +156,10 @@ public class OraRedoMiner {
 			this.oraConnections = null;
 		} else {
 			needNameChange = true;
+			reconnectIntervalMs = Long.MAX_VALUE;
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
 			this.oraConnections = null;
 		}
-		if (asm)
-			reconnectIntervalMs = config.asmReconnectIntervalMs();
-		else if (ssh)
-			reconnectIntervalMs = config.sshReconnectIntervalMs();
-		else
-			reconnectIntervalMs = config.smbReconnectIntervalMs();
 
 		processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
 		if (processOnlineRedoLogs) {
@@ -193,7 +198,7 @@ public class OraRedoMiner {
 		// It's time to init JMS metrics...
 		metrics.start(firstChange);
 
-		if (asm || ssh) {
+		if (asm || ssh || smb || bfile) {
 			sessionStartMs = System.currentTimeMillis();
 		}
 	}
@@ -352,6 +357,8 @@ public class OraRedoMiner {
 										((OraCdcRedoLogSshtoolsMaverickFactory) rlf).reset();
 									else
 										((OraCdcRedoLogSshjFactory) rlf).reset();
+								else if (bfile)
+									((OraCdcRedoLogBfileFactory) rlf).reset(oraConnections.getConnection());
 								else
 									((OraCdcRedoLogSmbjFactory) rlf).reset();
 								done = true;
@@ -393,7 +400,7 @@ public class OraRedoMiner {
 					}
 				}
 				redoLog = rlf.get(
-						(needNameChange) ? config.convertRedoFileName(currentRedoLog) : currentRedoLog,
+						(needNameChange) ? config.convertRedoFileName(currentRedoLog, bfile) : currentRedoLog,
 						processOnlineRedo, blockSize, blocks);
 				if (inited) {
 					if (limits || processOnlineRedo) {

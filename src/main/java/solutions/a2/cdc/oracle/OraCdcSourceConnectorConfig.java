@@ -308,10 +308,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String REDO_FILE_MEDIUM_ASM = "ASM";
 	private static final String REDO_FILE_MEDIUM_SSH = "SSH";
 	private static final String REDO_FILE_MEDIUM_SMB = "SMB";
-	//TODO
 	private static final String REDO_FILE_MEDIUM_BFILE = "BFILE";
 	private static final String REDO_FILE_MEDIUM_PARAM = "a2.storage.media";
-	private static final String REDO_FILE_MEDIUM_DOC = "Parameter defining the storage medium for redo log files: FS - redo files will be read from the local file system, ASM - redo files will be read from the Oracle ASM, SSH - redo files will be read from the remote file system using ssh, SMB  - redo files will be read from the remote file system using smb. Default - FS"; 
+	private static final String REDO_FILE_MEDIUM_DOC = "Parameter defining the storage medium for redo log files: FS - redo files will be read from the local file system, ASM - redo files will be read from the Oracle ASM, SSH - redo files will be read from the remote file system using ssh, SMB  - redo files will be read from the remote file system using smb, BFILE - access remode files via Oracle Net as Oracle BFILE's. Default - FS"; 
 
 	private static final String ASM_JDBC_URL_PARAM = "a2.asm.jdbc.url";
 	private static final String ASM_JDBC_URL_DOC = "JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above";
@@ -382,9 +381,21 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String SMB_RECONNECT_INTERVAL_MS_DOC =
 			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SMB (Windows) connection.\n" +
 			"Default - " + SMB_RECONNECT_INTERVAL_MS_DEFAULT + " (24 hours)";
-	private static final int SMB_BUFFER_SIZE_DEFAULT = 0x8000;
+	private static final int SMB_BUFFER_SIZE_DEFAULT = 0x100000;
 	private static final String SMB_BUFFER_SIZE_PARAM = "a2.smb.buffer.size";
-	private static final String SMB_BUFFER_SIZE_DOC = "Read-ahead buffer size in bytes for fata from SMB (Windows) server. Default - " + SMB_BUFFER_SIZE_DEFAULT;
+	private static final String SMB_BUFFER_SIZE_DOC = "Read-ahead buffer size in bytes for data from SMB (Windows) server. Default - " + SMB_BUFFER_SIZE_DEFAULT;
+	private static final String BFILE_DIR_ONLINE_PARAM = "a2.bfile.directory.online";
+	private static final String BFILE_DIR_ONLINE_DOC = "The name of the Oracle database directory that contains the online redo logs";
+	private static final String BFILE_DIR_ARCHIVE_PARAM = "a2.bfile.directory.archive";
+	private static final String BFILE_DIR_ARCHIVE_DOC = "The name of the Oracle database directory that contains the archived redo logs";
+	private static final long BFILE_RECONNECT_INTERVAL_MS_DEFAULT = 3_600_000;
+	private static final String BFILE_RECONNECT_INTERVAL_MS_PARAM = "a2.bfile.reconnect.ms";
+	private static final String BFILE_RECONNECT_INTERVAL_MS_DOC =
+			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the Oracle Net connection.\n" +
+			"Default - " + BFILE_RECONNECT_INTERVAL_MS_DEFAULT + " (1 hour)";
+	private static final int BFILE_BUFFER_SIZE_DEFAULT = 0x400000;
+	private static final String BFILE_BUFFER_SIZE_PARAM = "a2.bfile.buffer.size";
+	private static final String BFILE_BUFFER_SIZE_DOC = "Oracle BFILE read-ahead buffer size in bytes. Default - " + BFILE_BUFFER_SIZE_DEFAULT;
 
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
@@ -550,7 +561,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 								REDO_FILE_MEDIUM_FS,
 								REDO_FILE_MEDIUM_ASM,
 								REDO_FILE_MEDIUM_SSH,
-								REDO_FILE_MEDIUM_SMB),
+								REDO_FILE_MEDIUM_SMB,
+								REDO_FILE_MEDIUM_BFILE),
 						Importance.HIGH, REDO_FILE_MEDIUM_DOC)
 				.define(ASM_JDBC_URL_PARAM, Type.STRING, "",
 						Importance.LOW, ASM_JDBC_URL_DOC)
@@ -606,6 +618,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, SMB_RECONNECT_INTERVAL_MS_DOC)
 				.define(SMB_BUFFER_SIZE_PARAM, Type.INT, SMB_BUFFER_SIZE_DEFAULT,
 						Importance.LOW, SMB_BUFFER_SIZE_DOC)
+				.define(BFILE_DIR_ONLINE_PARAM, Type.STRING, "",
+						Importance.LOW, BFILE_DIR_ONLINE_DOC)
+				.define(BFILE_DIR_ARCHIVE_PARAM, Type.STRING, "",
+						Importance.LOW, BFILE_DIR_ARCHIVE_DOC)
+				.define(BFILE_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, BFILE_RECONNECT_INTERVAL_MS_DEFAULT,
+						Importance.LOW, BFILE_RECONNECT_INTERVAL_MS_DOC)
+				.define(BFILE_BUFFER_SIZE_PARAM, Type.INT, BFILE_BUFFER_SIZE_DEFAULT,
+						Importance.LOW, BFILE_BUFFER_SIZE_DOC)
 				;
 	}
 
@@ -1318,74 +1338,78 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		this.fileSeparator = msWindows ? "\\" : File.separator;
 	}
 
-	public String convertRedoFileName(final String originalName) {
-		if (!fileNameConversionInited) {
-			final String fileNameConvertParam = getString(REDO_FILE_NAME_CONVERT_PARAM);
-			if (StringUtils.isNotEmpty(fileNameConvertParam) &&
-					StringUtils.contains(fileNameConvertParam, '=')) {
-				String[] elements = StringUtils.split(fileNameConvertParam, ',');
-				int newSize = 0;
-				boolean[] processElement = new boolean[elements.length];
-				for (int i = 0; i < elements.length; i++) {
-					if (StringUtils.contains(elements[i], "=")) {
-						elements[i] = StringUtils.trim(elements[i]);
-						processElement[i] = true;
-						newSize += 1;
-					} else {
-						processElement[i] = false;
-					}
-				}
-				if (newSize > 0) {
-					fileNameConversionMap = new HashMap<>();
+	public String convertRedoFileName(final String originalName, final boolean bfile) {
+		if (bfile) {
+			return StringUtils.substringAfterLast(originalName, fileSeparator);
+		} else {
+			if (!fileNameConversionInited) {
+				final String fileNameConvertParam = getString(REDO_FILE_NAME_CONVERT_PARAM);
+				if (StringUtils.isNotEmpty(fileNameConvertParam) &&
+						StringUtils.contains(fileNameConvertParam, '=')) {
+					String[] elements = StringUtils.split(fileNameConvertParam, ',');
+					int newSize = 0;
+					boolean[] processElement = new boolean[elements.length];
 					for (int i = 0; i < elements.length; i++) {
-						if (processElement[i]) {
-							fileNameConversionMap.put(
-								StringUtils.appendIfMissing(
-									StringUtils.trim(StringUtils.substringBefore(elements[i], "=")),
-									fileSeparator),
-							StringUtils.appendIfMissing(
-									StringUtils.trim(StringUtils.substringAfter(elements[i], "=")),
-									fileSeparator));
+						if (StringUtils.contains(elements[i], "=")) {
+							elements[i] = StringUtils.trim(elements[i]);
+							processElement[i] = true;
+							newSize += 1;
+						} else {
+							processElement[i] = false;
 						}
 					}
-					fileNameConversion = true;
-				}				
-				elements = null;
-				processElement = null;
+					if (newSize > 0) {
+						fileNameConversionMap = new HashMap<>();
+						for (int i = 0; i < elements.length; i++) {
+							if (processElement[i]) {
+								fileNameConversionMap.put(
+									StringUtils.appendIfMissing(
+										StringUtils.trim(StringUtils.substringBefore(elements[i], "=")),
+										fileSeparator),
+								StringUtils.appendIfMissing(
+										StringUtils.trim(StringUtils.substringAfter(elements[i], "=")),
+										fileSeparator));
+							}
+						}
+						fileNameConversion = true;
+					}				
+					elements = null;
+					processElement = null;
+				}
+				fileNameConversionInited = true;
 			}
-			fileNameConversionInited = true;
-		}
-		if (fileNameConversion) {
-			int maxPrefixSize = -1;
-			String originalPrefix = null;
-			for (final String prefix : fileNameConversionMap.keySet()) {
-				if (StringUtils.startsWith(originalName, prefix)) {
-					if (prefix.length() > maxPrefixSize) {
-						maxPrefixSize = prefix.length();
-						originalPrefix = prefix;
+			if (fileNameConversion) {
+				int maxPrefixSize = -1;
+				String originalPrefix = null;
+				for (final String prefix : fileNameConversionMap.keySet()) {
+					if (StringUtils.startsWith(originalName, prefix)) {
+						if (prefix.length() > maxPrefixSize) {
+							maxPrefixSize = prefix.length();
+							originalPrefix = prefix;
+						}
 					}
 				}
-			}
-			if (maxPrefixSize == -1) {
-				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to convert filename '{}' using parameter {}={} !\n" +
-						"Original filename will be returned!" +
-						"\n=====================\n",
-						originalName, REDO_FILE_NAME_CONVERT_PARAM, getString(REDO_FILE_NAME_CONVERT_PARAM));
-				return originalName;
+				if (maxPrefixSize == -1) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Unable to convert filename '{}' using parameter {}={} !\n" +
+							"Original filename will be returned!" +
+							"\n=====================\n",
+							originalName, REDO_FILE_NAME_CONVERT_PARAM, getString(REDO_FILE_NAME_CONVERT_PARAM));
+					return originalName;
+				} else {
+					final String replacementPrefix =  fileNameConversionMap.get(originalPrefix);
+					if (msWindows)
+						return  StringUtils.replace(
+								StringUtils.replace(originalName, originalPrefix, replacementPrefix),
+								"\\",
+								"/");
+					else
+						return StringUtils.replace(originalName, originalPrefix, replacementPrefix);
+				}
 			} else {
-				final String replacementPrefix =  fileNameConversionMap.get(originalPrefix);
-				if (msWindows)
-					return  StringUtils.replace(
-							StringUtils.replace(originalName, originalPrefix, replacementPrefix),
-							"\\",
-							"/");
-				else
-					return StringUtils.replace(originalName, originalPrefix, replacementPrefix);
+				return originalName;
 			}
-		} else {
-			return originalName;
 		}
 	}
 
@@ -1399,6 +1423,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public boolean useSmb() {
 		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_SMB);
+	}
+
+	public boolean useBfile() {
+		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_BFILE);
 	}
 
 	public String asmJdbcUrl() {
@@ -1499,6 +1527,22 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public int smbBufferSize() {
 		return getInt(SMB_BUFFER_SIZE_PARAM);
+	}
+
+	public String bfileDirOnline() {
+		return getString(BFILE_DIR_ONLINE_PARAM);
+	}
+
+	public String bfileDirArchive() {
+		return getString(BFILE_DIR_ARCHIVE_PARAM);
+	}
+
+	public long bfileReconnectIntervalMs() {
+		return getLong(BFILE_RECONNECT_INTERVAL_MS_PARAM);
+	}
+
+	public int bfileBufferSize() {
+		return getInt(BFILE_BUFFER_SIZE_PARAM);
 	}
 
 }
