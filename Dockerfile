@@ -241,7 +241,7 @@ RUN    set -eux && apt-get update && apt-get --yes dist-upgrade && apt-get --yes
 RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka 
 ARG    BASEDIR=/opt
 
-ARG    KAFKA_VERSION=3.9.0
+ARG    KAFKA_VERSION=4.0.0
 ARG    SCALA_VERSION=2.13
 ARG    KAFKA_FILENAME=kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz
 ENV    KAFKA_HOME=${BASEDIR}/kafka
