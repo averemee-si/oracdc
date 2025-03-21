@@ -941,6 +941,16 @@ New parameter to set a SQL statement(s) that will be executed for all new connec
 
 3) Big fixes and enhancements
 
+
+######2.8.2 (MAR-2025)
+
+1) 1) This version supports redo files located in any remote filesystem via [BFILE](https://docs.oracle.com/en/database/oracle/oracle-database/23/adlob/BFILEs.html) for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. For more information, please send us an email at [oracle@a2.solutions](mailto:oracle@a2.solutions) or request a meeting on [https://a2.solutions/](https://a2.solutions/)
+
+2) Oracle JDBC v23
+
+3) Big fixes and enhancements
+
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
