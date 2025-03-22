@@ -46,6 +46,7 @@ public class OraRdbmsInfo {
 
 	public static final int ORA_310 = 310;
 	public static final int ORA_942 = 942;
+	public static final int ORA_1013 = 1013;
 	public static final int ORA_1017 = 1017;
 	public static final int ORA_1089 = 1089;
 	public static final int ORA_1284 = 1284;
