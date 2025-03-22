@@ -35,6 +35,7 @@ import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1013;
 import static solutions.a2.cdc.oracle.OraCdcSourceBaseConfig.TABLE_EXCLUDE_PARAM;
 import static solutions.a2.cdc.oracle.OraCdcSourceBaseConfig.TABLE_INCLUDE_PARAM;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.TABLE_LIST_STYLE_PARAM;
@@ -253,11 +254,13 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 									}
 									parseTime += (System.currentTimeMillis() - startParseTs);
 								}
-							} catch (SQLException e) {
-								LOGGER.error(e.getMessage());
-								LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+							} catch (SQLException sqle) {
 								isPollRunning.set(false);
-								throw new ConnectException(e);
+								if (sqle.getErrorCode() != ORA_1013) {
+									LOGGER.error(sqle.getMessage());
+									LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+									throw new ConnectException(sqle);
+								}
 							}
 						}
 					} while (processTransaction && recordCount < batchSize);

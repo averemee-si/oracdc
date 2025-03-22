@@ -243,7 +243,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				if (redoMinerReady && runLatch.getCount() > 0) {
 					miner = redoMiner.iterator();
 					boolean firstInMinerSession = true;
-					while (miner.hasNext() && runLatch.getCount() > 0) {
+					while (runLatch.getCount() > 0 && miner.hasNext()) {
 						final OraCdcRedoRecord record = miner.next();
 						if (record == null) {
 							LOGGER.warn("Unexpected termination of redo records stream after RBA {}", lastGuaranteedRsId);
