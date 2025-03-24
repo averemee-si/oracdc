@@ -100,6 +100,7 @@ public class OraCdcRedoRecord {
 	private int indDDL = -1;
 	private int indKTUIRB = -1;
 	private int indKRVMISC = -1;
+	private int indLLB = -1;
 
 	boolean supplementalLogData = false;
 	byte supplementalFb = 0;
@@ -181,6 +182,7 @@ public class OraCdcRedoRecord {
 				break;
 			case _11_17_LLB:
 				change = new OraCdcChangeLlb(changeNo, this, operation, record, offset, changeHeaderLen);
+				indLLB = changeNo - 1;
 				break;
 			case _24_1_DDL:
 				change = new OraCdcChangeDdl(changeNo, this, operation, record, offset, changeHeaderLen);
@@ -290,6 +292,17 @@ public class OraCdcRedoRecord {
 	public OraCdcChangeKrvMisc changeKrvMisc() {
 		if (hasKrvMisc())
 			return (OraCdcChangeKrvMisc) changeVectors.get(indKRVMISC);
+		else
+			return null;
+	}
+
+	public boolean hasLlb() {
+		return indLLB > -1;
+	}
+
+	public OraCdcChangeLlb changeLlb() {
+		if (hasLlb())
+			return (OraCdcChangeLlb) changeVectors.get(indLLB);
 		else
 			return null;
 	}
