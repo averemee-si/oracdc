@@ -361,7 +361,7 @@ public class OraCdcRedoRecord {
 					change.bdba,
 					change.slot);
 		} else if (hasPrb() && has11_x()) {
-			final OraCdcChange rowChange = changeVectors.get(indKCOCODRW);;
+			final OraCdcChange rowChange = changeVectors.get(indKCOCODRW);
 			return new RowId(
 					changeVectors.get(indKTUIRB).dataObj,
 					rowChange.bdba,
