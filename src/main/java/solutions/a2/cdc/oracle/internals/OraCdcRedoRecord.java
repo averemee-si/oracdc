@@ -327,6 +327,8 @@ public class OraCdcRedoRecord {
 			return change5_4().xid;
 		} else if (hasPrb()) {
 			return changePrb().xid;
+		} else if (hasLlb()) {
+			return changeLlb().xid;
 		} else if (hasDdl()) {
 			return changeDdl().xid;
 		} else {
