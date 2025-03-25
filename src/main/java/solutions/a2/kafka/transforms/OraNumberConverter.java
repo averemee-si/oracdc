@@ -23,6 +23,7 @@ import static solutions.a2.kafka.transforms.SchemaAndStructUtils.requireStructOr
 
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -120,7 +121,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 			@Override
 			public BigDecimal toType(final ParamHolder params, final NUMBER number) {
 				try {
-					return number.bigDecimalValue().setScale(params.scale);
+					return number.bigDecimalValue().setScale(params.scale, RoundingMode.HALF_DOWN);
 				} catch (SQLException sqle) {
 					LOGGER.error(CONV_ERROR_MSG, TARGET_TYPE_DECIMAL, sqle.getMessage());
 					return null;
