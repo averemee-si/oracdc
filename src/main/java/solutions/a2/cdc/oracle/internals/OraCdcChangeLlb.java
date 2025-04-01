@@ -117,6 +117,10 @@ public class OraCdcChangeLlb extends OraCdcChange {
 		}
 	}
 
+	public byte type() {
+		return type;
+	}
+
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
