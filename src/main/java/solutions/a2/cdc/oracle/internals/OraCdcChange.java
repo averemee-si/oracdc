@@ -1364,4 +1364,9 @@ public class OraCdcChange {
 	public long scn() {
 		return scn;
 	}
+
+	public byte[] lid() {
+		return lid;
+	}
+
 }
