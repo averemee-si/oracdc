@@ -105,10 +105,6 @@ public class OraCdcChange {
 	/** KTEOPUTRN: undo for truncate ops, flush the object */
 	public static final short _14_8_OPUTRN = 0x0E08;
 
-	//TODO
-	//TODO
-	//TODO
-	//TODO - LOB too
 	/** Layer 19: Direct Loader Log Blocks - KCOCODLB [kcbl.h] */
 	public static final byte KCOCODLB = 0x13;
 	/** KCBLCOLB: Direct block logging */
@@ -135,9 +131,6 @@ public class OraCdcChange {
 	/** KDQSUP: update */
 	public static final short _25_4_SUP = 0x1904;
 
-	//TODO
-	//TODO
-	//TODO
 	/** Layer 26 : LOB Related - KCOCOLOB [kdli3.h] */
 	public static final byte KCOCOLOB = 0x1A;
 	/** KDLIRUNDO: Generic lob undo */

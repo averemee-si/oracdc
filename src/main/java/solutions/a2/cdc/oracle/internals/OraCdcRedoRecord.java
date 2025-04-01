@@ -33,6 +33,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_17_LLB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_22_CMP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._19_1_COLB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_1_DDL;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_4_MISC;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
@@ -102,6 +103,7 @@ public class OraCdcRedoRecord {
 	private int indKRVMISC = -1;
 	private int indLLB = -1;
 	private int indKCOCOLOB = -1;
+	private int indKCOCODLB = -1;
 
 	boolean supplementalLogData = false;
 	byte supplementalFb = 0;
@@ -199,6 +201,10 @@ public class OraCdcRedoRecord {
 			case _26_6_BIMG:
 				change = new OraCdcChangeLobs(changeNo, this, operation, record, offset, changeHeaderLen);
 				indKCOCOLOB = changeNo - 1;
+				break;
+			case _19_1_COLB:
+				change = new OraCdcChangeColb(changeNo, this, operation, record, offset, changeHeaderLen);
+				indKCOCODLB = changeNo - 1;
 				break;
 			default:
 				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
@@ -320,6 +326,17 @@ public class OraCdcRedoRecord {
 			return null;
 	}
 
+	public boolean hasColb() {
+		return indKCOCODLB > -1;
+	}
+
+	public OraCdcChangeColb changeColb() {
+		if (hasColb())
+			return (OraCdcChangeColb) changeVectors.get(indKCOCODLB);
+		else
+			return null;
+	}
+
 	public Xid xid() {
 		if (has5_1()) {
 			return change5_1().xid;
@@ -329,6 +346,8 @@ public class OraCdcRedoRecord {
 			return changePrb().xid;
 		} else if (hasLlb()) {
 			return changeLlb().xid;
+		} else if (has26_x()) {
+			return change26_x().xid;
 		} else if (hasDdl()) {
 			return changeDdl().xid;
 		} else {
