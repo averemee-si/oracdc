@@ -161,7 +161,7 @@ public class OraCdcChange {
 	final int[][] coords;
 	final RedoByteAddress rba;
 	final short conId;
-	int obj;
+	int obj = 0;
 	int dataObj;
 	short opc;
 	short slt;
@@ -964,6 +964,7 @@ public class OraCdcChange {
 			break;
 		case KDLI_SUPLOG:
 			elementLengthCheck("KDLI", "suplog", index, KDLI_SUPLOG_MIN_LENGTH, "");
+			obj = redoLog.bu().getU32(record, coords[index][0] + 0xC);
 			if (lColId < 0)
 				lColId = redoLog.bu().getU16(record, coords[index][0] + 0x12);
 			break;
@@ -1057,7 +1058,7 @@ public class OraCdcChange {
 						redoLog.bu().getU16(record, coords[index][0] + 0x6),
 						redoLog.bu().getU32(record, coords[index][0] + 0x8))).toString())
 				.append("\n  objn  ")
-				.append(Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + 0xC)))
+				.append(Integer.toUnsignedLong(obj))
 				.append("\n  objv# ")
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x10)))
 				.append("\n  col#  ")
