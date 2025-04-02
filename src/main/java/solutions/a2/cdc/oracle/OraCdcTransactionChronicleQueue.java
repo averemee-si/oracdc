@@ -43,6 +43,8 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
+	public enum LobProcessingStatus {NOT_AT_ALL, LOGMINER, REDOMINER};
+
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionChronicleQueue.class);
 	private static final String QUEUE_DIR = "queueDirectory";
@@ -61,7 +63,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 	private final Path queueDirectory;
 	private final Path lobsQueueDirectory;
-	private final boolean processLobs;
+	private final LobProcessingStatus processLobs;
 	private ChronicleQueue statements;
 	private ExcerptAppender appender;
 	private ExcerptTailer tailer;
@@ -79,15 +81,19 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	 * @param processLobs
 	 * @param rootDir
 	 * @param xid
+	 * @param firstChange
 	 * @throws IOException
 	 */
-	public OraCdcTransactionChronicleQueue(final boolean processLobs,
+	public OraCdcTransactionChronicleQueue(final LobProcessingStatus processLobs,
 			final Path rootDir, final String xid, final long firstChange) throws IOException {
 		super(xid, firstChange);
 		LOGGER.debug("BEGIN: create OraCdcTransactionChronicleQueue for new transaction");
 		this.processLobs = processLobs;
 		queueDirectory = Files.createTempDirectory(rootDir, xid + ".");
-		if (processLobs) {
+		if (processLobs == LobProcessingStatus.REDOMINER) {
+			//TODO
+			lobsQueueDirectory = null;
+		} else if (processLobs == LobProcessingStatus.LOGMINER) {
 			final String lobDirectory = queueDirectory.toString() + ".LOBDATA";
 			lobsQueueDirectory = Files.createDirectory(Paths.get(lobDirectory));
 		} else {
@@ -96,7 +102,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Created row data queue directory {} for transaction XID {}.",
 					queueDirectory.toString(), xid);
-			if (processLobs) {
+			if (processLobs != LobProcessingStatus.NOT_AT_ALL) {
+				//TODO
 				LOGGER.debug("Created LOB data queue directory {} for transaction XID {}.",
 						lobsQueueDirectory.toString(), xid);
 			}
@@ -128,7 +135,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			appender = statements.createAppender();
 			queueSize = 0;
 			tailerOffset = 0;
-			if (processLobs) {
+			if (processLobs == LobProcessingStatus.REDOMINER) {
+				
+			} else if (processLobs == LobProcessingStatus.LOGMINER) {
 				cqDone = false;
 				for (int i = 0; i < LOCK_RETRY; i++) {
 					try {
@@ -174,7 +183,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	 */
 	public OraCdcTransactionChronicleQueue(
 			final Path rootDir, final String xid, final OraCdcStatementBase firstStatement) throws IOException {
-		this(false, rootDir, xid, firstStatement.getScn());
+		this(LobProcessingStatus.NOT_AT_ALL, rootDir, xid, firstStatement.getScn());
 		this.addStatement(firstStatement);
 	}
 
@@ -378,7 +387,10 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			appender.close();
 			appender = null;
 		}
-		if (processLobs) {
+		if (processLobs == LobProcessingStatus.REDOMINER) {
+			//TODO
+		}
+		if (processLobs == LobProcessingStatus.LOGMINER) {
 			if (lobs != null) {
 				if (lobsTailer != null) {
 					lobsTailer.close();
