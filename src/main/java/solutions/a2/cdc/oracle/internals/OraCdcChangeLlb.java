@@ -13,11 +13,10 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.util.Arrays;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.Xid;
 
 /**
@@ -65,7 +64,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 					redoLog.bu().getU16(record, coords[2][0] + 0x04),
 					redoLog.bu().getU16(record, coords[2][0] + 0x06),
 					redoLog.bu().getU32(record, coords[2][0] + 0x08));
-			lid = Arrays.copyOfRange(record, coords[2][0] + 0xC, coords[2][0] + 0x16);
+			lid = new LobId(record, coords[2][0] + 0xC, LobId.SIZE);
 			lColId = redoLog.bu().getU16(record, coords[2][0] + 0x16);
 			fsiz = redoLog.bu().getU16(record, coords[2][0] + 0x20);
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x24);
@@ -132,11 +131,9 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			.append(" obj:")
 			.append(obj);
 		if (type == TYPE_1) {
-			sb.append(" lid:");
-			for (int i = 0; i < lid.length; i++) {
-				sb.append(String.format("%02x", lid[i]));
-			}
 			sb
+				.append(" lid:")
+				.append(lid.toString())
 				.append(" fsiz: ")
 				.append(Short.toUnsignedInt(fsiz));
 		}

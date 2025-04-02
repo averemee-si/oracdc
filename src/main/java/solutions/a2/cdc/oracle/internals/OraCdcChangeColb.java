@@ -13,10 +13,10 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.util.Arrays;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import solutions.a2.oracle.internals.LobId;
 
 /**
  * 
@@ -51,7 +51,7 @@ public class OraCdcChangeColb extends OraCdcChange {
 			throw new IllegalArgumentException();
 		}
 		elementLengthCheck("19.1 (KCBLCOLB)", "", 0, SIZE, "");
-		lid = Arrays.copyOfRange(record, coords[0][0] + 0x4, coords[0][0] + 0xE);
+		lid = new LobId(record, coords[0][0] + 0x4, LobId.SIZE);
 		dataObj = redoLog.bu().getU32(record, coords[0][0]);
 		lobDataOffset = SIZE; 
 		lobPageNo = redoLog.bu().getU32(record, coords[0][0] + 0x18);
@@ -63,10 +63,8 @@ public class OraCdcChangeColb extends OraCdcChange {
 		sb
 			.append("\nDirect Loader block redo entry\nLong field block dump:\nObject Id  ")
 			.append(Integer.toUnsignedLong(dataObj))
-			.append("\nLobId: ");
-		for (int i = 0; i < lid.length; i++)
-			sb.append(String.format("%X", Byte.toUnsignedInt(lid[i])));
-		sb
+			.append("\nLobId: ")
+			.append(lid.toStringSignificant())
 			.append(" PageNo ")
 			.append(String.format("%8d", lobPageNo))
 			.append("\nVersion: ")

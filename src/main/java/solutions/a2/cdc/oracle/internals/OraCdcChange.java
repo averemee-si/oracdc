@@ -13,11 +13,10 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.util.Arrays;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.UndoByteAddress;
 import solutions.a2.oracle.internals.Xid;
@@ -186,7 +185,7 @@ public class OraCdcChange {
 	private final byte typ;
 	private final byte encrypted;
 	private final int changeDataObj;
-	byte[] lid;
+	LobId lid;
 	short lColId = -1;
 	int lobDataOffset = -1;
 	boolean lobBimg = false;
@@ -955,7 +954,7 @@ public class OraCdcChange {
 		case KDLI_LOAD_DATA:
 			elementLengthCheck("KDLI", "load data", index, KDLI_LOAD_DATA_MIN_LENGTH, "");
 			if (lid == null) {
-				lid = Arrays.copyOfRange(record, coords[index][0] + 0xC, coords[index][0] + 0x16);
+				lid = new LobId(record, coords[index][0] + 0xC, LobId.SIZE);
 			}
 			break;
 		case KDLI_FILL:
@@ -1005,10 +1004,8 @@ public class OraCdcChange {
 				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xB])))
 				.append("\n  scn   0x")
 				.append(FormattingUtils.leftPad(redoLog.bu().getScn4Record(record, coords[index][0] + 0x2), 0x10))
-				.append("\n  lid   ");
-			for (int i = 0; i < lid.length; i++)
-				sb.append(String.format("%02x", lid[i]));
-			sb
+				.append("\n  lid   ")
+				.append(lid.toString())
 				.append("\n  spare 0x")
 				.append(String.format("%08x", Integer.toUnsignedLong(record[coords[index][0] + 0x18])))
 				.append("\nkdlidh")
@@ -1365,7 +1362,7 @@ public class OraCdcChange {
 		return scn;
 	}
 
-	public byte[] lid() {
+	public LobId lid() {
 		return lid;
 	}
 
