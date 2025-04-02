@@ -25,8 +25,10 @@ import java.sql.SQLRecoverableException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -85,6 +87,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
 	private final boolean traceSession;
+	private final Set<Long> lobObjects;
+	private final Set<Long> nonLobObjects;
 	private final OraCdcDictionaryChecker checker;
 
 	private boolean fetchRsLogMinerNext;
@@ -117,6 +121,13 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
 		this.logMinerReconnectIntervalMs = config.logMinerReconnectIntervalMs();
+		if (processLobs) {
+			lobObjects = new HashSet<>();
+			nonLobObjects = new HashSet<>();
+		} else {
+			lobObjects = null;
+			nonLobObjects = null;
+		}
 
 		try {
 			connLogMiner = oraConnections.getLogMinerConnection(traceSession);

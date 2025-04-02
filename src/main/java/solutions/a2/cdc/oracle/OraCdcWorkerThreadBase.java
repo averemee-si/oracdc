@@ -16,8 +16,6 @@ package solutions.a2.cdc.oracle;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.SQLException;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,8 +43,6 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	final OraCdcSourceConnectorConfig config;
 	final OraConnectionObjects oraConnections;
 	final boolean processLobs;
-	final Set<Long> lobObjects;
-	final Set<Long> nonLobObjects;
 	final int backofMs;
 	final BlockingQueue<OraCdcTransaction> committedTransactions;
 	final boolean isCdb;
@@ -71,13 +67,6 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		this.config = config;
 		this.oraConnections = oraConnections;
 		this.processLobs = config.processLobs();
-		if (processLobs) {
-			lobObjects = new HashSet<>();
-			nonLobObjects = new HashSet<>();
-		} else {
-			lobObjects = null;
-			nonLobObjects = null;
-		}
 		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
