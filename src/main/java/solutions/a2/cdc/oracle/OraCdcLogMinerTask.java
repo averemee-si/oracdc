@@ -61,6 +61,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 	private boolean lastRecordInTable = true;
 	private OraCdcInitialLoad initialLoadMetrics;
 	private final OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
+	private final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
 
 
 	@Override

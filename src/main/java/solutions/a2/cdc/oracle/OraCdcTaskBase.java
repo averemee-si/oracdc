@@ -82,7 +82,6 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	OraCdcDictionaryChecker checker;
 	boolean lastStatementInTransaction = true;
 	final List<SourceRecord> result = new ArrayList<>();
-	final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
 	final AtomicLong taskThreadId = new AtomicLong(0);
 
 	long lastProcessedCommitScn = 0;

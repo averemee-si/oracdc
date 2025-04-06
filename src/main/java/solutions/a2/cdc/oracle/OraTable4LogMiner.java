@@ -1946,7 +1946,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	SourceRecord parseRedoRecord(
 			final OraCdcRedoMinerStatement stmt,
-			final List<OraCdcLargeObjectHolder> lobs,
 			final OraCdcTransaction transaction,
 			final Map<String, Object> offset,
 			final Connection connection) throws SQLException {
@@ -2339,41 +2338,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					"Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2.solutions with record details below:\n",
 					stmt, xid, commitScn);
 			throw new SQLException("Unknown OPERATION_CODE while parsing redo record!");
-		}
-
-		if (processLobs &&
-				(stmt.getOperation() == OraCdcV$LogmnrContents.UPDATE ||
-				stmt.getOperation() == OraCdcV$LogmnrContents.INSERT) ||
-				stmt.getOperation() == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
-			if (lobs != null) {
-				for (int i = 0; i < lobs.size(); i++) {
-					final OraCdcLargeObjectHolder lob = lobs.get(i);
-					final String lobColumnName;
-					final OraColumn lobColumn;
-					if (lob.getLobId() > 0) {
-						lobColumn = lobColumnsObjectIds.get(lob.getLobId());
-						lobColumnName = lobColumn.getColumnName();
-					} else {
-						// lob.getLobId() == 0
-						lobColumn = idToNameMap.get(lob.getColumnId());
-						lobColumnName = lobColumn.getColumnName();
-					}
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("{}: setting value for BLOB/C column {}, value length={}.",
-							fqn(), lobColumnName, lob.getContent().length);
-					}
-					if (lobColumnSchemas != null &&
-							lobColumnSchemas.containsKey(lobColumnName)) {
-						valueStruct.put(lobColumnName,
-								transformLobs.transformData(
-										pdbName, tableOwner, tableName,
-										lobColumn, lob.getContent(),
-										keyStruct, lobColumnSchemas.get(lobColumnName)));
-					} else {
-						valueStruct.put(lobColumnName, lob.getContent());
-					}
-				}
-			}
 		}
 
 		if (incompleteDataTolerance == OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE &&

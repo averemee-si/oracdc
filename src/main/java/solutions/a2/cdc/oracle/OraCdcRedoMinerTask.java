@@ -156,9 +156,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		}
 		isPollRunning.set(true);
 		result.clear();
-		if (processLobs) {
-			lobs.clear();
-		}
 
 		try {
 			Connection connDictionary;
@@ -194,10 +191,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 					} else if (transaction.getCommitScn() == lastInProgressCommitScn) {
 						while (true) {
 							processTransaction = transaction.getStatement(stmt);
-							if (processLobs && processTransaction && stmt.getLobCount() > 0) {
-								lobs.clear();
-								((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
-							}
 							lastStatementInTransaction = !processTransaction;
 							if (stmt.getScn() == lastInProgressScn &&
 									lastInProgressRba.equals(stmt.getRba()) &&
@@ -219,10 +212,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 					}
 					do {
 						processTransaction = transaction.getStatement(stmt);
-						if (processLobs && processTransaction && stmt.getLobCount() > 0) {
-							lobs.clear();
-							((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
-						}
 						lastStatementInTransaction = !processTransaction;
 
 						if (processTransaction && runLatch.getCount() > 0) {
@@ -247,7 +236,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 									offset.put("SSN", stmt.getSsn());
 									offset.put("COMMIT_SCN", transaction.getCommitScn());
 									final SourceRecord record = oraTable.parseRedoRecord(
-											stmt, lobs, transaction, offset, connDictionary);
+											stmt, transaction, offset, connDictionary);
 									if (record != null) {
 										result.add(record);
 										recordCount++;
