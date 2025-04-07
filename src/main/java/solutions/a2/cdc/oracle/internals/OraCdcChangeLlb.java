@@ -64,7 +64,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 					redoLog.bu().getU16(record, coords[2][0] + 0x04),
 					redoLog.bu().getU16(record, coords[2][0] + 0x06),
 					redoLog.bu().getU32(record, coords[2][0] + 0x08));
-			lid = new LobId(record, coords[2][0] + 0xC, LobId.SIZE);
+			lid = new LobId(record, coords[2][0] + 0xC);
 			lColId = redoLog.bu().getU16(record, coords[2][0] + 0x16);
 			fsiz = redoLog.bu().getU16(record, coords[2][0] + 0x20);
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x24);

@@ -954,7 +954,7 @@ public class OraCdcChange {
 		case KDLI_LOAD_DATA:
 			elementLengthCheck("KDLI", "load data", index, KDLI_LOAD_DATA_MIN_LENGTH, "");
 			if (lid == null) {
-				lid = new LobId(record, coords[index][0] + 0xC, LobId.SIZE);
+				lid = new LobId(record, coords[index][0] + 0xC);
 			}
 			break;
 		case KDLI_FILL:

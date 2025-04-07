@@ -51,7 +51,7 @@ public class OraCdcChangeColb extends OraCdcChange {
 			throw new IllegalArgumentException();
 		}
 		elementLengthCheck("19.1 (KCBLCOLB)", "", 0, SIZE, "");
-		lid = new LobId(record, coords[0][0] + 0x4, LobId.SIZE);
+		lid = new LobId(record, coords[0][0] + 0x4);
 		dataObj = redoLog.bu().getU32(record, coords[0][0]);
 		lobDataOffset = SIZE; 
 		lobPageNo = redoLog.bu().getU32(record, coords[0][0] + 0x18);
