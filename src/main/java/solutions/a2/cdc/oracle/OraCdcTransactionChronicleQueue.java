@@ -15,16 +15,20 @@ package solutions.a2.cdc.oracle;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +37,7 @@ import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.queue.TailerDirection;
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -63,7 +68,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 	private final Path queueDirectory;
 	private final Path lobsQueueDirectory;
+	private final String lobDirectory;
 	private final LobProcessingStatus processLobs;
+	private final Map<LobId, OutputStream> transLobs;
 	private ChronicleQueue statements;
 	private ExcerptAppender appender;
 	private ExcerptTailer tailer;
@@ -90,22 +97,26 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		LOGGER.debug("BEGIN: create OraCdcTransactionChronicleQueue for new transaction");
 		this.processLobs = processLobs;
 		queueDirectory = Files.createTempDirectory(rootDir, xid + ".");
-		if (processLobs == LobProcessingStatus.REDOMINER) {
-			//TODO
+		if (processLobs == LobProcessingStatus.NOT_AT_ALL) {
+			lobDirectory = null;
 			lobsQueueDirectory = null;
-		} else if (processLobs == LobProcessingStatus.LOGMINER) {
-			final String lobDirectory = queueDirectory.toString() + ".LOBDATA";
-			lobsQueueDirectory = Files.createDirectory(Paths.get(lobDirectory));
+			transLobs = null;
 		} else {
-			lobsQueueDirectory = null;
+			lobDirectory = queueDirectory.toString() + ".LOBDATA";
+			lobsQueueDirectory = Files.createDirectory(Paths.get(lobDirectory));
+			if (processLobs == LobProcessingStatus.REDOMINER) {
+				transLobs = new HashMap<>();
+			} else {
+				// processLobs == LobProcessingStatus.LOGMINER
+				transLobs = null;
+			}
 		}
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Created row data queue directory {} for transaction XID {}.",
 					queueDirectory.toString(), xid);
 			if (processLobs != LobProcessingStatus.NOT_AT_ALL) {
-				//TODO
 				LOGGER.debug("Created LOB data queue directory {} for transaction XID {}.",
-						lobsQueueDirectory.toString(), xid);
+						lobDirectory, xid);
 			}
 		}
 		try {
@@ -387,21 +398,23 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			appender.close();
 			appender = null;
 		}
-		if (processLobs == LobProcessingStatus.REDOMINER) {
-			//TODO
-		}
-		if (processLobs == LobProcessingStatus.LOGMINER) {
-			if (lobs != null) {
-				if (lobsTailer != null) {
-					lobsTailer.close();
-					lobsTailer = null;
+		if (processLobs != LobProcessingStatus.NOT_AT_ALL) {
+			if (processLobs == LobProcessingStatus.REDOMINER) {
+				closeLobFiles();
+			} else {
+				// LobProcessingStatus.LOGMINER
+				if (lobs != null) {
+					if (lobsTailer != null) {
+						lobsTailer.close();
+						lobsTailer = null;
+					}
+					if (lobsAppender != null) {
+						lobsAppender.close();
+						lobsAppender = null;
+					}
+					lobs.close();
+					lobs = null;
 				}
-				if (lobsAppender != null) {
-					lobsAppender.close();
-					lobsAppender = null;
-				}
-				lobs.close();
-				lobs = null;
 			}
 			deleteDir(lobsQueueDirectory);
 		}
@@ -510,13 +523,46 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			lastIndexAppended = 0;
 		appender.close();
 		appender = null;
-		tailer = statements.createTailer();		
+		tailer = statements.createTailer();
+		if (processLobs == LobProcessingStatus.REDOMINER)
+			closeLobFiles();
 		super.setCommitScn(commitScn);
 	}
 
 	@Override
 	public void setCommitScn(long commitScn, OraCdcPseudoColumnsProcessor pseudoColumns, ResultSet resultSet) throws SQLException {
 		super.setCommitScn(commitScn, pseudoColumns, resultSet);
+	}
+
+	private void closeLobFiles() {
+		for (OutputStream closeIt : transLobs.values())
+			if (closeIt != null) {
+				try { closeIt.close();} catch (Exception e) {}
+			}
+	}
+
+	public Set<LobId> lobIds() {
+		if (processLobs == LobProcessingStatus.REDOMINER)
+			return transLobs.keySet();
+		else
+			return null;
+	}
+
+	public void addLob(LobId lobId, byte[] data, int off, int len) throws IOException {
+		OutputStream os = transLobs.get(lobId);
+		if (os == null) {
+			final Path path = Paths.get(lobDirectory, lobId.toString());
+			os = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW);
+			transLobs.put(lobId, os);
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug("Successfully created {} for writing large object {}",
+						path.toAbsolutePath().toString(), lobId.toString());
+		}
+		os.write(data, off, len);
+	}
+
+	public byte[] getLob(LobId lobId) throws IOException {
+		return Files.readAllBytes(Paths.get(lobDirectory, lobId.toString()));
 	}
 
 }
