@@ -57,6 +57,10 @@ public class OraCdcChangeColb extends OraCdcChange {
 		lobPageNo = redoLog.bu().getU32(record, coords[0][0] + 0x18);
 	}
 
+	public int colbSize() {
+		return coords[0][1] - SIZE;
+	}
+
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
