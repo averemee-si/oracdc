@@ -147,6 +147,18 @@ public class OraDumpDecoder {
 		}
 	}
 
+	public static String fromClobNclob(final byte[] ba) throws SQLException {
+		return fromClobNclob(ba, 0, ba.length);
+	}
+
+	public static String fromClobNclob(final byte[] ba, final int off, final int len) throws SQLException {
+		try {
+			return new String(ba, off, len, "UTF-16");
+		} catch (UnsupportedEncodingException e) {
+			throw new SQLException("Invalid encoding UTF-16 encoded CLOB/NCLOB for HEXTORAW " + rawToHex(ba) +  ".", e);
+		}
+	}
+
 	/**
 	 * 
 	 * Convert Oracle Type 12 dump to LocalDateTime
