@@ -21,7 +21,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
  * Representation of Oracle NCLOB for Kafka Connect
  * 
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraNClob {
@@ -29,7 +29,7 @@ public class OraNClob {
 	public static final String LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraNClob";
 
 	public static SchemaBuilder builder() {
-		return SchemaBuilder.bytes()
+		return SchemaBuilder.string()
 				.optional()
 				.name(LOGICAL_NAME)
 				.version(1)
