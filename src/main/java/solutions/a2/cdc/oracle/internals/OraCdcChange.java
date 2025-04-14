@@ -154,6 +154,7 @@ public class OraCdcChange {
 	};
 
 	public static final byte FLG_ROWDEPENDENCIES = 0x40;
+	public static final byte FLG_KDLI_CMAP = 0x10;
 
 	int length;
 	final short operation;
@@ -189,6 +190,7 @@ public class OraCdcChange {
 	short lColId = -1;
 	int lobDataOffset = -1;
 	boolean lobBimg = false;
+	private byte kdli_flg2;
 
 	OraCdcChange(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		this.num = num;
@@ -953,6 +955,7 @@ public class OraCdcChange {
 		switch (record[coords[index][0]]) {
 		case KDLI_LOAD_DATA:
 			elementLengthCheck("KDLI", "load data", index, KDLI_LOAD_DATA_MIN_LENGTH, "");
+			kdli_flg2 = record[coords[index][0] + 0x1C];
 			if (lid == null) {
 				lid = new LobId(record, coords[index][0] + 0xC);
 			}
@@ -1012,7 +1015,7 @@ public class OraCdcChange {
 				.append("\nkdlidh")
 				.append("\n  flg2  0x")
 				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x1C])))
-				.append(getKdliFlg2(record[coords[index][0] + 0x1C]))
+				.append(getKdliFlg2(kdli_flg2))
 				.append("\n  flg3  0x")
 				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x1D])))
 				.append("\n  pskip ")
@@ -1203,7 +1206,7 @@ public class OraCdcChange {
 			.append(" hash=")
 			.append((flg2 & 0x20) == 0 ? "n" : "y")
 			.append(" cmap=")
-			.append((flg2 & 0x10) == 0 ? "n" : "y")
+			.append((flg2 & FLG_KDLI_CMAP) == 0 ? "n" : "y")
 			.append(" pfill=")
 			.append((flg2 & 0x08) == 0 ? "n" : "y")
 			.append(']');
@@ -1365,6 +1368,10 @@ public class OraCdcChange {
 
 	public LobId lid() {
 		return lid;
+	}
+
+	public byte kdli_flg2() {
+		return kdli_flg2;
 	}
 
 }
