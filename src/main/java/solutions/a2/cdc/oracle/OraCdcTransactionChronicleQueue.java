@@ -561,8 +561,12 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		os.write(data, off, len);
 	}
 
-	public byte[] getLob(LobId lobId) throws IOException {
-		return Files.readAllBytes(Paths.get(lobDirectory, lobId.toString()));
+	public byte[] getLob(LobId lobId) throws SQLException {
+		try {
+			return Files.readAllBytes(Paths.get(lobDirectory, lobId.toString()));
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 }
