@@ -189,7 +189,7 @@ public class OraCdcChange {
 	LobId lid;
 	short lColId = -1;
 	int lobDataOffset = -1;
-	boolean lobBimg = false;
+	private boolean lobBimg = false;
 	private byte kdli_flg2;
 
 	OraCdcChange(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
@@ -1372,6 +1372,10 @@ public class OraCdcChange {
 
 	public byte kdli_flg2() {
 		return kdli_flg2;
+	}
+
+	public boolean lobBimg() {
+		return lobBimg;
 	}
 
 }
