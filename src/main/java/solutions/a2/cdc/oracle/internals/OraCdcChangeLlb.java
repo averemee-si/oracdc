@@ -41,7 +41,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 	public static final byte TYPE_4 = 0x4;
 
 	private final byte type;
-	private short fsiz;
+	private int fsiz;
 	private int lobColumnCount = -1;
 
 	OraCdcChangeLlb(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
@@ -66,7 +66,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 					redoLog.bu().getU32(record, coords[2][0] + 0x08));
 			lid = new LobId(record, coords[2][0] + 0xC);
 			lColId = redoLog.bu().getU16(record, coords[2][0] + 0x16);
-			fsiz = redoLog.bu().getU16(record, coords[2][0] + 0x20);
+			fsiz = redoLog.bu().getU32(record, coords[2][0] + 0x20);
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x24);
 			break;
 		case TYPE_3:
@@ -135,7 +135,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 				.append(" lid:")
 				.append(lid.toString())
 				.append(" fsiz: ")
-				.append(Short.toUnsignedInt(fsiz));
+				.append(Integer.toUnsignedLong(fsiz));
 		}
 		if (type == TYPE_4) {
 			sb
