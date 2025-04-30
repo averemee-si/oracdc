@@ -70,15 +70,16 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x24);
 			break;
 		case TYPE_3:
-			elementLengthCheck("11.17 (LLB)", "Type 3", 2, 0xC, "");
+			elementLengthCheck("11.17 (LLB)", "Type 3", 2, 0x0C, "");
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0]),
 					redoLog.bu().getU16(record, coords[2][0] + 0x02),
 					redoLog.bu().getU32(record, coords[2][0] + 0x04));
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x08);
-			if (coords[2][1] >= 0x24) {
+			if (coords[2][1] >= 0x0C)
+				fsiz = redoLog.bu().getU32(record, coords[2][0] + 0x0C);
+			if (coords[2][1] >= 0x24)
 				lColId = redoLog.bu().getU16(record, coords[2][0] + 0x22);
-			}
 			break;
 		case TYPE_4:
 			// Base table supplemental data
@@ -130,13 +131,14 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			.append(xid)
 			.append(" obj:")
 			.append(obj);
-		if (type == TYPE_1) {
+		if (type == TYPE_1)
 			sb
 				.append(" lid:")
-				.append(lid.toString())
-				.append(" fsiz: ")
+				.append(lid.toString());
+		if (type == TYPE_1 || type == TYPE_3)
+			sb
+				.append(" fsiz:")
 				.append(Integer.toUnsignedLong(fsiz));
-		}
 		if (type == TYPE_4) {
 			sb
 				.append(" LOB_cc:")
