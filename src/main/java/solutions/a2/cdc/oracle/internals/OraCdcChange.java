@@ -935,10 +935,12 @@ public class OraCdcChange {
 		}
 	}
 
-	private static final int KDLI_LOAD_DATA = 0x04;
-	private static final int KDLI_FILL = 0x06;
-	private static final int KDLI_SUPLOG = 0x09;
-	private static final int KDLI_FPLOAD = 0x0B;
+	private static final byte KDLI_INFO = 0x01;
+	private static final byte KDLI_LOAD_DATA = 0x04;
+	private static final byte KDLI_FILL = 0x06;
+	private static final byte KDLI_SUPLOG = 0x09;
+	private static final byte KDLI_FPLOAD = 0x0B;
+	private static final int KDLI_INFO_MIN_LENGTH = 0x11;
 	private static final int KDLI_LOAD_DATA_MIN_LENGTH = 0x38;
 	private static final int KDLI_FILL_MIN_LENGTH = 0x08;
 	private static final int KDLI_SUPLOG_MIN_LENGTH = 0x18;
@@ -955,6 +957,12 @@ public class OraCdcChange {
 	void kdli(final int index) {
 		elementLengthCheck("KDLI", "", index, 0x1, "");
 		switch (record[coords[index][0]]) {
+		case KDLI_INFO:
+			elementLengthCheck("KDLI", "info", index, KDLI_INFO_MIN_LENGTH, "");
+			if (lid == null) {
+				lid = new LobId(record, coords[index][0] + 0x1);
+			}
+			break;
 		case KDLI_LOAD_DATA:
 			elementLengthCheck("KDLI", "load data", index, KDLI_LOAD_DATA_MIN_LENGTH, "");
 			kdli_flg2 = record[coords[index][0] + 0x1C];
@@ -992,6 +1000,20 @@ public class OraCdcChange {
 
 	void kdli(final StringBuilder sb, final int index) {
 		switch (record[coords[index][0]]) {
+		case KDLI_INFO:
+			sb
+				.append("\nKDLI load data [")
+				.append(KDLI_INFO)
+				.append('.')
+				.append(coords[index][1])
+				.append(']')
+				.append("\n  lobid ")
+				.append(lid.toString())
+				.append("\n  block 0x")
+				.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + 0xB))))
+				.append("\n  slot  0x")
+				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0xF))));
+			break;
 		case KDLI_LOAD_DATA:
 			sb
 				.append("\nKDLI load data [")
