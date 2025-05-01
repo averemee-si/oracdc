@@ -938,11 +938,13 @@ public class OraCdcChange {
 	private static final byte KDLI_INFO = 0x01;
 	private static final byte KDLI_LOAD_COMMON = 0x02;
 	private static final byte KDLI_LOAD_DATA = 0x04;
+	private static final byte KDLI_ZERO = 0x05;
 	private static final byte KDLI_FILL = 0x06;
 	private static final byte KDLI_SUPLOG = 0x09;
 	private static final byte KDLI_FPLOAD = 0x0B;
 	private static final int KDLI_INFO_MIN_LENGTH = 0x11;
 	private static final int KDLI_LOAD_DATA_MIN_LENGTH = 0x38;
+	private static final int KDLI_ZERO_MIN_LENGTH = 0x06;
 	private static final int KDLI_FILL_MIN_LENGTH = 0x08;
 	private static final int KDLI_SUPLOG_MIN_LENGTH = 0x18;
 	private static final int KDLI_FPLOAD_MIN_LENGTH = 0x1C;
@@ -964,12 +966,17 @@ public class OraCdcChange {
 				lid = new LobId(record, coords[index][0] + 0x1);
 			}
 			break;
+		case KDLI_LOAD_COMMON:
+			break;
 		case KDLI_LOAD_DATA:
 			elementLengthCheck("KDLI", "load data", index, KDLI_LOAD_DATA_MIN_LENGTH, "");
 			kdli_flg2 = record[coords[index][0] + 0x1C];
 			if (lid == null) {
 				lid = new LobId(record, coords[index][0] + 0xC);
 			}
+			break;
+		case KDLI_ZERO:
+			elementLengthCheck("KDLI", "zero", index, KDLI_ZERO_MIN_LENGTH, "");
 			break;
 		case KDLI_FILL:
 			elementLengthCheck("KDLI", "fill", index, KDLI_FILL_MIN_LENGTH, "");
@@ -1063,6 +1070,18 @@ public class OraCdcChange {
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x34)))
 				.append("\n  spr   ")
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x36)));
+			break;
+		case KDLI_ZERO:
+			sb
+				.append("\nKDLI zero [")
+				.append(KDLI_ZERO)
+				.append('.')
+				.append(coords[index][1])
+				.append(']')
+				.append("\n  zoff  0x")
+				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x2))))
+				.append("\n  zsiz  ")
+				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x4)));
 			break;
 		case KDLI_FILL:
 			sb
