@@ -936,6 +936,7 @@ public class OraCdcChange {
 	}
 
 	private static final byte KDLI_INFO = 0x01;
+	private static final byte KDLI_LOAD_COMMON = 0x02;
 	private static final byte KDLI_LOAD_DATA = 0x04;
 	private static final byte KDLI_FILL = 0x06;
 	private static final byte KDLI_SUPLOG = 0x09;
@@ -1002,7 +1003,7 @@ public class OraCdcChange {
 		switch (record[coords[index][0]]) {
 		case KDLI_INFO:
 			sb
-				.append("\nKDLI load data [")
+				.append("\nKDLI info [")
 				.append(KDLI_INFO)
 				.append('.')
 				.append(coords[index][1])
@@ -1013,6 +1014,14 @@ public class OraCdcChange {
 				.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + 0xB))))
 				.append("\n  slot  0x")
 				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0xF))));
+			break;
+		case KDLI_LOAD_COMMON:
+			sb
+				.append("\nKDLI load common [")
+				.append(KDLI_LOAD_COMMON)
+				.append('.')
+				.append(coords[index][1])
+				.append(']');
 			break;
 		case KDLI_LOAD_DATA:
 			sb
