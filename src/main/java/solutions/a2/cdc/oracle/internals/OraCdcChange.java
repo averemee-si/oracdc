@@ -940,12 +940,15 @@ public class OraCdcChange {
 	private static final byte KDLI_LOAD_DATA = 0x04;
 	private static final byte KDLI_ZERO = 0x05;
 	private static final byte KDLI_FILL = 0x06;
+	private static final byte KDLI_LMAP = 0x07;
+	private static final byte KDLI_LMAPX = 0x08;
 	private static final byte KDLI_SUPLOG = 0x09;
 	private static final byte KDLI_FPLOAD = 0x0B;
 	private static final int KDLI_INFO_MIN_LENGTH = 0x11;
 	private static final int KDLI_LOAD_DATA_MIN_LENGTH = 0x38;
 	private static final int KDLI_ZERO_MIN_LENGTH = 0x06;
 	private static final int KDLI_FILL_MIN_LENGTH = 0x08;
+	private static final int KDLI_LMAP_LMAPX_MIN_LENGTH = 0x08;
 	private static final int KDLI_SUPLOG_MIN_LENGTH = 0x18;
 	private static final int KDLI_FPLOAD_MIN_LENGTH = 0x1C;
 	private static final int KDLI_COMMON_MIN_LENGTH = 0xC;
@@ -982,6 +985,12 @@ public class OraCdcChange {
 			elementLengthCheck("KDLI", "fill", index, KDLI_FILL_MIN_LENGTH, "");
 			if (lobDataOffset < 0)
 				lobDataOffset = coords[index][0] + 0x8;
+			break;
+		case KDLI_LMAP:
+			elementLengthCheck("KDLI", "lmap", index, KDLI_LMAP_LMAPX_MIN_LENGTH, "");
+			break;
+		case KDLI_LMAPX:
+			elementLengthCheck("KDLI", "lmapx", index, KDLI_LMAP_LMAPX_MIN_LENGTH, "");
 			break;
 		case KDLI_SUPLOG:
 			elementLengthCheck("KDLI", "suplog", index, KDLI_SUPLOG_MIN_LENGTH, "");
@@ -1099,6 +1108,46 @@ public class OraCdcChange {
 				.append("\n  data\n");
 			printLobContent(sb, index, 0x8);
 			sb.append('\n');
+			break;
+		case KDLI_LMAP:
+		case KDLI_LMAPX:
+			final int asiz = redoLog.bu().getU32(record, coords[index][0] + 0x4);
+			final boolean lmap = record[coords[index][0]] == KDLI_LMAP;
+			final int mapElemSize = lmap ? 0x08 : 0x10;
+			if (coords[index][1] < KDLI_LMAP_LMAPX_MIN_LENGTH + mapElemSize * asiz)
+				LOGGER.warn("Not enough data to parse KDLI {} at RBA {}",
+						lmap ? "lmap" : "lmapx", rba);
+			else {
+				sb
+					.append("\nKDLI ")
+					.append(lmap ? "lmap" : "lmapx")
+					.append(" [")
+					.append(KDLI_FILL)
+					.append('.')
+					.append(coords[index][1])
+					.append(']')
+					.append("\n  asiz  ")
+					.append(asiz);
+				for (int i = 0; i < asiz; i++) {
+					sb
+						.append("\n    [")
+						.append(i)
+						.append("] 0x")
+						.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize])))
+						.append(" 0x")
+						.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0x1])))
+						.append(' ')
+						.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0x2)))
+						.append(" 0x")
+						.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0x4))));
+					if (!lmap)
+						sb
+							.append(' ')
+							.append(Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0x8)))
+							.append('.')
+							.append(Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0xC)));
+				}
+			}
 			break;
 		case KDLI_SUPLOG:
 			sb
