@@ -944,6 +944,7 @@ public class OraCdcChange {
 	private static final byte KDLI_LMAPX = 0x08;
 	private static final byte KDLI_SUPLOG = 0x09;
 	private static final byte KDLI_FPLOAD = 0x0B;
+	private static final byte KDLI_LOAD_LHB = 0x0C;
 	private static final int KDLI_INFO_MIN_LENGTH = 0x11;
 	private static final int KDLI_LOAD_DATA_MIN_LENGTH = 0x38;
 	private static final int KDLI_ZERO_MIN_LENGTH = 0x06;
@@ -951,6 +952,7 @@ public class OraCdcChange {
 	private static final int KDLI_LMAP_LMAPX_MIN_LENGTH = 0x08;
 	private static final int KDLI_SUPLOG_MIN_LENGTH = 0x18;
 	private static final int KDLI_FPLOAD_MIN_LENGTH = 0x1C;
+	private static final int KDLI_LOAD_LHB_MIN_LENGTH = 0x70;
 	private static final int KDLI_COMMON_MIN_LENGTH = 0xC;
 	private static final String[] KDLI_OPERATIONS = {
 			"REDO", "UNDO", "CR", "FRMT", "INVL", "LOAD", "BIMG", "SINV" };
@@ -1006,6 +1008,12 @@ public class OraCdcChange {
 					redoLog.bu().getU32(record, coords[index][0] + 0x14));
 			dataObj = redoLog.bu().getU32(record, coords[index][0] + 0x18);
 			break;
+		case KDLI_LOAD_LHB:
+			elementLengthCheck("KDLI", "load lhb", index, KDLI_LOAD_LHB_MIN_LENGTH, "");
+			if (lid == null) {
+				lid = new LobId(record, coords[index][0] + 0xC);
+			}
+			break;
 		default:
 			LOGGER.error(
 					"\n=====================\n" +
@@ -1048,19 +1056,9 @@ public class OraCdcChange {
 				.append(']')
 				.append("\nbdba    [0x")
 				.append(String.format("%08x", Integer.toUnsignedLong(dba)))
-				.append(']')
-				.append("\nkdlich")
-				.append("\n  flg0  0x")
-				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xA])))
-				.append(getKdliFlg0(record[coords[index][0] + 0xA]))
-				.append("\n  flg1  0x")
-				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xB])))
-				.append("\n  scn   0x")
-				.append(FormattingUtils.leftPad(redoLog.bu().getScn4Record(record, coords[index][0] + 0x2), 0x10))
-				.append("\n  lid   ")
-				.append(lid.toString())
-				.append("\n  spare 0x")
-				.append(String.format("%08x", Integer.toUnsignedLong(record[coords[index][0] + 0x18])))
+				.append(']');
+			kdlich(index, sb);
+			sb
 				.append("\nkdlidh")
 				.append("\n  flg2  0x")
 				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x1C])))
@@ -1122,7 +1120,7 @@ public class OraCdcChange {
 					.append("\nKDLI ")
 					.append(lmap ? "lmap" : "lmapx")
 					.append(" [")
-					.append(KDLI_FILL)
+					.append(lmap ? KDLI_LMAP : KDLI_LMAPX)
 					.append('.')
 					.append(coords[index][1])
 					.append(']')
@@ -1185,6 +1183,19 @@ public class OraCdcChange {
 				.append(xid.toString())
 				.append("\n  objd  ")
 				.append(Integer.toUnsignedLong(dataObj));
+			break;
+		case KDLI_LOAD_LHB:
+			sb
+				.append("\nKDLI load lhb [")
+				.append(KDLI_LOAD_LHB)
+				.append('.')
+				.append(coords[index][1])
+				.append(']')
+				.append("\nbdba    [0x")
+				.append(String.format("%08x", dba))
+				.append(']');
+			kdlich(index, sb);
+			//TODO - kdlihh
 			break;
 		}
 	}
@@ -1312,6 +1323,30 @@ public class OraCdcChange {
 			.append((flg2 & 0x08) == 0 ? "n" : "y")
 			.append(']');
 		return sb;
+	}
+
+	private void kdlich(final int index, final StringBuilder sb) {
+		final long lScn = redoLog.bu().getScn4Record(record, coords[index][0] + 0x2);
+		sb
+			.append("\nkdlich")
+			.append("\n  flg0  0x")
+			.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xA])))
+			.append(getKdliFlg0(record[coords[index][0] + 0xA]))
+			.append("\n  flg1  0x")
+			.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xB])))
+			.append("\n  scn   0x")
+			.append(FormattingUtils.leftPad(lScn, 0x10))
+			.append(" [0x")
+			.append(String.format("%04x", lScn >> 0x30))
+			.append('.')
+			.append(String.format("%04x", lScn >> 0x20))
+			.append('.')
+			.append(String.format("%08x", lScn & 0xFFFFFFFFL))
+			.append(']')
+			.append("\n  lid   ")
+			.append(lid.toString())
+			.append("\n  spare 0x")
+			.append(String.format("%08x", Integer.toUnsignedLong(record[coords[index][0] + 0x18])));
 	}
 
 	private static final int LOB_BYTES_PER_LINE = 26;
