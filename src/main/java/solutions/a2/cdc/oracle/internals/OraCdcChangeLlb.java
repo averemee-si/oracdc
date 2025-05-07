@@ -40,8 +40,17 @@ public class OraCdcChangeLlb extends OraCdcChange {
 	public static final byte TYPE_3 = 0x3;
 	public static final byte TYPE_4 = 0x4;
 
+	public static final byte OP_UNKNOWN = 0x00;
+	public static final byte OP_PREPARE = 0x01;
+	public static final byte OP_BEGIN_WRITE = 0x02;
+	public static final byte OP_LOB_TRIM = 0x03;
+	public static final byte OP_LOB_ERASE = 0x04;
+	public static final byte OP_END = 0x05;
+
 	private final byte type;
+	private byte lobOp = OP_UNKNOWN;
 	private int fsiz;
+	private int csiz;
 	private int lobColumnCount = -1;
 
 	OraCdcChangeLlb(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
@@ -60,6 +69,25 @@ public class OraCdcChangeLlb extends OraCdcChange {
 		case TYPE_1:
 			//TODO 0x28 or 0x50 ?
 			elementLengthCheck("11.17 (LLB)", "Type 1", 2, 0x28, "");
+			switch (redoLog.bu().getU16(record, coords[2][0])) {
+			case (short) 0x01:
+			case (short) 0x02:
+				lobOp = OP_BEGIN_WRITE;
+				break;
+			case (short) 0x66:
+			case (short) 0x67:
+				lobOp = OP_LOB_TRIM;
+				break;
+			case (short) 0x68:
+				lobOp = OP_LOB_ERASE;
+				break;
+			default:
+				LOGGER.warn(
+						"Unknown LOB operation code '{} {}' at RBA {} for change 11.17\nChange vector binary dump{}",
+						String.format("%02x", record[coords[2][0]]),
+						String.format("%02x", record[coords[2][0] + 1]),
+						rba, binaryDump());
+			}
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0] + 0x04),
 					redoLog.bu().getU16(record, coords[2][0] + 0x06),
@@ -67,10 +95,13 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			lid = new LobId(record, coords[2][0] + 0xC);
 			lColId = redoLog.bu().getU16(record, coords[2][0] + 0x16);
 			fsiz = redoLog.bu().getU32(record, coords[2][0] + 0x20);
+			if (lobOp == OP_LOB_ERASE)
+				csiz = redoLog.bu().getU32(record, coords[2][0] + 0x18);
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x24);
 			break;
 		case TYPE_3:
 			elementLengthCheck("11.17 (LLB)", "Type 3", 2, 0x0C, "");
+			lobOp = OP_END;
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0]),
 					redoLog.bu().getU16(record, coords[2][0] + 0x02),
@@ -94,6 +125,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			}
 			//TODO 0x10 or 0x28?
 			elementLengthCheck("11.17 (LLB)", "Type 4", 2, 0x10, "");
+			lobOp = OP_PREPARE;
 			obj = redoLog.bu().getU32(record, coords[2][0]);
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0] + 0x08),
@@ -121,21 +153,59 @@ public class OraCdcChangeLlb extends OraCdcChange {
 		return type;
 	}
 
+	public byte lobOp() {
+		return lobOp;
+	}
+
+	public int fsiz() {
+		return fsiz;
+	}
+
+	public int csiz() {
+		return csiz;
+	}
+
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
 		sb
-			.append("\n typ:")
+			.append("\n  typ:")
 			.append(Byte.toUnsignedInt(type))
 			.append(" xid:")
 			.append(xid)
 			.append(" obj:")
 			.append(obj);
-		if (type == TYPE_1)
-			sb
-				.append(" lid:")
-				.append(lid.toString());
-		if (type == TYPE_1 || type == TYPE_3)
+		if (type == TYPE_1) {
+			if (lobOp == OP_BEGIN_WRITE)
+				sb
+					.append(" prepare write to lid:")
+					.append(lid.toString())
+					.append(" fsiz:")
+					.append(Integer.toUnsignedLong(fsiz));
+			else if (lobOp == OP_LOB_TRIM)
+				sb
+					.append("\n  DBMS_LOB.TRIM(lob_loc => '")
+					.append(lid.toString())
+					.append("', newlen => ")
+					.append(Integer.toUnsignedLong(fsiz))
+					.append(")");
+			else if (lobOp == OP_LOB_ERASE)
+				sb
+					.append("\n  DBMS_LOB.ERASE(lob_loc => '")
+					.append(lid.toString())
+					.append("', amount => ")
+					.append(Integer.toUnsignedLong(fsiz))
+					.append(", offset => ")
+					.append(Integer.toUnsignedLong(csiz))
+					.append(")");
+			else
+				sb
+					.append(" lid:")
+					.append(lid.toString())
+					.append(" fsiz:")
+					.append(Integer.toUnsignedLong(fsiz));
+		}
+		if (type == TYPE_3)
 			sb
 				.append(" fsiz:")
 				.append(Integer.toUnsignedLong(fsiz));
@@ -158,7 +228,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 		}
 		if (lColId > -1) {
 			sb
-				.append(" column_id: ")
+				.append("\n  column_id: ")
 				.append(Short.toUnsignedInt(lColId));
 		}
 		return sb;
