@@ -93,7 +93,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 					redoLog.bu().getU16(record, coords[2][0] + 0x06),
 					redoLog.bu().getU32(record, coords[2][0] + 0x08));
 			lid = new LobId(record, coords[2][0] + 0xC);
-			lColId = redoLog.bu().getU16(record, coords[2][0] + 0x16);
+			lobCol = redoLog.bu().getU16(record, coords[2][0] + 0x16);
 			fsiz = redoLog.bu().getU32(record, coords[2][0] + 0x20);
 			if (lobOp == OP_LOB_ERASE)
 				csiz = redoLog.bu().getU32(record, coords[2][0] + 0x18);
@@ -110,7 +110,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			if (coords[2][1] >= 0x0C)
 				fsiz = redoLog.bu().getU32(record, coords[2][0] + 0x0C);
 			if (coords[2][1] >= 0x24)
-				lColId = redoLog.bu().getU16(record, coords[2][0] + 0x22);
+				lobCol = redoLog.bu().getU16(record, coords[2][0] + 0x22);
 			break;
 		case TYPE_4:
 			// Base table supplemental data
@@ -226,10 +226,10 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			}
 			sb.append("]");
 		}
-		if (lColId > -1) {
+		if (lobCol > -1) {
 			sb
 				.append("\n  column_id: ")
-				.append(Short.toUnsignedInt(lColId));
+				.append(Short.toUnsignedInt(lobCol));
 		}
 		return sb;
 	}

@@ -189,7 +189,7 @@ public class OraCdcChange {
 	private final byte encrypted;
 	private final int changeDataObj;
 	LobId lid;
-	short lColId = -1;
+	short lobCol = -1;
 	int lobDataOffset = -1;
 	private boolean lobBimg = false;
 	private byte kdli_flg2;
@@ -997,8 +997,8 @@ public class OraCdcChange {
 		case KDLI_SUPLOG:
 			elementLengthCheck("KDLI", "suplog", index, KDLI_SUPLOG_MIN_LENGTH, "");
 			obj = redoLog.bu().getU32(record, coords[index][0] + 0xC);
-			if (lColId < 0)
-				lColId = redoLog.bu().getU16(record, coords[index][0] + 0x12);
+			if (lobCol < 0)
+				lobCol = redoLog.bu().getU16(record, coords[index][0] + 0x12);
 			break;
 		case KDLI_FPLOAD:
 			elementLengthCheck("KDLI", "fpload", index, KDLI_FPLOAD_MIN_LENGTH, "");
@@ -1164,7 +1164,7 @@ public class OraCdcChange {
 				.append("\n  objv# ")
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x10)))
 				.append("\n  col#  ")
-				.append(lColId)
+				.append(lobCol)
 				.append("\n  flag  0x")
 				.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + 0x14))));
 			break;
@@ -1512,6 +1512,10 @@ public class OraCdcChange {
 
 	public boolean lobBimg() {
 		return lobBimg;
+	}
+
+	public short lobCol() {
+		return lobCol;
 	}
 
 }
