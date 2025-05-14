@@ -40,15 +40,15 @@ public class OraCdcChangeLlb extends OraCdcChange {
 	public static final byte TYPE_3 = 0x3;
 	public static final byte TYPE_4 = 0x4;
 
-	public static final byte OP_UNKNOWN = 0x00;
-	public static final byte OP_PREPARE = 0x01;
-	public static final byte OP_BEGIN_WRITE = 0x02;
-	public static final byte OP_LOB_TRIM = 0x03;
-	public static final byte OP_LOB_ERASE = 0x04;
-	public static final byte OP_END = 0x05;
+	public static final byte LOB_OP_UNKNOWN = 0x00;
+	public static final byte LOB_OP_PREPARE = 0x01;
+	public static final byte LOB_OP_WRITE = 0x02;
+	public static final byte LOB_OP_TRIM = 0x03;
+	public static final byte LOB_OP_ERASE = 0x04;
+	public static final byte LOB_OP_END = 0x05;
 
 	private final byte type;
-	private byte lobOp = OP_UNKNOWN;
+	private byte lobOp = LOB_OP_UNKNOWN;
 	private int fsiz;
 	private int csiz;
 	private int lobColumnCount = -1;
@@ -72,14 +72,14 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			switch (redoLog.bu().getU16(record, coords[2][0])) {
 			case (short) 0x01:
 			case (short) 0x02:
-				lobOp = OP_BEGIN_WRITE;
+				lobOp = LOB_OP_WRITE;
 				break;
 			case (short) 0x66:
 			case (short) 0x67:
-				lobOp = OP_LOB_TRIM;
+				lobOp = LOB_OP_TRIM;
 				break;
 			case (short) 0x68:
-				lobOp = OP_LOB_ERASE;
+				lobOp = LOB_OP_ERASE;
 				break;
 			default:
 				LOGGER.warn(
@@ -95,13 +95,13 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			lid = new LobId(record, coords[2][0] + 0xC);
 			lobCol = redoLog.bu().getU16(record, coords[2][0] + 0x16);
 			fsiz = redoLog.bu().getU32(record, coords[2][0] + 0x20);
-			if (lobOp == OP_LOB_ERASE)
+			if (lobOp == LOB_OP_ERASE)
 				csiz = redoLog.bu().getU32(record, coords[2][0] + 0x18);
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x24);
 			break;
 		case TYPE_3:
 			elementLengthCheck("11.17 (LLB)", "Type 3", 2, 0x0C, "");
-			lobOp = OP_END;
+			lobOp = LOB_OP_END;
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0]),
 					redoLog.bu().getU16(record, coords[2][0] + 0x02),
@@ -125,7 +125,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			}
 			//TODO 0x10 or 0x28?
 			elementLengthCheck("11.17 (LLB)", "Type 4", 2, 0x10, "");
-			lobOp = OP_PREPARE;
+			lobOp = LOB_OP_PREPARE;
 			obj = redoLog.bu().getU32(record, coords[2][0]);
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0] + 0x08),
@@ -176,20 +176,20 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			.append(" obj:")
 			.append(obj);
 		if (type == TYPE_1) {
-			if (lobOp == OP_BEGIN_WRITE)
+			if (lobOp == LOB_OP_WRITE)
 				sb
 					.append(" prepare write to lid:")
 					.append(lid.toString())
 					.append(" fsiz:")
 					.append(Integer.toUnsignedLong(fsiz));
-			else if (lobOp == OP_LOB_TRIM)
+			else if (lobOp == LOB_OP_TRIM)
 				sb
 					.append("\n  DBMS_LOB.TRIM(lob_loc => '")
 					.append(lid.toString())
 					.append("', newlen => ")
 					.append(Integer.toUnsignedLong(fsiz))
 					.append(")");
-			else if (lobOp == OP_LOB_ERASE)
+			else if (lobOp == LOB_OP_ERASE)
 				sb
 					.append("\n  DBMS_LOB.ERASE(lob_loc => '")
 					.append(lid.toString())
