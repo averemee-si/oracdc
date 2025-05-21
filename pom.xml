@@ -77,7 +77,7 @@
 		<jackson.version>2.18.2</jackson.version>
 		<slf4j.version>2.0.16</slf4j.version>
 		<lz4.version>1.8.0</lz4.version>
-		<ojdbc.types.version>0.9.5</ojdbc.types.version>
+		<ojdbc.types.version>0.9.6</ojdbc.types.version>
 		<maverick.version>3.1.2</maverick.version>
 		<sshj.version>0.39.0</sshj.version>
 		<smbj.version>0.14.0</smbj.version>
