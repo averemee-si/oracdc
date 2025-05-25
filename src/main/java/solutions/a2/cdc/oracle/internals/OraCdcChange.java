@@ -177,7 +177,7 @@ public class OraCdcChange {
 	short slot;
 	final short num;
 	final byte[] record;
-	byte qmRowCount;
+	short qmRowCount;
 	byte fb;
 	byte flags;
 	private final short cls;
@@ -799,13 +799,13 @@ public class OraCdcChange {
 				.append(" lock: ")
 				.append(Byte.toUnsignedInt(record[coords[index][0] + 0x11]))
 				.append(" nrow: ")
-				.append(Byte.toUnsignedInt(qmRowCount));
+				.append(Short.toUnsignedInt(qmRowCount));
 			if (selector == _11_12_QMD) {
-				if (coords[index][1] < KDO_OPCODE_QM_MIN_LENGTH + (Byte.toUnsignedInt(qmRowCount) - 1) * Short.BYTES) {
+				if (coords[index][1] < KDO_OPCODE_QM_MIN_LENGTH + (Short.toUnsignedInt(qmRowCount) - 1) * Short.BYTES) {
 					LOGGER.error("Unable to parse 'KDO Op code' QMD element for change #{} at RBA {} in '{}'.\nActual size {} is smaller than required {}!",
-							num, rba, redoLog.fileName(), coords[index][1], KDO_OPCODE_QM_MIN_LENGTH + (Byte.toUnsignedInt(qmRowCount) - 1) * Short.BYTES);
+							num, rba, redoLog.fileName(), coords[index][1], KDO_OPCODE_QM_MIN_LENGTH + (Short.toUnsignedInt(qmRowCount) - 1) * Short.BYTES);
 				} else {
-					for (int row = 0; row < Byte.toUnsignedInt(qmRowCount); ++row) {
+					for (int row = 0; row < Short.toUnsignedInt(qmRowCount); ++row) {
 						sb
 							.append("\nslot[")
 							.append(row)
@@ -817,7 +817,7 @@ public class OraCdcChange {
 				//_11_11_QMI
 				if (index + 2 < coords.length) {
 					int rowDiff = 0;
-					for (int row = 0; row < Byte.toUnsignedInt(qmRowCount); ++row) {
+					for (int row = 0; row < Short.toUnsignedInt(qmRowCount); ++row) {
 						sb
 							.append("\nslot[")
 							.append(row)
@@ -1458,7 +1458,7 @@ public class OraCdcChange {
 		return coords;
 	}
 
-	public byte qmRowCount() {
+	public short qmRowCount() {
 		return qmRowCount;
 	}
 
