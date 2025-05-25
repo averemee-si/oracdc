@@ -17,6 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.oracle.internals.LobId;
+import solutions.a2.oracle.internals.UndoByteAddress;
+import solutions.a2.oracle.internals.Xid;
+import solutions.a2.oracle.utils.FormattingUtils;
 
 /**
  * 
@@ -35,9 +38,14 @@ public class OraCdcChangeColb extends OraCdcChange {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeColb.class);
 
-	public static final int SIZE = 0x24;
+	public static final int LONG_DUMP_SIZE = 0x24;
 
-	private final int lobPageNo;
+	private static final int BLOCK_DUMP_MIN_SIZE = 0x18;
+
+	private final boolean longDump;
+	private int lobPageNo;
+	private short itc;
+	private short headerSize;
 
 	OraCdcChangeColb(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
@@ -50,42 +58,177 @@ public class OraCdcChangeColb extends OraCdcChange {
 					num, rba, redoLog.fileName(), binaryDump());
 			throw new IllegalArgumentException();
 		}
-		elementLengthCheck("19.1 (KCBLCOLB)", "", 0, SIZE, "");
-		lid = new LobId(record, coords[0][0] + 0x4);
-		dataObj = redoLog.bu().getU32(record, coords[0][0]);
-		lobDataOffset = SIZE; 
-		lobPageNo = redoLog.bu().getU32(record, coords[0][0] + 0x18);
+		if (coords.length > 1 && record[coords[1][0]] == 0x6) {
+			longDump = false;
+			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, BLOCK_DUMP_MIN_SIZE, "");
+			obj = redoLog.bu().getU32(record, coords[0][0] + 0x4);
+			itc = redoLog.bu().getU16(record, coords[0][0] + 0x10);
+			lobDataOffset = (BLOCK_DUMP_MIN_SIZE + itc * 0x1A + 7) & 0xFFFFFFF8;
+			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, lobDataOffset + 8, "");
+			headerSize = redoLog.bu().getU16(record, coords[0][0] + lobDataOffset + 0x6);
+			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, lobDataOffset + headerSize, "");
+			qmRowCount = redoLog.bu().getU16(record, coords[0][0] + lobDataOffset + 0x2);
+		} else {
+			longDump = true;
+			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, LONG_DUMP_SIZE, "");
+			lid = new LobId(record, coords[0][0] + 0x4);
+			dataObj = redoLog.bu().getU32(record, coords[0][0]);
+			lobDataOffset = LONG_DUMP_SIZE; 
+			lobPageNo = redoLog.bu().getU32(record, coords[0][0] + 0x18);
+		}
 	}
 
 	public int colbSize() {
-		return coords[0][1] - SIZE;
+		return coords[0][1] - LONG_DUMP_SIZE;
+	}
+
+	public boolean longDump() {
+		return longDump;
 	}
 
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
-		sb
-			.append("\nDirect Loader block redo entry\nLong field block dump:\nObject Id  ")
-			.append(Integer.toUnsignedLong(dataObj))
-			.append("\nLobId: ")
-			.append(lid.toStringSignificant())
-			.append(" PageNo ")
-			.append(String.format("%8d", lobPageNo))
-			.append("\nVersion: ")
-			.append(String.format("0x%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, coords[0][0] + 0x14))))
-			.append('.')
-			.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[0][0] + 0x10))))
-			.append("  pdba: ")
-			.append(String.format("%8d", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[0][0] + 0x1C))))
-			.append('\n');
-		for (int i = SIZE; i < coords[0][1]; i++) {
+		sb.append("\nDirect Loader block redo entry");
+		if (longDump) {
 			sb
-				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[0][0] + i])))
-				.append(' ');
-			if (((i - SIZE) % 0x18) == 0x17 && i != coords[0][1] - 1)
-				sb.append("\n    ");
+				.append("\nLong field block dump:\nObject Id  ")
+				.append(Integer.toUnsignedLong(dataObj))
+				.append("\nLobId: ")
+				.append(lid.toStringSignificant())
+				.append(" PageNo ")
+				.append(String.format("%8d", lobPageNo))
+				.append("\nVersion: ")
+				.append(String.format("0x%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, coords[0][0] + 0x14))))
+				.append('.')
+				.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[0][0] + 0x10))))
+				.append("  pdba: ")
+				.append(String.format("%8d", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[0][0] + 0x1C))))
+				.append('\n');
+			for (int i = LONG_DUMP_SIZE; i < coords[0][1]; i++) {
+				sb
+					.append(String.format("%02x", Byte.toUnsignedInt(record[coords[0][0] + i])))
+					.append(' ');
+				if (((i - LONG_DUMP_SIZE) % 0x18) == 0x17 && i != coords[0][1] - 1)
+					sb.append("\n    ");
+			}
+			sb.append('\n');
+		} else {
+			sb
+				.append("\nBlock header dump:  ")	//TODO
+				.append("\n Object id on Block? ")
+				.append(obj > 0 ? 'Y' : 'N')
+				.append("\n seg/obj: 0x")
+				.append(String.format("%x", Integer.toUnsignedLong(obj)))
+				.append("  csc:  0x");
+			FormattingUtils.leftPad(sb, redoLog.bu().getScn(record, coords[0][0] + 0x8), 0x10);
+			sb
+				.append("  itc: ")
+				.append(Short.toUnsignedInt(itc))
+				//TODO flg: E  typ: 1 - DATA
+				.append("\n     brn: 0  bdba: 0x")	//TODO brn
+				//TODO ver: 0x01 opc: 0
+				//TODO inc: 0  exflg: 0
+				.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[0][0] + 0x12))))
+				.append("\n\n Itl           Xid                  Uba         Flag  Lck        Scn/Fsc");
+			for (int i = 0; i < Short.toUnsignedInt(itc); i++) {
+				final int startPos = coords[0][0] + BLOCK_DUMP_MIN_SIZE + i * 0x1A;
+				short lock = redoLog.bu().getU16(record, startPos + 0x10);
+				final StringBuilder flags = new StringBuilder();
+				final boolean scn = (lock & 0x8000) != 0;
+				flags
+					.append((lock & 0x8000) == 0 ? '-' : 'C')
+					.append((lock & 0x4000) == 0 ? '-' : 'B')
+					.append((lock & 0x2000) == 0 ? '-' : 'U')
+					.append((lock & 0x1000) == 0 ? '-' : 'T');
+				lock &= 0x0FFF;
+				sb
+					.append("\n0x")
+					.append(String.format("%02x", i + 1))
+					.append("   ")
+					.append(new Xid(
+							redoLog.bu().getU16(record, startPos),
+							redoLog.bu().getU16(record, startPos + 2),
+							redoLog.bu().getU32(record, startPos + 4)))
+					.append("  ")
+					.append(new UndoByteAddress(redoLog.bu().getU56(record, startPos + 8)))
+					.append("  ")
+					.append(flags)
+					.append("  ")
+					.append(String.format("%3d", scn ? 0 : lock))
+					.append("  ")
+					.append(scn ? "scn" : "fsc")
+					.append(" 0x");
+				if (scn) {
+					sb.append(FormattingUtils.leftPad(redoLog.bu().getScn(record, startPos + 0x12), 0x10));
+				} else {
+					sb
+						.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0x12))))
+						.append('.')
+						.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, startPos + 0x14))));
+				}
+			}
+			final int startPos = coords[0][0] + lobDataOffset;
+			//TODO bdba: 0x
+			//TODO data_block_dump,data header at 0x
+			sb
+				.append("\n===============")
+				.append("\ntsiz: 0x")
+				.append(String.format("%04x", coords[0][1] - lobDataOffset))
+				.append("\nhsiz: 0x")
+				.append(String.format("%02x", Short.toUnsignedInt(headerSize)))
+				//TODO pbl:
+				//TODO flag
+				.append("\nntab=")
+				.append(Byte.toUnsignedInt(record[startPos + 0x1]))
+				.append("\nnrow=")
+				.append(Short.toUnsignedInt(qmRowCount))
+				.append("\nfrre=")
+				.append(redoLog.bu().getU16(record, startPos + 0x4))
+				.append("\nfsbo=0x")
+				.append(String.format("%02x", Short.toUnsignedInt(headerSize)))
+				.append("\nfseo=0x")
+				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0x8))))
+				.append("\navsp=0x")
+				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0xA))))
+				.append("\ntosp=0x")
+				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0xC))));
+			//TODO 0xe:pti[0]	nrow=XX	offs=0
+			for (int row = 0; row < Short.toUnsignedInt(qmRowCount); row++) {
+				int off = 0x12 + row * Short.BYTES;
+				sb
+					.append("\n0x")
+					.append(String.format("%02x", off))
+					.append(":pri[")
+					.append(row)
+					.append("]\toffs=0x")
+					.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + off))));
+			}
+			sb.append("\nblock_row_dump:");
+			for (int row = 0; row < Short.toUnsignedInt(qmRowCount); row++) {
+				int off = Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0x12 + row * Short.BYTES));
+				fb = record[startPos + off];
+				columnCount = Byte.toUnsignedInt(record[startPos + off + 2]);
+				sb
+					.append("\ntab 0, row ")
+					.append(row)
+					.append(", @0x")
+					.append(String.format("%04x", off))
+					.append("\ntl: ")
+					.append(coords[0][1] - off - lobDataOffset)
+					.append(" fb: ")
+					.append(printFbFlags(fb))
+					.append(" lb: 0x")
+					.append(String.format("%1x", Byte.toUnsignedInt(record[startPos + off + 1])))
+					.append("  cc: ")
+					.append(columnCount);
+				int rowDiff = lobDataOffset + off + 3;
+				for (int col = 0; col < columnCount; col++) {
+					rowDiff = printColumnBytes(sb, col, 0, rowDiff);
+				}
+			}			
+			sb.append("\nend_of_block_dump");
 		}
-		sb.append('\n');
 		return sb;
 	}
 
