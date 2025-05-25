@@ -115,6 +115,8 @@ public class OraCdcChange {
 	public static final short _24_1_DDL = 0x1801;
 	/** KRVMISC:  misc TX info */
 	public static final short _24_4_MISC = 0x1804;
+	/** KRVDLR10: direct load redo 10g */
+	public static final short _24_6_DLR10 = 0x1806;
 	/** KRVXML:  xmlredo - doc or dif - opcode */
 	public static final short _24_8_XML = 0x1808;
 
