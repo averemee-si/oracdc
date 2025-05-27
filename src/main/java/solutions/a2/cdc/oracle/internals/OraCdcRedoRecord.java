@@ -384,6 +384,8 @@ public class OraCdcRedoRecord {
 			return change26_x().xid;
 		} else if (hasKrvDlr10()) {
 			return changeKrvDlr10().xid;
+		} else if (hasKrvXml()) {
+			return changeKrvXml().xid;
 		} else if (hasDdl()) {
 			return changeDdl().xid;
 		} else {
