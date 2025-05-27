@@ -51,7 +51,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 	private byte lobOp = LOB_OP_UNKNOWN;
 	private int fsiz;
 	private int csiz;
-	private int lobColumnCount = -1;
+	private boolean hasXmlType = false;
 
 	OraCdcChangeLlb(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
@@ -131,17 +131,32 @@ public class OraCdcChangeLlb extends OraCdcChange {
 					redoLog.bu().getU16(record, coords[2][0] + 0x08),
 					redoLog.bu().getU16(record, coords[2][0] + 0x0A),
 					redoLog.bu().getU32(record, coords[2][0] + 0x0C));
-			lobColumnCount = coords[3][1] / Short.BYTES;
+			if (coords.length > 8 && coords[8][1] > 0) {
+				hasXmlType = true;
+				//TODO - binary XML, [8] - array of internal column IDs, [7] - offset/shift?
+			}
 			break;
 		default:
 		}
 	}
 
-	public short[] lobColumnIds() {
+	private short[] lobColumnIds() {
 		if (type == TYPE_4) {
-			final short[] ids = new short[lobColumnCount];
-			for (int i = 0; i < lobColumnCount; i++) {
+			final short[] ids = new short[coords[3][1] / Short.BYTES];
+			for (int i = 0; i < ids.length; i++) {
 				ids[i] = redoLog.bu().getU16(record, coords[3][0] + i * Short.BYTES);
+			}
+			return ids;
+		} else {
+			return null;
+		}
+	}
+
+	private short[] lobIntColIds() {
+		if (hasXmlType) {
+			final short[] ids = new short[coords[8][1] / Short.BYTES];
+			for (int i = 0; i < ids.length; i++) {
+				ids[i] = redoLog.bu().getU16(record, coords[8][0] + i * Short.BYTES);
 			}
 			return ids;
 		} else {
@@ -163,6 +178,34 @@ public class OraCdcChangeLlb extends OraCdcChange {
 
 	public int csiz() {
 		return csiz;
+	}
+
+	public short[][] columnMap() {
+		if (hasXmlType) {
+			final int offset = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[7][0])) - 1;
+			final short[] colIds = lobColumnIds();
+			final short[] intColIds = lobIntColIds();
+			if (offset < 0 || (colIds.length -offset) != intColIds.length) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to map internal COLUMN_ID's for 11.17 (LLB) Type 4 #{} at RBA {} in '{}'.\n" +
+						"Change contents:\n{}\n" +
+						"=====================\n",
+						num, rba, redoLog.fileName(), binaryDump());
+				throw new IllegalArgumentException("Unable to map internal COLUMN_ID's for 11.17 (LLB) Type 4!");
+			}
+			final short[][] mapping = new short[intColIds.length][2];
+			for (int i = 0; i < intColIds.length; i++) {
+				mapping[i][0] = colIds[i + offset];
+				mapping[i][1] = intColIds[i];
+			}
+			return mapping;
+		} else
+			return null;
+	}
+
+	public boolean hasXmlType() {
+		return hasXmlType;
 	}
 
 	@Override
@@ -210,13 +253,13 @@ public class OraCdcChangeLlb extends OraCdcChange {
 				.append(" fsiz:")
 				.append(Integer.toUnsignedLong(fsiz));
 		if (type == TYPE_4) {
+			short[] ids = lobColumnIds();
 			sb
 				.append(" LOB_cc:")
-				.append(lobColumnCount)
+				.append(ids.length)
 				.append(" LOB_col_ids: [");
 			boolean first = true;
-			short[] ids = lobColumnIds();
-			for (int i = 0; i < lobColumnCount; i++) {
+			for (int i = 0; i < ids.length; i++) {
 				if (first) {
 					first = false;
 				} else {
@@ -225,6 +268,20 @@ public class OraCdcChangeLlb extends OraCdcChange {
 				sb.append(Short.toUnsignedInt(ids[i]));
 			}
 			sb.append("]");
+			if (hasXmlType) {
+				sb.append(" LOB_internal_col_ids: [");
+				first = true;
+				short[] intIds = lobIntColIds();
+				for (int i = 0; i < intIds.length; i++) {
+					if (first) {
+						first = false;
+					} else {
+						sb.append(", ");
+					}
+					sb.append(Short.toUnsignedInt(intIds[i]));
+				}
+				sb.append("]");
+			}
 		}
 		if (lobCol > -1) {
 			sb
