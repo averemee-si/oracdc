@@ -37,14 +37,16 @@ public class OraCdcChangeKrvXml extends OraCdcChange {
 	private final byte type;
 	private short internalColId;
 
+	public static final int TYPE_XML_DOC = 0x1;
+
 	public static final short XML_DOC_BEGIN = 0x01;
 	public static final short XML_DOC_END = 0x02;
 
 	OraCdcChangeKrvXml(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _24_8_XML, record, offset, headerLength);
 		elementNumberCheck(1);
-		if (record[coords[0][0]] == 0x1) {
-			type = 1;
+		if (record[coords[0][0]] == TYPE_XML_DOC) {
+			type = TYPE_XML_DOC;
 			elementNumberCheck(0x8);
 			if (coords[2][1] < 0x8) {
 				LOGGER.error(
@@ -90,6 +92,10 @@ public class OraCdcChangeKrvXml extends OraCdcChange {
 			return redoLog.bu().getU16(record, coords[6][0]);
 		else
 			return (short) 0xFFFF;
+	}
+
+	public byte type() {
+		return type;
 	}
 
 	@Override
