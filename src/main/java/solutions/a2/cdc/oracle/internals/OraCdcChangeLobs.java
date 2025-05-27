@@ -61,6 +61,13 @@ public class OraCdcChangeLobs extends OraCdcChange {
 		}
 	}
 
+	public int kdliFillLen() {
+		if (operation == _26_2_REDO && lobDataOffset > 7)
+			return Short.toUnsignedInt(redoLog.bu().getU16(record, lobDataOffset -2));
+		else
+			return -1;
+	}
+
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
