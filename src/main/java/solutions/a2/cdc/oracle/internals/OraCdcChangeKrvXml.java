@@ -37,6 +37,9 @@ public class OraCdcChangeKrvXml extends OraCdcChange {
 	private final byte type;
 	private short internalColId;
 
+	public static final short XML_DOC_BEGIN = 0x01;
+	public static final short XML_DOC_END = 0x02;
+
 	OraCdcChangeKrvXml(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _24_8_XML, record, offset, headerLength);
 		elementNumberCheck(1);
@@ -82,6 +85,12 @@ public class OraCdcChangeKrvXml extends OraCdcChange {
 		return internalColId;
 	}
 
+	public short status() {
+		if (type == 1)
+			return redoLog.bu().getU16(record, coords[6][0]);
+		else
+			return (short) 0xFFFF;
+	}
 
 	@Override
 	StringBuilder toDumpFormat() {

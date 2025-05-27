@@ -104,6 +104,7 @@ public class OraCdcRedoRecord {
 	private int indKTUIRB = -1;
 	private int indKRVMISC = -1;
 	private int indKRVDLR10 = -1;
+	private int indKRVXML = -1;
 	private int indLLB = -1;
 	private int indKCOCOLOB = -1;
 	private int indKCOCODLB = -1;
@@ -206,6 +207,7 @@ public class OraCdcRedoRecord {
 				break;
 			case _24_8_XML:
 				change = new OraCdcChangeKrvXml(changeNo, this, operation, record, offset, changeHeaderLen);
+				indKRVXML = changeNo - 1;
 				break;
 			case _26_2_REDO:
 			case _26_6_BIMG:
@@ -352,8 +354,19 @@ public class OraCdcRedoRecord {
 	}
 
 	public OraCdcChangeKrvDlr10 changeKrvDlr10() {
-		if (hasKrvMisc())
+		if (hasKrvDlr10())
 			return (OraCdcChangeKrvDlr10) changeVectors.get(indKRVDLR10);
+		else
+			return null;
+	}
+
+	public boolean hasKrvXml() {
+		return indKRVXML > -1;
+	}
+
+	public OraCdcChangeKrvXml changeKrvXml() {
+		if (hasKrvXml())
+			return (OraCdcChangeKrvXml) changeVectors.get(indKRVXML);
 		else
 			return null;
 	}
