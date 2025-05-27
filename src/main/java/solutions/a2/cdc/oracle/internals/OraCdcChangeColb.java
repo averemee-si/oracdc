@@ -63,6 +63,7 @@ public class OraCdcChangeColb extends OraCdcChange {
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, BLOCK_DUMP_MIN_SIZE, "");
 			obj = redoLog.bu().getU32(record, coords[0][0] + 0x4);
 			itc = redoLog.bu().getU16(record, coords[0][0] + 0x10);
+			bdba = redoLog.bu().getU32(record, coords[0][0] + 0x12);
 			lobDataOffset = (BLOCK_DUMP_MIN_SIZE + itc * 0x1A + 7) & 0xFFFFFFF8;
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, lobDataOffset + 8, "");
 			headerSize = redoLog.bu().getU16(record, coords[0][0] + lobDataOffset + 0x6);
@@ -129,7 +130,7 @@ public class OraCdcChangeColb extends OraCdcChange {
 				.append("\n     brn: 0  bdba: 0x")	//TODO brn
 				//TODO ver: 0x01 opc: 0
 				//TODO inc: 0  exflg: 0
-				.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[0][0] + 0x12))))
+				.append(String.format("%08x", Integer.toUnsignedLong(bdba)))
 				.append("\n\n Itl           Xid                  Uba         Flag  Lck        Scn/Fsc");
 			for (int i = 0; i < Short.toUnsignedInt(itc); i++) {
 				final int startPos = coords[0][0] + BLOCK_DUMP_MIN_SIZE + i * 0x1A;
