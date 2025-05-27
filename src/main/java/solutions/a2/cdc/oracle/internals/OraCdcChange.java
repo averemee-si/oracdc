@@ -1520,4 +1520,8 @@ public class OraCdcChange {
 		return lobCol;
 	}
 
+	public int lobDataOffset() {
+		return lobDataOffset;
+	}
+
 }
