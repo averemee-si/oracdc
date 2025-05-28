@@ -13,6 +13,7 @@
 	
 package solutions.a2.cdc.oracle;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -23,12 +24,16 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,9 +42,19 @@ import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.queue.TailerDirection;
+import solutions.a2.oracle.internals.CMapInflater;
 import solutions.a2.oracle.internals.LobId;
+import solutions.a2.oracle.internals.LobLocator;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
+
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_END;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_ERASE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_PREPARE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_TRIM;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_UNKNOWN;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_WRITE;
+import static solutions.a2.oracle.internals.LobLocator.BLOB;
 
 /**
  * 
@@ -70,7 +85,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	private final Path lobsQueueDirectory;
 	private final String lobDirectory;
 	private final LobProcessingStatus processLobs;
-	private final Map<LobId, OutputStream> transLobs;
+	private final Map<LobId, LobHolder> transLobs;
+	private final Map<Long, LobId> lobCols;
 	private ChronicleQueue statements;
 	private ExcerptAppender appender;
 	private ExcerptTailer tailer;
@@ -101,14 +117,17 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			lobDirectory = null;
 			lobsQueueDirectory = null;
 			transLobs = null;
+			lobCols = null;
 		} else {
 			lobDirectory = queueDirectory.toString() + ".LOBDATA";
 			lobsQueueDirectory = Files.createDirectory(Paths.get(lobDirectory));
 			if (processLobs == LobProcessingStatus.REDOMINER) {
 				transLobs = new HashMap<>();
+				lobCols = new HashMap<>();
 			} else {
 				// processLobs == LobProcessingStatus.LOGMINER
 				transLobs = null;
+				lobCols = null;
 			}
 		}
 		if (LOGGER.isDebugEnabled()) {
@@ -534,39 +553,254 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		super.setCommitScn(commitScn, pseudoColumns, resultSet);
 	}
 
-	private void closeLobFiles() {
-		for (OutputStream closeIt : transLobs.values())
-			if (closeIt != null) {
-				try { closeIt.close();} catch (Exception e) {}
-			}
+	public void openLob(final LobId lid, final int obj, final short col, final byte lobOp, final RedoByteAddress rba, final boolean open) {
+		LobHolder holder = transLobs.get(lid);
+		if (holder == null) {
+			holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
+			transLobs.put(lid, holder);
+		}
+		final LobId otherLid = lobCols.put(objCol(obj, col), lid);
+		if (otherLid != null && transLobs.get(otherLid).chunks.size() > 0) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Double entry in object {} column {} for lid '{}' and lid = {} at RBA {}, XID {}" +
+					"\n=====================\n",
+					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid, otherLid, rba, getXid());
+		}
+		if (open)
+			holder.open(lobOp);
 	}
 
-	public Set<LobId> lobIds() {
-		if (processLobs == LobProcessingStatus.REDOMINER)
-			return transLobs.keySet();
+	public void openLob(final int obj, final short col, final RedoByteAddress rba) {
+		final LobId lobId = lobCols.get(objCol(obj, col));
+		if (lobId == null) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Attempting to open unknown LOB for OBJ {}/COL {} at RBA {}, XID {}" +
+					"\n=====================\n",
+					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), rba, getXid());
+		} else {
+			LobHolder holder = transLobs.get(lobId);
+			if (!holder.binaryXml)
+				holder.binaryXml = true;
+			holder.open(LOB_OP_WRITE);
+		}
+	}
+	public void closeLob(final int obj, final short col, final int size, final RedoByteAddress rba) throws IOException {
+		final long objCol = objCol(obj, col);
+		final LobId lobId = lobCols.get(objCol);
+		if (lobId == null) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Attempting to execute OP:11.17 TYP 3 on OBJ {}/COL {} without corresponding OP:11.17 TYP 1 at RBA {}, XID {}" +
+					"\n=====================\n",
+					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), rba, getXid());
+		} else {
+			LobHolder holder = transLobs.get(lobId);
+			lobCols.remove(objCol);
+			holder.close(size);
+		}
+	}
+
+	private static long objCol(final int obj, final short col) {
+		// col = ((byte)objCol) | ((objCol & 0x0000FF0000000000L) >> 40);
+		// obj = (objCol & 0x000000FFFFFFFF00L) >> 8;
+		return (Integer.toUnsignedLong((col & 0xFF00) << 8) << 40) | (Integer.toUnsignedLong(obj) << 8 ) | (byte)col;
+	}
+
+	public Set<LobId> lobIds(final boolean all) {
+		if (processLobs == LobProcessingStatus.REDOMINER) {
+			if (all)
+				return transLobs.keySet();
+			else {
+				if (transLobs.keySet().size() > 0) {
+					final Set<LobId> result = new HashSet<>();
+					for (final LobId lid : transLobs.keySet()) {
+						final LobHolder lh = transLobs.get(lid);
+						if (lh.chunks.size() > 0)
+//							&& lh.chunks.stream().mapToInt(c -> c.size).sum() > 0)
+							result.add(lid);
+					}
+					return result;
+				} else
+					return transLobs.keySet();
+			}
+		}
 		else
 			return null;
 	}
 
-	public void addLob(LobId lobId, byte[] data, int off, int len) throws IOException {
-		OutputStream os = transLobs.get(lobId);
-		if (os == null) {
-			final Path path = Paths.get(lobDirectory, lobId.toString());
-			os = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW);
-			transLobs.put(lobId, os);
-			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Successfully created {} for writing large object {}",
-						path.toAbsolutePath().toString(), lobId.toString());
+	public void writeLobChunk(final int obj, final short col, final byte[] data, final int off, final int len) throws SQLException {
+		final LobId lobId = lobCols.get(objCol(obj, col));
+		if (lobId == null) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Attempting to write to unknown LOB for OBJ {}/COL {} in XID {}" +
+					"\n=====================\n",
+					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), getXid());
+		} else {
+			writeLobChunk(lobId, data, off, len, false, false);
 		}
-		os.write(data, off, len);
 	}
 
-	public byte[] getLob(LobId lobId) throws SQLException {
-		try {
-			return Files.readAllBytes(Paths.get(lobDirectory, lobId.toString()));
-		} catch (IOException ioe) {
-			throw new SQLException(ioe);
+	public void writeLobChunk(final LobId lobId, final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws SQLException {
+		LobHolder holder = transLobs.get(lobId);
+		if (lobId == null) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Attempt to write to unknown LOB {}!" +
+					"\n=====================\n",
+					lobId);
+			throw new SQLException("Attempt to write to unknown LOB " + lobId + " !");
+		} else {
+			try {
+				holder.write(data, off, len, colb, cmap);
+			} catch (IOException ioe) {
+				throw new SQLException(ioe);
+			}
 		}
+	}
+
+	private void closeLobFiles() {
+		for (LobHolder closeIt : transLobs.values())
+			if (closeIt.lastChunk != null) {
+				LOGGER.warn(
+						"Output stream for LOB '{}', chunk # is in incorrect OPEN state!",
+						closeIt.lid.toString(), closeIt.chunks.size());
+				try { closeIt.lastChunk.os.close();} catch (Exception e) {}
+			}
+	}
+
+	public byte[] getLob(final LobLocator ll) throws SQLException {
+		LobHolder holder = transLobs.get(ll.lid());
+		if (holder == null) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Attempt to read from unknown LOB {}!" +
+					"\n=====================\n",
+					ll.lid());
+			throw new SQLException("Attempt to read from unknown LOB " + ll.lid() + " !");
+		} else {
+			if (holder.chunks.size() > 0) {
+				final boolean clob = ll.type() != BLOB;
+				final int expected = ll.dataLength() == 0 
+										? holder.chunks.stream().mapToInt(c -> c.size).sum() 
+										:ll.dataLength();
+				//TODO int overflow?
+				final ByteArrayOutputStream baos = new ByteArrayOutputStream(clob ? expected * 2 : expected);
+				for (int i = 0; i < holder.chunks.size();) {
+					final LobChunk chunk = holder.chunks.get(i);
+					try {
+						final byte[] ba = Files.readAllBytes(Paths.get(holder.directory, ll.lid().toString() + "." + (++i)));
+						if (holder.colb) {
+							baos.write(ba, 0, clob ? chunk.size * 2 : chunk.size);
+						} else {
+							if (holder.cmap) {
+								CMapInflater.inflate(ba, baos);
+							} else if (ll.dataCompressed() && !holder.binaryXml) {
+								Inflater inflater = new Inflater();
+								inflater.setInput(ba);
+								final byte[] buffer = new byte[0x2000];
+								try {
+									while (!inflater.finished()) {
+										int processed = inflater.inflate(buffer);
+										baos.write(buffer, 0, processed);
+									}
+								} catch (DataFormatException dfe) {
+									throw new SQLException(dfe);
+								}
+							} else {
+								baos.write(ba);
+							}
+						}
+					} catch (IOException ioe) {
+						throw new SQLException(ioe);
+					}
+				}
+				return baos.toByteArray();
+			} else {
+				return LobHolder.EMPTY;
+			}
+		}		
+	}
+
+	private static class LobHolder {
+		private static final byte[] EMPTY = {};
+		private final LobId lid;
+		private final int obj;
+		private final short col;
+		private final List<LobChunk> chunks;
+		private final String directory;
+		private byte status = LOB_OP_UNKNOWN;
+		private boolean colb;
+		private boolean cmap;
+		private LobChunk lastChunk;
+		private boolean binaryXml = false;
+
+		private LobHolder(final LobId lid, final int obj, final short col, final Path path) {
+			this.lid = lid;
+			this.obj = obj;
+			this.col = col;
+			this.directory = path.toString();
+			chunks = new ArrayList<>();
+		}
+
+		private void open(final byte status) {
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug(
+						"Changing LOB {} status from {} to {}", lid.toString(), this.status, status);
+			this.status = status;
+		}
+
+		private void close(final int size) throws IOException {
+			if (status == LOB_OP_UNKNOWN || status == LOB_OP_PREPARE || status == LOB_OP_END)
+				LOGGER.error(
+						"\n=====================\n" +
+						"Attempting to execute OP:11.17 TYP 3 on OBJ {}/COL {}/LID {} without corresponding OP:11.17 TYP 1" +
+						"\n=====================\n",
+						Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid.toString());
+			if (lastChunk != null) {
+				if (!binaryXml)
+					lastChunk.size = size;
+				lastChunk.os.close();
+				lastChunk = null;
+			}
+		}
+
+		void write(final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws IOException {
+			switch (status) {
+			case LOB_OP_WRITE:
+				if (lastChunk == null) {
+					lastChunk = new LobChunk();
+					chunks.add(lastChunk);
+					final Path path = Paths.get(directory, lid.toString() + "." + chunks.size());
+					lastChunk.os = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW);
+					if (LOGGER.isDebugEnabled())
+						LOGGER.debug("Successfully created {} for writing large object {}",
+								path.toAbsolutePath().toString(), path.toString());
+					this.colb = colb;
+					this.cmap = cmap;
+				}
+				lastChunk.os.write(data, off, len);
+				if (binaryXml)
+					lastChunk.size += len;
+				break;
+			case LOB_OP_ERASE:
+				//TODO
+				break;
+			case LOB_OP_TRIM:
+				//TODO
+				break;
+			default:
+				if (LOGGER.isDebugEnabled()) LOGGER.debug("Write to LOB {} in incorrect status {}", lid, status);
+			}
+		}
+
+	}
+
+	private static class LobChunk {
+		private int size = 0;
+		private OutputStream os;
 	}
 
 }
