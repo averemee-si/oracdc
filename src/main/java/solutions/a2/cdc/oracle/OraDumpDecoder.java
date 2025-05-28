@@ -159,6 +159,18 @@ public class OraDumpDecoder {
 		}
 	}
 
+	public static String fromBinaryXml(final byte[] ba, final String charsetName) throws SQLException {
+		return fromBinaryXml(ba, 0, ba.length, charsetName);
+	}
+
+	public static String fromBinaryXml(final byte[] ba, final int off, final int len, final String charsetName) throws SQLException {
+		try {
+			return new String(ba, off, len, charsetName);
+		} catch (UnsupportedEncodingException e) {
+			throw new SQLException("Invalid encoding " + charsetName + " in binary XML for HEXTORAW " + rawToHex(ba) +  ".", e);
+		}
+	}
+
 	/**
 	 * 
 	 * Convert Oracle Type 12 dump to LocalDateTime
