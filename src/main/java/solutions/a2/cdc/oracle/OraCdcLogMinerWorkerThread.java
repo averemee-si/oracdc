@@ -44,7 +44,6 @@ import oracle.jdbc.OracleResultSet;
 import oracle.sql.CHAR;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
-import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
@@ -886,7 +885,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (lobs == null) {
 							lobs = new ArrayList<>();
 						}
-						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, Lz4Util.compress(xmlAsString)));
+						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, xmlAsString.getBytes()));
 						//TODO
 						//TODO BEGIN: Workaround for operation duplication when LogMiner runs
 						//TODO BEGIN: without dictionary 
@@ -924,7 +923,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (lobs == null) {
 							lobs = new ArrayList<>();
 						}
-						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, Lz4Util.compress(xmlAsString)));
+						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, xmlAsString.getBytes()));
 						//TODO
 						//TODO BEGIN: Workaround for operation duplication when LogMiner runs
 						//TODO BEGIN: without dictionary 

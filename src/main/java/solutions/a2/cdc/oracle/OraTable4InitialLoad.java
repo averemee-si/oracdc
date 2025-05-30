@@ -51,7 +51,6 @@ import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
-import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -307,9 +306,8 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 								while ((charsRead = reader.read(data, 0, data.length)) != -1) {
 									sbClob.append(data, 0, charsRead);
 								}
-								final byte[] clobCompressed = Lz4Util.compress(sbClob.toString());
-								bytes.writeInt(clobCompressed.length);
-								bytes.write(clobCompressed);
+								bytes.writeInt(sbClob.length());
+								bytes.writeUtf8(sbClob.toString());
 							} catch (IOException ioe) {
 								LOGGER.error("IO Error while processing {} column {}({})",
 										oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
@@ -360,9 +358,8 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 							if (xmlAsString.length() < 1) {
 								bytes.writeInt(NULL_LENGTH_INT);
 							} else {
-								final byte[] xmlCompressed = Lz4Util.compress(xmlAsString);
-								bytes.writeInt(xmlCompressed.length);
-								bytes.write(xmlCompressed);
+								bytes.writeInt(xmlAsString.length());
+								bytes.writeUtf8(xmlAsString);
 							}
 						}
 						break;

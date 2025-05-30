@@ -39,7 +39,6 @@ import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
-import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -382,7 +381,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 							while ((charsRead = reader.read(data, 0, data.length)) != -1) {
 								sbClob.append(data, 0, charsRead);
 							}
-							columnValue = Lz4Util.compress(sbClob.toString());
+							columnValue = sbClob.toString();
 						} catch (IOException ioe) {
 							LOGGER.error("IO Error while processing {} column {}.{}({})", 
 									oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
@@ -403,7 +402,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 							while ((charsRead = reader.read(data, 0, data.length)) != -1) {
 								sbSqlXml.append(data, 0, charsRead);
 							}
-							columnValue = Lz4Util.compress(sbSqlXml.toString());
+							columnValue = sbSqlXml.toString();
 						} catch (IOException ioe) {
 							LOGGER.error("IO Error while processing XML column {}.{}({})", 
 									tableOwner, tableName, columnName);
