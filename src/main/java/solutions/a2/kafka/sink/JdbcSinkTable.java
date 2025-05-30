@@ -47,7 +47,6 @@ import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.OraDumpDecoder;
 import solutions.a2.cdc.oracle.OraTableDefinition;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
-import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.postgres.PgRdbmsInfo;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.jmx.SinkTableInfo;
@@ -642,23 +641,25 @@ public class JdbcSinkTable extends OraTableDefinition {
 						holder.EXEC_COUNT = 0;
 					}
 					if (objLobColumn instanceof OraColumn) {
-//						final byte[] columnByteValue = ((ByteBuffer) objLobValue).array();
-						final byte[] columnByteValue = (byte[]) objLobValue;
 						final int lobColType = ((OraColumn)objLobColumn).getJdbcType();
-						try {
-							if (columnByteValue.length == 0) {
+						if (lobColType == Types.BLOB) {
+//							final byte[] columnByteValue = ((ByteBuffer) objLobValue).array();
+							final byte[] columnByteValue = (byte[]) objLobValue;
+							if (columnByteValue.length == 0)
 								holder.STATEMENT.setNull(1, lobColType);
-							} else {
-								if (lobColType == Types.BLOB) {
-									holder.STATEMENT.setBinaryStream(
-											1, new ByteArrayInputStream(columnByteValue), columnByteValue.length);
-								} else {
-									// Types.CLOB || Types.NCLOB
-									holder.STATEMENT.setCharacterStream(
-//											1, new StringReader(GzipUtil.decompress(columnByteValue)));
-											1, new StringReader(Lz4Util.decompress(columnByteValue)));
-								}
-							}
+							else
+								holder.STATEMENT.setBinaryStream(
+									1, new ByteArrayInputStream(columnByteValue), columnByteValue.length);
+						} else {
+							// Types.CLOB || Types.NCLOB || Types.SQLXML
+							final String columnStringValue = (String) objLobValue;
+							if (columnStringValue.length() == 0)
+								holder.STATEMENT.setNull(1, lobColType);
+							else
+								holder.STATEMENT.setCharacterStream(
+									1, new StringReader(columnStringValue));
+						}
+						try {
 							// Bind PK columns...
 							columnNo = 2;
 							iterator = pkColumns.entrySet().iterator();
