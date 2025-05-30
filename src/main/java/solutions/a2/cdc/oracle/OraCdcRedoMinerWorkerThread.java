@@ -37,12 +37,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcChange;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeColb;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeLlb;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeLobs;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeRowOp;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndo;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcRedoMinerMgmt;
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.Xid;
@@ -54,6 +59,7 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UNSUPPORTED;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.FLG_ROWDEPENDENCIES;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.FLG_KDLI_CMAP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCODRW;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_ORP_IRP_NULL_POS;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_URP_NULL_POS;
@@ -75,6 +81,10 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgNextPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgPrevPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.printFbFlags;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_4;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLobs.LOB_BIMG_INDEX;
 import static solutions.a2.oracle.utils.BinaryUtils.parseTimestamp;
 
 /**
@@ -113,7 +123,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private long lastCommitScn = 0;
 	private long lwnUnixMillis = 0;
 	private final TreeMap<Long, List<OraCdcRedoRecord>> halfDoneRcm;
-
+	private final Map<LobId, Xid> transFromLobId;
+	private final Map<Integer, Map<Short, Short>[]> intColIdsMap;
 
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcRedoMinerTask task,
@@ -160,14 +171,19 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				return Long.compareUnsigned(l1, l2);
 			}
 		});
-
+		if (processLobs) {
+			transFromLobId = new HashMap<>();
+			intColIdsMap = new HashMap<>();
+		} else { 
+			transFromLobId = null;
+			intColIdsMap = null;
+		}
 		try {
 			connDictionary = oraConnections.getConnection();
 			redoMiner = new OraRedoMiner(
 					connDictionary, metrics, startFrom, config, runLatch, rdbmsInfo, oraConnections, bu);
 			// Finally - prepare for mining...
 			redoMinerReady = redoMiner.next();
-
 		} catch (SQLException e) {
 			LOGGER.error(
 					"\n\nUnable to start OraCdcRedoMinerWorkerThread !\n" +
@@ -228,6 +244,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
 	public void run()  {
 		LOGGER.info("BEGIN: OraCdcRedoMinerWorkerThread.run()");
@@ -314,11 +331,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 											Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1)) {
 									continue;
 								}
-							} else {
-								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId())) {
-									continue;
-								}
-							}
+							} else if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+								continue;
 							final short operation = record.change11_x().operation();
 							switch (operation) {
 							case _11_2_IRP:
@@ -353,18 +367,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							}
 							continue;
 						} else if (record.hasPrb() && record.has11_x()) {
-							if (staticObjIds) {
-								if ((includeFilter &&
+							if (staticObjIds &&
+									((includeFilter &&
 										Arrays.binarySearch(includeObjIds, record.changePrb().obj()) < 0) ||
 									(excludeFilter &&
-												Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1)) {
-									continue;
-								}
-							} else {
-								if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId())) {
-									continue;
-								}
-							}
+										Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1)))
+								continue;
+							else if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId()))
+								continue;
 							boolean suspiciousRecord = false;
 							final Xid xid = record.xid();
 							OraCdcTransaction transaction = activeTransactions.get(xid);
@@ -414,6 +424,146 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									}
 								}
 							}
+							continue;
+						} else if (record.hasColb()) {
+							final OraCdcChangeColb colb = record.changeColb();
+							if (processLobs && colb.longDump()) {
+								final LobId lid = colb.lid();
+								if (lid != null) {
+									final Xid xid = transFromLobId.get(lid);
+									if (xid != null) {
+										final OraCdcTransactionChronicleQueue transaction = 
+												(OraCdcTransactionChronicleQueue) activeTransactions.get(xid);
+										if (transaction != null) {
+											transaction.writeLobChunk(lid, colb.record(), colb.coords()[0][0] + OraCdcChangeColb.LONG_DUMP_SIZE, colb.colbSize(), true, false);
+										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(null transaction)", colb.operation(), record.rba());
+									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(XID=NULL)", colb.operation(), record.rba());
+								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", colb.operation(), record.rba());
+							} else if (!colb.longDump() && record.hasKrvDlr10()) {
+								if (staticObjIds &&
+										((includeFilter &&
+											Arrays.binarySearch(includeObjIds, colb.obj()) < 0) ||
+										(excludeFilter &&
+											Arrays.binarySearch(excludeObjIds, colb.obj()) > -1)))
+										continue;
+								else if (checker.notNeeded(colb.obj(), colb.conId()))
+									continue;
+								emitDirectBlockChange(getTransaction(record), record, colb);
+							} else {
+								LOGGER.warn("Skipping OP:{} at RBA {}", formatOpCode(record.changeKrvDlr10().operation()), record.rba());
+							}
+							continue;
+						} else if (processLobs && record.hasLlb()) {
+							if (staticObjIds &&
+									((includeFilter &&
+										Arrays.binarySearch(includeObjIds, record.changeLlb().obj()) < 0) ||
+									(excludeFilter &&
+										Arrays.binarySearch(excludeObjIds, record.changeLlb().obj()) > -1)))
+									continue;
+							else if (checker.notNeeded(record.changeLlb().obj(), record.changeLlb().conId()))
+								continue;
+							final OraCdcChangeLlb llb = record.changeLlb();
+							final OraCdcTransactionChronicleQueue transaction =
+									(OraCdcTransactionChronicleQueue) getTransaction(record);
+							if (llb.type() == TYPE_1) {
+								transFromLobId.put(llb.lid(), record.xid());
+								transaction.openLob(
+										llb.lid(), llb.obj(), llb.lobCol(), llb.lobOp(), record.rba(),
+										intColumnId(llb.obj(), llb.lobCol(), true) == -1 ? true : false);
+							} else if (llb.type() == TYPE_3) {
+								if (intColumnId(llb.obj(), llb.lobCol(), true) == -1)
+									transaction.closeLob(llb.obj(), llb.lobCol(), llb.fsiz(), record.rba());
+								else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP:3 for XMLTYPE)", llb.operation(), record.rba());
+							} else if (llb.type() == TYPE_4) {
+								if (llb.hasXmlType()) {
+									final short[][] columnMap = llb.columnMap();
+									Map<Short, Short>[] columns = intColIdsMap.get(llb.obj());
+									if (columns == null) {
+										columns = (Map<Short, Short>[]) new Map[2];
+										columns[0] = new HashMap<>();
+										columns[1] = new HashMap<>();
+										intColIdsMap.put(llb.obj(), columns);
+									}
+									for (int i = 0; i < columnMap.length; i++)
+										if (!columns[0].containsKey(columnMap[i][0])) {
+											columns[0].put(columnMap[i][0], columnMap[i][1]);
+											columns[1].put(columnMap[i][1], columnMap[i][0]);
+										}
+								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP:4)", llb.operation(), record.rba());
+							}
+							continue;
+						} else if (processLobs && record.hasKrvXml()) {
+							final OraCdcChangeKrvXml xml = record.changeKrvXml();
+							if (xml.type() == OraCdcChangeKrvXml.TYPE_XML_DOC) {
+								if (staticObjIds &&
+										((includeFilter &&
+											Arrays.binarySearch(includeObjIds, xml.obj()) < 0) ||
+										(excludeFilter &&
+											Arrays.binarySearch(excludeObjIds, xml.obj()) > -1)))
+										continue;
+								else if (checker.notNeeded(xml.obj(), xml.conId()))
+									continue;
+								final OraCdcTransactionChronicleQueue transaction =
+										(OraCdcTransactionChronicleQueue) getTransaction(record);
+								final short xmlColId = intColumnId(xml.obj(), xml.internalColId(), false);
+								if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_BEGIN) != 0)
+										transaction.openLob(xml.obj(), xmlColId, record.rba());
+								transaction.writeLobChunk(
+										xml.obj(), xmlColId, xml.record(), xml.coords()[7][0], xml.coords()[7][1]);
+								if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_END) != 0)
+									transaction.closeLob(xml.obj(), xmlColId, 0, record.rba());
+							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP!=1)", xml.operation(), record.rba());
+							continue;
+						} else if (processLobs && record.has5_1() && record.has26_x()) {
+							if (staticObjIds) {
+								if ((includeFilter &&
+										Arrays.binarySearch(includeObjIds, record.change5_1().obj()) < 0) ||
+									(excludeFilter &&
+											Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1)) {
+									continue;
+								}
+							} else if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+								continue;
+							final LobId lid = record.change26_x().lid();
+							final OraCdcTransactionChronicleQueue transaction = 
+									(OraCdcTransactionChronicleQueue) activeTransactions.get(record.xid());
+							final OraCdcChangeLobs change = record.change26_x();
+							if (transaction != null)
+								if (change.kdliFillLen() > -1)
+									transaction.writeLobChunk(
+											lid, change.record(), change.lobDataOffset(), change.kdliFillLen(),
+											false, (change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
+								else if (LOGGER.isDebugEnabled()) skippingDebugMsg("change.kdliFillLen() < 0", change.operation(), record.rba());
+							else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
+							continue;
+						} else if (processLobs && record.has26_x()) {
+							if (record.change26_x().obj() != 0) {
+								if (staticObjIds &&
+										((includeFilter &&
+											Arrays.binarySearch(includeObjIds, record.change26_x().obj()) < 0) ||
+										(excludeFilter &&
+											Arrays.binarySearch(excludeObjIds, record.change26_x().obj()) > -1)))
+										continue;
+								else if (checker.notNeeded(record.change26_x().obj(), record.change26_x().conId()))
+									continue;
+								final LobId lid = record.change26_x().lid();
+								if (lid != null) {
+									final Xid xid = transFromLobId.get(lid);
+									if (xid != null) {
+										final OraCdcChangeLobs change = record.change26_x();
+										if (change.lobBimg()) {
+											final OraCdcTransactionChronicleQueue transaction = 
+													(OraCdcTransactionChronicleQueue) activeTransactions.get(xid);
+											if (transaction != null) {
+												final int[][] coords = change.coords();
+												transaction.writeLobChunk(
+													lid, change.record(), coords[LOB_BIMG_INDEX][0], coords[LOB_BIMG_INDEX][1],
+													false, (change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
+											} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
+										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(lobBimg()=false)", change.operation(), record.rba());
+									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(XID=NULL)", record.change26_x().operation(), record.rba());
+								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", record.change26_x().operation(), record.rba());
+							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(obj=0)", record.change26_x().operation(), record.rba());
 							continue;
 						} else if (record.hasDdl()) {
 							//TODO
@@ -1214,7 +1364,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			lmOp = rowChange.operation() == _11_11_QMI ? INSERT : DELETE;
 			final byte[] record = rowChange.record();
 			final int[][] coords = rowChange.coords();
-			final int rowCount = Byte.toUnsignedInt(rowChange.qmRowCount());
+			final int rowCount = Short.toUnsignedInt(rowChange.qmRowCount());
 			for (int row = 0; row < rowCount; ++row) {
 				final RowId rowId = new RowId(
 						change.dataObj(),
@@ -1243,7 +1393,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final int[][] coords = qmData.coords();
 			final OraCdcRedoLog redoLog = qmData.redoLog();
 			int rowDiff = 0;
-			final int rowCount = Byte.toUnsignedInt(change.qmRowCount());
+			final int rowCount = Short.toUnsignedInt(change.qmRowCount());
 			for (int row = 0; row < rowCount; ++row) {
 				rowDiff += 0x2;
 				final int columnCount = Byte.toUnsignedInt(record[coords[index + 2][0] + rowDiff++]);
@@ -1283,6 +1433,50 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				transaction.addStatement(orm);
 				metrics.addRecord();
 			}
+		}
+	}
+
+	private void emitDirectBlockChange(
+			final OraCdcTransaction transaction,
+			final OraCdcRedoRecord rr,
+			final OraCdcChangeColb colb) {
+		final byte[] record = colb.record();
+		final int[][] coords = colb.coords();
+		final OraCdcRedoLog redoLog = colb.redoLog();
+		final int startPos = coords[0][0] + colb.lobDataOffset();
+		for (int row = 0; row < Short.toUnsignedInt(colb.qmRowCount()); row++) {
+			int offset = Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0x12 + row * Short.BYTES));
+			final int columnCount = Byte.toUnsignedInt(record[startPos + offset + 2]);
+			int rowDiff = colb.lobDataOffset() + offset + 3;
+			ByteArrayOutputStream baos = new ByteArrayOutputStream(columnCount * 0x80);
+			writeU16(baos, columnCount);
+			for (int col = 0; col < columnCount; col++) {
+				writeU16(baos, col + 1);
+				int colSize = Byte.toUnsignedInt(record[coords[0][0] + rowDiff++]);
+				if (colSize ==  0xFE) {
+					baos.write(0xFE);
+					colSize = Short.toUnsignedInt(bu.getU16(record, coords[0][0] + rowDiff));
+					writeU16(baos, colSize);
+					rowDiff += Short.BYTES;
+				} else  if (colSize == 0xFF) {
+					colSize = 0;
+					baos.write(0xFF);
+				} else {
+					baos.write(colSize);
+				}
+				if (colSize != 0) {
+					baos.write(record, coords[0][0] + rowDiff, colSize);
+					rowDiff += colSize;
+				}
+			}
+			final RowId rowId = new RowId(
+				colb.obj(), colb.bdba(), (short)(row + 1));
+			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
+				isCdb ? (((long)colb.conId()) << 32) |  (colb.obj() & 0xFFFFFFFFL): colb.obj(),
+				INSERT, baos.toByteArray(), lwnUnixMillis, rr.scn(), rr.rba(),
+				(long) rr.subScn(), rowId, false);
+			transaction.addStatement(orm);
+			metrics.addRecord();
 		}
 	}
 
@@ -1572,6 +1766,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						lastScn, lastRba, xid);
 			}
 		} else {
+			if (processLobs) {
+				//TODO
+				//TODO
+				//TODO What if same LOB participate in concurrent transactions?
+				//TODO
+				//TODO
+				for (final LobId lobId : ((OraCdcTransactionChronicleQueue)transaction).lobIds(true))
+					transFromLobId.remove(lobId);
+			}
 			if (rollback) {
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug(
@@ -1711,7 +1914,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug(
 						"Starting transaction {} at SCN={}, RBA={}",
-						transaction.getXid(), record.scn(), record.rba());
+						xid, record.scn(), record.rba());
 			}
 			final OraCdcTransaction duplicateXid = activeTransactions.put(xid, transaction);
 			if (duplicateXid != null) {
@@ -1734,4 +1937,24 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 		return transaction;
 	}
+
+	private void skippingDebugMsg(final String reason, final short operation, final RedoByteAddress rba) {
+		LOGGER.debug("Skipping {} OP:{} at RBA {}",
+			reason, formatOpCode(operation), rba);
+
+	}
+
+	private short intColumnId(final int obj, final short col, final boolean direct) {
+		final Map<Short, Short>[] columns = intColIdsMap.get(obj);
+		if (columns == null)
+			return -1;
+		else {
+			Short intColumnIdBoxed = columns[direct ? 0 : 1].get(col);
+			if (intColumnIdBoxed == null)
+				return -1;
+			else
+				return intColumnIdBoxed;
+		}
+	}
+
 }

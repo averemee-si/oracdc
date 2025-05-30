@@ -19,6 +19,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcRedoMinerMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.utils.ExceptionUtils;
@@ -210,6 +212,9 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 						LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",
 								transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
 					}
+					final Set<LobId> lobIds = useChronicleQueue
+								? ((OraCdcTransactionChronicleQueue)transaction).lobIds(false)
+								: null;
 					do {
 						processTransaction = transaction.getStatement(stmt);
 						lastStatementInTransaction = !processTransaction;
@@ -236,7 +241,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 									offset.put("SSN", stmt.getSsn());
 									offset.put("COMMIT_SCN", transaction.getCommitScn());
 									final SourceRecord record = oraTable.parseRedoRecord(
-											stmt, transaction, offset, connDictionary);
+											stmt, transaction, lobIds, offset, connDictionary);
 									if (record != null) {
 										result.add(record);
 										recordCount++;
