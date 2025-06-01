@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
+import oracle.jdbc.OracleTypes;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
@@ -1324,8 +1325,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				break;
 			case BINARY:
 			case NUMERIC:
-			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_BINARY:
-			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_BINARY:
+			case OracleTypes.INTERVALYM:
+			case OracleTypes.INTERVALDS:
 				// do not need to perform data type conversion here!
 				columnValue = hexToRaw(hex);
 				break;
@@ -2585,8 +2586,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				break;
 			case BINARY:
 			case NUMERIC:
-			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_BINARY:
-			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_BINARY:
+			case OracleTypes.INTERVALYM:
+			case OracleTypes.INTERVALDS:
 				// do not need to perform data type conversion here!
 				columnValue = Arrays.copyOfRange(data, offset, offset + length);
 				break;

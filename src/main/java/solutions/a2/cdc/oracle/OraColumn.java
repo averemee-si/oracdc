@@ -40,6 +40,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
+import oracle.jdbc.OracleTypes;
 import oracle.sql.NUMBER;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
@@ -70,9 +71,7 @@ public class OraColumn {
 	public static final String ORA_ROWSCN = "ORA_ROWSCN";
 
 	public static final int JAVA_SQL_TYPE_INTERVALYM_STRING = -2_000_000_001;
-	public static final int JAVA_SQL_TYPE_INTERVALYM_BINARY = -2_000_000_002;
 	public static final int JAVA_SQL_TYPE_INTERVALDS_STRING = -2_000_000_003;
-	public static final int JAVA_SQL_TYPE_INTERVALDS_BINARY = -2_000_000_004;
 
 	private static final String TYPE_VARCHAR2 = "VARCHAR2";
 	private static final String TYPE_NVARCHAR2 = "NVARCHAR2";
@@ -375,7 +374,8 @@ public class OraColumn {
 		} else if (StringUtils.startsWith(oraType, "INTERVAL")) {
 			if (StringUtils.contains(oraType, "TO MONTH")) {
 				if (useOracdcSchemas) {
-					jdbcType = JAVA_SQL_TYPE_INTERVALYM_BINARY;
+					;
+					jdbcType = OracleTypes.INTERVALYM;
 					if (partOfPk || !nullable) {
 						schema = OraIntervalYM.builder().required().build();
 					} else {
@@ -387,7 +387,7 @@ public class OraColumn {
 			} else {
 				// 'TO SECOND'
 				if (useOracdcSchemas) {
-					jdbcType = JAVA_SQL_TYPE_INTERVALDS_BINARY;
+					jdbcType = OracleTypes.INTERVALDS;
 					if (partOfPk || !nullable) {
 						schema = OraIntervalDS.builder().required().build();
 					} else {
@@ -601,10 +601,10 @@ public class OraColumn {
 					jdbcType = Types.SQLXML;
 					break;
 				case OraIntervalYM.LOGICAL_NAME:
-					jdbcType = JAVA_SQL_TYPE_INTERVALYM_BINARY;
+					jdbcType = OracleTypes.INTERVALYM;
 					break;
 				case OraIntervalDS.LOGICAL_NAME:
-					jdbcType = JAVA_SQL_TYPE_INTERVALDS_BINARY;
+					jdbcType = OracleTypes.INTERVALDS;
 					break;
 				default:
 					LOGGER.error("Unknown logical name {} for BYTES Schema.", field.schema().name());
