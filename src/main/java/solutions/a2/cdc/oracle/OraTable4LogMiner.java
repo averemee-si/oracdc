@@ -2635,7 +2635,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						else
 							//TODO - not all XML are in UTF-8
 							columnValue = OraDumpDecoder.fromBinaryXml(cqTrans.getLob(ll), "UTF-8");
-				} else if (ll.dataLength() > 0) {
+				} else if (ll.dataLength() >= 0 && ll.dataInRow()) {
 					if (columnType == BLOB)
 						columnValue = Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length);
 					else if (oraColumn.getJdbcType() == JSON)
@@ -2647,9 +2647,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								ll.lid(), transaction.getXid());
 						columnValue = null;
 					}
+				} else if (ll.dataLength() == 0){
+					if (LOGGER.isDebugEnabled())
+						LOGGER.debug("No data for LOB with zero length, type {} with lid {}  in transaction {}!",
+								getTypeName(columnType), ll.lid(), transaction.getXid());
+						columnValue = null;
 				} else {
-					LOGGER.warn("No data for LOB type {} with lid {} in transaction {}!",
-							getTypeName(columnType), ll.lid(), transaction.getXid());
+					LOGGER.warn("No data for LOB type {} with lid {}, length {} in transaction {}!",
+							getTypeName(columnType), ll.lid(), ll.dataLength(), transaction.getXid());
 					columnValue = null;
 				}
 				break;
