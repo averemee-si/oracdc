@@ -787,6 +787,86 @@ order by COLUMN_POSITION;
 			"where    TABLE_OWNER=? and TABLE_NAME=? and INDEX_NAME=? and CON_ID=?\n" +
 			"order by COLUMN_POSITION";
 
+	/*
+select O.OBJECT_ID
+from   DBA_OBJECTS O
+where  O.DATA_OBJECT_ID is not null
+  and  O.OBJECT_TYPE like 'TABLE%'
+  and  O.TEMPORARY='N';
+	 */
+	public static final String OBJECT_IDS_NON_CDB =
+			"select O.OBJECT_ID\n" +
+			"from   DBA_OBJECTS O\n" +
+			"where  O.DATA_OBJECT_ID is not null\n" +
+			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"  and  O.TEMPORARY='N'\n";
+
+	/*
+select O.OBJECT_ID
+from   CDB_OBJECTS O
+where  O.DATA_OBJECT_ID is not null
+  and  O.OBJECT_TYPE like 'TABLE%'
+  and  O.TEMPORARY='N'
+  and  O.CON_ID > 2
+	 */
+	public static final String OBJECT_IDS_CDB =
+			"select O.OBJECT_ID\n" +
+			"from   CDB_OBJECTS O\n" +
+			"where  O.DATA_OBJECT_ID is not null\n" +
+			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"  and  O.TEMPORARY='N'\n" +
+			"  and  O.CON_ID > 2\n";
+
+	/*
+select B.OBJECT_ID
+from   DBA_OBJECTS O, CDB_LOBS L, DBA_OBJECTS B 
+where  B.OWNER=L.OWNER
+  and  B.OBJECT_NAME=L.SEGMENT_NAME
+  and  O.OWNER=L.OWNER
+  and  O.OBJECT_NAME=L.TABLE_NAME
+  and  O.DATA_OBJECT_ID is not null
+  and  O.OBJECT_TYPE like 'TABLE%'
+  and  O.TEMPORARY='N'
+  	 */
+	public static final String LOB_IDS_NON_CDB =
+			"select B.OBJECT_ID\n" +
+			"from   DBA_OBJECTS O, CDB_LOBS L, DBA_OBJECTS B \n" +
+			"where  B.OWNER=L.OWNER\n" +
+			"  and  B.OBJECT_NAME=L.SEGMENT_NAME\n" +
+			"  and  O.OWNER=L.OWNER\n" +
+			"  and  O.OBJECT_NAME=L.TABLE_NAME\n" +
+			"  and  O.DATA_OBJECT_ID is not null\n" +
+			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"  and  O.TEMPORARY='N'\n";
+
+	/*
+select B.OBJECT_ID
+from   CDB_OBJECTS O, CDB_LOBS L, CDB_OBJECTS B 
+where  B.OWNER=L.OWNER
+  and  B.OBJECT_NAME=L.SEGMENT_NAME
+  and  B.CON_ID=L.CON_ID
+  and  O.OWNER=L.OWNER
+  and  O.OBJECT_NAME=L.TABLE_NAME
+  and  O.CON_ID=L.CON_ID
+  and  O.DATA_OBJECT_ID is not null
+  and  O.OBJECT_TYPE like 'TABLE%'
+  and  O.TEMPORARY='N'
+  and  O.CON_ID > 2
+	 */
+	public static final String LOB_IDS_CDB =
+			"select B.OBJECT_ID\n" +
+			"from   CDB_OBJECTS O, CDB_LOBS L, CDB_OBJECTS B \n" +
+			"where  B.OWNER=L.OWNER\n" +
+			"  and  B.OBJECT_NAME=L.SEGMENT_NAME\n" +
+			"  and  B.CON_ID=L.CON_ID\n" +
+			"  and  O.OWNER=L.OWNER\n" +
+			"  and  O.OBJECT_NAME=L.TABLE_NAME\n" +
+			"  and  O.CON_ID=L.CON_ID\n" +
+			"  and  O.DATA_OBJECT_ID is not null\n" +
+			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"  and  O.TEMPORARY='N'\n" +
+			"  and  O.CON_ID > 2\n";
+
 }
 
 

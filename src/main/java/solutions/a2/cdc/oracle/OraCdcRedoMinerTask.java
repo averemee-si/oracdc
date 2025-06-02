@@ -84,7 +84,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			if (includeList != null && includeList.size() > 0) {
 				final String tableList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
 				includeObjIds = rdbmsInfo.getMineObjectsIds(
-						false, tableList, connDictionary);
+						false, tableList, connDictionary, processLobs);
 				if (includeObjIds == null || includeObjIds.length == 0) {
 						LOGGER.error("a2.include parameter set to {} but there are no tables matching this condition.\nExiting.",
 								StringUtils.join(config.includeObj(), ","));
@@ -96,7 +96,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			if (excludeList != null && excludeList.size() > 0) {
 				excludeObjIds = rdbmsInfo.getMineObjectsIds(true,
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList),
-							connDictionary);
+							connDictionary, processLobs);
 				if (excludeObjIds == null || excludeObjIds.length == 0) {
 						LOGGER.error("a2.exclude parameter set to {} but there are no tables matching this condition.\nExiting.",
 								StringUtils.join(config.excludeObj(), ","));
