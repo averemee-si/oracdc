@@ -47,6 +47,7 @@ import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraIntervalDS;
 import solutions.a2.cdc.oracle.data.OraIntervalYM;
+import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
@@ -91,6 +92,7 @@ public class OraColumn {
 	private static final String TYPE_CLOB = "CLOB";
 	private static final String TYPE_NCLOB = "NCLOB";
 	private static final String TYPE_XMLTYPE = "XMLTYPE";
+	private static final String TYPE_JSON = "JSON";
 
 	private String columnName;
 	private int columnId;
@@ -301,6 +303,10 @@ public class OraColumn {
 			nullable = true;
 			defaultValuePresent = false;
 			detectTypeAndSchema(TYPE_XMLTYPE, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_JSON)) {
+			nullable = true;
+			defaultValuePresent = false;
+			detectTypeAndSchema(TYPE_JSON, false, useOracdcSchemas, dataPrecision);
 		} else {
 			throw new UnsupportedColumnDataTypeException("Unable to parse DDL statement\n'" +
 												originalDdl + "'\nUnsupported datatype");
@@ -374,7 +380,6 @@ public class OraColumn {
 		} else if (StringUtils.startsWith(oraType, "INTERVAL")) {
 			if (StringUtils.contains(oraType, "TO MONTH")) {
 				if (useOracdcSchemas) {
-					;
 					jdbcType = OracleTypes.INTERVALYM;
 					if (partOfPk || !nullable) {
 						schema = OraIntervalYM.builder().required().build();
@@ -523,6 +528,14 @@ public class OraColumn {
 					jdbcType = Types.SQLXML;
 					if (mviewSource) {
 						stringField();
+					}
+					break;
+				case TYPE_JSON:
+					jdbcType = OracleTypes.JSON;
+					if (mviewSource) {
+						stringField();
+					} else {
+						schema = OraJson.schema();
 					}
 					break;
 				default:

@@ -76,7 +76,7 @@ select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE
 	   and  TC.COLUMN_NAME=C.COLUMN_NAME and TC.COLUMN_NAME not like '%$$') PK
 from   ALL_TAB_COLUMNS C
 where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
-  and    (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%');
+  and    (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON') or C.DATA_TYPE like 'TIMESTAMP%');
 	 */
 	public static final String COLUMN_LIST_MVIEW =
 			"select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,\n" +
@@ -87,7 +87,7 @@ where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
 			"	    and  TC.COLUMN_NAME=C.COLUMN_NAME and TC.COLUMN_NAME not like '%$$') PK\n" +
 			"from   ALL_TAB_COLUMNS C\n" +
 			"where  C.OWNER=? and C.TABLE_NAME=?\n" +
-			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
+			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON') or C.DATA_TYPE like 'TIMESTAMP%')";
 
 	/* CDB_ views in Oracle does not support LONG data type required for DATA_DEFAULT column */
 	/* Single SQL statement is used for non-CDB and CDB database but for CDB */
@@ -98,7 +98,7 @@ select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE
 from   DBA_TAB_COLS C
 where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))
   and  C.OWNER='SCOTT' and C.TABLE_NAME='EMP'
-  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB')
+  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON')
        or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'
        or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))
 order by C.COLUMN_ID;
@@ -109,7 +109,7 @@ order by C.COLUMN_ID;
 			"from   DBA_TAB_COLS C\n" +
 			"where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))\n" +
 			"  and  C.OWNER=? and C.TABLE_NAME=?\n" +
-			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB')\n" +
+			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON')\n" +
 			"       or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'\n" +
 			"       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))\n" +
 			"order by C.COLUMN_ID\n";

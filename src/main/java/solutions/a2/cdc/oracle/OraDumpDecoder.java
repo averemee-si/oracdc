@@ -15,14 +15,21 @@ package solutions.a2.cdc.oracle;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Hashtable;
 
+import org.apache.kafka.connect.data.Struct;
+
 import oracle.sql.BINARY_DOUBLE;
 import oracle.sql.BINARY_FLOAT;
 import oracle.sql.NUMBER;
+import oracle.sql.json.OracleJsonException;
+import oracle.sql.json.OracleJsonFactory;
+import oracle.sql.json.OracleJsonParser;
+import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
@@ -44,6 +51,7 @@ public class OraDumpDecoder {
 
 	private final String nlsCharacterSet;
 	private final String nlsNcharCharacterSet;
+	private final OracleJsonFactory jsonFactory;
 
 	private final static Hashtable<String, String> charsetMap = new Hashtable<>();
 	private static final char[] HEX_CHARS_UPPER = new char[]
@@ -57,6 +65,7 @@ public class OraDumpDecoder {
 	public OraDumpDecoder(final String nlsCharacterSet, final String nlsNcharCharacterSet) {
 		this.nlsCharacterSet = charsetMap.get(nlsCharacterSet);
 		this.nlsNcharCharacterSet = charsetMap.get(nlsNcharCharacterSet);
+		this.jsonFactory = new OracleJsonFactory();
 	}
 
 	public static float fromBinaryFloat(final String hex) throws SQLException {
@@ -239,6 +248,24 @@ public class OraDumpDecoder {
 		}
 		sb.append("')");
 		return sb.toString();
+	}
+
+	public Struct toOraJson(final byte[] data) throws SQLException {
+		return toOraJson(data, 0, data.length);
+	}
+
+	public Struct toOraJson(final byte[] data, final int off, final int len) throws SQLException {
+		try (OracleJsonParser parser =
+				jsonFactory.createJsonBinaryParser(
+						ByteBuffer.wrap(data, off, len))) {
+			parser.next();
+			final Struct json = new Struct(OraJson.schema());
+			json.put("V", parser.getValue().toString());
+			return json;
+		} catch(OracleJsonException oje) {
+			throw new SQLException(oje);
+		}
+
 	}
 
 	static {
