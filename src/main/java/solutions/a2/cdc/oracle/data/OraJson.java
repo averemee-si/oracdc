@@ -29,7 +29,7 @@ import static org.apache.kafka.connect.data.Schema.OPTIONAL_STRING_SCHEMA;
  */
 public class OraJson {
 
-	public static final String LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraJson";
+	public static final String LOGICAL_NAME = "solutions.a2.OraJson";
 	public static final Struct NULL = new Struct(schema());
 
 	public static SchemaBuilder builder() {
