@@ -18,22 +18,21 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 
 /**
  * 
- * Representation of Oracle Binary XML (default storage for XMLType) for Kafka Connect
- * https://docs.oracle.com/en/database/oracle/oracle-database/21/adxdb/intro-to-XML-DB.html#GUID-B8507F44-B010-4384-94E6-101131DD7D88
+ * Representation of <a href="https://docs.oracle.com/en/database/oracle/oracle-database/23/adxdb/intro-to-XML-DB.html">Oracle XML</a> for Kafka Connect
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraXmlBinary {
+public class OraXml {
 
-	public static final String LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraXmlBinary";
+	public static final String LOGICAL_NAME = "solutions.a2.OraXml";
 
 	public static SchemaBuilder builder() {
 		return SchemaBuilder.string()
 				.optional()
 				.name(LOGICAL_NAME)
 				.version(1)
-				.doc("Oracle binary XML (BLOB)");
+				.doc("Oracle XML");
 	}
 
 	public static Schema schema() {

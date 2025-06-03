@@ -50,7 +50,7 @@ import solutions.a2.cdc.oracle.data.OraIntervalYM;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
-import solutions.a2.cdc.oracle.data.OraXmlBinary;
+import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
@@ -602,7 +602,7 @@ public class OraColumn {
 				case OraNClob.LOGICAL_NAME:
 					jdbcType = Types.NCLOB;
 					break;
-				case OraXmlBinary.LOGICAL_NAME:
+				case OraXml.LOGICAL_NAME:
 					jdbcType = Types.SQLXML;
 					break;
 				case OraIntervalYM.LOGICAL_NAME:
@@ -734,7 +734,7 @@ public class OraColumn {
 			valueSchema.field(this.columnName, OraBlob.schema());
 			break;
 		case Types.SQLXML:
-			valueSchema.field(this.columnName, OraXmlBinary.schema());
+			valueSchema.field(this.columnName, OraXml.schema());
 			break;
 		default:
 			throw new SQLException("Unsupported JDBC type " +

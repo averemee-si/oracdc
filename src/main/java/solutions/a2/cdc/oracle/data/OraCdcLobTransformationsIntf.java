@@ -46,7 +46,7 @@ public interface OraCdcLobTransformationsIntf {
 			valueSchema.field(columnName, OraBlob.schema());
 			break;
 		case SQLXML:
-			valueSchema.field(columnName, OraXmlBinary.schema());
+			valueSchema.field(columnName, OraXml.schema());
 			break;
 		case CLOB:
 			valueSchema.field(columnName, OraClob.schema());

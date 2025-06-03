@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.data.OraBlob;
-import solutions.a2.cdc.oracle.data.OraXmlBinary;
+import solutions.a2.cdc.oracle.data.OraXml;
 
 /**
  *  
@@ -53,7 +53,7 @@ public class JdbcSinkSqlInsertTest {
 
 		final Field deptCodePdf = new Field("DEPT_CODE_PDF", 2, OraBlob.builder().build());
 		final Field deptCodeDocx = new Field("DEPT_CODE_DOCX", 2, OraBlob.builder().build());
-		final Field deptCodeXml = new Field("DEPT_CODE_XML", 2, OraXmlBinary.builder().build());
+		final Field deptCodeXml = new Field("DEPT_CODE_XML", 2, OraXml.builder().build());
 		final List<Field> lobFields = new ArrayList<>();
 		lobFields.add(deptCodePdf);
 		lobFields.add(deptCodeDocx);

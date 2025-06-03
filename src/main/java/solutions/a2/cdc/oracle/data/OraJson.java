@@ -21,8 +21,7 @@ import static org.apache.kafka.connect.data.Schema.OPTIONAL_STRING_SCHEMA;
 
 /**
  * 
- * Representation of Oracle JSON (ID=119) for Kafka Connect
- * https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Data-Types.html#GUID-E441F541-BA31-4E8C-B7B4-D2FB8C42D0DF
+ * Representation of <a href="https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Data-Types.html#GUID-E441F541-BA31-4E8C-B7B4-D2FB8C42D0DF">Oracle JSON</a> (ID=119) for Kafka Connect
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
