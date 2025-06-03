@@ -182,10 +182,10 @@ public class OraCdcChangeLlb extends OraCdcChange {
 
 	public short[][] columnMap() {
 		if (hasXmlType) {
-			final int offset = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[7][0])) - 1;
 			final short[] colIds = lobColumnIds();
 			final short[] intColIds = lobIntColIds();
-			if (offset < 0 || (colIds.length -offset) != intColIds.length) {
+			final int offset = colIds.length - intColIds.length;
+			if (offset < 0) {
 				LOGGER.error(
 						"\n=====================\n" +
 						"Unable to map internal COLUMN_ID's for 11.17 (LLB) Type 4 #{} at RBA {} in '{}'.\n" +
