@@ -18,7 +18,6 @@ import java.nio.ByteBuffer;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -40,22 +39,49 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
-import oracle.jdbc.OracleTypes;
 import oracle.sql.NUMBER;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraIntervalDS;
 import solutions.a2.cdc.oracle.data.OraIntervalYM;
+import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.data.OraXml;
-import solutions.a2.cdc.oracle.schema.JdbcTypes;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
 import solutions.a2.utils.ExceptionUtils;
+
+import static java.sql.Types.NULL;
+import static java.sql.Types.BOOLEAN;
+import static java.sql.Types.TINYINT;
+import static java.sql.Types.SMALLINT;
+import static java.sql.Types.INTEGER;
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.FLOAT;
+import static java.sql.Types.DOUBLE;
+import static java.sql.Types.DECIMAL;
+import static java.sql.Types.NUMERIC;
+import static java.sql.Types.DATE;
+import static java.sql.Types.TIMESTAMP;
+import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
+import static java.sql.Types.VARCHAR;
+import static java.sql.Types.CHAR;
+import static java.sql.Types.NVARCHAR;
+import static java.sql.Types.NCHAR;
+import static java.sql.Types.BINARY;
+import static java.sql.Types.ROWID;
+import static java.sql.Types.BLOB;
+import static java.sql.Types.CLOB;
+import static java.sql.Types.NCLOB;
+import static java.sql.Types.SQLXML;
+import static oracle.jdbc.OracleTypes.INTERVALDS;
+import static oracle.jdbc.OracleTypes.INTERVALYM;
+import static oracle.jdbc.OracleTypes.JSON;
+import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
 
 /**
  * 
@@ -360,26 +386,26 @@ public class OraColumn {
 					// 231:
 					// TIMESTAMP [(fractional_seconds)] WITH LOCAL TIME ZONE
 					localTimeZone = true;
-					jdbcType = Types.TIMESTAMP_WITH_TIMEZONE;
+					jdbcType = TIMESTAMP_WITH_TIMEZONE;
 					oraTimestampField();
 				} else if (StringUtils.endsWith(oraType, "WITH TIME ZONE")) {
 					// 181: TIMESTAMP [(fractional_seconds)] WITH TIME ZONE
 					localTimeZone = false;
-					jdbcType = Types.TIMESTAMP_WITH_TIMEZONE;
+					jdbcType = TIMESTAMP_WITH_TIMEZONE;
 					oraTimestampField();
 				} else {
 					// 12: DATE, 180: TIMESTAMP [(fractional_seconds_precision)]
-					jdbcType = Types.TIMESTAMP;
+					jdbcType = TIMESTAMP;
 					timestampField();
 				}
 			} else {
-				jdbcType = Types.TIMESTAMP;
+				jdbcType = TIMESTAMP;
 				timestampField();
 			}
 		} else if (StringUtils.startsWith(oraType, "INTERVAL")) {
 			if (StringUtils.contains(oraType, "TO MONTH")) {
 				if (useOracdcSchemas) {
-					jdbcType = OracleTypes.INTERVALYM;
+					jdbcType = INTERVALYM;
 					if (partOfPk || !nullable) {
 						schema = OraIntervalYM.builder().required().build();
 					} else {
@@ -391,7 +417,7 @@ public class OraColumn {
 			} else {
 				// 'TO SECOND'
 				if (useOracdcSchemas) {
-					jdbcType = OracleTypes.INTERVALDS;
+					jdbcType = INTERVALDS;
 					if (partOfPk || !nullable) {
 						schema = OraIntervalDS.builder().required().build();
 					} else {
@@ -411,11 +437,11 @@ public class OraColumn {
 					// A FLOAT value requires from 1 to 22 bytes.
 					number = true;
 					if (useOracdcSchemas) {
-						jdbcType = Types.NUMERIC;
+						jdbcType = NUMERIC;
 						oraNumberField();
 					} else {
 						binaryFloatDouble = false;
-						jdbcType = Types.DOUBLE;
+						jdbcType = DOUBLE;
 						doubleField();
 					}
 					break;
@@ -431,35 +457,35 @@ public class OraColumn {
 						// OEBS and other legacy systems specific
 						// Can be Integer or decimal or float....
 						if (useOracdcSchemas) {
-							jdbcType = Types.NUMERIC;
+							jdbcType = NUMERIC;
 							oraNumberField();
 						} else {
 							binaryFloatDouble = false;
-							jdbcType = Types.DOUBLE;
+							jdbcType = DOUBLE;
 							doubleField();
 						}
 					} else if (dataScale == null || dataScale == 0) {
 						// Integer 
 						if (dataPrecision < 3) {
-							jdbcType = Types.TINYINT;
+							jdbcType = TINYINT;
 							byteField();
 						} else if (dataPrecision < 5) {
-							jdbcType = Types.SMALLINT;
+							jdbcType = SMALLINT;
 							shortField();
 						} else if (dataPrecision < 10) {
-							jdbcType = Types.INTEGER;
+							jdbcType = INTEGER;
 							intField();
 						} else if (dataPrecision < 19) {
-							jdbcType = Types.BIGINT;
+							jdbcType = BIGINT;
 							longField();
 						} else {
 							// Too big for BIGINT...
-							jdbcType = Types.DECIMAL;
+							jdbcType = DECIMAL;
 							decimalField(0);
 						}
 					} else {
 						// Decimal values
-						jdbcType = Types.DECIMAL;
+						jdbcType = DECIMAL;
 						decimalField(dataScale);
 					}
 					break;
@@ -468,65 +494,65 @@ public class OraColumn {
 				case TYPE_SMALLINT:
 					// NUMBER(38, 0)
 					if (useOracdcSchemas) {
-						jdbcType = Types.NUMERIC;
+						jdbcType = NUMERIC;
 						oraNumberField();
 					} else {
-						jdbcType = Types.DECIMAL;
+						jdbcType = DECIMAL;
 						decimalField(0);
 					}
 					break;
 				case TYPE_BINARY_FLOAT:
-					jdbcType = Types.FLOAT;
+					jdbcType = FLOAT;
 					binaryFloatDouble = true;
 					floatField();
 					break;
 				case TYPE_BINARY_DOUBLE:
-					jdbcType = Types.DOUBLE;
+					jdbcType = DOUBLE;
 					binaryFloatDouble = true;
 					doubleField();
 					break;
 				case TYPE_CHAR:
-					jdbcType = Types.CHAR;
+					jdbcType = CHAR;
 					stringField();
 					break;
 				case TYPE_NCHAR:
-					jdbcType = Types.NCHAR;
+					jdbcType = NCHAR;
 					stringField();
 					break;
 				case TYPE_VARCHAR2:
-					jdbcType = Types.VARCHAR;
+					jdbcType = VARCHAR;
 					stringField();
 					break;
 				case TYPE_NVARCHAR2:
-					jdbcType = Types.NVARCHAR;
+					jdbcType = NVARCHAR;
 					stringField();
 					break;
 				case TYPE_CLOB:
-					jdbcType = Types.CLOB;
+					jdbcType = CLOB;
 					if (mviewSource)
 						stringField();
 					break;
 				case TYPE_NCLOB:
-					jdbcType = Types.NCLOB;
+					jdbcType = NCLOB;
 					if (mviewSource)
 						stringField();
 					break;
 				case TYPE_RAW:
-					jdbcType = Types.BINARY;
+					jdbcType = BINARY;
 					bytesField();
 					break;
 				case TYPE_BLOB:
-					jdbcType = Types.BLOB;
+					jdbcType = BLOB;
 					if (mviewSource)
 						bytesField();
 					break;
 				case TYPE_XMLTYPE:
-					jdbcType = Types.SQLXML;
+					jdbcType = SQLXML;
 					if (mviewSource)
 						stringField();
 					break;
 				case TYPE_JSON:
-					jdbcType = OracleTypes.JSON;
+					jdbcType = JSON;
 					if (mviewSource)
 						stringField();
 					break;
@@ -554,70 +580,55 @@ public class OraColumn {
 		final String typeFromSchema = field.schema().type().getName().toUpperCase();
 		switch (typeFromSchema) {
 		case "INT8":
-			jdbcType = Types.TINYINT;
+			jdbcType = TINYINT;
 			break;
 		case "INT16":
-			jdbcType = Types.SMALLINT;
+			jdbcType = SMALLINT;
 			break;
 		case "INT32":
 			if (field.schema().name() != null && Date.LOGICAL_NAME.equals(field.schema().name())) {
-				jdbcType = Types.DATE;
+				jdbcType = DATE;
 			} else {
-				jdbcType = Types.INTEGER;
+				jdbcType = INTEGER;
 			}
 			break;
 		case "INT64":
 			if (field.schema().name() != null && Timestamp.LOGICAL_NAME.equals(field.schema().name())) {
-				jdbcType = Types.TIMESTAMP;
+				jdbcType = TIMESTAMP;
 			} else {
-				jdbcType = Types.BIGINT;
+				jdbcType = BIGINT;
 			}
 			break;
 		case "FLOAT32":
-			jdbcType = Types.FLOAT;
+			jdbcType = FLOAT;
 			break;
 		case "FLOAT64":
-			jdbcType = Types.DOUBLE;
+			jdbcType = DOUBLE;
 			break;
 		case "BYTES":
 			if (field.schema().name() != null) {
 				switch (field.schema().name()) {
 				case Decimal.LOGICAL_NAME:
-					jdbcType = Types.DECIMAL;
+					jdbcType = DECIMAL;
 					try {
 						dataScale = Integer.valueOf(field.schema().parameters().get(Decimal.SCALE_FIELD));
 					} catch (Exception e) {
 						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 					}
 					break;
-				case OraNumber.LOGICAL_NAME:
-					jdbcType = Types.NUMERIC;
-					break;
-				case OraBlob.LOGICAL_NAME:
-					jdbcType = Types.BLOB;
-					break;
-				case OraClob.LOGICAL_NAME:
-					jdbcType = Types.CLOB;
-					break;
-				case OraNClob.LOGICAL_NAME:
-					jdbcType = Types.NCLOB;
-					break;
-				case OraXml.LOGICAL_NAME:
-					jdbcType = Types.SQLXML;
-					break;
 				case OraIntervalYM.LOGICAL_NAME:
-					jdbcType = OracleTypes.INTERVALYM;
+					jdbcType = INTERVALYM;
 					break;
 				case OraIntervalDS.LOGICAL_NAME:
-					jdbcType = OracleTypes.INTERVALDS;
+					jdbcType = INTERVALDS;
 					break;
 				default:
 					LOGGER.error("Unknown logical name {} for BYTES Schema.", field.schema().name());
 					LOGGER.error("Setting column {} JDBC type to binary.", field.name());
-					jdbcType = Types.BINARY;
+					jdbcType = BINARY;
 				}
 			} else {
-				jdbcType = Types.BINARY;
+				jdbcType = BINARY;
 			}
 			if (Decimal.LOGICAL_NAME.equals(field.schema().name())) {
 			} else if (OraNumber.LOGICAL_NAME.equals(field.schema().name())) {
@@ -627,7 +638,7 @@ public class OraColumn {
 			if (field.schema().name() != null) {
 				switch (field.schema().name()) {
 				case  OraTimestamp.LOGICAL_NAME:
-					jdbcType = Types.TIMESTAMP_WITH_TIMEZONE;
+					jdbcType = TIMESTAMP_WITH_TIMEZONE;
 					break;
 				case OraInterval.LOGICAL_NAME:
 					jdbcType = JAVA_SQL_TYPE_INTERVALDS_STRING;
@@ -635,11 +646,34 @@ public class OraColumn {
 				default:
 					LOGGER.error("Unknown logical name {} for STRING Schema.", field.schema().name());
 					LOGGER.error("Setting column {} JDBC type to varchar.", field.name());
-					jdbcType = Types.VARCHAR;
+					jdbcType = VARCHAR;
 				}
 			} else {
-				jdbcType = Types.VARCHAR;
+				jdbcType = VARCHAR;
 			}
+			break;
+		case "STRUCT":
+			if (field.schema().name() != null)
+				switch (field.schema().name()) {
+				case OraNumber.LOGICAL_NAME:
+					jdbcType = NUMERIC;
+					break;
+				case OraBlob.LOGICAL_NAME:
+					jdbcType = BLOB;
+					break;
+				case OraClob.LOGICAL_NAME:
+					jdbcType = CLOB;
+					break;
+				case OraNClob.LOGICAL_NAME:
+					jdbcType = NCLOB;
+					break;
+				case OraXml.LOGICAL_NAME:
+					jdbcType = SQLXML;
+					break;
+				case OraJson.LOGICAL_NAME:
+					jdbcType = JSON;
+					break;
+				}
 			break;
 		default:
 			throw new SQLException("Not supported type '" + typeFromSchema + "'!");
@@ -670,70 +704,70 @@ public class OraColumn {
 		localTimeZone = (Boolean) columnData.get("localTimeZone");
 		
 		switch (jdbcType) {
-		case Types.DATE:
-		case Types.TIMESTAMP:
+		case DATE:
+		case TIMESTAMP:
 			timestampField(keySchema, valueSchema);
 			break;
-		case Types.TIMESTAMP_WITH_TIMEZONE:
+		case TIMESTAMP_WITH_TIMEZONE:
 			if (localTimeZone == null) {
 				localTimeZone = false;
 			}
 			// This is only for oracdc extended types!!!
 			oraTimestampField(keySchema, valueSchema);
-		case Types.TINYINT:
+		case TINYINT:
 			byteField(keySchema, valueSchema);
 			break;
-		case Types.SMALLINT:
+		case SMALLINT:
 			shortField(keySchema, valueSchema);
 			break;
-		case Types.INTEGER:
+		case INTEGER:
 			intField(keySchema, valueSchema);
 			break;
-		case Types.BIGINT:
+		case BIGINT:
 			longField(keySchema, valueSchema);
 			break;
-		case Types.DECIMAL:
+		case DECIMAL:
 			if (dataScale == null) {
 				dataScale = 0;
 			}
 			decimalField(dataScale, keySchema, valueSchema);
 			break;
-		case Types.NUMERIC:
+		case NUMERIC:
 			// This is only for oracdc extended types!!!
 			oraNumberField(keySchema, valueSchema);
 			break;
-		case Types.FLOAT:
+		case FLOAT:
 			if (binaryFloatDouble == null) {
 				binaryFloatDouble = false;
 			}
 			floatField(keySchema, valueSchema);
 			break;
-		case Types.DOUBLE:
+		case DOUBLE:
 			if (binaryFloatDouble == null) {
 				binaryFloatDouble = false;
 			}
 			doubleField(keySchema, valueSchema);
 			break;
-		case Types.BINARY:
+		case BINARY:
 			bytesField(keySchema, valueSchema);
 			break;
-		case Types.CHAR:
-		case Types.VARCHAR:
-		case Types.NCHAR:
-		case Types.NVARCHAR:
-		case Types.ROWID:
+		case CHAR:
+		case VARCHAR:
+		case NCHAR:
+		case NVARCHAR:
+		case ROWID:
 			stringField(keySchema, valueSchema);
 			break;
-		case Types.CLOB:
+		case CLOB:
 			valueSchema.field(this.columnName, OraClob.schema());
 			break;
-		case Types.NCLOB:
+		case NCLOB:
 			valueSchema.field(this.columnName, OraNClob.schema());
 			break;
-		case Types.BLOB:
+		case BLOB:
 			valueSchema.field(this.columnName, OraBlob.schema());
 			break;
-		case Types.SQLXML:
+		case SQLXML:
 			valueSchema.field(this.columnName, OraXml.schema());
 			break;
 		default:
@@ -792,38 +826,38 @@ public class OraColumn {
 	}
 
 	public void remap(final OraColumn newDef) {
-		if (newDef.jdbcType != Types.NULL && jdbcType != newDef.jdbcType) {
+		if (newDef.jdbcType != NULL && jdbcType != newDef.jdbcType) {
 			jdbcType = newDef.jdbcType;
 			switch (jdbcType) {
-			case Types.BOOLEAN:
+			case BOOLEAN:
 				schema = nullable ? Schema.OPTIONAL_BOOLEAN_SCHEMA :
 									Schema.BOOLEAN_SCHEMA;
 				break;
-			case Types.TINYINT:
+			case TINYINT:
 				schema = nullable ? Schema.OPTIONAL_INT8_SCHEMA :
 									Schema.INT8_SCHEMA;
 				break;
-			case Types.SMALLINT:
+			case SMALLINT:
 				schema = nullable ? Schema.OPTIONAL_INT16_SCHEMA :
 									Schema.INT16_SCHEMA;
 				break;
-			case Types.INTEGER:
+			case INTEGER:
 				schema = nullable ? Schema.OPTIONAL_INT32_SCHEMA :
 									Schema.INT32_SCHEMA;
 				break;
-			case Types.BIGINT:
+			case BIGINT:
 				schema = nullable ? Schema.OPTIONAL_INT64_SCHEMA :
 									Schema.INT64_SCHEMA;
 				break;
-			case Types.FLOAT:
+			case FLOAT:
 				schema = nullable ? Schema.OPTIONAL_FLOAT32_SCHEMA :
 									Schema.FLOAT32_SCHEMA;
 				break;
-			case Types.DOUBLE:
+			case DOUBLE:
 				schema = nullable ? Schema.OPTIONAL_FLOAT64_SCHEMA :
 									Schema.FLOAT64_SCHEMA;
 				break;
-			case Types.DECIMAL:
+			case DECIMAL:
 				schema = optionalOrRequired(Decimal.builder(newDef.dataScale));
 				break;
 			}
@@ -834,7 +868,7 @@ public class OraColumn {
 	 * New Style call... ... ...
 	 */
 	public static OraColumn getRowIdKey() {
-		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, true, Types.ROWID, false);
+		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, true, ROWID, false);
 		return rowIdColumn;
 	}
 
@@ -944,10 +978,10 @@ public class OraColumn {
 			//TODO
 			try {
 				switch (jdbcType) {
-				case Types.CHAR:
-				case Types.VARCHAR:
-				case Types.NCHAR:
-				case Types.NVARCHAR:
+				case CHAR:
+				case VARCHAR:
+				case NCHAR:
+				case NVARCHAR:
 					if (StringUtils.startsWith(defaultValue, "'") &&
 						StringUtils.endsWith(defaultValue, "'")) {
 						typedDefaultValue = StringUtils.substringBetween(defaultValue, "'", "'");
@@ -956,28 +990,28 @@ public class OraColumn {
 						typedDefaultValue = defaultValue;
 					}
 					break;
-				case Types.TINYINT:
+				case TINYINT:
 					typedDefaultValue = Byte.parseByte(defaultValue);
 					break;
-				case Types.SMALLINT:
+				case SMALLINT:
 					typedDefaultValue = Short.parseShort(defaultValue);
 					break;
-				case Types.INTEGER:
+				case INTEGER:
 					typedDefaultValue = Integer.parseInt(defaultValue);
 					break;
-				case Types.BIGINT:
+				case BIGINT:
 					typedDefaultValue = Long.parseLong(defaultValue);
 					break;
-				case Types.FLOAT:
+				case FLOAT:
 					typedDefaultValue = Float.parseFloat(defaultValue);
 					break;
-				case Types.DOUBLE:
+				case DOUBLE:
 					typedDefaultValue = Double.parseDouble(defaultValue);
 					break;
-				case Types.DECIMAL:
+				case DECIMAL:
 					typedDefaultValue = (new BigDecimal(defaultValue)).setScale(dataScale);
 					break;
-				case Types.NUMERIC:
+				case NUMERIC:
 					try {
 						typedDefaultValue = (new NUMBER(defaultValue, 10)).getBytes();
 					} catch (SQLException sqle) {
@@ -987,12 +1021,12 @@ public class OraColumn {
 					break;
 				default:
 					LOGGER.error("Default value {} for column {} with type {} currently is not supported!",
-						defaultValue, columnName, JdbcTypes.getTypeName(jdbcType));
+						defaultValue, columnName, getTypeName(jdbcType));
 					typedDefaultValue = null;
 				}
 			} catch (NumberFormatException nfe) {
 				LOGGER.error("Invalid number value {} for column {} with type {}!\nSetting it to null!!!",
-						defaultValue, columnName, JdbcTypes.getTypeName(jdbcType));
+						defaultValue, columnName, getTypeName(jdbcType));
 				typedDefaultValue = null;
 			}
 			return typedDefaultValue;
@@ -1063,38 +1097,38 @@ public class OraColumn {
 			statement.setNull(columnNo, jdbcType);
 		} else {
 			switch (jdbcType) {
-			case Types.DATE:
+			case DATE:
 				statement.setDate(columnNo, new java.sql.Date(((java.util.Date) columnValue).getTime()));
 				break;
-			case Types.TIMESTAMP:
+			case TIMESTAMP:
 				statement.setTimestamp(columnNo, new java.sql.Timestamp(((java.util.Date) columnValue).getTime()));
 				break;
-			case Types.TIMESTAMP_WITH_TIMEZONE:
+			case TIMESTAMP_WITH_TIMEZONE:
 				statement.setObject(columnNo, OraTimestamp.toLogical((String) columnValue));
 				break;
-			case Types.BOOLEAN:
+			case BOOLEAN:
 				statement.setBoolean(columnNo, (boolean) columnValue);
 				break;
-			case Types.TINYINT:
+			case TINYINT:
 				statement.setByte(columnNo, (Byte) columnValue);
 				break;
-			case Types.SMALLINT:
+			case SMALLINT:
 				statement.setShort(columnNo, (Short) columnValue);
 				break;
-			case Types.INTEGER:
+			case INTEGER:
 				statement.setInt(columnNo, (Integer) columnValue);
 				break;
-			case Types.BIGINT:
+			case BIGINT:
 				try {
 					statement.setLong(columnNo, (Long) columnValue);
 				} catch (ClassCastException cce) {
 					statement.setLong(columnNo, (Integer) columnValue);
 				}
 				break;
-			case Types.FLOAT:
+			case FLOAT:
 				if (Float.NEGATIVE_INFINITY == (float) columnValue) {
 					if (nullable) {
-						statement.setNull(columnNo, Types.FLOAT);
+						statement.setNull(columnNo, FLOAT);
 						LOGGER.error(
 								"\n=====================\n" +
 								"Negative float infinity value for nullable column '{}' at position # {}!\n" +
@@ -1113,10 +1147,10 @@ public class OraColumn {
 					statement.setFloat(columnNo, (float) columnValue);
 				}
 				break;
-			case Types.DOUBLE:
+			case DOUBLE:
 				if (Double.NEGATIVE_INFINITY == (double) columnValue) {
 					if (nullable) {
-						statement.setNull(columnNo, Types.DOUBLE);
+						statement.setNull(columnNo, DOUBLE);
 						LOGGER.error(
 								"\n=====================\n" +
 								"Negative double infinity value for nullable column '{}' at position # {}!\n" +
@@ -1135,10 +1169,10 @@ public class OraColumn {
 					statement.setDouble(columnNo, (double) columnValue);
 				}
 				break;
-			case Types.DECIMAL:
+			case DECIMAL:
 				statement.setBigDecimal(columnNo, (BigDecimal) columnValue);
 				break;
-			case Types.NUMERIC:
+			case NUMERIC:
 				byte[] ba;
 				boolean setNull = false;
 				if (columnValue instanceof ByteBuffer) {
@@ -1167,16 +1201,16 @@ public class OraColumn {
 						setNull = true;
 					}
 					if (setNull) {
-						statement.setNull(columnNo, Types.NUMERIC);
+						statement.setNull(columnNo, NUMERIC);
 					} else {
 						statement.setBigDecimal(columnNo, bd);
 					}
 				}
 				break;
-			case Types.BINARY:
+			case BINARY:
 				statement.setBytes(columnNo, ((ByteBuffer) columnValue).array());
 				break;
-			case Types.VARCHAR:
+			case VARCHAR:
 				// 0x00 PostgreSQL problem
 				if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
 					statement.setString(columnNo, StringUtils.replace((String) columnValue, "\0", StringUtils.EMPTY));
@@ -1186,8 +1220,8 @@ public class OraColumn {
 				break;
 			default:
 				LOGGER.error("Unsupported data type {} for column {}.",
-						JdbcTypes.getTypeName(jdbcType), columnName);
-				throw new SQLException("Unsupported data type: " + JdbcTypes.getTypeName(jdbcType));
+						getTypeName(jdbcType), columnName);
+				throw new SQLException("Unsupported data type: " + getTypeName(jdbcType));
 			}
 		}
 	}
@@ -1572,48 +1606,48 @@ public class OraColumn {
 	public boolean setValueFromResultSet(
 			final Struct struct, final ResultSet resultSet) throws SQLException  {
 		switch (jdbcType) {
-		case Types.DATE:
-		case Types.TIMESTAMP:
-		case Types.TIMESTAMP_WITH_TIMEZONE:
+		case DATE:
+		case TIMESTAMP:
+		case TIMESTAMP_WITH_TIMEZONE:
 			struct.put(columnName, resultSet.getTimestamp(columnName));
 			break;
-		case Types.BOOLEAN:
+		case BOOLEAN:
 			struct.put(columnName, resultSet.getBoolean(columnName));
 			break;
-		case Types.TINYINT:
+		case TINYINT:
 			struct.put(columnName, resultSet.getByte(columnName));
 			break;
-		case Types.SMALLINT:
+		case SMALLINT:
 			struct.put(columnName, resultSet.getShort(columnName));
 			break;
-		case Types.INTEGER:
+		case INTEGER:
 			struct.put(columnName, resultSet.getInt(columnName));
 			break;
-		case Types.BIGINT:
+		case BIGINT:
 			struct.put(columnName, resultSet.getLong(columnName));
 			break;
-		case Types.FLOAT:
+		case FLOAT:
 			struct.put(columnName, resultSet.getFloat(columnName));
 			break;
-		case Types.DOUBLE:
+		case DOUBLE:
 			struct.put(columnName, resultSet.getDouble(columnName));
 			break;
-		case Types.DECIMAL:
+		case DECIMAL:
 			struct.put(columnName, resultSet.getBigDecimal(columnName));
 			break;
-		case Types.NUMERIC:
+		case NUMERIC:
 			struct.put(columnName, ((OracleResultSet) resultSet).getNUMBER(columnName).getBytes());
 			break;
-		case Types.BINARY:
+		case BINARY:
 			struct.put(columnName, resultSet.getBytes(columnName));
 			break;
-		case Types.VARCHAR:
+		case VARCHAR:
 			struct.put(columnName, resultSet.getString(columnName));
 			break;
 		default:
 			LOGGER.error("Unsupported data type {} for column {}.",
-					JdbcTypes.getTypeName(jdbcType), columnName);
-			throw new SQLException("Unsupported data type: " + JdbcTypes.getTypeName(jdbcType));
+					getTypeName(jdbcType), columnName);
+			throw new SQLException("Unsupported data type: " + getTypeName(jdbcType));
 		}
 		return !resultSet.wasNull();
 	}

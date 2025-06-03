@@ -48,7 +48,6 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import oracle.jdbc.OracleTypes;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.data.OraInterval;
-import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.kafka.ConnectorParams;
@@ -117,7 +116,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private static final int DATE_DATA_LENGTH = OracleDate.DATA_LENGTH * 2;
 	private static final int TS_DATA_LENGTH = OracleTimestamp.DATA_LENGTH * 2;
-	private static final byte[] EMPTY_BYTES = {};
 
 	private final Map<String, OraColumn> idToNameMap;
 	private final Map<Integer, OraColumn> pureIdMap;
@@ -147,7 +145,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private boolean printUnableToDeleteWarning;
 	private boolean useOracdcSchemas = false;
 	private OraCdcPseudoColumnsProcessor pseudoColumns;
-	private Set<String> lobsInUpdate;
 	private final Set<Integer> setColumns = new HashSet<>();
 	private Set<Integer> lobColumnIds;
 	
@@ -495,10 +492,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							f.name(), f.schema().name() != null ? f.schema().name() : f.schema().toString()));
 				}
 			}
-			if (processLobs && withLobs)
-				lobsInUpdate = new HashSet<>();
-			else
-				lobsInUpdate = null;
 			if (isCdb) {
 			// Restore container in session
 				alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
@@ -2054,16 +2047,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (oraColumn != null) {
 					if (colSize < 0) {
 						try {
-							if (oraColumn.getJdbcType() == BLOB)
-								valueStruct.put(oraColumn.getColumnName(), EMPTY_BYTES);
-							else if (oraColumn.getJdbcType() == JSON)
-								valueStruct.put(oraColumn.getColumnName(), OraJson.NULL);
-							else if (oraColumn.getJdbcType() == CLOB ||
-									oraColumn.getJdbcType() == NCLOB ||
-									oraColumn.getJdbcType() == SQLXML)
-								valueStruct.put(oraColumn.getColumnName(), "");
-							else
-								valueStruct.put(oraColumn.getColumnName(), null);
+							valueStruct.put(oraColumn.getColumnName(), null);
 						} catch (DataException de) {
 							if (StringUtils.containsIgnoreCase(de.getMessage(), "null used for required field")) {
 								if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
@@ -2141,16 +2125,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						final OraColumn oraColumn = pureIdMap.get(colDefs[i][0]);
 						if (colSize < 0) {
 							try {
-								if (oraColumn.getJdbcType() == BLOB)
-									valueStruct.put(oraColumn.getColumnName(), EMPTY_BYTES);
-								else if (oraColumn.getJdbcType() == JSON)
-									valueStruct.put(oraColumn.getColumnName(), OraJson.NULL);
-								else if (oraColumn.getJdbcType() == CLOB ||
-										oraColumn.getJdbcType() == NCLOB ||
-										oraColumn.getJdbcType() == SQLXML)
-									valueStruct.put(oraColumn.getColumnName(), "");
-								else
-									valueStruct.put(oraColumn.getColumnName(), null);
+								valueStruct.put(oraColumn.getColumnName(), null);
 							} catch (DataException de) {
 								printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 								throw de;
@@ -2225,24 +2200,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final int colSize = setColDefs[i][1];
 				final OraColumn oraColumn = pureIdMap.get(setColDefs[i][0]);
 				if (oraColumn != null) {
-					if (oraColumn.getJdbcType() == BLOB ||
-							oraColumn.getJdbcType() == CLOB ||
-							oraColumn.getJdbcType() == NCLOB ||
-							oraColumn.getJdbcType() == SQLXML) {
-						lobsInUpdate.add(oraColumn.getColumnName());
-					}
 					if (colSize < 0) {
 						try {
-							if (oraColumn.getJdbcType() == BLOB)
-								valueStruct.put(oraColumn.getColumnName(), EMPTY_BYTES);
-							else if (oraColumn.getJdbcType() == JSON)
-								valueStruct.put(oraColumn.getColumnName(), OraJson.NULL);
-							else if (oraColumn.getJdbcType() == CLOB ||
-									oraColumn.getJdbcType() == NCLOB ||
-									oraColumn.getJdbcType() == SQLXML)
-								valueStruct.put(oraColumn.getColumnName(), "");
-							else
-								valueStruct.put(oraColumn.getColumnName(), null);
+							valueStruct.put(oraColumn.getColumnName(), null);
 							setColumns.add(setColDefs[i][0]);
 						} catch (DataException de) {
 							if (!oraColumn.isDefaultValuePresent()) {
@@ -2405,19 +2365,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				}
 			}
 			//END: where clause processing...
-			if (processLobs && withLobs) {
-				if (lobsInUpdate.size() == 0) {
-					for (final OraColumn oraColumn : lobColumnsNames.values())
-						valueStruct.put(oraColumn.getColumnName(), null);
-				} else {
-					Set<String> untouchedLobs = new HashSet<>();
-					untouchedLobs.addAll(lobColumnsNames.keySet());
-					untouchedLobs.removeAll(lobsInUpdate);
-					for (final String columnName : untouchedLobs)
-						valueStruct.put(columnName, null);
-				}
-				lobsInUpdate.clear();
-			}
 		} else {
 			// We expect here only 1,2,3 as valid values for OPERATION_CODE (and 68 for special cases)
 			printErrorMessage(
@@ -2623,21 +2570,24 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							columnName, ll.lid(), ll.dataLength(), lobIds.contains(ll.lid()), rawToHex(Arrays.copyOfRange(data, offset, offset + length)));
 				if (lobIds.contains(ll.lid())) {
 					if (columnType == BLOB)
-						columnValue = cqTrans.getLob(ll);
+						columnValue = odd.toOraBlob(cqTrans.getLob(ll));
 					else if (oraColumn.getJdbcType() == JSON)
 						columnValue = odd.toOraJson(cqTrans.getLob(ll));
 					else if (columnType == CLOB || columnType == NCLOB)
-						columnValue = OraDumpDecoder.fromClobNclob(cqTrans.getLob(ll));
+						columnValue = odd.toOraClob(cqTrans.getLob(ll), columnType == CLOB); 
 					else
 						//SQLXML
 						columnValue = odd.toOraXml(cqTrans.getLob(ll), ll.type() == LobLocator.CLOB);
 				} else if (ll.dataLength() >= 0 && ll.dataInRow()) {
 					if (columnType == BLOB)
-						columnValue = Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length);
+						columnValue = odd.toOraBlob(
+								Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length));
 					else if (oraColumn.getJdbcType() == JSON)
-						columnValue = odd.toOraJson(Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length));
+						columnValue = odd.toOraJson(
+								Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length));
 					else if (columnType == CLOB || columnType == NCLOB)
-						columnValue = OraDumpDecoder.fromClobNclob(Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length));
+						columnValue = odd.toOraClob(
+								Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length), columnType == CLOB);
 					else {
 						//SQLXML
 						if (ll.type() == LobLocator.CLOB) {
@@ -2681,11 +2631,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								(lobColumnSchemas != null &&
 								lobColumnSchemas.containsKey(columnName))) {
 					// Data are overloaded
-					valueStruct.put(columnName,
-								transformLobs.transformData(
-										pdbName, tableOwner, tableName, oraColumn,
-										(byte[]) columnValue, keyStruct,
-										lobColumnSchemas.get(columnName)));
+					LOGGER.warn("LOB transformation not implemented yet!");
+//					valueStruct.put(columnName,
+//								transformLobs.transformData(
+//										pdbName, tableOwner, tableName, oraColumn,
+//										(byte[]) columnValue, keyStruct,
+//										lobColumnSchemas.get(columnName)));
 				} else {
 					valueStruct.put(columnName, columnValue);
 				}

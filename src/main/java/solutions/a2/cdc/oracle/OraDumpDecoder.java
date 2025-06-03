@@ -29,7 +29,10 @@ import oracle.sql.NUMBER;
 import oracle.sql.json.OracleJsonException;
 import oracle.sql.json.OracleJsonFactory;
 import oracle.sql.json.OracleJsonParser;
+import solutions.a2.cdc.oracle.data.OraBlob;
+import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraJson;
+import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
@@ -157,18 +160,6 @@ public class OraDumpDecoder {
 		}
 	}
 
-	public static String fromClobNclob(final byte[] ba) throws SQLException {
-		return fromClobNclob(ba, 0, ba.length);
-	}
-
-	public static String fromClobNclob(final byte[] ba, final int off, final int len) throws SQLException {
-		try {
-			return new String(ba, off, len, "UTF-16");
-		} catch (UnsupportedEncodingException e) {
-			throw new SQLException("Invalid encoding UTF-16 encoded CLOB/NCLOB for HEXTORAW " + rawToHex(ba) +  ".", e);
-		}
-	}
-
 	/**
 	 * 
 	 * Convert Oracle Type 12 dump to LocalDateTime
@@ -239,15 +230,27 @@ public class OraDumpDecoder {
 		return sb.toString();
 	}
 
-	public Struct toOraXml(final byte[] data, final boolean clob) throws SQLException {
-		return toOraXml(data, 0, data.length, clob);
+	public Struct toOraBlob(final byte[] data) {
+		final Struct lob = new Struct(OraBlob.schema());
+		lob.put("V",  data);
+		return lob;
 	}
 
-	public Struct toOraXml(final byte[] data, final int off, final int len, final boolean clob) throws SQLException {
+	public Struct toOraClob(final byte[] data, final boolean clob) throws SQLException {
+		final Struct lob = new Struct(clob ? OraClob.schema() : OraNClob.schema());
+		try {
+			lob.put("V",  new String(data, "UTF-16"));
+		} catch (UnsupportedEncodingException e) {
+			throw new SQLException("Invalid encoding for UTF-16 encoded XML for HEXTORAW " + rawToHex(data) +  ".", e);
+		}
+		return lob;
+	}
+
+	public Struct toOraXml(final byte[] data, final boolean clob) throws SQLException {
 		final Struct xml = new Struct(OraXml.schema());
 		if (clob) {
 			try {
-				xml.put("V",  new String(data, off, len, "UTF-16"));
+				xml.put("V",  new String(data, "UTF-16"));
 			} catch (UnsupportedEncodingException e) {
 				throw new SQLException("Invalid encoding for UTF-16 encoded XML for HEXTORAW " + rawToHex(data) +  ".", e);
 			}
@@ -256,7 +259,7 @@ public class OraDumpDecoder {
 			//TODO <?xml version="1.0" encoding="UTF-8"?>
 			String charsetName = "UTF-8";
 			try {
-				xml.put("V", new String(data, off, len, charsetName));
+				xml.put("V", new String(data, charsetName));
 			} catch (UnsupportedEncodingException e) {
 				throw new SQLException("Invalid encoding " + charsetName + " in binary XML for HEXTORAW " + rawToHex(data) +  ".", e);
 			}
@@ -265,13 +268,9 @@ public class OraDumpDecoder {
 	}
 
 	public Struct toOraJson(final byte[] data) throws SQLException {
-		return toOraJson(data, 0, data.length);
-	}
-
-	public Struct toOraJson(final byte[] data, final int off, final int len) throws SQLException {
 		try (OracleJsonParser parser =
 				jsonFactory.createJsonBinaryParser(
-						ByteBuffer.wrap(data, off, len))) {
+						ByteBuffer.wrap(data))) {
 			parser.next();
 			final Struct json = new Struct(OraJson.schema());
 			json.put("V", parser.getValue().toString());

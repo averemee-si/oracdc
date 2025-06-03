@@ -13,27 +13,31 @@
 
 package solutions.a2.cdc.oracle.data;
 
+import static org.apache.kafka.connect.data.Schema.OPTIONAL_STRING_SCHEMA;
+
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 
 /**
  * 
- * Representation of Oracle CLOB for Kafka Connect
- * 
+ * Representation of <a href="https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Data-Types.html">Oracle CLOB</a> for Kafka Connect
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraClob {
 
-	public static final String LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraClob";
+	public static final String LOGICAL_NAME = "solutions.a2.OraClob";
 
 	public static SchemaBuilder builder() {
-		return SchemaBuilder.string()
+		final SchemaBuilder builder = SchemaBuilder
+				.struct()
 				.optional()
 				.name(LOGICAL_NAME)
-				.version(1)
+				.version(2)
 				.doc("Oracle CLOB");
+		builder.field("V", OPTIONAL_STRING_SCHEMA);
+		return builder;
 	}
 
 	public static Schema schema() {
