@@ -331,8 +331,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 											Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1)) {
 									continue;
 								}
-							} else if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
-								continue;
+							} else {
+								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+									continue;
+							}
 							final short operation = record.change11_x().operation();
 							switch (operation) {
 							case _11_2_IRP:
@@ -367,14 +369,16 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							}
 							continue;
 						} else if (record.hasPrb() && record.has11_x()) {
-							if (staticObjIds &&
-									((includeFilter &&
-										Arrays.binarySearch(includeObjIds, record.changePrb().obj()) < 0) ||
+							if (staticObjIds) {
+								if ((includeFilter &&
+											Arrays.binarySearch(includeObjIds, record.changePrb().obj()) < 0) ||
 									(excludeFilter &&
-										Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1)))
-								continue;
-							else if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId()))
-								continue;
+											Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1))
+									continue;
+							} else {
+								if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId()))
+									continue;
+							}
 							boolean suspiciousRecord = false;
 							final Xid xid = record.xid();
 							OraCdcTransaction transaction = activeTransactions.get(xid);
@@ -440,28 +444,30 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(XID=NULL)", colb.operation(), record.rba());
 								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", colb.operation(), record.rba());
 							} else if (!colb.longDump() && record.hasKrvDlr10()) {
-								if (staticObjIds &&
-										((includeFilter &&
+								if (staticObjIds) {
+									if ((includeFilter &&
 											Arrays.binarySearch(includeObjIds, colb.obj()) < 0) ||
 										(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, colb.obj()) > -1)))
+											Arrays.binarySearch(excludeObjIds, colb.obj()) > -1))
 										continue;
-								else if (checker.notNeeded(colb.obj(), colb.conId()))
-									continue;
+								} else {
+									if (checker.notNeeded(colb.obj(), colb.conId()))
+										continue;
+								}
 								emitDirectBlockChange(getTransaction(record), record, colb);
-							} else {
-								LOGGER.warn("Skipping OP:{} at RBA {}", formatOpCode(record.changeKrvDlr10().operation()), record.rba());
-							}
+							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("", colb.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.hasLlb()) {
-							if (staticObjIds &&
-									((includeFilter &&
+							if (staticObjIds) {
+								if ((includeFilter &&
 										Arrays.binarySearch(includeObjIds, record.changeLlb().obj()) < 0) ||
 									(excludeFilter &&
-										Arrays.binarySearch(excludeObjIds, record.changeLlb().obj()) > -1)))
+										Arrays.binarySearch(excludeObjIds, record.changeLlb().obj()) > -1))
 									continue;
-							else if (checker.notNeeded(record.changeLlb().obj(), record.changeLlb().conId()))
-								continue;
+							} else {
+								if (checker.notNeeded(record.changeLlb().obj(), record.changeLlb().conId()))
+									continue;
+							}
 							final OraCdcChangeLlb llb = record.changeLlb();
 							final OraCdcTransactionChronicleQueue transaction =
 									(OraCdcTransactionChronicleQueue) getTransaction(record);
@@ -495,14 +501,16 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} else if (processLobs && record.hasKrvXml()) {
 							final OraCdcChangeKrvXml xml = record.changeKrvXml();
 							if (xml.type() == OraCdcChangeKrvXml.TYPE_XML_DOC) {
-								if (staticObjIds &&
-										((includeFilter &&
+								if (staticObjIds) {
+									if ((includeFilter &&
 											Arrays.binarySearch(includeObjIds, xml.obj()) < 0) ||
 										(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, xml.obj()) > -1)))
+											Arrays.binarySearch(excludeObjIds, xml.obj()) > -1))
 										continue;
-								else if (checker.notNeeded(xml.obj(), xml.conId()))
-									continue;
+								} else {
+									if (checker.notNeeded(xml.obj(), xml.conId()))
+										continue;
+								}
 								final OraCdcTransactionChronicleQueue transaction =
 										(OraCdcTransactionChronicleQueue) getTransaction(record);
 								final short xmlColId = intColumnId(xml.obj(), xml.internalColId(), false);
@@ -522,8 +530,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 											Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1)) {
 									continue;
 								}
-							} else if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
-								continue;
+							} else {
+								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+									continue;
+							}
 							final LobId lid = record.change26_x().lid();
 							final OraCdcTransactionChronicleQueue transaction = 
 									(OraCdcTransactionChronicleQueue) activeTransactions.get(record.xid());
@@ -537,18 +547,21 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.has26_x()) {
-							if (record.change26_x().obj() != 0) {
-								if (staticObjIds &&
-										((includeFilter &&
-											Arrays.binarySearch(includeObjIds, record.change26_x().obj()) < 0) ||
-										(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, record.change26_x().obj()) > -1)))
+							if (record.change26_x().dataObj() != 0) {
+								if (staticObjIds) {
+									if ((includeFilter &&
+												Arrays.binarySearch(includeObjIds, record.change26_x().dataObj()) < 0) ||
+											(excludeFilter &&
+												Arrays.binarySearch(excludeObjIds, record.change26_x().dataObj()) > -1))
+											continue;
+								} else {
+									//TODO - need to implement dynamic list support for standalone OP:26.6!
+									if (checker.notNeeded(record.change26_x().obj(), record.change26_x().conId()))
 										continue;
-								else if (checker.notNeeded(record.change26_x().obj(), record.change26_x().conId()))
-									continue;
+								}
 								final LobId lid = record.change26_x().lid();
 								if (lid != null) {
-									final Xid xid = transFromLobId.get(lid);
+									Xid xid = transFromLobId.get(lid);
 									if (xid != null) {
 										final OraCdcChangeLobs change = record.change26_x();
 										if (change.lobBimg()) {
@@ -561,7 +574,18 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 													false, (change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
 											} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
 										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(lobBimg()=false)", change.operation(), record.rba());
-									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(XID=NULL)", record.change26_x().operation(), record.rba());
+									} else {
+										//OP:26.6 without accompanying OP:11.17
+										final OraCdcChangeLobs change = record.change26_x();
+										if (change.lobBimg()) {
+											final OraCdcTransactionChronicleQueue transaction =
+													(OraCdcTransactionChronicleQueue) getTransaction(record);
+											final int[][] coords = change.coords();
+											transaction.writeLobChunk(
+													lid, change.dataObj(), change.record(), coords[LOB_BIMG_INDEX][0], coords[LOB_BIMG_INDEX][1],
+													(change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
+										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(lobBimg()=false)", change.operation(), record.rba());
+									}
 								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", record.change26_x().operation(), record.rba());
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(obj=0)", record.change26_x().operation(), record.rba());
 							continue;

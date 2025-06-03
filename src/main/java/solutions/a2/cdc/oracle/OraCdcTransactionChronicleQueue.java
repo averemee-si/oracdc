@@ -661,6 +661,21 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		}
 	}
 
+	public void writeLobChunk(final LobId lid, final int obj, final byte[] data, final int off, final int len, final boolean cmap) throws SQLException {
+		LobHolder holder = transLobs.get(lid);
+		if (holder == null) {
+			holder = new LobHolder(lid, obj, (short)0, lobsQueueDirectory);
+			transLobs.put(lid, holder);
+		}
+		holder.open(LOB_OP_WRITE);
+		try {
+			holder.write(data, off, len, false, cmap);
+			holder.close(len);	
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
+	}
+
 	private void closeLobFiles() {
 		for (LobHolder closeIt : transLobs.values())
 			if (closeIt.lastChunk != null) {
