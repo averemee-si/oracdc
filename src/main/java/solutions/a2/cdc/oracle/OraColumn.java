@@ -47,7 +47,6 @@ import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraIntervalDS;
 import solutions.a2.cdc.oracle.data.OraIntervalYM;
-import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
@@ -504,15 +503,13 @@ public class OraColumn {
 					break;
 				case TYPE_CLOB:
 					jdbcType = Types.CLOB;
-					if (mviewSource) {
+					if (mviewSource)
 						stringField();
-					}
 					break;
 				case TYPE_NCLOB:
 					jdbcType = Types.NCLOB;
-					if (mviewSource) {
+					if (mviewSource)
 						stringField();
-					}
 					break;
 				case TYPE_RAW:
 					jdbcType = Types.BINARY;
@@ -520,23 +517,18 @@ public class OraColumn {
 					break;
 				case TYPE_BLOB:
 					jdbcType = Types.BLOB;
-					if (mviewSource) {
+					if (mviewSource)
 						bytesField();
-					}
 					break;
 				case TYPE_XMLTYPE:
 					jdbcType = Types.SQLXML;
-					if (mviewSource) {
+					if (mviewSource)
 						stringField();
-					}
 					break;
 				case TYPE_JSON:
 					jdbcType = OracleTypes.JSON;
-					if (mviewSource) {
+					if (mviewSource)
 						stringField();
-					} else {
-						schema = OraJson.schema();
-					}
 					break;
 				default:
 					LOGGER.warn("Datatype {} for column {} is not supported!",

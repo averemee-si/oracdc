@@ -13,20 +13,25 @@
 
 package solutions.a2.cdc.oracle.data;
 
-import java.sql.Types;
-
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 
 import solutions.a2.cdc.oracle.OraColumn;
 
+import static java.sql.Types.BLOB;
+import static java.sql.Types.CLOB;
+import static java.sql.Types.NCLOB;
+import static java.sql.Types.SQLXML;
+import static oracle.jdbc.OracleTypes.JSON;
+
+
 /**
  * 
  * Interface for LOB/XMLTYPE transformations feature 
  * 
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public interface OraCdcLobTransformationsIntf {
@@ -37,17 +42,20 @@ public interface OraCdcLobTransformationsIntf {
 		// pass columns AS IS to valueSchema
 		final String columnName = lobColumn.getColumnName(); 
 		switch (lobColumn.getJdbcType()) {
-		case Types.BLOB:
-			valueSchema.field(columnName, OraBlob.builder().build());
+		case BLOB:
+			valueSchema.field(columnName, OraBlob.schema());
 			break;
-		case Types.SQLXML:
-			valueSchema.field(columnName, OraXmlBinary.builder().build());
+		case SQLXML:
+			valueSchema.field(columnName, OraXmlBinary.schema());
 			break;
-		case Types.CLOB:
-			valueSchema.field(columnName, OraClob.builder().build());
+		case CLOB:
+			valueSchema.field(columnName, OraClob.schema());
 			break;
-		case Types.NCLOB:
-			valueSchema.field(columnName, OraNClob.builder().build());
+		case NCLOB:
+			valueSchema.field(columnName, OraNClob.schema());
+			break;
+		case JSON:
+			valueSchema.field(columnName, OraJson.schema());
 			break;
 		}
 		return null;
