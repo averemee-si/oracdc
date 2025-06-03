@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle.data;
 
+import static org.apache.kafka.connect.data.Schema.OPTIONAL_STRING_SCHEMA;
+
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 
@@ -28,11 +30,14 @@ public class OraXml {
 	public static final String LOGICAL_NAME = "solutions.a2.OraXml";
 
 	public static SchemaBuilder builder() {
-		return SchemaBuilder.string()
+		final SchemaBuilder builder = SchemaBuilder
+				.struct()
 				.optional()
 				.name(LOGICAL_NAME)
-				.version(1)
+				.version(2)
 				.doc("Oracle XML");
+		builder.field("V", OPTIONAL_STRING_SCHEMA);
+		return builder;
 	}
 
 	public static Schema schema() {

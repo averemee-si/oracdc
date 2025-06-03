@@ -30,6 +30,7 @@ import oracle.sql.json.OracleJsonException;
 import oracle.sql.json.OracleJsonFactory;
 import oracle.sql.json.OracleJsonParser;
 import solutions.a2.cdc.oracle.data.OraJson;
+import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
@@ -168,18 +169,6 @@ public class OraDumpDecoder {
 		}
 	}
 
-	public static String fromBinaryXml(final byte[] ba, final String charsetName) throws SQLException {
-		return fromBinaryXml(ba, 0, ba.length, charsetName);
-	}
-
-	public static String fromBinaryXml(final byte[] ba, final int off, final int len, final String charsetName) throws SQLException {
-		try {
-			return new String(ba, off, len, charsetName);
-		} catch (UnsupportedEncodingException e) {
-			throw new SQLException("Invalid encoding " + charsetName + " in binary XML for HEXTORAW " + rawToHex(ba) +  ".", e);
-		}
-	}
-
 	/**
 	 * 
 	 * Convert Oracle Type 12 dump to LocalDateTime
@@ -250,6 +239,31 @@ public class OraDumpDecoder {
 		return sb.toString();
 	}
 
+	public Struct toOraXml(final byte[] data, final boolean clob) throws SQLException {
+		return toOraXml(data, 0, data.length, clob);
+	}
+
+	public Struct toOraXml(final byte[] data, final int off, final int len, final boolean clob) throws SQLException {
+		final Struct xml = new Struct(OraXml.schema());
+		if (clob) {
+			try {
+				xml.put("V",  new String(data, off, len, "UTF-16"));
+			} catch (UnsupportedEncodingException e) {
+				throw new SQLException("Invalid encoding for UTF-16 encoded XML for HEXTORAW " + rawToHex(data) +  ".", e);
+			}
+		} else {
+			//TODO not all XML are in UTF-8!
+			//TODO <?xml version="1.0" encoding="UTF-8"?>
+			String charsetName = "UTF-8";
+			try {
+				xml.put("V", new String(data, off, len, charsetName));
+			} catch (UnsupportedEncodingException e) {
+				throw new SQLException("Invalid encoding " + charsetName + " in binary XML for HEXTORAW " + rawToHex(data) +  ".", e);
+			}
+		}
+		return xml;
+	}
+
 	public Struct toOraJson(final byte[] data) throws SQLException {
 		return toOraJson(data, 0, data.length);
 	}
@@ -265,7 +279,6 @@ public class OraDumpDecoder {
 		} catch(OracleJsonException oje) {
 			throw new SQLException(oje);
 		}
-
 	}
 
 	static {

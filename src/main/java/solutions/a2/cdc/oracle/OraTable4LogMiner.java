@@ -2630,11 +2630,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						columnValue = OraDumpDecoder.fromClobNclob(cqTrans.getLob(ll));
 					else
 						//SQLXML
-						if (ll.type() == LobLocator.CLOB)
-							columnValue = OraDumpDecoder.fromClobNclob(cqTrans.getLob(ll));
-						else
-							//TODO - not all XML are in UTF-8
-							columnValue = OraDumpDecoder.fromBinaryXml(cqTrans.getLob(ll), "UTF-8");
+						columnValue = odd.toOraXml(cqTrans.getLob(ll), ll.type() == LobLocator.CLOB);
 				} else if (ll.dataLength() >= 0 && ll.dataInRow()) {
 					if (columnType == BLOB)
 						columnValue = Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length);
@@ -2643,9 +2639,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					else if (columnType == CLOB || columnType == NCLOB)
 						columnValue = OraDumpDecoder.fromClobNclob(Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length));
 					else {
-						LOGGER.warn("No data for SYS.XMLTYPE with lid {} in transaction {}!",
-								ll.lid(), transaction.getXid());
-						columnValue = null;
+						//SQLXML
+						if (ll.type() == LobLocator.CLOB) {
+							columnValue = odd.toOraXml(Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length), true);
+						} else {
+							LOGGER.warn("No data for binary IN-ROW SYS.XMLTYPE with lid {} in transaction {}!",
+									ll.lid(), transaction.getXid());
+							columnValue = null;
+						}
 					}
 				} else if (ll.dataLength() == 0){
 					if (LOGGER.isDebugEnabled())
