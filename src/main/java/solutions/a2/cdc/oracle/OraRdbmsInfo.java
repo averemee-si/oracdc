@@ -93,6 +93,7 @@ public class OraRdbmsInfo {
 	private final String sourcePartitionName;
 	private final Map<String, String> partition;
 	private final boolean littleEndian;
+	private final int conUid;
 
 	public final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -176,6 +177,7 @@ public class OraRdbmsInfo {
 				cdbRoot = false;
 				pdbConnectionAllowed = false;
 				pdbName = null;
+				conUid = 0;
 				ps = connection.prepareStatement(OraDictSqlTexts.DB_INFO_PRE12C,
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 				rs = ps.executeQuery();
@@ -188,6 +190,7 @@ public class OraRdbmsInfo {
 				rs = ps.executeQuery();
 				if (rs.next()) {
 					pdbName = rs.getString("CON_NAME");
+					conUid = rs.getInt("CON_UID");
 					if (StringUtils.equalsIgnoreCase(rs.getString("CDB"), "YES")) {
 						cdb = true;
 						if (StringUtils.equalsIgnoreCase(pdbName, CDB_ROOT)) {
@@ -1086,6 +1089,10 @@ public class OraRdbmsInfo {
 
 	public boolean littleEndian() {
 		return littleEndian;
+	}
+
+	public int conUid() {
+		return conUid;
 	}
 
 	@Override

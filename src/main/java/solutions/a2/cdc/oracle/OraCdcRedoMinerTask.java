@@ -73,9 +73,15 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			processStoredSchemas(metrics);
 
 			final int[] conUids;
-			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
-				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
-				conUids = rdbmsInfo.getConUidsArray(connDictionary);
+			if (rdbmsInfo.isCdb()) {
+				if (rdbmsInfo.isCdbRoot()) {
+					checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
+					conUids = rdbmsInfo.getConUidsArray(connDictionary);
+				} else {
+					checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
+					conUids = new int[1];
+					conUids[0] = rdbmsInfo.conUid();
+				}
 			} else {
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
 				conUids = null;
