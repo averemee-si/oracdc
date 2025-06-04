@@ -74,6 +74,7 @@ import static java.sql.Types.DATE;
 import static java.sql.Types.TIMESTAMP;
 import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.Types.BINARY;
+import static java.sql.Types.BOOLEAN;
 import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
@@ -2612,6 +2613,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING:
 			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING:
 				columnValue = OraInterval.fromLogical(Arrays.copyOfRange(data, offset, offset + length));
+				break;
+			case BOOLEAN:
+				columnValue = OraDumpDecoder.toBoolean(data, offset);
 				break;
 			default:
 				columnValue = oraColumn.unsupportedTypeValue();

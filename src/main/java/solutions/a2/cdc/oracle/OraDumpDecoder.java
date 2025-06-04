@@ -280,6 +280,15 @@ public class OraDumpDecoder {
 		}
 	}
 
+	public static boolean toBoolean(final byte[] data, final int offset) throws SQLException {
+		if (data[offset] == (byte) 1)
+			return true;
+		else if (data[offset] == (byte)0)
+			return false;
+		else
+			throw new SQLException("Incorrect value " + String.format("0x%02x", data[offset]) + " for BOOLEAN (252) data type!");
+	}
+
 	static {
 
 		charsetMap.put("AL16UTF16", "UTF-16BE");

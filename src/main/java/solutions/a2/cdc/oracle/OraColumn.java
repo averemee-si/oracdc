@@ -118,6 +118,7 @@ public class OraColumn {
 	private static final String TYPE_NCLOB = "NCLOB";
 	private static final String TYPE_XMLTYPE = "XMLTYPE";
 	private static final String TYPE_JSON = "JSON";
+	private static final String TYPE_BOOLEAN = "BOOLEAN";
 
 	private String columnName;
 	private int columnId;
@@ -332,6 +333,9 @@ public class OraColumn {
 			nullable = true;
 			defaultValuePresent = false;
 			detectTypeAndSchema(TYPE_JSON, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_BOOLEAN)) {
+			detectIsNullAndDefault(columnAttributes);
+			detectTypeAndSchema(TYPE_BOOLEAN, false, useOracdcSchemas, dataPrecision);
 		} else {
 			throw new UnsupportedColumnDataTypeException("Unable to parse DDL statement\n'" +
 												originalDdl + "'\nUnsupported datatype");
@@ -556,6 +560,11 @@ public class OraColumn {
 					if (mviewSource)
 						stringField();
 					break;
+				case TYPE_BOOLEAN:
+					// 252
+					jdbcType = BOOLEAN;
+					booleanField();
+					break;
 				default:
 					LOGGER.warn("Datatype {} for column {} is not supported!",
 							oraType, this.columnName);
@@ -633,9 +642,6 @@ public class OraColumn {
 			} else {
 				jdbcType = BINARY;
 			}
-			if (Decimal.LOGICAL_NAME.equals(field.schema().name())) {
-			} else if (OraNumber.LOGICAL_NAME.equals(field.schema().name())) {
-			}
 			break;
 		case "STRING":
 			if (field.schema().name() != null) {
@@ -674,6 +680,9 @@ public class OraColumn {
 					jdbcType = JSON;
 					break;
 				}
+			break;
+		case "BOOLEAN":
+			jdbcType = BOOLEAN;
 			break;
 		default:
 			throw new SQLException("Not supported type '" + typeFromSchema + "'!");
@@ -769,6 +778,12 @@ public class OraColumn {
 			break;
 		case SQLXML:
 			valueSchema.field(this.columnName, OraXml.schema());
+			break;
+		case JSON:
+			valueSchema.field(this.columnName, OraJson.schema());
+			break;
+		case BOOLEAN:
+			booleanField(keySchema, valueSchema);
 			break;
 		default:
 			throw new SQLException("Unsupported JDBC type " +
@@ -1541,6 +1556,32 @@ public class OraColumn {
 			schema = OraInterval.builder().optional().build();
 		}
 	}
+
+	private void booleanField() {
+		SchemaBuilder builder = SchemaBuilder.bool();
+		if (defaultValuePresent) {
+			try {
+				typedDefaultValue = Boolean.parseBoolean(StringUtils.trim(defaultValue));
+				builder.defaultValue(typedDefaultValue);
+			} catch (NumberFormatException nfe) {
+				logDefaultValueError("bool");
+			}
+		}
+		schema = optionalOrRequired(builder);
+	}
+	private void booleanField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
+		if (this.partOfPk) {
+			keySchema.field(this.columnName, Schema.BOOLEAN_SCHEMA);
+		} else {
+			if (this.nullable) {
+				valueSchema.field(this.columnName, Schema.OPTIONAL_BOOLEAN_SCHEMA);
+			} else {
+				valueSchema.field(this.columnName, Schema.BOOLEAN_SCHEMA);
+			}
+		}
+	}
+
+
 
 	private void logDefaultValueError(final String dataTypeName) {
 		LOGGER.error(
