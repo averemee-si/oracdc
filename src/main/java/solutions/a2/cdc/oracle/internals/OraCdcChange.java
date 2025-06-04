@@ -13,11 +13,10 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.util.Arrays;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.UndoByteAddress;
 import solutions.a2.oracle.internals.Xid;
@@ -105,10 +104,6 @@ public class OraCdcChange {
 	/** KTEOPUTRN: undo for truncate ops, flush the object */
 	public static final short _14_8_OPUTRN = 0x0E08;
 
-	//TODO
-	//TODO
-	//TODO
-	//TODO - LOB too
 	/** Layer 19: Direct Loader Log Blocks - KCOCODLB [kcbl.h] */
 	public static final byte KCOCODLB = 0x13;
 	/** KCBLCOLB: Direct block logging */
@@ -120,6 +115,10 @@ public class OraCdcChange {
 	public static final short _24_1_DDL = 0x1801;
 	/** KRVMISC:  misc TX info */
 	public static final short _24_4_MISC = 0x1804;
+	/** KRVDLR10: direct load redo 10g */
+	public static final short _24_6_DLR10 = 0x1806;
+	/** KRVXML:  xmlredo - doc or dif - opcode */
+	public static final short _24_8_XML = 0x1808;
 
 	//TODO
 	//TODO
@@ -135,9 +134,6 @@ public class OraCdcChange {
 	/** KDQSUP: update */
 	public static final short _25_4_SUP = 0x1904;
 
-	//TODO
-	//TODO
-	//TODO
 	/** Layer 26 : LOB Related - KCOCOLOB [kdli3.h] */
 	public static final byte KCOCOLOB = 0x1A;
 	/** KDLIRUNDO: Generic lob undo */
@@ -162,6 +158,7 @@ public class OraCdcChange {
 	};
 
 	public static final byte FLG_ROWDEPENDENCIES = 0x40;
+	public static final byte FLG_KDLI_CMAP = 0x10;
 
 	int length;
 	final short operation;
@@ -169,7 +166,7 @@ public class OraCdcChange {
 	final int[][] coords;
 	final RedoByteAddress rba;
 	final short conId;
-	int obj;
+	int obj = 0;
 	int dataObj;
 	short opc;
 	short slt;
@@ -182,7 +179,7 @@ public class OraCdcChange {
 	short slot;
 	final short num;
 	final byte[] record;
-	byte qmRowCount;
+	short qmRowCount;
 	byte fb;
 	byte flags;
 	private final short cls;
@@ -193,10 +190,11 @@ public class OraCdcChange {
 	private final byte typ;
 	private final byte encrypted;
 	private final int changeDataObj;
-	byte[] lid;
-	short lColId = -1;
+	LobId lid;
+	short lobCol = -1;
 	int lobDataOffset = -1;
-	boolean lobBimg = false;
+	private boolean lobBimg = false;
+	private byte kdli_flg2;
 
 	OraCdcChange(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		this.num = num;
@@ -803,13 +801,13 @@ public class OraCdcChange {
 				.append(" lock: ")
 				.append(Byte.toUnsignedInt(record[coords[index][0] + 0x11]))
 				.append(" nrow: ")
-				.append(Byte.toUnsignedInt(qmRowCount));
+				.append(Short.toUnsignedInt(qmRowCount));
 			if (selector == _11_12_QMD) {
-				if (coords[index][1] < KDO_OPCODE_QM_MIN_LENGTH + (Byte.toUnsignedInt(qmRowCount) - 1) * Short.BYTES) {
+				if (coords[index][1] < KDO_OPCODE_QM_MIN_LENGTH + (Short.toUnsignedInt(qmRowCount) - 1) * Short.BYTES) {
 					LOGGER.error("Unable to parse 'KDO Op code' QMD element for change #{} at RBA {} in '{}'.\nActual size {} is smaller than required {}!",
-							num, rba, redoLog.fileName(), coords[index][1], KDO_OPCODE_QM_MIN_LENGTH + (Byte.toUnsignedInt(qmRowCount) - 1) * Short.BYTES);
+							num, rba, redoLog.fileName(), coords[index][1], KDO_OPCODE_QM_MIN_LENGTH + (Short.toUnsignedInt(qmRowCount) - 1) * Short.BYTES);
 				} else {
-					for (int row = 0; row < Byte.toUnsignedInt(qmRowCount); ++row) {
+					for (int row = 0; row < Short.toUnsignedInt(qmRowCount); ++row) {
 						sb
 							.append("\nslot[")
 							.append(row)
@@ -821,7 +819,7 @@ public class OraCdcChange {
 				//_11_11_QMI
 				if (index + 2 < coords.length) {
 					int rowDiff = 0;
-					for (int row = 0; row < Byte.toUnsignedInt(qmRowCount); ++row) {
+					for (int row = 0; row < Short.toUnsignedInt(qmRowCount); ++row) {
 						sb
 							.append("\nslot[")
 							.append(row)
@@ -939,14 +937,24 @@ public class OraCdcChange {
 		}
 	}
 
-	private static final int KDLI_LOAD_DATA = 0x04;
-	private static final int KDLI_FILL = 0x06;
-	private static final int KDLI_SUPLOG = 0x09;
-	private static final int KDLI_FPLOAD = 0x0B;
+	private static final byte KDLI_INFO = 0x01;
+	private static final byte KDLI_LOAD_COMMON = 0x02;
+	private static final byte KDLI_LOAD_DATA = 0x04;
+	private static final byte KDLI_ZERO = 0x05;
+	private static final byte KDLI_FILL = 0x06;
+	private static final byte KDLI_LMAP = 0x07;
+	private static final byte KDLI_LMAPX = 0x08;
+	private static final byte KDLI_SUPLOG = 0x09;
+	private static final byte KDLI_FPLOAD = 0x0B;
+	private static final byte KDLI_LOAD_LHB = 0x0C;
+	private static final int KDLI_INFO_MIN_LENGTH = 0x11;
 	private static final int KDLI_LOAD_DATA_MIN_LENGTH = 0x38;
+	private static final int KDLI_ZERO_MIN_LENGTH = 0x06;
 	private static final int KDLI_FILL_MIN_LENGTH = 0x08;
+	private static final int KDLI_LMAP_LMAPX_MIN_LENGTH = 0x08;
 	private static final int KDLI_SUPLOG_MIN_LENGTH = 0x18;
 	private static final int KDLI_FPLOAD_MIN_LENGTH = 0x1C;
+	private static final int KDLI_LOAD_LHB_MIN_LENGTH = 0x70;
 	private static final int KDLI_COMMON_MIN_LENGTH = 0xC;
 	private static final String[] KDLI_OPERATIONS = {
 			"REDO", "UNDO", "CR", "FRMT", "INVL", "LOAD", "BIMG", "SINV" };
@@ -959,21 +967,40 @@ public class OraCdcChange {
 	void kdli(final int index) {
 		elementLengthCheck("KDLI", "", index, 0x1, "");
 		switch (record[coords[index][0]]) {
+		case KDLI_INFO:
+			elementLengthCheck("KDLI", "info", index, KDLI_INFO_MIN_LENGTH, "");
+			if (lid == null) {
+				lid = new LobId(record, coords[index][0] + 0x1);
+			}
+			break;
+		case KDLI_LOAD_COMMON:
+			break;
 		case KDLI_LOAD_DATA:
 			elementLengthCheck("KDLI", "load data", index, KDLI_LOAD_DATA_MIN_LENGTH, "");
+			kdli_flg2 = record[coords[index][0] + 0x1C];
 			if (lid == null) {
-				lid = Arrays.copyOfRange(record, coords[index][0] + 0xC, coords[index][0] + 0x16);
+				lid = new LobId(record, coords[index][0] + 0xC);
 			}
+			break;
+		case KDLI_ZERO:
+			elementLengthCheck("KDLI", "zero", index, KDLI_ZERO_MIN_LENGTH, "");
 			break;
 		case KDLI_FILL:
 			elementLengthCheck("KDLI", "fill", index, KDLI_FILL_MIN_LENGTH, "");
 			if (lobDataOffset < 0)
 				lobDataOffset = coords[index][0] + 0x8;
 			break;
+		case KDLI_LMAP:
+			elementLengthCheck("KDLI", "lmap", index, KDLI_LMAP_LMAPX_MIN_LENGTH, "");
+			break;
+		case KDLI_LMAPX:
+			elementLengthCheck("KDLI", "lmapx", index, KDLI_LMAP_LMAPX_MIN_LENGTH, "");
+			break;
 		case KDLI_SUPLOG:
 			elementLengthCheck("KDLI", "suplog", index, KDLI_SUPLOG_MIN_LENGTH, "");
-			if (lColId < 0)
-				lColId = redoLog.bu().getU16(record, coords[index][0] + 0x12);
+			obj = redoLog.bu().getU32(record, coords[index][0] + 0xC);
+			if (lobCol < 0)
+				lobCol = redoLog.bu().getU16(record, coords[index][0] + 0x12);
 			break;
 		case KDLI_FPLOAD:
 			elementLengthCheck("KDLI", "fpload", index, KDLI_FPLOAD_MIN_LENGTH, "");
@@ -982,6 +1009,12 @@ public class OraCdcChange {
 					redoLog.bu().getU16(record, coords[index][0] + 0x12),
 					redoLog.bu().getU32(record, coords[index][0] + 0x14));
 			dataObj = redoLog.bu().getU32(record, coords[index][0] + 0x18);
+			break;
+		case KDLI_LOAD_LHB:
+			elementLengthCheck("KDLI", "load lhb", index, KDLI_LOAD_LHB_MIN_LENGTH, "");
+			if (lid == null) {
+				lid = new LobId(record, coords[index][0] + 0xC);
+			}
 			break;
 		default:
 			LOGGER.error(
@@ -994,6 +1027,28 @@ public class OraCdcChange {
 
 	void kdli(final StringBuilder sb, final int index) {
 		switch (record[coords[index][0]]) {
+		case KDLI_INFO:
+			sb
+				.append("\nKDLI info [")
+				.append(KDLI_INFO)
+				.append('.')
+				.append(coords[index][1])
+				.append(']')
+				.append("\n  lobid ")
+				.append(lid.toString())
+				.append("\n  block 0x")
+				.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + 0xB))))
+				.append("\n  slot  0x")
+				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0xF))));
+			break;
+		case KDLI_LOAD_COMMON:
+			sb
+				.append("\nKDLI load common [")
+				.append(KDLI_LOAD_COMMON)
+				.append('.')
+				.append(coords[index][1])
+				.append(']');
+			break;
 		case KDLI_LOAD_DATA:
 			sb
 				.append("\nKDLI load data [")
@@ -1003,25 +1058,13 @@ public class OraCdcChange {
 				.append(']')
 				.append("\nbdba    [0x")
 				.append(String.format("%08x", Integer.toUnsignedLong(dba)))
-				.append(']')
-				.append("\nkdlich")
-				.append("\n  flg0  0x")
-				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xA])))
-				.append(getKdliFlg0(record[coords[index][0] + 0xA]))
-				.append("\n  flg1  0x")
-				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xB])))
-				.append("\n  scn   0x")
-				.append(FormattingUtils.leftPad(redoLog.bu().getScn4Record(record, coords[index][0] + 0x2), 0x10))
-				.append("\n  lid   ");
-			for (int i = 0; i < lid.length; i++)
-				sb.append(String.format("%02x", lid[i]));
+				.append(']');
+			kdlich(index, sb);
 			sb
-				.append("\n  spare 0x")
-				.append(String.format("%08x", Integer.toUnsignedLong(record[coords[index][0] + 0x18])))
 				.append("\nkdlidh")
 				.append("\n  flg2  0x")
 				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x1C])))
-				.append(getKdliFlg2(record[coords[index][0] + 0x1C]))
+				.append(getKdliFlg2(kdli_flg2))
 				.append("\n  flg3  0x")
 				.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0x1D])))
 				.append("\n  pskip ")
@@ -1036,6 +1079,18 @@ public class OraCdcChange {
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x34)))
 				.append("\n  spr   ")
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x36)));
+			break;
+		case KDLI_ZERO:
+			sb
+				.append("\nKDLI zero [")
+				.append(KDLI_ZERO)
+				.append('.')
+				.append(coords[index][1])
+				.append(']')
+				.append("\n  zoff  0x")
+				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x2))))
+				.append("\n  zsiz  ")
+				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x4)));
 			break;
 		case KDLI_FILL:
 			sb
@@ -1054,6 +1109,46 @@ public class OraCdcChange {
 			printLobContent(sb, index, 0x8);
 			sb.append('\n');
 			break;
+		case KDLI_LMAP:
+		case KDLI_LMAPX:
+			final int asiz = redoLog.bu().getU32(record, coords[index][0] + 0x4);
+			final boolean lmap = record[coords[index][0]] == KDLI_LMAP;
+			final int mapElemSize = lmap ? 0x08 : 0x10;
+			if (coords[index][1] < KDLI_LMAP_LMAPX_MIN_LENGTH + mapElemSize * asiz)
+				LOGGER.warn("Not enough data to parse KDLI {} at RBA {}",
+						lmap ? "lmap" : "lmapx", rba);
+			else {
+				sb
+					.append("\nKDLI ")
+					.append(lmap ? "lmap" : "lmapx")
+					.append(" [")
+					.append(lmap ? KDLI_LMAP : KDLI_LMAPX)
+					.append('.')
+					.append(coords[index][1])
+					.append(']')
+					.append("\n  asiz  ")
+					.append(asiz);
+				for (int i = 0; i < asiz; i++) {
+					sb
+						.append("\n    [")
+						.append(i)
+						.append("] 0x")
+						.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize])))
+						.append(" 0x")
+						.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0x1])))
+						.append(' ')
+						.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0x2)))
+						.append(" 0x")
+						.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0x4))));
+					if (!lmap)
+						sb
+							.append(' ')
+							.append(Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0x8)))
+							.append('.')
+							.append(Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + + KDLI_LMAP_LMAPX_MIN_LENGTH + i * mapElemSize + 0xC)));
+				}
+			}
+			break;
 		case KDLI_SUPLOG:
 			sb
 				.append("\nKDLI suplog [")
@@ -1067,11 +1162,11 @@ public class OraCdcChange {
 						redoLog.bu().getU16(record, coords[index][0] + 0x6),
 						redoLog.bu().getU32(record, coords[index][0] + 0x8))).toString())
 				.append("\n  objn  ")
-				.append(Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + 0xC)))
+				.append(Integer.toUnsignedLong(obj))
 				.append("\n  objv# ")
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x10)))
 				.append("\n  col#  ")
-				.append(lColId)
+				.append(lobCol)
 				.append("\n  flag  0x")
 				.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[index][0] + 0x14))));
 			break;
@@ -1090,6 +1185,19 @@ public class OraCdcChange {
 				.append(xid.toString())
 				.append("\n  objd  ")
 				.append(Integer.toUnsignedLong(dataObj));
+			break;
+		case KDLI_LOAD_LHB:
+			sb
+				.append("\nKDLI load lhb [")
+				.append(KDLI_LOAD_LHB)
+				.append('.')
+				.append(coords[index][1])
+				.append(']')
+				.append("\nbdba    [0x")
+				.append(String.format("%08x", dba))
+				.append(']');
+			kdlich(index, sb);
+			//TODO - kdlihh
 			break;
 		}
 	}
@@ -1212,11 +1320,35 @@ public class OraCdcChange {
 			.append(" hash=")
 			.append((flg2 & 0x20) == 0 ? "n" : "y")
 			.append(" cmap=")
-			.append((flg2 & 0x10) == 0 ? "n" : "y")
+			.append((flg2 & FLG_KDLI_CMAP) == 0 ? "n" : "y")
 			.append(" pfill=")
 			.append((flg2 & 0x08) == 0 ? "n" : "y")
 			.append(']');
 		return sb;
+	}
+
+	private void kdlich(final int index, final StringBuilder sb) {
+		final long lScn = redoLog.bu().getScn4Record(record, coords[index][0] + 0x2);
+		sb
+			.append("\nkdlich")
+			.append("\n  flg0  0x")
+			.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xA])))
+			.append(getKdliFlg0(record[coords[index][0] + 0xA]))
+			.append("\n  flg1  0x")
+			.append(String.format("%02x", Byte.toUnsignedInt(record[coords[index][0] + 0xB])))
+			.append("\n  scn   0x")
+			.append(FormattingUtils.leftPad(lScn, 0x10))
+			.append(" [0x")
+			.append(String.format("%04x", lScn >> 0x30))
+			.append('.')
+			.append(String.format("%04x", lScn >> 0x20))
+			.append('.')
+			.append(String.format("%08x", lScn & 0xFFFFFFFFL))
+			.append(']')
+			.append("\n  lid   ")
+			.append(lid.toString())
+			.append("\n  spare 0x")
+			.append(String.format("%08x", Integer.toUnsignedLong(record[coords[index][0] + 0x18])));
 	}
 
 	private static final int LOB_BYTES_PER_LINE = 26;
@@ -1328,7 +1460,7 @@ public class OraCdcChange {
 		return coords;
 	}
 
-	public byte qmRowCount() {
+	public short qmRowCount() {
 		return qmRowCount;
 	}
 
@@ -1371,4 +1503,25 @@ public class OraCdcChange {
 	public long scn() {
 		return scn;
 	}
+
+	public LobId lid() {
+		return lid;
+	}
+
+	public byte kdli_flg2() {
+		return kdli_flg2;
+	}
+
+	public boolean lobBimg() {
+		return lobBimg;
+	}
+
+	public short lobCol() {
+		return lobCol;
+	}
+
+	public int lobDataOffset() {
+		return lobDataOffset;
+	}
+
 }

@@ -33,8 +33,11 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_17_LLB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_22_CMP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._19_1_COLB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_1_DDL;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_4_MISC;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_6_DLR10;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_8_XML;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_6_BIMG;
 
@@ -100,6 +103,11 @@ public class OraCdcRedoRecord {
 	private int indDDL = -1;
 	private int indKTUIRB = -1;
 	private int indKRVMISC = -1;
+	private int indKRVDLR10 = -1;
+	private int indKRVXML = -1;
+	private int indLLB = -1;
+	private int indKCOCOLOB = -1;
+	private int indKCOCODLB = -1;
 
 	boolean supplementalLogData = false;
 	byte supplementalFb = 0;
@@ -181,6 +189,7 @@ public class OraCdcRedoRecord {
 				break;
 			case _11_17_LLB:
 				change = new OraCdcChangeLlb(changeNo, this, operation, record, offset, changeHeaderLen);
+				indLLB = changeNo - 1;
 				break;
 			case _24_1_DDL:
 				change = new OraCdcChangeDdl(changeNo, this, operation, record, offset, changeHeaderLen);
@@ -192,9 +201,22 @@ public class OraCdcRedoRecord {
 				change = new OraCdcChangeKrvMisc(changeNo, this, operation, record, offset, changeHeaderLen);
 				indKRVMISC = changeNo - 1;
 				break;
+			case _24_6_DLR10:
+				change = new OraCdcChangeKrvDlr10(changeNo, this, operation, record, offset, changeHeaderLen);
+				indKRVDLR10 = changeNo - 1;
+				break;
+			case _24_8_XML:
+				change = new OraCdcChangeKrvXml(changeNo, this, operation, record, offset, changeHeaderLen);
+				indKRVXML = changeNo - 1;
+				break;
 			case _26_2_REDO:
 			case _26_6_BIMG:
 				change = new OraCdcChangeLobs(changeNo, this, operation, record, offset, changeHeaderLen);
+				indKCOCOLOB = changeNo - 1;
+				break;
+			case _19_1_COLB:
+				change = new OraCdcChangeColb(changeNo, this, operation, record, offset, changeHeaderLen);
+				indKCOCODLB = changeNo - 1;
 				break;
 			default:
 				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
@@ -294,6 +316,61 @@ public class OraCdcRedoRecord {
 			return null;
 	}
 
+	public boolean hasLlb() {
+		return indLLB > -1;
+	}
+
+	public OraCdcChangeLlb changeLlb() {
+		if (hasLlb())
+			return (OraCdcChangeLlb) changeVectors.get(indLLB);
+		else
+			return null;
+	}
+
+	public boolean has26_x() {
+		return indKCOCOLOB > -1;
+	}
+
+	public OraCdcChangeLobs change26_x() {
+		if (has26_x())
+			return (OraCdcChangeLobs) changeVectors.get(indKCOCOLOB);
+		else
+			return null;
+	}
+
+	public boolean hasColb() {
+		return indKCOCODLB > -1;
+	}
+
+	public OraCdcChangeColb changeColb() {
+		if (hasColb())
+			return (OraCdcChangeColb) changeVectors.get(indKCOCODLB);
+		else
+			return null;
+	}
+
+	public boolean hasKrvDlr10() {
+		return indKRVDLR10 > -1;
+	}
+
+	public OraCdcChangeKrvDlr10 changeKrvDlr10() {
+		if (hasKrvDlr10())
+			return (OraCdcChangeKrvDlr10) changeVectors.get(indKRVDLR10);
+		else
+			return null;
+	}
+
+	public boolean hasKrvXml() {
+		return indKRVXML > -1;
+	}
+
+	public OraCdcChangeKrvXml changeKrvXml() {
+		if (hasKrvXml())
+			return (OraCdcChangeKrvXml) changeVectors.get(indKRVXML);
+		else
+			return null;
+	}
+
 	public Xid xid() {
 		if (has5_1()) {
 			return change5_1().xid;
@@ -301,6 +378,14 @@ public class OraCdcRedoRecord {
 			return change5_4().xid;
 		} else if (hasPrb()) {
 			return changePrb().xid;
+		} else if (hasLlb()) {
+			return changeLlb().xid;
+		} else if (has26_x()) {
+			return change26_x().xid;
+		} else if (hasKrvDlr10()) {
+			return changeKrvDlr10().xid;
+		} else if (hasKrvXml()) {
+			return changeKrvXml().xid;
 		} else if (hasDdl()) {
 			return changeDdl().xid;
 		} else {
@@ -335,7 +420,7 @@ public class OraCdcRedoRecord {
 					change.bdba,
 					change.slot);
 		} else if (hasPrb() && has11_x()) {
-			final OraCdcChange rowChange = changeVectors.get(indKCOCODRW);;
+			final OraCdcChange rowChange = changeVectors.get(indKCOCODRW);
 			return new RowId(
 					changeVectors.get(indKTUIRB).dataObj,
 					rowChange.bdba,

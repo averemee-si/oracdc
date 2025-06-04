@@ -15,14 +15,25 @@ package solutions.a2.cdc.oracle;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Hashtable;
 
+import org.apache.kafka.connect.data.Struct;
+
 import oracle.sql.BINARY_DOUBLE;
 import oracle.sql.BINARY_FLOAT;
 import oracle.sql.NUMBER;
+import oracle.sql.json.OracleJsonException;
+import oracle.sql.json.OracleJsonFactory;
+import oracle.sql.json.OracleJsonParser;
+import solutions.a2.cdc.oracle.data.OraBlob;
+import solutions.a2.cdc.oracle.data.OraClob;
+import solutions.a2.cdc.oracle.data.OraJson;
+import solutions.a2.cdc.oracle.data.OraNClob;
+import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
@@ -44,6 +55,7 @@ public class OraDumpDecoder {
 
 	private final String nlsCharacterSet;
 	private final String nlsNcharCharacterSet;
+	private final OracleJsonFactory jsonFactory;
 
 	private final static Hashtable<String, String> charsetMap = new Hashtable<>();
 	private static final char[] HEX_CHARS_UPPER = new char[]
@@ -57,6 +69,7 @@ public class OraDumpDecoder {
 	public OraDumpDecoder(final String nlsCharacterSet, final String nlsNcharCharacterSet) {
 		this.nlsCharacterSet = charsetMap.get(nlsCharacterSet);
 		this.nlsNcharCharacterSet = charsetMap.get(nlsNcharCharacterSet);
+		this.jsonFactory = new OracleJsonFactory();
 	}
 
 	public static float fromBinaryFloat(final String hex) throws SQLException {
@@ -215,6 +228,56 @@ public class OraDumpDecoder {
 		}
 		sb.append("')");
 		return sb.toString();
+	}
+
+	public Struct toOraBlob(final byte[] data) {
+		final Struct lob = new Struct(OraBlob.schema());
+		lob.put("V",  data);
+		return lob;
+	}
+
+	public Struct toOraClob(final byte[] data, final boolean clob) throws SQLException {
+		final Struct lob = new Struct(clob ? OraClob.schema() : OraNClob.schema());
+		try {
+			lob.put("V",  new String(data, "UTF-16"));
+		} catch (UnsupportedEncodingException e) {
+			throw new SQLException("Invalid encoding for UTF-16 encoded XML for HEXTORAW " + rawToHex(data) +  ".", e);
+		}
+		return lob;
+	}
+
+	public Struct toOraXml(final byte[] data, final boolean clob) throws SQLException {
+		final Struct xml = new Struct(OraXml.schema());
+		if (clob) {
+			try {
+				xml.put("V",  new String(data, "UTF-16"));
+			} catch (UnsupportedEncodingException e) {
+				throw new SQLException("Invalid encoding for UTF-16 encoded XML for HEXTORAW " + rawToHex(data) +  ".", e);
+			}
+		} else {
+			//TODO not all XML are in UTF-8!
+			//TODO <?xml version="1.0" encoding="UTF-8"?>
+			String charsetName = "UTF-8";
+			try {
+				xml.put("V", new String(data, charsetName));
+			} catch (UnsupportedEncodingException e) {
+				throw new SQLException("Invalid encoding " + charsetName + " in binary XML for HEXTORAW " + rawToHex(data) +  ".", e);
+			}
+		}
+		return xml;
+	}
+
+	public Struct toOraJson(final byte[] data) throws SQLException {
+		try (OracleJsonParser parser =
+				jsonFactory.createJsonBinaryParser(
+						ByteBuffer.wrap(data))) {
+			parser.next();
+			final Struct json = new Struct(OraJson.schema());
+			json.put("V", parser.getValue().toString());
+			return json;
+		} catch(OracleJsonException oje) {
+			throw new SQLException(oje);
+		}
 	}
 
 	static {

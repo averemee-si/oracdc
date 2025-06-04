@@ -16,8 +16,6 @@ package solutions.a2.cdc.oracle;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.SQLException;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,6 +27,10 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
+
+import static solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue.LobProcessingStatus.NOT_AT_ALL;
+import static solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue.LobProcessingStatus.LOGMINER;
+import static solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue.LobProcessingStatus.REDOMINER;
 
 /**
  * 
@@ -45,8 +47,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	final OraCdcSourceConnectorConfig config;
 	final OraConnectionObjects oraConnections;
 	final boolean processLobs;
-	final Set<Long> lobObjects;
-	final Set<Long> nonLobObjects;
+	private final OraCdcTransactionChronicleQueue.LobProcessingStatus lobProcessingStatus;
 	final int backofMs;
 	final BlockingQueue<OraCdcTransaction> committedTransactions;
 	final boolean isCdb;
@@ -72,12 +73,12 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		this.oraConnections = oraConnections;
 		this.processLobs = config.processLobs();
 		if (processLobs) {
-			lobObjects = new HashSet<>();
-			nonLobObjects = new HashSet<>();
-		} else {
-			lobObjects = null;
-			nonLobObjects = null;
-		}
+			if (config.logMiner())
+				lobProcessingStatus = LOGMINER;
+			else
+				lobProcessingStatus = REDOMINER;
+		} else
+			lobProcessingStatus = NOT_AT_ALL;
 		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
@@ -161,7 +162,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 			else
 				attempt++;
 			try {
-				return new OraCdcTransactionChronicleQueue(processLobs, queuesRoot, xidAsString, firstScn);
+				return new OraCdcTransactionChronicleQueue(lobProcessingStatus, queuesRoot, xidAsString, firstScn);
 			} catch (Exception cqe) {
 				lastException = cqe;
 				if (cqe.getCause() != null &&

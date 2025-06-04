@@ -76,7 +76,7 @@ select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE
 	   and  TC.COLUMN_NAME=C.COLUMN_NAME and TC.COLUMN_NAME not like '%$$') PK
 from   ALL_TAB_COLUMNS C
 where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
-  and    (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%');
+  and    (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON') or C.DATA_TYPE like 'TIMESTAMP%');
 	 */
 	public static final String COLUMN_LIST_MVIEW =
 			"select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,\n" +
@@ -87,7 +87,7 @@ where  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT'
 			"	    and  TC.COLUMN_NAME=C.COLUMN_NAME and TC.COLUMN_NAME not like '%$$') PK\n" +
 			"from   ALL_TAB_COLUMNS C\n" +
 			"where  C.OWNER=? and C.TABLE_NAME=?\n" +
-			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB') or C.DATA_TYPE like 'TIMESTAMP%')";
+			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON') or C.DATA_TYPE like 'TIMESTAMP%')";
 
 	/* CDB_ views in Oracle does not support LONG data type required for DATA_DEFAULT column */
 	/* Single SQL statement is used for non-CDB and CDB database but for CDB */
@@ -98,7 +98,7 @@ select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE
 from   DBA_TAB_COLS C
 where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))
   and  C.OWNER='SCOTT' and C.TABLE_NAME='EMP'
-  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB')
+  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON')
        or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'
        or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))
 order by C.COLUMN_ID;
@@ -109,7 +109,7 @@ order by C.COLUMN_ID;
 			"from   DBA_TAB_COLS C\n" +
 			"where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))\n" +
 			"  and  C.OWNER=? and C.TABLE_NAME=?\n" +
-			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB')\n" +
+			"  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON')\n" +
 			"       or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'\n" +
 			"       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))\n" +
 			"order by C.COLUMN_ID\n";
@@ -291,6 +291,7 @@ where  D.PLATFORM_ID = T.PLATFORM_ID;
 select D.DBID, D.NAME, D.DB_UNIQUE_NAME, D.PLATFORM_NAME, D.OPEN_MODE, D.CONTROLFILE_TYPE,
        D.SUPPLEMENTAL_LOG_DATA_MIN, D.SUPPLEMENTAL_LOG_DATA_ALL, D.LOG_MODE, T.ENDIAN_FORMAT,
        D.CDB, SYS_CONTEXT('USERENV','CON_NAME') CON_NAME,
+       (select CON_UID from V$CONTAINERS where CON_ID=SYS_CONTEXT('USERENV', 'CON_ID')) CON_UID,
        (select VALUE from V$NLS_PARAMETERS where PARAMETER = 'NLS_CHARACTERSET') NLS_CHARACTERSET,
        (select VALUE from V$NLS_PARAMETERS where PARAMETER = 'NLS_NCHAR_CHARACTERSET') NLS_NCHAR_CHARACTERSET
 from   V$DATABASE D, V$TRANSPORTABLE_PLATFORM T
@@ -300,6 +301,7 @@ where  D.PLATFORM_ID = T.PLATFORM_ID;
 			"select D.DBID, D.NAME, D.DB_UNIQUE_NAME, D.PLATFORM_NAME, D.OPEN_MODE, D.CONTROLFILE_TYPE,\n" + 
 			"       D.SUPPLEMENTAL_LOG_DATA_MIN, D.SUPPLEMENTAL_LOG_DATA_ALL, D.LOG_MODE, T.ENDIAN_FORMAT,\n" + 
 			"       D.CDB, SYS_CONTEXT('USERENV','CON_NAME') CON_NAME,\n" +
+			"       (select CON_UID from V$CONTAINERS where CON_ID=SYS_CONTEXT('USERENV', 'CON_ID')) CON_UID,\n" +
 			"       (select VALUE from V$NLS_PARAMETERS where PARAMETER = 'NLS_CHARACTERSET') NLS_CHARACTERSET,\n" +
 			"       (select VALUE from V$NLS_PARAMETERS where PARAMETER = 'NLS_NCHAR_CHARACTERSET') NLS_NCHAR_CHARACTERSET\n" +
 			"from   V$DATABASE D, V$TRANSPORTABLE_PLATFORM T\n" +
@@ -786,6 +788,86 @@ order by COLUMN_POSITION;
 			"from     CDB_IND_COLUMNS\n" +
 			"where    TABLE_OWNER=? and TABLE_NAME=? and INDEX_NAME=? and CON_ID=?\n" +
 			"order by COLUMN_POSITION";
+
+	/*
+select O.OBJECT_ID
+from   DBA_OBJECTS O
+where  O.DATA_OBJECT_ID is not null
+  and  O.OBJECT_TYPE like 'TABLE%'
+  and  O.TEMPORARY='N';
+	 */
+	public static final String OBJECT_IDS_NON_CDB =
+			"select O.OBJECT_ID\n" +
+			"from   DBA_OBJECTS O\n" +
+			"where  O.DATA_OBJECT_ID is not null\n" +
+			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"  and  O.TEMPORARY='N'\n";
+
+	/*
+select O.OBJECT_ID
+from   CDB_OBJECTS O
+where  O.DATA_OBJECT_ID is not null
+  and  O.OBJECT_TYPE like 'TABLE%'
+  and  O.TEMPORARY='N'
+  and  O.CON_ID > 2
+	 */
+	public static final String OBJECT_IDS_CDB =
+			"select O.OBJECT_ID\n" +
+			"from   CDB_OBJECTS O\n" +
+			"where  O.DATA_OBJECT_ID is not null\n" +
+			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"  and  O.TEMPORARY='N'\n" +
+			"  and  O.CON_ID > 2\n";
+
+	/*
+select B.OBJECT_ID
+from   DBA_OBJECTS O, CDB_LOBS L, DBA_OBJECTS B 
+where  B.OWNER=L.OWNER
+  and  B.OBJECT_NAME=L.SEGMENT_NAME
+  and  O.OWNER=L.OWNER
+  and  O.OBJECT_NAME=L.TABLE_NAME
+  and  O.DATA_OBJECT_ID is not null
+  and  O.OBJECT_TYPE like 'TABLE%'
+  and  O.TEMPORARY='N'
+  	 */
+	public static final String LOB_IDS_NON_CDB =
+			"select B.OBJECT_ID\n" +
+			"from   DBA_OBJECTS O, CDB_LOBS L, DBA_OBJECTS B \n" +
+			"where  B.OWNER=L.OWNER\n" +
+			"  and  B.OBJECT_NAME=L.SEGMENT_NAME\n" +
+			"  and  O.OWNER=L.OWNER\n" +
+			"  and  O.OBJECT_NAME=L.TABLE_NAME\n" +
+			"  and  O.DATA_OBJECT_ID is not null\n" +
+			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"  and  O.TEMPORARY='N'\n";
+
+	/*
+select B.OBJECT_ID
+from   CDB_OBJECTS O, CDB_LOBS L, CDB_OBJECTS B 
+where  B.OWNER=L.OWNER
+  and  B.OBJECT_NAME=L.SEGMENT_NAME
+  and  B.CON_ID=L.CON_ID
+  and  O.OWNER=L.OWNER
+  and  O.OBJECT_NAME=L.TABLE_NAME
+  and  O.CON_ID=L.CON_ID
+  and  O.DATA_OBJECT_ID is not null
+  and  O.OBJECT_TYPE like 'TABLE%'
+  and  O.TEMPORARY='N'
+  and  O.CON_ID > 2
+	 */
+	public static final String LOB_IDS_CDB =
+			"select B.OBJECT_ID\n" +
+			"from   CDB_OBJECTS O, CDB_LOBS L, CDB_OBJECTS B \n" +
+			"where  B.OWNER=L.OWNER\n" +
+			"  and  B.OBJECT_NAME=L.SEGMENT_NAME\n" +
+			"  and  B.CON_ID=L.CON_ID\n" +
+			"  and  O.OWNER=L.OWNER\n" +
+			"  and  O.OBJECT_NAME=L.TABLE_NAME\n" +
+			"  and  O.CON_ID=L.CON_ID\n" +
+			"  and  O.DATA_OBJECT_ID is not null\n" +
+			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"  and  O.TEMPORARY='N'\n" +
+			"  and  O.CON_ID > 2\n";
 
 }
 

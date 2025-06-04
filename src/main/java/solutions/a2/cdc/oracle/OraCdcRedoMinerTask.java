@@ -19,6 +19,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcRedoMinerMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.utils.ExceptionUtils;
@@ -71,9 +73,15 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			processStoredSchemas(metrics);
 
 			final int[] conUids;
-			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
-				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
-				conUids = rdbmsInfo.getConUidsArray(connDictionary);
+			if (rdbmsInfo.isCdb()) {
+				if (rdbmsInfo.isCdbRoot()) {
+					checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
+					conUids = rdbmsInfo.getConUidsArray(connDictionary);
+				} else {
+					checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
+					conUids = new int[1];
+					conUids[0] = rdbmsInfo.conUid();
+				}
 			} else {
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
 				conUids = null;
@@ -82,7 +90,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			if (includeList != null && includeList.size() > 0) {
 				final String tableList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
 				includeObjIds = rdbmsInfo.getMineObjectsIds(
-						false, tableList, connDictionary);
+						false, tableList, connDictionary, processLobs);
 				if (includeObjIds == null || includeObjIds.length == 0) {
 						LOGGER.error("a2.include parameter set to {} but there are no tables matching this condition.\nExiting.",
 								StringUtils.join(config.includeObj(), ","));
@@ -94,7 +102,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			if (excludeList != null && excludeList.size() > 0) {
 				excludeObjIds = rdbmsInfo.getMineObjectsIds(true,
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList),
-							connDictionary);
+							connDictionary, processLobs);
 				if (excludeObjIds == null || excludeObjIds.length == 0) {
 						LOGGER.error("a2.exclude parameter set to {} but there are no tables matching this condition.\nExiting.",
 								StringUtils.join(config.excludeObj(), ","));
@@ -156,9 +164,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		}
 		isPollRunning.set(true);
 		result.clear();
-		if (processLobs) {
-			lobs.clear();
-		}
 
 		try {
 			Connection connDictionary;
@@ -194,10 +199,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 					} else if (transaction.getCommitScn() == lastInProgressCommitScn) {
 						while (true) {
 							processTransaction = transaction.getStatement(stmt);
-							if (processLobs && processTransaction && stmt.getLobCount() > 0) {
-								lobs.clear();
-								((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
-							}
 							lastStatementInTransaction = !processTransaction;
 							if (stmt.getScn() == lastInProgressScn &&
 									lastInProgressRba.equals(stmt.getRba()) &&
@@ -217,12 +218,11 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 						LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",
 								transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
 					}
+					final Set<LobId> lobIds = useChronicleQueue
+								? ((OraCdcTransactionChronicleQueue)transaction).lobIds(false)
+								: null;
 					do {
 						processTransaction = transaction.getStatement(stmt);
-						if (processLobs && processTransaction && stmt.getLobCount() > 0) {
-							lobs.clear();
-							((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
-						}
 						lastStatementInTransaction = !processTransaction;
 
 						if (processTransaction && runLatch.getCount() > 0) {
@@ -247,7 +247,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 									offset.put("SSN", stmt.getSsn());
 									offset.put("COMMIT_SCN", transaction.getCommitScn());
 									final SourceRecord record = oraTable.parseRedoRecord(
-											stmt, lobs, transaction, offset, connDictionary);
+											stmt, transaction, lobIds, offset, connDictionary);
 									if (record != null) {
 										result.add(record);
 										recordCount++;

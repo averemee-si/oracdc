@@ -93,6 +93,7 @@ public class OraRdbmsInfo {
 	private final String sourcePartitionName;
 	private final Map<String, String> partition;
 	private final boolean littleEndian;
+	private final int conUid;
 
 	public final static int CDB_INTRODUCED = 12;
 	private final static int PDB_MINING_INTRODUCED = 21;
@@ -176,6 +177,7 @@ public class OraRdbmsInfo {
 				cdbRoot = false;
 				pdbConnectionAllowed = false;
 				pdbName = null;
+				conUid = 0;
 				ps = connection.prepareStatement(OraDictSqlTexts.DB_INFO_PRE12C,
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 				rs = ps.executeQuery();
@@ -188,6 +190,7 @@ public class OraRdbmsInfo {
 				rs = ps.executeQuery();
 				if (rs.next()) {
 					pdbName = rs.getString("CON_NAME");
+					conUid = rs.getInt("CON_UID");
 					if (StringUtils.equalsIgnoreCase(rs.getString("CDB"), "YES")) {
 						cdb = true;
 						if (StringUtils.equalsIgnoreCase(pdbName, CDB_ROOT)) {
@@ -796,7 +799,7 @@ public class OraRdbmsInfo {
 		} else {
 			sb.append(" and (DATA_OBJ# in (");
 		}
-		int[] data = getMineObjectsIds(exclude, where, connection);
+		int[] data = getMineObjectsIds(exclude, where, connection, false);
 		
 		boolean firstValue = true;
 		boolean lastValue = false;
@@ -837,11 +840,13 @@ public class OraRdbmsInfo {
 	 * @param exclude
 	 * @param where
 	 * @param connection - Connection to dictionary database
+	 * @param processLobs
 	 * @return
 	 * @throws SQLException
 	 */
 	public int[] getMineObjectsIds(final boolean exclude,
-			final String where, final Connection connection) throws SQLException {
+			final String where, final Connection connection,
+			final boolean processLobs) throws SQLException {
 		List<Integer> list = new ArrayList<>(0x100);
 		
 		//TODO
@@ -849,14 +854,18 @@ public class OraRdbmsInfo {
 		//TODO OBJECT_ID is not unique!!!
 		//TODO Need to add "a2.static.objects" parameter for using this for predicate
 		//TODO
-		final String selectObjectIds =
-				"select OBJECT_ID\n" +
-				((cdb && !pdbConnectionAllowed) ? "from   CDB_OBJECTS O\n" : "from   DBA_OBJECTS O\n") +
-				"where  DATA_OBJECT_ID is not null\n" +
-				"  and  OBJECT_TYPE like 'TABLE%'\n" +
-				"  and  TEMPORARY='N'\n" +
-				((cdb && !pdbConnectionAllowed) ? "  and  CON_ID > 2\n" : "") +
-				where;
+		final String selectObjectIds = ((cdb && !pdbConnectionAllowed)
+				? OraDictSqlTexts.OBJECT_IDS_CDB
+				: OraDictSqlTexts.OBJECT_IDS_NON_CDB) +
+				where + 
+				(processLobs
+					? "\nunion\n" +
+						((cdb && !pdbConnectionAllowed)
+							? OraDictSqlTexts.LOB_IDS_CDB
+							: OraDictSqlTexts.LOB_IDS_NON_CDB) +
+						where
+					: "");
+
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("SQL for getting object Id's = {}", selectObjectIds);
 		}
@@ -1080,6 +1089,10 @@ public class OraRdbmsInfo {
 
 	public boolean littleEndian() {
 		return littleEndian;
+	}
+
+	public int conUid() {
+		return conUid;
 	}
 
 	@Override

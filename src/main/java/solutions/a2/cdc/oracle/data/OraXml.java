@@ -20,14 +20,14 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 
 /**
  * 
- * Representation of <a href="https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Data-Types.html">Oracle CLOB</a> for Kafka Connect
+ * Representation of <a href="https://docs.oracle.com/en/database/oracle/oracle-database/23/adxdb/intro-to-XML-DB.html">Oracle XML</a> for Kafka Connect
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraClob {
+public class OraXml {
 
-	public static final String LOGICAL_NAME = "solutions.a2.OraClob";
+	public static final String LOGICAL_NAME = "solutions.a2.OraXml";
 
 	public static SchemaBuilder builder() {
 		final SchemaBuilder builder = SchemaBuilder
@@ -35,7 +35,7 @@ public class OraClob {
 				.optional()
 				.name(LOGICAL_NAME)
 				.version(2)
-				.doc("Oracle CLOB");
+				.doc("Oracle XML");
 		builder.field("V", OPTIONAL_STRING_SCHEMA);
 		return builder;
 	}

@@ -13,7 +13,6 @@
 
 package solutions.a2.kafka.sink;
 
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,6 +24,26 @@ import java.util.Map.Entry;
 import org.apache.commons.lang3.StringUtils;
 
 import solutions.a2.cdc.oracle.OraColumn;
+
+import static java.sql.Types.BOOLEAN;
+import static java.sql.Types.TINYINT;
+import static java.sql.Types.SMALLINT;
+import static java.sql.Types.INTEGER;
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.FLOAT;
+import static java.sql.Types.DOUBLE;
+import static java.sql.Types.DECIMAL;
+import static java.sql.Types.NUMERIC;
+import static java.sql.Types.DATE;
+import static java.sql.Types.TIMESTAMP;
+import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
+import static java.sql.Types.VARCHAR;
+import static java.sql.Types.BINARY;
+import static java.sql.Types.BLOB;
+import static java.sql.Types.CLOB;
+import static java.sql.Types.NCLOB;
+import static java.sql.Types.SQLXML;
+import static oracle.jdbc.OracleTypes.JSON;
 
 /**
  * 
@@ -41,90 +60,94 @@ public class TargetDbSqlUtils {
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> MYSQL_MAPPING =
 			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
-				put(Types.BOOLEAN, "tinyint");
-				put(Types.TINYINT, "tinyint");
-				put(Types.SMALLINT, "smallint");
-				put(Types.INTEGER, "int");
-				put(Types.BIGINT, "bigint");
-				put(Types.FLOAT, "float");
-				put(Types.DOUBLE, "double");
-				put(Types.DECIMAL, "decimal");
-				put(Types.NUMERIC, "decimal(38,9)");
-				put(Types.DATE, "datetime");
-				put(Types.TIMESTAMP, "timestamp");
-				put(Types.TIMESTAMP_WITH_TIMEZONE, "varchar(127)");
-				put(Types.VARCHAR, "varchar(255)");
-				put(Types.BINARY, "varbinary(1000)");
-				put(Types.BLOB, "longblob");
-				put(Types.CLOB, "longtext");
-				put(Types.NCLOB, "longtext");
-				put(Types.SQLXML, "longtext");
+				put(BOOLEAN, "tinyint");
+				put(TINYINT, "tinyint");
+				put(SMALLINT, "smallint");
+				put(INTEGER, "int");
+				put(BIGINT, "bigint");
+				put(FLOAT, "float");
+				put(DOUBLE, "double");
+				put(DECIMAL, "decimal");
+				put(NUMERIC, "decimal(38,9)");
+				put(DATE, "datetime");
+				put(TIMESTAMP, "timestamp");
+				put(TIMESTAMP_WITH_TIMEZONE, "varchar(127)");
+				put(VARCHAR, "varchar(255)");
+				put(BINARY, "varbinary(1000)");
+				put(BLOB, "longblob");
+				put(CLOB, "longtext");
+				put(NCLOB, "longtext");
+				put(SQLXML, "longtext");
+				put(JSON, "longtext");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> POSTGRESQL_MAPPING =
 			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
-				put(Types.BOOLEAN, "boolean");
-				put(Types.TINYINT, "smallint");
-				put(Types.SMALLINT, "smallint");
-				put(Types.INTEGER, "integer");
-				put(Types.BIGINT, "bigint");
-				put(Types.FLOAT, "real");
-				put(Types.DOUBLE, "double precision");
-				put(Types.DECIMAL, "numeric");
-				put(Types.NUMERIC, "numeric");
-				put(Types.DATE, "timestamp");
-				put(Types.TIMESTAMP, "timestamp");
-				put(Types.TIMESTAMP_WITH_TIMEZONE, "timestamp with time zone");
-				put(Types.VARCHAR, "text");
-				put(Types.BINARY, "bytea");			// https://www.postgresql.org/docs/current/lo.html
-				put(Types.BLOB, "lo");
-				put(Types.CLOB, "text");
-				put(Types.NCLOB, "text");
-				put(Types.SQLXML, "text");
+				put(BOOLEAN, "boolean");
+				put(TINYINT, "smallint");
+				put(SMALLINT, "smallint");
+				put(INTEGER, "integer");
+				put(BIGINT, "bigint");
+				put(FLOAT, "real");
+				put(DOUBLE, "double precision");
+				put(DECIMAL, "numeric");
+				put(NUMERIC, "numeric");
+				put(DATE, "timestamp");
+				put(TIMESTAMP, "timestamp");
+				put(TIMESTAMP_WITH_TIMEZONE, "timestamp with time zone");
+				put(VARCHAR, "text");
+				put(BINARY, "bytea");			// https://www.postgresql.org/docs/current/lo.html
+				put(BLOB, "lo");
+				put(CLOB, "text");
+				put(NCLOB, "text");
+				put(SQLXML, "text");
+				put(JSON, "text");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> ORACLE_MAPPING =
 			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
-				put(Types.BOOLEAN, "CHAR(1)");
-				put(Types.TINYINT, "NUMBER(3)");
-				put(Types.SMALLINT, "NUMBER(5)");
-				put(Types.INTEGER, "NUMBER(10)");
-				put(Types.BIGINT, "NUMBER(19)");
-				put(Types.FLOAT, "BINARY_FLOAT");
-				put(Types.DOUBLE, "BINARY_DOUBLE");
-				put(Types.DECIMAL, "NUMBER");
-				put(Types.NUMERIC, "NUMBER");
-				put(Types.DATE, "DATE");
-				put(Types.TIMESTAMP, "TIMESTAMP");
-				put(Types.TIMESTAMP_WITH_TIMEZONE, "TIMESTAMP(9) WITH TIME ZONE");
-				put(Types.VARCHAR, "VARCHAR2(4000)");
-				put(Types.BINARY, "RAW(2000)");
-				put(Types.BLOB, "BLOB");
-				put(Types.CLOB, "CLOB");
-				put(Types.NCLOB, "NCLOB");
-				put(Types.SQLXML, "XMLTYPE");
+				put(BOOLEAN, "CHAR(1)");
+				put(TINYINT, "NUMBER(3)");
+				put(SMALLINT, "NUMBER(5)");
+				put(INTEGER, "NUMBER(10)");
+				put(BIGINT, "NUMBER(19)");
+				put(FLOAT, "BINARY_FLOAT");
+				put(DOUBLE, "BINARY_DOUBLE");
+				put(DECIMAL, "NUMBER");
+				put(NUMERIC, "NUMBER");
+				put(DATE, "DATE");
+				put(TIMESTAMP, "TIMESTAMP");
+				put(TIMESTAMP_WITH_TIMEZONE, "TIMESTAMP(9) WITH TIME ZONE");
+				put(VARCHAR, "VARCHAR2(4000)");
+				put(BINARY, "RAW(2000)");
+				put(BLOB, "BLOB");
+				put(CLOB, "CLOB");
+				put(NCLOB, "NCLOB");
+				put(SQLXML, "XMLTYPE");
+				put(JSON, "CLOB");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> MSSQL_MAPPING =
 			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
-				put(Types.BOOLEAN, "bit");
-				put(Types.TINYINT, "tinyint");
-				put(Types.SMALLINT, "smallint");
-				put(Types.INTEGER, "int");
-				put(Types.BIGINT, "bigint");
-				put(Types.FLOAT, "real");
-				put(Types.DOUBLE, "float");
-				put(Types.DECIMAL, "decimal");
-				put(Types.NUMERIC, "numeric");
-				put(Types.DATE, "date");
-				put(Types.TIMESTAMP, "datetime2");
-				put(Types.TIMESTAMP_WITH_TIMEZONE, "datetimeoffset");
-				put(Types.VARCHAR, "nvarchar(4000)");
-				put(Types.BINARY, "varbinary(8000)");
-				put(Types.BLOB, "varbinary(max)");
-				put(Types.CLOB, "nvarchar(max)");
-				put(Types.NCLOB, "nvarchar(max)");
-				put(Types.SQLXML, "xml");
+				put(BOOLEAN, "bit");
+				put(TINYINT, "tinyint");
+				put(SMALLINT, "smallint");
+				put(INTEGER, "int");
+				put(BIGINT, "bigint");
+				put(FLOAT, "real");
+				put(DOUBLE, "float");
+				put(DECIMAL, "decimal");
+				put(NUMERIC, "numeric");
+				put(DATE, "date");
+				put(TIMESTAMP, "datetime2");
+				put(TIMESTAMP_WITH_TIMEZONE, "datetimeoffset");
+				put(VARCHAR, "nvarchar(4000)");
+				put(BINARY, "varbinary(8000)");
+				put(BLOB, "varbinary(max)");
+				put(CLOB, "nvarchar(max)");
+				put(NCLOB, "nvarchar(max)");
+				put(SQLXML, "xml");
+				put(JSON, "nvarchar(max)");
 			}});
 	@SuppressWarnings("serial")
 	private static final Map<Integer, String> PK_STRING_MAPPING =
@@ -230,7 +253,7 @@ public class TargetDbSqlUtils {
 					sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 
 					if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
-							column.getJdbcType() == Types.BLOB) {
+							column.getJdbcType() == BLOB) {
 						final StringBuilder sbPostgresLoTriggers = new StringBuilder(128);
 						sbPostgresLoTriggers.append("CREATE TRIGGER t_lo_");
 						sbPostgresLoTriggers.append(tableName);
@@ -274,8 +297,8 @@ public class TargetDbSqlUtils {
 		final StringBuilder sb = new StringBuilder(64);
 		sb.append(column.getColumnName());
 		sb.append(" ");
-		if (column.getJdbcType() != Types.DECIMAL)
-			if (column.getJdbcType() == Types.VARCHAR && pkStringLength > -1) {
+		if (column.getJdbcType() != DECIMAL)
+			if (column.getJdbcType() == VARCHAR && pkStringLength > -1) {
 				sb.append(
 						StringUtils.replace(PK_STRING_MAPPING.get(dbType), "$", Integer.toString(pkStringLength)));
 			} else {

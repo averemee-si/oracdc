@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.sql.NUMBER;
-import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -245,7 +244,7 @@ public class OraCdcLargeObjectWorker {
 		case Types.CLOB:
 		case Types.NCLOB:
 			final String clobAsString = OraDumpDecoder.fromClobNclob(lobHexData.toString());
-			ba = Lz4Util.compress(clobAsString);
+			ba = clobAsString.getBytes();
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("{} column {}, XID='{}' processing completed, processing time {} ms, data length={}, compressed data length={}",
 						oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",

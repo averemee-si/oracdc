@@ -17,6 +17,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -299,7 +300,7 @@ public class OraConnectionObjects {
 					throw sqle;
 				}
 			} else if (sqle.getCause() instanceof NoAvailableConnectionsException) {
-				if (pds.getConnectionWaitTimeout() == CONNECTION_WAIT_TIMEOUT &&
+				if (pds.getConnectionWaitDuration().getSeconds() == CONNECTION_WAIT_TIMEOUT &&
 						pds.getTimeToLiveConnectionTimeout() == TIME_TO_LIVE_CONNECTION_TIMEOUT) {
 					LOGGER.error(
 							"\n=====================\n" +
@@ -308,7 +309,7 @@ public class OraConnectionObjects {
 							"\tgetTimeToLiveConnectionTimeout() = {}\n" +
 							"\tgetValidateConnectionOnBorrow() = {}\n" +
 							"=====================\n",
-							pds.getConnectionWaitTimeout(),
+							pds.getConnectionWaitDuration().getSeconds(),
 							pds.getTimeToLiveConnectionTimeout(),
 							pds.getValidateConnectionOnBorrow());
 					throw sqle;
@@ -316,7 +317,7 @@ public class OraConnectionObjects {
 					try {
 						Thread.sleep(5);
 					} catch (InterruptedException ie) {}
-					pds.setConnectionWaitTimeout(CONNECTION_WAIT_TIMEOUT);
+					pds.setConnectionWaitDuration(Duration.ofSeconds(CONNECTION_WAIT_TIMEOUT));
 					pds.setTimeToLiveConnectionTimeout(TIME_TO_LIVE_CONNECTION_TIMEOUT);
 					try {
 						Thread.sleep(5);

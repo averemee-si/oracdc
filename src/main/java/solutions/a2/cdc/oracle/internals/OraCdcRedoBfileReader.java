@@ -168,10 +168,14 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 	public void close() throws IOException {
 		if (!initBfile) {
 			try {
-				is.close();
-				is = null;
-				bfile.closeLob();
-				bfile = null;
+				if (is != null) {
+					is.close();
+					is = null;
+				}
+				if (bfile != null) {
+					bfile.closeLob();
+					bfile = null;
+				}
 			} catch (SQLException sqle) {
 				LOGGER.error(
 						"\n=====================\n" +

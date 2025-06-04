@@ -28,6 +28,7 @@ package solutions.a2.cdc.oracle.internals;
 
 public class OraCdcChangeLobs extends OraCdcChange {
 
+	public static final int LOB_BIMG_INDEX = 3;
 
 	OraCdcChangeLobs(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
@@ -44,10 +45,10 @@ public class OraCdcChangeLobs extends OraCdcChange {
 			if (coords.length > 2) {
 				kdli(2);
 			}
-			if (coords.length > 3) {
-				if (lobBimg) {
+			if (coords.length > LOB_BIMG_INDEX) {
+				if (lobBimg()) {
 					if (lobDataOffset < 0)
-						lobDataOffset = coords[3][0];
+						lobDataOffset = coords[LOB_BIMG_INDEX][0];
 				} else {
 					kdli(3);
 				}
@@ -58,6 +59,13 @@ public class OraCdcChangeLobs extends OraCdcChange {
 				}
 			}
 		}
+	}
+
+	public int kdliFillLen() {
+		if (operation == _26_2_REDO && lobDataOffset > 7)
+			return Short.toUnsignedInt(redoLog.bu().getU16(record, lobDataOffset -2));
+		else
+			return -1;
 	}
 
 	@Override
@@ -75,12 +83,12 @@ public class OraCdcChangeLobs extends OraCdcChange {
 			if (coords.length > 2) {
 				kdli(sb, 2);
 			}
-			if (coords.length > 3) {
-				if (lobBimg) {
+			if (coords.length > LOB_BIMG_INDEX) {
+				if (lobBimg()) {
 					sb.append("\nKDLI data load\n");
-					printLobContent(sb, 3, 0);
+					printLobContent(sb, LOB_BIMG_INDEX, 0);
 				} else {
-					kdli(sb, 3);
+					kdli(sb, LOB_BIMG_INDEX);
 				}
 			}
 			if (coords.length > 4) {

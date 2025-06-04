@@ -15,6 +15,8 @@ package solutions.a2.cdc.oracle.schema;
 
 import java.sql.Types;
 
+import oracle.jdbc.internal.OracleTypes;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -68,6 +70,8 @@ public class JdbcTypes {
 			return "BLOB";
 		case Types.SQLXML:
 			return "XMLTYPE";
+		case OracleTypes.JSON:
+			return "JSON";
 		}
 		return "UNSUPPORTED!!!";
 	}
@@ -118,6 +122,8 @@ public class JdbcTypes {
 			return Types.BLOB;
 		case "XMLTYPE":
 			return Types.SQLXML;
+		case "JSON":
+			return OracleTypes.JSON;
 		}
 		return Integer.MIN_VALUE;
 	}

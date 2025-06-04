@@ -13,11 +13,10 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.util.Arrays;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.Xid;
 
 /**
@@ -41,9 +40,18 @@ public class OraCdcChangeLlb extends OraCdcChange {
 	public static final byte TYPE_3 = 0x3;
 	public static final byte TYPE_4 = 0x4;
 
+	public static final byte LOB_OP_UNKNOWN = 0x00;
+	public static final byte LOB_OP_PREPARE = 0x01;
+	public static final byte LOB_OP_WRITE = 0x02;
+	public static final byte LOB_OP_TRIM = 0x03;
+	public static final byte LOB_OP_ERASE = 0x04;
+	public static final byte LOB_OP_END = 0x05;
+
 	private final byte type;
-	private short fsiz;
-	private int lobColumnCount = -1;
+	private byte lobOp = LOB_OP_UNKNOWN;
+	private int fsiz;
+	private int csiz;
+	private boolean hasXmlType = false;
 
 	OraCdcChangeLlb(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
@@ -61,25 +69,48 @@ public class OraCdcChangeLlb extends OraCdcChange {
 		case TYPE_1:
 			//TODO 0x28 or 0x50 ?
 			elementLengthCheck("11.17 (LLB)", "Type 1", 2, 0x28, "");
+			switch (redoLog.bu().getU16(record, coords[2][0])) {
+			case (short) 0x01:
+			case (short) 0x02:
+				lobOp = LOB_OP_WRITE;
+				break;
+			case (short) 0x66:
+			case (short) 0x67:
+				lobOp = LOB_OP_TRIM;
+				break;
+			case (short) 0x68:
+				lobOp = LOB_OP_ERASE;
+				break;
+			default:
+				LOGGER.warn(
+						"Unknown LOB operation code '{} {}' at RBA {} for change 11.17\nChange vector binary dump{}",
+						String.format("%02x", record[coords[2][0]]),
+						String.format("%02x", record[coords[2][0] + 1]),
+						rba, binaryDump());
+			}
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0] + 0x04),
 					redoLog.bu().getU16(record, coords[2][0] + 0x06),
 					redoLog.bu().getU32(record, coords[2][0] + 0x08));
-			lid = Arrays.copyOfRange(record, coords[2][0] + 0xC, coords[2][0] + 0x16);
-			lColId = redoLog.bu().getU16(record, coords[2][0] + 0x16);
-			fsiz = redoLog.bu().getU16(record, coords[2][0] + 0x20);
+			lid = new LobId(record, coords[2][0] + 0xC);
+			lobCol = redoLog.bu().getU16(record, coords[2][0] + 0x16);
+			fsiz = redoLog.bu().getU32(record, coords[2][0] + 0x20);
+			if (lobOp == LOB_OP_ERASE)
+				csiz = redoLog.bu().getU32(record, coords[2][0] + 0x18);
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x24);
 			break;
 		case TYPE_3:
-			elementLengthCheck("11.17 (LLB)", "Type 3", 2, 0xC, "");
+			elementLengthCheck("11.17 (LLB)", "Type 3", 2, 0x0C, "");
+			lobOp = LOB_OP_END;
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0]),
 					redoLog.bu().getU16(record, coords[2][0] + 0x02),
 					redoLog.bu().getU32(record, coords[2][0] + 0x04));
 			obj = redoLog.bu().getU32(record, coords[2][0] + 0x08);
-			if (coords[2][1] >= 0x24) {
-				lColId = redoLog.bu().getU16(record, coords[2][0] + 0x22);
-			}
+			if (coords[2][1] >= 0x0C)
+				fsiz = redoLog.bu().getU32(record, coords[2][0] + 0x0C);
+			if (coords[2][1] >= 0x24)
+				lobCol = redoLog.bu().getU16(record, coords[2][0] + 0x22);
 			break;
 		case TYPE_4:
 			// Base table supplemental data
@@ -94,21 +125,25 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			}
 			//TODO 0x10 or 0x28?
 			elementLengthCheck("11.17 (LLB)", "Type 4", 2, 0x10, "");
+			lobOp = LOB_OP_PREPARE;
 			obj = redoLog.bu().getU32(record, coords[2][0]);
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0] + 0x08),
 					redoLog.bu().getU16(record, coords[2][0] + 0x0A),
 					redoLog.bu().getU32(record, coords[2][0] + 0x0C));
-			lobColumnCount = coords[3][1] / Short.BYTES;
+			if (coords.length > 8 && coords[8][1] > 0) {
+				hasXmlType = true;
+				//TODO - binary XML, [8] - array of internal column IDs, [7] - offset/shift?
+			}
 			break;
 		default:
 		}
 	}
 
-	public short[] lobColumnIds() {
+	private short[] lobColumnIds() {
 		if (type == TYPE_4) {
-			final short[] ids = new short[lobColumnCount];
-			for (int i = 0; i < lobColumnCount; i++) {
+			final short[] ids = new short[coords[3][1] / Short.BYTES];
+			for (int i = 0; i < ids.length; i++) {
 				ids[i] = redoLog.bu().getU16(record, coords[3][0] + i * Short.BYTES);
 			}
 			return ids;
@@ -117,33 +152,114 @@ public class OraCdcChangeLlb extends OraCdcChange {
 		}
 	}
 
+	private short[] lobIntColIds() {
+		if (hasXmlType) {
+			final short[] ids = new short[coords[8][1] / Short.BYTES];
+			for (int i = 0; i < ids.length; i++) {
+				ids[i] = redoLog.bu().getU16(record, coords[8][0] + i * Short.BYTES);
+			}
+			return ids;
+		} else {
+			return null;
+		}
+	}
+
+	public byte type() {
+		return type;
+	}
+
+	public byte lobOp() {
+		return lobOp;
+	}
+
+	public int fsiz() {
+		return fsiz;
+	}
+
+	public int csiz() {
+		return csiz;
+	}
+
+	public short[][] columnMap() {
+		if (hasXmlType) {
+			final short[] colIds = lobColumnIds();
+			final short[] intColIds = lobIntColIds();
+			final int offset = colIds.length - intColIds.length;
+			if (offset < 0) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to map internal COLUMN_ID's for 11.17 (LLB) Type 4 #{} at RBA {} in '{}'.\n" +
+						"Change contents:\n{}\n" +
+						"=====================\n",
+						num, rba, redoLog.fileName(), binaryDump());
+				throw new IllegalArgumentException("Unable to map internal COLUMN_ID's for 11.17 (LLB) Type 4!");
+			}
+			final short[][] mapping = new short[intColIds.length][2];
+			for (int i = 0; i < intColIds.length; i++) {
+				mapping[i][0] = colIds[i + offset];
+				mapping[i][1] = intColIds[i];
+			}
+			return mapping;
+		} else
+			return null;
+	}
+
+	public boolean hasXmlType() {
+		return hasXmlType;
+	}
+
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
 		sb
-			.append("\n typ:")
+			.append("\n  typ:")
 			.append(Byte.toUnsignedInt(type))
 			.append(" xid:")
 			.append(xid)
 			.append(" obj:")
 			.append(obj);
 		if (type == TYPE_1) {
-			sb.append(" lid:");
-			for (int i = 0; i < lid.length; i++) {
-				sb.append(String.format("%02x", lid[i]));
-			}
-			sb
-				.append(" fsiz: ")
-				.append(Short.toUnsignedInt(fsiz));
+			if (lobOp == LOB_OP_WRITE)
+				sb
+					.append(" prepare write to lid:")
+					.append(lid.toString())
+					.append(" fsiz:")
+					.append(Integer.toUnsignedLong(fsiz));
+			else if (lobOp == LOB_OP_TRIM)
+				sb
+					.append("\n  DBMS_LOB.TRIM(lob_loc => '")
+					.append(lid.toString())
+					.append("', newlen => ")
+					.append(Integer.toUnsignedLong(fsiz))
+					.append(")");
+			else if (lobOp == LOB_OP_ERASE)
+				sb
+					.append("\n  DBMS_LOB.ERASE(lob_loc => '")
+					.append(lid.toString())
+					.append("', amount => ")
+					.append(Integer.toUnsignedLong(fsiz))
+					.append(", offset => ")
+					.append(Integer.toUnsignedLong(csiz))
+					.append(")");
+			else
+				sb
+					.append(" lid:")
+					.append(lid.toString())
+					.append(" fsiz:")
+					.append(Integer.toUnsignedLong(fsiz));
 		}
+		if (type == TYPE_3)
+			sb
+				.append(" fsiz:")
+				.append(Integer.toUnsignedLong(fsiz));
 		if (type == TYPE_4) {
+			short[] ids = lobColumnIds();
 			sb
 				.append(" LOB_cc:")
-				.append(lobColumnCount)
+				.append(ids.length)
 				.append(" LOB_col_ids: [");
 			boolean first = true;
-			short[] ids = lobColumnIds();
-			for (int i = 0; i < lobColumnCount; i++) {
+			for (int i = 0; i < ids.length; i++) {
 				if (first) {
 					first = false;
 				} else {
@@ -152,11 +268,25 @@ public class OraCdcChangeLlb extends OraCdcChange {
 				sb.append(Short.toUnsignedInt(ids[i]));
 			}
 			sb.append("]");
+			if (hasXmlType) {
+				sb.append(" LOB_internal_col_ids: [");
+				first = true;
+				short[] intIds = lobIntColIds();
+				for (int i = 0; i < intIds.length; i++) {
+					if (first) {
+						first = false;
+					} else {
+						sb.append(", ");
+					}
+					sb.append(Short.toUnsignedInt(intIds[i]));
+				}
+				sb.append("]");
+			}
 		}
-		if (lColId > -1) {
+		if (lobCol > -1) {
 			sb
-				.append(" column_id: ")
-				.append(Short.toUnsignedInt(lColId));
+				.append("\n  column_id: ")
+				.append(Short.toUnsignedInt(lobCol));
 		}
 		return sb;
 	}

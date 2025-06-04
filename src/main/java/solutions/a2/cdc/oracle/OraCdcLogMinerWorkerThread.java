@@ -25,8 +25,10 @@ import java.sql.SQLRecoverableException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -42,7 +44,6 @@ import oracle.jdbc.OracleResultSet;
 import oracle.sql.CHAR;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
-import solutions.a2.cdc.oracle.utils.Lz4Util;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
@@ -85,6 +86,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
 	private final boolean traceSession;
+	private final Set<Long> lobObjects;
+	private final Set<Long> nonLobObjects;
 	private final OraCdcDictionaryChecker checker;
 
 	private boolean fetchRsLogMinerNext;
@@ -117,6 +120,13 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
 		this.logMinerReconnectIntervalMs = config.logMinerReconnectIntervalMs();
+		if (processLobs) {
+			lobObjects = new HashSet<>();
+			nonLobObjects = new HashSet<>();
+		} else {
+			lobObjects = null;
+			nonLobObjects = null;
+		}
 
 		try {
 			connLogMiner = oraConnections.getLogMinerConnection(traceSession);
@@ -875,7 +885,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (lobs == null) {
 							lobs = new ArrayList<>();
 						}
-						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, Lz4Util.compress(xmlAsString)));
+						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, xmlAsString.getBytes()));
 						//TODO
 						//TODO BEGIN: Workaround for operation duplication when LogMiner runs
 						//TODO BEGIN: without dictionary 
@@ -913,7 +923,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (lobs == null) {
 							lobs = new ArrayList<>();
 						}
-						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, Lz4Util.compress(xmlAsString)));
+						lobs.add(new OraCdcLargeObjectHolder(xmlColumnId, xmlAsString.getBytes()));
 						//TODO
 						//TODO BEGIN: Workaround for operation duplication when LogMiner runs
 						//TODO BEGIN: without dictionary 
