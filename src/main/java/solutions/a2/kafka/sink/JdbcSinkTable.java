@@ -22,7 +22,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,12 +45,24 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.OraDumpDecoder;
 import solutions.a2.cdc.oracle.OraTableDefinition;
-import solutions.a2.cdc.oracle.schema.JdbcTypes;
+import solutions.a2.cdc.oracle.data.OraBlob;
+import solutions.a2.cdc.oracle.data.OraClob;
+import solutions.a2.cdc.oracle.data.OraJson;
+import solutions.a2.cdc.oracle.data.OraNClob;
+import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.postgres.PgRdbmsInfo;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.jmx.SinkTableInfo;
 import solutions.a2.utils.ExceptionUtils;
 
+import static java.sql.Types.BINARY;
+import static java.sql.Types.NUMERIC;
+import static java.sql.Types.BLOB;
+import static java.sql.Types.CLOB;
+import static java.sql.Types.NCLOB;
+import static java.sql.Types.SQLXML;
+import static oracle.jdbc.OracleTypes.JSON;
+import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
 
 /**
  * 
@@ -231,7 +242,13 @@ public class JdbcSinkTable extends OraTableDefinition {
 		final Map<String, List<Field>> unnestedColumns = new HashMap<>();
 		valueFields.forEach(f -> {
 			final String fieldName = StringUtils.upperCase(f.name());
-			if (StringUtils.equals("struct", f.schema().type().getName())) {
+			if (StringUtils.equals("struct", f.schema().type().getName()) &&
+					!StringUtils.startsWithAny(f.schema().name(),
+							OraBlob.LOGICAL_NAME,
+							OraClob.LOGICAL_NAME,
+							OraNClob.LOGICAL_NAME,
+							OraXml.LOGICAL_NAME,
+							OraJson.LOGICAL_NAME)) {
 				for (Field unnestField : f.schema().fields()) {
 					final String unnestFieldName = StringUtils.upperCase(unnestField.name());
 					unnestedValues.put(unnestFieldName, unnestField);
@@ -304,16 +321,17 @@ public class JdbcSinkTable extends OraTableDefinition {
 							"=====================\n",
 							StringUtils.equalsIgnoreCase("YES", rsAllColumns.getString("IS_NULLABLE")) ?
 									"Nullable" : "Not nullable",
-							tableName, dbValueColumn, JdbcTypes.getTypeName(rsAllColumns.getInt("DATA_TYPE")));
+							tableName, dbValueColumn, getTypeName(rsAllColumns.getInt("DATA_TYPE")));
 					continue;
 				}
 				if (valueField != null) {
 					final OraColumn column = new OraColumn(valueField, false, isKey);
 					//TODO - currently JDBCType only from Kafka Topic!!!
-					if (column.getJdbcType() == Types.BLOB ||
-							column.getJdbcType() == Types.CLOB ||
-							column.getJdbcType() == Types.NCLOB ||
-							column.getJdbcType() == Types.SQLXML) {
+					if (column.getJdbcType() == BLOB ||
+							column.getJdbcType() == CLOB ||
+							column.getJdbcType() == NCLOB ||
+							column.getJdbcType() == SQLXML ||
+							column.getJdbcType() == JSON) {
 						lobColumns.put(column.getColumnName(), column);
 					} else {
 							allColumns.add(column);
@@ -337,7 +355,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			LOGGER.warn("Column list for {}:", this.tableName);
 			pkColumns.forEach((k, oraColumn) -> {
 				LOGGER.warn("\t{},\t JDBC Type -> {}",
-						oraColumn.getColumnName(), JdbcTypes.getTypeName(oraColumn.getJdbcType()));
+						oraColumn.getColumnName(), getTypeName(oraColumn.getJdbcType()));
 			});
 		} else {
 			onlyPkColumns = false;
@@ -633,7 +651,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			while (lobIterator.hasNext()) {
 				final LobSqlHolder holder = lobIterator.next().getValue();
 				final Object objLobColumn = lobColumns.get(holder.COLUMN);
-				final Object objLobValue = structs.getValue().get(holder.COLUMN);
+				final Struct objLobValue = (Struct) structs.getValue().get(holder.COLUMN);
 				if (objLobValue != null) {
 					//NULL means do not touch LOB!
 					if (holder.STATEMENT == null) {
@@ -642,18 +660,17 @@ public class JdbcSinkTable extends OraTableDefinition {
 					}
 					if (objLobColumn instanceof OraColumn) {
 						final int lobColType = ((OraColumn)objLobColumn).getJdbcType();
-						if (lobColType == Types.BLOB) {
-//							final byte[] columnByteValue = ((ByteBuffer) objLobValue).array();
-							final byte[] columnByteValue = (byte[]) objLobValue;
-							if (columnByteValue.length == 0)
+						if (lobColType == BLOB) {
+							final byte[] columnByteValue = objLobValue.getBytes("V");
+							if (columnByteValue == null)
 								holder.STATEMENT.setNull(1, lobColType);
 							else
 								holder.STATEMENT.setBinaryStream(
 									1, new ByteArrayInputStream(columnByteValue), columnByteValue.length);
 						} else {
-							// Types.CLOB || Types.NCLOB || Types.SQLXML
-							final String columnStringValue = (String) objLobValue;
-							if (columnStringValue.length() == 0)
+							// CLOB || NCLOB || SQLXML || JSON 
+							final String columnStringValue = objLobValue.getString("V");
+							if (columnStringValue == null)
 								holder.STATEMENT.setNull(1, lobColType);
 							else
 								holder.STATEMENT.setCharacterStream(
@@ -771,12 +788,11 @@ public class JdbcSinkTable extends OraTableDefinition {
 	public String structValueAsString(final OraColumn oraColumn, final Struct struct) {
 		final StringBuilder sb = new StringBuilder(128);
 		sb.append("Column Type =");
-		sb.append(JdbcTypes.getTypeName(oraColumn.getJdbcType()));
+		sb.append(getTypeName(oraColumn.getJdbcType()));
 		sb.append(", Column Value='");
 		switch (oraColumn.getJdbcType()) {
-			case Types.NUMERIC:
-			case Types.BINARY:
-			case Types.BLOB:
+			case NUMERIC:
+			case BINARY:
 				ByteBuffer bb = (ByteBuffer) struct.get(oraColumn.getColumnName());
 				sb.append(OraDumpDecoder.toHexString(bb.array()));
 				break;
@@ -826,7 +842,13 @@ public class JdbcSinkTable extends OraTableDefinition {
 	private void buildNonPkColsList(final List<Field> valueFields) throws SQLException {
 		for (final Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
-				if (StringUtils.equals("struct", field.schema().type().getName())) {
+				if (StringUtils.equals("struct", field.schema().type().getName()) &&
+						!StringUtils.startsWithAny(field.schema().name(),
+								OraBlob.LOGICAL_NAME,
+								OraClob.LOGICAL_NAME,
+								OraNClob.LOGICAL_NAME,
+								OraXml.LOGICAL_NAME,
+								OraJson.LOGICAL_NAME)) {
 					final List<OraColumn> transformation = new ArrayList<>();
 					for (Field unnestField : field.schema().fields()) {
 						transformation.add(new OraColumn(unnestField, false, false));
@@ -834,10 +856,11 @@ public class JdbcSinkTable extends OraTableDefinition {
 					lobColumns.put(field.name(), transformation);
 				} else {
 					final OraColumn column = new OraColumn(field, false, false);
-					if (column.getJdbcType() == Types.BLOB ||
-						column.getJdbcType() == Types.CLOB ||
-						column.getJdbcType() == Types.NCLOB ||
-						column.getJdbcType() == Types.SQLXML) {
+					if (column.getJdbcType() == BLOB ||
+						column.getJdbcType() == CLOB ||
+						column.getJdbcType() == NCLOB ||
+						column.getJdbcType() == SQLXML ||
+						column.getJdbcType() == JSON) {
 						lobColumns.put(column.getColumnName(), column);
 					} else {
 						allColumns.add(column);
@@ -851,7 +874,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			LOGGER.warn("Column list for {}:", this.tableName);
 			pkColumns.forEach((k, oraColumn) -> {
 				LOGGER.warn("\t{},\t JDBC Type -> {}",
-						oraColumn.getColumnName(), JdbcTypes.getTypeName(oraColumn.getJdbcType()));
+						oraColumn.getColumnName(), getTypeName(oraColumn.getJdbcType()));
 			});
 		} else {
 			onlyPkColumns = false;
