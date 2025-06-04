@@ -256,6 +256,12 @@ RUN    wget -q "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_F
        && mkdir -p ${KAFKA_HOME}/connect/bin \
        && mkdir -p ${KAFKA_HOME}/connect/jmx \
        && chown -R kafka:kafka ${BASEDIR}/kafka_${SCALA_VERSION}-${KAFKA_VERSION} ${KAFKA_HOME}
+#
+# CVE-2025-48734 fix for Apache Kafka 4.0 runtime
+#
+ARG    CVE_2025_48734_FIX=commons-beanutils-1.11.0.jar
+RUN    rm ${KAFKA_HOME}/libs/commons-beanutils-1.9.4.jar
+RUN    wget "${MVN_BASE}/commons-beanutils/commons-beanutils/1.11.0/${CVE_2025_48734_FIX}" -O "${KAFKA_HOME}/libs/${CVE_2025_48734_FIX}"
 
 ARG    ORACDC_VERSION=2.8.2
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
