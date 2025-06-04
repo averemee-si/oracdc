@@ -616,6 +616,9 @@ public class OraColumn {
 						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 					}
 					break;
+				case OraNumber.LOGICAL_NAME:
+					jdbcType = NUMERIC;
+					break;
 				case OraIntervalYM.LOGICAL_NAME:
 					jdbcType = INTERVALYM;
 					break;
@@ -655,9 +658,6 @@ public class OraColumn {
 		case "STRUCT":
 			if (field.schema().name() != null)
 				switch (field.schema().name()) {
-				case OraNumber.LOGICAL_NAME:
-					jdbcType = NUMERIC;
-					break;
 				case OraBlob.LOGICAL_NAME:
 					jdbcType = BLOB;
 					break;
