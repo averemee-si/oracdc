@@ -139,6 +139,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		super(task.runLatch(), task.rdbmsInfo(), task.config(),
 				task.oraConnections(), committedTransactions);
 		LOGGER.info("Initializing oracdc Redo Miner worker thread");
+		this.setDaemon(true);
 		this.setName("OraCdcRedoMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
 		this.activeTransactions = activeTransactions;
