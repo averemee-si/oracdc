@@ -31,16 +31,22 @@ public class OraCdcRedoSshjReader implements OraCdcRedoReader {
 	private final SFTPClient sftp;
 	private final int unconfirmedReads;
 	private final int bufferSize;
+	private final OraCdcRedoLogSshjFactory rlf;
 
-	OraCdcRedoSshjReader(final SFTPClient sftp, final int unconfirmedReads, final int bufferSize,
+	OraCdcRedoSshjReader(final OraCdcRedoLogSshjFactory rlf, final int unconfirmedReads, final int bufferSize,
 			final String redoLog, final int blockSize, final long blockCount) throws IOException {
-		this.sftp = sftp;
+		this.rlf = rlf;
+		this.sftp = rlf.sftp();
 		this.unconfirmedReads = unconfirmedReads;
 		this.bufferSize = bufferSize;
-		handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
-		is = new BufferedInputStream(handle.new ReadAheadRemoteFileInputStream(unconfirmedReads), bufferSize);
-		if (is.skip(blockSize) != blockSize) {
-			throw new IOException("Unable to skip " + blockSize + " bytes!");
+		if (rlf.connected()) {
+			handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
+			is = new BufferedInputStream(handle.new ReadAheadRemoteFileInputStream(unconfirmedReads), bufferSize);
+			if (is.skip(blockSize) != blockSize) {
+				throw new IOException("Unable to skip " + blockSize + " bytes!");
+			}
+		} else {
+			throw rlf.disconnectException();
 		}
 		this.redoLog = redoLog;
 		this.blockSize = blockSize;
@@ -48,22 +54,30 @@ public class OraCdcRedoSshjReader implements OraCdcRedoReader {
 
 	@Override
 	public int read(byte b[], int off, int len) throws IOException {
-		return is.read(b, off, len);
+		if (rlf.connected())
+			return is.read(b, off, len);
+		else
+			throw rlf.disconnectException();
 	}
 	
 	@Override
 	public long skip(long n) throws IOException {
-		return is.skip(n * blockSize);
+		if (rlf.connected())
+			return is.skip(n * blockSize);
+		else
+			throw rlf.disconnectException();
 	}
 
 	@Override
 	public void close() throws IOException {
 		if (is != null) {
-			is.close();
+			if (rlf.connected())
+				is.close();
 			is = null;
 		}
 		if (handle != null) {
-			handle.close();
+			if (rlf.connected())
+				handle.close();
 			handle = null;
 		}
 	}
@@ -71,8 +85,11 @@ public class OraCdcRedoSshjReader implements OraCdcRedoReader {
 	@Override
 	public void reset()  throws IOException {
 		close();
-		handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
-		is = new BufferedInputStream(handle.new ReadAheadRemoteFileInputStream(unconfirmedReads), bufferSize);
+		if (rlf.connected()) {
+			handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
+			is = new BufferedInputStream(handle.new ReadAheadRemoteFileInputStream(unconfirmedReads), bufferSize);
+		} else
+			throw rlf.disconnectException();
 	}
 
 	@Override

@@ -18,17 +18,23 @@ import java.io.InputStream;
 import java.util.EnumSet;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.schmizz.sshj.SSHClient;
+import net.schmizz.sshj.common.DisconnectReason;
 import net.schmizz.sshj.sftp.OpenMode;
 import net.schmizz.sshj.sftp.RemoteFile;
 import net.schmizz.sshj.sftp.SFTPClient;
+import net.schmizz.sshj.transport.DisconnectListener;
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.oracle.utils.BinaryUtils;
 
-public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implements OraCdcRedoLogFactory, AutoCloseable {
+public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase
+		implements OraCdcRedoLogFactory, AutoCloseable, DisconnectListener {
 
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLogSshjFactory.class);
 	
 	private final String username;
 	private final String hostname;
@@ -40,6 +46,8 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 	private final int bufferSize;
 	private SSHClient ssh;
 	private SFTPClient sftp;
+	private boolean connected;
+	private String disconnectMessage;
 
 	public OraCdcRedoLogSshjFactory(
 			final String username, final String hostname, final int port,
@@ -75,7 +83,9 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 			ssh.authPassword(username, secret);
 		else
 			ssh.authPublickey(username, secret);
+		ssh.getTransport().setDisconnectListener(this);
 		sftp = ssh.newSFTPClient();
+		connected = true;
 	}
 
 
@@ -88,18 +98,21 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 
 	@Override
 	public OraCdcRedoLog get(final String redoLog) throws IOException {
-		RemoteFile handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
-		InputStream fis = handle.new RemoteFileInputStream();
-		long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
-		fis.close();
-		fis = null;
-		return get(redoLog, false, (int)blockSizeAndCount[0], blockSizeAndCount[1]); 
+		if (connected) {
+			RemoteFile handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
+			InputStream fis = handle.new RemoteFileInputStream();
+			long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
+			fis.close();
+			fis = null;
+			return get(redoLog, false, (int)blockSizeAndCount[0], blockSizeAndCount[1]);
+		} else
+			throw disconnectException();
 	}
 
 	@Override
 	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
 		return new OraCdcRedoLog(
-				new OraCdcRedoSshjReader(sftp, unconfirmedReads, bufferSize, redoLog, blockSize, blockCount),
+				new OraCdcRedoSshjReader(this, unconfirmedReads, bufferSize, redoLog, blockSize, blockCount),
 				valCheckSum,
 				bu,
 				blockCount);
@@ -112,6 +125,7 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 				sftp.close();
 				ssh.close();
 				ssh = null;
+				connected = false;
 			} catch (IOException ioe) {}
 		}
 	}
@@ -119,6 +133,29 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase implement
 	public void reset() throws IOException {
 		close();
 		create();
+	}
+
+	@Override
+	public void notifyDisconnect(DisconnectReason reason, String message) {
+		LOGGER.error(
+				"\n=====================\n" +
+				"sshj disconnected - {}. additional message - {}\n" +
+				"\n=====================\n",
+				reason, message);
+		connected = false;
+		disconnectMessage = message;
+	}
+
+	SFTPClient sftp() {
+		return sftp;
+	}
+
+	boolean connected() {
+		return connected;
+	}
+
+	IOException disconnectException() {
+		return new IOException(disconnectMessage);
 	}
 
 }
