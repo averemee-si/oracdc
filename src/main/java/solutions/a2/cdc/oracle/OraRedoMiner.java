@@ -18,6 +18,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.List;
@@ -41,6 +42,11 @@ import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.utils.BinaryUtils;
 
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17002;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17008;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17410;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_2396;
+
 /**
  * 
  * Mine redo log's for changes
@@ -51,6 +57,7 @@ import solutions.a2.oracle.utils.BinaryUtils;
 public class OraRedoMiner {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraRedoMiner.class);
+	private static final int MAX_RETRIES = 63;
 
 	private final OraCdcSourceConnectorConfig config;
 	private long firstChange;
@@ -223,12 +230,76 @@ public class OraRedoMiner {
 		boolean limits = false;
 		long blocks = 0;
 
-		psGetArchivedLogs.setLong(1, firstChange);
-		psGetArchivedLogs.setLong(2, firstChange);
-		psGetArchivedLogs.setLong(3, firstChange);
-		psGetArchivedLogs.setInt(4, rdbmsInfo.getRedoThread());
-		psGetArchivedLogs.setInt(5, rdbmsInfo.getRedoThread());
-		ResultSet rs = psGetArchivedLogs.executeQuery();
+		ResultSet rs = null;
+		boolean rsReady = false;
+		while (!rsReady) {
+			try {
+				psGetArchivedLogs.setLong(1, firstChange);
+				psGetArchivedLogs.setLong(2, firstChange);
+				psGetArchivedLogs.setLong(3, firstChange);
+				psGetArchivedLogs.setInt(4, rdbmsInfo.getRedoThread());
+				psGetArchivedLogs.setInt(5, rdbmsInfo.getRedoThread());
+				rs = psGetArchivedLogs.executeQuery();
+				rsReady = true;
+			} catch (SQLException sqle) {
+				if (sqle.getErrorCode() == ORA_2396 ||
+						sqle.getErrorCode() == ORA_17002 ||
+						sqle.getErrorCode() == ORA_17008 ||
+						sqle.getErrorCode() == ORA_17410 || 
+						sqle instanceof SQLRecoverableException ||
+						(sqle.getCause() != null && sqle.getCause() instanceof SQLRecoverableException)) {
+					LOGGER.warn(
+							"\n=====================\n" +
+							"Encontered an 'ORA-{}: {}'\n" +
+							"Attempting to reconnect to dictionary...\n" +
+							"=====================\n",
+							sqle.getErrorCode(), sqle.getMessage());
+					try {
+						boolean ready = false;
+						int retries = 0;
+						while (!ready) {
+							try {
+								Connection connection = oraConnections.getConnection();
+								createStatements(connection);
+							} catch(SQLException sqleRestore) {
+								if (retries > MAX_RETRIES) {
+									LOGGER.error(
+											"\n=====================\n" +
+											"Unable to restore dictionary connection after {} retries!\n" +
+											"=====================\n",
+											retries);
+									throw sqleRestore;
+								}
+							}
+							ready = true;
+							if (!ready) {
+								long waitTime = (long) Math.pow(2, retries++) + config.connectionRetryBackoff();
+								LOGGER.warn("Waiting {} ms for dictionary connection to restore...", waitTime);
+								try {
+									this.wait(waitTime);
+								} catch (InterruptedException ie) {}
+							}
+						}
+					} catch (SQLException ucpe) {
+						LOGGER.error(
+								"\n=====================\n" +
+								"SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables\n" +
+								"SQL error message = {}\n" +
+								"=====================\n",
+								ucpe.getErrorCode(), ucpe.getSQLState(), ucpe.getMessage());
+						throw new SQLException(sqle);
+					}
+				} else {
+					LOGGER.error(
+							"\n=====================\n" +
+							"SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dictionary tables\n" +
+							"SQL error message = {}\n" +
+							"=====================\n",
+							sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
+					throw new SQLException(sqle);
+				}
+			}
+		}
 		int lagSeconds = 0;
 		short blockSize = 0x200;
 		while (rs.next()) {
@@ -430,6 +501,7 @@ public class OraRedoMiner {
 						miner = redoLog.iterator();
 					}
 				} else {
+
 					miner = redoLog.iterator(firstRba, nextChange);
 					inited = true;
 				}
@@ -488,6 +560,27 @@ public class OraRedoMiner {
 					ssh ? "SSH" :
 						bfile ? "Oracle BFILE store" :
 							smb ? "SMB" : "FS reader";
+	}
+
+	public void resetRedoLogFactory(final long startScn, final RedoByteAddress startRba) throws SQLException {
+		try {
+			if (asm)
+				((OraCdcRedoLogAsmFactory) rlf).reset(oraConnections.getAsmConnection(config));
+			else if (ssh)
+				if (sshMaverick)
+					((OraCdcRedoLogSshtoolsMaverickFactory) rlf).reset();
+				else
+					((OraCdcRedoLogSshjFactory) rlf).reset();
+			else if (bfile)
+				((OraCdcRedoLogBfileFactory) rlf).reset(oraConnections.getConnection());
+			else
+				((OraCdcRedoLogSmbjFactory) rlf).reset();
+			inited = false;
+			firstChange = startScn;
+			firstRba = startRba;
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 }
