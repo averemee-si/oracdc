@@ -124,12 +124,12 @@ public class OraRedoMiner {
 			useNotifier = true;
 			notifier.configure(config);
 		}
+		this.oraConnections = oraConnections;
 		if (asm) {
 			needNameChange = false;
 			reconnectIntervalMs = config.asmReconnectIntervalMs();
 			rlf = new OraCdcRedoLogAsmFactory(oraConnections.getAsmConnection(config),
 					bu, true, config.asmReadAhead());
-			this.oraConnections = oraConnections;
 		} else if (ssh) {
 			needNameChange = rdbmsInfo.isWindows();
 			reconnectIntervalMs = config.sshReconnectIntervalMs();
@@ -144,14 +144,12 @@ public class OraRedoMiner {
 			} catch (IOException ioe) {
 				throw new SQLException(ioe);
 			}
-			this.oraConnections = null;
 		} else if (bfile) {
 			needNameChange = true;
 			reconnectIntervalMs = config.bfileReconnectIntervalMs();
 			rlf = new OraCdcRedoLogBfileFactory(oraConnections.getConnection(),
 					config.bfileDirOnline(), config.bfileDirArchive(), config.bfileBufferSize(),
 					bu, true);
-			this.oraConnections = oraConnections;
 		} else if (smb) {
 			needNameChange = true;
 			reconnectIntervalMs = config.smbReconnectIntervalMs();
@@ -160,12 +158,10 @@ public class OraRedoMiner {
 			} catch (IOException ioe) {
 				throw new SQLException(ioe);
 			}
-			this.oraConnections = null;
 		} else {
 			needNameChange = true;
 			reconnectIntervalMs = Long.MAX_VALUE;
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
-			this.oraConnections = null;
 		}
 
 		processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
