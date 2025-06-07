@@ -38,7 +38,10 @@ public class OraCdcRedoSshtoolsMaverickReader implements OraCdcRedoReader {
 	OraCdcRedoSshtoolsMaverickReader(final SftpClient sftp, final String redoLog, final int blockSize, final long blockCount) throws IOException {
 		this.sftp = sftp;
 		try {
-			is = sftp.getInputStream(redoLog);
+			if (sftp != null && sftp.isConnected())
+				is = sftp.getInputStream(redoLog);
+			else
+				throw new SshException(0, "Not connected to SSH host!");
 		} catch (SshException | SftpStatusException e) {
 			throw new IOException(e);
 		}
@@ -80,7 +83,10 @@ public class OraCdcRedoSshtoolsMaverickReader implements OraCdcRedoReader {
 	public void reset()  throws IOException {
 		close();
 		try {
-			is = sftp.getInputStream(redoLog);
+			if (sftp != null && sftp.isConnected())
+				is = sftp.getInputStream(redoLog);
+			else
+				throw new SshException(0, "Not connected to SSH host!");
 		} catch (SshException | SftpStatusException sftpe) {
 			throw new IOException(sftpe);
 		}
