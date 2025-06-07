@@ -34,6 +34,9 @@
 				<exclude>com.fasterxml.jackson.core:jackson-annotations</exclude>
 				<exclude>com.fasterxml.jackson.core:jackson-databind</exclude>
 				<exclude>org.lz4:lz4-java</exclude>
+				<exclude>org.bouncycastle:bcprov-jdk18on</exclude>
+				<exclude>org.bouncycastle:bcpkix-jdk18on</exclude>
+				<exclude>org.bouncycastle:bcutil-jdk18on</exclude>
 			</excludes>
 		</dependencySet>
 	</dependencySets>

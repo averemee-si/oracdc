@@ -238,7 +238,8 @@ ARG    CONFLUENT_VERSION
 ARG    MVN_BASE
 
 RUN    set -eux && apt-get update && apt-get --yes dist-upgrade && apt-get --yes install netcat-traditional tzdata bash wget adduser 
-RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka 
+RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka
+ENV    JAVA_HOME=/opt/java/openjdk 
 ARG    BASEDIR=/opt
 
 ARG    KAFKA_VERSION=4.0.0
@@ -256,6 +257,11 @@ RUN    wget -q "https://archive.apache.org/dist/kafka/${KAFKA_VERSION}/${KAFKA_F
        && mkdir -p ${KAFKA_HOME}/connect/bin \
        && mkdir -p ${KAFKA_HOME}/connect/jmx \
        && chown -R kafka:kafka ${BASEDIR}/kafka_${SCALA_VERSION}-${KAFKA_VERSION} ${KAFKA_HOME}
+# BouncyCastle signed jars
+ARG    BC_VERSION="jdk18on-1.80"
+COPY   target/lib/bcprov-${BC_VERSION}.jar ${KAFKA_HOME}/libs
+COPY   target/lib/bcpkix-${BC_VERSION}.jar ${KAFKA_HOME}/libs
+COPY   target/lib/bcutil-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 #
 # CVE-2025-48734 fix for Apache Kafka 4.0 runtime
 #
