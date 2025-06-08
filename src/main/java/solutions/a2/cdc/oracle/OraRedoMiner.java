@@ -46,6 +46,7 @@ import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17002;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17008;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17410;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_2396;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.UCP_44;
 
 /**
  * 
@@ -241,7 +242,8 @@ public class OraRedoMiner {
 				if (sqle.getErrorCode() == ORA_2396 ||
 						sqle.getErrorCode() == ORA_17002 ||
 						sqle.getErrorCode() == ORA_17008 ||
-						sqle.getErrorCode() == ORA_17410 || 
+						sqle.getErrorCode() == ORA_17410 ||
+						(sqle.getErrorCode() == UCP_44 && sqle.getSQLState() == null) ||
 						sqle instanceof SQLRecoverableException ||
 						(sqle.getCause() != null && sqle.getCause() instanceof SQLRecoverableException)) {
 					LOGGER.warn(
