@@ -138,10 +138,8 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 					checker,
 					activeTransactions,
 					committedTransactions,
-					metrics);
-			if (rewind) {
-				worker.rewind(coords.getLeft(), coords.getMiddle(), coords.getRight());
-			}
+					metrics,
+					rewind);
 
 		} catch (SQLException | InvalidPathException e) {
 			LOGGER.error("Unable to start oracdc logminer task!");

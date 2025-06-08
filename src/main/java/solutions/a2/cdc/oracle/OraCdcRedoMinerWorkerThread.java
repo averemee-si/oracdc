@@ -135,7 +135,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final OraCdcDictionaryChecker checker,
 			final Map<Xid, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
-			final OraCdcRedoMinerMgmt metrics) throws SQLException {
+			final OraCdcRedoMinerMgmt metrics,
+			final boolean rewind) throws SQLException {
 		super(task.runLatch(), task.rdbmsInfo(), task.config(),
 				task.oraConnections(), committedTransactions);
 		LOGGER.info("Initializing oracdc Redo Miner worker thread");
@@ -183,15 +184,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			connDictionary = oraConnections.getConnection();
 			redoMiner = new OraRedoMiner(
 					connDictionary, metrics, startFrom, config, runLatch, rdbmsInfo, oraConnections, bu);
-			// Finally - prepare for mining...
-			redoMinerReady = redoMiner.next();
-		} catch (SQLException e) {
+		} catch (SQLException sqle) {
 			LOGGER.error(
 					"\n\nUnable to start OraCdcRedoMinerWorkerThread !\n" +
 					"SQL Error ={}, SQL State = {}, SQL Message = '{}'\n\n",
-					e.getErrorCode(), e.getSQLState(), e.getMessage());
-			throw e;
+					sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
+			throw sqle;
 		}
+		// Finally - prepare for mining...
+		redoMinerNext(startFrom.getLeft(), startFrom.getMiddle(), startFrom.getRight(), rewind);
 	}
 
 	@Override
@@ -254,9 +255,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		boolean notFirstRecord = false;
 		final ZoneId dbZoneId = rdbmsInfo.getDbTimeZone();
 		while (runLatch.getCount() > 0) {
-			long lastGuaranteedScn = 0;
-			RedoByteAddress lastGuaranteedRsId = null;
-			long lastGuaranteedSsn = 0;
 			try {
 				if (redoMinerReady && runLatch.getCount() > 0) {
 					miner = redoMiner.iterator();
@@ -264,7 +262,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					while (runLatch.getCount() > 0 && miner.hasNext()) {
 						final OraCdcRedoRecord record = miner.next();
 						if (record == null) {
-							LOGGER.warn("Unexpected termination of redo records stream after RBA {}", lastGuaranteedRsId);
+							LOGGER.warn("Unexpected termination of redo records stream after RBA {}", lastRba);
 							break;
 						}
 						lastScn = record.scn();
@@ -607,27 +605,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					//TODO - do we need to pass lastScn???
 					redoMiner.stop(lastRba, lastScn);
 					miner = null;
-					if (activeTransactions.isEmpty() && lastGuaranteedScn > 0) {
+					if (activeTransactions.isEmpty() && lastScn > 0) {
 						// Update restart point in time
-						task.putReadRestartScn(Triple.of(lastGuaranteedScn, lastGuaranteedRsId, lastGuaranteedSsn));
+						task.putReadRestartScn(Triple.of(lastScn, lastRba, lastSubScn));
 					}
-					redoMinerReady = false;
-					while (!redoMinerReady && runLatch.getCount() > 0) {
-						redoMinerReady = redoMiner.next();
-						if (!redoMinerReady) {
-							if (LOGGER.isDebugEnabled()) {
-								LOGGER.debug("Waiting {} ms", pollInterval);
-							}
-							synchronized(this) {
-								try {wait(pollInterval); } catch (InterruptedException ie) {}
-							}
-						} else {
-							//TODO
-							//TODO - rewind here?
-							//TODO
-						}
-					}
+					redoMinerNext(lastScn, lastRba, lastSubScn, false);
 				}
+			} catch (IOException sftpe) {
+				redoMinerNext(lastScn, lastRba, lastSubScn, false);
 			} catch (Exception e) {
 				final StringBuilder sb = new StringBuilder(0x400);
 				sb.append("\n=====================\n");
@@ -652,9 +637,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					.append(lastSubScn)
 					.append("\n=====================\n");
 				LOGGER.error(sb.toString());
-				lastScn = lastGuaranteedScn;
-				lastRba = lastGuaranteedRsId;
-				lastSubScn = lastGuaranteedSsn;
 				running.set(false);
 				task.stop(false);
 				throw new ConnectException(e);
@@ -1979,6 +1961,54 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				return -1;
 			else
 				return intColumnIdBoxed;
+		}
+	}
+
+	private void redoMinerNext(final long startScn, final RedoByteAddress startRba, final long startSubScn, final boolean rewind) {
+		int attempt = 0;
+		final long redoMinerReadyStart = System.currentTimeMillis();
+		redoMinerReady = false;
+		while (!redoMinerReady && runLatch.getCount() > 0) {
+			try {
+				redoMinerReady = redoMiner.next();
+				if (attempt > 0 || rewind)
+					rewind(startScn, startRba, startSubScn);
+			} catch (SQLException sqle) {
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug("RedoMiner is not ready due to {}.\nStack trace:\n{}\n",
+							sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
+				if (attempt > Byte.MAX_VALUE && runLatch.getCount() > 0) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Unable to execute redoMiner.next() (attempt #{}) after {} ms.\n" +
+							"\n=====================\n",
+							attempt, System.currentTimeMillis() - redoMinerReadyStart);
+					throw new ConnectException(sqle);
+				} else if (runLatch.getCount() < 1)
+					return;
+				else
+					LOGGER.error(
+							"\n=====================\n" +
+							"Failed to execute redoMiner.next() (attempt #{}) due to '{}'.\n" +
+							"oracdc will try again to execute redoMiner.next() in {} ms." + 
+							"\n=====================\n",
+							attempt, sqle.getMessage(), backofMs);
+			}
+			if (!redoMinerReady && runLatch.getCount() > 0) {
+				if (LOGGER.isDebugEnabled()) LOGGER.debug("Waiting {} ms", backofMs);
+				synchronized(this) {
+					try {wait(backofMs); } catch (InterruptedException ie) {}
+				}
+				try {
+					redoMiner.resetRedoLogFactory(startScn, startRba);
+				} catch (SQLException sqle) {
+					LOGGER.error("'{}' while resetting RLF!", sqle.getMessage());
+					if (LOGGER.isDebugEnabled())
+						LOGGER.debug("Stack trace for RLF reset:\n{}\n",
+								sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
+				}
+				attempt++;
+			}
 		}
 	}
 

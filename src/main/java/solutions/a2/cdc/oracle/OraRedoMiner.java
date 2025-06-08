@@ -97,6 +97,7 @@ public class OraRedoMiner {
 	private final int backofMs;
 	private final boolean needNameChange;
 	private boolean sshMaverick;
+	final CountDownLatch runLatch;
 
 	public OraRedoMiner(
 			final Connection connection,
@@ -118,6 +119,7 @@ public class OraRedoMiner {
 		this.reconnect = asm || ssh || bfile || smb;
 		this.notifier = config.getLastProcessedSeqNotifier();
 		this.backofMs = config.connectionRetryBackoff();
+		this.runLatch = runLatch;
 		config.msWindows(rdbmsInfo.isWindows());
 		if (notifier == null) {
 			useNotifier = false;
@@ -229,7 +231,7 @@ public class OraRedoMiner {
 
 		ResultSet rs = null;
 		boolean rsReady = false;
-		while (!rsReady) {
+		while (!rsReady && runLatch.getCount() > 0) {
 			try {
 				psGetArchivedLogs.setLong(1, firstChange);
 				psGetArchivedLogs.setLong(2, firstChange);
@@ -413,7 +415,7 @@ public class OraRedoMiner {
 						int attempt = 0;
 						final long reconnectStart = System.currentTimeMillis();
 						SQLException lastException = null;
-						while (!done) {
+						while (!done && runLatch.getCount() > 0) {
 							if (attempt > Byte.MAX_VALUE)
 								break;
 							else
@@ -506,7 +508,10 @@ public class OraRedoMiner {
 				firstChange = nextChange;
 				readStartMillis = System.currentTimeMillis();
 			} catch (IOException ioe) {
-				throw new SQLException(ioe);
+				if (runLatch.getCount() > 0)
+					throw new SQLException(ioe);
+				else
+					return false;
 			}
 		}
 		return redoLogAvailable;
