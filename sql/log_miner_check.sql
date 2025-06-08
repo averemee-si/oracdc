@@ -1,15 +1,20 @@
-remark
-remark Copyright (c) 2018-present, A2 Rešitve d.o.o.
-remark
-remark Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
-remark compliance with the License. You may obtain a copy of the License at
-remark
-remark http://www.apache.org/licenses/LICENSE-2.0
-remark
-remark Unless required by applicable law or agreed to in writing, software distributed under the License is
-remark distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
-remark the License for the specific language governing permissions and limitations under the License.
-remark
+REM +-------------------------------------------------------------------------+
+REM |
+REM | Copyright (c) 2018-present, A2 Rešitve d.o.o.
+REM |
+REM | Licensed under the Apache License, Version 2.0 (the "License");
+REM | you may not use this file except in compliance with the License.
+REM | You may obtain a copy of the License at
+REM |
+REM | http://www.apache.org/licenses/LICENSE-2.0
+REM |
+REM | Unless required by applicable law or agreed to in writing, software
+REM | distributed under the License is distributed on an "AS IS" BASIS,
+REM | WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+REM | See the License for the specific language governing permissions and
+REM | limitations under the License.
+REM |
+REM +=======================================================================*+
 
 set serveroutput on
 declare
