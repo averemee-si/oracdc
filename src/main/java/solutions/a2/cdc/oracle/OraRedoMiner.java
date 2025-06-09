@@ -576,7 +576,7 @@ public class OraRedoMiner {
 					((OraCdcRedoLogSshjFactory) rlf).reset();
 			else if (bfile)
 				((OraCdcRedoLogBfileFactory) rlf).reset(oraConnections.getConnection());
-			else
+			else if (smb)
 				((OraCdcRedoLogSmbjFactory) rlf).reset();
 			inited = false;
 			firstChange = startScn;
