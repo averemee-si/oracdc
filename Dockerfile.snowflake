@@ -14,8 +14,8 @@
 FROM   averemee/oracdc:latest
 LABEL  maintainer="oracle@a2.solutions"
 LABEL  vendor="A2 Rešitve d.o.o."
-LABEL  version="2.8.2"
-LABEL  release="2.8.2"
+LABEL  version="2.9.0"
+LABEL  release="2.9.0"
 LABEL  name="oracdc with SnowFlake Sink Connector"
 LABEL  summary="oracle to SnowFlake pipeline."
 
@@ -26,7 +26,7 @@ ENV    KAFKA_HOME=${BASEDIR}/kafka
 USER   kafka
 
 ARG    CONNECTOR_NAME="snowflake-kafka-connector"
-ARG    CONNECTOR_VERSION=3.1.0
+ARG    CONNECTOR_VERSION=3.2.1
 ARG    CONNECTOR_JAR=${CONNECTOR_NAME}-${CONNECTOR_VERSION}.jar
 RUN    cd ${KAFKA_HOME}/connect/lib \
 RUN    && wget -q "${MVN_BASE}/com/snowflake/${CONNECTOR_NAME}/${CONNECTOR_VERSION}/${CONNECTOR_JAR}" \
