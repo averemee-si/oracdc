@@ -1,6 +1,6 @@
 [![License](https://img.shields.io/:license-apache-blue.svg)](https://raw.githubusercontent.com/averemee-si/oracdc/refs/heads/master/LICENSE)
 [![Maven Central](https://img.shields.io/maven-central/v/solutions.a2.oracle/oracdc-kafka.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22solutions.a2.oracle%22%20AND%20a:%22oracdc-kafka%22)
-[![Docker Pulls](https://img.shields.io/docker/pulls/averemee/oracdc)](https://hub.docker.com/r/averemee/oracdc/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/a2solutions/oracdc)](https://hub.docker.com/r/a2solutions/oracdc/)
 
 
 # oracdc
