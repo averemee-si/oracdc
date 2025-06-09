@@ -18,11 +18,14 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Hashtable;
+import java.util.List;
 
 import org.apache.kafka.connect.data.Struct;
 
+import oracle.jdbc.driver.VectorData;
 import oracle.sql.BINARY_DOUBLE;
 import oracle.sql.BINARY_FLOAT;
 import oracle.sql.NUMBER;
@@ -33,10 +36,14 @@ import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
+import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
+
+import static solutions.a2.oracle.utils.BinaryUtils.getU16BE;
+import static solutions.a2.oracle.utils.BinaryUtils.getU32BE;
 
 
 /**
@@ -287,6 +294,46 @@ public class OraDumpDecoder {
 			return false;
 		else
 			throw new SQLException("Incorrect value " + String.format("0x%02x", data[offset]) + " for BOOLEAN (252) data type!");
+	}
+
+	private static final byte VECTOR_MAGIC_BYTE = (byte)0xDB;
+	public Struct toOraVector(final byte[] data) throws SQLException {
+		final Struct vector = new Struct(OraVector.schema());
+		if (data[0] != VECTOR_MAGIC_BYTE)
+			throw new SQLException("Vector data don't start with a magic byte!");
+		// final byte version = data[1];
+		final short flags = getU16BE(data, 2);
+		final byte type = data[4];
+		final int size = getU32BE(data, 5);
+		switch (type) {
+		case 2:
+			final List<Float> f32 = new ArrayList<Float>(size);
+			for (float f : VectorData.decode(data, float[].class, (flags & 0x8) != 0))
+				f32.add(f);
+			vector.put("F", f32);
+			break;
+		case 3:
+			final List<Double> f64 = new ArrayList<Double>(size);
+			for (double d : VectorData.decode(data, double[].class, (flags & 0x8) != 0))
+				f64.add(d);
+			vector.put("D", f64);
+			break;
+		case 4:
+			final List<Byte> i8 = new ArrayList<Byte>(size);
+			for (byte b : VectorData.decode(data, byte[].class, false))
+				i8.add(b);
+			vector.put("I", i8);
+			break;
+		case 5:
+			final List<Boolean> b2 = new ArrayList<Boolean>(size);
+			for (boolean b : VectorData.decode(data, boolean[].class, false))
+				b2.add(b);
+			vector.put("B", b2);
+			break;
+		default:
+			throw new SQLException("Undefined vector type " + type + "!");
+		}
+		return vector;
 	}
 
 	static {
