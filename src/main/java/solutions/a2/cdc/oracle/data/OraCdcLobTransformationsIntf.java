@@ -24,6 +24,7 @@ import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.SQLXML;
 import static oracle.jdbc.OracleTypes.JSON;
+import static oracle.jdbc.OracleTypes.VECTOR;
 
 
 /**
@@ -56,6 +57,9 @@ public interface OraCdcLobTransformationsIntf {
 			break;
 		case JSON:
 			valueSchema.field(columnName, OraJson.schema());
+			break;
+		case VECTOR:
+			valueSchema.field(columnName, OraVector.schema());
 			break;
 		}
 		return null;

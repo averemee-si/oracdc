@@ -32,34 +32,35 @@ public class OraVector {
 
 	public static final String LOGICAL_NAME = "solutions.a2.OraVector";
 
-	public static SchemaBuilder builder() {
-		final SchemaBuilder builder = SchemaBuilder
+	private static SchemaBuilder builder; 
+
+	static {
+		builder = SchemaBuilder
 				.struct()
 				.optional()
 				.name(LOGICAL_NAME)
 				.version(2)
 				.doc("Oracle Vector");
-		builder.field("B",
-				SchemaBuilder.array(OPTIONAL_BOOLEAN_SCHEMA)
-				.optional()
-				.doc("BINARY"));
-		builder.field("I",
-				SchemaBuilder.array(OPTIONAL_INT8_SCHEMA)
-				.optional()
-				.doc("INT8"));
-		builder.field("F",
-				SchemaBuilder.array(OPTIONAL_FLOAT32_SCHEMA)
-				.optional()
-				.doc("FLOAT32"));
-		builder.field("D",
-				SchemaBuilder.array(OPTIONAL_FLOAT64_SCHEMA)
-				.optional()
-				.doc("FLOAT64"));
-		return builder;
+		builder = builder.field("B",
+					SchemaBuilder.array(OPTIONAL_BOOLEAN_SCHEMA)
+						.optional()
+						.doc("BINARY"));
+		builder = builder.field("I",
+					SchemaBuilder.array(OPTIONAL_INT8_SCHEMA)
+						.optional()
+						.doc("INT8"));
+		builder = builder.field("F",
+					SchemaBuilder.array(OPTIONAL_FLOAT32_SCHEMA)
+						.optional()
+						.doc("FLOAT32"));
+		builder = builder.field("D",
+					SchemaBuilder.array(OPTIONAL_FLOAT64_SCHEMA)
+						.optional()
+						.doc("FLOAT64"));
 	}
 
 	public static Schema schema() {
-		return builder().build();
+		return builder.build();
 	}
 
 }

@@ -13,9 +13,33 @@
 
 package solutions.a2.cdc.oracle.schema;
 
-import java.sql.Types;
+import static java.sql.Types.CHAR;
+import static java.sql.Types.VARCHAR;
+import static java.sql.Types.NCHAR;
+import static java.sql.Types.NVARCHAR;
+import static java.sql.Types.TINYINT;
+import static java.sql.Types.SMALLINT;
+import static java.sql.Types.INTEGER;
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.FLOAT;
+import static java.sql.Types.DOUBLE;
+import static java.sql.Types.DECIMAL;
+import static java.sql.Types.NUMERIC;
+import static java.sql.Types.DATE;
+import static java.sql.Types.TIMESTAMP;
+import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
+import static java.sql.Types.BINARY;
+import static java.sql.Types.BOOLEAN;
+import static java.sql.Types.ROWID;
+import static java.sql.Types.BLOB;
+import static java.sql.Types.CLOB;
+import static java.sql.Types.NCLOB;
+import static java.sql.Types.SQLXML;
 
-import oracle.jdbc.internal.OracleTypes;
+import static oracle.jdbc.OracleTypes.INTERVALDS;
+import static oracle.jdbc.OracleTypes.INTERVALYM;
+import static oracle.jdbc.OracleTypes.JSON;
+import static oracle.jdbc.OracleTypes.VECTOR;
 
 /**
  * 
@@ -26,52 +50,58 @@ public class JdbcTypes {
 
 	public static String getTypeName(final int jdbcType) {
 		switch (jdbcType) {
-		case Types.DATE:
+		case DATE:
 			return "DATE";
-		case Types.TIMESTAMP:
+		case TIMESTAMP:
 			return "TIMESTAMP";
-		case Types.TIMESTAMP_WITH_TIMEZONE:
+		case TIMESTAMP_WITH_TIMEZONE:
 			return "TIMESTAMP_WITH_TIMEZONE";
-		case Types.BOOLEAN:
+		case INTERVALDS:
+			return "INTERVAL DAY TO SECOND";
+		case INTERVALYM:
+			return "INTERVAL YEAR TO MONTH";
+		case BOOLEAN:
 			return "BOOLEAN";
-		case Types.TINYINT:
+		case TINYINT:
 			return "TINYINT";
-		case Types.SMALLINT:
+		case SMALLINT:
 			return "SMALLINT";
-		case Types.INTEGER:
+		case INTEGER:
 			return "INTEGER";
-		case Types.BIGINT:
+		case BIGINT:
 			return "BIGINT";
-		case Types.FLOAT:
+		case FLOAT:
 			return "FLOAT";
-		case Types.DOUBLE:
+		case DOUBLE:
 			return "DOUBLE";
-		case Types.DECIMAL:
+		case DECIMAL:
 			return "DECIMAL";
-		case Types.NUMERIC:
+		case NUMERIC:
 			return "NUMERIC";
-		case Types.BINARY:
+		case BINARY:
 			return "BINARY";
-		case Types.CHAR:
+		case CHAR:
 			return "CHAR";
-		case Types.VARCHAR:
+		case VARCHAR:
 			return "VARCHAR";
-		case Types.NCHAR:
+		case NCHAR:
 			return "NCHAR";
-		case Types.NVARCHAR:
+		case NVARCHAR:
 			return "NVARCHAR";
-		case Types.ROWID:
+		case ROWID:
 			return "ROWID";
-		case Types.CLOB:
+		case CLOB:
 			return "CLOB";
-		case Types.NCLOB:
+		case NCLOB:
 			return "NCLOB";
-		case Types.BLOB:
+		case BLOB:
 			return "BLOB";
-		case Types.SQLXML:
+		case SQLXML:
 			return "XMLTYPE";
-		case OracleTypes.JSON:
+		case JSON:
 			return "JSON";
+		case VECTOR:
+			return "VECTOR";
 		}
 		return "UNSUPPORTED!!!";
 	}
@@ -79,65 +109,71 @@ public class JdbcTypes {
 	public static int getTypeId(final String jdbcTypeName) {
 		switch (jdbcTypeName) {
 		case "DATE":
-			return Types.DATE;
+			return DATE;
 		case "TIMESTAMP":
-			return Types.TIMESTAMP;
+			return TIMESTAMP;
 		case "TIMESTAMP_WITH_TIMEZONE":
-			return Types.TIMESTAMP_WITH_TIMEZONE;
+			return TIMESTAMP_WITH_TIMEZONE;
+		case "INTERVAL DAY TO SECOND":
+			return INTERVALDS;
+		case "INTERVAL YEAR TO MONTH":
+			return INTERVALYM;
 		case "BOOLEAN":
-			return Types.BOOLEAN;
+			return BOOLEAN;
 		case "TINYINT":
-			return Types.TINYINT;
+			return TINYINT;
 		case "SMALLINT":
-			return Types.SMALLINT;
+			return SMALLINT;
 		case "INTEGER":
-			return Types.INTEGER;
+			return INTEGER;
 		case "BIGINT":
-			return Types.BIGINT;
+			return BIGINT;
 		case "FLOAT":
-			return Types.FLOAT;
+			return FLOAT;
 		case "DOUBLE":
-			return Types.DOUBLE;
+			return DOUBLE;
 		case "DECIMAL":
-			return Types.DECIMAL;
+			return DECIMAL;
 		case "NUMERIC":
-			return Types.NUMERIC;
+			return NUMERIC;
 		case "BINARY":
-			return Types.BINARY;
+			return BINARY;
 		case "CHAR":
-			return Types.CHAR;
+			return CHAR;
 		case "VARCHAR":
-			return Types.VARCHAR;
+			return VARCHAR;
 		case "NCHAR":
-			return Types.NCHAR;
+			return NCHAR;
 		case "NVARCHAR":
-			return Types.NVARCHAR;
+			return NVARCHAR;
 		case "ROWID":
-			return Types.ROWID;
+			return ROWID;
 		case "CLOB":
-			return Types.CLOB;
+			return CLOB;
 		case "NCLOB":
-			return Types.NCLOB;
+			return NCLOB;
 		case "BLOB":
-			return Types.BLOB;
+			return BLOB;
 		case "XMLTYPE":
-			return Types.SQLXML;
+			return SQLXML;
 		case "JSON":
-			return OracleTypes.JSON;
+			return JSON;
+		case "VECTOR":
+			return VECTOR;
 		}
 		return Integer.MIN_VALUE;
 	}
 
 	public static boolean isNumeric(final int jdbcType) {
 		switch (jdbcType) {
-		case Types.TINYINT:
-		case Types.SMALLINT:
-		case Types.INTEGER:
-		case Types.BIGINT:
-		case Types.FLOAT:
-		case Types.DOUBLE:
-		case Types.DECIMAL:
-		case Types.NUMERIC:
+		case TINYINT:
+		case SMALLINT:
+		case INTEGER:
+		case BIGINT:
+		case FLOAT:
+		case DOUBLE:
+		case DECIMAL:
+		case NUMERIC:
 			return true;
 		default:
 			return false;

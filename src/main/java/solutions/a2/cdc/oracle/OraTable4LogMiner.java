@@ -80,6 +80,7 @@ import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.SQLXML;
 import static oracle.jdbc.OracleTypes.JSON;
+import static oracle.jdbc.OracleTypes.VECTOR;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_SKIP;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
@@ -358,7 +359,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						column.getJdbcType() == CLOB ||
 						column.getJdbcType() == NCLOB ||
 						column.getJdbcType() == SQLXML ||
-						column.getJdbcType() == JSON) {
+						column.getJdbcType() == JSON ||
+						column.getJdbcType() == VECTOR) {
 						if (processLobs) {
 							if (!withLobs) {
 								withLobs = true;
@@ -710,7 +712,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							(oraColumn.getJdbcType() == BLOB ||
 							oraColumn.getJdbcType() == CLOB ||
 							oraColumn.getJdbcType() == NCLOB ||
-							oraColumn.getJdbcType() == JSON)) {
+							oraColumn.getJdbcType() == JSON ||
+							oraColumn.getJdbcType() == VECTOR)) {
 						// EMPTY_BLOB()/EMPTY_CLOB() passed as ''
 						valueStruct.put(oraColumn.getColumnName(), new byte[0]);
 						continue;
@@ -1395,7 +1398,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							oraColumn.getJdbcType() == CLOB ||
 							oraColumn.getJdbcType() == NCLOB ||
 							oraColumn.getJdbcType() == SQLXML ||
-							oraColumn.getJdbcType() == JSON) &&
+							oraColumn.getJdbcType() == JSON ||
+							oraColumn.getJdbcType() == VECTOR) &&
 								(lobColumnSchemas != null &&
 								lobColumnSchemas.containsKey(columnName))) {
 					// Data are overloaded
@@ -1665,7 +1669,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						column.getJdbcType() == CLOB ||
 						column.getJdbcType() == NCLOB ||
 						column.getJdbcType() == SQLXML ||
-						column.getJdbcType() == JSON)) {
+						column.getJdbcType() == JSON ||
+						column.getJdbcType() == VECTOR)) {
 					if (!withLobs) {
 						withLobs = true;
 					}
@@ -2564,6 +2569,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			case BLOB:
 			case SQLXML:
 			case JSON:
+			case VECTOR:
 				final OraCdcTransactionChronicleQueue cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 				final LobLocator ll = new LobLocator(data, offset, length);
 				if (LOGGER.isTraceEnabled())
@@ -2576,6 +2582,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						columnValue = odd.toOraJson(cqTrans.getLob(ll));
 					else if (columnType == CLOB || columnType == NCLOB)
 						columnValue = odd.toOraClob(cqTrans.getLob(ll), columnType == CLOB); 
+					else if (oraColumn.getJdbcType() == VECTOR)
+						columnValue = odd.toOraVector(cqTrans.getLob(ll));
 					else
 						//SQLXML
 						columnValue = odd.toOraXml(cqTrans.getLob(ll), ll.type() == LobLocator.CLOB);
@@ -2589,6 +2597,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					else if (columnType == CLOB || columnType == NCLOB)
 						columnValue = odd.toOraClob(
 								Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length), columnType == CLOB);
+					else if (oraColumn.getJdbcType() == VECTOR)
+						columnValue = odd.toOraVector(
+								Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length));
 					else {
 						//SQLXML
 						if (ll.type() == LobLocator.CLOB) {

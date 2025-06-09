@@ -49,6 +49,7 @@ import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
+import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
@@ -81,6 +82,7 @@ import static java.sql.Types.SQLXML;
 import static oracle.jdbc.OracleTypes.INTERVALDS;
 import static oracle.jdbc.OracleTypes.INTERVALYM;
 import static oracle.jdbc.OracleTypes.JSON;
+import static oracle.jdbc.OracleTypes.VECTOR;
 import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
 
 /**
@@ -119,6 +121,7 @@ public class OraColumn {
 	private static final String TYPE_XMLTYPE = "XMLTYPE";
 	private static final String TYPE_JSON = "JSON";
 	private static final String TYPE_BOOLEAN = "BOOLEAN";
+	private static final String TYPE_VECTOR = "VECTOR";
 
 	private String columnName;
 	private int columnId;
@@ -336,6 +339,10 @@ public class OraColumn {
 		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_BOOLEAN)) {
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_BOOLEAN, false, useOracdcSchemas, dataPrecision);
+		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_VECTOR)) {
+			nullable = true;
+			defaultValuePresent = false;
+			detectTypeAndSchema(TYPE_VECTOR, false, useOracdcSchemas, dataPrecision);
 		} else {
 			throw new UnsupportedColumnDataTypeException("Unable to parse DDL statement\n'" +
 												originalDdl + "'\nUnsupported datatype");
@@ -565,6 +572,10 @@ public class OraColumn {
 					jdbcType = BOOLEAN;
 					booleanField();
 					break;
+				case TYPE_VECTOR:
+					// 127
+					jdbcType = VECTOR;
+					break;
 				default:
 					LOGGER.warn("Datatype {} for column {} is not supported!",
 							oraType, this.columnName);
@@ -679,6 +690,9 @@ public class OraColumn {
 				case OraJson.LOGICAL_NAME:
 					jdbcType = JSON;
 					break;
+				case OraVector.LOGICAL_NAME:
+					jdbcType = VECTOR;
+					break;
 				}
 			break;
 		case "BOOLEAN":
@@ -784,6 +798,9 @@ public class OraColumn {
 			break;
 		case BOOLEAN:
 			booleanField(keySchema, valueSchema);
+			break;
+		case VECTOR:
+			valueSchema.field(this.columnName, OraVector.schema());
 			break;
 		default:
 			throw new SQLException("Unsupported JDBC type " +
