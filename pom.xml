@@ -89,7 +89,7 @@
 		<source.plugin.version>3.3.0</source.plugin.version>
 		<javadoc.plugin.version>3.5.0</javadoc.plugin.version>
 		<gpg.plugin.version>3.1.0</gpg.plugin.version>
-		<staging.plugin.version>1.6.13</staging.plugin.version>
+		<central.plugin.version>0.7.0</central.plugin.version>
 	</properties>
 
 	<distributionManagement>
@@ -503,14 +503,13 @@
 				</executions>
 			</plugin>
 			<plugin>
-				<groupId>org.sonatype.plugins</groupId>
-				<artifactId>nexus-staging-maven-plugin</artifactId>
-				<version>${staging.plugin.version}</version>
+				<groupId>org.sonatype.central</groupId>
+				<artifactId>central-publishing-maven-plugin</artifactId>
+				<version>${central.plugin.version}</version>
 				<extensions>true</extensions>
 				<configuration>
-					<serverId>ossrh</serverId>
-					<nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
-					<autoReleaseAfterClose>false</autoReleaseAfterClose>
+					<publishingServerId>central</publishingServerId>
+					<autoPublish>false</autoPublish>
 				</configuration>
 			</plugin>
 		</plugins>
