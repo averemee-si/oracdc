@@ -858,7 +858,7 @@ public class OraCdcChange {
 
 	private String getKdoOpCodeAbbreviation(final int kdoOpCode) {
 		if (kdoOpCode > KDO_OP_CODES.length) {
-			LOGGER.error(
+			LOGGER.debug(
 					"\n=====================\n" +
 					"Unable to find abbreviation for KDO Op Code {}. Please contact us at oracle@a2.solutions" +
 					"\n=====================\n", kdoOpCode);
@@ -1017,7 +1017,7 @@ public class OraCdcChange {
 			}
 			break;
 		default:
-			LOGGER.error(
+			LOGGER.debug(
 					"\n=====================\n" +
 					"KDLI operation {} is not implemented yet! Please contact us at oracle@a2.solutions" +
 					"\n=====================\n",
