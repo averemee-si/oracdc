@@ -1970,9 +1970,16 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		redoMinerReady = false;
 		while (!redoMinerReady && runLatch.getCount() > 0) {
 			try {
-				redoMinerReady = redoMiner.next();
-				if (attempt > 0 || rewind)
-					rewind(startScn, startRba, startSubScn);
+				if (redoMinerReady = redoMiner.next()) {
+					if (attempt > 0 || rewind)
+						rewind(startScn, startRba, startSubScn);
+					return;
+				} else {
+					synchronized(this) {
+						try {wait(21); } catch (InterruptedException ie) {}
+					}
+					continue;
+				}
 			} catch (SQLException sqle) {
 				if (LOGGER.isDebugEnabled())
 					LOGGER.debug("RedoMiner is not ready due to {}.\nStack trace:\n{}\n",
