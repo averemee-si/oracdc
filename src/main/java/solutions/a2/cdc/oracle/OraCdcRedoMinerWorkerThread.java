@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
@@ -96,6 +97,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerWorkerThread.class);
 	private static final byte[] ZERO_COL_COUNT = {0, 0};
+	private static final String SQL_STATE_REWIND = "RWND00";
+	private static final int SMALL_MAGIC_WAIT = 21;
 
 	private final OraCdcRedoMinerTask task;
 	private final OraCdcRedoMinerMgmt metrics;
@@ -197,11 +200,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 	@Override
 	public void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSubScn) throws SQLException {
-		//TODO
-		//TODO
-		//TODO Must be rewritten to file specific!!!
-		//TODO
-		//TODO
 		if (redoMinerReady) {
 			LOGGER.info("Move through file to first position after SCN= {}, RBA={}, SSN={}.",
 					firstScn, firstRba, firstSubScn);
@@ -233,9 +231,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						break;
 					}
 				} else {
-					LOGGER.error("Incorrect rewind to SCN = {}, RBA = {}, SSN = {}",
-							firstScn, firstRba, firstSubScn);
-					throw new SQLException("Incorrect rewind operation!!!");
+					final StringBuilder reason = new StringBuilder(0x80);
+					reason
+						.append("Incorrect rewind to SCN = ")
+						.append(Long.toUnsignedString(firstScn))
+						.append(", RBA = ")
+						.append(firstRba)
+						.append(", SSN = ")
+						.append(firstSubScn);
+					throw new SQLException(reason.toString(), SQL_STATE_REWIND);
 				}
 			}
 			rewindElapsed = System.currentTimeMillis() - rewindElapsed;
@@ -1976,8 +1980,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					return;
 				} else {
 					synchronized(this) {
-						try {wait(21); } catch (InterruptedException ie) {}
+						try {wait(SMALL_MAGIC_WAIT); } catch (InterruptedException ie) {}
 					}
+					if (LOGGER.isDebugEnabled()) LOGGER.debug("Waiting for readiness {} ms", SMALL_MAGIC_WAIT);
 					continue;
 				}
 			} catch (SQLException sqle) {
@@ -1993,6 +1998,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					throw new ConnectException(sqle);
 				} else if (runLatch.getCount() < 1)
 					return;
+				else if (StringUtils.equals(sqle.getSQLState(), SQL_STATE_REWIND)) {
+					synchronized(this) {
+						try {wait(SMALL_MAGIC_WAIT); } catch (InterruptedException ie) {}
+					}
+					if (LOGGER.isDebugEnabled()) LOGGER.debug("Waiting for rewind {} ms", SMALL_MAGIC_WAIT);
+					continue;
+				}
 				else
 					LOGGER.error(
 							"\n=====================\n" +
