@@ -2550,6 +2550,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				}
 				break;
 			case BINARY:
+				if (oraColumn.getSecureFile()) {
+					columnValue = extendedSizeValue(BINARY, transaction, lobIds, data, offset, length);
+				} else
+					columnValue = Arrays.copyOfRange(data, offset, offset + length);
+				break;
 			case NUMERIC:
 			case OracleTypes.INTERVALYM:
 			case OracleTypes.INTERVALDS:
@@ -2558,11 +2563,17 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				break;
 			case CHAR:
 			case VARCHAR:
-				columnValue = odd.fromVarchar2(data, offset, length);
+				if (oraColumn.getSecureFile()) {
+					columnValue = extendedSizeValue(VARCHAR, transaction, lobIds, data, offset, length);
+				} else
+					columnValue = odd.fromVarchar2(data, offset, length);
 				break;
 			case NCHAR:
 			case NVARCHAR:
-				columnValue = odd.fromNvarchar2(data, offset, length);
+				if (oraColumn.getSecureFile()) {
+					columnValue = extendedSizeValue(NVARCHAR, transaction, lobIds, data, offset, length);
+				} else
+					columnValue = odd.fromNvarchar2(data, offset, length);
 				break;
 			case CLOB:
 			case NCLOB:
@@ -2573,7 +2584,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final OraCdcTransactionChronicleQueue cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 				final LobLocator ll = new LobLocator(data, offset, length);
 				if (LOGGER.isTraceEnabled())
-					LOGGER.trace("Processing collumn {}, LID={}, DATALENGTH={}, EXTERNAL={}, LOB CONTENT=>{}",
+					LOGGER.trace("Processing column {}, LID={}, DATALENGTH={}, EXTERNAL={}, LOB CONTENT=>{}",
 							columnName, ll.lid(), ll.dataLength(), lobIds.contains(ll.lid()), rawToHex(Arrays.copyOfRange(data, offset, offset + length)));
 				if (lobIds.contains(ll.lid())) {
 					if (columnType == BLOB)
@@ -2656,6 +2667,28 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					valueStruct.put(columnName, columnValue);
 				}
 			}
+		}
+	}
+
+	private Object extendedSizeValue(
+			final int jdbcType, final OraCdcTransaction transaction, final Set<LobId> lobIds,
+			final byte[] data, final int offset, final int length) throws SQLException {
+		final OraCdcTransactionChronicleQueue cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+		final LobLocator ll = new LobLocator(data, offset, length);
+		if (lobIds.contains(ll.lid())) {
+			if (jdbcType == VARCHAR)
+				return odd.fromVarchar2(cqTrans.getLob(ll));
+			if (jdbcType == NVARCHAR)
+				return odd.fromNvarchar2(cqTrans.getLob(ll));
+			else	// BINARY
+				return cqTrans.getLob(ll);
+		} else {
+			if (jdbcType == VARCHAR)
+				return odd.fromVarchar2(data, offset + length - ll.dataLength(), ll.dataLength());
+			if (jdbcType == NVARCHAR)
+				return odd.fromNvarchar2(data, offset + length - ll.dataLength(), ll.dataLength());
+			else	// BINARY
+				return Arrays.copyOfRange(data, offset + length - ll.dataLength(), offset + length);
 		}
 	}
 
