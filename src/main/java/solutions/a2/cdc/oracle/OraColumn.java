@@ -123,6 +123,9 @@ public class OraColumn {
 	private static final String TYPE_BOOLEAN = "BOOLEAN";
 	private static final String TYPE_VECTOR = "VECTOR";
 
+	private static final int CHAR_MAX = 4000;
+	private static final int RAW_MAX = 2000;
+
 	private String columnName;
 	private int columnId;
 	private String nameFromId;
@@ -141,6 +144,7 @@ public class OraColumn {
 	private String oracleName;
 	private boolean partOfKeyStruct;
 	private boolean number = false;
+	private int dataLength;
 
 	/**
 	 * 
@@ -213,6 +217,7 @@ public class OraColumn {
 		if (resultSet.wasNull()) {
 			dataPrecision = null;
 		}
+		dataLength = resultSet.getInt("DATA_LENGTH");
 		detectTypeAndSchema(oraType, mviewSource, useOracdcSchemas, dataPrecision);
 
 	}
@@ -525,18 +530,28 @@ public class OraColumn {
 				case TYPE_CHAR:
 					jdbcType = CHAR;
 					stringField();
+					secureFile = false;
 					break;
 				case TYPE_NCHAR:
 					jdbcType = NCHAR;
 					stringField();
+					secureFile = false;
 					break;
 				case TYPE_VARCHAR2:
 					jdbcType = VARCHAR;
 					stringField();
+					if (dataLength > CHAR_MAX)
+						secureFile = true;
+					else
+						secureFile = false;
 					break;
 				case TYPE_NVARCHAR2:
 					jdbcType = NVARCHAR;
 					stringField();
+					if (dataLength > CHAR_MAX)
+						secureFile = true;
+					else
+						secureFile = false;
 					break;
 				case TYPE_CLOB:
 					jdbcType = CLOB;
@@ -551,6 +566,10 @@ public class OraColumn {
 				case TYPE_RAW:
 					jdbcType = BINARY;
 					bytesField();
+					if (dataLength > RAW_MAX)
+						secureFile = true;
+					else
+						secureFile = false;
 					break;
 				case TYPE_BLOB:
 					jdbcType = BLOB;
@@ -953,8 +972,11 @@ public class OraColumn {
 		this.nullable = nullable;
 	}
 
-	public Integer getDataScale() {
-		return dataScale;
+	public int getDataScale() {
+		if (dataScale == null)
+			return 0;
+		else
+			return dataScale.intValue();
 	}
 
 	public void setDataScale(Integer dataScale) {
