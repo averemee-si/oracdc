@@ -236,7 +236,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				sb.append("\n(kdxlup): update keydata in row");
 			if (coords.length > 3) {
 				printIndexKey(sb, true, 4);
-				if (coords.length > 4 && suppDataStartIndex != 5) {
+				if (coords.length > 4 && suppDataStartIndex > 5) {
 					printIndexKey(sb, false, 5);
 				}
 			}
