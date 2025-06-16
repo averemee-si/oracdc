@@ -90,7 +90,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					// Element 3: KTB Redo
 					ktbRedo(2);
 					ktbRedo = true;
-					//TODO  - LOB related
 					break;
 				case _11_1_IUR:
 					// Element 3: KTB Redo
@@ -210,28 +209,36 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			kdo(sb, 3);
 		}
 		if (supplementalLogData) {
+			/*
+			 opcode -> record[coords[suppDataStartIndex][0]] 1/2/4 UPD/INS/DEL
+			 kdogspare1 -> record[coords[suppDataStartIndex][0] + 0xC]
+			 kdogspare2 -> redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x10)
+			 Objv# -> coords[suppDataStartIndex][0] + 0x4)
+			 */
 			sb
-				.append("\nSupplemental log data:")
-				.append("cc: ")
+				.append("\nLOGMINER DATA:")
+				.append("\n Number of columns supplementally logged: ")
 				.append(supplementalCc)
-				.append(" pos: ")
-				.append(suppDataStartIndex)
-				.append(" undo offset: ")
+				.append("\n segcol# in Undo starting from ")
 				.append(suppOffsetUndo)
-				.append(" redo offset: ")
+				.append("\n segcol# in Redo starting from ")
 				.append(suppOffsetRedo)
+				.append("\n pos: ")
+				.append(suppDataStartIndex)
 				.append(" fb: ")
 				.append(printFbFlags(supplementalFb));
-			final int colNumArrayPos = suppDataStartIndex + 1;
-			final int dataEndPos = supplementalCc + suppDataStartIndex + 0x3;
-			int colOrder = 0;
-			for (int i = suppDataStartIndex + 0x3; i < dataEndPos; i++) {
-				if (i < coords.length) {
-					final int colNum = redoLog.bu().getU16(record, coords[colNumArrayPos][0] + colOrder * Short.BYTES);
-					colOrder++;
-					printColumnBytes(sb, colNum, coords[i][1], i, 0);
-				} else {
-					break;
+			if (supplementalCc > 0) {
+				final int colNumArrayPos = suppDataStartIndex + 1;
+				final int dataEndPos = supplementalCc + suppDataStartIndex + 0x3;
+				int colOrder = 0;
+				for (int i = suppDataStartIndex + 0x3; i < dataEndPos; i++) {
+					if (i < coords.length) {
+						final int colNum = redoLog.bu().getU16(record, coords[colNumArrayPos][0] + colOrder * Short.BYTES);
+						colOrder++;
+						printColumnBytes(sb, colNum, coords[i][1], i, 0);
+					} else {
+						break;
+					}
 				}
 			}
 		}
