@@ -22,6 +22,9 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_11_BRB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_19_TSL;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_20_TSC;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_2_LIN;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_4_LDE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_18_LUP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_4_LKR;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
@@ -108,6 +111,7 @@ public class OraCdcRedoRecord {
 	private int indLLB = -1;
 	private int indKCOCOLOB = -1;
 	private int indKCOCODLB = -1;
+	private int indKCOCODIX = -1;
 
 	boolean supplementalLogData = false;
 	byte supplementalFb = 0;
@@ -172,6 +176,12 @@ public class OraCdcRedoRecord {
 			case _5_20_TSC:
 				change = new OraCdcChangeAudit(changeNo, this, operation, record, offset, changeHeaderLen);
 				indKTUTSL = changeNo - 1;
+				break;
+			case _10_2_LIN:
+			case _10_4_LDE:
+			case _10_18_LUP:
+				change = new OraCdcChangeIndexOp(changeNo, this, operation, record, offset, changeHeaderLen);
+				indKCOCODIX = changeNo - 1;
 				break;
 			case _11_2_IRP:
 			case _11_3_DRP:
@@ -367,6 +377,17 @@ public class OraCdcRedoRecord {
 	public OraCdcChangeKrvXml changeKrvXml() {
 		if (hasKrvXml())
 			return (OraCdcChangeKrvXml) changeVectors.get(indKRVXML);
+		else
+			return null;
+	}
+
+	public boolean has10_x() {
+		return indKCOCODIX > -1;
+	}
+
+	public OraCdcChangeIndexOp change10_x() {
+		if (has10_x())
+			return (OraCdcChangeIndexOp) changeVectors.get(indKCOCODIX);
 		else
 			return null;
 	}

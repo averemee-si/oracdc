@@ -32,10 +32,14 @@ import solutions.a2.oracle.internals.Xid;
 public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 	public static final int KDO_POS = 0x3;
-	static final int SUPPL_LOG_MIN_LENGTH = 0x14;
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndoBlock.class);
+	private static final int SUPPL_LOG_MIN_LENGTH = 0x14;
 	private static final int KTUDB_MIN_LENGTH = 0x14;
+	private static final int KDILK_MIN_LENGTH = 0x14;
 	private static final int SUPPL_LOG_ROW_MIN_LENGTH = 0x1A;
+	private static final byte KDICLPU = 3;
+	private static final byte KDICLRE = 5;
+	private static final byte KDICLUP = 18;
 
 	boolean supplementalLogData = false;
 	byte supplementalFb = 0;
@@ -43,26 +47,21 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	int supplementalBdba;
 	int supplementalCc = 0;
 	int supplementalCcNn = 0;
-	int suppDataStartIndex;
+	int suppDataStartIndex = -1;
 	int suppOffsetUndo = 0;
 	int suppOffsetRedo = 0;
 	private boolean ktub = false;
 	private boolean ktbRedo = false;
 	private boolean kdoOpCode = false;
 	private boolean kdliCommon = false;
+	private boolean kdilk = false;
+	private byte kdilkType;
 
 	OraCdcChangeUndoBlock(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _5_1_RDB, record, offset, headerLength);
 		// Element 1 - ktudb
-		if (coords.length < 1 || coords[0][1] < KTUDB_MIN_LENGTH) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse mandatory ktudb element (OP:5.1) for change #{} at RBA {} in '{}'.\n" +
-					"Change contents:\n{}\n" +
-					"=====================\n",
-					num, rba, redoLog.fileName(), binaryDump());
-			throw new IllegalArgumentException();
-		}
+		elementNumberCheck(1);
+		elementLengthCheck("ktudb", "(OP:5.1)", 0, KTUDB_MIN_LENGTH, "");
 		xid = new Xid(
 				redoLog.bu().getU16(record, coords[0][0] + 0x08),
 				redoLog.bu().getU16(record, coords[0][0] + 0x0A),
@@ -90,6 +89,23 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					// Element 3: KTB Redo
 					ktbRedo(2);
 					ktbRedo = true;
+					// Element 4: kdilk
+					elementLengthCheck("kdilk", "(OP:5.1)", 0, KDILK_MIN_LENGTH, "");
+					kdilk = true;
+					kdilkType = record[coords[3][0]];
+					if ((kdilkType == KDICLPU ||
+						kdilkType == KDICLRE ||
+						kdilkType == KDICLUP) &&
+							(record[coords[3][0] + 2] & 0x80) > 0) {
+						supplementalLogData = true;
+						suppDataStartIndex = coords.length - 1;
+						elementLengthCheck("mandatory supplemental logging data", "(OP:5.1)", suppDataStartIndex, SUPPL_LOG_MIN_LENGTH, "");
+						supplementalFb = record[coords[suppDataStartIndex][0] + 0x1];
+						suppOffsetUndo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x6));
+						suppOffsetRedo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x8));
+						supplementalCc = 0;
+						supplementalCcNn = 0;
+					}
 					break;
 				case _11_1_IUR:
 					// Element 3: KTB Redo
@@ -121,15 +137,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					}
 
 					if (supplementalLogData) {
-						if (coords[suppDataStartIndex][1] < SUPPL_LOG_MIN_LENGTH) {
-							LOGGER.error(
-									"\n=====================\n" +
-									"Unable to parse mandatory supplemental logging data (OP:5.1) for change #{} at RBA {} in '{}'.\n" +
-									"Change contents:\n{}\n" +
-									"=====================\n",
-									num, rba, redoLog.fileName(), binaryDump());
-							throw new IllegalArgumentException();
-						}
+						elementLengthCheck("mandatory supplemental logging data", "(OP:5.1)", suppDataStartIndex, SUPPL_LOG_MIN_LENGTH, "");
 						supplementalFb = record[coords[suppDataStartIndex][0] + 0x1];
 						suppOffsetUndo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x6));
 						suppOffsetRedo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x8));
@@ -208,9 +216,33 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		if (kdoOpCode) {
 			kdo(sb, 3);
 		}
+		if (kdilk) {
+			sb
+				.append("\nDump kdilk : itl=")
+				.append(Byte.toUnsignedInt(record[coords[3][0] + 1]))
+				.append(", kdxlkflg=")
+				.append(String.format("0x%x", Byte.toUnsignedInt(record[coords[3][0] + 2])))
+				.append(" sdc=")
+				.append(Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[3][0] + 0xC)))
+				.append(" indexid=")
+				.append(String.format("0x%x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[3][0] + 4))))
+				.append(" block=")
+				.append(String.format("0x%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[3][0] + 8))));
+			if (kdilkType == KDICLPU)
+				sb.append("\n(kdxlpu): purge leaf row");
+			else if (kdilkType == KDICLRE)
+				sb.append("\n(kdxlre): restore leaf row (clear leaf delete flags)");
+			else if (kdilkType == KDICLUP)
+				sb.append("\n(kdxlup): update keydata in row");
+			if (coords.length > 3) {
+				printIndexKey(sb, true, 4);
+				if (coords.length > 4 && suppDataStartIndex > 5) {
+					printIndexKey(sb, false, 5);
+				}
+			}
+		}
 		if (supplementalLogData) {
 			/*
-			 opcode -> record[coords[suppDataStartIndex][0]] 1/2/4 UPD/INS/DEL
 			 kdogspare1 -> record[coords[suppDataStartIndex][0] + 0xC]
 			 kdogspare2 -> redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x10)
 			 Objv# -> coords[suppDataStartIndex][0] + 0x4)
@@ -219,6 +251,8 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				.append("\nLOGMINER DATA:")
 				.append("\n Number of columns supplementally logged: ")
 				.append(supplementalCc)
+				.append("\nopcode: ")
+				.append(printLmOpCode(record[coords[suppDataStartIndex][0]]))
 				.append("\n segcol# in Undo starting from ")
 				.append(suppOffsetUndo)
 				.append("\n segcol# in Redo starting from ")
@@ -278,6 +312,34 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 	public int suppOffsetRedo() {
 		return suppOffsetRedo;
+	}
+
+	private void printIndexKey(final StringBuilder sb, final boolean keyOrNot, final int index) {
+		sb
+			.append('\n')
+			.append(keyOrNot ? "key" : "nonkey")
+			.append(" :(")
+			.append(Integer.toUnsignedLong(coords[index][1]))
+			.append("):")
+			.append(coords[index][1] > 0x14 ? "\n" : " ");
+		for (int i = 0; i < coords[index][1]; i++) {
+			if (i % 25 == 24 && i != coords[index][1] - 1)
+				sb.append('\n');
+			sb.append(String.format(" %02x", Byte.toUnsignedInt(record[coords[index][0] + i])));
+		}
+	}
+
+	private String printLmOpCode(final byte opCode) {
+		switch (opCode) {
+		case 1:
+			return "UPDATE";
+		case 2:
+			return "INSERT";
+		case 4:
+			return "DELETE";
+		default:
+			return "??????";
+		}
 	}
 
 }
