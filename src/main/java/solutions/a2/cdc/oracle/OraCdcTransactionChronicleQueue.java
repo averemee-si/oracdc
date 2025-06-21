@@ -643,15 +643,12 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		}
 	}
 
-	public void writeLobChunk(final LobId lobId, final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws SQLException {
-		LobHolder holder = transLobs.get(lobId);
-		if (lobId == null) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Attempt to write to unknown LOB {}!" +
-					"\n=====================\n",
-					lobId);
-			throw new SQLException("Attempt to write to unknown LOB " + lobId + " !");
+	public void writeLobChunk(final LobId lid, final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws SQLException {
+		LobHolder holder = transLobs.get(lid);
+		if (holder == null) {
+			holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
+			transLobs.put(lid, holder);
+			holder.open(LOB_OP_WRITE);
 		} else {
 			try {
 				holder.write(data, off, len, colb, cmap);
