@@ -114,11 +114,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private Iterator<OraCdcRedoRecord> miner = null;
 
 	private final Map<Integer, Deque<RowChangeHolder>> halfDone;
-	private final boolean staticObjIds;
-	private final int[] includeObjIds;
-	private final boolean includeFilter;
-	private final int[] excludeObjIds;
-	private final boolean excludeFilter;
 	private final int[] conUids;
 	private final boolean conFilter;
 	private final OraCdcDictionaryChecker checker;
@@ -132,8 +127,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcRedoMinerTask task,
 			final Triple<Long, RedoByteAddress, Long> startFrom,
-			final int[] includeObjIds,
-			final int[] excludeObjIds,
 			final int[] conUids,
 			final OraCdcDictionaryChecker checker,
 			final Map<Xid, OraCdcTransaction> activeTransactions,
@@ -149,17 +142,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.activeTransactions = activeTransactions;
 		this.metrics = metrics;
 		this.halfDone = new HashMap<>();
-		this.includeObjIds = includeObjIds;
-		this.staticObjIds = config.staticObjIds();
-		if (includeObjIds == null || includeObjIds.length == 0)
-			includeFilter = false;
-		else
-			includeFilter = true;
-		this.excludeObjIds = excludeObjIds;
-		if (excludeObjIds == null || excludeObjIds.length == 0)
-			excludeFilter = false;
-		else
-			excludeFilter = true;
 		this.conUids = conUids;
 		if (conUids == null || conUids.length == 0)
 			conFilter = false;
@@ -327,17 +309,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							addToHalfDoneRcm(record);
 							continue;
 						} else if (record.has5_1() && record.has11_x()) {
-							if (staticObjIds) {
-								if ((includeFilter &&
-										Arrays.binarySearch(includeObjIds, record.change5_1().obj()) < 0) ||
-									(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1)) {
-									continue;
-								}
-							} else {
-								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
-									continue;
-							}
+							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+								continue;
 							final short operation = record.change11_x().operation();
 							switch (operation) {
 							case _11_2_IRP:
@@ -372,16 +345,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							}
 							continue;
 						} else if (record.hasPrb() && record.has11_x()) {
-							if (staticObjIds) {
-								if ((includeFilter &&
-											Arrays.binarySearch(includeObjIds, record.changePrb().obj()) < 0) ||
-									(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1))
-									continue;
-							} else {
-								if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId()))
-									continue;
-							}
+							if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId()))
+								continue;
 							boolean suspiciousRecord = false;
 							final Xid xid = record.xid();
 							OraCdcTransaction transaction = activeTransactions.get(xid);
@@ -447,30 +412,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(XID=NULL)", colb.operation(), record.rba());
 								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", colb.operation(), record.rba());
 							} else if (!colb.longDump() && record.hasKrvDlr10()) {
-								if (staticObjIds) {
-									if ((includeFilter &&
-											Arrays.binarySearch(includeObjIds, colb.obj()) < 0) ||
-										(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, colb.obj()) > -1))
-										continue;
-								} else {
-									if (checker.notNeeded(colb.obj(), colb.conId()))
-										continue;
-								}
+								if (checker.notNeeded(colb.obj(), colb.conId()))
+									continue;
 								emitDirectBlockChange(getTransaction(record), record, colb);
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("", colb.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.hasLlb()) {
-							if (staticObjIds) {
-								if ((includeFilter &&
-										Arrays.binarySearch(includeObjIds, record.changeLlb().obj()) < 0) ||
-									(excludeFilter &&
-										Arrays.binarySearch(excludeObjIds, record.changeLlb().obj()) > -1))
-									continue;
-							} else {
-								if (checker.notNeeded(record.changeLlb().obj(), record.changeLlb().conId()))
-									continue;
-							}
+							if (checker.notNeeded(record.changeLlb().obj(), record.changeLlb().conId()))
+								continue;
 							final OraCdcChangeLlb llb = record.changeLlb();
 							final OraCdcTransactionChronicleQueue transaction =
 									(OraCdcTransactionChronicleQueue) getTransaction(record);
@@ -504,16 +453,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} else if (processLobs && record.hasKrvXml()) {
 							final OraCdcChangeKrvXml xml = record.changeKrvXml();
 							if (xml.type() == OraCdcChangeKrvXml.TYPE_XML_DOC) {
-								if (staticObjIds) {
-									if ((includeFilter &&
-											Arrays.binarySearch(includeObjIds, xml.obj()) < 0) ||
-										(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, xml.obj()) > -1))
-										continue;
-								} else {
-									if (checker.notNeeded(xml.obj(), xml.conId()))
-										continue;
-								}
+								if (checker.notNeeded(xml.obj(), xml.conId()))
+									continue;
 								final OraCdcTransactionChronicleQueue transaction =
 										(OraCdcTransactionChronicleQueue) getTransaction(record);
 								final short xmlColId = intColumnId(xml.obj(), xml.internalColId(), false);
@@ -526,17 +467,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP!=1)", xml.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.has5_1() && record.has26_x()) {
-							if (staticObjIds) {
-								if ((includeFilter &&
-										Arrays.binarySearch(includeObjIds, record.change5_1().obj()) < 0) ||
-									(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1)) {
-									continue;
-								}
-							} else {
-								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
-									continue;
-							}
+							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+								continue;
 							final LobId lid = record.change26_x().lid();
 							final OraCdcTransactionChronicleQueue transaction = 
 									(OraCdcTransactionChronicleQueue) activeTransactions.get(record.xid());
@@ -551,17 +483,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							continue;
 						} else if (processLobs && record.has26_x()) {
 							if (record.change26_x().dataObj() != 0) {
-								if (staticObjIds) {
-									if ((includeFilter &&
-												Arrays.binarySearch(includeObjIds, record.change26_x().dataObj()) < 0) ||
-											(excludeFilter &&
-												Arrays.binarySearch(excludeObjIds, record.change26_x().dataObj()) > -1))
-											continue;
-								} else {
-									//TODO - need to implement dynamic list support for standalone OP:26.6!
-									if (checker.notNeeded(record.change26_x().obj(), record.change26_x().conId()))
-										continue;
-								}
+								if (checker.notNeeded(record.change26_x().dataObj(), record.change26_x().conId()))
+									continue;
 								final LobId lid = record.change26_x().lid();
 								if (lid != null) {
 									Xid xid = transFromLobId.get(lid);

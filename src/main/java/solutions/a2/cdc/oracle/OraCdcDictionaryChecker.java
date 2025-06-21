@@ -18,6 +18,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +48,7 @@ public class OraCdcDictionaryChecker {
 	private static final int MAX_RETRIES = 63;
 
 	private final OraCdcTaskBase task;
+	private final boolean staticObjIds;
 	private final OraConnectionObjects oraConnections;
 	private final OraCdcSourceConnectorConfig config;
 	private final OraRdbmsInfo rdbmsInfo;
@@ -57,6 +59,10 @@ public class OraCdcDictionaryChecker {
 	private final CountDownLatch runLatch;
 	private final boolean isCdb;
 	private final int connectionRetryBackoff;
+	private final int[] includeObjIds;
+	private final boolean includeFilter;
+	private final int[] excludeObjIds;
+	private final boolean excludeFilter;
 	private final OraCdcMgmtBase metrics;
 	private Connection connection;
 	private PreparedStatement psCheckTable;
@@ -67,7 +73,30 @@ public class OraCdcDictionaryChecker {
 			final Set<Long> tablesOutOfScope,
 			final String checkTableSql,
 			final OraCdcMgmtBase metrics) throws SQLException {
+		this(task, false, tablesInProcessing, tablesOutOfScope, checkTableSql, null, null, metrics);
+	}
+
+	OraCdcDictionaryChecker(
+			final OraCdcTaskBase task,
+			final boolean staticObjIds,
+			final Map<Long, OraTable4LogMiner> tablesInProcessing,
+			final Set<Long> tablesOutOfScope,
+			final String checkTableSql,
+			final int[] includeObjIds,
+			final int[] excludeObjIds,
+			final OraCdcMgmtBase metrics) throws SQLException {
 		this.task = task;
+		this.staticObjIds = staticObjIds;
+		this.includeObjIds = includeObjIds;
+		if (includeObjIds == null || includeObjIds.length == 0)
+			includeFilter = false;
+		else
+			includeFilter = true;
+		this.excludeObjIds = excludeObjIds;
+		if (excludeObjIds == null || excludeObjIds.length == 0)
+			excludeFilter = false;
+		else
+			excludeFilter = true;
 		this.oraConnections = task.oraConnections();
 		this.config = task.config();
 		this.rdbmsInfo = task.rdbmsInfo();
@@ -268,22 +297,34 @@ public class OraCdcDictionaryChecker {
 	}
 
 	public boolean notNeeded(final int obj, final short conId) throws SQLException {
-		final long combinedDataObjectId = isCdb ?
-				(((long)conId) << 32) | ((long)obj & 0xFFFFFFFFL) :
-				obj;
-		if (tablesOutOfScope.contains(combinedDataObjectId)) {
-			return true;
-		} else {
-			if (tablesInProcessing.containsKey(combinedDataObjectId)) {
-				return false;
+		if (staticObjIds) {
+			if ((includeFilter &&
+					Arrays.binarySearch(includeObjIds, obj) < 0) ||
+				(excludeFilter &&
+						Arrays.binarySearch(excludeObjIds, obj) > -1)) {
+				return true;
 			} else {
-				if (partitionsInProcessing.containsKey(combinedDataObjectId)) {
+				return false;
+			}
+		} else {
+			//TODO - dynamic LOB OBJECT_ID's support
+			final long combinedDataObjectId = isCdb ?
+					(((long)conId) << 32) | ((long)obj & 0xFFFFFFFFL) :
+					obj;
+			if (tablesOutOfScope.contains(combinedDataObjectId)) {
+				return true;
+			} else {
+				if (tablesInProcessing.containsKey(combinedDataObjectId)) {
 					return false;
 				} else {
-					if (getTable(combinedDataObjectId, obj, conId) == null) {
-						return true;
-					} else {
+					if (partitionsInProcessing.containsKey(combinedDataObjectId)) {
 						return false;
+					} else {
+						if (getTable(combinedDataObjectId, obj, conId) == null) {
+							return true;
+						} else {
+							return false;
+						}
 					}
 				}
 			}

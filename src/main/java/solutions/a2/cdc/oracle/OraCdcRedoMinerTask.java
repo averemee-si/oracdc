@@ -127,13 +127,12 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			MutableTriple<Long, RedoByteAddress, Long> coords = new MutableTriple<>();
 			boolean rewind = startPosition(coords);
 			activeTransactions = new HashMap<>();
-			checker = new OraCdcDictionaryChecker(this,
-					tablesInProcessing, tablesOutOfScope, checkTableSql, metrics);
+			checker = new OraCdcDictionaryChecker(this, config.staticObjIds(),
+					tablesInProcessing, tablesOutOfScope, checkTableSql,
+					includeObjIds, excludeObjIds, metrics);
 			worker = new OraCdcRedoMinerWorkerThread(
 					this,
 					rewind ? coords : new ImmutableTriple<>(coords.getLeft(), null, -1l),
-					includeObjIds,
-					excludeObjIds,
 					conUids,
 					checker,
 					activeTransactions,
