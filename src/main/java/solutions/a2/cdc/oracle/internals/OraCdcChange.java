@@ -1448,6 +1448,10 @@ public class OraCdcChange {
 		return obj;
 	}
 
+	public void obj(final int obj) {
+		this.obj = obj;
+	}
+
 	public byte fb() {
 		return fb;
 	}
@@ -1478,6 +1482,10 @@ public class OraCdcChange {
 
 	public int dataObj() {
 		return dataObj;
+	}
+
+	public void dataObj(final int dataObj) {
+		this.dataObj = dataObj;
 	}
 
 	public int bdba() {
