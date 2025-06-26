@@ -18,7 +18,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -59,9 +58,9 @@ public class OraCdcDictionaryChecker {
 	private final CountDownLatch runLatch;
 	private final boolean isCdb;
 	private final int connectionRetryBackoff;
-	private final int[] includeObjIds;
+	private final Set<Integer> includeObjIds;
 	private final boolean includeFilter;
-	private final int[] excludeObjIds;
+	private final Set<Integer> excludeObjIds;
 	private final boolean excludeFilter;
 	private final OraCdcMgmtBase metrics;
 	private Connection connection;
@@ -82,18 +81,18 @@ public class OraCdcDictionaryChecker {
 			final Map<Long, OraTable4LogMiner> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final String checkTableSql,
-			final int[] includeObjIds,
-			final int[] excludeObjIds,
+			Set<Integer> includeObjIds,
+			Set<Integer> excludeObjIds,
 			final OraCdcMgmtBase metrics) throws SQLException {
 		this.task = task;
 		this.staticObjIds = staticObjIds;
 		this.includeObjIds = includeObjIds;
-		if (includeObjIds == null || includeObjIds.length == 0)
+		if (includeObjIds == null || includeObjIds.size() == 0)
 			includeFilter = false;
 		else
 			includeFilter = true;
 		this.excludeObjIds = excludeObjIds;
-		if (excludeObjIds == null || excludeObjIds.length == 0)
+		if (excludeObjIds == null || excludeObjIds.size() == 0)
 			excludeFilter = false;
 		else
 			excludeFilter = true;
@@ -299,15 +298,15 @@ public class OraCdcDictionaryChecker {
 	public boolean notNeeded(final int obj, final short conId) throws SQLException {
 		if (staticObjIds) {
 			if ((includeFilter &&
-					Arrays.binarySearch(includeObjIds, obj) < 0) ||
+					!includeObjIds.contains(obj)) ||
 				(excludeFilter &&
-						Arrays.binarySearch(excludeObjIds, obj) > -1)) {
+						excludeObjIds.contains(obj))) {
 				return true;
 			} else {
 				return false;
 			}
 		} else {
-			//TODO - dynamic LOB OBJECT_ID's support
+			//TODO - dynamic LOB/IOT OBJECT_ID's support
 			final long combinedDataObjectId = isCdb ?
 					(((long)conId) << 32) | ((long)obj & 0xFFFFFFFFL) :
 					obj;

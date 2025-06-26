@@ -790,37 +790,89 @@ order by COLUMN_POSITION;
 			"order by COLUMN_POSITION";
 
 	/*
-select O.OBJECT_ID
+select case
+         when T.IOT_TYPE='IOT_OVERFLOW' then
+              (select OVF.OBJECT_ID
+               from DBA_OBJECTS OVF
+               where OVF.OWNER=T.OWNER and OVF.OBJECT_NAME=T.TABLE_NAME)
+         when I.INDEX_TYPE='IOT - TOP' then
+              (select IOT.OBJECT_ID
+               from DBA_OBJECTS IOT
+               where IOT.OWNER=I.OWNER and IOT.OBJECT_NAME=I.INDEX_NAME)
+         else O.OBJECT_ID
+       end OBJECT_ID, O.OBJECT_ID PARENT_ID
 from   DBA_OBJECTS O
+left join DBA_TABLES T on O.OWNER=T.OWNER and (O.OBJECT_NAME=T.IOT_NAME or O.OBJECT_NAME=T.TABLE_NAME)
+left join (select TABLE_OWNER, TABLE_NAME, INDEX_NAME, OWNER, INDEX_TYPE
+           from DBA_INDEXES) I on T.OWNER=I.TABLE_OWNER and T.TABLE_NAME=I.TABLE_NAME
 where  O.DATA_OBJECT_ID is not null
   and  O.OBJECT_TYPE like 'TABLE%'
   and  O.TEMPORARY='N';
 	 */
 	public static final String OBJECT_IDS_NON_CDB =
-			"select O.OBJECT_ID\n" +
+			"select case\n" +
+			"         when T.IOT_TYPE='IOT_OVERFLOW' then\n" +
+			"              (select OVF.OBJECT_ID\n" +
+			"               from DBA_OBJECTS OVF\n" +
+			"               where OVF.OWNER=T.OWNER and OVF.OBJECT_NAME=T.TABLE_NAME)\n" +
+			"         when I.INDEX_TYPE='IOT - TOP' then\n" +
+			"              (select IOT.OBJECT_ID\n" +
+			"               from DBA_OBJECTS IOT\n" +
+			"               where IOT.OWNER=I.OWNER and IOT.OBJECT_NAME=I.INDEX_NAME)\n" +
+			"         else O.OBJECT_ID\n" +
+			"       end OBJECT_ID, O.OBJECT_ID PARENT_ID\n" +
 			"from   DBA_OBJECTS O\n" +
+			"left join DBA_TABLES T on O.OWNER=T.OWNER and (O.OBJECT_NAME=T.IOT_NAME or O.OBJECT_NAME=T.TABLE_NAME)\n" +
+			"left join (select TABLE_OWNER, TABLE_NAME, INDEX_NAME, OWNER, INDEX_TYPE\n" +
+			"           from DBA_INDEXES) I on T.OWNER=I.TABLE_OWNER and T.TABLE_NAME=I.TABLE_NAME\n" +
 			"where  O.DATA_OBJECT_ID is not null\n" +
 			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
 			"  and  O.TEMPORARY='N'\n";
 
 	/*
-select O.OBJECT_ID
+select case
+         when T.IOT_TYPE='IOT_OVERFLOW' then
+              (select OVF.OBJECT_ID
+               from CDB_OBJECTS OVF
+               where OVF.CON_ID=T.CON_ID and OVF.OWNER=T.OWNER and OVF.OBJECT_NAME=T.TABLE_NAME)
+         when I.INDEX_TYPE='IOT - TOP' then
+              (select IOT.OBJECT_ID
+               from CDB_OBJECTS IOT
+               where IOT.CON_ID=I.CON_ID and IOT.OWNER=I.OWNER and IOT.OBJECT_NAME=I.INDEX_NAME)
+         else O.OBJECT_ID
+       end OBJECT_ID, O.OBJECT_ID PARENT_ID
 from   CDB_OBJECTS O
+left join CDB_TABLES T on O.CON_ID=T.CON_ID and O.OWNER=T.OWNER and (O.OBJECT_NAME=T.IOT_NAME or O.OBJECT_NAME=T.TABLE_NAME)
+left join (select CON_ID, TABLE_OWNER, TABLE_NAME, INDEX_NAME, OWNER, INDEX_TYPE
+           from CDB_INDEXES) I on T.CON_ID=I.CON_ID and T.OWNER=I.TABLE_OWNER and T.TABLE_NAME=I.TABLE_NAME
 where  O.DATA_OBJECT_ID is not null
   and  O.OBJECT_TYPE like 'TABLE%'
   and  O.TEMPORARY='N'
-  and  O.CON_ID > 2
+  and  O.CON_ID > 2;
 	 */
 	public static final String OBJECT_IDS_CDB =
-			"select O.OBJECT_ID\n" +
+			"select case\n" +
+			"         when T.IOT_TYPE='IOT_OVERFLOW' then\n" +
+			"              (select OVF.OBJECT_ID\n" +
+			"               from CDB_OBJECTS OVF\n" +
+			"               where OVF.CON_ID=T.CON_ID and OVF.OWNER=T.OWNER and OVF.OBJECT_NAME=T.TABLE_NAME)\n" +
+			"         when I.INDEX_TYPE='IOT - TOP' then\n" +
+			"              (select IOT.OBJECT_ID\n" +
+			"               from CDB_OBJECTS IOT\n" +
+			"               where IOT.CON_ID=I.CON_ID and IOT.OWNER=I.OWNER and IOT.OBJECT_NAME=I.INDEX_NAME)\n" +
+			"         else O.OBJECT_ID\n" +
+			"       end OBJECT_ID, O.OBJECT_ID PARENT_ID\n" +
 			"from   CDB_OBJECTS O\n" +
+			"left join CDB_TABLES T on O.CON_ID=T.CON_ID and O.OWNER=T.OWNER and (O.OBJECT_NAME=T.IOT_NAME or O.OBJECT_NAME=T.TABLE_NAME)\n" +
+			"left join (select CON_ID, TABLE_OWNER, TABLE_NAME, INDEX_NAME, OWNER, INDEX_TYPE\n" +
+			"           from CDB_INDEXES) I on T.CON_ID=I.CON_ID and T.OWNER=I.TABLE_OWNER and T.TABLE_NAME=I.TABLE_NAME\n" +
 			"where  O.DATA_OBJECT_ID is not null\n" +
 			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
 			"  and  O.TEMPORARY='N'\n" +
 			"  and  O.CON_ID > 2\n";
 
 	/*
-select B.OBJECT_ID
+select B.OBJECT_ID, B.OBJECT_ID PARENT_ID
 from   DBA_OBJECTS O, CDB_LOBS L, DBA_OBJECTS B 
 where  B.OWNER=L.OWNER
   and  B.OBJECT_NAME=L.SEGMENT_NAME
@@ -831,7 +883,7 @@ where  B.OWNER=L.OWNER
   and  O.TEMPORARY='N'
   	 */
 	public static final String LOB_IDS_NON_CDB =
-			"select B.OBJECT_ID\n" +
+			"select B.OBJECT_ID, B.OBJECT_ID PARENT_ID\n" +
 			"from   DBA_OBJECTS O, CDB_LOBS L, DBA_OBJECTS B \n" +
 			"where  B.OWNER=L.OWNER\n" +
 			"  and  B.OBJECT_NAME=L.SEGMENT_NAME\n" +
@@ -842,7 +894,7 @@ where  B.OWNER=L.OWNER
 			"  and  O.TEMPORARY='N'\n";
 
 	/*
-select B.OBJECT_ID
+select B.OBJECT_ID, B.OBJECT_ID PARENT_ID
 from   CDB_OBJECTS O, CDB_LOBS L, CDB_OBJECTS B 
 where  B.OWNER=L.OWNER
   and  B.OBJECT_NAME=L.SEGMENT_NAME
@@ -856,7 +908,7 @@ where  B.OWNER=L.OWNER
   and  O.CON_ID > 2
 	 */
 	public static final String LOB_IDS_CDB =
-			"select B.OBJECT_ID\n" +
+			"select B.OBJECT_ID, B.OBJECT_ID PARENT_ID\n" +
 			"from   CDB_OBJECTS O, CDB_LOBS L, CDB_OBJECTS B \n" +
 			"where  B.OWNER=L.OWNER\n" +
 			"  and  B.OBJECT_NAME=L.SEGMENT_NAME\n" +
