@@ -422,6 +422,8 @@ public class OraCdcRedoRecord {
 				return Objects.hash(false, _11_6_ORP, change5_1().xid, change11_x().dataObj);
 		} else if (hasPrb() && has11_x()) {
 			return Objects.hash(true, changePrb().xid, changePrb().dataObj);
+		} else if (has5_1() && has10_x()) {
+			return Objects.hash(false, change10_x().operation, change5_1().xid, change10_x().dataObj);
 		} else {
 			return 0;
 		}
