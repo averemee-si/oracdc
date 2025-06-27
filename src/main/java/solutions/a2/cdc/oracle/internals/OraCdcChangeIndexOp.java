@@ -71,7 +71,7 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[1][0] + 4)));
 			if (coords.length > 2) {
 				sb
-					.append(operation == _10_2_LIN ? "insert key: (" : "keydata: (")
+					.append(operation == _10_2_LIN ? "\ninsert key: (" : "\nkeydata: (")
 					.append(coords[2][1])
 					.append("):")
 					.append(coords[2][1] > 0x14 ? "\n" : " ");
