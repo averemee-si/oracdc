@@ -416,14 +416,15 @@ public class OraCdcRedoRecord {
 
 	public int halfDoneKey() {
 		if (has5_1() && has11_x()) {
-			if (change11_x().operation == _11_3_DRP)
-				return Objects.hash(false, _11_3_DRP, change5_1().xid, change11_x().dataObj);
-			else
-				return Objects.hash(false, _11_6_ORP, change5_1().xid, change11_x().dataObj);
+			return Objects.hash(false,
+					change11_x().operation == _11_3_DRP ? _11_3_DRP : _11_6_ORP,
+					change5_1().xid, change11_x().dataObj);
 		} else if (hasPrb() && has11_x()) {
 			return Objects.hash(true, changePrb().xid, changePrb().dataObj);
 		} else if (has5_1() && has10_x()) {
-			return Objects.hash(false, change10_x().operation, change5_1().xid, change10_x().dataObj);
+			return Objects.hash(false,
+					change10_x().operation == _10_4_LDE ? _11_3_DRP : _11_6_ORP,
+					change5_1().xid, change10_x().dataObj);
 		} else {
 			return 0;
 		}
