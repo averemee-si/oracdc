@@ -13,6 +13,12 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
+import static solutions.a2.oracle.utils.BinaryUtils.putOraColSize;
+import static solutions.a2.oracle.utils.BinaryUtils.putU16;
+
 /**
  * 
  * Index operations 10.2, 10.4, 10.18
@@ -41,9 +47,89 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 			elementLengthCheck("index info", formatOpCode(operation), 1, 6, "");
 			if (coords.length > 3) {
 				nonKeyData = true;
+				columnCount = Byte.toUnsignedInt(record[coords[3][0] + 2]);
 				fb = record[coords[3][0]];
 			}
 		}
+	}
+
+	public int writeColumns(final ByteArrayOutputStream baos, final int colNumIndex) throws IOException {
+		int col = 0;
+		for (int pos = 0; pos < coords[2][1];) {
+			final int colNum = col + colNumIndex;
+			putU16(baos, colNum);
+			int colSize = Byte.toUnsignedInt(record[coords[2][0] + pos]);
+			pos += Byte.BYTES;
+			if (colSize ==  0xFE) {
+				colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[2][0] + pos));
+				pos += Short.BYTES;
+			}
+			if (colSize == 0xFF) {
+				colSize = 0;
+				baos.write(0xFF);
+			} else {
+				putOraColSize(baos, colSize);
+				baos.write(record, coords[2][0] + pos, colSize);
+			}
+			pos += colSize;
+			col++;
+		}
+		if (nonKeyData) {
+			final int startPos = (flgHeadPart(fb) && flgFirstPart(fb) && flgLastPart(fb)) ? 3 : 9;
+			int nonKeyCol = 0;
+			for (int pos = startPos; pos < coords[3][1];) {
+				nonKeyCol++;
+				final int colNum = col + colNumIndex;
+				putU16(baos, colNum);
+				int colSize = Byte.toUnsignedInt(record[coords[3][0] + pos]);
+				pos += Byte.BYTES;
+				if (colSize ==  0xFE) {
+					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[3][0] + pos));
+					pos += Short.BYTES;
+				}
+				if (colSize == 0xFF) {
+					colSize = 0;
+					baos.write(0xFF);
+				} else {
+					putOraColSize(baos, colSize);
+					baos.write(record, coords[3][0] + pos, colSize);
+				}
+				if (nonKeyCol == columnCount)
+					break;
+				pos += colSize;
+				col++;
+			}
+		}
+		return columnCount + columnCountNn();
+	}
+
+	@Override
+	public int columnCount() {
+		if (nonKeyData) {
+			return columnCount + columnCountNn();
+		} else {
+			return columnCountNn();
+		}
+	}
+
+	@Override
+	public int columnCountNn() {
+		if (columnCountNn == Integer.MAX_VALUE && coords.length > 2) {
+			columnCountNn = 0;
+			for (int pos = 0; pos < coords[2][1];) {
+				columnCountNn++;
+				int colSize = Byte.toUnsignedInt(record[coords[2][0] + pos]);
+				pos += Byte.BYTES;
+				if (colSize ==  0xFE) {
+					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[2][0] + pos));
+					pos += Short.BYTES;
+				} else  if (colSize == 0xFF) {
+					colSize = 0;
+				}
+				pos += colSize;
+			}
+		}
+		return columnCountNn;
 	}
 
 	@Override
@@ -90,7 +176,7 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 						.append(" lb: ")
 						.append(String.format("0x%x", Byte.toUnsignedInt(record[coords[3][0] + 1])))
 						.append("  cc: ")
-						.append(Byte.toUnsignedInt(record[coords[3][0] + 2]))
+						.append(columnCount)
 						.append("\n(")
 						.append(coords[3][1] - 3)
 						.append("):")
