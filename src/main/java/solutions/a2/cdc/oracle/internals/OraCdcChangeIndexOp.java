@@ -53,7 +53,7 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 		}
 	}
 
-	public int writeColumns(final ByteArrayOutputStream baos, final int colNumIndex) throws IOException {
+	public int writeIndexColumns(final ByteArrayOutputStream baos, final int colNumIndex) throws IOException {
 		int col = 0;
 		for (int pos = 0; pos < coords[2][1];) {
 			final int colNum = col + colNumIndex;
