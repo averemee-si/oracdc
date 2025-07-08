@@ -114,22 +114,10 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 
 	@Override
 	public int columnCountNn() {
-		if (columnCountNn == Integer.MAX_VALUE && coords.length > 2) {
-			columnCountNn = 0;
-			for (int pos = 0; pos < coords[2][1];) {
-				columnCountNn++;
-				int colSize = Byte.toUnsignedInt(record[coords[2][0] + pos]);
-				pos += Byte.BYTES;
-				if (colSize ==  0xFE) {
-					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[2][0] + pos));
-					pos += Short.BYTES;
-				} else  if (colSize == 0xFF) {
-					colSize = 0;
-				}
-				pos += colSize;
-			}
-		}
-		return columnCountNn;
+		if (coords.length > 2)
+			return indexKeyColCount(2);
+		else
+			return 0;
 	}
 
 	@Override

@@ -1532,4 +1532,21 @@ public class OraCdcChange {
 		return lobDataOffset;
 	}
 
+	int indexKeyColCount(final int index) {
+		int idxColCount = 0;
+		for (int pos = 0; pos < coords[index][1];) {
+			idxColCount++;
+			int colSize = Byte.toUnsignedInt(record[coords[index][0] + pos]);
+			pos += Byte.BYTES;
+			if (colSize ==  0xFE) {
+				colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + pos));
+				pos += Short.BYTES;
+			} else  if (colSize == 0xFF) {
+				colSize = 0;
+			}
+			pos += colSize;
+		}
+		return idxColCount;
+	}
+
 }
