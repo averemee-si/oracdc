@@ -13,6 +13,12 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static solutions.a2.oracle.utils.BinaryUtils.putOraColSize;
+import static solutions.a2.oracle.utils.BinaryUtils.putU16;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1547,6 +1553,57 @@ public class OraCdcChange {
 			pos += colSize;
 		}
 		return idxColCount;
+	}
+
+	int writeIndexColumns(final ByteArrayOutputStream baos, final int index, final boolean nonKeyData, final int colNumIndex) throws IOException {
+		int col = 0;
+		for (int pos = 0; pos < coords[index][1];) {
+			final int colNum = col + colNumIndex;
+			putU16(baos, colNum);
+			int colSize = Byte.toUnsignedInt(record[coords[index][0] + pos]);
+			pos += Byte.BYTES;
+			if (colSize ==  0xFE) {
+				colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + pos));
+				pos += Short.BYTES;
+			}
+			if (colSize == 0xFF) {
+				colSize = 0;
+				baos.write(0xFF);
+			} else {
+				putOraColSize(baos, colSize);
+				baos.write(record, coords[index][0] + pos, colSize);
+			}
+			pos += colSize;
+			col++;
+		}
+		if (nonKeyData) {
+			final int nkIdx = index + 1;
+			final int startPos = (flgHeadPart(fb) && flgFirstPart(fb) && flgLastPart(fb)) ? 3 : 9;
+			int nonKeyCol = 0;
+			for (int pos = startPos; pos < coords[nkIdx][1];) {
+				nonKeyCol++;
+				final int colNum = col + colNumIndex;
+				putU16(baos, colNum);
+				int colSize = Byte.toUnsignedInt(record[coords[nkIdx][0] + pos]);
+				pos += Byte.BYTES;
+				if (colSize ==  0xFE) {
+					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[nkIdx][0] + pos));
+					pos += Short.BYTES;
+				}
+				if (colSize == 0xFF) {
+					colSize = 0;
+					baos.write(0xFF);
+				} else {
+					putOraColSize(baos, colSize);
+					baos.write(record, coords[nkIdx][0] + pos, colSize);
+				}
+				col++;
+				if (nonKeyCol == columnCount)
+					break;
+				pos += colSize;
+			}
+		}
+		return col;
 	}
 
 }
