@@ -25,6 +25,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_2_LIN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_4_LDE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_18_LUP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_30_LNU;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_4_LKR;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
@@ -180,6 +181,7 @@ public class OraCdcRedoRecord {
 			case _10_2_LIN:
 			case _10_4_LDE:
 			case _10_18_LUP:
+			case _10_30_LNU:
 				change = new OraCdcChangeIndexOp(changeNo, this, operation, record, offset, changeHeaderLen);
 				indKCOCODIX = changeNo - 1;
 				break;

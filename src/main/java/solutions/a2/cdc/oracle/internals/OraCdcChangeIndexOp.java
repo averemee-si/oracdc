@@ -46,6 +46,10 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 				nonKeyData = true;
 				columnCount = Byte.toUnsignedInt(record[coords[3][0] + 2]);
 				fb = record[coords[3][0]];
+			} else if (operation == _10_30_LNU) {
+				nonKeyData = true;
+				columnCount = Byte.toUnsignedInt(record[coords[2][0] + 2]);
+				fb = record[coords[2][0]];
 			}
 		}
 	}
@@ -79,7 +83,9 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 				? "\nindex redo (kdxlin):  insert leaf row, count="
 				: operation == _10_4_LDE
 					? "\nindex redo (kdxlde):  delete leaf row, count="
-					: "\nindex redo (kdxlup): update keydata, count=")
+					: operation == _10_18_LUP
+						? "\nindex redo (kdxlup): update keydata, count="
+						: "\nindex redo (kdxlnu): update nonkey, count=")
 			.append(coords.length);
 		ktbRedo(sb, 0);
 		if (coords.length > 1) {
@@ -94,36 +100,22 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[1][0] + 2)))
 				.append(", row size ")
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[1][0] + 4)));
-			if (coords.length > 2) {
-				sb
-					.append(operation == _10_2_LIN ? "\ninsert key: (" : "\nkeydata: (")
-					.append(coords[2][1])
-					.append("):")
-					.append(coords[2][1] > 0x14 ? "\n" : " ");
-				for (int i = 0; i < coords[2][1]; i++) {
-					if (i % 25 == 24 && i != coords[2][1] - 1)
-						sb.append('\n');
-					sb.append(String.format(" %02x", Byte.toUnsignedInt(record[coords[2][0] + i])));
-				}
-				if (nonKeyData) {
+			if (operation == _10_30_LNU) {
+				printNonKeyData(sb, 2);
+			} else {
+				if (coords.length > 2) {
 					sb
-						.append("\nnonkey (length: ")
-						.append(coords[3][1])
+						.append(operation == _10_2_LIN ? "\ninsert key: (" : "\nkeydata: (")
+						.append(coords[2][1])
 						.append("):")
-						.append("\nfb: ")
-						.append(printFbFlags(fb))
-						.append(" lb: ")
-						.append(String.format("0x%x", Byte.toUnsignedInt(record[coords[3][0] + 1])))
-						.append("  cc: ")
-						.append(columnCount)
-						.append("\n(")
-						.append(coords[3][1] - 3)
-						.append("):")
-						.append(coords[3][1] - 3 > 0x14 ? "\n" : " ");
-					for (int i = 3; i < coords[3][1]; i++) {
-						if ((i - 3) % 25 == 24 && i != coords[3][1] - 1)
+						.append(coords[2][1] > 0x14 ? "\n" : " ");
+					for (int i = 0; i < coords[2][1]; i++) {
+						if (i % 25 == 24 && i != coords[2][1] - 1)
 							sb.append('\n');
-						sb.append(String.format(" %02x", Byte.toUnsignedInt(record[coords[3][0] + i])));
+						sb.append(String.format(" %02x", Byte.toUnsignedInt(record[coords[2][0] + i])));
+					}
+					if (nonKeyData) {
+						printNonKeyData(sb, 3);
 					}
 				}
 			}
@@ -134,6 +126,28 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 	@Override
 	public String toString() {
 		return toDumpFormat().toString();
+	}
+
+	private void printNonKeyData(final StringBuilder sb, final int index) {
+		sb
+			.append("\nfb: ")
+			.append(printFbFlags(fb))
+			.append(" lb: ")
+			.append(String.format("0x%x", Byte.toUnsignedInt(record[coords[index][0] + 1])))
+			.append("  cc: ")
+			.append(columnCount)
+			.append("\nnonkey (length: ")
+			.append(coords[index][1])
+			.append("):")
+			.append("\n(")
+			.append(coords[index][1] - 3)
+			.append("):")
+			.append(coords[index][1] - 3 > 0x14 ? "\n" : " ");
+		for (int i = 3; i < coords[index][1]; i++) {
+			if ((i - 3) % 25 == 24 && i != coords[3][1] - 1)
+				sb.append('\n');
+			sb.append(String.format(" %02x", Byte.toUnsignedInt(record[coords[index][0] + i])));
+		}
 	}
 
 }

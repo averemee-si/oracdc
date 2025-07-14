@@ -43,9 +43,10 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	private static final byte KDLIK = 1;
 	private static final byte KDLIK_KEY = 2;
 	private static final byte KDLIK_NONKEY = 4;
-	private static final byte KDICLPU = 3;
-	private static final byte KDICLRE = 5;
-	private static final byte KDICLUP = 18;
+	private static final byte KDICLPU = 0x3;
+	private static final byte KDICLRE = 0x5;
+	private static final byte KDICLUP = 0x12;
+	private static final byte KDICLNU = 0x1E;
 
 	boolean supplementalLogData = false;
 	byte supplementalFb = 0;
@@ -101,7 +102,8 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					kdilkType = record[coords[3][0]];
 					if ((kdilkType == KDICLPU ||
 						kdilkType == KDICLRE ||
-						kdilkType == KDICLUP) &&
+						kdilkType == KDICLUP ||
+						kdilkType == KDICLNU) &&
 							(record[coords[3][0] + 2] & 0x80) > 0) {
 						supplementalLogData = true;
 						suppDataStartIndex = coords.length - 1;
@@ -242,6 +244,20 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				.append(String.format("0x%x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[3][0] + 4))))
 				.append(" block=")
 				.append(String.format("0x%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[3][0] + 8))));
+			switch (kdilkType) {
+			case KDICLPU:
+				sb.append("\n(kdxlpu): purge leaf row");
+				break;
+			case KDICLRE:
+				sb.append("\n(kdxlre): restore leaf row (clear leaf delete flags)");
+				break;
+			case KDICLUP:
+				sb.append("\n(kdxlup): update keydata in row");
+				break;
+			case KDICLNU:
+				sb.append("\n(kdxlnu): whole nonkey update");
+				break;
+			}
 			if (kdilkType == KDICLPU)
 				sb.append("\n(kdxlpu): purge leaf row");
 			else if (kdilkType == KDICLRE)

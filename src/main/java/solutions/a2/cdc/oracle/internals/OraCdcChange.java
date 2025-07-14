@@ -74,6 +74,8 @@ public class OraCdcChange {
 	public static final short _10_18_LUP = 0x0A12;
 	/** KDICULK: Undo operation on leaf key above the cache (undo) */
 	public static final short _10_22_ULK = 0x0A16;
+	/** KDICLNU: IOT leaf block nonkey update */
+	public static final short _10_30_LNU = 0x0A1E;
 
 	/** Layer 11: Row Operation    -  KCOCODRW     [kdocts.h] */
 	public static final byte KCOCODRW = 0x0B;
@@ -1556,6 +1558,8 @@ public class OraCdcChange {
 	}
 
 	int writeIndexColumns(final ByteArrayOutputStream baos, final int index, final boolean nonKeyData, final int colNumIndex) throws IOException {
+		if (index > coords.length - 1)
+			return 0;
 		int col = 0;
 		for (int pos = 0; pos < coords[index][1];) {
 			final int colNum = col + colNumIndex;
