@@ -64,6 +64,7 @@ public class OraConnectionObjects {
 	private int version = 0;
 
 	private OraConnectionObjects(final String poolName, final String dbUrl) throws SQLException {
+                System.setProperty("oracle.ucp.createConnectionInBorrowThread", "true");
 		this.poolName = poolName;
 		pds = PoolDataSourceFactory.getPoolDataSource();
 		pds.setConnectionFactoryClassName("oracle.jdbc.pool.OracleDataSource");
