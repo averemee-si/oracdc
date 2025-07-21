@@ -556,18 +556,14 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 												readRowId = true;
 											}
 										} else {
-											if (isCdb) {
-												LOGGER.error("Data dictionary corruption for LOB with OBJECT_ID '{}', CON_ID = '{}'",
-														internalOpObjectId, containerInternalOpObjectId);
-											} else {
-												LOGGER.error("Data dictionary corruption for LOB with OBJECT_ID '{}'",
-														internalOpObjectId);
-											}
-											if (isRsLogMinerRowAvailable) {
-												LOGGER.error("Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'",
-														lastScn, lastRba, lastSubScn, xid);
-											}
-											LOGGER.error("Current query is:\n{}\n", mineDataSql);
+											if (LOGGER.isDebugEnabled())
+												LOGGER.debug(
+													isCdb 
+														? "Unable to find in dictionary LOB with DATA_OBJ#={}, CON_ID={} using SQL:\n{}\nLast read row information: SCN={}, RBA='{}', SSN={}, XID='{}'"
+														: "Unable to find in dictionary LOB with DATA_OBJ#={}{} using SQL:\\n{}\nLast read row information: SCN={}, RBA='{}', SSN={}, XID='{}'",
+														internalOpObjectId,
+														isCdb ? Integer.toString(containerInternalOpObjectId) : "",
+														mineDataSql, lastScn, lastRba, lastSubScn, xid);
 										}
 										rsIsDataObjLob.close();
 										rsIsDataObjLob = null;
@@ -1052,25 +1048,39 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private String readXmlWriteRedoData(final String xmlColumnId) throws SQLException {
+		if (StringUtils.equals(xmlColumnId, "\"UNKNOWN\"")) {
+			LOGGER.error("UNKNOWN columnId!");
+			return "";
+		}
 		boolean multiLineSql = true;
 		final StringBuilder xmlHexData = new StringBuilder(65000);
+		boolean withHexToRaw = false;
 		while (multiLineSql) {
 			if (fetchRsLogMinerNext) {
 				isRsLogMinerRowAvailable = rsLogMiner.next();
 			} else {
 				fetchRsLogMinerNext = true;
 			}
-			if (rsLogMiner.getShort("OPERATION_CODE") != OraCdcV$LogmnrContents.XML_DOC_WRITE) {
+			final short operation = rsLogMiner.getShort("OPERATION_CODE");
+			if (operation != OraCdcV$LogmnrContents.XML_DOC_WRITE &&
+					operation != OraCdcV$LogmnrContents.XML_DOC_BEGIN &&
+					operation != OraCdcV$LogmnrContents.XML_DOC_END	) {
 				LOGGER.error("Unexpected operation with code {} at SCN {} RBA '{}'",
 						rsLogMiner.getShort("OPERATION_CODE"), rsLogMiner.getLong("SCN"), rsLogMiner.getString("RS_ID"));
 				throw new SQLException("Unexpected operation!!!");
 			}
-			multiLineSql = rsLogMiner.getBoolean("CSF");
-			xmlHexData.append(rsLogMiner.getString("SQL_REDO"));
+			if (operation == OraCdcV$LogmnrContents.XML_DOC_WRITE) {
+				multiLineSql = rsLogMiner.getBoolean("CSF");
+				final String currentLine = rsLogMiner.getString("SQL_REDO");
+				if (!withHexToRaw)
+					withHexToRaw = StringUtils.contains(currentLine, "HEXTORAW");
+				xmlHexData.append(currentLine);
+			}
 		}
 		final String xmlAsString = new String(
-				OraDumpDecoder.hexToRaw(
-						StringUtils.substringBetween(xmlHexData.toString(), "HEXTORAW('", ")'")));
+				OraDumpDecoder.hexToRaw(withHexToRaw
+						? StringUtils.substringBetween(xmlHexData.toString(), "HEXTORAW('", ")'")
+						: xmlHexData.toString()));
 		if (LOGGER.isTraceEnabled()) {
 			LOGGER.trace("{} column {} content:\n{}",
 					xmlColumnId, xmlAsString);
