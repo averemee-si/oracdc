@@ -1096,6 +1096,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								idToNameMap.get(columnName),
 								StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
 								keyStruct, valueStruct);
+						if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
+							mandatoryColumnsProcessed++;
+						}
 					} else {
 						// We assume EXPLICIT null here
 						valueStruct.put(oraColumn.getColumnName(), null);					}
@@ -1146,7 +1149,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 										lobColumn, lob.getContent(),
 										keyStruct, lobColumnSchemas.get(lobColumnName)));
 					} else {
-						valueStruct.put(lobColumnName, lob.getContent());
+						valueStruct.put(lobColumnName, lob.getContent(lobColumn.getJdbcType()));
 					}
 				}
 			}
