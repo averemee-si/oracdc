@@ -19,8 +19,12 @@ import solutions.a2.oracle.internals.RowId;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.util.Arrays;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Minimlistic presentation of V$LOGMNR_CONTENTS row for OPERATION_CODE = 1|2|3
@@ -29,6 +33,8 @@ import java.util.Arrays;
  * 
  */
 public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerStatement.class);
 
 	/**
 	 * 
@@ -203,23 +209,36 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 
 	public int readColDefs(final int[][] colDefs, int pos) {
 		final int colCount = colDefs.length;
-		for (int i = 0; i < colCount; i++) {
-			colDefs[i][0] = redoData[pos++] << 8 | redoData[pos++] & 0xFF;
-			int colSize = Byte.toUnsignedInt(redoData[pos++]);
-			if (colSize ==  0xFE) {
-				colSize = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
-			} else if (colSize == 0xFF) {
-				colSize = -1;
+		int i = 0;
+		try {
+			for (; i < colCount; i++) {
+				colDefs[i][0] = redoData[pos++] << 8 | redoData[pos++] & 0xFF;
+				int colSize = Byte.toUnsignedInt(redoData[pos++]);
+				if (colSize ==  0xFE) {
+					colSize = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
+				} else if (colSize == 0xFF) {
+					colSize = -1;
+				}
+				colDefs[i][1] = colSize;
+				colDefs[i][2] = pos;
+				if (colSize > 0) {
+					pos += colSize;
+				}
 			}
-			colDefs[i][1] = colSize;
-			colDefs[i][2] = pos;
-			if (colSize > 0) {
-				pos += colSize;
-			}
+			pos = colDefs[colCount - 1][2] + 
+					(colDefs[colCount - 1][1] > 0 ? colDefs[colCount - 1][1] : 0);
+			return pos;
+		} catch (ArrayIndexOutOfBoundsException oob) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"{} when reading columns for {} statement starting at SCN/SUBSCN/RBA {}/{}/{}\n" +
+					"Column count = {}, last column = {}, pos = {}. Byte array content:\n{}" +
+					"\n=====================\n",
+					oob.getMessage(),
+					operation == INSERT ? "INSERT" : operation == DELETE ? "DELETE" : "UPDATE",
+					scn, ssn, rba, colCount, i, pos, rawToHex(redoData));
+			throw oob;
 		}
-		pos = colDefs[colCount - 1][2] + 
-				(colDefs[colCount - 1][1] > 0 ? colDefs[colCount - 1][1] : 0);
-		return pos;
 	}
 
 	private int readAndSortColDefs(final int[][] colDefs, int pos) {
