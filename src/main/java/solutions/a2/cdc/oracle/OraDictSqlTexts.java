@@ -805,8 +805,7 @@ from   DBA_OBJECTS O
 left join DBA_TABLES T on O.OWNER=T.OWNER and (O.OBJECT_NAME=T.IOT_NAME or O.OBJECT_NAME=T.TABLE_NAME)
 left join (select TABLE_OWNER, TABLE_NAME, INDEX_NAME, OWNER, INDEX_TYPE
            from DBA_INDEXES) I on T.OWNER=I.TABLE_OWNER and T.TABLE_NAME=I.TABLE_NAME
-where  O.DATA_OBJECT_ID is not null
-  and  O.OBJECT_TYPE like 'TABLE%'
+where  O.OBJECT_TYPE like 'TABLE%'
   and  O.TEMPORARY='N';
 	 */
 	public static final String OBJECT_IDS_NON_CDB =
@@ -825,8 +824,7 @@ where  O.DATA_OBJECT_ID is not null
 			"left join DBA_TABLES T on O.OWNER=T.OWNER and (O.OBJECT_NAME=T.IOT_NAME or O.OBJECT_NAME=T.TABLE_NAME)\n" +
 			"left join (select TABLE_OWNER, TABLE_NAME, INDEX_NAME, OWNER, INDEX_TYPE\n" +
 			"           from DBA_INDEXES) I on T.OWNER=I.TABLE_OWNER and T.TABLE_NAME=I.TABLE_NAME\n" +
-			"where  O.DATA_OBJECT_ID is not null\n" +
-			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"where  O.OBJECT_TYPE like 'TABLE%'\n" +
 			"  and  O.TEMPORARY='N'\n";
 
 	/*
@@ -845,8 +843,7 @@ from   CDB_OBJECTS O
 left join CDB_TABLES T on O.CON_ID=T.CON_ID and O.OWNER=T.OWNER and (O.OBJECT_NAME=T.IOT_NAME or O.OBJECT_NAME=T.TABLE_NAME)
 left join (select CON_ID, TABLE_OWNER, TABLE_NAME, INDEX_NAME, OWNER, INDEX_TYPE
            from CDB_INDEXES) I on T.CON_ID=I.CON_ID and T.OWNER=I.TABLE_OWNER and T.TABLE_NAME=I.TABLE_NAME
-where  O.DATA_OBJECT_ID is not null
-  and  O.OBJECT_TYPE like 'TABLE%'
+where  O.OBJECT_TYPE like 'TABLE%'
   and  O.TEMPORARY='N'
   and  O.CON_ID > 2;
 	 */
@@ -866,8 +863,7 @@ where  O.DATA_OBJECT_ID is not null
 			"left join CDB_TABLES T on O.CON_ID=T.CON_ID and O.OWNER=T.OWNER and (O.OBJECT_NAME=T.IOT_NAME or O.OBJECT_NAME=T.TABLE_NAME)\n" +
 			"left join (select CON_ID, TABLE_OWNER, TABLE_NAME, INDEX_NAME, OWNER, INDEX_TYPE\n" +
 			"           from CDB_INDEXES) I on T.CON_ID=I.CON_ID and T.OWNER=I.TABLE_OWNER and T.TABLE_NAME=I.TABLE_NAME\n" +
-			"where  O.DATA_OBJECT_ID is not null\n" +
-			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"where  O.OBJECT_TYPE like 'TABLE%'\n" +
 			"  and  O.TEMPORARY='N'\n" +
 			"  and  O.CON_ID > 2\n";
 
