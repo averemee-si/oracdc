@@ -61,7 +61,7 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 	@Override
 	public int columnCount() {
 		if (nonKeyData) {
-			return columnCount + columnCountNn();
+			return columnCount + operation == _10_30_LNU ? 0 : columnCountNn();
 		} else {
 			return columnCountNn();
 		}
