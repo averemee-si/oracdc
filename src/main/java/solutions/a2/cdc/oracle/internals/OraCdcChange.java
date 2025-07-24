@@ -1561,24 +1561,26 @@ public class OraCdcChange {
 		if (index > coords.length - 1)
 			return 0;
 		int col = 0;
-		for (int pos = 0; pos < coords[index][1];) {
-			final int colNum = col + colNumIndex;
-			putU16(baos, colNum);
-			int colSize = Byte.toUnsignedInt(record[coords[index][0] + pos]);
-			pos += Byte.BYTES;
-			if (colSize ==  0xFE) {
-				colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + pos));
-				pos += Short.BYTES;
+		if (operation != _10_30_LNU) {
+			for (int pos = 0; pos < coords[index][1];) {
+				final int colNum = col + colNumIndex;
+				putU16(baos, colNum);
+				int colSize = Byte.toUnsignedInt(record[coords[index][0] + pos]);
+				pos += Byte.BYTES;
+				if (colSize ==  0xFE) {
+					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + pos));
+					pos += Short.BYTES;
+				}
+				if (colSize == 0xFF) {
+					colSize = 0;
+					baos.write(0xFF);
+				} else {
+					putOraColSize(baos, colSize);
+					baos.write(record, coords[index][0] + pos, colSize);
+				}
+				pos += colSize;
+				col++;
 			}
-			if (colSize == 0xFF) {
-				colSize = 0;
-				baos.write(0xFF);
-			} else {
-				putOraColSize(baos, colSize);
-				baos.write(record, coords[index][0] + pos, colSize);
-			}
-			pos += colSize;
-			col++;
 		}
 		if (nonKeyData) {
 			final int nkIdx = index + 1;

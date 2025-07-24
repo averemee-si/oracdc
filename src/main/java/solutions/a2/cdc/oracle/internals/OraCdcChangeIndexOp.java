@@ -18,7 +18,7 @@ import java.io.IOException;
 
 /**
  * 
- * Index operations 10.2, 10.4, 10.18
+ * Index operations 10.2, 10.4, 10.18, 10.30
  * 
  * Based on
  *     <a href="https://www.linkedin.com/in/julian-dyke-9a27837/">Julian Dyke</a> <a href="http://www.juliandyke.com/Internals/Redo/Redo11.php">Redo Level 11 - Table Operations (DML)</a>
@@ -55,7 +55,10 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 	}
 
 	public int writeIndexColumns(final ByteArrayOutputStream baos, final int colNumIndex) throws IOException {
-		return writeIndexColumns(baos, 2, nonKeyData, colNumIndex);
+		if (operation != _10_30_LNU)
+			return writeIndexColumns(baos, 2, nonKeyData, colNumIndex);
+		else
+			return writeIndexColumns(baos, 1, nonKeyData, colNumIndex);
 	}
 
 	@Override
