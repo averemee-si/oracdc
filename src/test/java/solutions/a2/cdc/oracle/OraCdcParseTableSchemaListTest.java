@@ -16,7 +16,6 @@ package solutions.a2.cdc.oracle;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
-import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -31,9 +30,19 @@ public class OraCdcParseTableSchemaListTest {
 
 	@Test
 	public void test() {
-		String param1 = "BEWWFR. EXAMPLE_TEST_ORA_CDC,";
-		List<String> case1 = Arrays.asList(param1.split("\\s*,\\s*"));
+		String case1 = "BEWWFR. EXAMPLE_TEST_ORA_CDC,";
 		assertEquals(" and ((O.OWNER='BEWWFR' and O.OBJECT_NAME='EXAMPLE_TEST_ORA_CDC'))",
-				OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, case1));		
+				OraSqlUtils.parseTableSchemaList(
+						false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, Arrays.asList(case1.split("\\s*,\\s*"))));
+
+		String case2 = "AP.% , SCOTT.TEST_IOT%";
+		assertEquals(" and ((O.OWNER='AP') or (O.OWNER='SCOTT' and O.OBJECT_NAME LIKE 'TEST_IOT%'))",
+				OraSqlUtils.parseTableSchemaList(
+						false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, Arrays.asList(case2.split("\\s*,\\s*"))));
+
+		String case3 = "AP.% , SCOTT.TEST_IOT%,BEWWFR. EXAMPLE_TEST_ORA_CDC,";
+		assertEquals(" and ((O.OWNER='AP') or (O.OWNER='SCOTT' and O.OBJECT_NAME LIKE 'TEST_IOT%') or (O.OWNER='BEWWFR' and O.OBJECT_NAME='EXAMPLE_TEST_ORA_CDC'))",
+				OraSqlUtils.parseTableSchemaList(
+						false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, Arrays.asList(case3.split("\\s*,\\s*"))));
 	}
 }

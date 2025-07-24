@@ -69,28 +69,40 @@ public class OraSqlUtils {
 				if (StringUtils.equals("%", pairSchemaObj[1]) ||
 						StringUtils.equals("*", pairSchemaObj[1])) {
 					// Only schema name present
-					sb.append("(");
-					sb.append(schemaNameField);
-					sb.append(exclude ? "!='" : "='");
-					sb.append(escaped ? 
-										StringUtils.remove(schemaName, "\"") :
-										StringUtils.upperCase(schemaName));
-					sb.append("')");
+					sb
+						.append("(")
+						.append(schemaNameField)
+						.append(exclude ? "!='" : "='")
+						.append(escaped 
+								? StringUtils.remove(schemaName, "\"")
+								: StringUtils.upperCase(schemaName))
+						.append("')");
 				} else {
 					// Process pair... ... ...
-					sb.append("(");
-					sb.append(schemaNameField);
-					sb.append("='");
-					sb.append(escaped ? 
-										StringUtils.remove(schemaName, "\"") :
-										StringUtils.upperCase(schemaName));
-					sb.append("'");
-					sb.append(SQL_AND);
-					sb.append(objNameField);
-					sb.append(exclude ? "!='" : "='");
-					sb.append(escaped ? 
-										StringUtils.remove(objName, "\"") :
-										StringUtils.upperCase(objName));
+					sb
+						.append("(")
+						.append(schemaNameField)
+						.append("='")
+						.append(escaped
+								? StringUtils.remove(schemaName, "\"")
+								: StringUtils.upperCase(schemaName))
+						.append("'")
+						.append(SQL_AND)
+						.append(objNameField);
+					if (StringUtils.endsWith(pairSchemaObj[1], "%") ||
+							StringUtils.endsWith(pairSchemaObj[1], "*")) {
+						sb
+							.append(exclude ? " NOT LIKE '" : " LIKE '")
+							.append(escaped
+									? StringUtils.remove(objName, "\"")
+									: StringUtils.upperCase(objName));
+					} else {
+						sb
+							.append(exclude ? "!='" : "='")
+							.append(escaped
+									? StringUtils.remove(objName, "\"")
+									: StringUtils.upperCase(objName));
+					}
 					sb.append("')");
 				}
 			} else {
