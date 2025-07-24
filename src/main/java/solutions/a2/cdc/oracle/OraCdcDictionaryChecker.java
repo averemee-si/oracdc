@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -209,7 +209,7 @@ public class OraCdcDictionaryChecker {
 				if (rsCheckTable.next()) {
 					//May be this is partition, so just check tablesInProcessing map for table
 					boolean needNewTableDefinition = true;
-					final boolean isPartition = StringUtils.equals("N", rsCheckTable.getString("IS_TABLE"));
+					final boolean isPartition = Strings.CS.equals("N", rsCheckTable.getString("IS_TABLE"));
 					if (isPartition) {
 						final long parentTableId = rsCheckTable.getLong("PARENT_OBJECT_ID");
 						combinedParentTableId = isCdb ?

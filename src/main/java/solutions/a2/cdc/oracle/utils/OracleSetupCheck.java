@@ -26,7 +26,7 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
 import org.slf4j.Logger;
@@ -105,7 +105,7 @@ public class OracleSetupCheck {
 		sb.append("\n=====================\n");
 
 		// STEP 1 - ARCHIVELOG
-		if (!StringUtils.equalsIgnoreCase(rdbmsInfo.getLogMode(), "ARCHIVELOG")) {
+		if (!Strings.CI.equals(rdbmsInfo.getLogMode(), "ARCHIVELOG")) {
 			errorCount++;
 			sb
 				.append("\n\n")
@@ -122,8 +122,8 @@ public class OracleSetupCheck {
 		}
 
 		// STEP 2 - SUPPLEMENTAL LOGGING
-		if (!StringUtils.equalsIgnoreCase(rdbmsInfo.getSupplementalLogDataAll(), "YES") &&
-				StringUtils.equalsIgnoreCase(rdbmsInfo.getSupplementalLogDataMin(), "NO")) {
+		if (!Strings.CI.equals(rdbmsInfo.getSupplementalLogDataAll(), "YES") &&
+				Strings.CI.equals(rdbmsInfo.getSupplementalLogDataMin(), "NO")) {
 			errorCount++;
 			sb
 				.append("\n\n")

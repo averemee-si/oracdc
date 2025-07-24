@@ -18,7 +18,7 @@ import java.time.Duration;
 import java.time.Period;
 import java.time.temporal.TemporalAmount;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
@@ -75,8 +75,8 @@ public class OraInterval {
 	}
 
 	public static TemporalAmount toLogical(final String serialized) {
-		if (StringUtils.startsWith(serialized, "P")) {
-			if (StringUtils.contains(serialized, "T")) {
+		if (Strings.CS.startsWith(serialized, "P")) {
+			if (Strings.CS.contains(serialized, "T")) {
 				return Duration.parse(serialized);
 			} else {
 				return Period.parse(serialized);

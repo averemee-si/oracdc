@@ -34,6 +34,7 @@ import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.config.ConfigDef;
@@ -633,9 +634,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		super(config(), originals);
 		// parse numberColumnsMap
 		Map<String, String> numberMapParams = originals.entrySet().stream()
-				.filter(prop -> StringUtils.startsWith(prop.getKey(), NUMBER_MAP_PREFIX))
+				.filter(prop -> Strings.CS.startsWith(prop.getKey(), NUMBER_MAP_PREFIX))
 				.collect(Collectors.toMap(
-						prop -> StringUtils.replace(prop.getKey(), NUMBER_MAP_PREFIX, ""),
+						prop -> Strings.CS.replace(prop.getKey(), NUMBER_MAP_PREFIX, ""),
 						Map.Entry::getValue));
 				
 		numberMapParams.forEach((param, value) -> {
@@ -714,11 +715,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				jdbcType = Types.NULL;
 			}
 			if (jdbcType != Types.NULL) {
-				if (StringUtils.endsWith(column, "%")) {
+				if (Strings.CS.endsWith(column, "%")) {
 					numberColumnsMap.get(fqn).getLeft().add(Pair.of(
 							StringUtils.substring(column, 0, column.length() - 1),
 							new OraColumn(column, jdbcType, scale)));
-				} else if (StringUtils.startsWith(column, "%")) {
+				} else if (Strings.CS.startsWith(column, "%")) {
 					numberColumnsMap.get(fqn).getRight().add(Pair.of(
 							StringUtils.substring(column, 1),
 							new OraColumn(column, jdbcType, scale)));
@@ -795,10 +796,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private OraColumn remapUsingPattern(final List<Pair<String, OraColumn>> patterns, final String columnName, final boolean startsWith) {
 		for (final Pair<String, OraColumn> pattern : patterns)
 			if (startsWith &&
-					StringUtils.startsWith(columnName, pattern.getKey()))
+					Strings.CS.startsWith(columnName, pattern.getKey()))
 				return pattern.getValue();
 			else if (!startsWith &&
-					StringUtils.endsWith(columnName, pattern.getKey()))
+					Strings.CS.endsWith(columnName, pattern.getKey()))
 				return pattern.getValue();
 		return null;
 	}
@@ -1123,11 +1124,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 					final String[] pair = StringUtils.split(token, "=");
 					final String fullTableName = StringUtils.upperCase(pair[0]);
 					final String overrideValue = pair[1];
-					if (StringUtils.equalsIgnoreCase(overrideValue, "NOKEY")) {
+					if (Strings.CI.equals(overrideValue, "NOKEY")) {
 						keyOverrideMap.put(fullTableName, OraCdcKeyOverrideTypes.NOKEY);
-					} else if (StringUtils.equalsIgnoreCase(overrideValue, "ROWID")) {
+					} else if (Strings.CI.equals(overrideValue, "ROWID")) {
 						keyOverrideMap.put(fullTableName, OraCdcKeyOverrideTypes.ROWID);
-					} else if (StringUtils.startsWithIgnoreCase(overrideValue, "INDEX")) {
+					} else if (Strings.CI.startsWith(overrideValue, "INDEX")) {
 						keyOverrideMap.put(fullTableName, OraCdcKeyOverrideTypes.INDEX);
 						keyOverrideIndexMap.put(fullTableName,
 								StringUtils.substringBetween(overrideValue, "(", ")"));
@@ -1285,7 +1286,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	}
 
 	public boolean staticObjIds() {
-		return StringUtils.equalsIgnoreCase(
+		return Strings.CI.equals(
 				TABLE_LIST_STYLE_STATIC, getString(TABLE_LIST_STYLE_PARAM));
 	}
 
@@ -1295,7 +1296,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public int transactionsThreshold() {
 		int threshold = getInt(CONC_TRANSACTIONS_THRESHOLD_PARAM);
-		boolean isLinux = StringUtils.containsIgnoreCase(System.getProperty("os.name"), "nux");
+		boolean isLinux = Strings.CI.contains(System.getProperty("os.name"), "nux");
 		if (threshold > 0) {
 			return threshold;
 		} else if (isLinux) {
@@ -1350,7 +1351,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 					int newSize = 0;
 					boolean[] processElement = new boolean[elements.length];
 					for (int i = 0; i < elements.length; i++) {
-						if (StringUtils.contains(elements[i], "=")) {
+						if (Strings.CS.contains(elements[i], "=")) {
 							elements[i] = StringUtils.trim(elements[i]);
 							processElement[i] = true;
 							newSize += 1;
@@ -1363,10 +1364,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						for (int i = 0; i < elements.length; i++) {
 							if (processElement[i]) {
 								fileNameConversionMap.put(
-									StringUtils.appendIfMissing(
+										Strings.CS.appendIfMissing(
 										StringUtils.trim(StringUtils.substringBefore(elements[i], "=")),
 										fileSeparator),
-								StringUtils.appendIfMissing(
+										Strings.CS.appendIfMissing(
 										StringUtils.trim(StringUtils.substringAfter(elements[i], "=")),
 										fileSeparator));
 							}
@@ -1382,7 +1383,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				int maxPrefixSize = -1;
 				String originalPrefix = null;
 				for (final String prefix : fileNameConversionMap.keySet()) {
-					if (StringUtils.startsWith(originalName, prefix)) {
+					if (Strings.CS.startsWith(originalName, prefix)) {
 						if (prefix.length() > maxPrefixSize) {
 							maxPrefixSize = prefix.length();
 							originalPrefix = prefix;
@@ -1400,12 +1401,12 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				} else {
 					final String replacementPrefix =  fileNameConversionMap.get(originalPrefix);
 					if (msWindows)
-						return  StringUtils.replace(
-								StringUtils.replace(originalName, originalPrefix, replacementPrefix),
+						return  Strings.CS.replace(
+								Strings.CS.replace(originalName, originalPrefix, replacementPrefix),
 								"\\",
 								"/");
 					else
-						return StringUtils.replace(originalName, originalPrefix, replacementPrefix);
+						return Strings.CS.replace(originalName, originalPrefix, replacementPrefix);
 				}
 			} else {
 				return originalName;
@@ -1414,19 +1415,19 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	}
 
 	public boolean useAsm() {
-		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_ASM);
+		return Strings.CS.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_ASM);
 	}
 
 	public boolean useSsh() {
-		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_SSH);
+		return Strings.CS.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_SSH);
 	}
 
 	public boolean useSmb() {
-		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_SMB);
+		return Strings.CS.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_SMB);
 	}
 
 	public boolean useBfile() {
-		return StringUtils.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_BFILE);
+		return Strings.CS.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_BFILE);
 	}
 
 	public String asmJdbcUrl() {
@@ -1478,7 +1479,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	}
 
 	public boolean sshProviderMaverick() {
-		return StringUtils.equals(getString(SSH_PROVIDER_PARAM), SSH_PROVIDER_MAVERICK);
+		return Strings.CS.equals(getString(SSH_PROVIDER_PARAM), SSH_PROVIDER_MAVERICK);
 	}
 
 	public int sshUnconfirmedReads() {

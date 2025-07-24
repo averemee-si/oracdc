@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.MutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.config.ConfigException;
@@ -110,7 +111,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		schemaType = config.schemaType();
 		restoreIncompleteRecord = config.getIncompleteDataTolerance() == INCOMPLETE_REDO_INT_RESTORE;
 
-		useChronicleQueue = StringUtils.equalsIgnoreCase(
+		useChronicleQueue = Strings.CI.equals(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
 		processLobs = config.processLobs();
@@ -260,7 +261,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 						connectorName);
 			}
 
-			if (StringUtils.equalsIgnoreCase(rdbmsInfo.getSupplementalLogDataAll(), "YES")) {
+			if (Strings.CI.equals(rdbmsInfo.getSupplementalLogDataAll(), "YES")) {
 				LOGGER.info(
 						"\n" +
 						"=====================\n" +
@@ -268,7 +269,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 						"\tNo additional checks for supplemental logging will performed at the table level.\n" +
 						"=====================");
 			} else {
-				if (StringUtils.equalsIgnoreCase(rdbmsInfo.getSupplementalLogDataMin(), "NO")) {
+				if (Strings.CI.equals(rdbmsInfo.getSupplementalLogDataMin(), "NO")) {
 					LOGGER.error(
 							"\n" +
 							"=====================\n" +

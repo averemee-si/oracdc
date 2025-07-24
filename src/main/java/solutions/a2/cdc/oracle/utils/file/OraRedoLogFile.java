@@ -32,6 +32,7 @@ import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.log4j.BasicConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,7 +97,7 @@ public class OraRedoLogFile  {
 		String redoFile = cmd.getOptionValue("f");
 		final BinaryUtils bu = BinaryUtils.get(!cmd.hasOption(BIG_ENDIAN));
 		OraCdcRedoLogFactory rlf = null;
-		if (StringUtils.startsWith(redoFile, "+")) {
+		if (Strings.CS.startsWith(redoFile, "+")) {
 			final String asmUrl = cmd.getOptionValue(ASM_URL);
 			final String asmUser = cmd.getOptionValue(ASM_USER);
 			final String asmPassword = cmd.getOptionValue(ASM_PASSWORD);
@@ -127,14 +128,14 @@ public class OraRedoLogFile  {
 						asmUrl, asmUser, asmPassword, sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 				System.exit(1);
 			}
-		} else if (StringUtils.startsWith(redoFile, "/") ||
+		} else if (Strings.CS.startsWith(redoFile, "/") ||
 				(redoFile.length() > 2) &&
 				StringUtils.isAlpha(StringUtils.substring(redoFile, 0, 1)) &&
-				StringUtils.equals(StringUtils.substring(redoFile, 1, 2), ":")) {
+				Strings.CS.equals(StringUtils.substring(redoFile, 1, 2), ":")) {
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
-		} else if (StringUtils.startsWith(redoFile, "\\\\")) {
-			final int shareIndex = StringUtils.indexOf(StringUtils.substring(redoFile, 2), "\\");
-			final int pathIndex = StringUtils.indexOf(StringUtils.substring(redoFile, shareIndex + 3), "\\");
+		} else if (Strings.CS.startsWith(redoFile, "\\\\")) {
+			final int shareIndex = Strings.CS.indexOf(StringUtils.substring(redoFile, 2), "\\");
+			final int pathIndex = Strings.CS.indexOf(StringUtils.substring(redoFile, shareIndex + 3), "\\");
 			final String smbServer = StringUtils.substring(redoFile, 2, shareIndex + 2);
 			final String shareName = StringUtils.substring(redoFile, shareIndex + 3, pathIndex + shareIndex + 3);
 			final String fileName = StringUtils.substring(redoFile, shareIndex + pathIndex + 4);
@@ -171,7 +172,7 @@ public class OraRedoLogFile  {
 		} else {
 			final String userName = StringUtils.substringBefore(redoFile, '@');
 			if (StringUtils.isBlank(userName) ||
-					StringUtils.equals(redoFile, userName)) {
+					Strings.CS.equals(redoFile, userName)) {
 				LOGGER.error(
 						"\n=====================\n" +
 						"Unable to get username part from {}!\n" +
@@ -182,7 +183,7 @@ public class OraRedoLogFile  {
 			}
 			final String hostname = StringUtils.substringBetween(redoFile, "@", ":");
 			if (StringUtils.isBlank(hostname) ||
-					StringUtils.equals(redoFile, hostname)) {
+					Strings.CS.equals(redoFile, hostname)) {
 				LOGGER.error(
 						"\n=====================\n" +
 						"Unable to get hostname part from {}!\n" +
@@ -193,7 +194,7 @@ public class OraRedoLogFile  {
 			}
 			final String fileName = StringUtils.substringAfter(redoFile, ':');
 			if (StringUtils.isBlank(fileName) ||
-					StringUtils.equals(redoFile, fileName)) {
+					Strings.CS.equals(redoFile, fileName)) {
 				LOGGER.error(
 						"\n=====================\n" +
 						"Unable to get filename part from {}!\n" +
@@ -311,7 +312,7 @@ public class OraRedoLogFile  {
 		} else if (cmd.hasOption("c")) {
 			try {
 				final String strStartScn =  cmd.getOptionValue("c");
-				if (StringUtils.startsWithIgnoreCase(strStartScn, "0x"))
+				if (Strings.CI.startsWith(strStartScn, "0x"))
 					startScn = Long.parseLong(StringUtils.substring(strStartScn, 2), 0x10);
 				else
 					startScn = Long.parseLong(strStartScn);
@@ -326,7 +327,7 @@ public class OraRedoLogFile  {
 			if (cmd.hasOption("n")) {
 				try {
 					final String strEndScn =  cmd.getOptionValue("n");
-					if (StringUtils.startsWithIgnoreCase(strEndScn, "0x"))
+					if (Strings.CI.startsWith(strEndScn, "0x"))
 						endScn = Long.parseLong(StringUtils.substring(strEndScn, 2), 0x10);
 					else
 						endScn = Long.parseLong(strEndScn);
@@ -360,7 +361,7 @@ public class OraRedoLogFile  {
 			for (int i = 0; i < objects.length; i++) {
 				try {
 					final String str =  objIds[i];
-					if (StringUtils.startsWithIgnoreCase(str, "0x"))
+					if (Strings.CI.startsWith(str, "0x"))
 						objects[i] = Integer.parseInt(StringUtils.substring(str, 2), 0x10);
 					else
 						objects[i] = Integer.parseInt(str);

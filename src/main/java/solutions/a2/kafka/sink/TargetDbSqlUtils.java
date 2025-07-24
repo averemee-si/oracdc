@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 
 import solutions.a2.cdc.oracle.OraColumn;
 
@@ -300,7 +300,7 @@ public class TargetDbSqlUtils {
 		if (column.getJdbcType() != DECIMAL)
 			if (column.getJdbcType() == VARCHAR && pkStringLength > -1) {
 				sb.append(
-						StringUtils.replace(PK_STRING_MAPPING.get(dbType), "$", Integer.toString(pkStringLength)));
+						Strings.CS.replace(PK_STRING_MAPPING.get(dbType), "$", Integer.toString(pkStringLength)));
 			} else {
 				sb.append(dataTypesMap.get(column.getJdbcType()));
 			}

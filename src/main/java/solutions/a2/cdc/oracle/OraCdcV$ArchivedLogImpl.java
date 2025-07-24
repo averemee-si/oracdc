@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -127,7 +127,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 		final StringBuilder sb = new StringBuilder(512);
 		sb.append("\n=====================\n");
 		if (rdbmsInfo.isStandby()) {
-			if (StringUtils.equals(OraRdbmsInfo.MOUNTED, rdbmsInfo.getOpenMode())) {
+			if (Strings.CS.equals(OraRdbmsInfo.MOUNTED, rdbmsInfo.getOpenMode())) {
 				sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state to call LogMiner.\n");
 				dictionaryAvailable = false;
 			} else {

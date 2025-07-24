@@ -34,6 +34,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +87,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 
 		createStatements(connLogMiner);
 		final String openMode = rdbmsInfo.getOpenMode();
-		if (StringUtils.equals(OraRdbmsInfo.MOUNTED, openMode)) {
+		if (Strings.CS.equals(OraRdbmsInfo.MOUNTED, openMode)) {
 			LOGGER.trace("LogMiner connection database is in MOUNTED state, no dictionary available.");
 			dictionaryAvailable = false;
 		} else {

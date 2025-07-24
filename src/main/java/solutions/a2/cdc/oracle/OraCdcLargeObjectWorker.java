@@ -19,6 +19,7 @@ import java.sql.Types;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,7 +98,7 @@ public class OraCdcLargeObjectWorker {
 		// Rewind
 		while (fetchRsLogMinerNext) {
 			if (rsReadLob.next()) {
-				if (StringUtils.compare(rsReadLob.getString("RS_ID"), rsId) > 0) {
+				if (Strings.CS.compare(rsReadLob.getString("RS_ID"), rsId) > 0) {
 					fetchRsLogMinerNext = false;
 					if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug("Rows skipped - {}, will start from SCN={}, RS_ID='{}'",
@@ -170,7 +171,7 @@ public class OraCdcLargeObjectWorker {
 							readLob = true;
 							continue;
 						} else if (nextOperation == OraCdcV$LogmnrContents.INTERNAL &&
-								StringUtils.compare(currentRsId, rsReadLob.getString("RS_ID")) > 0) {
+								Strings.CS.compare(currentRsId, rsReadLob.getString("RS_ID")) > 0) {
 							fetchRsLogMinerNext = true;
 							readLob = true;
 							continue;
@@ -200,7 +201,7 @@ public class OraCdcLargeObjectWorker {
 						rowsSkipped = 0;
 						while (fetchRsLogMinerNext) {
 							if (rsReadLob.next()) {
-								if (StringUtils.compare(rsReadLob.getString("RS_ID"), lastProcessedRsId) > 0) {
+								if (Strings.CS.compare(rsReadLob.getString("RS_ID"), lastProcessedRsId) > 0) {
 									fetchRsLogMinerNext = false;
 									if (LOGGER.isDebugEnabled()) {
 										LOGGER.debug("Rows skipped - {}, will continue from SCN={}, RS_ID='{}'",

@@ -20,7 +20,7 @@ import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,8 +77,8 @@ public class PgRdbmsInfo {
 					indexOwner = rs.getString("TABLE_SCHEMA");
 					indexName = rs.getString("INDEX_NAME");
 				} else {
-					if ((!StringUtils.equals(indexName, rs.getString("INDEX_NAME"))) || 
-							(!StringUtils.equals(indexOwner, rs.getString("TABLE_SCHEMA")))) {
+					if ((!Strings.CS.equals(indexName, rs.getString("INDEX_NAME"))) || 
+							(!Strings.CS.equals(indexOwner, rs.getString("TABLE_SCHEMA")))) {
 						break;
 					}
 				}
@@ -101,8 +101,8 @@ public class PgRdbmsInfo {
 					if (result.size() == 0) {
 						indexOwner = rs.getString("TABLE_SCHEMA");
 						indexName = rs.getString("INDEX_NAME");
-					} else if ((!StringUtils.equals(indexName, rs.getString("INDEX_NAME"))) || 
-							(!StringUtils.equals(indexOwner, rs.getString("TABLE_SCHEMA")))) {
+					} else if ((!Strings.CS.equals(indexName, rs.getString("INDEX_NAME"))) || 
+							(!Strings.CS.equals(indexOwner, rs.getString("TABLE_SCHEMA")))) {
 						break;
 					}
 					result.add(rs.getString("COLUMN_NAME"));

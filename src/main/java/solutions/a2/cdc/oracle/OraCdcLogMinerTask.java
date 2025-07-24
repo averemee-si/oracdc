@@ -27,6 +27,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.MutableTriple;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -76,14 +77,14 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 			processStoredSchemas(metrics);
 
 			// Initial load
-			if (StringUtils.equalsIgnoreCase(
+			if (Strings.CI.equals(
 					ParamConstants.INITIAL_LOAD_EXECUTE,
 					config.getString(ParamConstants.INITIAL_LOAD_PARAM))) {
 				execInitialLoad = true;
 				initialLoadStatus = ParamConstants.INITIAL_LOAD_EXECUTE;
 				final Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(rdbmsInfo.partition());
 				if (offsetFromKafka != null &&
-						StringUtils.equalsIgnoreCase(
+						Strings.CI.equals(
 								ParamConstants.INITIAL_LOAD_COMPLETED,
 								(String) offsetFromKafka.get("I"))) {
 					execInitialLoad = false;
@@ -128,7 +129,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 					// static build list of tables/partitions
 					final String objectList = rdbmsInfo.getMineObjectsIds(
 						connDictionary, false, tableList);
-					if (StringUtils.contains(objectList, "()")) {
+					if (Strings.CS.contains(objectList, "()")) {
 						// and DATA_OBJ# in ()
 						LOGGER.error("a2.include parameter set to {} but there are no tables matching this condition.\nExiting.",
 								StringUtils.join(config.includeObj(), ","));
@@ -181,7 +182,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 					}
 					final String objectList = rdbmsInfo.getMineObjectsIds(connDictionary, true,
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList));
-					if (StringUtils.contains(objectList, "()")) {
+					if (Strings.CS.contains(objectList, "()")) {
 						// and DATA_OBJ# not in ()
 						LOGGER.error("a2.exclude parameter set to {} but there are no tables matching this condition.\nExiting.",
 								StringUtils.join(config.excludeObj(), ","));
@@ -629,12 +630,12 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 				final long combinedDataObjectId = (conId << 32) | (objectId & 0xFFFFFFFFL);
 				final String tableName = resultSet.getString("TABLE_NAME");
 				if (!tablesInProcessing.containsKey(combinedDataObjectId)
-						&& !StringUtils.startsWith(tableName, "MLOG$_")) {
+						&& !Strings.CS.startsWith(tableName, "MLOG$_")) {
 					OraTable4LogMiner oraTable = new OraTable4LogMiner(
 							isCdb ? resultSet.getString("PDB_NAME") : null,
 							isCdb ? (short) conId : -1,
 							resultSet.getString("OWNER"), tableName,
-							StringUtils.equalsIgnoreCase("ENABLED", resultSet.getString("DEPENDENCIES")),
+							Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
 							config, rdbmsInfo, connection);
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}

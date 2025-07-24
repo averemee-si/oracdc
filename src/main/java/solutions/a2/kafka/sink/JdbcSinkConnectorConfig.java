@@ -17,7 +17,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -215,7 +215,7 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 
 	public int getConnectorMode() {
 		if (connectorMode == -1) {
-			if (StringUtils.equalsIgnoreCase(CONN_TYPE_REPLICATE, getString(CONN_TYPE_PARAM))) {
+			if (Strings.CI.equals(CONN_TYPE_REPLICATE, getString(CONN_TYPE_PARAM))) {
 				connectorMode = CONNECTOR_REPLICATE;
 			} else {
 				// CONN_TYPE_AUDIT_TRAIL

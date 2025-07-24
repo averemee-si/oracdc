@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
@@ -2118,7 +2118,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					throw new ConnectException(sqle);
 				} else if (runLatch.getCount() < 1)
 					return;
-				else if (StringUtils.equals(sqle.getSQLState(), SQL_STATE_REWIND)) {
+				else if (Strings.CS.equals(sqle.getSQLState(), SQL_STATE_REWIND)) {
 					synchronized(this) {
 						try {wait(SMALL_MAGIC_WAIT); } catch (InterruptedException ie) {}
 					}

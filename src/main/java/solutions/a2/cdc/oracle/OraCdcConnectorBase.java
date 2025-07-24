@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.types.Password;
@@ -85,7 +86,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 						connectorProperties.put(k, ((Integer) v).toString());
 					} else if (v instanceof Long) {
 						connectorProperties.put(k, ((Long) v).toString());
-					} else if (StringUtils.equals("java.util.Collections$EmptyList", v.getClass().getName())) {
+					} else if (Strings.CS.equals("java.util.Collections$EmptyList", v.getClass().getName())) {
 						connectorProperties.put(k, "");
 					} else {
 						connectorProperties.put(k, (String) v);

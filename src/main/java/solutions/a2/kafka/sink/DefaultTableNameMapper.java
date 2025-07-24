@@ -14,6 +14,7 @@
 package solutions.a2.kafka.sink;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
@@ -49,7 +50,7 @@ public class DefaultTableNameMapper implements TableNameMapper {
 		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD ||
 				schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
 			if (StringUtils.isNotBlank(topicPrefix) &&
-					StringUtils.startsWith(record.topic(), topicPrefix)) {
+					Strings.CS.startsWith(record.topic(), topicPrefix)) {
 				tableName = prefix + StringUtils.substring(record.topic(), topicPrefix.length()) + suffix;
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("Table name '{}' is set using the Kafka topic name {} and parameter '{}' with value {}.",

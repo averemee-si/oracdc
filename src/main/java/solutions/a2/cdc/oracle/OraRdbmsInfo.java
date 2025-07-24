@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -194,9 +195,9 @@ public class OraRdbmsInfo {
 				if (rs.next()) {
 					pdbName = rs.getString("CON_NAME");
 					conUid = rs.getInt("CON_UID");
-					if (StringUtils.equalsIgnoreCase(rs.getString("CDB"), "YES")) {
+					if (Strings.CI.equals(rs.getString("CDB"), "YES")) {
 						cdb = true;
-						if (StringUtils.equalsIgnoreCase(pdbName, CDB_ROOT)) {
+						if (Strings.CI.equals(pdbName, CDB_ROOT)) {
 							cdbRoot = true;
 							pdbConnectionAllowed = false;
 						} else {
@@ -223,7 +224,7 @@ public class OraRdbmsInfo {
 			databaseName = rs.getString("NAME");
 			dbUniqueName = rs.getString("DB_UNIQUE_NAME");
 			platformName = rs.getString("PLATFORM_NAME");
-			if (StringUtils.startsWithAny(platformName, "Microsoft Windows", "Windows")) {
+			if (Strings.CS.startsWithAny(platformName, "Microsoft Windows", "Windows")) {
 				windows = true;
 			} else {
 				windows = false;
@@ -232,7 +233,7 @@ public class OraRdbmsInfo {
 			openMode = rs.getString("OPEN_MODE");
 			supplementalLogDataAll = rs.getString("SUPPLEMENTAL_LOG_DATA_ALL");
 			supplementalLogDataMin = rs.getString("SUPPLEMENTAL_LOG_DATA_MIN");
-			if (StringUtils.equalsIgnoreCase(supplementalLogDataAll, "YES")) {
+			if (Strings.CI.equals(supplementalLogDataAll, "YES")) {
 				checkSupplementalLogData4Table = false;
 			} else {
 				checkSupplementalLogData4Table = true;
@@ -241,9 +242,9 @@ public class OraRdbmsInfo {
 			dbCharset = rs.getString("NLS_CHARACTERSET");
 			dbNCharCharset = rs.getString("NLS_NCHAR_CHARACTERSET");
 			final String endianness = rs.getString("ENDIAN_FORMAT");
-			if (StringUtils.equalsIgnoreCase(endianness, "Little")) {
+			if (Strings.CI.equals(endianness, "Little")) {
 				littleEndian = true;
-			} else if (StringUtils.equalsIgnoreCase(endianness, "Big")) {
+			} else if (Strings.CI.equals(endianness, "Big")) {
 				littleEndian = false;
 			} else {
 				LOGGER.error(
@@ -390,7 +391,7 @@ public class OraRdbmsInfo {
 		}
 		ResultSet rs = ps.executeQuery();
 		if (rs.next()) {
-			if (StringUtils.equalsIgnoreCase(rs.getString("ALWAYS"), "ALWAYS")) {
+			if (Strings.CI.equals(rs.getString("ALWAYS"), "ALWAYS")) {
 				result = true;
 			}
 		}
@@ -485,7 +486,7 @@ public class OraRdbmsInfo {
 						result = new HashSet<>();
 						indexOwner = rs.getString("OWNER");
 						indexName = rs.getString("INDEX_NAME");
-					} else if (!StringUtils.equals(indexName, rs.getString("INDEX_NAME"))) {
+					} else if (!Strings.CS.equals(indexName, rs.getString("INDEX_NAME"))) {
 						break;
 					}
 					result.add(rs.getString("COLUMN_NAME"));
@@ -603,12 +604,12 @@ public class OraRdbmsInfo {
 	 */
 	public static List<String> generateRacJdbcUrls(final String url, List<String> instances) {
 		final List<String> changedUrls = new ArrayList<>();
-		if (StringUtils.startsWith(StringUtils.trim(url), "(")) {
+		if (Strings.CS.startsWith(StringUtils.trim(url), "(")) {
 			// Parse "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)....(CONNECT_DATA=(SERVICE_NAME=.....)))"
-			int instanceNameStartPos = StringUtils.indexOfIgnoreCase(url, "INSTANCE_NAME");
+			int instanceNameStartPos = Strings.CI.indexOf(url, "INSTANCE_NAME");
 			if (instanceNameStartPos < 0) {
 				// Add (INSTANCE_NAME=<>) to connect URL...
-				int connectDataStartPos = StringUtils.indexOfIgnoreCase(url, "CONNECT_DATA");
+				int connectDataStartPos = Strings.CI.indexOf(url, "CONNECT_DATA");
 				for (int i = connectDataStartPos - 1; i > -1; i--) {
 					if (url.charAt(i) == '(') {
 						connectDataStartPos = i;
@@ -629,7 +630,7 @@ public class OraRdbmsInfo {
 				for (String instanceName : instances) {
 					changedUrls.add(
 							JDBC_ORA_PREFIX +
-							StringUtils.replace(url, original,
+							Strings.CS.replace(url, original,
 									StringUtils.substring(url, connectDataStartPos, connectDataEndPos) + "(INSTANCE_NAME=" + 
 																	instanceName + "))"));
 				}
@@ -655,19 +656,19 @@ public class OraRdbmsInfo {
 				for (String instanceName : instances) {
 					changedUrls.add(
 							JDBC_ORA_PREFIX +
-							StringUtils.replace(url, original,
+							Strings.CS.replace(url, original,
 									"(INSTANCE_NAME=" + instanceName + ")"));
 				}
 			}
 		} else  {
 			// Parse "//.......:1521/INSTANCE" or ".......:1521/INSTANCE"
-			int semicolonPos = StringUtils.indexOf(url, ":");
+			int semicolonPos = Strings.CS.indexOf(url, ":");
 			if (url.charAt(semicolonPos + 1) == '/') {
 				// tcps://.......
-				semicolonPos = StringUtils.indexOf(StringUtils.substring(url, semicolonPos + 2), ":");
+				semicolonPos = Strings.CS.indexOf(StringUtils.substring(url, semicolonPos + 2), ":");
 			}
 			// find next slash
-			int slashPos = semicolonPos + StringUtils.indexOf(StringUtils.substring(url, semicolonPos), "/");
+			int slashPos = semicolonPos + Strings.CS.indexOf(StringUtils.substring(url, semicolonPos), "/");
 			boolean hasInstanceName = false;
 			boolean hasParams = false;
 			int instanceNameSlashPos = -1;
@@ -700,7 +701,7 @@ public class OraRdbmsInfo {
 					for (String instanceName : instances) {
 						changedUrls.add(
 								JDBC_ORA_PREFIX +
-								StringUtils.replace(
+								Strings.CS.replace(
 										url, original, "/" + instanceName));
 					}
 				} else {
@@ -709,7 +710,7 @@ public class OraRdbmsInfo {
 					for (String instanceName : instances) {
 						changedUrls.add(
 								JDBC_ORA_PREFIX +
-								StringUtils.replace(url,
+								Strings.CS.replace(url,
 										original,
 										"/" + instanceName + original));
 					}
@@ -1067,7 +1068,7 @@ public class OraRdbmsInfo {
 	}
 
 	public boolean isStandby() {
-		return StringUtils.equals(STANDBY, controlFileType);
+		return Strings.CS.equals(STANDBY, controlFileType);
 	}
 
 	public String getOpenMode() {

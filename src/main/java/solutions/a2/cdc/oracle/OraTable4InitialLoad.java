@@ -25,7 +25,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -142,7 +142,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		LOGGER.debug("{} will be used for initial data load.", sqlSelect);
 
 		// Create ChronicleQueue
-		queueDirectory = Files.createTempDirectory(rootDir, StringUtils.replace(tableFqn, ":", "-") + ".");
+		queueDirectory = Files.createTempDirectory(rootDir, Strings.CS.replace(tableFqn, ":", "-") + ".");
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Created queue directory {} .", queueDirectory.toString());
 		}

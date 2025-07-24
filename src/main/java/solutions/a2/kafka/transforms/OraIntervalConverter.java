@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.common.cache.Cache;
 import org.apache.kafka.common.cache.LRUCache;
 import org.apache.kafka.common.cache.SynchronizedCache;
@@ -147,8 +148,8 @@ public abstract class OraIntervalConverter <R extends ConnectRecord<R>> implemen
 				final SchemaBuilder builder = copySchemaBasics(schema, SchemaBuilder.struct());
 				for (Field field: schema.fields()) {
 					if (field.schema().type() == Schema.Type.BYTES && (
-							StringUtils.equals(field.schema().name(), OraIntervalYM.LOGICAL_NAME) ||
-							StringUtils.equals(field.schema().name(), OraIntervalDS.LOGICAL_NAME))) {
+							Strings.CS.equals(field.schema().name(), OraIntervalYM.LOGICAL_NAME) ||
+							Strings.CS.equals(field.schema().name(), OraIntervalDS.LOGICAL_NAME))) {
 						builder.field(field.name(), field.schema().isOptional() ? Schema.OPTIONAL_STRING_SCHEMA : Schema.STRING_SCHEMA);
 					} else {
 						builder.field(field.name(), field.schema());
@@ -169,9 +170,9 @@ public abstract class OraIntervalConverter <R extends ConnectRecord<R>> implemen
 			if (updatedSchema == null) {
 				final SchemaBuilder builder = copySchemaBasics(schema, SchemaBuilder.struct());
 				for (Field field : schema.fields()) {
-					if (StringUtils.equals(field.name(), fieldName)) {
-						if (StringUtils.equals(field.schema().name(), OraIntervalYM.LOGICAL_NAME) ||
-								StringUtils.equals(field.schema().name(), OraIntervalDS.LOGICAL_NAME)) {
+					if (Strings.CS.equals(field.name(), fieldName)) {
+						if (Strings.CS.equals(field.schema().name(), OraIntervalYM.LOGICAL_NAME) ||
+								Strings.CS.equals(field.schema().name(), OraIntervalDS.LOGICAL_NAME)) {
 							builder.field(field.name(), field.schema().isOptional() ? Schema.OPTIONAL_STRING_SCHEMA : Schema.STRING_SCHEMA);
 						} else {
 							LOGGER.warn("The field {} is not of the correct type for {} converter!",
@@ -208,8 +209,8 @@ public abstract class OraIntervalConverter <R extends ConnectRecord<R>> implemen
 				final Object updatedFieldValue;
 				if (processAll && (
 						field.schema().type() == Schema.Type.BYTES && (
-								StringUtils.equals(field.schema().name(), OraIntervalYM.LOGICAL_NAME) ||
-								StringUtils.equals(field.schema().name(), OraIntervalDS.LOGICAL_NAME)))) {
+								Strings.CS.equals(field.schema().name(), OraIntervalYM.LOGICAL_NAME) ||
+								Strings.CS.equals(field.schema().name(), OraIntervalDS.LOGICAL_NAME)))) {
 					final Object fieldValue = getFieldValue(value, field);
 					if (fieldValue instanceof byte[]) {
 						updatedFieldValue = convertOraInterval((byte[]) fieldValue);
@@ -219,7 +220,7 @@ public abstract class OraIntervalConverter <R extends ConnectRecord<R>> implemen
 						throw new ConnectException("Unsupported source type for conversion: " + fieldValue.getClass().getName());
 					}
 				} else  if (!processAll &&
-					StringUtils.equals(field.name(), fieldName)) {
+						Strings.CS.equals(field.name(), fieldName)) {
 					final Object fieldValue = getFieldValue(value, field);
 					if (fieldValue instanceof byte[]) {
 						updatedFieldValue = convertOraInterval((byte[]) fieldValue);

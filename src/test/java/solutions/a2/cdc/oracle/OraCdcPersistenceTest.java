@@ -26,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.junit.jupiter.api.Test;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -92,7 +92,7 @@ public class OraCdcPersistenceTest {
 		ops.setCommittedTransactions(committed);
 
 		final String stateFileName = tmpDir +  
-				(StringUtils.endsWith(tmpDir, File.separator) ? "" : File.separator) +
+				(Strings.CS.endsWith(tmpDir, File.separator) ? "" : File.separator) +
 				"oracdc.state." + System.currentTimeMillis();
 		ops.toFile(stateFileName);
 

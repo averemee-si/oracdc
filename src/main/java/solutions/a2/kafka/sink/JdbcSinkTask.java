@@ -21,7 +21,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -105,7 +105,7 @@ public class JdbcSinkTask extends SinkTask {
 					}
 					for (String tableInProgress : tablesInProcess) {
 						LOGGER.debug("Executing batch for table {}.", tableInProgress);
-						if (StringUtils.equals(tableInProgress, tableName)) {
+						if (Strings.CS.equals(tableInProgress, tableName)) {
 							oraTable.execAndCloseCursors();
 						} else {
 							tablesInProcessing.get(tableInProgress).exec();

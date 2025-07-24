@@ -32,6 +32,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -242,8 +243,8 @@ public class JdbcSinkTable extends OraTableDefinition {
 		final Map<String, List<Field>> unnestedColumns = new HashMap<>();
 		valueFields.forEach(f -> {
 			final String fieldName = StringUtils.upperCase(f.name());
-			if (StringUtils.equals("struct", f.schema().type().getName()) &&
-					!StringUtils.startsWithAny(f.schema().name(),
+			if (Strings.CS.equals("struct", f.schema().type().getName()) &&
+					!Strings.CS.startsWithAny(f.schema().name(),
 							OraBlob.LOGICAL_NAME,
 							OraClob.LOGICAL_NAME,
 							OraNClob.LOGICAL_NAME,
@@ -319,7 +320,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 							"=====================\n" +
 							"{} column {}.{} with type {} is present in the database but not in the Kafka topic!\n" +
 							"=====================\n",
-							StringUtils.equalsIgnoreCase("YES", rsAllColumns.getString("IS_NULLABLE")) ?
+							Strings.CI.equals("YES", rsAllColumns.getString("IS_NULLABLE")) ?
 									"Nullable" : "Not nullable",
 							tableName, dbValueColumn, getTypeName(rsAllColumns.getInt("DATA_TYPE")));
 					continue;
@@ -540,7 +541,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 					LOGGER.warn(sqle.getMessage());
 				}
 			} else if (dbType == JdbcSinkConnectionPool.DB_TYPE_MYSQL) {
-				if (onlyPkColumns && StringUtils.startsWith(sqle.getMessage(), "Duplicate entry")) {
+				if (onlyPkColumns && Strings.CS.startsWith(sqle.getMessage(), "Duplicate entry")) {
 					// Duplicate entry 'XXX' for key 'YYYYY'
 					// ignore for tables with PK only column(s)
 					raiseException = false;
@@ -842,8 +843,8 @@ public class JdbcSinkTable extends OraTableDefinition {
 	private void buildNonPkColsList(final List<Field> valueFields) throws SQLException {
 		for (final Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
-				if (StringUtils.equals("struct", field.schema().type().getName()) &&
-						!StringUtils.startsWithAny(field.schema().name(),
+				if (Strings.CS.equals("struct", field.schema().type().getName()) &&
+						!Strings.CS.startsWithAny(field.schema().name(),
 								OraBlob.LOGICAL_NAME,
 								OraClob.LOGICAL_NAME,
 								OraNClob.LOGICAL_NAME,

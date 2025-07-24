@@ -34,6 +34,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
@@ -383,7 +384,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						case OraCdcV$LogmnrContents.XML_DOC_BEGIN:
 							if (transaction == null && partialRollback) {
 								final String substitutedXid = prefixedTransactions.get(StringUtils.left(xid, TRANS_PREFIX));
-								if (StringUtils.endsWith(xid, "FFFFFFFF") && substitutedXid != null) {
+								if (Strings.CS.endsWith(xid, "FFFFFFFF") && substitutedXid != null) {
 									LOGGER.warn(
 											"\n======================\n" +
 											"Suspicious XID {} is changed to {} for operation {} at SCN={}, RBA(RS_ID)={}, SSN={}\n" +
@@ -890,8 +891,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (isRsLogMinerRowAvailable) {
 							if (dataObjectId == rsLogMiner.getLong("DATA_OBJ#") &&
 									OraCdcV$LogmnrContents.UPDATE == rsLogMiner.getShort("OPERATION_CODE") &&
-									StringUtils.contains(rsLogMiner.getString("SQL_REDO"), "HEXTORAW('0070") &&
-									StringUtils.equals(rsLogMiner.getString("XID"), xid)) {
+									Strings.CS.contains(rsLogMiner.getString("SQL_REDO"), "HEXTORAW('0070") &&
+									Strings.CS.equals(rsLogMiner.getString("XID"), xid)) {
 								// Skip these records
 								while (rsLogMiner.getBoolean("CSF")) {
 									isRsLogMinerRowAvailable = rsLogMiner.next();
@@ -928,8 +929,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (isRsLogMinerRowAvailable) {
 							if (dataObjectId == rsLogMiner.getLong("DATA_OBJ#") &&
 									OraCdcV$LogmnrContents.UPDATE == rsLogMiner.getShort("OPERATION_CODE") &&
-									StringUtils.contains(rsLogMiner.getString("SQL_REDO"), "HEXTORAW('0070") &&
-									StringUtils.equals(rsLogMiner.getString("XID"), xid)) {
+									Strings.CS.contains(rsLogMiner.getString("SQL_REDO"), "HEXTORAW('0070") &&
+									Strings.CS.equals(rsLogMiner.getString("XID"), xid)) {
 								// Skip these records
 								while (rsLogMiner.getBoolean("CSF")) {
 									isRsLogMinerRowAvailable = rsLogMiner.next();
@@ -985,7 +986,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								rsLogMiner = (OracleResultSet) psLogMiner.executeQuery();
 								while(rsLogMiner.next()) {
 									if (rsLogMiner.getLong("SCN") == lobScn &&
-										StringUtils.equals(rsLogMiner.getString("RS_ID"), lobRsId) &&
+										Strings.CS.equals(rsLogMiner.getString("RS_ID"), lobRsId) &&
 										rsLogMiner.getLong("SSN") == lobSsn) {
 										break;
 									}
@@ -1048,7 +1049,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private String readXmlWriteRedoData(final String xmlColumnId) throws SQLException {
-		if (StringUtils.equals(xmlColumnId, "\"UNKNOWN\"")) {
+		if (Strings.CS.equals(xmlColumnId, "\"UNKNOWN\"")) {
 			LOGGER.error("UNKNOWN columnId!");
 			return "";
 		}
@@ -1073,7 +1074,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 				multiLineSql = rsLogMiner.getBoolean("CSF");
 				final String currentLine = rsLogMiner.getString("SQL_REDO");
 				if (!withHexToRaw)
-					withHexToRaw = StringUtils.contains(currentLine, "HEXTORAW");
+					withHexToRaw = Strings.CS.contains(currentLine, "HEXTORAW");
 				xmlHexData.append(currentLine);
 			}
 		}
@@ -1177,7 +1178,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 		@Override
 		public int compare(String first, String second) {
-			if (StringUtils.equals(first, second)) {
+			if (Strings.CS.equals(first, second)) {
 				// A transaction ID is unique to a transaction and represents the undo segment number, slot, and sequence number.
 				// https://docs.oracle.com/en/database/oracle/oracle-database/21/cncpt/transactions.html#GUID-E3FB3DC3-3317-4589-BADD-D89A3547F87D
 				return 0;

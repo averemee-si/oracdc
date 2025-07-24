@@ -24,7 +24,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -186,7 +186,7 @@ public class OraRedoMiner {
 		final StringBuilder sb = new StringBuilder(512);
 		sb.append("\n=====================\n");
 		if (rdbmsInfo.isStandby()) {
-			if (StringUtils.equals(OraRdbmsInfo.MOUNTED, rdbmsInfo.getOpenMode())) {
+			if (Strings.CS.equals(OraRdbmsInfo.MOUNTED, rdbmsInfo.getOpenMode())) {
 				sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state.\n");
 			} else {
 				sb.append("oracdc will use connection to Oracle Active DataGuard Database with a unique name {} in {} state.\n");

@@ -20,7 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -154,7 +154,7 @@ public class OraCdcSourceTask extends SourceTask {
 				}
 			} else if (sqle.getCause() != null &&
 					sqle.getCause() instanceof UniversalConnectionPoolException &&
-					StringUtils.contains(sqle.getCause().getMessage(), "Universal Connection Pool is about to shutdown")) {
+					Strings.CS.contains(sqle.getCause().getMessage(), "Universal Connection Pool is about to shutdown")) {
 				LOGGER.warn("Got '{}' while stopping task.", sqle.getCause().getMessage());
 			} else {
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));

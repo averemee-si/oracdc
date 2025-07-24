@@ -21,6 +21,7 @@ import java.sql.SQLTransientConnectionException;
 import java.util.Enumeration;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,45 +71,45 @@ public class JdbcSinkConnectionPool {
 		if (StringUtils.isNotBlank(initSql)) {
 			dataSource.setConnectionInitSql(initSql);
 		}
-		if (StringUtils.startsWith(url, "jdbc:mariadb:") ||
-				StringUtils.startsWith(url, "jdbc:mysql:")) {
-			if (!StringUtils.contains(url, "cachePrepStmts")) {
+		if (Strings.CS.startsWith(url, "jdbc:mariadb:") ||
+				Strings.CS.startsWith(url, "jdbc:mysql:")) {
+			if (!Strings.CS.contains(url, "cachePrepStmts")) {
 				dataSource.addDataSourceProperty("cachePrepStmts", "true");
 			}
-			if (!StringUtils.contains(url, "prepStmtCacheSize")) {
+			if (!Strings.CS.contains(url, "prepStmtCacheSize")) {
 				dataSource.addDataSourceProperty("prepStmtCacheSize", "256");
 			}
-			if (!StringUtils.contains(url, "prepStmtCacheSqlLimit")) {
+			if (!Strings.CS.contains(url, "prepStmtCacheSqlLimit")) {
 				dataSource.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
 			}
-			if (!StringUtils.contains(url, "useServerPrepStmts")) {
+			if (!Strings.CS.contains(url, "useServerPrepStmts")) {
 				dataSource.addDataSourceProperty("useServerPrepStmts", "true");
 			}
-			if (!StringUtils.contains(url, "tcpKeepAlive")) {
+			if (!Strings.CS.contains(url, "tcpKeepAlive")) {
 				dataSource.addDataSourceProperty("tcpKeepAlive", "true");
 			}
-			if (!StringUtils.contains(url, "maintainTimeStats")) {
+			if (!Strings.CS.contains(url, "maintainTimeStats")) {
 				dataSource.addDataSourceProperty("maintainTimeStats", "false");
 			}
-		} else if (StringUtils.startsWith(url, PREFIX_POSTGRESQL)) {
+		} else if (Strings.CS.startsWith(url, PREFIX_POSTGRESQL)) {
 			if (!isDriverLoaded(DRIVER_POSTGRESQL)) {
 				try {
 					Class.forName(DRIVER_POSTGRESQL);
 				} catch (ClassNotFoundException cnf) { }
 			}
-			if (!StringUtils.contains(url, "ApplicationName")) {
+			if (!Strings.CS.contains(url, "ApplicationName")) {
 				dataSource.addDataSourceProperty("ApplicationName", "oracdc");
 			}
-			if (!StringUtils.contains(url, "prepareThreshold")) {
+			if (!Strings.CS.contains(url, "prepareThreshold")) {
 				dataSource.addDataSourceProperty("prepareThreshold", "1");
 			}
-			if (!StringUtils.contains(url, "preparedStatementCacheSizeMiB")) {
+			if (!Strings.CS.contains(url, "preparedStatementCacheSizeMiB")) {
 				dataSource.addDataSourceProperty("preparedStatementCacheSizeMiB", "16");
 			}
-			if (!StringUtils.contains(url, "tcpKeepAlive")) {
+			if (!Strings.CS.contains(url, "tcpKeepAlive")) {
 				dataSource.addDataSourceProperty("tcpKeepAlive", "true");
 			}
-			if (!StringUtils.contains(url, "reWriteBatchedInserts")) {
+			if (!Strings.CS.contains(url, "reWriteBatchedInserts")) {
 				dataSource.addDataSourceProperty("reWriteBatchedInserts", "true");
 			}
 		}
@@ -189,7 +190,7 @@ public class JdbcSinkConnectionPool {
 		final Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
 		while (availableDrivers.hasMoreElements()) {
 			final Driver driver = availableDrivers.nextElement();
-			if (StringUtils.equals(driverClass, driver.getClass().getCanonicalName())) {
+			if (Strings.CS.equals(driverClass, driver.getClass().getCanonicalName())) {
 				return true;
 			}
 		}

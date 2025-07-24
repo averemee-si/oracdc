@@ -18,7 +18,7 @@ import java.io.InputStream;
 import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 
 import com.hierynomus.msdtyp.AccessMask;
 import com.hierynomus.mssmb2.SMB2ShareAccess;
@@ -60,7 +60,7 @@ public class OraCdcRedoLogSmbjFactory extends OraCdcRedoLogFactoryBase implement
 		domain = config.smbDomain();
 		shareNameOnline = config.smbShareOnline();
 		shareNameArchive = config.smbShareArchive();
-		if (StringUtils.equals(shareNameOnline, shareNameArchive))
+		if (Strings.CS.equals(shareNameOnline, shareNameArchive))
 			singleShare = true;
 		else
 			singleShare = false;

@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
@@ -184,7 +185,7 @@ public class OraColumn {
 		if (resultSet.wasNull()) {
 			defaultValuePresent = false;
 		} else {
-			if (StringUtils.equalsIgnoreCase(
+			if (Strings.CI.equals(
 					StringUtils.trim(defaultValue), "NULL")) {
 				defaultValuePresent = false;
 				defaultValue = null;
@@ -250,41 +251,41 @@ public class OraColumn {
 		this.dataScale = null;
 	
 
-		if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_VARCHAR2)) {
+		if (Strings.CI.startsWith(columnAttributes, TYPE_VARCHAR2)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_VARCHAR2, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_NVARCHAR2)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_NVARCHAR2)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_NVARCHAR2, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_CHAR)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_CHAR)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_CHAR, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_NCHAR)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_NCHAR)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_NCHAR, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_RAW)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_RAW)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_RAW, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_FLOAT)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_FLOAT)) {
 			// Ignore PRECISION for FLOAT
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_FLOAT, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_DATE)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_DATE)) {
 			// No PRECISION for DATE
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_DATE, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_TIMESTAMP)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_TIMESTAMP)) {
 			// Ignore fractional seconds!!!
-			if (StringUtils.containsIgnoreCase(columnAttributes, "LOCAL")) {
+			if (Strings.CI.contains(columnAttributes, "LOCAL")) {
 				// 231: TIMESTAMP [(fractional_seconds_precision)] WITH LOCAL TIME ZONE
 				detectIsNullAndDefault(columnAttributes);
 				detectTypeAndSchema("TIMESTAMP WITH LOCAL TIME ZONE", false, useOracdcSchemas, dataPrecision);
-			} else if (StringUtils.containsIgnoreCase(columnAttributes, "ZONE")) {
+			} else if (Strings.CI.contains(columnAttributes, "ZONE")) {
 				// 181: TIMESTAMP [(fractional_seconds_precision)] WITH TIME ZONE
 				detectIsNullAndDefault(columnAttributes);
 				detectTypeAndSchema("TIMESTAMP WITH TIME ZONE", false, useOracdcSchemas, dataPrecision);
@@ -293,13 +294,13 @@ public class OraColumn {
 				detectIsNullAndDefault(columnAttributes);
 				detectTypeAndSchema(TYPE_TIMESTAMP, false, useOracdcSchemas, dataPrecision);
 			}
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_NUMBER)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_NUMBER)) {
 			detectIsNullAndDefault(columnAttributes);
 			final String precisionAndScale = StringUtils.trim(
 					StringUtils.substringBetween(columnAttributes, "(", ")")); 
 			if (precisionAndScale != null) {
 				try {
-					if (StringUtils.contains(precisionAndScale, "|")) {
+					if (Strings.CS.contains(precisionAndScale, "|")) {
 						final String[] tokens = StringUtils.split(precisionAndScale, "|");
 						dataPrecision = Integer.parseInt(StringUtils.trim(tokens[0]));
 						dataScale = Integer.parseInt(StringUtils.trim(tokens[1]));
@@ -315,36 +316,36 @@ public class OraColumn {
 				}
 			}
 			detectTypeAndSchema(TYPE_NUMBER, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_BINARY_FLOAT)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_BINARY_FLOAT)) {
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_BINARY_FLOAT, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_BINARY_DOUBLE)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_BINARY_DOUBLE)) {
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_BINARY_DOUBLE, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_BLOB)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_BLOB)) {
 			nullable = true;
 			defaultValuePresent = false;
 			detectTypeAndSchema(TYPE_BLOB, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_CLOB)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_CLOB)) {
 			nullable = true;
 			defaultValuePresent = false;
 			detectTypeAndSchema(TYPE_CLOB, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_NCLOB)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_NCLOB)) {
 			nullable = true;
 			defaultValuePresent = false;
 			detectTypeAndSchema(TYPE_NCLOB, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_XMLTYPE)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_XMLTYPE)) {
 			nullable = true;
 			defaultValuePresent = false;
 			detectTypeAndSchema(TYPE_XMLTYPE, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_JSON)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_JSON)) {
 			nullable = true;
 			defaultValuePresent = false;
 			detectTypeAndSchema(TYPE_JSON, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_BOOLEAN)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_BOOLEAN)) {
 			detectIsNullAndDefault(columnAttributes);
 			detectTypeAndSchema(TYPE_BOOLEAN, false, useOracdcSchemas, dataPrecision);
-		} else if (StringUtils.startsWithIgnoreCase(columnAttributes, TYPE_VECTOR)) {
+		} else if (Strings.CI.startsWith(columnAttributes, TYPE_VECTOR)) {
 			nullable = true;
 			defaultValuePresent = false;
 			detectTypeAndSchema(TYPE_VECTOR, false, useOracdcSchemas, dataPrecision);
@@ -362,13 +363,13 @@ public class OraColumn {
 		int posDefault = -1;
 		final String[] tokens = StringUtils.split(columnAttributes);
 		for (int i = 0; i < tokens.length; i++) {
-			if (StringUtils.equalsIgnoreCase(tokens[i], "null")) {
+			if (Strings.CI.equals(tokens[i], "null")) {
 				posNull = i;
-				if (StringUtils.equalsIgnoreCase(tokens[i - 1], "not")) {
+				if (Strings.CI.equals(tokens[i - 1], "not")) {
 					posNot = i - 1;
 				}
 			}
-			if (StringUtils.equalsIgnoreCase(tokens[i], "default")) {
+			if (Strings.CI.equals(tokens[i], "default")) {
 				posDefault = i;
 			}
 		}
@@ -396,15 +397,15 @@ public class OraColumn {
 			final boolean mviewSource,
 			final boolean useOracdcSchemas,
 			Integer dataPrecision) throws UnsupportedColumnDataTypeException {
-		if (StringUtils.equals(oraType, TYPE_DATE) || StringUtils.startsWith(oraType, TYPE_TIMESTAMP)) {
+		if (Strings.CS.equals(oraType, TYPE_DATE) || Strings.CS.startsWith(oraType, TYPE_TIMESTAMP)) {
 			if (useOracdcSchemas) {
-				if (StringUtils.endsWith(oraType, "WITH LOCAL TIME ZONE")) {
+				if (Strings.CS.endsWith(oraType, "WITH LOCAL TIME ZONE")) {
 					// 231:
 					// TIMESTAMP [(fractional_seconds)] WITH LOCAL TIME ZONE
 					localTimeZone = true;
 					jdbcType = TIMESTAMP_WITH_TIMEZONE;
 					oraTimestampField();
-				} else if (StringUtils.endsWith(oraType, "WITH TIME ZONE")) {
+				} else if (Strings.CS.endsWith(oraType, "WITH TIME ZONE")) {
 					// 181: TIMESTAMP [(fractional_seconds)] WITH TIME ZONE
 					localTimeZone = false;
 					jdbcType = TIMESTAMP_WITH_TIMEZONE;
@@ -418,8 +419,8 @@ public class OraColumn {
 				jdbcType = TIMESTAMP;
 				timestampField();
 			}
-		} else if (StringUtils.startsWith(oraType, "INTERVAL")) {
-			if (StringUtils.contains(oraType, "TO MONTH")) {
+		} else if (Strings.CS.startsWith(oraType, "INTERVAL")) {
+			if (Strings.CS.contains(oraType, "TO MONTH")) {
 				if (useOracdcSchemas) {
 					jdbcType = INTERVALYM;
 					if (partOfPk || !nullable) {
@@ -1036,8 +1037,8 @@ public class OraColumn {
 				case VARCHAR:
 				case NCHAR:
 				case NVARCHAR:
-					if (StringUtils.startsWith(defaultValue, "'") &&
-						StringUtils.endsWith(defaultValue, "'")) {
+					if (Strings.CS.startsWith(defaultValue, "'") &&
+							Strings.CS.endsWith(defaultValue, "'")) {
 						typedDefaultValue = StringUtils.substringBetween(defaultValue, "'", "'");
 					} else {
 						LOGGER.warn("Default value for CHAR/NCHAR/VARCHAR2/NVARCHAR2 must be inside single quotes!");
@@ -1267,7 +1268,7 @@ public class OraColumn {
 			case VARCHAR:
 				// 0x00 PostgreSQL problem
 				if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
-					statement.setString(columnNo, StringUtils.replace((String) columnValue, "\0", StringUtils.EMPTY));
+					statement.setString(columnNo, Strings.CS.replace((String) columnValue, "\0", StringUtils.EMPTY));
 				} else { 
 					statement.setString(columnNo, (String) columnValue);
 				}
@@ -1300,8 +1301,8 @@ public class OraColumn {
 		SchemaBuilder builder = SchemaBuilder.string();
 		if (defaultValuePresent) {
 			final String trimmedDefault = StringUtils.trim(defaultValue); 
-			if (StringUtils.startsWith(trimmedDefault, "'") &&
-							StringUtils.endsWith(trimmedDefault, "'")) {
+			if (Strings.CS.startsWith(trimmedDefault, "'") &&
+					Strings.CS.endsWith(trimmedDefault, "'")) {
 				typedDefaultValue = StringUtils.substringBetween(trimmedDefault, "'", "'");
 				LOGGER.trace("Setting default value of column '{}' to '{}'",
 						columnName, typedDefaultValue);
@@ -1667,7 +1668,7 @@ public class OraColumn {
 	}
 
 	public static String canonicalColumnName(final String rawColumnName) {
-		if (StringUtils.startsWith(rawColumnName, "\"") && StringUtils.endsWith(rawColumnName, "\"")) {
+		if (Strings.CS.startsWith(rawColumnName, "\"") && Strings.CS.endsWith(rawColumnName, "\"")) {
 			// Column name is escaped by "
 			return StringUtils.substringBetween(rawColumnName, "\"", "\"");
 		} else {

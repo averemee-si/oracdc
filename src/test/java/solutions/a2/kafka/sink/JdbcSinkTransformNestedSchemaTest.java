@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -83,7 +83,7 @@ public class JdbcSinkTransformNestedSchemaTest {
 		}
 
 		for (Field field : valueSchema.fields()) {
-			if (StringUtils.equals("struct", field.schema().type().getName())) {
+			if (Strings.CS.equals("struct", field.schema().type().getName())) {
 				final List<OraColumn> transformation = new ArrayList<>();
 				for (Field unnestField : field.schema().fields()) {
 					try {

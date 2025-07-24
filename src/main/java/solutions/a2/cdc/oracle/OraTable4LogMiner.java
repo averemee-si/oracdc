@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.Map.Entry;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.data.Schema;
@@ -323,7 +324,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				}
 				boolean columnAdded = false;
 				OraColumn column = null;
-				if (StringUtils.equalsIgnoreCase(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
+				if (Strings.CI.equals(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
 					try {
 						column = new OraColumn(false, useOracdcSchemas, processLobs, rsColumns, pkColsSet);
 						if (column.isNumber() && numberRemap != null) {
@@ -674,7 +675,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				LOGGER.debug("parseRedoRecord() processing INSERT");
 			}
 			opType = 'c';
-			int valuedClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_VALUES);
+			int valuedClauseStart = Strings.CS.indexOf(stmt.getSqlRedo(), SQL_REDO_VALUES);
 			String[] columnsList = StringUtils.split(StringUtils.substringBetween(
 					StringUtils.substring(stmt.getSqlRedo(), 0, valuedClauseStart), "(", ")"), ",");
 			String[] valuesList = StringUtils.split(StringUtils.substringBetween(
@@ -685,11 +686,11 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final OraColumn oraColumn = idToNameMap.get(columnName);
 				if (oraColumn != null) {
 					// Column can be excluded
-					if (StringUtils.startsWith(columnValue, "N")) {
+					if (Strings.CS.startsWith(columnValue, "N")) {
 						try {
 							valueStruct.put(oraColumn.getColumnName(), null);
 						} catch (DataException de) {
-							if (StringUtils.containsIgnoreCase(de.getMessage(), "null used for required field")) {
+							if (Strings.CI.contains(de.getMessage(), "null used for required field")) {
 								if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
 									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 									throw de;
@@ -765,14 +766,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			opType = 'd';
 			if (tableWithPk || pseudoKey) {
-				final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
+				final int whereClauseStart = Strings.CS.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 				String[] whereClause = StringUtils.splitByWholeSeparator(
 						StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
 				for (int i = 0; i < whereClause.length; i++) {
 					final String currentExpr = StringUtils.trim(whereClause[i]);
 					if (useAllColsOnDelete) {
 						final String columnName;
-						if (StringUtils.endsWith(currentExpr, "L")) {
+						if (Strings.CS.endsWith(currentExpr, "L")) {
 							columnName = StringUtils.substringBefore(currentExpr, SQL_REDO_IS);
 							final OraColumn oraColumn = idToNameMap.get(columnName);
 							try {
@@ -816,7 +817,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							}
 						}
 					} else {
-						if (!StringUtils.endsWith(currentExpr, "L")) {
+						if (!Strings.CS.endsWith(currentExpr, "L")) {
 							// PK can't be null!!!
 							final String columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
 							final OraColumn oraColumn = idToNameMap.get(columnName);
@@ -830,7 +831,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								}
 							} else {
 								// Handle ORA-1 in Source DB.....
-								if (StringUtils.equalsIgnoreCase("ROWID", columnName) &&
+								if (Strings.CI.equals("ROWID", columnName) &&
 										whereClause.length == 1) {
 									printErrorMessage(
 											Level.ERROR,
@@ -867,8 +868,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			opType = 'u';
 			final Set<String> setColumns = new HashSet<>();
-			final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
-			final int setClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_SET);
+			final int whereClauseStart = Strings.CS.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
+			final int setClauseStart = Strings.CS.indexOf(stmt.getSqlRedo(), SQL_REDO_SET);
 			final String[] setClause;
 			final boolean processWhereFromRow;
 			if (whereClauseStart > 0) {
@@ -887,7 +888,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final OraColumn oraColumn = idToNameMap.get(columnName);
 				if (oraColumn != null) {
 					// Column can be excluded
-					if (StringUtils.endsWith(currentExpr, "L")) {
+					if (Strings.CS.endsWith(currentExpr, "L")) {
 						try {
 							if (oraColumn.getJdbcType() == BLOB ||
 									oraColumn.getJdbcType() == CLOB ||
@@ -982,7 +983,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				for (int i = 0; i < whereClause.length; i++) {
 					final String currentExpr = StringUtils.trim(whereClause[i]);
 					final String columnName;
-					if (StringUtils.endsWith(currentExpr, "L")) {
+					if (Strings.CS.endsWith(currentExpr, "L")) {
 						columnName = StringUtils.substringBefore(currentExpr, SQL_REDO_IS);
 						if (!setColumns.contains(columnName)) {
 							final OraColumn oraColumn = idToNameMap.get(columnName);
@@ -1078,20 +1079,20 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				LOGGER.debug("parseRedoRecord() processing XML_DOC_BEGIN (for XMLTYPE update)");
 			}
 			opType = 'u';
-			final int whereClauseStart = StringUtils.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
+			final int whereClauseStart = Strings.CS.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 			String[] whereClause = StringUtils.splitByWholeSeparator(
 					StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
 			for (int i = 0; i < whereClause.length; i++) {
 				final String currentExpr = StringUtils.trim(whereClause[i]);
 				final String columnName;
-				if (StringUtils.endsWith(currentExpr, "L")) {
+				if (Strings.CS.endsWith(currentExpr, "L")) {
 					columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, SQL_REDO_IS));
 				} else {
 					columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
 				}
 				final OraColumn oraColumn = idToNameMap.get(columnName);
 				if (oraColumn != null) {
-					if (!StringUtils.endsWith(currentExpr, "L")) {
+					if (!Strings.CS.endsWith(currentExpr, "L")) {
 						parseRedoRecordValues(
 								idToNameMap.get(columnName),
 								StringUtils.trim(StringUtils.substringAfter(currentExpr, "=")),
@@ -1466,7 +1467,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final String columnName = rsCheckLob.getString("COLUMN_NAME");
 				if (lobColumnsNames.containsKey(columnName)) {
 					final OraColumn column = lobColumnsNames.get(columnName);
-					column.setSecureFile(StringUtils.equals("YES", rsCheckLob.getString("SECUREFILE")));
+					column.setSecureFile(Strings.CS.equals("YES", rsCheckLob.getString("SECUREFILE")));
 					lobColumnsObjectIds.put(lobObjectId, column);
 					return column;
 				} else {
@@ -1528,7 +1529,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				newColumnName = OraColumn.canonicalColumnName(newColumnName);
 				boolean alreadyExist = false;
 				for (OraColumn column : allColumns) {
-					if (StringUtils.equals(newColumnName, column.getColumnName())) {
+					if (Strings.CS.equals(newColumnName, column.getColumnName())) {
 						alreadyExist = true;
 						break;
 					}
@@ -1559,7 +1560,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				final String columnToDrop = OraColumn.canonicalColumnName(columnName); 
 				int columnIndex = -1;
 				for (int i = 0; i < allColumns.size(); i++) {
-					if (StringUtils.equals(columnToDrop, allColumns.get(i).getColumnName())) {
+					if (Strings.CS.equals(columnToDrop, allColumns.get(i).getColumnName())) {
 						columnIndex = i;
 						break;
 					}
@@ -1589,7 +1590,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				changedColumnName = OraColumn.canonicalColumnName(changedColumnName);
 				int columnIndex = -1;
 				for (int i = 0; i < allColumns.size(); i++) {
-					if (StringUtils.equals(changedColumnName, allColumns.get(i).getColumnName())) {
+					if (Strings.CS.equals(changedColumnName, allColumns.get(i).getColumnName())) {
 						columnIndex = i;
 						break;
 					}
@@ -1629,10 +1630,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			boolean newNamePresent = false;
 			int columnIndex = -1;
 			for (int i = 0; i < allColumns.size(); i++) {
-				if ((columnIndex < 0) && StringUtils.equals(oldName, allColumns.get(i).getColumnName())) {
+				if ((columnIndex < 0) && Strings.CS.equals(oldName, allColumns.get(i).getColumnName())) {
 					columnIndex = i;
 				}
-				if (!newNamePresent && StringUtils.equals(newName, allColumns.get(i).getColumnName())) {
+				if (!newNamePresent && Strings.CS.equals(newName, allColumns.get(i).getColumnName())) {
 					newNamePresent = true;
 				}
 			}
@@ -1706,9 +1707,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 	private boolean extraSecureFileLengthByte(String hex) throws SQLException {
 		final String startPosFlag = StringUtils.substring(hex, 52, 54);
-		if (StringUtils.equals("00", startPosFlag)) {
+		if (Strings.CS.equals("00", startPosFlag)) {
 			return false;
-		} else if (StringUtils.equals("01", startPosFlag)) {
+		} else if (Strings.CS.equals("01", startPosFlag)) {
 			return true;
 		} else {
 			LOGGER.error("Invalid SECUREFILE additional length byte value '{}' for hex LOB '{}'",
@@ -2058,7 +2059,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						try {
 							valueStruct.put(oraColumn.getColumnName(), null);
 						} catch (DataException de) {
-							if (StringUtils.containsIgnoreCase(de.getMessage(), "null used for required field")) {
+							if (Strings.CI.contains(de.getMessage(), "null used for required field")) {
 								if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
 									printInvalidFieldValue(oraColumn, stmt, xid, commitScn);
 									throw de;

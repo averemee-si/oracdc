@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.common.cache.Cache;
 import org.apache.kafka.common.cache.LRUCache;
 import org.apache.kafka.common.cache.SynchronizedCache;
@@ -221,10 +222,10 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 		if (StringUtils.isBlank(params.field)) {
 			params.convType = ALL;
 		}
-		else if (StringUtils.startsWith(params.field, "%")) {
+		else if (Strings.CS.startsWith(params.field, "%")) {
 			params.convType = ENDS_WITH;
 			params.field = StringUtils.substring(params.field, 1);
-		} else if (StringUtils.endsWith(params.field, "%")) {
+		} else if (Strings.CS.endsWith(params.field, "%")) {
 			params.convType = STARTS_WITH;
 			params.field = StringUtils.substring(params.field, 0, params.field.length() - 1);
 		} else {
@@ -306,7 +307,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 			if (params.convType == ALL) {
 				for (Field field: schema.fields()) {
 					if (field.schema().type() == Schema.Type.BYTES &&
-							StringUtils.equals(field.schema().name(), OraNumber.LOGICAL_NAME)) {
+							Strings.CS.equals(field.schema().name(), OraNumber.LOGICAL_NAME)) {
 						builder.field(field.name(), CONVERTERS.get(params.targetType).typeSchema(field.schema().isOptional(), params));
 					} else {
 						builder.field(field.name(), field.schema());
@@ -316,7 +317,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 					params.convType == ENDS_WITH) {
 				for (Field field: schema.fields()) {
 					if (field.schema().type() == Schema.Type.BYTES &&
-							StringUtils.equals(field.schema().name(), OraNumber.LOGICAL_NAME) && (
+							Strings.CS.equals(field.schema().name(), OraNumber.LOGICAL_NAME) && (
 							(params.convType == STARTS_WITH && field.name().startsWith(params.field)) ||
 							(params.convType == ENDS_WITH && field.name().endsWith(params.field)))) {
 						builder.field(field.name(), CONVERTERS.get(params.targetType).typeSchema(field.schema().isOptional(), params));
@@ -326,7 +327,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 				}				
 			} else {
 				for (Field field : schema.fields()) {
-					if (StringUtils.equals(field.name(), params.field)) {
+					if (Strings.CS.equals(field.name(), params.field)) {
 						final OraNumberTranslator translator = CONVERTERS.get(params.targetType);
 						if (translator == null) {
 							LOGGER.error(
@@ -369,13 +370,13 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 				final Object updatedFieldValue;
 				if (params.convType == ALL && (
 						field.schema().type() == Schema.Type.BYTES &&
-						StringUtils.equals(field.schema().name(), OraNumber.LOGICAL_NAME))) {
+						Strings.CS.equals(field.schema().name(), OraNumber.LOGICAL_NAME))) {
 					updatedFieldValue = convertOraNumber(getFieldValue(value, field));
 				} else  if (params.convType == SPECIFIC &&
-						StringUtils.equals(field.name(), params.field)) {
+						Strings.CS.equals(field.name(), params.field)) {
 						updatedFieldValue = convertOraNumber(getFieldValue(value, field));
 				} else 	if (field.schema().type() == Schema.Type.BYTES &&
-						StringUtils.equals(field.schema().name(), OraNumber.LOGICAL_NAME) && (
+						Strings.CS.equals(field.schema().name(), OraNumber.LOGICAL_NAME) && (
 						(params.convType == STARTS_WITH && field.name().startsWith(params.field)) ||
 						(params.convType == ENDS_WITH && field.name().endsWith(params.field)))) {
 					updatedFieldValue = convertOraNumber(getFieldValue(value, field));

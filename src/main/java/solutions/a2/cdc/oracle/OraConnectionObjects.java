@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -257,8 +258,8 @@ public class OraConnectionObjects {
 					} catch (InterruptedException ie) {}
 					pds.setConnectionPoolName(newPoolName);
 					return getConnection();
-				} else if (StringUtils.containsIgnoreCase(sqle.getMessage(), "ORA-01882") &&
-						(!StringUtils.equalsIgnoreCase(System.getProperty(TZ_AS_REGION), "false"))) {
+				} else if (Strings.CI.contains(sqle.getMessage(), "ORA-01882") &&
+						(!Strings.CI.equals(System.getProperty(TZ_AS_REGION), "false"))) {
 					final StringBuilder errMessage = new StringBuilder(256);
 					errMessage
 						.append("\n=====================\n")
@@ -361,7 +362,7 @@ public class OraConnectionObjects {
 			UniversalConnectionPoolManager mgr = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
 			mgr.destroyConnectionPool(poolName);
 		} catch (UniversalConnectionPoolException ucpe) {
-			if (StringUtils.containsIgnoreCase(ucpe.getMessage(), "not found")) {
+			if (Strings.CI.contains(ucpe.getMessage(), "not found")) {
 				LOGGER.warn("'{}' while calling  destroyConnectionPool({})", ucpe.getMessage(), poolName);
 			} else {
 				throw new SQLException(ucpe);

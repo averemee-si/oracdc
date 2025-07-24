@@ -21,6 +21,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
@@ -58,14 +59,14 @@ public class TargetDatabaseShipmentAgent {
 		if (useTmpDir) {
 			final String tmpDir = System.getProperty("java.io.tmpdir");
 			LOGGER.error("'{}' will be used for storing files from Source RDBMS", tmpDir);
-			if (!StringUtils.endsWith(tmpDir, File.separator)) {
+			if (!Strings.CS.endsWith(tmpDir, File.separator)) {
 				this.directoryName = tmpDir + File.separator;
 			} else {
 				this.directoryName = tmpDir;
 			}
 		}
 		else {
-			if (!StringUtils.endsWith(directoryName, File.separator)) {
+			if (!Strings.CS.endsWith(directoryName, File.separator)) {
 				this.directoryName = directoryName + File.separator;
 			} else {
 				this.directoryName = directoryName;

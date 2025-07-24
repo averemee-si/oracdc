@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.RegExUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 
 /**
  * 
@@ -61,20 +62,20 @@ public class OraSqlUtils {
 
 		for (int i = 0; i < listSchemaObj.size(); i++) {
 			final String schemaObj = StringUtils.trim(listSchemaObj.get(i));
-			boolean escaped = StringUtils.contains(schemaObj, "\"");
+			boolean escaped = Strings.CS.contains(schemaObj, "\"");
 			if (schemaObj.contains(".")) {
 				final String[] pairSchemaObj = schemaObj.split("\\.");
 				final String schemaName = StringUtils.trim(pairSchemaObj[0]);
 				final String objName = StringUtils.trim(pairSchemaObj[1]);
-				if (StringUtils.equals("%", pairSchemaObj[1]) ||
-						StringUtils.equals("*", pairSchemaObj[1])) {
+				if (Strings.CS.equals("%", pairSchemaObj[1]) ||
+						Strings.CS.equals("*", pairSchemaObj[1])) {
 					// Only schema name present
 					sb
 						.append("(")
 						.append(schemaNameField)
 						.append(exclude ? "!='" : "='")
 						.append(escaped 
-								? StringUtils.remove(schemaName, "\"")
+								? Strings.CS.remove(schemaName, "\"")
 								: StringUtils.upperCase(schemaName))
 						.append("')");
 				} else {
@@ -84,23 +85,23 @@ public class OraSqlUtils {
 						.append(schemaNameField)
 						.append("='")
 						.append(escaped
-								? StringUtils.remove(schemaName, "\"")
+								? Strings.CS.remove(schemaName, "\"")
 								: StringUtils.upperCase(schemaName))
 						.append("'")
 						.append(SQL_AND)
 						.append(objNameField);
-					if (StringUtils.endsWith(pairSchemaObj[1], "%") ||
-							StringUtils.endsWith(pairSchemaObj[1], "*")) {
+					if (Strings.CS.endsWith(pairSchemaObj[1], "%") ||
+							Strings.CS.endsWith(pairSchemaObj[1], "*")) {
 						sb
 							.append(exclude ? " NOT LIKE '" : " LIKE '")
 							.append(escaped
-									? StringUtils.remove(objName, "\"")
+									? Strings.CS.remove(objName, "\"")
 									: StringUtils.upperCase(objName));
 					} else {
 						sb
 							.append(exclude ? "!='" : "='")
 							.append(escaped
-									? StringUtils.remove(objName, "\"")
+									? Strings.CS.remove(objName, "\"")
 									: StringUtils.upperCase(objName));
 					}
 					sb.append("')");
@@ -127,15 +128,15 @@ public class OraSqlUtils {
 
 	public static String alterTablePreProcessor(final String originalText) {
 		String[] tokens = StringUtils.splitPreserveAllTokens(originalText);
-		if (StringUtils.equalsIgnoreCase(tokens[0], "alter") &&
-				StringUtils.equalsIgnoreCase(tokens[1], "table")) {
+		if (Strings.CI.equals(tokens[0], "alter") &&
+				Strings.CI.equals(tokens[1], "table")) {
 			final int beginIndex;
-			if ((StringUtils.endsWith(tokens[2], ".") && tokens[2].length() > 1) ||
-					(StringUtils.startsWith(tokens[3], ".") && tokens[3].length() > 1)) {
+			if ((Strings.CS.endsWith(tokens[2], ".") && tokens[2].length() > 1) ||
+					(Strings.CS.startsWith(tokens[3], ".") && tokens[3].length() > 1)) {
 				// alter table SCOTT. DEPT <REST OF...>
 				// alter table SCOTT .DEPT <REST OF...>
 				beginIndex = 4;
-			} else if (StringUtils.equals(tokens[3], ".")) {
+			} else if (Strings.CS.equals(tokens[3], ".")) {
 				// alter table SCOTT . DEPT <REST OF...>
 				beginIndex = 5;
 			} else {
@@ -147,9 +148,9 @@ public class OraSqlUtils {
 				// Only
 				//     alter table rename column <OLD_NAME> to <NEW_NAME>
 				// is supported
-				if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
+				if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
 					if ((tokens.length - beginIndex) == 5 && 
-							StringUtils.equalsIgnoreCase(tokens[beginIndex + 3], RESERVED_WORD_TO)) {
+							Strings.CI.equals(tokens[beginIndex + 3], RESERVED_WORD_TO)) {
 						// tokens[beginIndex + 2] - old name
 						// tokens[beginIndex + 4] - new name
 						return ALTER_TABLE_COLUMN_RENAME + "\n" +
@@ -165,15 +166,15 @@ public class OraSqlUtils {
 			case ALTER_TABLE_COLUMN_MODIFY:
 				return alterTablePreProcessor(originalText, ALTER_TABLE_COLUMN_MODIFY, tokens, beginIndex);
 			case ALTER_TABLE_COLUMN_DROP:
-				if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_UNUSED)) {
+				if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_UNUSED)) {
 					// Ignore
 					// alter table drop unused columns;
 					return null;
-				} else if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
+				} else if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
 					// alter table table_name drop column column_name;
 					return ALTER_TABLE_COLUMN_DROP + "\n" +
 						StringUtils.trim(tokens[beginIndex + 2]);
-				} else if (StringUtils.startsWith(tokens[beginIndex + 1], "(")) {
+				} else if (Strings.CS.startsWith(tokens[beginIndex + 1], "(")) {
 					// alter table table_name drop (column_name1, column_name2);
 					return ALTER_TABLE_COLUMN_DROP + "\n" +
 						Arrays
@@ -186,7 +187,7 @@ public class OraSqlUtils {
 					return null;
 				}
 			case ALTER_TABLE_COLUMN_SET:
-				if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_UNUSED)) {
+				if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_UNUSED)) {
 					// alter table table_name set unused (column_name1, column_name2);
 					return ALTER_TABLE_COLUMN_DROP + "\n" +
 						Arrays
@@ -208,15 +209,15 @@ public class OraSqlUtils {
 
 	private static String alterTablePreProcessor(
 			final String originalText, final String operation, final String[] tokens, final int beginIndex) {
-		if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
+		if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
 			// alter table add column <COLUMN_NAME> .......
 			return operation + "\n" +
 				Arrays
 					.stream(tokens, beginIndex + 2, tokens.length)
 					.map(s -> StringUtils.trim(s))
-					.map(s -> StringUtils.replace(s, ",", "|"))
+					.map(s -> Strings.CS.replace(s, ",", "|"))
 					.collect(Collectors.joining(" "));
-		} else if (StringUtils.startsWith(tokens[beginIndex + 1], "(")) {
+		} else if (Strings.CS.startsWith(tokens[beginIndex + 1], "(")) {
 			// alter table add (<COLUMN_NAME> .......)
 			// For further processing only data between first "(" and last ")"
 			// are needed, also replace all commas used in NUMBER precision
@@ -225,8 +226,8 @@ public class OraSqlUtils {
 					StringUtils.split(
 						RegExUtils.replaceAll(
 							StringUtils.substring(originalText, 
-								StringUtils.indexOf(originalText, "(") + 1, 
-								StringUtils.lastIndexOf(originalText, ")")),
+							Strings.CS.indexOf(originalText, "(") + 1, 
+							Strings.CS.lastIndexOf(originalText, ")")),
 							COMMA_INSIDE, "|"),
 						",");
 			return operation + "\n" +
@@ -234,8 +235,8 @@ public class OraSqlUtils {
 					.stream(columnsToAdd)
 					.map(s -> StringUtils.trim(s))
 					.collect(Collectors.joining(";"));
-		} else if (StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_CONSTRAINT) ||
-				StringUtils.equalsIgnoreCase(tokens[beginIndex + 1], RESERVED_WORD_SUPPLEMENTAL)) {
+		} else if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_CONSTRAINT) ||
+				Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_SUPPLEMENTAL)) {
 			// Ignore
 			// alter table add CoNsTrAiNt ...
 			// alter table add SuPpLeMeNtAl LoG DaTa ...
@@ -245,7 +246,7 @@ public class OraSqlUtils {
 				Arrays
 					.stream(tokens, beginIndex + 1, tokens.length)
 					.map(s -> StringUtils.trim(s))
-					.map(s -> StringUtils.replace(s, ",", "|"))
+					.map(s -> Strings.CS.replace(s, ",", "|"))
 					.collect(Collectors.joining(" "));
 		}
 	}

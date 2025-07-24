@@ -20,7 +20,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,7 +79,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 				lobProcessingStatus = REDOMINER;
 		} else
 			lobProcessingStatus = NOT_AT_ALL;
-		this.useChronicleQueue = StringUtils.equalsIgnoreCase(
+		this.useChronicleQueue = Strings.CI.equals(
 				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
 		this.backofMs = config.connectionRetryBackoff();
@@ -167,10 +167,10 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 				lastException = cqe;
 				if (cqe.getCause() != null &&
 						cqe.getCause() instanceof IOException &&
-						StringUtils.containsIgnoreCase(cqe.getCause().getMessage(), "Too") &&
-						StringUtils.containsIgnoreCase(cqe.getCause().getMessage(), "many") &&
-						StringUtils.containsIgnoreCase(cqe.getCause().getMessage(), "open") &&
-						StringUtils.containsIgnoreCase(cqe.getCause().getMessage(), "files")) {
+						Strings.CI.contains(cqe.getCause().getMessage(), "Too") &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "many") &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "open") &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "files")) {
 					try {
 						LOGGER.info("Wait {}ms until OS resources become available to create a Chronicle Queue", backofMs);
 						Thread.sleep(backofMs);
