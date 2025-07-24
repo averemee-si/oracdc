@@ -13,6 +13,12 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static solutions.a2.oracle.utils.BinaryUtils.putOraColSize;
+import static solutions.a2.oracle.utils.BinaryUtils.putU16;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +74,8 @@ public class OraCdcChange {
 	public static final short _10_18_LUP = 0x0A12;
 	/** KDICULK: Undo operation on leaf key above the cache (undo) */
 	public static final short _10_22_ULK = 0x0A16;
+	/** KDICLNU: IOT leaf block nonkey update */
+	public static final short _10_30_LNU = 0x0A1E;
 
 	/** Layer 11: Row Operation    -  KCOCODRW     [kdocts.h] */
 	public static final byte KCOCODRW = 0x0B;
@@ -1448,6 +1456,10 @@ public class OraCdcChange {
 		return obj;
 	}
 
+	public void obj(final int obj) {
+		this.obj = obj;
+	}
+
 	public byte fb() {
 		return fb;
 	}
@@ -1478,6 +1490,10 @@ public class OraCdcChange {
 
 	public int dataObj() {
 		return dataObj;
+	}
+
+	public void dataObj(final int dataObj) {
+		this.dataObj = dataObj;
 	}
 
 	public int bdba() {
@@ -1522,6 +1538,78 @@ public class OraCdcChange {
 
 	public int lobDataOffset() {
 		return lobDataOffset;
+	}
+
+	int indexKeyColCount(final int index) {
+		int idxColCount = 0;
+		for (int pos = 0; pos < coords[index][1];) {
+			idxColCount++;
+			int colSize = Byte.toUnsignedInt(record[coords[index][0] + pos]);
+			pos += Byte.BYTES;
+			if (colSize ==  0xFE) {
+				colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + pos));
+				pos += Short.BYTES;
+			} else  if (colSize == 0xFF) {
+				colSize = 0;
+			}
+			pos += colSize;
+		}
+		return idxColCount;
+	}
+
+	int writeIndexColumns(final ByteArrayOutputStream baos, final int index, final boolean nonKeyData, final int colNumIndex) throws IOException {
+		if (index > coords.length - 1)
+			return 0;
+		int col = 0;
+		if (operation != _10_30_LNU) {
+			for (int pos = 0; pos < coords[index][1];) {
+				final int colNum = col + colNumIndex;
+				putU16(baos, colNum);
+				int colSize = Byte.toUnsignedInt(record[coords[index][0] + pos]);
+				pos += Byte.BYTES;
+				if (colSize ==  0xFE) {
+					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + pos));
+					pos += Short.BYTES;
+				}
+				if (colSize == 0xFF) {
+					colSize = 0;
+					baos.write(0xFF);
+				} else {
+					putOraColSize(baos, colSize);
+					baos.write(record, coords[index][0] + pos, colSize);
+				}
+				pos += colSize;
+				col++;
+			}
+		}
+		if (nonKeyData) {
+			final int nkIdx = index + 1;
+			final int startPos = (flgHeadPart(fb) && flgFirstPart(fb) && flgLastPart(fb)) ? 3 : 9;
+			int nonKeyCol = 0;
+			for (int pos = startPos; pos < coords[nkIdx][1];) {
+				nonKeyCol++;
+				final int colNum = col + colNumIndex;
+				putU16(baos, colNum);
+				int colSize = Byte.toUnsignedInt(record[coords[nkIdx][0] + pos]);
+				pos += Byte.BYTES;
+				if (colSize ==  0xFE) {
+					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[nkIdx][0] + pos));
+					pos += Short.BYTES;
+				}
+				if (colSize == 0xFF) {
+					colSize = 0;
+					baos.write(0xFF);
+				} else {
+					putOraColSize(baos, colSize);
+					baos.write(record, coords[nkIdx][0] + pos, colSize);
+				}
+				col++;
+				if (nonKeyCol == columnCount)
+					break;
+				pos += colSize;
+			}
+		}
+		return col;
 	}
 
 }

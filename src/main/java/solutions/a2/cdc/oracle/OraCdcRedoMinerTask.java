@@ -19,6 +19,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -86,24 +87,27 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
 				conUids = null;
 			}
-			int[] includeObjIds = null;
+			Set<Integer> includeObjIds = null;
+			Map<Integer, Integer> iotMapping = null;
 			if (includeList != null && includeList.size() > 0) {
 				final String tableList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
-				includeObjIds = rdbmsInfo.getMineObjectsIds(
+				final Entry<Set<Integer>, Map<Integer, Integer>> includeEntries = rdbmsInfo.getMineObjectsIds(
 						false, tableList, connDictionary, processLobs);
-				if (includeObjIds == null || includeObjIds.length == 0) {
+				includeObjIds = includeEntries.getKey();
+				iotMapping = includeEntries.getValue();
+				if (includeObjIds == null || includeObjIds.size() == 0) {
 						LOGGER.error("a2.include parameter set to {} but there are no tables matching this condition.\nExiting.",
 								StringUtils.join(config.includeObj(), ","));
 						throw new ConnectException("Please check value of a2.include parameter or remove it from configuration!");
 				}
 				checkTableSql += tableList;
 			}
-			int[] excludeObjIds = null;
+			Set<Integer> excludeObjIds = null;
 			if (excludeList != null && excludeList.size() > 0) {
 				excludeObjIds = rdbmsInfo.getMineObjectsIds(true,
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList),
-							connDictionary, processLobs);
-				if (excludeObjIds == null || excludeObjIds.length == 0) {
+							connDictionary, processLobs).getKey();
+				if (excludeObjIds == null || excludeObjIds.size() == 0) {
 						LOGGER.error("a2.exclude parameter set to {} but there are no tables matching this condition.\nExiting.",
 								StringUtils.join(config.excludeObj(), ","));
 						throw new ConnectException("Please check value of a2.exclude parameter or remove it from configuration!");
@@ -112,7 +116,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 				checkTableSql += tableList;
 			}
 			if (config.staticObjIds() &&
-					(includeObjIds == null || includeObjIds.length == 0)) {
+					(includeObjIds == null || includeObjIds.size() == 0)) {
 				LOGGER.error(
 						"\n=====================\n" +
 						"Parameter {} is set to '{}' (default value) and parameter {} is not set.\n" + 
@@ -127,17 +131,17 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			MutableTriple<Long, RedoByteAddress, Long> coords = new MutableTriple<>();
 			boolean rewind = startPosition(coords);
 			activeTransactions = new HashMap<>();
-			checker = new OraCdcDictionaryChecker(this,
-					tablesInProcessing, tablesOutOfScope, checkTableSql, metrics);
+			checker = new OraCdcDictionaryChecker(this, config.staticObjIds(),
+					tablesInProcessing, tablesOutOfScope, checkTableSql,
+					includeObjIds, excludeObjIds, metrics);
 			worker = new OraCdcRedoMinerWorkerThread(
 					this,
 					rewind ? coords : new ImmutableTriple<>(coords.getLeft(), null, -1l),
-					includeObjIds,
-					excludeObjIds,
 					conUids,
 					checker,
 					activeTransactions,
 					committedTransactions,
+					iotMapping,
 					metrics,
 					rewind);
 

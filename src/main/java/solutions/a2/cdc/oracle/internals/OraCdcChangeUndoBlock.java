@@ -13,6 +13,9 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,9 +40,13 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	private static final int KTUDB_MIN_LENGTH = 0x14;
 	private static final int KDILK_MIN_LENGTH = 0x14;
 	private static final int SUPPL_LOG_ROW_MIN_LENGTH = 0x1A;
-	private static final byte KDICLPU = 3;
-	private static final byte KDICLRE = 5;
-	private static final byte KDICLUP = 18;
+	private static final byte KDLIK = 1;
+	private static final byte KDLIK_KEY = 2;
+	private static final byte KDLIK_NONKEY = 4;
+	private static final byte KDICLPU = 0x3;
+	private static final byte KDICLRE = 0x5;
+	private static final byte KDICLUP = 0x12;
+	private static final byte KDICLNU = 0x1E;
 
 	boolean supplementalLogData = false;
 	byte supplementalFb = 0;
@@ -54,7 +61,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	private boolean ktbRedo = false;
 	private boolean kdoOpCode = false;
 	private boolean kdliCommon = false;
-	private boolean kdilk = false;
+	private byte kdilk = 0;
 	private byte kdilkType;
 
 	OraCdcChangeUndoBlock(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
@@ -91,11 +98,12 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					ktbRedo = true;
 					// Element 4: kdilk
 					elementLengthCheck("kdilk", "(OP:5.1)", 0, KDILK_MIN_LENGTH, "");
-					kdilk = true;
+					kdilk |= KDLIK;
 					kdilkType = record[coords[3][0]];
 					if ((kdilkType == KDICLPU ||
 						kdilkType == KDICLRE ||
-						kdilkType == KDICLUP) &&
+						kdilkType == KDICLUP ||
+						kdilkType == KDICLNU) &&
 							(record[coords[3][0] + 2] & 0x80) > 0) {
 						supplementalLogData = true;
 						suppDataStartIndex = coords.length - 1;
@@ -105,6 +113,14 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 						suppOffsetRedo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x8));
 						supplementalCc = 0;
 						supplementalCcNn = 0;
+					}
+					if (coords.length > 3) {
+						kdilk |= KDLIK_KEY;
+						if (coords.length > 4 && suppDataStartIndex > 5) {
+							kdilk |= KDLIK_NONKEY;
+							columnCount = Byte.toUnsignedInt(record[coords[5][0] + 2]);
+							fb = record[coords[5][0]];
+						}
 					}
 					break;
 				case _11_1_IUR:
@@ -216,7 +232,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		if (kdoOpCode) {
 			kdo(sb, 3);
 		}
-		if (kdilk) {
+		if ((kdilk & KDLIK) != 0) {
 			sb
 				.append("\nDump kdilk : itl=")
 				.append(Byte.toUnsignedInt(record[coords[3][0] + 1]))
@@ -228,6 +244,20 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				.append(String.format("0x%x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[3][0] + 4))))
 				.append(" block=")
 				.append(String.format("0x%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, coords[3][0] + 8))));
+			switch (kdilkType) {
+			case KDICLPU:
+				sb.append("\n(kdxlpu): purge leaf row");
+				break;
+			case KDICLRE:
+				sb.append("\n(kdxlre): restore leaf row (clear leaf delete flags)");
+				break;
+			case KDICLUP:
+				sb.append("\n(kdxlup): update keydata in row");
+				break;
+			case KDICLNU:
+				sb.append("\n(kdxlnu): whole nonkey update");
+				break;
+			}
 			if (kdilkType == KDICLPU)
 				sb.append("\n(kdxlpu): purge leaf row");
 			else if (kdilkType == KDICLRE)
@@ -340,6 +370,29 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		default:
 			return "??????";
 		}
+	}
+
+	@Override
+	public int columnCount() {
+		if ((kdilk & KDLIK) != 0)
+			if ((kdilk & KDLIK_NONKEY) != 0)
+				return columnCount + columnCountNn();
+			else
+				return columnCountNn();
+		else
+			return columnCount;
+	}
+
+	@Override
+	public int columnCountNn() {
+		if ((kdilk & KDLIK) != 0) {
+			return indexKeyColCount(4);
+		} else
+			return columnCountNn;
+	}
+
+	public int writeIndexColumns(final ByteArrayOutputStream baos, final int colNumIndex) throws IOException {
+		return writeIndexColumns(baos, 4, (kdilk & KDLIK_NONKEY) != 0, colNumIndex);
 	}
 
 }

@@ -65,6 +65,10 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCODRW;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_ORP_IRP_NULL_POS;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_URP_NULL_POS;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_KDOM2;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_2_LIN;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_4_LDE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_18_LUP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_30_LNU;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_10_SKL;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
@@ -114,11 +118,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private Iterator<OraCdcRedoRecord> miner = null;
 
 	private final Map<Integer, Deque<RowChangeHolder>> halfDone;
-	private final boolean staticObjIds;
-	private final int[] includeObjIds;
-	private final boolean includeFilter;
-	private final int[] excludeObjIds;
-	private final boolean excludeFilter;
 	private final int[] conUids;
 	private final boolean conFilter;
 	private final OraCdcDictionaryChecker checker;
@@ -128,16 +127,16 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final TreeMap<Long, List<OraCdcRedoRecord>> halfDoneRcm;
 	private final Map<LobId, Xid> transFromLobId;
 	private final Map<Integer, Map<Short, Short>[]> intColIdsMap;
+	private final Map<Integer, Integer> iotMapping;
 
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcRedoMinerTask task,
 			final Triple<Long, RedoByteAddress, Long> startFrom,
-			final int[] includeObjIds,
-			final int[] excludeObjIds,
 			final int[] conUids,
 			final OraCdcDictionaryChecker checker,
 			final Map<Xid, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
+			final Map<Integer, Integer> iotMapping,
 			final OraCdcRedoMinerMgmt metrics,
 			final boolean rewind) throws SQLException {
 		super(task.runLatch(), task.rdbmsInfo(), task.config(),
@@ -149,23 +148,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.activeTransactions = activeTransactions;
 		this.metrics = metrics;
 		this.halfDone = new HashMap<>();
-		this.includeObjIds = includeObjIds;
-		this.staticObjIds = config.staticObjIds();
-		if (includeObjIds == null || includeObjIds.length == 0)
-			includeFilter = false;
-		else
-			includeFilter = true;
-		this.excludeObjIds = excludeObjIds;
-		if (excludeObjIds == null || excludeObjIds.length == 0)
-			excludeFilter = false;
-		else
-			excludeFilter = true;
 		this.conUids = conUids;
 		if (conUids == null || conUids.length == 0)
 			conFilter = false;
 		else
 			conFilter = true;
 		this.checker = checker;
+		this.iotMapping = iotMapping;
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
@@ -327,23 +316,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							addToHalfDoneRcm(record);
 							continue;
 						} else if (record.has5_1() && record.has11_x()) {
-							if (staticObjIds) {
-								if ((includeFilter &&
-										Arrays.binarySearch(includeObjIds, record.change5_1().obj()) < 0) ||
-									(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1)) {
-									continue;
-								}
-							} else {
-								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
-									continue;
-							}
+							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+								continue;
 							final short operation = record.change11_x().operation();
 							switch (operation) {
 							case _11_2_IRP:
 							case _11_3_DRP:
 							case _11_5_URP:
 							case _11_6_ORP:
+								iotObjRemap(true, record);
 								processRowChange(getTransaction(record), record, false);
 								break;
 							case _11_16_LMN:
@@ -372,16 +353,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							}
 							continue;
 						} else if (record.hasPrb() && record.has11_x()) {
-							if (staticObjIds) {
-								if ((includeFilter &&
-											Arrays.binarySearch(includeObjIds, record.changePrb().obj()) < 0) ||
-									(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, record.changePrb().obj()) > -1))
-									continue;
-							} else {
-								if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId()))
-									continue;
-							}
+							if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId()))
+								continue;
 							boolean suspiciousRecord = false;
 							final Xid xid = record.xid();
 							OraCdcTransaction transaction = activeTransactions.get(xid);
@@ -432,6 +405,26 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 							continue;
+						} else if (record.has5_1() && record.has10_x()) {
+							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+								continue;
+							final short operation = record.change10_x().operation();
+							switch (operation) {
+							case _10_2_LIN:
+							case _10_4_LDE:
+							case _10_18_LUP:
+							case _10_30_LNU:
+								iotObjRemap(false, record);
+								if (record.change5_1().fb() == 0 &&
+										record.change10_x().fb() == 0 &&
+										record.change5_1().supplementalFb() == 0)
+									continue;
+								processRowChange(getTransaction(record), record, false);
+								break;
+							default:
+								break;
+							}
+							continue;
 						} else if (record.hasColb()) {
 							final OraCdcChangeColb colb = record.changeColb();
 							if (processLobs && colb.longDump()) {
@@ -447,30 +440,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(XID=NULL)", colb.operation(), record.rba());
 								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", colb.operation(), record.rba());
 							} else if (!colb.longDump() && record.hasKrvDlr10()) {
-								if (staticObjIds) {
-									if ((includeFilter &&
-											Arrays.binarySearch(includeObjIds, colb.obj()) < 0) ||
-										(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, colb.obj()) > -1))
-										continue;
-								} else {
-									if (checker.notNeeded(colb.obj(), colb.conId()))
-										continue;
-								}
+								if (checker.notNeeded(colb.obj(), colb.conId()))
+									continue;
 								emitDirectBlockChange(getTransaction(record), record, colb);
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("", colb.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.hasLlb()) {
-							if (staticObjIds) {
-								if ((includeFilter &&
-										Arrays.binarySearch(includeObjIds, record.changeLlb().obj()) < 0) ||
-									(excludeFilter &&
-										Arrays.binarySearch(excludeObjIds, record.changeLlb().obj()) > -1))
-									continue;
-							} else {
-								if (checker.notNeeded(record.changeLlb().obj(), record.changeLlb().conId()))
-									continue;
-							}
+							if (checker.notNeeded(record.changeLlb().obj(), record.changeLlb().conId()))
+								continue;
 							final OraCdcChangeLlb llb = record.changeLlb();
 							final OraCdcTransactionChronicleQueue transaction =
 									(OraCdcTransactionChronicleQueue) getTransaction(record);
@@ -504,16 +481,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} else if (processLobs && record.hasKrvXml()) {
 							final OraCdcChangeKrvXml xml = record.changeKrvXml();
 							if (xml.type() == OraCdcChangeKrvXml.TYPE_XML_DOC) {
-								if (staticObjIds) {
-									if ((includeFilter &&
-											Arrays.binarySearch(includeObjIds, xml.obj()) < 0) ||
-										(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, xml.obj()) > -1))
-										continue;
-								} else {
-									if (checker.notNeeded(xml.obj(), xml.conId()))
-										continue;
-								}
+								if (checker.notNeeded(xml.obj(), xml.conId()))
+									continue;
 								final OraCdcTransactionChronicleQueue transaction =
 										(OraCdcTransactionChronicleQueue) getTransaction(record);
 								final short xmlColId = intColumnId(xml.obj(), xml.internalColId(), false);
@@ -526,17 +495,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP!=1)", xml.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.has5_1() && record.has26_x()) {
-							if (staticObjIds) {
-								if ((includeFilter &&
-										Arrays.binarySearch(includeObjIds, record.change5_1().obj()) < 0) ||
-									(excludeFilter &&
-											Arrays.binarySearch(excludeObjIds, record.change5_1().obj()) > -1)) {
-									continue;
-								}
-							} else {
-								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
-									continue;
-							}
+							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+								continue;
 							final LobId lid = record.change26_x().lid();
 							final OraCdcTransactionChronicleQueue transaction = 
 									(OraCdcTransactionChronicleQueue) activeTransactions.get(record.xid());
@@ -550,47 +510,45 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.has26_x()) {
-							if (record.change26_x().dataObj() != 0) {
-								if (staticObjIds) {
-									if ((includeFilter &&
-												Arrays.binarySearch(includeObjIds, record.change26_x().dataObj()) < 0) ||
-											(excludeFilter &&
-												Arrays.binarySearch(excludeObjIds, record.change26_x().dataObj()) > -1))
-											continue;
-								} else {
-									//TODO - need to implement dynamic list support for standalone OP:26.6!
-									if (checker.notNeeded(record.change26_x().obj(), record.change26_x().conId()))
-										continue;
-								}
-								final LobId lid = record.change26_x().lid();
-								if (lid != null) {
-									Xid xid = transFromLobId.get(lid);
-									if (xid != null) {
-										final OraCdcChangeLobs change = record.change26_x();
-										if (change.lobBimg()) {
-											final OraCdcTransactionChronicleQueue transaction = 
-													(OraCdcTransactionChronicleQueue) activeTransactions.get(xid);
-											if (transaction != null) {
-												final int[][] coords = change.coords();
-												transaction.writeLobChunk(
-													lid, change.record(), coords[LOB_BIMG_INDEX][0], coords[LOB_BIMG_INDEX][1],
-													false, (change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
-											} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
-										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(lobBimg()=false)", change.operation(), record.rba());
-									} else {
-										//OP:26.6 without accompanying OP:11.17
-										final OraCdcChangeLobs change = record.change26_x();
-										if (change.lobBimg()) {
-											final OraCdcTransactionChronicleQueue transaction =
-													(OraCdcTransactionChronicleQueue) getTransaction(record);
+							boolean checkDataObj = true;
+							if (record.change26_x().obj() != 0) {
+								if (checker.notNeeded(record.change26_x().obj(), record.change26_x().conId()))
+									continue;
+								else
+									checkDataObj = false;
+							}
+							if (checkDataObj && record.change26_x().dataObj() != 0) {
+								if (checker.notNeeded(record.change26_x().dataObj(), record.change26_x().conId()))
+									continue;
+							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(checkDataObj && dataObj=0)", record.change26_x().operation(), record.rba());
+							final LobId lid = record.change26_x().lid();
+							if (lid != null) {
+								Xid xid = transFromLobId.get(lid);
+								if (xid != null) {
+									final OraCdcChangeLobs change = record.change26_x();
+									if (change.lobBimg()) {
+										final OraCdcTransactionChronicleQueue transaction = 
+												(OraCdcTransactionChronicleQueue) activeTransactions.get(xid);
+										if (transaction != null) {
 											final int[][] coords = change.coords();
 											transaction.writeLobChunk(
-													lid, change.dataObj(), change.record(), coords[LOB_BIMG_INDEX][0], coords[LOB_BIMG_INDEX][1],
-													(change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
-										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(lobBimg()=false)", change.operation(), record.rba());
-									}
-								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", record.change26_x().operation(), record.rba());
-							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(obj=0)", record.change26_x().operation(), record.rba());
+												lid, change.record(), coords[LOB_BIMG_INDEX][0], coords[LOB_BIMG_INDEX][1],
+												false, (change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
+										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
+									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(lobBimg()=false)", change.operation(), record.rba());
+								} else {
+										//OP:26.6 without accompanying OP:11.17
+									final OraCdcChangeLobs change = record.change26_x();
+									if (change.lobBimg()) {
+										final OraCdcTransactionChronicleQueue transaction =
+												(OraCdcTransactionChronicleQueue) getTransaction(record);
+										final int[][] coords = change.coords();
+										transaction.writeLobChunk(
+												lid, change.dataObj(), change.record(), coords[LOB_BIMG_INDEX][0], coords[LOB_BIMG_INDEX][1],
+												(change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
+									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(lobBimg()=false)", change.operation(), record.rba());
+								}
+							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", record.change26_x().operation(), record.rba());
 							continue;
 						} else if (record.hasDdl()) {
 							//TODO
@@ -736,7 +694,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private void processRowChangeLmnUpdate(final OraCdcTransaction transaction,
-			final OraCdcRedoRecord record) {
+			final OraCdcRedoRecord record) throws IOException {
 		final byte fbLmn = record.change11_x().fb();
 		if (flgPrevPart(fbLmn) && flgNextPart(fbLmn)) {
 			//Just complete previous record
@@ -778,7 +736,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private void processRowChange(final OraCdcTransaction transaction,
-			final OraCdcRedoRecord record, final boolean partialRollback) {
+			final OraCdcRedoRecord record, final boolean partialRollback) throws IOException {
 		RowChangeHolder row = createRowChangeHolder(record, partialRollback);
 		if (row.complete) {
 			emitRowChange(transaction, row);
@@ -793,15 +751,29 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			} else {
 				RowChangeHolder halfDoneRow =  deque.peekFirst();
 				final OraCdcRedoRecord lastHalfDone = halfDoneRow.last();
+				final byte lastHalfDoneRowFb = lastHalfDone.has11_x() ?
+						lastHalfDone.change11_x().fb() : lastHalfDone.change10_x().fb();
 				final boolean push;
-				if (partialRollback)
-					push = lastHalfDone.change11_x().fb() == record.change11_x().fb();
-				else
-					if (record.change11_x().fb() == 0 && record.change5_1().fb() == 0)
-						push = false;
+				if (partialRollback) {
+					if (record.has11_x())
+						push = lastHalfDoneRowFb == record.change11_x().fb();
 					else
-						push = lastHalfDone.change11_x().fb() == record.change11_x().fb() && 
-								lastHalfDone.change5_1().fb() == record.change5_1().fb();
+						push = lastHalfDoneRowFb == record.change10_x().fb();
+				} else {
+					if (record.has11_x()) {
+						if (record.change11_x().fb() == 0 && record.change5_1().fb() == 0)
+							push = false;
+						else
+							push = lastHalfDoneRowFb == record.change11_x().fb() && 
+									lastHalfDone.change5_1().fb() == record.change5_1().fb();
+					} else {
+						if (record.change10_x().fb() == 0 && record.change5_1().fb() == 0)
+							push = false;
+						else
+							push = lastHalfDoneRowFb == record.change10_x().fb() && 
+									lastHalfDone.change5_1().fb() == record.change5_1().fb();
+					} 
+				}
 				if (push) {
 					row.add(record);
 					deque.addFirst(row);
@@ -828,50 +800,69 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private RowChangeHolder createRowChangeHolder(final OraCdcRedoRecord record, final boolean partialRollback) {
-		final RowChangeHolder row = new RowChangeHolder(partialRollback, record.change11_x().operation());
+		final OraCdcChange rowChange = record.has11_x() 
+				? record.change11_x()
+				: record.change10_x();
+		final RowChangeHolder row = new RowChangeHolder(partialRollback, rowChange.operation());
 		if (partialRollback) {
 			switch (row.operation) {
 			case _11_5_URP:
 			case _11_6_ORP:
 			case _11_16_LMN:
 				row.lmOp = UPDATE;
-				if (flgFirstPart(record.change11_x().fb()) && flgLastPart(record.change11_x().fb()))
+				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
-				else if (!flgHeadPart(record.change11_x().fb()))
+				else if (!flgHeadPart(rowChange.fb()))
 					row.oppositeOrder = true;
 				if (row.operation == _11_16_LMN) {
 					row.needHeadFlag = false;
-					if (flgFirstPart(record.change11_x().fb()))
+					if (flgFirstPart(rowChange.fb()))
 						row.oppositeOrder = true;
 				}
 				break;
 			case _11_2_IRP:
 				row.lmOp = INSERT;
-				if (flgFirstPart(record.change11_x().fb()) && flgLastPart(record.change11_x().fb()))
+				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
-				else if (!flgHeadPart(record.change11_x().fb()))
+				else if (!flgHeadPart(rowChange.fb()))
 					row.oppositeOrder = true;
 				break;
 			case _11_3_DRP:
 				row.lmOp = DELETE;
 				row.complete = true;
 				break;
+			case _10_2_LIN:
+				row.lmOp = INSERT;
+				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+					row.complete = true;
+				break;
+			case _10_4_LDE:
+				row.lmOp = DELETE;
+				if (flgFirstPart(record.changePrb().fb()) && flgLastPart(record.changePrb().fb()))
+					row.complete = true;
+				break;
+			case _10_18_LUP:
+				row.lmOp = UPDATE;
+				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+					row.complete = true;
+				break;
 			}
 		} else {
+			final OraCdcChangeUndoBlock undoChange = record.change5_1(); 
 			switch (row.operation) {
 			case _11_5_URP:
 			case _11_16_LMN:
 				row.lmOp = UPDATE;
-				if (flgFirstPart(record.change5_1().supplementalFb()) && flgLastPart(record.change5_1().supplementalFb()))
+				if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 						row.complete = true;
-				else if (flgFirstPart(record.change5_1().fb()) && flgLastPart(record.change5_1().fb()) &&
-						flgFirstPart(record.change11_x().fb()) && flgLastPart(record.change11_x().fb()))
+				else if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
+						flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(record.change5_1().fb()))
 					row.oppositeOrder = true;
 				if (row.operation == _11_16_LMN) {
 					row.needHeadFlag = false;
-					if (!flgFirstPart(record.change5_1().fb()) || flgFirstPart(record.change11_x().fb()))
+					if (!flgFirstPart(record.change5_1().fb()) || flgFirstPart(rowChange.fb()))
 						row.oppositeOrder = true;
 				}
 				break;
@@ -881,14 +872,45 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					row.lmOp = INSERT;
 				else
 					row.lmOp = UPDATE;
-				if (flgHeadPart(record.change11_x().fb()) && flgFirstPart(record.change11_x().fb()) && flgLastPart(record.change11_x().fb()))
+				if (flgHeadPart(rowChange.fb()) && flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
-				else if (!flgHeadPart(record.change11_x().fb()))
+				else if (!flgHeadPart(rowChange.fb()))
 					row.oppositeOrder = true;
 				break;
 			case _11_3_DRP:
 				row.lmOp = DELETE;
-				if (flgHeadPart(record.change5_1().fb()) && flgFirstPart(record.change5_1().fb()) && flgLastPart(record.change5_1().fb()))
+				if (flgHeadPart(undoChange.fb()) && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
+					row.complete = true;
+				else if (!flgHeadPart(undoChange.fb()))
+					row.oppositeOrder = true;
+				break;
+			case _10_2_LIN:
+				row.lmOp = INSERT;
+				if (flgHeadPart(rowChange.fb()) && flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+					row.complete = true;
+				else if (rowChange.fb() == 0 &&
+						flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
+					row.complete = true;					
+				else if (!flgHeadPart(rowChange.fb()))
+					row.oppositeOrder = true;
+				break;
+			case _10_4_LDE:
+				row.lmOp = DELETE;
+				if (flgHeadPart(undoChange.fb()) && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
+					row.complete = true;
+				else if (rowChange.fb() == 0 &&
+						flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
+					row.complete = true;					
+				else if (!flgHeadPart(undoChange.fb()))
+					row.oppositeOrder = true;
+				break;
+			case _10_18_LUP:
+				row.lmOp = UPDATE;
+				row.needHeadFlag = false;
+				if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
+					row.complete = true;
+				else if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
+					flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(record.change5_1().fb()))
 					row.oppositeOrder = true;
@@ -912,6 +934,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					if (flgHeadPart(fb)) head++;
 					if (flgFirstPart(fb)) first++;
 					if (flgLastPart(fb)) last++;
+				} else if (rr.has10_x() && rr.hasPrb()) {
+					final byte fb = rr.change10_x().fb();
+					if (flgHeadPart(fb)) head++;
+					if (flgFirstPart(fb)) first++;
+					if (flgLastPart(fb)) last++;
 				} else {
 					LOGGER.warn(
 							"\n=====================\n" +
@@ -925,6 +952,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				row.complete = true;
 			}
 		} else {
+			boolean iotUpdate = false;
 			int head = 0;
 			int first = 0;
 			int last = 0;
@@ -960,6 +988,29 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (flgFirstPart(fb11_x)) first++;
 						if (flgLastPart(fb11_x)) last++;
 					}
+				} else if (rr.has10_x() && rr.has5_1()) {
+					if (row.lmOp == DELETE) {
+						final byte fb = rr.change5_1().fb();
+						if (flgHeadPart(fb)) head++;
+						if (flgFirstPart(fb)) first++;
+						if (flgLastPart(fb)) last++;
+					} else if (row.lmOp == INSERT) {
+						final byte fb = rr.change10_x().fb();
+						if (flgHeadPart(fb)) head++;
+						if (flgFirstPart(fb)) first++;
+						if (flgLastPart(fb)) last++;
+					} else {
+						//UPDATE
+						iotUpdate = true;
+						final byte fb5_1 = rr.change5_1().fb();
+						if (flgHeadPart(fb5_1)) head++;
+						if (flgFirstPart(fb5_1)) first++;
+						if (flgLastPart(fb5_1)) last++;
+						final byte fb11_x = rr.change10_x().fb();
+						if (flgHeadPart(fb11_x)) head++;
+						if (flgFirstPart(fb11_x)) first++;
+						if (flgLastPart(fb11_x)) last++;
+					}
 				} else {
 					LOGGER.warn(
 							"\n=====================\n" +
@@ -972,13 +1023,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			if ((row.lmOp == INSERT || row.lmOp == DELETE) &&
 					head > 0 && first > 0 && last > 0)
 				row.complete = true;
-			else if (row.lmOp == UPDATE && row.needHeadFlag &&
-					head > 1 && first > 1 && last > 1)
-				row.complete = true;
-			else if (row.lmOp == UPDATE && !row.needHeadFlag &&
-					first > 1 && last > 1)
-				row.complete = true;
-			else
+			else if (row.lmOp == UPDATE) {
+				if (row.needHeadFlag && head > 1 && first > 1 && last > 1)
+					row.complete = true;
+				else if (!row.needHeadFlag && first > 1 && last > 1)
+					row.complete = true;
+				else if (iotUpdate && first > 0 && last > 0)
+					row.complete = true;
+			} else
 				row.complete = false;
 		}
 		if (LOGGER.isDebugEnabled()) {
@@ -1000,9 +1052,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							.append(" fb:")
 							.append(printFbFlags(record.changePrb().fb()))
 							.append(", OP:")
-							.append(formatOpCode(record.change11_x().operation()))
+							.append(formatOpCode(record.has11_x() ?
+										record.change11_x().operation() :
+										record.change10_x().operation()))
 							.append(" fb:")
-							.append(printFbFlags(record.change11_x().fb()));
+							.append(printFbFlags(record.has11_x() ?
+									record.change11_x().fb() :
+									record.change10_x().fb()));
 					else
 						sb
 							.append(", OP:5.1 fb:")
@@ -1010,16 +1066,20 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							.append(", supp fb:")
 							.append(printFbFlags(record.change5_1().supplementalFb()))
 							.append(", OP:")
-							.append(formatOpCode(record.change11_x().operation()))
+							.append(formatOpCode(record.has11_x() ?
+									record.change11_x().operation() :
+									record.change10_x().operation()))
 							.append(" fb:")
-							.append(printFbFlags(record.change11_x().fb()));
+							.append(printFbFlags(record.has11_x() ?
+									record.change11_x().fb() :
+									record.change10_x().fb()));
 				}
 				LOGGER.debug(sb.toString());
 			}
 		}
 	}
 
-	private void emitRowChange(final OraCdcTransaction transaction, final RowChangeHolder row) {
+	private void emitRowChange(final OraCdcTransaction transaction, final RowChangeHolder row) throws IOException {
 		if (row.reorder) {
 			if (LOGGER.isDebugEnabled()) {
 				final StringBuilder sb = new StringBuilder(0x100);
@@ -1054,7 +1114,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			int setOrValColCount = 0;
 			for (final OraCdcRedoRecord rr : row.records) {
 				totalBytes += rr.len();
-				final OraCdcChangeRowOp rowChange = rr.change11_x();
+				final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
 				if (row.homogeneous) {
 					// URP, IRP
 					setOrValColCount += rowChange.columnCount();
@@ -1076,11 +1136,24 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						whereColCount += change.columnCount();
 						whereColCount += change.supplementalCc();
 						whereColCount += rowChange.columnCount();
-					} else {
-						// _11_5_URP
+					} else if (rowChange.operation() == _11_5_URP) {
 						setOrValColCount += rowChange.columnCount();
 						whereColCount += change.columnCount();
 						whereColCount += change.supplementalCc();						
+					} else if (rowChange.operation() == _10_2_LIN) {
+						setOrValColCount += rowChange.columnCount();
+					} else if (rowChange.operation() == _10_4_LDE) {
+						setOrValColCount += change.columnCount();
+					} else if (rowChange.operation() == _10_18_LUP) {
+						whereColCount += change.columnCount();
+					} else if (rowChange.operation() == _10_30_LNU) {
+						setOrValColCount += rowChange.columnCount();
+					} else {
+						LOGGER.error(
+								"\n=====================\n" +
+								"Unable to count number of columns at RBA {} for OP:{}" +
+								"\n=====================\n",
+								rr.rba(), formatOpCode(rowChange.operation()));
 					}
 				} else {
 					//TODO
@@ -1129,18 +1202,22 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					final OraCdcRedoRecord rr = row.records.get(i);
 					final OraCdcChangeUndoBlock change = rr.change5_1();
 					if (rr.has5_1() && row.lmOp != INSERT) {
-						if (change.supplementalCc() > 0) {
-							writeSupplementalCols(baos, change, change.supplementalCc(), rr.rba());
-						}
-						if (OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCount() <= change.coords().length) {
-							writeColsWithNulls(
-									baos, change, OraCdcChangeUndoBlock.KDO_POS, 0,
-									change.suppOffsetUndo() == 0 ? colNumOffset : change.suppOffsetUndo(),
-									KDO_ORP_IRP_NULL_POS, change.columnCount());
-							colNumOffset += change.columnCount();
+						if (rr.has11_x()) {
+							if (change.supplementalCc() > 0) {
+								writeSupplementalCols(baos, change, change.supplementalCc(), rr.rba());
+							}
+							if (OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCount() <= change.coords().length) {
+								writeColsWithNulls(
+										baos, change, OraCdcChangeUndoBlock.KDO_POS, 0,
+										change.suppOffsetUndo() == 0 ? colNumOffset : change.suppOffsetUndo(),
+										KDO_ORP_IRP_NULL_POS, change.columnCount());
+								colNumOffset += change.columnCount();
+							} else {
+								LOGGER.warn("Unable to read column data for DELETE at RBA {}, change #{}",
+										rr.rba(), change.num());
+							}
 						} else {
-							LOGGER.warn("Unable to read column data for DELETE at RBA {}, change #{}",
-									rr.rba(), change.num());
+							colNumOffset += change.writeIndexColumns(baos, colNumOffset);
 						}
 					} else if (row.lmOp != INSERT && !rr.hasPrb()) {
 						LOGGER.warn("Redo record {} does not contains expected operation 5.1!", rr.rba());
@@ -1165,6 +1242,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 								colNumOffset += rowChange.columnCount();
 							}
+						} else if (rr.has10_x()) {
+							colNumOffset += rr.change10_x().writeIndexColumns(baos, colNumOffset);
 						} else {
 							LOGGER.warn("Redo record {} does not contains expected row change operation!", rr.rba());
 						}
@@ -1271,7 +1350,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					ByteArrayOutputStream baosW = new ByteArrayOutputStream(totalBytes);
 					for (final OraCdcRedoRecord rr : row.records) {
 						final OraCdcChangeUndoBlock change = rr.change5_1();
-						final OraCdcChangeRowOp rowChange = rr.change11_x();
+						final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
 						if (rowChange.operation() == _11_2_IRP) {
 							if (change.supplementalCc() > 0) {
 								writeSupplementalCols(baos, change, change.supplementalCc(), rr.rba());
@@ -1294,8 +1373,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
 									KDO_ORP_IRP_NULL_POS, rowChange.columnCount());
 							colNumOffsetSet += rowChange.columnCount();
-						} else {
-							// _11_5_URP
+						} else if (rowChange.operation() == _11_5_URP) {
 							if (change.supplementalCc() > 0) {
 								writeSupplementalCols(baosW, change, change.supplementalCc(), rr.rba());
 							}
@@ -1311,6 +1389,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 										KDO_URP_NULL_POS, rowChange.columnCount(), rowChange.columnCountNn());
 								colNumOffsetSet += rowChange.ncol(OraCdcChangeRowOp.KDO_POS);
 							}
+						} else if (rowChange.operation() == _10_18_LUP) {
+							colNumOffsetSet += change.writeIndexColumns(baosW,
+									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo());
+						} else if (rowChange.operation() == _10_30_LNU) {
+							colNumOffsetSet += rr.change10_x().writeIndexColumns(baos,
+									change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
+						} else {
+							LOGGER.error("Unknow operation OP:{} at RBA {}", formatOpCode(rowChange.operation()), rr.rba());
 						}
 					}
 					writeU16(baos, whereColCount);
@@ -1358,6 +1444,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					first.rowid(),
 					row.partialRollback);
 		transaction.addStatement(orm);
+		if (LOGGER.isTraceEnabled())
+			LOGGER.trace("Statement created:\n\t{}" + orm.getSqlRedo());
 		metrics.addRecord();
 	}
 
@@ -1491,7 +1579,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 	}
 
-	private void writeColSize(final ByteArrayOutputStream baos, final int colSize) {
+	private static void writeColSize(final ByteArrayOutputStream baos, final int colSize) {
 		if (colSize < 0xFE) {
 			baos.write(colSize);
 		} else {
@@ -1500,7 +1588,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 	}
 
-	private void writeU16(final ByteArrayOutputStream baos, final int u16) {
+	private static void writeU16(final ByteArrayOutputStream baos, final int u16) {
 		baos.write(u16 >> 8);
 		baos.write((byte)u16);
 	}
@@ -1648,11 +1736,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			records.add(record);
 			if (record.rba().compareTo(rba) < 0)
 				rba = record.rba();
-			if (!partialRollback)
+			if (!partialRollback && record.has11_x())
 				onlyLmn = onlyLmn && (record.change11_x().operation() == _11_16_LMN);
 			if (!complete && !partialRollback && records.size() == 1) {
 				final byte fb5_1 = record.change5_1().fb();
-				final byte fb11_x = record.change11_x().fb();
+				final byte fb11_x = record.has11_x() ? record.change11_x().fb() : record.change10_x().fb();
 				if (!flgFirstPart(fb5_1) && !flgLastPart(fb5_1) && !flgHeadPart(fb5_1) &&
 						!flgFirstPart(fb11_x) && !flgLastPart(fb11_x) && !flgHeadPart(fb11_x))
 					reorder = true;
@@ -1665,8 +1753,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							record.rba(),
 							formatOpCode(record.changePrb().operation()),
 							printFbFlags(record.changePrb().fb()),
-							formatOpCode(record.change11_x().operation()),
-							printFbFlags(record.change11_x().fb()));
+							formatOpCode(record.has11_x() ?
+									record.change11_x().operation() :
+									record.change10_x().operation()),
+							printFbFlags(record.has11_x() ?
+									record.change11_x().fb() :
+									record.change10_x().fb()));
 				} else {
 					LOGGER.debug("Adding XID {}, SCN {}, RBA {}, OP:5.1 fb:{}, supp fb:{}, OP:{} fb:{}",
 							record.xid(),
@@ -1674,8 +1766,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							record.rba(),
 							printFbFlags(record.change5_1().fb()),
 							printFbFlags(record.change5_1().supplementalFb()),
-							formatOpCode(record.change11_x().operation()),
-							printFbFlags(record.change11_x().fb()));
+							formatOpCode(record.has11_x() ?
+									record.change11_x().operation() :
+									record.change10_x().operation()),
+							printFbFlags(record.has11_x() ?
+									record.change11_x().fb() :
+									record.change10_x().fb()));
 				}
 			}
 		}
@@ -1697,13 +1793,27 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			for (int index = 0; index < records.size(); index++) {
 				final OraCdcRedoRecord record = records.get(index);
 				final byte fb5_1 = record.change5_1().fb();
-				final byte fb11_x = record.change11_x().fb();
+				final boolean rowOp = record.has11_x();
+				final byte fb11_x = rowOp 
+						? record.change11_x().fb()
+						: record.change10_x().fb() == 0
+								? record.change5_1().supplementalFb()
+								: record.change10_x().fb();
 				if (indexValue == -1)
 					switch (lmOp) {
 					case UPDATE:
-						if (flgFirstPart(fb5_1) || flgLastPart(fb5_1) || flgHeadPart(fb5_1) ||
-								flgFirstPart(fb11_x) || flgLastPart(fb11_x) || flgHeadPart(fb11_x)) {
-							indexValue = index;
+						if (rowOp) {
+							if (flgFirstPart(fb5_1) || flgLastPart(fb5_1) || flgHeadPart(fb5_1) ||
+									flgFirstPart(fb11_x) || flgLastPart(fb11_x) || flgHeadPart(fb11_x)) {
+								indexValue = index;
+							}
+						} else {
+							final byte fbSupp = record.change5_1().supplementalFb();
+							if (flgFirstPart(fb5_1) || flgLastPart(fb5_1) || flgHeadPart(fb5_1) ||
+									flgFirstPart(fb11_x) || flgLastPart(fb11_x) || flgHeadPart(fb11_x) ||
+									flgFirstPart(fbSupp) || flgLastPart(fbSupp) || flgHeadPart(fbSupp)) {
+								indexValue = index;
+							}
 						}
 						break;
 					case INSERT:
@@ -1726,9 +1836,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (flgLastPart(fb5_1) && flgLastPart(fb11_x)) indexLast = index;	
 						if (flgHeadPart(fb5_1) && flgHeadPart(fb11_x)) indexHead = index;
 					} else {
-						if (flgFirstPart(fb5_1) || flgFirstPart(fb11_x)) indexFirst = index;
-						if (flgLastPart(fb5_1) || flgLastPart(fb11_x)) indexLast = index;	
-						if (flgHeadPart(fb5_1) || flgHeadPart(fb11_x)) indexHead = index;
+						if (rowOp) {
+							if (flgFirstPart(fb5_1) || flgFirstPart(fb11_x)) indexFirst = index;
+							if (flgLastPart(fb5_1) || flgLastPart(fb11_x)) indexLast = index;	
+							if (flgHeadPart(fb5_1) || flgHeadPart(fb11_x)) indexHead = index;
+						} else {
+							if (flgFirstPart(fb11_x)) indexFirst = index;
+							if (flgLastPart(fb11_x)) indexLast = index;	
+							if (flgHeadPart(fb11_x)) indexHead = index;
+						}
 					}
 					break;
 				case INSERT:
@@ -1753,8 +1869,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				sortedRecs.add(records.get(indexLast));
 			else
 				sortedRecs.add(records.get(indexFirst));
-			for (int index = 0; index < indexValue; index++)
-				sortedRecs.add(records.get(index));
+			if (indexValue == 0 && indexValue != indexFirst && indexValue != indexLast)
+				sortedRecs.add(records.get(0));
+			else {	
+				for (int index = 0; index < indexValue; index++)
+					sortedRecs.add(records.get(index));
+			}
 			if (oppositeOrder)
 				sortedRecs.add(records.get(indexFirst));
 			else
@@ -2027,6 +2147,25 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 				}
 				attempt++;
+			}
+		}
+	}
+
+	private void iotObjRemap(final boolean overflow, final OraCdcRedoRecord record) {
+		final Integer iotObjId = iotMapping.get(record.change5_1().obj());
+		if (iotObjId  != null) {
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug(
+						"Remapping {} obj {} at RBA {} to parent obj {}",
+						overflow ? "OVF" : "IND", record.change5_1().obj(), record.rba(), iotObjId);
+			record.change5_1().obj(iotObjId);
+			record.change5_1().dataObj(iotObjId);
+			if (overflow) {
+				record.change11_x().obj(iotObjId);
+				record.change11_x().dataObj(iotObjId);
+			} else {
+				record.change10_x().obj(iotObjId);
+				record.change10_x().dataObj(iotObjId);
 			}
 		}
 	}

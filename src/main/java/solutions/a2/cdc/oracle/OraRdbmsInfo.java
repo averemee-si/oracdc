@@ -21,9 +21,11 @@ import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -800,19 +802,19 @@ public class OraRdbmsInfo {
 		} else {
 			sb.append(" and (DATA_OBJ# in (");
 		}
-		int[] data = getMineObjectsIds(exclude, where, connection, false);
+		Set<Integer> data = getMineObjectsIds(exclude, where, connection, false).getKey();
 		
 		boolean firstValue = true;
 		boolean lastValue = false;
 		int recordCount = 0;
-		for (int i = 0; i < data.length; i++) {
+		for (int id : data) {
 			lastValue = false;
 			if (firstValue) {
 				firstValue = false;
 			} else {
 				sb.append(',');
 			}
-			sb.append(Integer.toUnsignedLong(data[i]));
+			sb.append(Integer.toUnsignedLong(id));
 			recordCount++;
 			if (recordCount > 999) {
 				// ORA-01795
@@ -845,11 +847,12 @@ public class OraRdbmsInfo {
 	 * @return
 	 * @throws SQLException
 	 */
-	public int[] getMineObjectsIds(final boolean exclude,
+	public Entry<Set<Integer>, Map<Integer, Integer>> getMineObjectsIds(final boolean exclude,
 			final String where, final Connection connection,
 			final boolean processLobs) throws SQLException {
-		List<Integer> list = new ArrayList<>(0x100);
-		
+		Set<Integer> objIds = new HashSet<>(0x100);
+		Map<Integer, Integer> iotIds = new HashMap<>();
+
 		//TODO
 		//TODO For CDB - pair required!!!
 		//TODO OBJECT_ID is not unique!!!
@@ -867,21 +870,24 @@ public class OraRdbmsInfo {
 						where
 					: "");
 
-		if (LOGGER.isDebugEnabled()) {
+		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("SQL for getting object Id's = {}", selectObjectIds);
-		}
 		PreparedStatement ps = connection.prepareStatement(selectObjectIds,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		
 		ResultSet rs = ps.executeQuery();
 		while (rs.next()) {
-			list.add((int) rs.getInt(1));
+			final int objId = rs.getInt(1);
+			final int parentId = rs.getInt(2);
+			objIds.add(objId);
+			if (objId != parentId)
+				iotIds.put(objId, parentId);
 		}
 		rs.close();
 		rs = null;
 		ps.close();
 		ps = null;
-		if (list.size() == 0 && !exclude) {
+		if (objIds.size() == 0 && !exclude) {
 			LOGGER.error(
 					"\n" +
 					"=====================\n" +
@@ -889,16 +895,8 @@ public class OraRdbmsInfo {
 					"didn't return any rows!\n" +
 					"=====================\n",
 					selectObjectIds);
-		}
-		if (list.size() > 0) {
-			Collections.sort(list);
-		}
-		final int[] result = new int[list.size()];
-		for (int i = 0; i < list.size(); i++) {
-			result[i] = list.get(i);
-		}
-		list = null;
-		return result;
+		}		
+		return Map.entry(objIds, iotIds);
 	}
 
 	public String getConUidsList(final Connection connection) throws SQLException {
