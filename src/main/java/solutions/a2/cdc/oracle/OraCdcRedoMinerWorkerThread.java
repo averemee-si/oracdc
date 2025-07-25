@@ -91,6 +91,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_4;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLobs.LOB_BIMG_INDEX;
 import static solutions.a2.oracle.utils.BinaryUtils.parseTimestamp;
+import static solutions.a2.oracle.utils.BinaryUtils.putU16;
 
 /**
  * 
@@ -1186,12 +1187,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			if (row.lmOp == INSERT || row.lmOp == DELETE ||
 					(row.partialRollback && row.lmOp == UPDATE && first.change11_x().operation() == _11_6_ORP)) {
 				if (row.partialRollback) {
-					writeU16(baos, setOrValColCount);
+					putU16(baos, setOrValColCount);
 				} else {
 					if (row.lmOp == INSERT)
-						writeU16(baos, setOrValColCount);
+						putU16(baos, setOrValColCount);
 					else
-						writeU16(baos, supplColCount + whereColCount);
+						putU16(baos, supplColCount + whereColCount);
 				}
 				int colNumOffset = 1;
 				final int rsiz = row.size();
@@ -1260,16 +1261,16 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					}
 				}
 				if (row.partialRollback && first.change11_x().operation() == _11_6_ORP) {
-					writeU16(baos, 0);
+					putU16(baos, 0);
 				}
 			} else {
 				//UPDATE
 				int colNumOffsetSet = 1;
 				int colNumOffsetWhere = 1;
 				if (row.onlyLmn)
-					writeU16(baos, whereColCount + supplColCount);
+					putU16(baos, whereColCount + supplColCount);
 				else
-					writeU16(baos, setOrValColCount);
+					putU16(baos, setOrValColCount);
 				if (row.homogeneous) {
 					for (final OraCdcRedoRecord rr : row.records) {
 						final OraCdcChangeUndoBlock change = rr.change5_1();
@@ -1306,9 +1307,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						colNumOffsetSet += rowChange.columnCount();
 					}
 					if (row.partialRollback) {
-						writeU16(baos, 0);
+						putU16(baos, 0);
 					} else {
-						writeU16(baos, whereColCount + supplColCount);
+						putU16(baos, whereColCount + supplColCount);
 						for (final OraCdcRedoRecord rr : row.records) {
 							final OraCdcChangeUndoBlock change = rr.change5_1();
 							change.writeSupplementalCols(baos);
@@ -1388,7 +1389,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							LOGGER.error("Unknow operation OP:{} at RBA {}", formatOpCode(rowChange.operation()), rr.rba());
 						}
 					}
-					writeU16(baos, whereColCount);
+					putU16(baos, whereColCount);
 					try {
 						baos.write(baosW.toByteArray());
 						baosW.close();
@@ -1441,7 +1442,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private void emitMultiRowChange(
 			final OraCdcTransaction transaction,
 			final OraCdcRedoRecord rr,
-			final boolean partialRollback) {
+			final boolean partialRollback) throws IOException {
 		final int index;
 		final short lmOp;
 		final OraCdcChangeRowOp rowChange = rr.change11_x();
@@ -1490,14 +1491,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					rowDiff += redoLog.bigScn() ? Long.BYTES : (Integer.BYTES + Short.BYTES);
 				}
 				ByteArrayOutputStream baos = new ByteArrayOutputStream(coords[index + 2][1]/rowCount + 0x100);
-				writeU16(baos, columnCount);
+				putU16(baos, columnCount);
 				for (int col = 0; col < columnCount; col++) {
-					writeU16(baos, col + 1);
+					putU16(baos, col + 1);
 					int colSize = Byte.toUnsignedInt(record[coords[index +2][0] + rowDiff++]);
 					if (colSize ==  0xFE) {
 						baos.write(0xFE);
 						colSize = Short.toUnsignedInt(bu.getU16(record, coords[index + 2][0] + rowDiff));
-						writeU16(baos, colSize);
+						putU16(baos, colSize);
 						rowDiff += Short.BYTES;
 					} else  if (colSize == 0xFF) {
 						colSize = 0;
@@ -1527,7 +1528,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private void emitDirectBlockChange(
 			final OraCdcTransaction transaction,
 			final OraCdcRedoRecord rr,
-			final OraCdcChangeColb colb) {
+			final OraCdcChangeColb colb) throws IOException {
 		final byte[] record = colb.record();
 		final int[][] coords = colb.coords();
 		final OraCdcRedoLog redoLog = colb.redoLog();
@@ -1537,14 +1538,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final int columnCount = Byte.toUnsignedInt(record[startPos + offset + 2]);
 			int rowDiff = colb.lobDataOffset() + offset + 3;
 			ByteArrayOutputStream baos = new ByteArrayOutputStream(columnCount * 0x80);
-			writeU16(baos, columnCount);
+			putU16(baos, columnCount);
 			for (int col = 0; col < columnCount; col++) {
-				writeU16(baos, col + 1);
+				putU16(baos, col + 1);
 				int colSize = Byte.toUnsignedInt(record[coords[0][0] + rowDiff++]);
 				if (colSize ==  0xFE) {
 					baos.write(0xFE);
 					colSize = Short.toUnsignedInt(bu.getU16(record, coords[0][0] + rowDiff));
-					writeU16(baos, colSize);
+					putU16(baos, colSize);
 					rowDiff += Short.BYTES;
 				} else  if (colSize == 0xFF) {
 					colSize = 0;
@@ -1566,11 +1567,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			transaction.addStatement(orm);
 			metrics.addRecord();
 		}
-	}
-
-	private static void writeU16(final ByteArrayOutputStream baos, final int u16) {
-		baos.write(u16 >> 8);
-		baos.write((byte)u16);
 	}
 
 	private static class RowChangeHolder {
