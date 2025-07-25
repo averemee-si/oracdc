@@ -1205,10 +1205,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (rr.has11_x()) {
 							change.writeSupplementalCols(baos);
 							if (OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCount() <= change.coords().length) {
-								writeColsWithNulls(
-										baos, change, OraCdcChangeUndoBlock.KDO_POS, 0,
+								change.writeColsWithNulls(
+										baos, OraCdcChangeUndoBlock.KDO_POS, 0,
 										change.suppOffsetUndo() == 0 ? colNumOffset : change.suppOffsetUndo(),
-										KDO_ORP_IRP_NULL_POS, change.columnCount());
+										KDO_ORP_IRP_NULL_POS);
 								colNumOffset += change.columnCount();
 							} else {
 								LOGGER.warn("Unable to read column data for DELETE at RBA {}, change #{}",
@@ -1225,15 +1225,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							final OraCdcChangeRowOp rowChange = rr.change11_x();
 							if (OraCdcChangeRowOp.KDO_POS + rowChange.columnCount() < rowChange.coords().length) {
 								if (change != null) {
-									writeColsWithNulls(
-											baos, rowChange, OraCdcChangeRowOp.KDO_POS, 0,
+									rowChange.writeColsWithNulls(
+											baos, OraCdcChangeRowOp.KDO_POS, 0,
 											change.suppOffsetRedo() == 0 ? colNumOffset : change.suppOffsetRedo(),
-											KDO_ORP_IRP_NULL_POS, rowChange.columnCount());
+											KDO_ORP_IRP_NULL_POS);
 								} else if (row.partialRollback) {
-									writeColsWithNulls(
-											baos, rowChange, OraCdcChangeRowOp.KDO_POS, 0,
-											colNumOffset,
-											KDO_ORP_IRP_NULL_POS, rowChange.columnCount());
+									rowChange.writeColsWithNulls(
+											baos, OraCdcChangeRowOp.KDO_POS, 0,
+											colNumOffset, KDO_ORP_IRP_NULL_POS);
 								} else {
 									LOGGER.warn("Unable to read column data for INSERT at RBA {}",
 											rr.rba());
@@ -1286,18 +1285,18 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							}
 						} else if (rowChange.operation() == _11_5_URP &&
 								OraCdcChangeRowOp.KDO_POS + 1 + rowChange.columnCount() < rowChange.coords().length) {
-							writeColsWithNulls(
-									baos, rowChange, OraCdcChangeRowOp.KDO_POS, OraCdcChangeRowOp.KDO_POS + 1,
+							rowChange.writeColsWithNulls(
+									baos, OraCdcChangeRowOp.KDO_POS, OraCdcChangeRowOp.KDO_POS + 1,
 									row.partialRollback ?  colNumOffsetSet : 
 										(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
-									KDO_URP_NULL_POS, rowChange.columnCount(), rowChange.columnCountNn());
+									KDO_URP_NULL_POS);
 						} else if (rowChange.operation() == _11_6_ORP &&
 								OraCdcChangeRowOp.KDO_POS + rowChange.columnCount() < rowChange.coords().length) {
-							writeColsWithNulls(
-									baos, rowChange, OraCdcChangeRowOp.KDO_POS, 0,
+							rowChange.writeColsWithNulls(
+									baos, OraCdcChangeRowOp.KDO_POS, 0,
 									row.partialRollback ?  colNumOffsetSet : 
 										(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
-									KDO_ORP_IRP_NULL_POS, rowChange.columnCount(), rowChange.columnCountNn());
+									KDO_ORP_IRP_NULL_POS);
 						} else if (row.onlyLmn) {
 							change.writeSupplementalCols(baos);
 						} else {
@@ -1326,14 +1325,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									}
 								} else if (selector == _11_5_URP &&
 										OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCountNn() < change.coords().length) {
-									writeColsWithNulls(baos, change, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
+									change.writeColsWithNulls(baos, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
 											change.suppOffsetUndo() == 0 ? colNumOffsetWhere : change.suppOffsetUndo(),
-											KDO_URP_NULL_POS, change.columnCount());
+											KDO_URP_NULL_POS);
 								} else if (selector == _11_6_ORP &&
 										OraCdcChangeUndoBlock.KDO_POS + change.columnCountNn() < change.coords().length) {
-									writeColsWithNulls(baos, change, OraCdcChangeUndoBlock.KDO_POS, 0,
+									change.writeColsWithNulls(baos, OraCdcChangeUndoBlock.KDO_POS, 0,
 											change.suppOffsetUndo() == 0 ? colNumOffsetWhere : change.suppOffsetUndo(),
-											KDO_ORP_IRP_NULL_POS, change.columnCount());
+											KDO_ORP_IRP_NULL_POS);
 								} else {
 									LOGGER.warn("Unable to read column data for UPDATE(WHERE) at RBA {}, change #{}",
 											rr.rba(), change.num());
@@ -1349,34 +1348,34 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
 						if (rowChange.operation() == _11_2_IRP) {
 							change.writeSupplementalCols(baos);
-							writeColsWithNulls(
-									baos, rowChange, OraCdcChangeRowOp.KDO_POS, 0,
+							rowChange.writeColsWithNulls(
+									baos, OraCdcChangeRowOp.KDO_POS, 0,
 									change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
-									KDO_ORP_IRP_NULL_POS, rowChange.columnCount());
+									KDO_ORP_IRP_NULL_POS);
 						} else if (rowChange.operation() == _11_6_ORP) {
 							change.writeSupplementalCols(baosW);
-							writeColsWithNulls(
-									baosW, change, OraCdcChangeUndoBlock.KDO_POS, 0,
+							change.writeColsWithNulls(
+									baosW, OraCdcChangeUndoBlock.KDO_POS, 0,
 									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
-									KDO_ORP_IRP_NULL_POS, change.columnCount());
+									KDO_ORP_IRP_NULL_POS);
 							colNumOffsetSet += change.columnCount();
-							writeColsWithNulls(
-									baosW, rowChange, OraCdcChangeRowOp.KDO_POS, 0,
+							rowChange.writeColsWithNulls(
+									baosW, OraCdcChangeRowOp.KDO_POS, 0,
 									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
-									KDO_ORP_IRP_NULL_POS, rowChange.columnCount());
+									KDO_ORP_IRP_NULL_POS);
 							colNumOffsetSet += rowChange.columnCount();
 						} else if (rowChange.operation() == _11_5_URP) {
 							change.writeSupplementalCols(baosW);
 							if (OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCountNn() < change.coords().length) {
-								writeColsWithNulls(baosW, change, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
-										change.suppOffsetUndo(), KDO_URP_NULL_POS, change.columnCount());
+								change.writeColsWithNulls(baosW, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
+										change.suppOffsetUndo(), KDO_URP_NULL_POS);
 							}
 							if (OraCdcChangeRowOp.KDO_POS + 1 + rowChange.columnCount() < rowChange.coords().length) {
-								colNumOffsetSet += writeColsWithNulls(
-										baos, rowChange, OraCdcChangeRowOp.KDO_POS, OraCdcChangeRowOp.KDO_POS + 1,
+								colNumOffsetSet += rowChange.writeColsWithNulls(
+										baos, OraCdcChangeRowOp.KDO_POS, OraCdcChangeRowOp.KDO_POS + 1,
 										row.partialRollback ?  colNumOffsetSet : 
 											(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
-										KDO_URP_NULL_POS, rowChange.columnCount(), rowChange.columnCountNn());
+										KDO_URP_NULL_POS);
 								colNumOffsetSet += rowChange.ncol(OraCdcChangeRowOp.KDO_POS);
 							}
 						} else if (rowChange.operation() == _10_18_LUP) {
@@ -1569,70 +1568,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 	}
 
-	private static void writeColSize(final ByteArrayOutputStream baos, final int colSize) {
-		if (colSize < 0xFE) {
-			baos.write(colSize);
-		} else {
-			baos.write(0xFE);
-			writeU16(baos, colSize);
-		}
-	}
-
 	private static void writeU16(final ByteArrayOutputStream baos, final int u16) {
 		baos.write(u16 >> 8);
 		baos.write((byte)u16);
-	}
-
-	private int writeColsWithNulls(
-			final ByteArrayOutputStream baos, final OraCdcChange change,
-			final int index, final int colNumIndex, final int offset,
-			final int nullPos, final int count) {
-		return writeColsWithNulls(baos, change, index, colNumIndex, offset, nullPos, count, Integer.MAX_VALUE);
-	}
-
-	private int writeColsWithNulls(
-			final ByteArrayOutputStream baos, final OraCdcChange change,
-			final int index, final int colNumIndex, final int offset,
-			final int nullPos, final int count, final int colNn) {
-		final byte[] record = change.record();
-		final int[][] coords = change.coords();
-		final int colNumOffset;
-		if (colNumIndex > 0) {
-			colNumOffset = offset - bu.getU16(record, coords[colNumIndex][0]);
-		} else {
-			colNumOffset = offset;
-		}
-		byte mask = 1;
-		int diff = nullPos;
-		for (int i = 0; i < count; i++) {
-			final int colDataIndex = index + i + (colNumIndex > 0 ? 2 : 1);
-			final int colNum;
-			if (colNumIndex > 0) {
-				colNum = bu.getU16(record, coords[colNumIndex][0] + i * Short.BYTES) + colNumOffset;
-			} else {
-				colNum = i  + colNumOffset;
-			}
-			writeU16(baos, colNum);
-			boolean isNull = false;
-			if ((record[coords[index][0] + diff] & mask) != 0) {
-				isNull = true;
-			}
-			mask <<= 1;
-			if (mask == 0) {
-				mask = 1;
-				diff++;
-			}
-			if (isNull) {
-				baos.write(0xFF);
-			} else {
-				final int colSize = coords[colDataIndex][1];
-				writeColSize(baos, colSize);
-				if (colSize > 0) {
-					baos.write(record, coords[colDataIndex][0], colSize);
-				}
-			}
-		}
-		return colNumOffset;
 	}
 
 	private static class RowChangeHolder {

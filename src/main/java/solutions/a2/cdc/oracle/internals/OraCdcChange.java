@@ -1636,5 +1636,47 @@ public class OraCdcChange {
 		}
 	}
 
+	public int writeColsWithNulls(final ByteArrayOutputStream baos,
+			final int index, final int colNumIndex, final int offset,
+			final int nullPos) throws IOException {
+		final int colNumOffset;
+		if (colNumIndex > 0) {
+			colNumOffset = offset - redoLog.bu().getU16(record, coords[colNumIndex][0]);
+		} else {
+			colNumOffset = offset;
+		}
+		byte mask = 1;
+		int diff = nullPos;
+		for (int i = 0; i < columnCount; i++) {
+			final int colDataIndex = index + i + (colNumIndex > 0 ? 2 : 1);
+			final int colNum;
+			if (colNumIndex > 0) {
+				colNum = redoLog.bu().getU16(record, coords[colNumIndex][0] + i * Short.BYTES) + colNumOffset;
+			} else {
+				colNum = i  + colNumOffset;
+			}
+			putU16(baos, colNum);
+			boolean isNull = false;
+			if ((record[coords[index][0] + diff] & mask) != 0) {
+				isNull = true;
+			}
+			mask <<= 1;
+			if (mask == 0) {
+				mask = 1;
+				diff++;
+			}
+			if (isNull) {
+				baos.write(0xFF);
+			} else {
+				final int colSize = coords[colDataIndex][1];
+				putOraColSize(baos, colSize);
+				if (colSize > 0) {
+					baos.write(record, coords[colDataIndex][0], colSize);
+				}
+			}
+		}
+		return colNumOffset;
+	}
+
 
 }
