@@ -553,10 +553,13 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		} else {
 			currentBlock = blockCount;
 			lastStatus = false;
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("The specified range RBA {} - SCN {} does not match the sequence {} of redo log file '{}'!",
-						startRba, endScn, sequence, fileName);
-			}
+			LOGGER.error(
+					"\n=====================\n" +
+					"The specified range, starting from RBA={} (sequence from RBA={}) to SCN={},\n does not match the sequence {} and the SCN range {}-{} of the redo log file '{}'!" +
+					"\n=====================\n",
+					startRba, Integer.toUnsignedLong(startRba.sqn()), endScn,
+					Integer.toUnsignedLong(sequence), Long.toUnsignedString(firstScn), Long.toUnsignedString(nextScn), fileName);
+			throw new IOException("Unable to create iterator!");
 		}
 		return this;
 	}
