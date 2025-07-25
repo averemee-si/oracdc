@@ -1281,7 +1281,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								(rowChange.flags() & KDO_KDOM2) != 0) {
 							if (rowChange.coords()[OraCdcChangeRowOp.KDO_POS + 1][1] > 1 &&
 									OraCdcChangeRowOp.KDO_POS + 2 < rowChange.coords().length) {
-								writeKdoKdom2(baos, rowChange, OraCdcChangeRowOp.KDO_POS);
+								rowChange.writeKdoKdom2(baos, OraCdcChangeRowOp.KDO_POS);
 							} else {
 								LOGGER.warn("Not enough data to process KDO_KDOM2 structure at RBA {}, change #{}",
 										rr.rba(), rowChange.num());
@@ -1323,7 +1323,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 										(change.flags() & KDO_KDOM2) != 0) {
 									if (change.coords()[OraCdcChangeUndoBlock.KDO_POS + 1][1] > 1 &&
 											OraCdcChangeUndoBlock.KDO_POS + 2 < change.coords().length) {
-										writeKdoKdom2(baos, change, OraCdcChangeUndoBlock.KDO_POS);
+										change.writeKdoKdom2(baos, OraCdcChangeUndoBlock.KDO_POS);
 									} else {
 										LOGGER.warn("Not enough data to process KDO_KDOM2 structure at RBA {}, change #{}",
 												rr.rba(), change.num());
@@ -1675,32 +1675,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						i, rba);
 				break;
 			}
-		}
-	}
-
-	private void writeKdoKdom2(final ByteArrayOutputStream baos, final OraCdcChange change, final int index) {
-		final int[][] coords = change.coords();
-		final byte[] record = change.record();
-		final short colNumOffset = bu.getU16(record, coords[index + 1][0]);
-		int rowDiff = 0;
-		for (int i = 0; i < change.columnCount(); i++) {
-			writeU16(baos, i + colNumOffset);
-			int colSize = Byte.toUnsignedInt(record[coords[index +2][0] + rowDiff++]);
-			if (colSize ==  0xFE) {
-				baos.write(0xFE);
-				colSize = Short.toUnsignedInt(bu.getU16(record, coords[index + 2][0] + rowDiff));
-				writeU16(baos, colSize);
-				rowDiff += Short.BYTES;
-			} else if (colSize == 0xFF) {
-				colSize = 0;
-				baos.write(0xFF);
-			} else {
-				baos.write(colSize);
-			}
-			if (colSize != 0) {
-				baos.write(record, coords[index + 2][0] + rowDiff, colSize);
-				rowDiff += colSize;
-			}									
 		}
 	}
 

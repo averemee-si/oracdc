@@ -1612,4 +1612,29 @@ public class OraCdcChange {
 		return col;
 	}
 
+	public void writeKdoKdom2(final ByteArrayOutputStream baos, final int index) throws IOException {
+		final short colNumOffset = redoLog.bu().getU16(record, coords[index + 1][0]);
+		int rowDiff = 0;
+		for (int i = 0; i < this.columnCount(); i++) {
+			putU16(baos, i + colNumOffset);
+			int colSize = Byte.toUnsignedInt(record[coords[index +2][0] + rowDiff++]);
+			if (colSize ==  0xFE) {
+				baos.write(0xFE);
+				colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index + 2][0] + rowDiff));
+				putU16(baos, colSize);
+				rowDiff += Short.BYTES;
+			} else if (colSize == 0xFF) {
+				colSize = 0;
+				baos.write(0xFF);
+			} else {
+				baos.write(colSize);
+			}
+			if (colSize != 0) {
+				baos.write(record, coords[index + 2][0] + rowDiff, colSize);
+				rowDiff += colSize;
+			}									
+		}
+	}
+
+
 }
