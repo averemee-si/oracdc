@@ -259,6 +259,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							break;
 						}
 						lastScn = record.scn();
+						lastRba = record.rba();
+						lastSubScn = record.subScn();
 						if (record.hasLwn()) {
 							lwnUnixMillis = parseTimestamp(record.ts()).atZone(dbZoneId).toInstant().toEpochMilli();
 							while (halfDoneRcm.size() > 0) {
@@ -309,8 +311,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} else {
 							notFirstRecord = true;
 						}
-						lastRba = record.rba();
-						lastSubScn = record.subScn();
 						//BEGIN: Main decision tree
 						if (record.has5_4()) {
 							addToHalfDoneRcm(record);
