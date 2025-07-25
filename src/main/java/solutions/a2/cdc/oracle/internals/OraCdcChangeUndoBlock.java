@@ -21,6 +21,9 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.oracle.internals.Xid;
 
+import static solutions.a2.oracle.utils.BinaryUtils.putOraColSize;
+import static solutions.a2.oracle.utils.BinaryUtils.putU16;
+
 /**
  * 
  * Based on
@@ -324,14 +327,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		return supplementalFb;
 	}
 
-	public int supplementalCcNn() {
-		return supplementalCcNn;
-	}
-
-	public int suppDataStartIndex() {
-		return suppDataStartIndex;
-	}
-
 	public int supplementalCc() {
 		return supplementalCc;
 	}
@@ -393,6 +388,35 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 	public int writeIndexColumns(final ByteArrayOutputStream baos, final int colNumIndex) throws IOException {
 		return writeIndexColumns(baos, 4, (kdilk & KDLIK_NONKEY) != 0, colNumIndex);
+	}
+
+	public void writeSupplementalCols(final ByteArrayOutputStream baos) throws IOException {
+		if (supplementalCc == 0)
+			return;
+		final int colNumIndex = suppDataStartIndex + 1;
+		final int dataEndPos = supplementalCc + suppDataStartIndex + 0x3;
+		int colIndex = 0;
+		for (int i = suppDataStartIndex + 0x3; i < dataEndPos; i++) {
+			if (i < coords.length) {
+				final int colNum = redoLog.bu().getU16(record, coords[colNumIndex][0] + colIndex * Short.BYTES);
+				putU16(baos, colNum);
+				if (colIndex < supplementalCcNn) {
+					final int colSize = coords[i][1];
+					if (colSize == 0) {
+						baos.write(0xFF);
+					} else {
+						putOraColSize(baos, colSize);
+						baos.write(record, coords[i][0], colSize);
+					}
+				} else {
+					baos.write(0xFF);
+				}
+				colIndex++;
+			} else {
+				LOGGER.warn("Incorrect index {} when processing redo record at rba {}", i, rba);
+				break;
+			}
+		}
 	}
 
 }

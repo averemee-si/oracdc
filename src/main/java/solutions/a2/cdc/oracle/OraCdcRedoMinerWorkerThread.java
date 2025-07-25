@@ -1203,9 +1203,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					final OraCdcChangeUndoBlock change = rr.change5_1();
 					if (rr.has5_1() && row.lmOp != INSERT) {
 						if (rr.has11_x()) {
-							if (change.supplementalCc() > 0) {
-								writeSupplementalCols(baos, change, change.supplementalCc(), rr.rba());
-							}
+							change.writeSupplementalCols(baos);
 							if (OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCount() <= change.coords().length) {
 								writeColsWithNulls(
 										baos, change, OraCdcChangeUndoBlock.KDO_POS, 0,
@@ -1300,8 +1298,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									row.partialRollback ?  colNumOffsetSet : 
 										(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
 									KDO_ORP_IRP_NULL_POS, rowChange.columnCount(), rowChange.columnCountNn());
-						} else if (row.onlyLmn && change.supplementalCc() > 0) {
-							writeSupplementalCols(baos, change, change.supplementalCc(), rr.rba());
+						} else if (row.onlyLmn) {
+							change.writeSupplementalCols(baos);
 						} else {
 							LOGGER.warn("Unable to read column data for UPDATE (SET) at RBA {}, change #{}",
 									rr.rba(), rowChange.num());
@@ -1314,9 +1312,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						writeU16(baos, whereColCount + supplColCount);
 						for (final OraCdcRedoRecord rr : row.records) {
 							final OraCdcChangeUndoBlock change = rr.change5_1();
-							if (change.supplementalCc() > 0) {
-								writeSupplementalCols(baos, change, change.supplementalCc(), rr.rba());
-							}
+							change.writeSupplementalCols(baos);
 							if (change.columnCount() > 0) {
 								final short selector = (short) ((change.op() & 0x1F) | (KCOCODRW << 0x08));
 								if (change.operation() == _11_5_URP &&
@@ -1352,17 +1348,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						final OraCdcChangeUndoBlock change = rr.change5_1();
 						final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
 						if (rowChange.operation() == _11_2_IRP) {
-							if (change.supplementalCc() > 0) {
-								writeSupplementalCols(baos, change, change.supplementalCc(), rr.rba());
-							}
+							change.writeSupplementalCols(baos);
 							writeColsWithNulls(
 									baos, rowChange, OraCdcChangeRowOp.KDO_POS, 0,
 									change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
 									KDO_ORP_IRP_NULL_POS, rowChange.columnCount());
 						} else if (rowChange.operation() == _11_6_ORP) {
-							if (change.supplementalCc() > 0) {
-								writeSupplementalCols(baosW, change, change.supplementalCc(), rr.rba());
-							}
+							change.writeSupplementalCols(baosW);
 							writeColsWithNulls(
 									baosW, change, OraCdcChangeUndoBlock.KDO_POS, 0,
 									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
@@ -1374,9 +1366,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									KDO_ORP_IRP_NULL_POS, rowChange.columnCount());
 							colNumOffsetSet += rowChange.columnCount();
 						} else if (rowChange.operation() == _11_5_URP) {
-							if (change.supplementalCc() > 0) {
-								writeSupplementalCols(baosW, change, change.supplementalCc(), rr.rba());
-							}
+							change.writeSupplementalCols(baosW);
 							if (OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCountNn() < change.coords().length) {
 								writeColsWithNulls(baosW, change, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
 										change.suppOffsetUndo(), KDO_URP_NULL_POS, change.columnCount());
@@ -1643,39 +1633,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			}
 		}
 		return colNumOffset;
-	}
-
-	private void writeSupplementalCols(
-			final ByteArrayOutputStream baos, final OraCdcChangeUndoBlock change,
-			final int supplColCount, final RedoByteAddress rba) {
-		final int supplColCountNn = change.supplementalCcNn();
-		final int colNumIndex = change.suppDataStartIndex() + 1;
-		final int dataEndPos = supplColCount + change.suppDataStartIndex() + 0x3;
-		final byte[] record = change.record();
-		final int[][] coords = change.coords();
-		int colIndex = 0;
-		for (int i = change.suppDataStartIndex() + 0x3; i < dataEndPos; i++) {
-			if (i < coords.length) {
-				final int colNum = bu.getU16(record, coords[colNumIndex][0] + colIndex * Short.BYTES);
-				writeU16(baos, colNum);
-				if (colIndex < supplColCountNn) {
-					final int colSize = coords[i][1];
-					if (colSize == 0) {
-						baos.write(0xFF);
-					} else {
-						writeColSize(baos, colSize);
-						baos.write(record, coords[i][0], colSize);
-					}
-				} else {
-					baos.write(0xFF);
-				}
-				colIndex++;
-			} else {
-				LOGGER.warn("Incorrect index {} when processing redo record at rba {}",
-						i, rba);
-				break;
-			}
-		}
 	}
 
 	private static class RowChangeHolder {
