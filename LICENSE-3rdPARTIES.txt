@@ -19,11 +19,11 @@ Oracle Free Use Terms and Conditions
 LGPL-3.0 or later
 
 
-maverick-base-3.1.2, see: licenses/lgpl-3.0
-maverick-logging-3.1.2, see: licenses/lgpl-3.0
-maverick-synergy-client-3.1.2, see: licenses/lgpl-3.0
-maverick-synergy-common-3.1.2, see: licenses/lgpl-3.0
-maverick-utils-3.1.2, see: licenses/lgpl-3.0
+- maverick-base-3.1.2, see: licenses/lgpl-3.0
+- maverick-logging-3.1.2, see: licenses/lgpl-3.0
+- maverick-synergy-client-3.1.2, see: licenses/lgpl-3.0
+- maverick-synergy-common-3.1.2, see: licenses/lgpl-3.0
+- maverick-utils-3.1.2, see: licenses/lgpl-3.0
 
 ----------------------------------------
 Dual License LGPL-2.1 or later, or Apache-2.0
@@ -50,13 +50,6 @@ Bouncy Castle License
 - bcprov-jdk18on-1.81, see: licenses/bouncycastle
 - bcpkix-jdk18on-1.81, see: licenses/bouncycastle
 - bcutil-jdk18on-1.81, see: licenses/bouncycastle
-
-
-----------------------------------------
-Creative Commons Zero v1.0 Universal License
-
-
-- eddsa-0.3.0, see: licenses/CC0-1.0-Universal
 
 
 ----------------------------------------
