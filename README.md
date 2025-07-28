@@ -972,6 +972,11 @@ New parameter to set a SQL statement(s) that will be executed for all new connec
 
 3) Big fixes and enhancements
 
+#####2.10.1 (JUL-2025)
+
+Fix CVE-2020-36843 from dependencies
+
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
