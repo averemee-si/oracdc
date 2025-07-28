@@ -963,6 +963,15 @@ New parameter to set a SQL statement(s) that will be executed for all new connec
 2) This version supports BOOLEAN data type for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner.
 
 3) Big fixes and enhancements
+
+#####2.10.0 (JUL-2025)
+
+1)  This version supports index-organized tables including overflow processing for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner.
+
+2) XMLTYPE enhancements for the **solutions.a2.cdc.oracle.OraCdcLogMinerConnector** connector
+
+3) Big fixes and enhancements
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
