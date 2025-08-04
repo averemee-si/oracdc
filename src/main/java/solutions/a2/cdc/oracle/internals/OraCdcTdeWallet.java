@@ -104,6 +104,10 @@ public class OraCdcTdeWallet {
 	}
 
 	byte[] decryptDataKey(final String masterKeyId, final byte[] encDataKey) throws IOException {
+		return decryptDataKey(masterKeyId, encDataKey, false);
+	}
+
+	byte[] decryptDataKey(final String masterKeyId, final byte[] encDataKey, boolean tbsKey) throws IOException {
 		final byte[] masterBytes = secrets.get(masterKeyId);
 		if (masterBytes == null) {
 			LOGGER.error(
@@ -122,7 +126,7 @@ public class OraCdcTdeWallet {
 			throw new IOException("Empty encrypted data key!");
 		}
 		try {
-			Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding", "BC");
+			Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding", PROVIDER_NAME);
 			final byte[] secretBytes = Arrays.copyOfRange(masterBytes, 0x6, 0x26);
 			final byte[] ivBytes = Arrays.copyOfRange(masterBytes, 0x29, 0x39);
 			final SecretKeySpec masterKey = new SecretKeySpec(secretBytes, "AES");
@@ -131,7 +135,9 @@ public class OraCdcTdeWallet {
 			if (LOGGER.isDebugEnabled())
 				LOGGER.debug("Decrypting data key {} using master key id '{}'.\n\tSecret key='{}', iv='{}'",
 						rawToHex(encDataKey), masterKeyId, rawToHex(secretBytes), rawToHex(ivBytes));
-			return cipher.doFinal(Arrays.copyOfRange(encDataKey, 1, encDataKey.length));
+			return cipher.doFinal(tbsKey
+						? encDataKey
+						: Arrays.copyOfRange(encDataKey, 1, encDataKey.length));
 		} catch (NoSuchAlgorithmException | NoSuchProviderException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
 			throw new IOException(e);
 		}
