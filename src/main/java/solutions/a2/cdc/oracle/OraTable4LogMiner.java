@@ -150,7 +150,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private OraCdcPseudoColumnsProcessor pseudoColumns;
 	private final Set<Integer> setColumns = new HashSet<>();
 	private Set<Integer> lobColumnIds;
-	
+	private boolean hasEncryptedColumns = false;
+
 
 	/**
 	 * 
@@ -355,6 +356,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				}
 
 				if (columnAdded) {
+					if (!logMiner && !hasEncryptedColumns && column.isEncrypted()) {
+						hasEncryptedColumns = true;
+					}
 					// For archived redo more logic required
 					if (column.getJdbcType() == BLOB ||
 						column.getJdbcType() == CLOB ||
