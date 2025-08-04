@@ -198,7 +198,7 @@ public class OraCdcChange {
 	private final long scn;
 	private final byte seq;
 	private final byte typ;
-	private final boolean encrypted;
+	final boolean encrypted;
 	private final int changeDataObj;
 	LobId lid;
 	short lobCol = -1;
