@@ -921,6 +921,22 @@ where  B.OWNER=L.OWNER
 			"  and  O.TEMPORARY='N'\n" +
 			"  and  O.CON_ID > 2\n";
 
+	/*
+select MKEYID, ENCALG, INTALG, COLKLC, KLCLEN
+from   DBA_OBJECTS O, SYS.ENC$ E
+where  O.OBJECT_ID = E.OBJ#
+  and  O.OBJECT_TYPE like 'TABLE%'
+  and  O.OWNER='SCOTT'
+  and  O.OBJECT_NAME='TEST_AES256_SALT_GCMTAG'
+	 */
+	public static final String COLUMN_ENCRYPTION_INFO =
+			"select MKEYID, ENCALG, INTALG, COLKLC, KLCLEN\n" +
+			"from   DBA_OBJECTS O, SYS.ENC$ E\n" +
+			"where  O.OBJECT_ID = E.OBJ#\n" +
+			"  and  O.OBJECT_TYPE like 'TABLE%'\n" +
+			"  and  O.OWNER=?\n" +
+			"  and  O.OBJECT_NAME=?\n";
+
 }
 
 
