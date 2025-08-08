@@ -32,6 +32,8 @@ define cdcContainer ='&&2';
 
 grant select on SYS.DBA_ENCRYPTED_COLUMNS to &cdcUserName
     container=&cdcContainer;
+grant select on SYS.CDB_ENCRYPTED_COLUMNS to &cdcUserName
+    container=&cdcContainer;
 grant select on SYS.ENC$ to &cdcUserName
     container=&cdcContainer;
 grant select on SYS.V_$ENCRYPTED_TABLESPACES to &cdcUserName
