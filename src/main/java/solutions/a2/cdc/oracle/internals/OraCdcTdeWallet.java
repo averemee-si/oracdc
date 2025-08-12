@@ -21,9 +21,7 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Base64.Decoder;
 
-import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -40,7 +38,8 @@ import org.slf4j.LoggerFactory;
 import oracle.security.pki.OracleSecretStoreException;
 import oracle.security.pki.OracleWallet;
 
-import static javax.crypto.Cipher.DECRYPT_MODE;
+import static javax.crypto.Cipher.SECRET_KEY;
+import static javax.crypto.Cipher.UNWRAP_MODE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 
@@ -125,14 +124,15 @@ public class OraCdcTdeWallet {
 			final byte[] ivBytes = Arrays.copyOfRange(masterBytes, 0x29, 0x39);
 			final SecretKeySpec masterKey = new SecretKeySpec(secretBytes, "AES");
 			final IvParameterSpec iv = new IvParameterSpec(ivBytes);
-			cipher.init(DECRYPT_MODE, masterKey, iv);
+			cipher.init(UNWRAP_MODE, masterKey, iv);
 			if (LOGGER.isDebugEnabled())
 				LOGGER.debug("Decrypting data key {} using master key id '{}'.\n\tSecret key='{}', iv='{}'",
 						rawToHex(encDataKey), masterKeyId, rawToHex(secretBytes), rawToHex(ivBytes));
-			return cipher.doFinal(tbsKey
+			return cipher.unwrap(tbsKey
 					? encDataKey
-					: Arrays.copyOfRange(encDataKey, 1, encDataKey.length));
-		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+					: Arrays.copyOfRange(encDataKey, 1, encDataKey.length),
+					"AES", SECRET_KEY).getEncoded();
+		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
 			throw new IOException(e);
 		}
 	}
