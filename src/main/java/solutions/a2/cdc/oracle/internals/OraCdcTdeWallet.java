@@ -17,8 +17,6 @@ import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.Security;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Base64.Decoder;
@@ -36,14 +34,13 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.security.pki.OracleSecretStoreException;
 import oracle.security.pki.OracleWallet;
 
-import static org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME;
+import static javax.crypto.Cipher.DECRYPT_MODE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 
@@ -65,9 +62,6 @@ public class OraCdcTdeWallet {
 	}
 
 	OraCdcTdeWallet(String path, char[] password) throws IOException {
-		if (Security.getProvider(PROVIDER_NAME) == null) {
-			Security.addProvider(new BouncyCastleProvider());
-		}
 		wallet = new OracleWallet();
 		try {
 			secrets = new HashMap<>();
@@ -126,22 +120,21 @@ public class OraCdcTdeWallet {
 			throw new IOException("Empty encrypted data key!");
 		}
 		try {
-			Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding", PROVIDER_NAME);
+			Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
 			final byte[] secretBytes = Arrays.copyOfRange(masterBytes, 0x6, 0x26);
 			final byte[] ivBytes = Arrays.copyOfRange(masterBytes, 0x29, 0x39);
 			final SecretKeySpec masterKey = new SecretKeySpec(secretBytes, "AES");
 			final IvParameterSpec iv = new IvParameterSpec(ivBytes);
-			cipher.init(Cipher.DECRYPT_MODE, masterKey, iv);
+			cipher.init(DECRYPT_MODE, masterKey, iv);
 			if (LOGGER.isDebugEnabled())
 				LOGGER.debug("Decrypting data key {} using master key id '{}'.\n\tSecret key='{}', iv='{}'",
 						rawToHex(encDataKey), masterKeyId, rawToHex(secretBytes), rawToHex(ivBytes));
 			return cipher.doFinal(tbsKey
-						? encDataKey
-						: Arrays.copyOfRange(encDataKey, 1, encDataKey.length));
-		} catch (NoSuchAlgorithmException | NoSuchProviderException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
+					? encDataKey
+					: Arrays.copyOfRange(encDataKey, 1, encDataKey.length));
+		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException e) {
 			throw new IOException(e);
 		}
 	}
-
 
 }

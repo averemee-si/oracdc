@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -37,7 +36,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static javax.crypto.Cipher.DECRYPT_MODE;
-import static org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME;
 import static solutions.a2.cdc.oracle.OraDictSqlTexts.COLUMN_ENCRYPTION_INFO;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
@@ -90,14 +88,14 @@ public class OraCdcTdeColumnDecrypter {
 		secretKey = new SecretKeySpec(Arrays.copyOfRange(decDataKey, 0x10, keyLength + 0x10), encAlg == 1 ? "DESede" : "AES");
 		try {
 			if (encAlg == 1)
-				cipher = Cipher.getInstance("DESede/CBC/NoPadding", PROVIDER_NAME);
+				cipher = Cipher.getInstance("DESede/CBC/NoPadding");
 			else {
 				if (intAlg == 3)
-					cipher = Cipher.getInstance("AES/GCM/NoPadding", PROVIDER_NAME);
+					cipher = Cipher.getInstance("AES/GCM/NoPadding");
 				else
-					cipher = Cipher.getInstance("AES/CBC/NoPadding", PROVIDER_NAME);
+					cipher = Cipher.getInstance("AES/CBC/NoPadding");
 			}
-		} catch (NoSuchAlgorithmException | NoSuchProviderException | NoSuchPaddingException e) {
+		} catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
 			throw new IOException(e);
 		}
 		if (LOGGER.isDebugEnabled()) {

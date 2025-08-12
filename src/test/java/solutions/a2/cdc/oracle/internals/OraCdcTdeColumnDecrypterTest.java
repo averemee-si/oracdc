@@ -13,14 +13,11 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import static org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.io.IOException;
-import java.security.Security;
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -34,9 +31,6 @@ public class OraCdcTdeColumnDecrypterTest {
 	public void test() {
 
 		try {
-			if (Security.getProvider(PROVIDER_NAME) == null) {
-				Security.addProvider(new BouncyCastleProvider());
-			}
 			OraCdcTdeColumnDecrypter decrypter;
 			// AES-256, SHA-1, SALT
 			decrypter = new OraCdcTdeColumnDecrypter(
