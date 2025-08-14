@@ -398,6 +398,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String BFILE_BUFFER_SIZE_PARAM = "a2.bfile.buffer.size";
 	private static final String BFILE_BUFFER_SIZE_DOC = "Oracle BFILE read-ahead buffer size in bytes. Default - " + BFILE_BUFFER_SIZE_DEFAULT;
 
+	private static final String TDE_WALLET_PATH_PARAM = "a2.tde.wallet.path";
+	private static final String TDE_WALLET_PATH_DOC = "Full absolute path to Oracle Wallet file (ewallet.p12)";
+	private static final String TDE_WALLET_PASSWORD_PARAM = "a2.tde.wallet.password";
+	private static final String TDE_WALLET_PASSWORD_DOC = "Password Oracle Wallet";
+
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
@@ -627,6 +632,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Importance.LOW, BFILE_RECONNECT_INTERVAL_MS_DOC)
 				.define(BFILE_BUFFER_SIZE_PARAM, Type.INT, BFILE_BUFFER_SIZE_DEFAULT,
 						Importance.LOW, BFILE_BUFFER_SIZE_DOC)
+				.define(TDE_WALLET_PATH_PARAM, Type.STRING, "",
+						Importance.LOW, TDE_WALLET_PATH_DOC)
+				.define(TDE_WALLET_PASSWORD_PARAM, Type.PASSWORD, "",
+						Importance.LOW, TDE_WALLET_PASSWORD_DOC)
 				;
 	}
 
@@ -1544,6 +1553,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public int bfileBufferSize() {
 		return getInt(BFILE_BUFFER_SIZE_PARAM);
+	}
+
+	public String tdeWallet() {
+		return getString(TDE_WALLET_PATH_PARAM);
+	}
+
+	public String tdePassword() {
+		return getPassword(TDE_WALLET_PASSWORD_PARAM).value();
 	}
 
 }
