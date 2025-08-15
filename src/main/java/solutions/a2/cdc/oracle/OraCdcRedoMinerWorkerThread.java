@@ -160,6 +160,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
 		this.bu = BinaryUtils.get(rdbmsInfo.littleEndian());
+		rdbmsInfo.initTde(connDictionary, config, bu);
 		this.halfDoneRcm  = new TreeMap<>(new Comparator<Long>() {
 			@Override
 			public int compare(Long l1, Long l2) {
