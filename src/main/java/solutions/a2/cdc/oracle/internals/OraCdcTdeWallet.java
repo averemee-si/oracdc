@@ -146,6 +146,15 @@ public class OraCdcTdeWallet {
 		}
 	}
 
+	public static OraCdcTdeWallet get(
+			final BinaryUtils bu, final String path, final String password) throws SQLException {
+		try {
+			return new OraCdcTdeWallet(bu, path, password.toCharArray());
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
+	}
+
 	byte[] decryptDataKey(final String masterKeyId, final String encDataKey) throws IOException {
 		return decryptDataKey(masterKeyId, Base64.getDecoder().decode(encDataKey));
 	}
@@ -154,7 +163,7 @@ public class OraCdcTdeWallet {
 		return decryptDataKey(masterKeyId, encDataKey, false);
 	}
 
-	byte[] decryptDataKey(final String masterKeyId, final byte[] encDataKey, boolean tbsKey) throws IOException {
+	public byte[] decryptDataKey(final String masterKeyId, final byte[] encDataKey, boolean tbsKey) throws IOException {
 		final Kek kek = secrets.get(masterKeyId);
 		if (kek == null) {
 			LOGGER.error(
