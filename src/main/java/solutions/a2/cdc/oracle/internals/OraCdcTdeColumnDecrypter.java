@@ -141,7 +141,7 @@ public class OraCdcTdeColumnDecrypter {
 		return decrypter;
 	}
 
-	public byte[] decrypt(final byte[] columnData, final boolean salt) throws IOException {
+	public byte[] decrypt(final byte[] columnData, final boolean salt) throws SQLException {
 		final byte[] iv;
 		int cipherTextLen = columnData.length;
 		if (salt) {
@@ -174,7 +174,7 @@ public class OraCdcTdeColumnDecrypter {
 			else
 				return Arrays.copyOfRange(plaintext, 0, plaintext.length - padBytes);
 		} catch (IllegalBlockSizeException | BadPaddingException | InvalidKeyException | InvalidAlgorithmParameterException e) {
-			throw new IOException(e);
+			throw new SQLException(e);
 		}
 	}
 
