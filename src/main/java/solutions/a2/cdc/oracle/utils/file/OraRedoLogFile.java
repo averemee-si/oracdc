@@ -53,6 +53,8 @@ import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
+
 /**
  * 
  * Easy 'ALTER SYSTEM DUMP LOGFILE' alternative for opcode layer 11
@@ -422,6 +424,8 @@ public class OraRedoLogFile  {
 							if (!records) {
 								out.println("RBA: " + record.rba());
 							}
+							out.println("Content: ");
+							out.print(rawToHex(record.content()));
 							for (final OraCdcChange change : record.changeVectors()) {
 								out.println("\nChange # " + change.num() + change.binaryDump());
 							}

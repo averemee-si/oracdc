@@ -542,4 +542,8 @@ public class OraCdcRedoRecord {
 		return sb.toString();
 	}
 
+	public byte[] content() {
+		return record;
+	}
+
 }
