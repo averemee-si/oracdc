@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.spec.AlgorithmParameterSpec;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -142,19 +143,22 @@ public class OraCdcTdeColumnDecrypter {
 	}
 
 	public byte[] decrypt(final byte[] columnData, final boolean salt) throws SQLException {
-		final byte[] iv;
+		final AlgorithmParameterSpec iv;
 		int cipherTextLen = columnData.length;
 		if (salt) {
 			if ((parameters & _3DES168) != 0)
 				cipherTextLen -= 0x8;
 			else
 				cipherTextLen -= 0x10;
-			iv = Arrays.copyOfRange(columnData, cipherTextLen, columnData.length);
+			if ((parameters & GCMTAG) != 0)
+				iv = new GCMParameterSpec(0x80, columnData, cipherTextLen, 0x10);
+			else
+				iv = new IvParameterSpec(columnData, cipherTextLen, (parameters & _3DES168) != 0 ? 0x8 : 0x10);
 		} else {
 			if ((parameters & _3DES168) != 0)
-				iv = IV_CBC_NOSALT_3DES;
+				iv = new IvParameterSpec(IV_CBC_NOSALT_3DES);
 			else
-				iv = IV_CBC_NOSALT_AES;
+				iv = new IvParameterSpec(IV_CBC_NOSALT_AES);
 		}
 		if ((parameters & SHA_1) != 0)
 			cipherTextLen -= 0x14;
@@ -163,10 +167,10 @@ public class OraCdcTdeColumnDecrypter {
 		
 		try {
 			if ((parameters & GCMTAG) != 0) {
-				cipher.init(DECRYPT_MODE, secretKey, new GCMParameterSpec(iv.length * 8, iv));
+				cipher.init(DECRYPT_MODE, secretKey, iv);
 				cipher.updateAAD(Arrays.copyOfRange(columnData, cipherTextLen, cipherTextLen + 0x10));
 			} else
-				cipher.init(DECRYPT_MODE, secretKey, new IvParameterSpec(iv));
+				cipher.init(DECRYPT_MODE, secretKey, iv);
 			byte[] plaintext = cipher.doFinal(columnData, 0, cipherTextLen);
 			int padBytes = padOrclBytes(plaintext);
 			if (padBytes == 0)
