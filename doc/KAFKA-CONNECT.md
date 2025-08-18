@@ -284,3 +284,6 @@ Default - 86,400,000 (24 hours)
 
 `a2.bfile.buffer.size` - Oracle BFILE read-ahead buffer size in bytes. Default - 4,194,304
 
+`a2.tde.wallet.path` - Full absolute path to Oracle Wallet file (ewallet.p12)
+
+`a2.tde.wallet.password` - Password for Oracle Wallet file
