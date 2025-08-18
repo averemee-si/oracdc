@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.io.IOException;
+import java.sql.SQLException;
 
 import org.junit.jupiter.api.Test;
 
@@ -309,7 +310,7 @@ public class OraCdcTdeColumnDecrypterTest {
 							.replaceAll(" ", "")),
 					false)), "0123456789=======================================");
 
-		} catch (IOException e) {
+		} catch (IOException | SQLException e) {
 			e.printStackTrace();
 		}
 	}
