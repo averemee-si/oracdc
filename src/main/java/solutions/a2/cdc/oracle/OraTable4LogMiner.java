@@ -50,6 +50,8 @@ import oracle.jdbc.OracleTypes;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
+import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
+import solutions.a2.cdc.oracle.internals.OraCdcTdeWallet;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.oracle.internals.LobId;
@@ -151,6 +153,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private final Set<Integer> setColumns = new HashSet<>();
 	private Set<Integer> lobColumnIds;
 	private boolean hasEncryptedColumns = false;
+	private OraCdcTdeColumnDecrypter decrypter;
 
 
 	/**
@@ -445,6 +448,21 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (undroppedPresent) {
 				printUndroppedColumnsMessage(undroppedColumns, minUndroppedId);
 				undroppedColumns = null;
+			}
+
+			if (hasEncryptedColumns) {
+				final OraCdcTdeWallet tw = rdbmsInfo.tdeWallet();
+				if (tw == null) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Table {}.{} contains encrypted columns!\n" +
+							"To continue, You must set the parameters a2.tde.wallet.path and a2.tde.wallet.password." +
+							"\n=====================\n",
+							tableOwner, tableName);
+					throw new ConnectException("Unable to process encrypted columns without configured Oracle Wallet!");
+				} else {
+					decrypter = OraCdcTdeColumnDecrypter.get(connection, tw, tableOwner, tableName);
+				}
 			}
 
 			// Handle empty WHERE for update
@@ -2509,9 +2527,157 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		final String columnName = oraColumn.getColumnName();
 		final Object columnValue;
 		final int columnType = oraColumn.getJdbcType();
-		switch (columnType) {
+		if (oraColumn.isEncrypted()) {
+			final byte[] plaintext = decrypter.decrypt(Arrays.copyOfRange(data, offset, offset + length), oraColumn.isSalted());
+			switch (columnType) {
 			case DATE:
-			case TIMESTAMP:
+			case TIMESTAMP:				
+				columnValue = OraDumpDecoder.toTimestamp(plaintext, 0, plaintext.length);
+				break;
+			case TIMESTAMP_WITH_TIMEZONE:
+				columnValue = OraTimestamp.fromLogical(
+						plaintext, 0, plaintext.length, oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
+				break;
+			case TINYINT:
+				columnValue = toByte(plaintext, 0, plaintext.length);
+				break;
+			case SMALLINT:
+				columnValue = toShort(plaintext, 0, plaintext.length);
+				break;
+			case INTEGER:
+				columnValue = toInt(plaintext, 0, plaintext.length);
+				break;
+			case BIGINT:
+				columnValue = toLong(plaintext, 0, plaintext.length);
+				break;
+			case FLOAT:
+				if (oraColumn.isBinaryFloatDouble()) {
+					columnValue = OraDumpDecoder.fromBinaryFloat(plaintext);
+				} else {
+					columnValue = toFloat(plaintext, 0, plaintext.length);
+				}
+				break;
+			case DOUBLE:
+				if (oraColumn.isBinaryFloatDouble()) {
+					columnValue = OraDumpDecoder.fromBinaryDouble(plaintext);
+				} else {
+					columnValue = toDouble(plaintext, 0, plaintext.length);
+				}
+				break;
+			case DECIMAL:
+				BigDecimal bdValue = OraDumpDecoder.toBigDecimal(plaintext);
+				if (bdValue.scale() > oraColumn.getDataScale()) {
+					LOGGER.warn(
+								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
+								columnName, this.fqn(), bdValue, bdValue.scale(), oraColumn.getDataScale());
+					columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
+				} else if (bdValue.scale() !=  oraColumn.getDataScale()) {
+					columnValue = bdValue.setScale(oraColumn.getDataScale());
+				} else {
+					columnValue = bdValue;
+				}
+				break;
+			case BINARY:
+				if (oraColumn.getSecureFile()) {
+					columnValue = extendedSizeValue(BINARY, transaction, lobIds, plaintext, 0, plaintext.length);
+				} else
+					columnValue = plaintext;
+				break;
+			case NUMERIC:
+			case OracleTypes.INTERVALYM:
+			case OracleTypes.INTERVALDS:
+				// do not need to perform data type conversion here!
+				columnValue = plaintext;
+				break;
+			case CHAR:
+			case VARCHAR:
+				if (oraColumn.getSecureFile()) {
+					columnValue = extendedSizeValue(VARCHAR, transaction, lobIds, plaintext, 0, plaintext.length);
+				} else
+					
+					columnValue = odd.fromVarchar2(plaintext, 0, plaintext.length);
+				break;
+			case NCHAR:
+			case NVARCHAR:
+				if (oraColumn.getSecureFile()) {
+					columnValue = extendedSizeValue(NVARCHAR, transaction, lobIds, plaintext, 0, plaintext.length);
+				} else
+					columnValue = odd.fromNvarchar2(plaintext, 0, plaintext.length);
+				break;
+			case CLOB:
+			case NCLOB:
+			case BLOB:
+			case SQLXML:
+			case JSON:
+			case VECTOR:
+				final OraCdcTransactionChronicleQueue cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+				final LobLocator ll = new LobLocator(plaintext, 0, plaintext.length);
+				if (LOGGER.isTraceEnabled())
+					LOGGER.trace("Processing column {}, LID={}, DATALENGTH={}, EXTERNAL={}, LOB CONTENT=>{}",
+							columnName, ll.lid(), ll.dataLength(), lobIds.contains(ll.lid()), rawToHex(Arrays.copyOfRange(data, offset, offset + length)));
+				if (lobIds.contains(ll.lid())) {
+					final byte[] externalPlaintext =
+							decrypter.decrypt(cqTrans.getLob(ll), oraColumn.isSalted());
+					if (columnType == BLOB)
+						columnValue = odd.toOraBlob(externalPlaintext);
+					else if (oraColumn.getJdbcType() == JSON)
+						columnValue = odd.toOraJson(externalPlaintext);
+					else if (columnType == CLOB || columnType == NCLOB)
+						columnValue = odd.toOraClob(externalPlaintext, columnType == CLOB); 
+					else if (oraColumn.getJdbcType() == VECTOR)
+						columnValue = odd.toOraVector(externalPlaintext);
+					else
+						//SQLXML
+						columnValue = odd.toOraXml(externalPlaintext, ll.type() == LobLocator.CLOB);
+				} else if (ll.dataLength() >= 0 && ll.dataInRow()) {
+					if (columnType == BLOB)
+						columnValue = odd.toOraBlob(
+								Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length));
+					else if (oraColumn.getJdbcType() == JSON)
+						columnValue = odd.toOraJson(
+								Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length));
+					else if (columnType == CLOB || columnType == NCLOB)
+						columnValue = odd.toOraClob(
+								Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length), columnType == CLOB);
+					else if (oraColumn.getJdbcType() == VECTOR)
+						columnValue = odd.toOraVector(
+								Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length));
+					else {
+						//SQLXML
+						if (ll.type() == LobLocator.CLOB) {
+							columnValue = odd.toOraXml(Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length), true);
+						} else {
+							LOGGER.warn("No data for binary IN-ROW SYS.XMLTYPE with lid {} in transaction {}!",
+									ll.lid(), transaction.getXid());
+							columnValue = null;
+						}
+					}
+				} else if (ll.dataLength() == 0){
+					if (LOGGER.isDebugEnabled())
+						LOGGER.debug("No data for LOB with zero length, type {} with lid {}  in transaction {}!",
+								getTypeName(columnType), ll.lid(), transaction.getXid());
+						columnValue = null;
+				} else {
+					LOGGER.warn("No data for LOB type {} with lid {}, length {} in transaction {}!",
+							getTypeName(columnType), ll.lid(), ll.dataLength(), transaction.getXid());
+					columnValue = null;
+				}
+				break;
+			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING:
+			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING:
+				columnValue = OraInterval.fromLogical(plaintext);
+				break;
+			case BOOLEAN:
+				columnValue = OraDumpDecoder.toBoolean(plaintext, 0);
+				break;
+			default:
+				columnValue = oraColumn.unsupportedTypeValue();
+				break;
+			}
+		} else {
+			switch (columnType) {
+			case DATE:
+			case TIMESTAMP:				
 				columnValue = OraDumpDecoder.toTimestamp(data, offset, length);
 				break;
 			case TIMESTAMP_WITH_TIMEZONE:
@@ -2574,6 +2740,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (oraColumn.getSecureFile()) {
 					columnValue = extendedSizeValue(VARCHAR, transaction, lobIds, data, offset, length);
 				} else
+					
 					columnValue = odd.fromVarchar2(data, offset, length);
 				break;
 			case NCHAR:
@@ -2650,6 +2817,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			default:
 				columnValue = oraColumn.unsupportedTypeValue();
 				break;
+			}
 		}
 		if (onlyValue) {
 			valueStruct.put(columnName, columnValue);
