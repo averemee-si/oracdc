@@ -71,7 +71,7 @@
 		<commons.cli.version>1.9.0</commons.cli.version>
 		<chronicle.queue.version>5.25ea17</chronicle.queue.version>
 		<chronicle.affinity.version>3.23.3</chronicle.affinity.version>
-		<ora.jdbc.version>23.7.0.25.01</ora.jdbc.version>
+		<ora.jdbc.version>23.9.0.25.07</ora.jdbc.version>
 		<pg.jdbc.version>42.7.7</pg.jdbc.version>
 		<HikariCP.version>5.1.0</HikariCP.version>
 		<jackson.version>2.18.2</jackson.version>
@@ -175,16 +175,16 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc11 -->
+		<!-- https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc17 -->
 		<dependency>
 			<groupId>com.oracle.database.jdbc</groupId>
-			<artifactId>ojdbc11</artifactId>
+			<artifactId>ojdbc17</artifactId>
 			<version>${ora.jdbc.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.oracle.database.jdbc/ucp11 -->
+		<!-- https://mvnrepository.com/artifact/com.oracle.database.jdbc/ucp17 -->
 		<dependency>
 			<groupId>com.oracle.database.jdbc</groupId>
-			<artifactId>ucp11</artifactId>
+			<artifactId>ucp17</artifactId>
 			<version>${ora.jdbc.version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.oracle.database.security/oraclepki -->
