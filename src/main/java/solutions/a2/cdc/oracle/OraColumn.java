@@ -146,6 +146,8 @@ public class OraColumn {
 	private boolean partOfKeyStruct;
 	private boolean number = false;
 	private int dataLength;
+	private boolean encrypted;
+	private boolean salt;
 
 	/**
 	 * 
@@ -219,6 +221,8 @@ public class OraColumn {
 			dataPrecision = null;
 		}
 		dataLength = resultSet.getInt("DATA_LENGTH");
+		encrypted = Strings.CI.equals("YES", resultSet.getString("ENCRYPTED"));
+		salt = Strings.CI.equals("YES", resultSet.getString("SALT"));
 		detectTypeAndSchema(oraType, mviewSource, useOracdcSchemas, dataPrecision);
 
 	}
@@ -1741,6 +1745,14 @@ public class OraColumn {
 
 	public boolean isNumber() {
 		return number;
+	}
+
+	public boolean isEncrypted() {
+		return encrypted;
+	}
+
+	public boolean isSalted() {
+		return salt;
 	}
 
 }

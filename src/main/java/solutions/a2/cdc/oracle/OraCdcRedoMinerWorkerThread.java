@@ -175,6 +175,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 		try {
 			connDictionary = oraConnections.getConnection();
+			rdbmsInfo.initTde(connDictionary, config, bu);
 			redoMiner = new OraRedoMiner(
 					connDictionary, metrics, startFrom, config, runLatch, rdbmsInfo, oraConnections, bu);
 		} catch (SQLException sqle) {

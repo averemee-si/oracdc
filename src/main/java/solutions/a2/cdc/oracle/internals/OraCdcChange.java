@@ -168,6 +168,8 @@ public class OraCdcChange {
 	public static final byte FLG_ROWDEPENDENCIES = 0x40;
 	public static final byte FLG_KDLI_CMAP = 0x10;
 
+	private static final byte FLG_TDE_ENCRYPTION = (byte) 0x80;
+
 	int length;
 	final short operation;
 	final OraCdcRedoLog redoLog;
@@ -196,7 +198,7 @@ public class OraCdcChange {
 	private final long scn;
 	private final byte seq;
 	private final byte typ;
-	private final byte encrypted;
+	final boolean encrypted;
 	private final int changeDataObj;
 	LobId lid;
 	short lobCol = -1;
@@ -215,12 +217,8 @@ public class OraCdcChange {
 		dba = redoLog.bu().getU32(record, offset + 0x08);
 		scn = redoLog.bu().getScn(record, offset + 0x0C);
 		seq = record[offset + 0x14];
-		typ = record[offset + 0x15];
-		if ((typ & 0x80) != 0) {
-			encrypted = 1;
-		} else {
-			encrypted = 0;
-		}
+		encrypted = (record[offset + 0x15] & FLG_TDE_ENCRYPTION) != 0;
+		typ = (byte) (record[offset + 0x15] & 0x7F);
 		changeDataObj = (
 				Short.toUnsignedInt(redoLog.bu().getU16(record, offset + 0x06)) << 16) |
 				Short.toUnsignedInt(redoLog.bu().getU16(record, offset + 0x16));
@@ -1405,7 +1403,7 @@ public class OraCdcChange {
 			.append(" OP:")
 			.append(formatOpCode(operation))
 			.append(" ENC:")
-			.append(encrypted);
+			.append(encrypted ? "1" : "0");
 		if (typ != 6) {
 			sb.append(" RBL:0");
 		}

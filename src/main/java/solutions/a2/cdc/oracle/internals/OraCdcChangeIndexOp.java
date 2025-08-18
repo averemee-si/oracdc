@@ -35,6 +35,8 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 
 	OraCdcChangeIndexOp(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return;
 		elementNumberCheck(1);
 
 		// Element 1: KTB Redo
@@ -81,6 +83,8 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return sb;
 		sb
 			.append(operation == _10_2_LIN
 				? "\nindex redo (kdxlin):  insert leaf row, count="

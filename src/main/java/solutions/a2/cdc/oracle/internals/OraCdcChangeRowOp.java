@@ -32,6 +32,8 @@ public class OraCdcChangeRowOp extends OraCdcChange {
 
 	OraCdcChangeRowOp(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return;
 		elementNumberCheck(2);
 
 		// Element 1: KTB Redo
@@ -43,6 +45,8 @@ public class OraCdcChangeRowOp extends OraCdcChange {
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return sb;
 		ktbRedo(sb, 0);
 		kdo(sb, 1);
 		return sb;

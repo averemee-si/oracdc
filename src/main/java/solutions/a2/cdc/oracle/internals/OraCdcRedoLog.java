@@ -792,4 +792,9 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		}
 	}
 
+	boolean tsEncKeyAvailable() {
+		//TODO
+		return false;
+	}
+
 }

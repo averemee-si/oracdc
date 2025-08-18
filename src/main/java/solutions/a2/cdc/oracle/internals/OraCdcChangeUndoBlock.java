@@ -69,6 +69,8 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 	OraCdcChangeUndoBlock(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _5_1_RDB, record, offset, headerLength);
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return;
 		// Element 1 - ktudb
 		elementNumberCheck(1);
 		elementLengthCheck("ktudb", "(OP:5.1)", 0, KTUDB_MIN_LENGTH, "");
@@ -208,6 +210,8 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return sb;
 		sb
 			.append("\nktudb redo: siz: ")
 			.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[0][0])))

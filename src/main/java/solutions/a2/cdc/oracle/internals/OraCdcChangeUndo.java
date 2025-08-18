@@ -50,6 +50,8 @@ public class OraCdcChangeUndo extends OraCdcChange {
 
 	OraCdcChangeUndo(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return;
 		switch (operation) {
 		case _5_2_RDH:
 			if (coords.length < 1 || coords[0][1] < KTUDH_MIN_LENGTH) {
@@ -84,6 +86,8 @@ public class OraCdcChangeUndo extends OraCdcChange {
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return sb;
 		switch (operation) {
 		case _5_2_RDH:
 			sb

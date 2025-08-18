@@ -37,6 +37,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
+import solutions.a2.cdc.oracle.internals.OraCdcTdeWallet;
+import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -63,6 +65,8 @@ public class OraRdbmsInfo {
 
 	public static final String CDB_ROOT = "CDB$ROOT";
 	public static final String MOUNTED = "NOUNTED";
+
+	public static final int CDB_INTRODUCED = 12;
 
 	private String versionString;
 	private final String rdbmsEdition;
@@ -98,13 +102,16 @@ public class OraRdbmsInfo {
 	private final Map<String, String> partition;
 	private final boolean littleEndian;
 	private final int conUid;
+	private OraCdcTdeWallet tw = null;
 
-	public final static int CDB_INTRODUCED = 12;
-	private final static int PDB_MINING_INTRODUCED = 21;
-	private final static int PDB_MINING_BACKPORT_MAJOR = 19;
-	private final static int PDB_MINING_BACKPORT_MINOR = 10;
+	private static final int PDB_MINING_INTRODUCED = 21;
+	private static final int PDB_MINING_BACKPORT_MAJOR = 19;
+	private static final int PDB_MINING_BACKPORT_MINOR = 10;
 	private static final String JDBC_ORA_PREFIX = "jdbc:oracle:thin:@";
 	private static final String STANDBY = "STANDBY";
+	private static final byte TDE_COLUMNS = 1;
+	private static final byte TDE_TABLESPACES = 2;
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraRdbmsInfo.class);
 
 	public OraRdbmsInfo(final Connection connection) throws SQLException {
@@ -946,6 +953,83 @@ public class OraRdbmsInfo {
 		}
 	}
 
+	public void initTde(final Connection connection, OraCdcSourceConnectorConfig config, final BinaryUtils bu) throws SQLException {
+		byte tdeStatus = 0;
+		PreparedStatement statement = null;		
+		try {
+			statement = connection.prepareStatement(cdbRoot
+					? "select count(*) from CDB_ENCRYPTED_COLUMNS"
+					: "select count(*) from DBA_ENCRYPTED_COLUMNS");
+			ResultSet resultSet = statement.executeQuery();
+			if (resultSet.next() && resultSet.getInt(1) > 0)
+				tdeStatus += TDE_COLUMNS;
+			resultSet.close();
+			resultSet = null;
+			statement.close();
+			statement = null;
+		} catch (SQLException sqle) {
+			if (sqle.getErrorCode() == ORA_942) {
+				// ORA-00942: table or view does not exist
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"Please run as SYSDBA:\n" +
+						"\tgrant select on {} to {};\n" +
+						"And restart connector!\n" +
+						"=====================\n",
+						cdbRoot ? "CDB_ENCRYPTED_COLUMNS" : "DBA_ENCRYPTED_COLUMNS", connection.getSchema());
+			}
+			throw sqle;
+		}
+		try {
+			statement = connection.prepareStatement("select count(*) from V$ENCRYPTED_TABLESPACES");
+			ResultSet resultSet = statement.executeQuery();
+			if (resultSet.next() && resultSet.getInt(1) > 0)
+				tdeStatus += TDE_TABLESPACES;
+			resultSet.close();
+			resultSet = null;
+			statement.close();
+			statement = null;
+		} catch (SQLException sqle) {
+			if (sqle.getErrorCode() == ORA_942) {
+				// ORA-00942: table or view does not exist
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"Please run as SYSDBA:\n" +
+						"\tgrant select on {} to {};\n" +
+						"And restart connector!\n" +
+						"=====================\n",
+						"SYS.V_$ENCRYPTED_TABLESPACES", connection.getSchema());
+			}
+			throw sqle;
+		}
+		if (tdeStatus != 0) {
+			final String tdeWallet = config.tdeWallet();
+			final String tdePassword = config.tdePassword();
+			if (StringUtils.isBlank(tdeWallet) || StringUtils.isBlank(tdePassword)) {
+				final String tdeEntities;
+				if ((tdeStatus & TDE_COLUMNS) > 0 && (tdeStatus & TDE_TABLESPACES) > 0)
+					tdeEntities = "contain both encrypted tablespaces and encrypted columns";
+				else if ((tdeStatus & TDE_COLUMNS) > 0)
+					tdeEntities = "contains encrypted columns";
+				else
+					tdeEntities = "contains encrypted tablespaces";
+				LOGGER.warn(
+						"\n=====================\n" +
+						"The database {}, and the parameters required for decryption a2.tde.wallet.path and a2.tde.wallet.password are not set.\n" + 
+						"If your objects that the oracdc processes are not in encrypted tablespaces or do not contain encrypted values, you can ignore this message.\n" +
+						"Otherwise, you must set the parameters a2.tde.wallet.path and a2.tde.wallet.password.\n" +
+						"If you need more information, contact us at oracle@a2.solutions" +
+						"\n=====================\n",
+						tdeEntities);
+			} else {
+				tw = OraCdcTdeWallet.get(bu, tdeWallet, tdePassword); 
+			}
+
+		}
+	}
+
 	public String getVersionString() {
 		return versionString;
 	}
@@ -1093,6 +1177,10 @@ public class OraRdbmsInfo {
 
 	public int conUid() {
 		return conUid;
+	}
+
+	public OraCdcTdeWallet tdeWallet() {
+		return tw;
 	}
 
 	@Override
