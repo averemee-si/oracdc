@@ -47,7 +47,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 	public static final byte LOB_OP_ERASE = 0x04;
 	public static final byte LOB_OP_END = 0x05;
 
-	private final byte type;
+	private byte type;
 	private byte lobOp = LOB_OP_UNKNOWN;
 	private int fsiz;
 	private int csiz;
@@ -55,6 +55,8 @@ public class OraCdcChangeLlb extends OraCdcChange {
 
 	OraCdcChangeLlb(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return;
 		if (coords.length < 3) {
 			LOGGER.error(
 					"\n=====================\n" +
@@ -211,6 +213,8 @@ public class OraCdcChangeLlb extends OraCdcChange {
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return sb;
 		sb
 			.append("\n  typ:")
 			.append(Byte.toUnsignedInt(type))

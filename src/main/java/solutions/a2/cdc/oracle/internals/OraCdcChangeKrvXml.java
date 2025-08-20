@@ -34,7 +34,7 @@ import solutions.a2.oracle.internals.Xid;
 public class OraCdcChangeKrvXml extends OraCdcChange {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeKrvXml.class);
-	private final byte type;
+	private byte type;
 	private short internalColId;
 
 	public static final int TYPE_XML_DOC = 0x1;
@@ -44,6 +44,8 @@ public class OraCdcChangeKrvXml extends OraCdcChange {
 
 	OraCdcChangeKrvXml(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _24_8_XML, record, offset, headerLength);
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return;
 		elementNumberCheck(1);
 		if (record[coords[0][0]] == TYPE_XML_DOC) {
 			type = TYPE_XML_DOC;
@@ -101,6 +103,8 @@ public class OraCdcChangeKrvXml extends OraCdcChange {
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return sb;
 		if (type == 0x1) {
 			sb
 				.append("\nXML redo opcode type: ")
