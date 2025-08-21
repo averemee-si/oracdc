@@ -75,7 +75,7 @@
 		<pg.jdbc.version>42.7.7</pg.jdbc.version>
 		<HikariCP.version>5.1.0</HikariCP.version>
 		<jackson.version>2.18.4</jackson.version>
-		<slf4j.version>2.0.16</slf4j.version>
+		<slf4j.version>2.0.17</slf4j.version>
 		<ojdbc.types.version>0.9.7</ojdbc.types.version>
 		<maverick.version>3.1.2</maverick.version>
 		<sshj.version>0.40.0</sshj.version>
