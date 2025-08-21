@@ -229,8 +229,8 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
 FROM   eclipse-temurin:21-jre
 LABEL  maintainer="oracle@a2.solutions"
 LABEL  vendor="A2 Rešitve d.o.o."
-LABEL  version="2.10.1"
-LABEL  release="2.10.1"
+LABEL  version="2.11.0"
+LABEL  release="2.11.0"
 LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
@@ -269,7 +269,7 @@ ARG    CVE_2025_48734_FIX=commons-beanutils-1.11.0.jar
 RUN    rm ${KAFKA_HOME}/libs/commons-beanutils-1.9.4.jar
 RUN    wget "${MVN_BASE}/commons-beanutils/commons-beanutils/1.11.0/${CVE_2025_48734_FIX}" -O "${KAFKA_HOME}/libs/${CVE_2025_48734_FIX}"
 
-ARG    ORACDC_VERSION=2.10.1
+ARG    ORACDC_VERSION=2.11.0
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
 COPY   target/${ORACDC_FILENAME} ${KAFKA_HOME}/connect/lib
 COPY   config/connect-log4j.properties ${KAFKA_HOME}/config

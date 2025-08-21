@@ -976,6 +976,15 @@ New parameter to set a SQL statement(s) that will be executed for all new connec
 
 Fix CVE-2020-36843 from dependencies
 
+#####2.11.0 (AUG-2025)
+
+1)  This version supports [Oracle TDE column encryption](https://docs.oracle.com/en/database/oracle/oracle-database/21/asoag/encrypting-columns-tables2.html) for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. To decrypt encrypted columns, you need to set the `a2.tde.wallet.path` and `a2.tde.wallet.password` parameters
+
+2) Java17 is used for compilation
+
+3) Big fixes and enhancements
+
+
 
 ## Authors
 
