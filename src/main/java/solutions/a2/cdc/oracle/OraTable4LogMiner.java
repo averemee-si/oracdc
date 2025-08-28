@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
@@ -90,6 +91,8 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.XML_DOC_BEGIN;
+import static solutions.a2.cdc.oracle.OraColumn.GUARD_COLUMN;
+import static solutions.a2.cdc.oracle.OraColumn.UNUSED_COLUMN;
 import static solutions.a2.cdc.oracle.OraDumpDecoder.hexToRaw;
 import static solutions.a2.cdc.oracle.OraDumpDecoder.rawToHex;
 import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
@@ -347,14 +350,33 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						LOGGER.debug("Skipping shadow BLOB column {} in table {}",
 								rsColumns.getString("COLUMN_NAME"), fqn());
 				} else {
-					if (!undroppedPresent) {
-						undroppedColumns = new ArrayList<>();
-						undroppedPresent = true;
-					}
-					final int internalId = rsColumns.getInt("INTERNAL_COLUMN_ID");
-					undroppedColumns.add(Pair.of(internalId, rsColumns.getString("COLUMN_NAME")));
-					if (internalId < minUndroppedId) {
-						minUndroppedId = internalId;
+					final String columnName = rsColumns.getString("COLUMN_NAME");
+					final Matcher unusedMatcher = UNUSED_COLUMN.matcher(columnName);
+					if (unusedMatcher.matches()) {
+						if (!undroppedPresent) {
+							undroppedColumns = new ArrayList<>();
+							undroppedPresent = true;
+						}
+						final int internalId = rsColumns.getInt("INTERNAL_COLUMN_ID");
+						undroppedColumns.add(Pair.of(internalId, columnName));
+						if (internalId < minUndroppedId) {
+							minUndroppedId = internalId;
+						}
+					} else {
+						final Matcher guardMatcher = GUARD_COLUMN.matcher(columnName);
+						if (guardMatcher.matches()) {
+							if (LOGGER.isDebugEnabled()) {
+								LOGGER.debug("Skipping guard column {} in tgable {}.{}",
+										columnName, this.tableOwner, this.tableName);
+							}
+						} else {
+							LOGGER.warn(
+									"\n=====================\n" +
+									"Table {}.{} contains hidden column '{}' of unknown purpose.\nThis column will be excluded from processing.\n" +
+									"For more information, please email us with the DDL for the table at oracle@a2.solutions." +
+									"\n=====================\n",
+									this.tableOwner, this.tableName, columnName);
+						}
 					}
 				}
 

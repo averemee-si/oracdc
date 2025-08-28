@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
@@ -95,12 +96,15 @@ public class OraColumn {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraColumn.class);
 
-	public static final String ROWID_KEY = "ORA_ROW_ID";
-	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";
-	public static final String ORA_ROWSCN = "ORA_ROWSCN";
+	static final String ROWID_KEY = "ORA_ROW_ID";
+	static final String MVLOG_SEQUENCE = "SEQUENCE$$";
+	static final String ORA_ROWSCN = "ORA_ROWSCN";
 
-	public static final int JAVA_SQL_TYPE_INTERVALYM_STRING = -2_000_000_001;
-	public static final int JAVA_SQL_TYPE_INTERVALDS_STRING = -2_000_000_003;
+	static final int JAVA_SQL_TYPE_INTERVALYM_STRING = -2_000_000_001;
+	static final int JAVA_SQL_TYPE_INTERVALDS_STRING = -2_000_000_003;
+
+	static final Pattern GUARD_COLUMN = Pattern.compile("^SYS_NC\\d{5}\\$$");
+	static final Pattern UNUSED_COLUMN = Pattern.compile("^SYS_C\\d{5}(?:_\\d{8}:\\d{2}:\\d{2})?\\$$");
 
 	private static final String TYPE_VARCHAR2 = "VARCHAR2";
 	private static final String TYPE_NVARCHAR2 = "NVARCHAR2";
