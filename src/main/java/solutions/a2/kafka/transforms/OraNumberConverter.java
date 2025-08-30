@@ -20,12 +20,14 @@ import static solutions.a2.kafka.transforms.ConversionType.SPECIFIC;
 import static solutions.a2.kafka.transforms.SchemaAndStructUtils.copySchemaBasics;
 import static solutions.a2.kafka.transforms.SchemaAndStructUtils.requireMap;
 import static solutions.a2.kafka.transforms.SchemaAndStructUtils.requireStructOrNull;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -73,6 +75,8 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 
 	private static final String DECIMAL_SCALE_PARAM = "decimal.scale";
 	private static final int DECIMAL_SCALE_DEFAULT = 2;
+	private static final String DECIMAL_PRECISION_PARAM = "decimal.precision";
+	private static final int DECIMAL_PRECISION_DEFAULT = 0;
 
 	private static final String REPLACE_NULL_WITH_DEFAULT_PARAM = "replace.null.with.default";
 
@@ -96,6 +100,9 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 			.define(
 					DECIMAL_SCALE_PARAM, ConfigDef.Type.INT, DECIMAL_SCALE_DEFAULT, ConfigDef.Importance.HIGH,
 					"Decimal scale of org.apache.kafka.connect.data.Decimal")
+			.define(
+					DECIMAL_PRECISION_PARAM, ConfigDef.Type.INT, DECIMAL_PRECISION_DEFAULT, ConfigDef.Importance.MEDIUM,
+					"Decimal precision of org.apache.kafka.connect.data.Decimal")
 			.define(
 					REPLACE_NULL_WITH_DEFAULT_PARAM, ConfigDef.Type.BOOLEAN, true, ConfigDef.Importance.MEDIUM,
 					"Whether to replace fields that have a default value and that are null to the default value.\n" +
@@ -122,7 +129,21 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 			@Override
 			public BigDecimal toType(final ParamHolder params, final NUMBER number) {
 				try {
-					return number.bigDecimalValue().setScale(params.scale, RoundingMode.HALF_DOWN);
+					final BigDecimal bd = number.bigDecimalValue();
+					if (params.precision == DECIMAL_PRECISION_DEFAULT ||
+							(bd.precision() - bd.scale()) <= (params.precision - params.scale)) {
+						return bd.setScale(params.scale, RoundingMode.HALF_DOWN);
+					} else {
+						final char[] nines = new char[params.precision];
+						Arrays.fill(nines, '9');
+						final BigDecimal max = new BigDecimal(nines).setScale(params.scale, RoundingMode.HALF_DOWN);
+						LOGGER.error(
+								"\n=====================\n" +
+								"Precision {} of Oracle NUMBER with value {} is greater than allowed precision {}!\n" +
+								"Dump value of Oracle NUMBER ='HEXTORAW('{}').\nSetting value to {}!",
+								bd.precision(), bd, params.precision, rawToHex(number.getBytes()), max);
+						return max;
+					}
 				} catch (SQLException sqle) {
 					LOGGER.error(CONV_ERROR_MSG, TARGET_TYPE_DECIMAL, sqle.getMessage());
 					return null;
@@ -233,6 +254,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 		}
 		params.targetType = simpleConfig.getString(TARGET_TYPE_PARAM);
 		params.scale = simpleConfig.getInt(DECIMAL_SCALE_PARAM);
+		params.precision = simpleConfig.getInt(DECIMAL_PRECISION_PARAM);
 		replaceNullWithDefault = simpleConfig.getBoolean(REPLACE_NULL_WITH_DEFAULT_PARAM);
 		schemaUpdateCache = new SynchronizedCache<>(new LRUCache<>(16));
 	}
@@ -441,6 +463,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 		String field;
 		String targetType;
 		int scale;
+		int precision;
 		ConversionType convType;
 	}
 

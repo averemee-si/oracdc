@@ -53,6 +53,7 @@ public class OraNumberConverterTest {
 				.field("INVOICING_RULE_ID", OraNumber.builder().build())
 				.field("QUANTITY", OraNumber.builder().optional().build())
 				.field("ACCEPTED_QUANTITY", OraNumber.builder().optional().build())
+				.field("MAX_MINMAX_QUANTITY", OraNumber.builder().optional().build())
 				.build();
 		final Struct struct = new Struct(schema);
 		struct.put("LINE_ID", new NUMBER(lineId).getBytes());
@@ -61,6 +62,7 @@ public class OraNumberConverterTest {
 		try {
 			struct.put("QUANTITY", new NUMBER(quantity).getBytes());
 			struct.put("ACCEPTED_QUANTITY", new NUMBER(acceptedQuantity).getBytes());
+			struct.put("MAX_MINMAX_QUANTITY", new NUMBER("999999999999999999999999999999999").getBytes());
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -137,6 +139,25 @@ public class OraNumberConverterTest {
 		assertEquals(BigDecimal.valueOf(invoicingRuleId, 0).setScale(singleScale), updated.get("INVOICING_RULE_ID"));
 		assertEquals(quantity.setScale(singleScale), updated.get("QUANTITY"));
 		assertEquals(BigDecimal.valueOf(acceptedQuantity).setScale(singleScale), updated.get("ACCEPTED_QUANTITY"));
+		fromOra.close();
+
+		// Wildcard: oracle.sql.NUMBER -> decimal(38,10)
+		int scale = 10;
+		int precision = 38;
+		props.clear();
+		fromOra = null;
+		props.put("target.type", "decimal");
+		props.put("decimal.scale", Integer.toString(scale));
+		props.put("decimal.precision", Integer.toString(precision));
+		fromOra = new OraNumberConverter.Value<>();
+		fromOra.configure(props);
+		updated = (Struct) fromOra.apply(original).value();
+		assertEquals(BigDecimal.valueOf(lineId, 0).setScale(scale), updated.get("LINE_ID"));
+		assertEquals(BigDecimal.valueOf(orgId, 0).setScale(scale), updated.get("ORG_ID"));
+		assertEquals(BigDecimal.valueOf(invoicingRuleId, 0).setScale(scale), updated.get("INVOICING_RULE_ID"));
+		assertEquals(quantity.setScale(scale), updated.get("QUANTITY"));
+		assertEquals(BigDecimal.valueOf(acceptedQuantity).setScale(scale), updated.get("ACCEPTED_QUANTITY"));
+		assertEquals(new BigDecimal("99999999999999999999999999999999999999").setScale(scale), updated.get("MAX_MINMAX_QUANTITY"));
 		fromOra.close();
 
 		// Wildcard: oracle.sql.NUMBER named %ID -> long
