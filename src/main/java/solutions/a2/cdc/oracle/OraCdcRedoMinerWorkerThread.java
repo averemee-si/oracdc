@@ -703,7 +703,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final int key = record.halfDoneKey();
 			Deque<RowChangeHolder> deque =  halfDone.get(key);
 			if (deque == null) {
-				//TODO - error message
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to pair OP:11.16 record with row flags {} at RBA {}, SCN {}, XID {} in file {}\n" +
+						"Redo record information:\n{}" +
+						"\n=====================\n",
+						printFbFlags(fbLmn),record.rba(), record.scn(), record.xid(), record.redoLog().fileName(), record);
 			} else {
 				RowChangeHolder halfDoneRow =  deque.pollFirst();
 				halfDoneRow.complete = true;
@@ -711,8 +716,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				if (deque.isEmpty()) {
 					halfDone.remove(key);
 				}
-				//TODO debug output
-				
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Emitting {} with first RBA {}, last RBA {} using OP:11.16 record with row flags {} at RBA {}, SCN {}, XID {} in file {}",
+							halfDoneRow.lmOp == UPDATE ? "UPDATE" : halfDoneRow.lmOp == INSERT ? "INSERT" : "DELETE",
+							halfDoneRow.first().rba(), halfDoneRow.last().rba(), 
+							printFbFlags(fbLmn),record.rba(), record.scn(), record.xid(), record.redoLog().fileName());
+				}
 			}
 		} else if (record.supplementalLogData()) {
 			if (flgFirstPart(fbLmn) && !flgNextPart(fbLmn)) {
