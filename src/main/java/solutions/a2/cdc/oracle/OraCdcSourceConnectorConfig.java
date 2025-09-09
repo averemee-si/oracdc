@@ -38,8 +38,6 @@ import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.ConfigDef.Importance;
-import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +46,16 @@ import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
+
+import static org.apache.kafka.common.config.ConfigDef.Importance.HIGH;
+import static org.apache.kafka.common.config.ConfigDef.Importance.LOW;
+import static org.apache.kafka.common.config.ConfigDef.Importance.MEDIUM;
+import static org.apache.kafka.common.config.ConfigDef.Type.BOOLEAN;
+import static org.apache.kafka.common.config.ConfigDef.Type.INT;
+import static org.apache.kafka.common.config.ConfigDef.Type.LONG;
+import static org.apache.kafka.common.config.ConfigDef.Type.LIST;
+import static org.apache.kafka.common.config.ConfigDef.Type.PASSWORD;
+import static org.apache.kafka.common.config.ConfigDef.Type.STRING;
 
 /**
  * 
@@ -403,6 +411,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String TDE_WALLET_PASSWORD_PARAM = "a2.tde.wallet.password";
 	private static final String TDE_WALLET_PASSWORD_DOC = "Password Oracle Wallet";
 
+	private static final String ALL_UPDATES_PARAM = "a2.process.all.update.statements";
+	private static final boolean ALL_UPDATES_DEFAULT = true;
+	private static final String ALL_UPDATES_DOC = 
+			"When set to TRUE connector processes all UPDATE statements.\n" +
+			"When set to FALSE connector ignores UPDATE statements that do not actually change the data, i.e. 'update DEPT set DNAME=DNAME where DEPTNO=10'.\n" +
+			"Default - " + ALL_UPDATES_DEFAULT;
+
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
@@ -412,230 +427,141 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public static ConfigDef config() {
 		return OraCdcSourceBaseConfig.config()
-				.define(TOPIC_PARTITION_PARAM, Type.INT, 0,
-						Importance.MEDIUM, TOPIC_PARTITION_DOC)
-				.define(LGMNR_START_SCN_PARAM, Type.STRING, "0",
-						Importance.MEDIUM, LGMNR_START_SCN_DOC)
-				.define(TEMP_DIR_PARAM, Type.STRING, System.getProperty("java.io.tmpdir"),
-						Importance.HIGH, TEMP_DIR_DOC)
-				.define(MAKE_STANDBY_ACTIVE_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, MAKE_STANDBY_ACTIVE_DOC)
-				.define(ParamConstants.STANDBY_WALLET_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.STANDBY_WALLET_DOC)
-				.define(ParamConstants.STANDBY_URL_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.STANDBY_URL_DOC)
-				.define(ORACDC_SCHEMAS_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ORACDC_SCHEMAS_DOC)
-				.define(ParamConstants.DICTIONARY_FILE_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.DICTIONARY_FILE_DOC)
-				.define(ParamConstants.INITIAL_LOAD_PARAM, Type.STRING,
-						ParamConstants.INITIAL_LOAD_IGNORE,
-						ConfigDef.ValidString.in(ParamConstants.INITIAL_LOAD_IGNORE,
+				.define(TOPIC_PARTITION_PARAM, INT, 0, MEDIUM, TOPIC_PARTITION_DOC)
+				.define(LGMNR_START_SCN_PARAM, STRING, "0", MEDIUM, LGMNR_START_SCN_DOC)
+				.define(TEMP_DIR_PARAM, STRING, System.getProperty("java.io.tmpdir"), HIGH, TEMP_DIR_DOC)
+				.define(MAKE_STANDBY_ACTIVE_PARAM, BOOLEAN, false, LOW, MAKE_STANDBY_ACTIVE_DOC)
+				.define(ParamConstants.STANDBY_WALLET_PARAM, STRING, "", LOW, ParamConstants.STANDBY_WALLET_DOC)
+				.define(ParamConstants.STANDBY_URL_PARAM, STRING, "", LOW, ParamConstants.STANDBY_URL_DOC)
+				.define(ORACDC_SCHEMAS_PARAM, BOOLEAN, false, LOW, ORACDC_SCHEMAS_DOC)
+				.define(ParamConstants.DICTIONARY_FILE_PARAM, STRING, "", LOW, ParamConstants.DICTIONARY_FILE_DOC)
+				.define(ParamConstants.INITIAL_LOAD_PARAM, STRING, ParamConstants.INITIAL_LOAD_IGNORE,
+						ConfigDef.ValidString.in(
+								ParamConstants.INITIAL_LOAD_IGNORE,
 								ParamConstants.INITIAL_LOAD_EXECUTE),
-						Importance.LOW, ParamConstants.INITIAL_LOAD_DOC)
-				.define(TOPIC_NAME_STYLE_PARAM, Type.STRING,
-						TOPIC_NAME_STYLE_TABLE,
-						ConfigDef.ValidString.in(TOPIC_NAME_STYLE_TABLE,
+						LOW, ParamConstants.INITIAL_LOAD_DOC)
+				.define(TOPIC_NAME_STYLE_PARAM, STRING, TOPIC_NAME_STYLE_TABLE,
+						ConfigDef.ValidString.in(
+								TOPIC_NAME_STYLE_TABLE,
 								TOPIC_NAME_STYLE_SCHEMA_TABLE,
 								TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE),
-						Importance.LOW, TOPIC_NAME_STYLE_DOC)
-				.define(TOPIC_NAME_DELIMITER_PARAM, Type.STRING,
-						TOPIC_NAME_DELIMITER_UNDERSCORE,
-						ConfigDef.ValidString.in(TOPIC_NAME_DELIMITER_UNDERSCORE,
+						LOW, TOPIC_NAME_STYLE_DOC)
+				.define(TOPIC_NAME_DELIMITER_PARAM, STRING, TOPIC_NAME_DELIMITER_UNDERSCORE,
+						ConfigDef.ValidString.in(
+								TOPIC_NAME_DELIMITER_UNDERSCORE,
 								TOPIC_NAME_DELIMITER_DASH,
 								TOPIC_NAME_DELIMITER_DOT),
-						Importance.LOW, TOPIC_NAME_DELIMITER_DOC)
-				.define(TABLE_LIST_STYLE_PARAM, Type.STRING,
-						TABLE_LIST_STYLE_STATIC,
-						ConfigDef.ValidString.in(TABLE_LIST_STYLE_STATIC,
+						LOW, TOPIC_NAME_DELIMITER_DOC)
+				.define(TABLE_LIST_STYLE_PARAM, STRING, TABLE_LIST_STYLE_STATIC,
+						ConfigDef.ValidString.in(
+								TABLE_LIST_STYLE_STATIC,
 								TABLE_LIST_STYLE_DYNAMIC),
-						Importance.LOW, TABLE_LIST_STYLE_DOC)
-				.define(PROCESS_LOBS_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, PROCESS_LOBS_DOC)
-				.define(CONNECTION_BACKOFF_PARAM, Type.INT, CONNECTION_BACKOFF_DEFAULT,
-						Importance.LOW, CONNECTION_BACKOFF_DOC)
-				.define(ParamConstants.ARCHIVED_LOG_CAT_PARAM, Type.STRING, ParamConstants.ARCHIVED_LOG_CAT_DEFAULT,
-						Importance.LOW, ParamConstants.ARCHIVED_LOG_CAT_DOC)
-				.define(ParamConstants.FETCH_SIZE_PARAM, Type.INT, ParamConstants.FETCH_SIZE_DEFAULT,
-						Importance.LOW, ParamConstants.FETCH_SIZE_DOC)
-				.define(ParamConstants.TRACE_LOGMINER_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.TRACE_LOGMINER_DOC)
-				.define(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.MAKE_DISTRIBUTED_ACTIVE_DOC)
-				.define(ParamConstants.DISTRIBUTED_WALLET_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.DISTRIBUTED_WALLET_DOC)
-				.define(ParamConstants.DISTRIBUTED_URL_PARAM, Type.STRING, "",
-						Importance.LOW, ParamConstants.DISTRIBUTED_URL_DOC)
-				.define(ParamConstants.DISTRIBUTED_TARGET_HOST, Type.STRING, "",
-						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_HOST_DOC)
-				.define(ParamConstants.DISTRIBUTED_TARGET_PORT, Type.INT, ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT,
-						Importance.LOW, ParamConstants.DISTRIBUTED_TARGET_PORT_DOC)
-				.define(LOB_TRANSFORM_CLASS_PARAM, Type.STRING, LOB_TRANSFORM_CLASS_DEFAULT,
-						Importance.LOW, LOB_TRANSFORM_CLASS_DOC)
-				.define(USE_RAC_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, USE_RAC_DOC)
-				.define(PROTOBUF_SCHEMA_NAMING_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, PROTOBUF_SCHEMA_NAMING_DOC)
-				.define(ParamConstants.ORA_TRANSACTION_IMPL_PARAM, Type.STRING,
-						ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
-						ConfigDef.ValidString.in(ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
+						LOW, TABLE_LIST_STYLE_DOC)
+				.define(PROCESS_LOBS_PARAM, BOOLEAN, false, LOW, PROCESS_LOBS_DOC)
+				.define(CONNECTION_BACKOFF_PARAM, INT, CONNECTION_BACKOFF_DEFAULT, LOW, CONNECTION_BACKOFF_DOC)
+				.define(ParamConstants.ARCHIVED_LOG_CAT_PARAM, STRING, ParamConstants.ARCHIVED_LOG_CAT_DEFAULT, LOW, ParamConstants.ARCHIVED_LOG_CAT_DOC)
+				.define(ParamConstants.FETCH_SIZE_PARAM, INT, ParamConstants.FETCH_SIZE_DEFAULT, LOW, ParamConstants.FETCH_SIZE_DOC)
+				.define(ParamConstants.TRACE_LOGMINER_PARAM, BOOLEAN, false, LOW, ParamConstants.TRACE_LOGMINER_DOC)
+				.define(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM, BOOLEAN, false, LOW, ParamConstants.MAKE_DISTRIBUTED_ACTIVE_DOC)
+				.define(ParamConstants.DISTRIBUTED_WALLET_PARAM, STRING, "", LOW, ParamConstants.DISTRIBUTED_WALLET_DOC)
+				.define(ParamConstants.DISTRIBUTED_URL_PARAM, STRING, "", LOW, ParamConstants.DISTRIBUTED_URL_DOC)
+				.define(ParamConstants.DISTRIBUTED_TARGET_HOST, STRING, "", LOW, ParamConstants.DISTRIBUTED_TARGET_HOST_DOC)
+				.define(ParamConstants.DISTRIBUTED_TARGET_PORT, INT, ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT, LOW, ParamConstants.DISTRIBUTED_TARGET_PORT_DOC)
+				.define(LOB_TRANSFORM_CLASS_PARAM, STRING, LOB_TRANSFORM_CLASS_DEFAULT, LOW, LOB_TRANSFORM_CLASS_DOC)
+				.define(USE_RAC_PARAM, BOOLEAN, false, LOW, USE_RAC_DOC)
+				.define(PROTOBUF_SCHEMA_NAMING_PARAM, BOOLEAN, false, LOW, PROTOBUF_SCHEMA_NAMING_DOC)
+				.define(ParamConstants.ORA_TRANSACTION_IMPL_PARAM, STRING, ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
+						ConfigDef.ValidString.in(
+								ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
 								ParamConstants.ORA_TRANSACTION_IMPL_JVM),
-						Importance.LOW, ParamConstants.ORA_TRANSACTION_IMPL_DOC)
-				.define(PRINT_INVALID_HEX_WARNING_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, PRINT_INVALID_HEX_WARNING_DOC)
-				.define(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM, Type.BOOLEAN, false,
-						Importance.LOW, ParamConstants.PROCESS_ONLINE_REDO_LOGS_DOC)
-				.define(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM, Type.INT, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DEFAULT,
-						Importance.LOW, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DOC)
-				.define(INCOMPLETE_REDO_TOLERANCE_PARAM, Type.STRING,
-						INCOMPLETE_REDO_TOLERANCE_ERROR,
+						LOW, ParamConstants.ORA_TRANSACTION_IMPL_DOC)
+				.define(PRINT_INVALID_HEX_WARNING_PARAM, BOOLEAN, false, LOW, PRINT_INVALID_HEX_WARNING_DOC)
+				.define(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM, BOOLEAN, false, LOW, ParamConstants.PROCESS_ONLINE_REDO_LOGS_DOC)
+				.define(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM, INT, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DEFAULT, LOW, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DOC)
+				.define(INCOMPLETE_REDO_TOLERANCE_PARAM, STRING, INCOMPLETE_REDO_TOLERANCE_ERROR,
 						ConfigDef.ValidString.in(
 								INCOMPLETE_REDO_TOLERANCE_ERROR,
 								INCOMPLETE_REDO_TOLERANCE_SKIP,
 								INCOMPLETE_REDO_TOLERANCE_RESTORE),
-						Importance.LOW, INCOMPLETE_REDO_TOLERANCE_DOC)
-				.define(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM, Type.BOOLEAN, true,
-						Importance.LOW, ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_DOC)
-				.define(LM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, Long.MAX_VALUE,
-						Importance.LOW, LM_RECONNECT_INTERVAL_MS_DOC)
-				.define(PK_TYPE_PARAM, Type.STRING,
-						PK_TYPE_WELL_DEFINED,
+						LOW, INCOMPLETE_REDO_TOLERANCE_DOC)
+				.define(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM, BOOLEAN, true, LOW, ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_DOC)
+				.define(LM_RECONNECT_INTERVAL_MS_PARAM, LONG, Long.MAX_VALUE, LOW, LM_RECONNECT_INTERVAL_MS_DOC)
+				.define(PK_TYPE_PARAM, STRING, PK_TYPE_WELL_DEFINED,
 						ConfigDef.ValidString.in(
 								PK_TYPE_WELL_DEFINED,
-								PK_TYPE_ANY_UNIQUE
-						),
-						Importance.MEDIUM, PK_TYPE_DOC)
-				.define(USE_ROWID_AS_KEY_PARAM, Type.BOOLEAN, true,
-						Importance.MEDIUM, USE_ROWID_AS_KEY_DOC)
-				.define(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM,
-						Type.BOOLEAN, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
-						Importance.MEDIUM, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DOC)
-				.define(INTERNAL_RAC_URLS_PARAM, Type.LIST, "",
-						Importance.LOW, INTERNAL_PARAMETER_DOC)
-				.define(INTERNAL_DG4RAC_THREAD_PARAM, Type.LIST, "",
-						Importance.LOW, INTERNAL_PARAMETER_DOC)
-				.define(TOPIC_MAPPER_PARAM, Type.STRING,
-						TOPIC_MAPPER_DEFAULT,
-						Importance.LOW, TOPIC_MAPPER_DOC)
-				.define(STOP_ON_ORA_1284_PARAM, Type.BOOLEAN, STOP_ON_ORA_1284_DEFAULT,
-						Importance.LOW, STOP_ON_ORA_1284_DOC)
-				.define(PRINT_UNABLE_TO_DELETE_WARNING_PARAM, Type.BOOLEAN, PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT,
-						Importance.LOW, PRINT_UNABLE_TO_DELETE_WARNING_DOC)
-				.define(SCHEMANAME_MAPPER_PARAM, Type.STRING,
-						SCHEMANAME_MAPPER_DEFAULT,
-						Importance.LOW, SCHEMANAME_MAPPER_DOC)
-				.define(ORA_ROWSCN_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_ROWSCN_DOC)
-				.define(ORA_COMMITSCN_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_COMMITSCN_DOC)
-				.define(ORA_ROWTS_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_ROWTS_DOC)
-				.define(ORA_OPERATION_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_OPERATION_DOC)
-				.define(ORA_XID_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_XID_DOC)
-				.define(ORA_USERNAME_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_USERNAME_DOC)
-				.define(ORA_OSUSERNAME_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_OSUSERNAME_DOC)
-				.define(ORA_HOSTNAME_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_HOSTNAME_DOC)
-				.define(ORA_AUDIT_SESSIONID_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_AUDIT_SESSIONID_DOC)
-				.define(ORA_SESSION_INFO_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_SESSION_INFO_DOC)
-				.define(ORA_CLIENT_ID_PARAM, Type.STRING, "",
-						Importance.LOW, ORA_CLIENT_ID_DOC)
-				.define(LAST_SEQ_NOTIFIER_PARAM, Type.STRING, "",
-						Importance.LOW, LAST_SEQ_NOTIFIER_DOC)
-				.define(LAST_SEQ_NOTIFIER_FILE_PARAM, Type.STRING, "",
-						Importance.LOW, LAST_SEQ_NOTIFIER_FILE_DOC)
-				.define(KEY_OVERRIDE_PARAM, Type.LIST, "",
-						Importance.MEDIUM, KEY_OVERRIDE_DOC)
-				.define(CONC_TRANSACTIONS_THRESHOLD_PARAM, Type.INT, 0,
-						Importance.LOW, CONC_TRANSACTIONS_THRESHOLD_DOC)
-				.define(REDUCE_LOAD_MS_PARAM, Type.INT, REDUCE_LOAD_MS_DEFAULT,
-						Importance.LOW, REDUCE_LOAD_MS_DOC)
-				.define(AL_CAPACITY_PARAM, Type.INT, AL_CAPACITY_DEFAULT,
-						Importance.LOW, AL_CAPACITY_DOC)
+								PK_TYPE_ANY_UNIQUE),
+						MEDIUM, PK_TYPE_DOC)
+				.define(USE_ROWID_AS_KEY_PARAM, BOOLEAN, true, MEDIUM, USE_ROWID_AS_KEY_DOC)
+				.define(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM, BOOLEAN, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DEFAULT, MEDIUM, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DOC)
+				.define(INTERNAL_RAC_URLS_PARAM, LIST, "", LOW, INTERNAL_PARAMETER_DOC)
+				.define(INTERNAL_DG4RAC_THREAD_PARAM, LIST, "", LOW, INTERNAL_PARAMETER_DOC)
+				.define(TOPIC_MAPPER_PARAM, STRING, TOPIC_MAPPER_DEFAULT, LOW, TOPIC_MAPPER_DOC)
+				.define(STOP_ON_ORA_1284_PARAM, BOOLEAN, STOP_ON_ORA_1284_DEFAULT, LOW, STOP_ON_ORA_1284_DOC)
+				.define(PRINT_UNABLE_TO_DELETE_WARNING_PARAM, BOOLEAN, PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT, LOW, PRINT_UNABLE_TO_DELETE_WARNING_DOC)
+				.define(SCHEMANAME_MAPPER_PARAM, STRING, SCHEMANAME_MAPPER_DEFAULT, LOW, SCHEMANAME_MAPPER_DOC)
+				.define(ORA_ROWSCN_PARAM, STRING, "", LOW, ORA_ROWSCN_DOC)
+				.define(ORA_COMMITSCN_PARAM, STRING, "", LOW, ORA_COMMITSCN_DOC)
+				.define(ORA_ROWTS_PARAM, STRING, "", LOW, ORA_ROWTS_DOC)
+				.define(ORA_OPERATION_PARAM, STRING, "", LOW, ORA_OPERATION_DOC)
+				.define(ORA_XID_PARAM, STRING, "", LOW, ORA_XID_DOC)
+				.define(ORA_USERNAME_PARAM, STRING, "", LOW, ORA_USERNAME_DOC)
+				.define(ORA_OSUSERNAME_PARAM, STRING, "", LOW, ORA_OSUSERNAME_DOC)
+				.define(ORA_HOSTNAME_PARAM, STRING, "", LOW, ORA_HOSTNAME_DOC)
+				.define(ORA_AUDIT_SESSIONID_PARAM, STRING, "", LOW, ORA_AUDIT_SESSIONID_DOC)
+				.define(ORA_SESSION_INFO_PARAM, STRING, "", LOW, ORA_SESSION_INFO_DOC)
+				.define(ORA_CLIENT_ID_PARAM, STRING, "", LOW, ORA_CLIENT_ID_DOC)
+				.define(LAST_SEQ_NOTIFIER_PARAM, STRING, "", LOW, LAST_SEQ_NOTIFIER_DOC)
+				.define(LAST_SEQ_NOTIFIER_FILE_PARAM, STRING, "", LOW, LAST_SEQ_NOTIFIER_FILE_DOC)
+				.define(KEY_OVERRIDE_PARAM, LIST, "", MEDIUM, KEY_OVERRIDE_DOC)
+				.define(CONC_TRANSACTIONS_THRESHOLD_PARAM, INT, 0, LOW, CONC_TRANSACTIONS_THRESHOLD_DOC)
+				.define(REDUCE_LOAD_MS_PARAM, INT, REDUCE_LOAD_MS_DEFAULT, LOW, REDUCE_LOAD_MS_DOC)
+				.define(AL_CAPACITY_PARAM, INT, AL_CAPACITY_DEFAULT, LOW, AL_CAPACITY_DOC)
 				// Redo Miner only!
-				.define(REDO_FILE_NAME_CONVERT_PARAM, Type.STRING, "",
-						Importance.HIGH, REDO_FILE_NAME_CONVERT_DOC)
-				.define(REDO_FILE_MEDIUM_PARAM, Type.STRING,
-						REDO_FILE_MEDIUM_FS,
+				.define(REDO_FILE_NAME_CONVERT_PARAM, STRING, "", HIGH, REDO_FILE_NAME_CONVERT_DOC)
+				.define(REDO_FILE_MEDIUM_PARAM, STRING, REDO_FILE_MEDIUM_FS,
 						ConfigDef.ValidString.in(
 								REDO_FILE_MEDIUM_FS,
 								REDO_FILE_MEDIUM_ASM,
 								REDO_FILE_MEDIUM_SSH,
 								REDO_FILE_MEDIUM_SMB,
 								REDO_FILE_MEDIUM_BFILE),
-						Importance.HIGH, REDO_FILE_MEDIUM_DOC)
-				.define(ASM_JDBC_URL_PARAM, Type.STRING, "",
-						Importance.LOW, ASM_JDBC_URL_DOC)
-				.define(ASM_USER_PARAM, Type.STRING, "",
-						Importance.LOW, ASM_USER_DOC)
-				.define(ASM_PASSWORD_PARAM, Type.PASSWORD, "",
-						Importance.LOW, ASM_PASSWORD_DOC)
-				.define(ASM_READ_AHEAD_PARAM, Type.BOOLEAN, ASM_READ_AHEAD_DEFAULT,
-						Importance.LOW, ASM_READ_AHEAD_DOC)
-				.define(ASM_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, ASM_RECONNECT_INTERVAL_MS_DEFAULT,
-						Importance.LOW, ASM_RECONNECT_INTERVAL_MS_DOC)
-				.define(SSH_HOST_PARAM, Type.STRING, "",
-						Importance.LOW, SSH_HOST_DOC)
-				.define(SSH_PORT_PARAM, Type.INT, SSH_PORT_DEFAULT,
-						Importance.LOW, SSH_PORT_DOC)
-				.define(SSH_USER_PARAM, Type.STRING, "",
-						Importance.LOW, SSH_USER_DOC)
-				.define(SSH_KEY_PARAM, Type.PASSWORD, "",
-						Importance.LOW, SSH_KEY_DOC)
-				.define(SSH_PASSWORD_PARAM, Type.PASSWORD, "",
-						Importance.LOW, SSH_PASSWORD_DOC)
-				.define(SSH_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, SSH_RECONNECT_INTERVAL_MS_DEFAULT,
-						Importance.LOW, SSH_RECONNECT_INTERVAL_MS_DOC)
-				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, Type.BOOLEAN, false,
-						Importance.MEDIUM, SSH_STRICT_HOST_KEY_CHECKING_DOC)
-				.define(SSH_PROVIDER_PARAM, Type.STRING,
-						SSH_PROVIDER_MAVERICK,
+						HIGH, REDO_FILE_MEDIUM_DOC)
+				.define(ASM_JDBC_URL_PARAM, STRING, "", LOW, ASM_JDBC_URL_DOC)
+				.define(ASM_USER_PARAM, STRING, "", LOW, ASM_USER_DOC)
+				.define(ASM_PASSWORD_PARAM, PASSWORD, "", LOW, ASM_PASSWORD_DOC)
+				.define(ASM_READ_AHEAD_PARAM, BOOLEAN, ASM_READ_AHEAD_DEFAULT, LOW, ASM_READ_AHEAD_DOC)
+				.define(ASM_RECONNECT_INTERVAL_MS_PARAM, LONG, ASM_RECONNECT_INTERVAL_MS_DEFAULT, LOW, ASM_RECONNECT_INTERVAL_MS_DOC)
+				.define(SSH_HOST_PARAM, STRING, "", LOW, SSH_HOST_DOC)
+				.define(SSH_PORT_PARAM, INT, SSH_PORT_DEFAULT, LOW, SSH_PORT_DOC)
+				.define(SSH_USER_PARAM, STRING, "", LOW, SSH_USER_DOC)
+				.define(SSH_KEY_PARAM, PASSWORD, "", LOW, SSH_KEY_DOC)
+				.define(SSH_PASSWORD_PARAM, PASSWORD, "", LOW, SSH_PASSWORD_DOC)
+				.define(SSH_RECONNECT_INTERVAL_MS_PARAM, LONG, SSH_RECONNECT_INTERVAL_MS_DEFAULT, LOW, SSH_RECONNECT_INTERVAL_MS_DOC)
+				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, BOOLEAN, false, MEDIUM, SSH_STRICT_HOST_KEY_CHECKING_DOC)
+				.define(SSH_PROVIDER_PARAM, STRING, SSH_PROVIDER_MAVERICK,
 						ConfigDef.ValidString.in(
 								SSH_PROVIDER_MAVERICK,
 								SSH_PROVIDER_SSHJ),
-						Importance.LOW, SSH_PROVIDER_DOC)
-				.define(SSH_UNCONFIRMED_READS_PARAM, Type.INT, SSH_UNCONFIRMED_READS_DEFAULT,
-						Importance.LOW, SSH_UNCONFIRMED_READS_DOC)
-				.define(SSH_BUFFER_SIZE_PARAM, Type.INT, SSH_BUFFER_SIZE_DEFAULT,
-						Importance.LOW, SSH_BUFFER_SIZE_DOC)
-				.define(SMB_SERVER_PARAM, Type.STRING, "",
-						Importance.LOW, SMB_SERVER_DOC)
-				.define(SMB_SHARE_ONLINE_PARAM, Type.STRING, "",
-						Importance.LOW, SMB_SHARE_ONLINE_DOC)
-				.define(SMB_SHARE_ARCHIVE_PARAM, Type.STRING, "",
-						Importance.LOW, SMB_SHARE_ARCHIVE_DOC)
-				.define(SMB_USER_PARAM, Type.STRING, "",
-						Importance.LOW, SMB_USER_DOC)
-				.define(SMB_PASSWORD_PARAM, Type.PASSWORD, "",
-						Importance.LOW, SMB_PASSWORD_DOC)
-				.define(SMB_DOMAIN_PARAM, Type.STRING, "",
-						Importance.LOW, SMB_DOMAIN_DOC)
-				.define(SMB_TIMEOUT_MS_PARAM, Type.INT, SMB_TIMEOUT_MS_DEFAULT,
-						Importance.LOW, SMB_TIMEOUT_MS_DOC)
-				.define(SMB_SOCKET_TIMEOUT_MS_PARAM, Type.INT, SMB_SOCKET_TIMEOUT_MS_DEFAULT,
-						Importance.LOW, SMB_SOCKET_TIMEOUT_MS_DOC)
-				.define(SMB_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, SMB_RECONNECT_INTERVAL_MS_DEFAULT,
-						Importance.LOW, SMB_RECONNECT_INTERVAL_MS_DOC)
-				.define(SMB_BUFFER_SIZE_PARAM, Type.INT, SMB_BUFFER_SIZE_DEFAULT,
-						Importance.LOW, SMB_BUFFER_SIZE_DOC)
-				.define(BFILE_DIR_ONLINE_PARAM, Type.STRING, "",
-						Importance.LOW, BFILE_DIR_ONLINE_DOC)
-				.define(BFILE_DIR_ARCHIVE_PARAM, Type.STRING, "",
-						Importance.LOW, BFILE_DIR_ARCHIVE_DOC)
-				.define(BFILE_RECONNECT_INTERVAL_MS_PARAM, Type.LONG, BFILE_RECONNECT_INTERVAL_MS_DEFAULT,
-						Importance.LOW, BFILE_RECONNECT_INTERVAL_MS_DOC)
-				.define(BFILE_BUFFER_SIZE_PARAM, Type.INT, BFILE_BUFFER_SIZE_DEFAULT,
-						Importance.LOW, BFILE_BUFFER_SIZE_DOC)
-				.define(TDE_WALLET_PATH_PARAM, Type.STRING, "",
-						Importance.LOW, TDE_WALLET_PATH_DOC)
-				.define(TDE_WALLET_PASSWORD_PARAM, Type.PASSWORD, "",
-						Importance.LOW, TDE_WALLET_PASSWORD_DOC)
+						LOW, SSH_PROVIDER_DOC)
+				.define(SSH_UNCONFIRMED_READS_PARAM, INT, SSH_UNCONFIRMED_READS_DEFAULT, LOW, SSH_UNCONFIRMED_READS_DOC)
+				.define(SSH_BUFFER_SIZE_PARAM, INT, SSH_BUFFER_SIZE_DEFAULT, LOW, SSH_BUFFER_SIZE_DOC)
+				.define(SMB_SERVER_PARAM, STRING, "", LOW, SMB_SERVER_DOC)
+				.define(SMB_SHARE_ONLINE_PARAM, STRING, "", LOW, SMB_SHARE_ONLINE_DOC)
+				.define(SMB_SHARE_ARCHIVE_PARAM, STRING, "", LOW, SMB_SHARE_ARCHIVE_DOC)
+				.define(SMB_USER_PARAM, STRING, "", LOW, SMB_USER_DOC)
+				.define(SMB_PASSWORD_PARAM, PASSWORD, "", LOW, SMB_PASSWORD_DOC)
+				.define(SMB_DOMAIN_PARAM, STRING, "", LOW, SMB_DOMAIN_DOC)
+				.define(SMB_TIMEOUT_MS_PARAM, INT, SMB_TIMEOUT_MS_DEFAULT, LOW, SMB_TIMEOUT_MS_DOC)
+				.define(SMB_SOCKET_TIMEOUT_MS_PARAM, INT, SMB_SOCKET_TIMEOUT_MS_DEFAULT, LOW, SMB_SOCKET_TIMEOUT_MS_DOC)
+				.define(SMB_RECONNECT_INTERVAL_MS_PARAM, LONG, SMB_RECONNECT_INTERVAL_MS_DEFAULT, LOW, SMB_RECONNECT_INTERVAL_MS_DOC)
+				.define(SMB_BUFFER_SIZE_PARAM, INT, SMB_BUFFER_SIZE_DEFAULT, LOW, SMB_BUFFER_SIZE_DOC)
+				.define(BFILE_DIR_ONLINE_PARAM, STRING, "", LOW, BFILE_DIR_ONLINE_DOC)
+				.define(BFILE_DIR_ARCHIVE_PARAM, STRING, "", LOW, BFILE_DIR_ARCHIVE_DOC)
+				.define(BFILE_RECONNECT_INTERVAL_MS_PARAM, LONG, BFILE_RECONNECT_INTERVAL_MS_DEFAULT, LOW, BFILE_RECONNECT_INTERVAL_MS_DOC)
+				.define(BFILE_BUFFER_SIZE_PARAM, INT, BFILE_BUFFER_SIZE_DEFAULT, LOW, BFILE_BUFFER_SIZE_DOC)
+				.define(TDE_WALLET_PATH_PARAM, STRING, "", LOW, TDE_WALLET_PATH_DOC)
+				.define(TDE_WALLET_PASSWORD_PARAM, PASSWORD, "", LOW, TDE_WALLET_PASSWORD_DOC)
+				.define(ALL_UPDATES_PARAM, BOOLEAN, ALL_UPDATES_DEFAULT, LOW, ALL_UPDATES_DOC)
 				;
 	}
 
@@ -1561,6 +1487,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public String tdePassword() {
 		return getPassword(TDE_WALLET_PASSWORD_PARAM).value();
+	}
+
+	public boolean allUpdates() {
+		return getBoolean(ALL_UPDATES_PARAM);
 	}
 
 }

@@ -287,3 +287,6 @@ Default - 86,400,000 (24 hours)
 `a2.tde.wallet.path` - Full absolute path to Oracle Wallet file (ewallet.p12)
 
 `a2.tde.wallet.password` - Password for Oracle Wallet file
+
+`a2.process.all.update.statements` - When set to TRUE connector processes all UPDATE statements. When set to FALSE connector ignores UPDATE statements that do not actually change the data, i.e. 'update DEPT set DNAME=DNAME where DEPTNO=10'.
+Default - true.
