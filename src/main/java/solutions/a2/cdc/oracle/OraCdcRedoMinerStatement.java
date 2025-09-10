@@ -19,9 +19,13 @@ import solutions.a2.oracle.internals.RowId;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+import static solutions.a2.oracle.utils.BinaryUtils.getU16BE;
+import static solutions.a2.oracle.utils.BinaryUtils.getU24BE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,7 +66,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 		super(tableId, operation, redoData, ts, scn, rba, ssn, rowId, rollback);
 	}
 
-	public byte[] redoData() {
+	byte[] redoData() {
 		return redoData;
 	}
 
@@ -142,6 +146,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 			}
 		} else if (operation == UPDATE) {
 			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
+			final Set<Integer> changedCols = new HashSet<>(setColCount);
 			final int[][] setColDefs = new int[setColCount][3];
 			int pos = readAndSortColDefs(setColDefs, Short.BYTES);
 
@@ -156,10 +161,12 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 				} else {
 					sql.append(", ");
 				}
+				final int colNum = setColDefs[i][0];
 				final int colSize = setColDefs[i][1];
+				changedCols.add(colNum);
 				sql
 					.append("\"COL ")
-					.append(setColDefs[i][0])
+					.append(colNum)
 					.append("\" = ");
 				if (colSize < 0) {
 					sql.append("NULL");
@@ -172,14 +179,41 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 				}				
 			}
 
+			pos = readAndSortColDefs(setColDefs, pos + 3);
+			sql.append(" where ");
+			first = true;
+			for (int i = 0; i < setColCount; i++) {
+				if (first) {
+					first = false;
+				} else {
+					sql.append(" and ");
+				}
+				final int colSize = setColDefs[i][1];
+				sql
+					.append("\"COL ")
+					.append(setColDefs[i][0])
+					.append('"');		
+				if (colSize < 0) {
+					sql.append(" IS NULL");
+				} else {
+					sql.append(" = '");
+					for (int j = 0; j < colSize; j++) {
+						sql.append(String.format("%02x", redoData[setColDefs[i][2] + j]));
+					}
+					sql.append('\'');
+				}
+			}
+
 			final int whereColCount = redoData[pos++] << 8 | (redoData[pos++] & 0xFF);
 			if (whereColCount > 0) {
-				sql.append(" where ");
 				final int[][] whereColDefs = new int[whereColCount][3];
 				readAndSortColDefs(whereColDefs, pos);
 				
-				first = true;
 				for (int i = 0; i < whereColCount; i++) {
+					final int colNum = whereColDefs[i][0];
+					if (changedCols.contains(colNum)) {
+						continue;
+					}
 					if (first) {
 						first = false;
 					} else {
@@ -188,7 +222,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 					final int colSize = whereColDefs[i][1];
 					sql
 						.append("\"COL ")
-						.append(whereColDefs[i][0])
+						.append(colNum)
 						.append('"');		
 					if (colSize < 0) {
 						sql.append(" IS NULL");
@@ -207,7 +241,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 		return sql.toString();
 	}
 
-	public int readColDefs(final int[][] colDefs, int pos) {
+	int readColDefs(final int[][] colDefs, int pos) {
 		final int colCount = colDefs.length;
 		int i = 0;
 		try {
@@ -269,6 +303,49 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 			}
 			sb.append("]");
 		return sb.toString();
+	}
+
+	boolean updateWithoutChanges() {
+		if (operation == UPDATE) {
+			final int setColCount = getU16BE(redoData, 0);
+			int i = 0;
+			int lastSetAfterIndex = Short.BYTES;
+			try {
+				for (; i < setColCount; i++) {
+					lastSetAfterIndex += Short.BYTES;
+					int colSize = Byte.toUnsignedInt(redoData[lastSetAfterIndex++]);
+					if (colSize ==  0xFE) {
+						colSize =  getU16BE(redoData, lastSetAfterIndex);
+						lastSetAfterIndex += Short.BYTES;
+					} else if (colSize == 0xFF) {
+						colSize = -1;
+					}
+					if (colSize > 0) {
+						lastSetAfterIndex += colSize;
+					}
+				}
+			} catch (ArrayIndexOutOfBoundsException oob) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"{} when reading columns for {} statement starting at SCN/SUBSCN/RBA {}/{}/{}\n" +
+						"Column count = {}, last column = {}, pos = {}. Byte array content:\n{}" +
+						"\n=====================\n",
+						oob.getMessage(),
+						operation == INSERT ? "INSERT" : operation == DELETE ? "DELETE" : "UPDATE",
+						scn, ssn, rba, setColCount, i, lastSetAfterIndex, rawToHex(redoData));
+				throw oob;
+			}
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug("UPDATE statement at SCN/SUBSCN/RBA {}/{}/{}\nBefore update:\n{}\nAfter update:\n{}",
+						scn, ssn, rba,
+						rawToHex(Arrays.copyOfRange(redoData, Short.BYTES, lastSetAfterIndex)),
+						rawToHex(Arrays.copyOfRange(redoData, lastSetAfterIndex + 3, 3 + lastSetAfterIndex + getU24BE(redoData, lastSetAfterIndex))));
+			return Arrays.equals(
+					redoData, Short.BYTES, lastSetAfterIndex,
+					redoData, lastSetAfterIndex + 3, 3 + lastSetAfterIndex + getU24BE(redoData, lastSetAfterIndex));
+		} else {
+			return false;
+		}
 	}
 
 }
