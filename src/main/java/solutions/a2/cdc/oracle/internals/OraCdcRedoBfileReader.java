@@ -149,6 +149,14 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 		read.setString(3, redoLog);
 		read.execute();
 		bfile = read.getBfile(1);
+		if (bfile == null) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"BFILENAME('{}','{}') returns NULL!" +
+					"\n=====================\n",
+					directory, redoLog);
+			throw new SQLException("BFILENAME() returns NULL!");
+		}
 		bfile.openLob(MODE_READONLY);
 		is = bfile.getBinaryStream(offset);
 	}
