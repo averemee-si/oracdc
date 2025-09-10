@@ -242,7 +242,7 @@ RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka
 ENV    JAVA_HOME=/opt/java/openjdk 
 ARG    BASEDIR=/opt
 
-ARG    KAFKA_VERSION=4.0.0
+ARG    KAFKA_VERSION=4.1.0
 ARG    SCALA_VERSION=2.13
 ARG    KAFKA_FILENAME=kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz
 ENV    KAFKA_HOME=${BASEDIR}/kafka
@@ -262,12 +262,6 @@ ARG    BC_VERSION="jdk18on-1.81"
 COPY   target/lib/bcprov-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 COPY   target/lib/bcpkix-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 COPY   target/lib/bcutil-${BC_VERSION}.jar ${KAFKA_HOME}/libs
-#
-# CVE-2025-48734 fix for Apache Kafka 4.0 runtime
-#
-ARG    CVE_2025_48734_FIX=commons-beanutils-1.11.0.jar
-RUN    rm ${KAFKA_HOME}/libs/commons-beanutils-1.9.4.jar
-RUN    wget "${MVN_BASE}/commons-beanutils/commons-beanutils/1.11.0/${CVE_2025_48734_FIX}" -O "${KAFKA_HOME}/libs/${CVE_2025_48734_FIX}"
 
 ARG    ORACDC_VERSION=2.11.0
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
