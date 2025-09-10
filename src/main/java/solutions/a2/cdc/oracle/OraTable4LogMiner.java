@@ -93,8 +93,6 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.XML_DOC_BEGIN;
 import static solutions.a2.cdc.oracle.OraColumn.GUARD_COLUMN;
 import static solutions.a2.cdc.oracle.OraColumn.UNUSED_COLUMN;
-import static solutions.a2.cdc.oracle.OraDumpDecoder.hexToRaw;
-import static solutions.a2.cdc.oracle.OraDumpDecoder.rawToHex;
 import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toByte;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toShort;
@@ -102,6 +100,9 @@ import static solutions.a2.oracle.jdbc.types.OracleNumber.toInt;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toLong;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toFloat;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toDouble;
+import static solutions.a2.oracle.utils.BinaryUtils.getU24BE;
+import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 /**
  * 
@@ -157,7 +158,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private Set<Integer> lobColumnIds;
 	private boolean hasEncryptedColumns = false;
 	private OraCdcTdeColumnDecrypter decrypter;
-
+	private boolean allUpdates = true;
 
 	/**
 	 * 
@@ -218,6 +219,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.printUnableToDeleteWarning = config.printUnableToDeleteWarning();
 		this.useOracdcSchemas = config.useOracdcSchemas();
 		this.pseudoColumns = config.pseudoColumnsProcessor();
+		this.allUpdates = config.allUpdates();
 		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		try {
 			if (LOGGER.isDebugEnabled()) {
@@ -2243,6 +2245,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("parseRedoRecord() processing UPDATE");
 			}
+			if (!allUpdates && stmt.updateWithoutChanges()) {
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug(
+							"UPDATE without real changes at  SCN/SUBSCN/RBA {}/{}/{}",
+							stmt.getScn(), stmt.getSsn(), stmt.getRba());
+				}
+				return null;
+			}
 			opType = 'u';
 			setColumns.clear();
 			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
@@ -2295,6 +2305,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				} else
 					printUnableToMapColIdWarning(setColDefs[i][0], xid, stmt);
 			}
+			int origValLen = getU24BE(redoData, pos);
+			pos = pos + 3 + origValLen;
 			//BEGIN: where clause processing...
 			final int whereColCount = redoData[pos++] << 8 | (redoData[pos++] & 0xFF);
 			if (whereColCount > 0) {

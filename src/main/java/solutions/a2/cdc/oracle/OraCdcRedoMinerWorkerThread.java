@@ -92,6 +92,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_4;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLobs.LOB_BIMG_INDEX;
 import static solutions.a2.oracle.utils.BinaryUtils.parseTimestamp;
 import static solutions.a2.oracle.utils.BinaryUtils.putU16;
+import static solutions.a2.oracle.utils.BinaryUtils.putU24;
 
 /**
  * 
@@ -1277,6 +1278,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				//UPDATE
 				int colNumOffsetSet = 1;
 				int colNumOffsetWhere = 1;
+				ByteArrayOutputStream baosB = new ByteArrayOutputStream(setOrValColCount > 0 ? setOrValColCount * 0x20 : 0x80);
 				if (row.onlyLmn)
 					putU16(baos, whereColCount + supplColCount);
 				else
@@ -1290,6 +1292,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							if (rowChange.coords()[OraCdcChangeRowOp.KDO_POS + 1][1] > 1 &&
 									OraCdcChangeRowOp.KDO_POS + 2 < rowChange.coords().length) {
 								rowChange.writeKdoKdom2(baos, OraCdcChangeRowOp.KDO_POS);
+								change.writeKdoKdom2(baosB, OraCdcChangeUndoBlock.KDO_POS);
 							} else {
 								LOGGER.warn("Not enough data to process KDO_KDOM2 structure at RBA {}, change #{}",
 										rr.rba(), rowChange.num());
@@ -1301,6 +1304,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									row.partialRollback ?  colNumOffsetSet : 
 										(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
 									KDO_URP_NULL_POS);
+							change.writeColsWithNulls(
+									baosB, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
+									row.partialRollback ?  colNumOffsetSet : 
+										(change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo()),
+									KDO_URP_NULL_POS);
 						} else if (rowChange.operation() == _11_6_ORP &&
 								OraCdcChangeRowOp.KDO_POS + rowChange.columnCount() < rowChange.coords().length) {
 							rowChange.writeColsWithNulls(
@@ -1308,14 +1316,26 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									row.partialRollback ?  colNumOffsetSet : 
 										(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
 									KDO_ORP_IRP_NULL_POS);
+							change.writeColsWithNulls(
+									baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
+									row.partialRollback ?  colNumOffsetSet : 
+										(change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo()),
+									KDO_ORP_IRP_NULL_POS);
 						} else if (row.onlyLmn) {
 							change.writeSupplementalCols(baos);
+							change.writeSupplementalCols(baosB);
 						} else {
 							LOGGER.warn("Unable to read column data for UPDATE (SET) at RBA {}, change #{}",
 									rr.rba(), rowChange.num());
 						}
 						colNumOffsetSet += rowChange.columnCount();
 					}
+					byte[] baosBBytes = baosB.toByteArray();
+					putU24(baos, baosBBytes.length);
+					baos.write(baosBBytes);
+					baosB.close();
+					baosB = null;
+					baosBBytes = null;
 					if (row.partialRollback) {
 						putU16(baos, 0);
 					} else {
@@ -1400,11 +1420,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						}
 					}
 					putU16(baos, whereColCount);
-					try {
-						baos.write(baosW.toByteArray());
-						baosW.close();
-						baosW = null;
-					} catch (IOException ioe) {}
+					baos.write(baosW.toByteArray());
+					baosW.close();
+					baosW = null;
 				}
 			}
 			redoBytes = baos.toByteArray();
