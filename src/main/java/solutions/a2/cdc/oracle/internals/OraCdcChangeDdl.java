@@ -70,7 +70,7 @@ public class OraCdcChangeDdl extends OraCdcChange {
 
 	}
 
-	boolean valid() {
+	public boolean valid() {
 		return valid;
 	}
 
