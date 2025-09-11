@@ -88,7 +88,7 @@ public class OraCdcChangeDdl extends OraCdcChange {
 				.append("  obj: ")
 				.append(Integer.toUnsignedLong(obj))
 				.append('\n')
-				.append(new String(Arrays.copyOfRange(record, coords[DDL_SQL_POS][0], coords[DDL_SQL_POS][0] + coords[DDL_SQL_POS][1])));
+				.append(ddlText());
 		}
 		return sb;
 	}
