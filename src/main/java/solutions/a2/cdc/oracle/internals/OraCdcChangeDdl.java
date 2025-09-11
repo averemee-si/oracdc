@@ -48,7 +48,7 @@ public class OraCdcChangeDdl extends OraCdcChange {
 		if (coords.length < 1 || coords[0][1] < DDLDEF_MIN_LENGTH) {
 			LOGGER.error(
 					"\n=====================\n" +
-					"Unable to parse mandatory kelement (OP:24.1) for change #{} at RBA {} in '{}'.\n" +
+					"Unable to parse mandatory element (OP:24.1) for change #{} at RBA {} in '{}'.\n" +
 					"Change contents:\n{}\n" +
 					"=====================\n",
 					num, rba, redoLog.fileName(), binaryDump());
@@ -72,6 +72,10 @@ public class OraCdcChangeDdl extends OraCdcChange {
 
 	public boolean valid() {
 		return valid;
+	}
+
+	public String ddlText() {
+		return new String(Arrays.copyOfRange(record, coords[DDL_SQL_POS][0], coords[DDL_SQL_POS][0] + coords[DDL_SQL_POS][1]));
 	}
 
 	@Override
