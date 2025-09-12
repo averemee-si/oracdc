@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcChange;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeColb;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeDdl;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeLlb;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeLobs;
@@ -55,10 +56,12 @@ import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DDL;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UNSUPPORTED;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.FLG_ROWDEPENDENCIES;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.FLG_KDLI_CMAP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCODRW;
@@ -554,10 +557,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", record.change26_x().operation(), record.rba());
 							continue;
 						} else if (record.hasDdl()) {
-							//TODO
-							//TODO
-							//TODO
-							continue;
+							final OraCdcChangeDdl ddl = record.changeDdl();
+							if (ddl.valid()) {
+								if (checker.notNeeded(ddl.obj(), ddl.conId()))
+									continue;
+								else
+									emitDdlChange(record);
+							} else {
+								continue;
+							}
 						} else {
 							if (LOGGER.isDebugEnabled()) {
 								LOGGER.debug("Skipping redo record at RBA {}", record.rba());
@@ -2075,6 +2083,23 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				record.change10_x().obj(iotObjId);
 				record.change10_x().dataObj(iotObjId);
 			}
+		}
+	}
+
+	private void emitDdlChange(OraCdcRedoRecord record) {
+		final OraCdcChangeDdl ddl = record.changeDdl();
+		final String preProcessed = alterTablePreProcessor(ddl.ddlText());
+		if (preProcessed != null) {
+			final OraCdcTransaction transaction = getTransaction(record);
+			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
+					isCdb ? (((long)ddl.conId()) << 32) |  (ddl.obj() & 0xFFFFFFFFL) : ddl.obj(),
+					DDL, preProcessed.getBytes(), lwnUnixMillis, record.scn(), record.rba(),
+					(long) record.subScn(), RowId.ZERO, false);
+			transaction.addStatement(orm);
+			metrics.addRecord();
+		} else {
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug("Skipping OP:24.1\n{}\n", record);
 		}
 	}
 
