@@ -162,11 +162,13 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 						supplementalFb = record[coords[suppDataStartIndex][0] + 0x1];
 						suppOffsetUndo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x6));
 						suppOffsetRedo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x8));
-						supplementalCcNn = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x2));
-						if (coords.length > (suppDataStartIndex + 1)) {
-							supplementalCc = coords[suppDataStartIndex + 1][1] / Short.BYTES;
-						} else {
-							supplementalCc = supplementalCcNn;
+						if (selector == _11_5_URP) {
+							supplementalCcNn = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x2));
+							if (coords.length > (suppDataStartIndex + 1)) {
+								supplementalCc = coords[suppDataStartIndex + 1][1] / Short.BYTES;
+							} else {
+								supplementalCc = supplementalCcNn;
+							}
 						}
 						if (SUPPL_LOG_ROW_MIN_LENGTH <= coords[suppDataStartIndex][1]) {
 							supplementalBdba = redoLog.bu().getU32(record, coords[suppDataStartIndex][0] + 0x14);
