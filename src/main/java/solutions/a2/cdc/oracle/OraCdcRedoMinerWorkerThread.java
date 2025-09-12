@@ -1406,6 +1406,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
 									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
 									KDO_ORP_IRP_NULL_POS);
+							change.writeColsWithNulls(
+									baosW, OraCdcChangeUndoBlock.KDO_POS, 0,
+									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
+									KDO_ORP_IRP_NULL_POS);
 							colNumOffsetSet += change.columnCount();
 							rowChange.writeColsWithNulls(
 									baosW, OraCdcChangeRowOp.KDO_POS, 0,
