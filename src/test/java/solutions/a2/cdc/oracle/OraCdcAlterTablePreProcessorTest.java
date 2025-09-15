@@ -84,20 +84,20 @@ public class OraCdcAlterTablePreProcessorTest {
 
 
 		assertEquals(
-				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "SALGRADE",
+				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "SALGRADE" + "\n" + "alter table SALARY drop column SALGRADE",
 				OraSqlUtils.alterTablePreProcessor("alter table SALARY drop column SALGRADE"),
 				"Unexpected results");
 		assertEquals(
-				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "SALGRADE;BONUS",
+				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "SALGRADE;BONUS" + "\n" + "alter table SCOTT.SALARY drop (SALGRADE, BONUS)",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT.SALARY drop (SALGRADE, BONUS)"),
 				"Unexpected results");
 		assertEquals(
-				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "SALGRADE",
+				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "SALGRADE" + "\n" + "alter table SCOTT. EMP set unused (SALGRADE)",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT. EMP set unused (SALGRADE)"),
 				"Unexpected results");
 		assertEquals(
-				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "BONUS;SALGRADE",
+				OraSqlUtils.ALTER_TABLE_COLUMN_DROP + "\n" + "BONUS;SALGRADE" + "\n" + "alter table SCOTT .EMP set unused (BONUS, SALGRADE)",
 				OraSqlUtils.alterTablePreProcessor("alter table SCOTT .EMP set unused (BONUS, SALGRADE)"),
-				"Unexpected results");
+				"Unexpected results");		
 	}
 }

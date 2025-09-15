@@ -173,29 +173,32 @@ public class OraSqlUtils {
 				} else if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
 					// alter table table_name drop column column_name;
 					return ALTER_TABLE_COLUMN_DROP + "\n" +
-						StringUtils.trim(tokens[beginIndex + 2]);
+						StringUtils.trim(tokens[beginIndex + 2]) + "\n" +
+						originalText;
 				} else if (Strings.CS.startsWith(tokens[beginIndex + 1], "(")) {
 					// alter table table_name drop (column_name1, column_name2);
-					return ALTER_TABLE_COLUMN_DROP + "\n" +
+					final String dropColumns = ALTER_TABLE_COLUMN_DROP + "\n" +
 						Arrays
 							.stream(StringUtils.split(
 									StringUtils.substringBetween(
 											originalText, "(", ")"), ","))
 							.map(s -> StringUtils.trim(s))
 							.collect(Collectors.joining(";"));
+					return dropColumns + "\n" + originalText;
 				} else {
 					return null;
 				}
 			case ALTER_TABLE_COLUMN_SET:
 				if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_UNUSED)) {
 					// alter table table_name set unused (column_name1, column_name2);
-					return ALTER_TABLE_COLUMN_DROP + "\n" +
+					final String setUnused = ALTER_TABLE_COLUMN_DROP + "\n" +
 						Arrays
 							.stream(StringUtils.split(
 										StringUtils.substringBetween(
 												originalText, "(", ")"), ","))
 							.map(s -> StringUtils.trim(s))
 							.collect(Collectors.joining(";"));
+					return setUnused + "\n" + originalText;
 				} else {
 					return null;
 				}
