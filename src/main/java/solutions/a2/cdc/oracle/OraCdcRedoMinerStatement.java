@@ -19,6 +19,7 @@ import solutions.a2.oracle.internals.RowId;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DDL;
 import static solutions.a2.oracle.utils.BinaryUtils.getU16BE;
 import static solutions.a2.oracle.utils.BinaryUtils.getU24BE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
@@ -235,6 +236,8 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 					}
 				}
 			}
+		} else if (operation == DDL) {
+			sql.append(new String(redoData));
 		} else {
 			sql.append("TODO!\nNot implemented yet!!!\nTODO!");
 		}

@@ -431,8 +431,10 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 									try {
 										if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
 											final long ddlStartTs = System.currentTimeMillis();
+											final Connection connection = oraConnections.getConnection();
 											final int changedColumnCount = 
-													oraTable.processDdl(stmt, transaction.getXid(), transaction.getCommitScn());
+													oraTable.processDdl(connection, stmt, transaction.getXid(), transaction.getCommitScn());
+											connection.close();
 											putTableAndVersion(stmt.getTableId(), oraTable.getVersion());
 											metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
 										} else {

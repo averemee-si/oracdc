@@ -94,6 +94,7 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.XML_DOC_BEGIN;
 import static solutions.a2.cdc.oracle.OraColumn.GUARD_COLUMN;
 import static solutions.a2.cdc.oracle.OraColumn.UNUSED_COLUMN;
 import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
+import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toByte;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toShort;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toInt;
@@ -159,6 +160,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private boolean hasEncryptedColumns = false;
 	private OraCdcTdeColumnDecrypter decrypter;
 	private boolean allUpdates = true;
+	private OraCdcSourceConnectorConfig config;
+	private SchemaNameMapper snm;
+	private Set<String> pkColsSet;
 
 	/**
 	 * 
@@ -220,7 +224,10 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.useOracdcSchemas = config.useOracdcSchemas();
 		this.pseudoColumns = config.pseudoColumnsProcessor();
 		this.allUpdates = config.allUpdates();
+		this.config = config;
 		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
+		snm = config.getSchemaNameMapper();
+		snm.configure(config);
 		try {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -242,8 +249,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
 			final boolean useRowIdAsKey;
-			// Detect PK column list...
-			final Set<String> pkColsSet;
 			switch (keyOverrideType.getKey()) {
 			case NONE:
 				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
@@ -265,26 +270,9 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				useRowIdAsKey = config.useRowidAsKey();
 				break;
 			}
-			// Schema init - keySchema is immutable and always 1
-			final SchemaNameMapper snm = config.getSchemaNameMapper();
-			snm.configure(config);
-			final SchemaBuilder keySchemaBuilder;
-			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
-					(pkColsSet == null && !useRowIdAsKey)) {
-				keySchemaBuilder = null;
-				onlyValue = true;
-			} else {
-				keySchemaBuilder = SchemaBuilder
-						.struct()
-						.required()
-						.name(snm.getKeySchemaName(pdbName, tableOwner, tableName))
-						.version(1);
-			}
-			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
-						.struct()
-						.optional()
-						.name(snm.getValueSchemaName(pdbName, tableOwner, tableName))
-						.version(version);
+			// Schema init - keySchema is immutable and with version 1
+			final SchemaBuilder keySchemaBuilder = keySchemaBuilder(useRowIdAsKey);
+			final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(version);
 
 			if (pkColsSet == null) {
 				tableWithPk = false;
@@ -300,253 +288,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						onlyValue ? "" : " ROWID will be used as primary key.");
 			}
 
-			final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberRemap;
-			if (isCdb) {
-				alterSessionSetContainer(connection, pdbName);
-				numberRemap = config.tableNumberMapping(pdbName, tableOwner, tableName);
-			} else {
-				numberRemap = config.tableNumberMapping(tableOwner, tableName);
-			}
-			PreparedStatement statement = connection.prepareStatement(
-					OraDictSqlTexts.COLUMN_LIST_PLAIN,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			statement.setString(1, this.tableOwner);
-			statement.setString(2, this.tableName);
-
-			ResultSet rsColumns = statement.executeQuery();
-
-			maxColumnId = 0;
-			final boolean logMiner = config.logMiner();
-			boolean undroppedPresent = false;
-			List<Pair<Integer, String>> undroppedColumns = null;
-			int minUndroppedId = Integer.MAX_VALUE;
-			while (rsColumns.next()) {
-				if (LOGGER.isTraceEnabled()) {
-					LOGGER.trace(
-							"\tColumn {}.{} information:\n" +
-							"\t\tDATA_TYPE={}, DATA_LENGTH={}, DATA_PRECISION={}, DATA_SCALE={}, NULLABLE={},\n" +
-							"\t\tCOLUMN_ID={}, HIDDEN_COLUMN={}, INTERNAL_COLUMN_ID={}",
-							tableFqn, rsColumns.getString("COLUMN_NAME"),
-							rsColumns.getString("DATA_TYPE"), rsColumns.getInt("DATA_LENGTH"), rsColumns.getInt("DATA_PRECISION"),
-									rsColumns.getInt("DATA_SCALE"), rsColumns.getString("NULLABLE"),
-							rsColumns.getInt("COLUMN_ID"), rsColumns.getString("HIDDEN_COLUMN"), rsColumns.getInt("INTERNAL_COLUMN_ID"));
-				}
-				boolean columnAdded = false;
-				OraColumn column = null;
-				if (Strings.CI.equals(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
-					try {
-						column = new OraColumn(false, useOracdcSchemas, processLobs, rsColumns, pkColsSet);
-						if (column.isNumber() && numberRemap != null) {
-							final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
-							if (newDefinition != null) {
-								column.remap(newDefinition);
-							}
-						}
-						columnAdded = true;
-					} catch (UnsupportedColumnDataTypeException ucdte) {
-						LOGGER.warn("Column {} not added to definition of table {}.{}",
-								ucdte.getColumnName(), this.tableOwner, this.tableName);
-					}
-				} else if (rsColumns.getInt("COLUMN_ID") > 0) {
-					if (LOGGER.isDebugEnabled())
-						LOGGER.debug("Skipping shadow BLOB column {} in table {}",
-								rsColumns.getString("COLUMN_NAME"), fqn());
-				} else {
-					final String columnName = rsColumns.getString("COLUMN_NAME");
-					final Matcher unusedMatcher = UNUSED_COLUMN.matcher(columnName);
-					if (unusedMatcher.matches()) {
-						if (!undroppedPresent) {
-							undroppedColumns = new ArrayList<>();
-							undroppedPresent = true;
-						}
-						final int internalId = rsColumns.getInt("INTERNAL_COLUMN_ID");
-						undroppedColumns.add(Pair.of(internalId, columnName));
-						if (internalId < minUndroppedId) {
-							minUndroppedId = internalId;
-						}
-					} else {
-						final Matcher guardMatcher = GUARD_COLUMN.matcher(columnName);
-						if (guardMatcher.matches()) {
-							if (LOGGER.isDebugEnabled()) {
-								LOGGER.debug("Skipping guard column {} in tgable {}.{}",
-										columnName, this.tableOwner, this.tableName);
-							}
-						} else {
-							LOGGER.warn(
-									"\n=====================\n" +
-									"Table {}.{} contains hidden column '{}' of unknown purpose.\nThis column will be excluded from processing.\n" +
-									"For more information, please email us with the DDL for the table at oracle@a2.solutions." +
-									"\n=====================\n",
-									this.tableOwner, this.tableName, columnName);
-						}
-					}
-				}
-
-				if (columnAdded) {
-					if (!logMiner && !hasEncryptedColumns && column.isEncrypted()) {
-						hasEncryptedColumns = true;
-					}
-					// For archived redo more logic required
-					if (column.getJdbcType() == BLOB ||
-						column.getJdbcType() == CLOB ||
-						column.getJdbcType() == NCLOB ||
-						column.getJdbcType() == SQLXML ||
-						column.getJdbcType() == JSON ||
-						column.getJdbcType() == VECTOR) {
-						if (processLobs) {
-							if (!withLobs) {
-								withLobs = true;
-								lobColumnsNames = new HashMap<>();
-							}
-							if (withLobs && lobColumnsObjectIds == null) {
-								lobColumnsObjectIds = new HashMap<>();
-							}
-							allColumns.add(column);
-							if (logMiner)
-								idToNameMap.put(column.getNameFromId(), column);
-							else
-								pureIdMap.put(column.getColumnId(), column);
-							final String lobColumnName = column.getColumnName();
-							lobColumnsNames.put(lobColumnName, column);
-							final Schema lobSchema = transformLobs.transformSchema(pdbName, tableOwner, tableName, column, valueSchemaBuilder);
-							if (lobSchema != null) {
-								// BLOB/CLOB/NCLOB/XMLTYPE is transformed
-								if (lobColumnSchemas == null) {
-									lobColumnSchemas = new HashMap<>();
-								}
-								lobColumnSchemas.put(lobColumnName, lobSchema);
-							}
-						} else {
-							if (lobColumnIds == null)
-								lobColumnIds = new HashSet<>();
-							lobColumnIds.add(column.getColumnId());
-							columnAdded = false;
-						}
-					} else {
-						allColumns.add(column);
-						if (logMiner)
-							idToNameMap.put(column.getNameFromId(), column);
-						else
-							pureIdMap.put(column.getColumnId(), column);
-						// Just add to value schema
-						if (!column.isPartOfPk() || 
-								schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
-							valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
-						}
-					}
-
-					if (column.getColumnId() > maxColumnId) {
-						maxColumnId = column.getColumnId();
-					}
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("New{}column {}({}) with ID={} added to table definition {}.",
-								column.isPartOfPk() ? " PK " : (column.isNullable() ? " " : " mandatory "),
-								column.getColumnName(), getTypeName(column.getJdbcType()),
-								column.getColumnId(), tableFqn);
-						if (column.isDefaultValuePresent()) {
-							LOGGER.debug("\tDefault value is set to \"{}\"", column.getDefaultValue());
-						}
-					}
-					if (column.isPartOfPk()) {
-						pkColumns.put(column.getColumnName(), column);
-						// Schema addition
-						if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
-							keySchemaBuilder.field(column.getColumnName(), column.getSchema());
-						}
-						if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-							valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
-						}
-					}
-
-					if (column.isPartOfPk() || (!column.isNullable() && !column.isDefaultValuePresent())) {
-						mandatoryColumnsCount++;
-					}
-				}
-			}
-
-			rsColumns.close();
-			rsColumns = null;
-			statement.close();
-			statement = null;
-
-			if (undroppedPresent) {
-				printUndroppedColumnsMessage(undroppedColumns, minUndroppedId);
-				undroppedColumns = null;
-			}
-
-			if (hasEncryptedColumns) {
-				final OraCdcTdeWallet tw = rdbmsInfo.tdeWallet();
-				if (tw == null) {
-					LOGGER.error(
-							"\n=====================\n" +
-							"Table {}.{} contains encrypted columns!\n" +
-							"To continue, You must set the parameters a2.tde.wallet.path and a2.tde.wallet.password." +
-							"\n=====================\n",
-							tableOwner, tableName);
-					throw new ConnectException("Unable to process encrypted columns without configured Oracle Wallet!");
-				} else {
-					decrypter = OraCdcTdeColumnDecrypter.get(connection, tw, tableOwner, tableName);
-				}
-			}
-
-			// Handle empty WHERE for update
-			if (tableWithPk) {
-				final StringBuilder sb = new StringBuilder(128);
-				sb.append("select ");
-				boolean firstColumn = true;
-				for (final Map.Entry<String, OraColumn> entry : pkColumns.entrySet()) {
-					if (firstColumn) {
-						firstColumn = false;
-					} else {
-						sb.append(", ");
-					}
-					sb.append(entry.getKey());
-				}
-				sb
-					.append("\nfrom ")
-					.append(tableOwner)
-					.append(".")
-					.append(tableName)
-					.append("\nwhere ROWID = CHARTOROWID(?)");
-				sqlGetKeysUsingRowId = sb.toString();
-			}
-
-			// Schema
-			if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-				//TODO
-				//TODO Beter handling for 'debezium'-like schemas are required for this case...
-				//TODO
-				pseudoColumns.addToSchema(valueSchemaBuilder);
-			}
-			schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
-			if (LOGGER.isDebugEnabled()) {
-				if (mandatoryColumnsCount > 0) {
-					LOGGER.debug("Table {} has {} mandatory columns.", fqn(), mandatoryColumnsCount);
-				}
-				if (keySchema != null &&
-						keySchema.fields() != null &&
-						keySchema.fields().size() > 0) {
-					LOGGER.debug("Key fields for table {}.", fqn());
-					keySchema.fields().forEach(f ->
-						LOGGER.debug(
-								"\t{} with schema {}",
-								f.name(), f.schema().name() != null ? f.schema().name() : f.schema().toString()));
-				}
-				if (valueSchema != null &&
-						valueSchema.fields() != null &&
-						valueSchema.fields().size() > 0) {
-					LOGGER.debug("Value fields for table {}.", fqn());
-					valueSchema.fields().forEach(f ->
-					LOGGER.debug(
-							"\t{} with schema {}",
-							f.name(), f.schema().name() != null ? f.schema().name() : f.schema().toString()));
-				}
-			}
-			if (isCdb) {
-			// Restore container in session
-				alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
-			}
-
+			readAndParseOraColumns(connection, isCdb, keySchemaBuilder, valueSchemaBuilder);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to get information about table {}.{}!", tableOwner, tableName);
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
@@ -638,19 +380,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 
 		// Schema init
-		final SchemaBuilder keySchemaBuilder = SchemaBuilder
-					.struct()
-					.required()
-					.name(tableFqn + ".Key")
-					.version(1);
-		//TODO
-		//TODO version in JSON dictionary?
-		//TODO
-		final SchemaBuilder valueSchemaBuilder = SchemaBuilder
-					.struct()
-					.optional()
-					.name(tableFqn + ".Value")
-					.version(version);
+		final SchemaBuilder keySchemaBuilder = keySchemaBuilder();
+		final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(version);
 
 		try {
 			@SuppressWarnings("unchecked")
@@ -1553,14 +1284,24 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		return withLobs;
 	}
 
-	public int processDdl(final OraCdcLogMinerStatement stmt,
+	public int processDdl(final Connection connection,
+			final OraCdcStatementBase stmt,
 			final String xid,
 			final long commitScn) throws SQLException {
+		final String preprocessedDdl;
+		if (stmt instanceof OraCdcLogMinerStatement)
+			preprocessedDdl = ((OraCdcLogMinerStatement) stmt).getSqlRedo();
+		else
+			preprocessedDdl = alterTablePreProcessor(new String(((OraCdcRedoMinerStatement) stmt).redoData()));
 		int updatedColumnCount = 0;
-		final String[] ddlDataArray = StringUtils.split(stmt.getSqlRedo(), "\n");
+		final String[] ddlDataArray = StringUtils.split(preprocessedDdl);
 		final String operation = ddlDataArray[0];
 		final String preProcessed = ddlDataArray[1];
-		final String originalDdl = ddlDataArray[2];
+		final String originalDdl;
+		if (ddlDataArray.length > 2)
+			originalDdl = ddlDataArray[2];
+		else
+			originalDdl = "N/A";
 		boolean rebuildSchema = false;
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("BEGIN: Processing DDL for table {}:\n\t'{}'\n\t'{}'",
@@ -1570,8 +1311,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		case OraSqlUtils.ALTER_TABLE_COLUMN_ADD:
 			for (String columnDefinition : StringUtils.split(preProcessed, ";")) {
 				String newColumnName = StringUtils.split(columnDefinition)[0];
-				final String columnAttributes = StringUtils.trim( 
-						StringUtils.substring(columnDefinition, newColumnName.length()));
 				newColumnName = OraColumn.canonicalColumnName(newColumnName);
 				boolean alreadyExist = false;
 				for (OraColumn column : allColumns) {
@@ -1585,19 +1324,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"Ignoring DDL statement\n\t'{}'\n for adding column {} to table {} since this column already present in table definition",
 							originalDdl, newColumnName, this.fqn());
 				} else {
-					try {
-						OraColumn newColumn = new OraColumn(
-								useOracdcSchemas,
-								newColumnName, columnAttributes, originalDdl,
-								maxColumnId + 1);
-						allColumns.add(newColumn);
-						maxColumnId++;
-						rebuildSchema = true;
-						updatedColumnCount++;
-					} catch (UnsupportedColumnDataTypeException ucte) {
-						LOGGER.error("Unable to perform DDL statement\n'{}'\nfor column {} table {}",
-								originalDdl, newColumnName, this.fqn());
-					}
+					rebuildSchema = true;
 				}
 			}
 			break;
@@ -1613,15 +1340,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				}
 				if (columnIndex > -1) {
 					rebuildSchema = true;
-					final int columnId = allColumns.get(columnIndex).getColumnId();
-					allColumns.remove(columnIndex);
-					for (OraColumn column : allColumns) {
-						if (column.getColumnId() > columnId) {
-							column.setColumnId(column.getColumnId() - 1);
-						}
-					}
-					maxColumnId--;
-					updatedColumnCount++;
 				} else {
 					LOGGER.error("Unable to perform\n'{}'\nColumn {} not exist in {}!",
 							originalDdl, columnToDrop, fqn());
@@ -1631,8 +1349,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		case OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY:
 			for (String columnDefinition : StringUtils.split(preProcessed, ";")) {
 				String changedColumnName = StringUtils.split(columnDefinition)[0];
-				final String columnAttributes = StringUtils.trim( 
-						StringUtils.substring(columnDefinition, changedColumnName.length()));
 				changedColumnName = OraColumn.canonicalColumnName(changedColumnName);
 				int columnIndex = -1;
 				for (int i = 0; i < allColumns.size(); i++) {
@@ -1646,26 +1362,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"Ignoring DDL statement\n\t'{}'\n for modifying column {} in table {} since this column not exists in table definition",
 							originalDdl, changedColumnName, this.fqn());
 				} else {
-					try {
-						OraColumn changedColumn = new OraColumn(
-								useOracdcSchemas,
-								changedColumnName, columnAttributes, originalDdl,
-								allColumns.get(columnIndex).getColumnId());
-						if (changedColumn.equals(allColumns.get(columnIndex))) {
-							LOGGER.warn(
-									"Ignoring DDL statement\n\t'{}'\n for modifying column {} in table {} since this column not changed",
-									originalDdl, changedColumnName, this.fqn());
-						} else {
-							allColumns.set(columnIndex, changedColumn);
-							if (!rebuildSchema) {
-								rebuildSchema = true;
-							}
-							updatedColumnCount++;
-						}
-					} catch (UnsupportedColumnDataTypeException ucte) {
-						LOGGER.error("Unable to perform DDL statement\n'{}'\nfor column {} table {}",
-								originalDdl, changedColumnName, this.fqn());
-					}
+					rebuildSchema = true;
 				}
 			}
 			break;
@@ -1691,61 +1388,41 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						originalDdl, oldName, fqn());
 			} else {
 				rebuildSchema = true;
-				allColumns.get(columnIndex).setColumnName(newName);
-				updatedColumnCount++;
 			}
 			break;
 		}
 
 		if (rebuildSchema) {
-			// Change version!!!
-			final SchemaBuilder valueSchemaBuilder = SchemaBuilder
-					.struct()
-					.optional()
-					.name(tableFqn + ".Value")
-					.version(++version);
-			
-			// Clear column mappings
-			idToNameMap.clear();
+			if (allColumns != null)
+				allColumns.clear();
+			if (pkColumns != null)
+				pkColumns.clear();
+			if (idToNameMap != null)
+				idToNameMap.clear();
+			if (pureIdMap != null)
+				pureIdMap.clear();
 			if (withLobs) {
-				// Do not need to clear lobColumnsObjectIds - 
-				lobColumnsNames.clear();
+				if (lobColumnsNames != null)
+					lobColumnsNames.clear();
+				if (lobColumnsObjectIds != null)
+					lobColumnsObjectIds.clear();
+				if (lobColumnSchemas != null)
+					lobColumnSchemas.clear();
+				if (lobColumnIds != null)
+					lobColumnIds.clear();
 			}
-		
-			for (OraColumn column : allColumns) {
-				idToNameMap.put(column.getNameFromId(), column);
-				if (processLobs && 
-						(column.getJdbcType() == BLOB ||
-						column.getJdbcType() == CLOB ||
-						column.getJdbcType() == NCLOB ||
-						column.getJdbcType() == SQLXML ||
-						column.getJdbcType() == JSON ||
-						column.getJdbcType() == VECTOR)) {
-					if (!withLobs) {
-						withLobs = true;
-					}
-					final String lobColumnName = column.getColumnName();
-					lobColumnsNames.put(lobColumnName, column);
-					final Schema lobSchema = transformLobs.transformSchema(pdbName, tableOwner, tableName, column, valueSchemaBuilder);
-					if (lobSchema != null) {
-						// BLOB/CLOB/NCLOB/XMLTYPE is transformed
-						if (lobColumnSchemas == null) {
-							lobColumnSchemas = new HashMap<>();
-						}
-						lobColumnSchemas.put(lobColumnName, lobSchema);
-					}
-				} else {
-					if (!column.isPartOfPk() ||
-							schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
-					}
-				}
-			}
-			schemaEiplogue(tableFqn, valueSchemaBuilder);
-		}
 
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.trace("END: Processing DDL for OraTable {} from LogMiner data...", tableFqn);
+			mandatoryColumnsCount = 0;
+			updatedColumnCount = 1;
+			readAndParseOraColumns(
+					connection,
+					rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed(),
+					keySchemaBuilder(config.useRowidAsKey()),
+					valueSchemaBuilder(++version));
+
+			if (LOGGER.isDebugEnabled()) {
+				LOGGER.debug("END: Processing DDL for OraTable {} using dictionary  data...", tableFqn);
+			}
 		}
 		return updatedColumnCount;
 	}
@@ -2026,17 +1703,6 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		alterSession.execute("alter session set CONTAINER=" + container);
 		alterSession.close();
 		alterSession = null;
-	}
-
-	public int processDdl(final OraCdcRedoMinerStatement stmt,
-			final String xid,
-			final long commitScn) throws SQLException {
-		//TODO
-		//TODO
-		//TODO
-		//TODO
-		//TODO
-		return -1;
 	}
 
 	SourceRecord parseRedoRecord(
@@ -2908,6 +2574,283 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				"Unable to map column with id {} to dictionary for table {} in XID {}!\nDML operation details:\n{}\n" +
 				"\n=====================\n",
 				colId, fqn(), xid, stmt.toString());
+	}
+
+	private SchemaBuilder keySchemaBuilder(final boolean useRowIdAsKey) {
+		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
+				(pkColsSet == null && !useRowIdAsKey)) {
+			onlyValue = true;
+			return null;
+		} else {
+			return keySchemaBuilder();
+		}
+	}
+
+	private SchemaBuilder keySchemaBuilder() {
+		return schemaBuilder(true, 1);
+	}
+
+	private SchemaBuilder valueSchemaBuilder(final int valueSchemaVersion) {
+		return schemaBuilder(false, valueSchemaVersion);
+	}
+
+	private SchemaBuilder schemaBuilder(final boolean isKey, final int version) {
+		return SchemaBuilder
+				.struct()
+				.optional()
+				.name(isKey
+						? snm.getKeySchemaName(pdbName, tableOwner, tableName)
+						: snm.getValueSchemaName(pdbName, tableOwner, tableName))
+				.version(version);
+	}
+
+	private void readAndParseOraColumns(final Connection connection, final boolean isCdb, final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) throws SQLException {
+		final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberRemap;
+		if (isCdb) {
+			alterSessionSetContainer(connection, pdbName);
+			numberRemap = config.tableNumberMapping(pdbName, tableOwner, tableName);
+		} else {
+			numberRemap = config.tableNumberMapping(tableOwner, tableName);
+		}
+		PreparedStatement statement = connection.prepareStatement(
+				OraDictSqlTexts.COLUMN_LIST_PLAIN,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		statement.setString(1, this.tableOwner);
+		statement.setString(2, this.tableName);
+
+		ResultSet rsColumns = statement.executeQuery();
+
+		maxColumnId = 0;
+		final boolean logMiner = config.logMiner();
+		boolean undroppedPresent = false;
+		List<Pair<Integer, String>> undroppedColumns = null;
+		int minUndroppedId = Integer.MAX_VALUE;
+		while (rsColumns.next()) {
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace(
+						"\tColumn {}.{} information:\n" +
+						"\t\tDATA_TYPE={}, DATA_LENGTH={}, DATA_PRECISION={}, DATA_SCALE={}, NULLABLE={},\n" +
+						"\t\tCOLUMN_ID={}, HIDDEN_COLUMN={}, INTERNAL_COLUMN_ID={}",
+						tableFqn, rsColumns.getString("COLUMN_NAME"),
+						rsColumns.getString("DATA_TYPE"), rsColumns.getInt("DATA_LENGTH"), rsColumns.getInt("DATA_PRECISION"),
+								rsColumns.getInt("DATA_SCALE"), rsColumns.getString("NULLABLE"),
+						rsColumns.getInt("COLUMN_ID"), rsColumns.getString("HIDDEN_COLUMN"), rsColumns.getInt("INTERNAL_COLUMN_ID"));
+			}
+			boolean columnAdded = false;
+			OraColumn column = null;
+			if (Strings.CI.equals(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
+				try {
+					column = new OraColumn(false, useOracdcSchemas, processLobs, rsColumns, pkColsSet);
+					if (column.isNumber() && numberRemap != null) {
+						final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
+						if (newDefinition != null) {
+							column.remap(newDefinition);
+						}
+					}
+					columnAdded = true;
+				} catch (UnsupportedColumnDataTypeException ucdte) {
+					LOGGER.warn("Column {} not added to definition of table {}.{}",
+							ucdte.getColumnName(), this.tableOwner, this.tableName);
+				}
+			} else if (rsColumns.getInt("COLUMN_ID") > 0) {
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug("Skipping shadow BLOB column {} in table {}",
+							rsColumns.getString("COLUMN_NAME"), fqn());
+			} else {
+				final String columnName = rsColumns.getString("COLUMN_NAME");
+				final Matcher unusedMatcher = UNUSED_COLUMN.matcher(columnName);
+				if (unusedMatcher.matches()) {
+					if (!undroppedPresent) {
+						undroppedColumns = new ArrayList<>();
+						undroppedPresent = true;
+					}
+					final int internalId = rsColumns.getInt("INTERNAL_COLUMN_ID");
+					undroppedColumns.add(Pair.of(internalId, columnName));
+					if (internalId < minUndroppedId) {
+						minUndroppedId = internalId;
+					}
+				} else {
+					final Matcher guardMatcher = GUARD_COLUMN.matcher(columnName);
+					if (guardMatcher.matches()) {
+						if (LOGGER.isDebugEnabled()) {
+							LOGGER.debug("Skipping guard column {} in tgable {}.{}",
+									columnName, this.tableOwner, this.tableName);
+						}
+					} else {
+						LOGGER.warn(
+								"\n=====================\n" +
+								"Table {}.{} contains hidden column '{}' of unknown purpose.\nThis column will be excluded from processing.\n" +
+								"For more information, please email us with the DDL for the table at oracle@a2.solutions." +
+								"\n=====================\n",
+								this.tableOwner, this.tableName, columnName);
+					}
+				}
+			}
+
+			if (columnAdded) {
+				if (!logMiner && !hasEncryptedColumns && column.isEncrypted()) {
+					hasEncryptedColumns = true;
+				}
+				// For archived redo more logic required
+				if (column.getJdbcType() == BLOB ||
+					column.getJdbcType() == CLOB ||
+					column.getJdbcType() == NCLOB ||
+					column.getJdbcType() == SQLXML ||
+					column.getJdbcType() == JSON ||
+					column.getJdbcType() == VECTOR) {
+					if (processLobs) {
+						if (!withLobs) {
+							withLobs = true;
+							lobColumnsNames = new HashMap<>();
+						}
+						if (withLobs && lobColumnsObjectIds == null) {
+							lobColumnsObjectIds = new HashMap<>();
+						}
+						allColumns.add(column);
+						if (logMiner)
+							idToNameMap.put(column.getNameFromId(), column);
+						else
+							pureIdMap.put(column.getColumnId(), column);
+						final String lobColumnName = column.getColumnName();
+						lobColumnsNames.put(lobColumnName, column);
+						final Schema lobSchema = transformLobs.transformSchema(pdbName, tableOwner, tableName, column, valueSchemaBuilder);
+						if (lobSchema != null) {
+							// BLOB/CLOB/NCLOB/XMLTYPE is transformed
+							if (lobColumnSchemas == null) {
+								lobColumnSchemas = new HashMap<>();
+							}
+							lobColumnSchemas.put(lobColumnName, lobSchema);
+						}
+					} else {
+						if (lobColumnIds == null)
+							lobColumnIds = new HashSet<>();
+						lobColumnIds.add(column.getColumnId());
+						columnAdded = false;
+					}
+				} else {
+					allColumns.add(column);
+					if (logMiner)
+						idToNameMap.put(column.getNameFromId(), column);
+					else
+						pureIdMap.put(column.getColumnId(), column);
+					// Just add to value schema
+					if (!column.isPartOfPk() || 
+							schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
+						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+					}
+				}
+
+				if (column.getColumnId() > maxColumnId) {
+					maxColumnId = column.getColumnId();
+				}
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("New{}column {}({}) with ID={} added to table definition {}.",
+							column.isPartOfPk() ? " PK " : (column.isNullable() ? " " : " mandatory "),
+							column.getColumnName(), getTypeName(column.getJdbcType()),
+							column.getColumnId(), tableFqn);
+					if (column.isDefaultValuePresent()) {
+						LOGGER.debug("\tDefault value is set to \"{}\"", column.getDefaultValue());
+					}
+				}
+				if (column.isPartOfPk()) {
+					pkColumns.put(column.getColumnName(), column);
+					// Schema addition
+					if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
+						keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+					}
+					if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+					}
+				}
+
+				if (column.isPartOfPk() || (!column.isNullable() && !column.isDefaultValuePresent())) {
+					mandatoryColumnsCount++;
+				}
+			}
+		}
+
+		rsColumns.close();
+		rsColumns = null;
+		statement.close();
+		statement = null;
+
+		if (undroppedPresent) {
+			printUndroppedColumnsMessage(undroppedColumns, minUndroppedId);
+			undroppedColumns = null;
+		}
+
+		if (hasEncryptedColumns) {
+			final OraCdcTdeWallet tw = rdbmsInfo.tdeWallet();
+			if (tw == null) {
+				LOGGER.error(
+						"\n=====================\n" +
+						"Table {}.{} contains encrypted columns!\n" +
+						"To continue, You must set the parameters a2.tde.wallet.path and a2.tde.wallet.password." +
+						"\n=====================\n",
+						tableOwner, tableName);
+				throw new ConnectException("Unable to process encrypted columns without configured Oracle Wallet!");
+			} else {
+				decrypter = OraCdcTdeColumnDecrypter.get(connection, tw, tableOwner, tableName);
+			}
+		}
+
+		// Handle empty WHERE for update
+		if (tableWithPk) {
+			final StringBuilder sb = new StringBuilder(128);
+			sb.append("select ");
+			boolean firstColumn = true;
+			for (final Map.Entry<String, OraColumn> entry : pkColumns.entrySet()) {
+				if (firstColumn) {
+					firstColumn = false;
+				} else {
+					sb.append(", ");
+				}
+				sb.append(entry.getKey());
+			}
+			sb
+				.append("\nfrom ")
+				.append(tableOwner)
+				.append(".")
+				.append(tableName)
+				.append("\nwhere ROWID = CHARTOROWID(?)");
+			sqlGetKeysUsingRowId = sb.toString();
+		}
+
+		// Schema
+		if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+			//TODO
+			//TODO Beter handling for 'debezium'-like schemas are required for this case...
+			//TODO
+			pseudoColumns.addToSchema(valueSchemaBuilder);
+		}
+		schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
+		if (LOGGER.isDebugEnabled()) {
+			if (mandatoryColumnsCount > 0) {
+				LOGGER.debug("Table {} has {} mandatory columns.", fqn(), mandatoryColumnsCount);
+			}
+			if (keySchema != null &&
+					keySchema.fields() != null &&
+					keySchema.fields().size() > 0) {
+				LOGGER.debug("Key fields for table {}.", fqn());
+				keySchema.fields().forEach(f ->
+					LOGGER.debug(
+							"\t{} with schema {}",
+							f.name(), f.schema().name() != null ? f.schema().name() : f.schema().toString()));
+			}
+			if (valueSchema != null &&
+					valueSchema.fields() != null &&
+					valueSchema.fields().size() > 0) {
+				LOGGER.debug("Value fields for table {}.", fqn());
+				valueSchema.fields().forEach(f ->
+				LOGGER.debug(
+						"\t{} with schema {}",
+						f.name(), f.schema().name() != null ? f.schema().name() : f.schema().toString()));
+			}
+		}
+		if (isCdb) {
+		// Restore container in session
+			alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
+		}
 	}
 
 }
