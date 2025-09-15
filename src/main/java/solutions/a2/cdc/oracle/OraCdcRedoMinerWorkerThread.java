@@ -2097,7 +2097,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final OraCdcTransaction transaction = getTransaction(record);
 			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)ddl.conId()) << 32) |  (ddl.obj() & 0xFFFFFFFFL) : ddl.obj(),
-					DDL, preProcessed.getBytes(), lwnUnixMillis, record.scn(), record.rba(),
+					DDL, ddl.ddlText().getBytes(), lwnUnixMillis, record.scn(), record.rba(),
 					(long) record.subScn(), RowId.ZERO, false);
 			transaction.addStatement(orm);
 			metrics.addRecord();
