@@ -1051,6 +1051,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			LOGGER.debug("Schema type set to Debezium style.");
 			keyFields = record.valueSchema().field("before").schema().fields();
 			valueFields = record.valueSchema().field("after").schema().fields();
+			version = record.valueSchema().version();
 		} else {
 			//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
 			//ParamConstants.SCHEMA_TYPE_INT_SINGLE
@@ -1063,8 +1064,10 @@ public class JdbcSinkTable extends OraTableDefinition {
 			}
 			if (record.valueSchema() != null) {
 				valueFields = record.valueSchema().fields();
+				version = record.valueSchema().version();
 			} else {
 				valueFields = new ArrayList<>();
+				version = 1;
 			}
 		}
 		return Map.entry(keyFields, valueFields);
