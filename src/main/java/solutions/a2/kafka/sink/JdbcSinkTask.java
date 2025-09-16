@@ -86,11 +86,12 @@ public class JdbcSinkTask extends SinkTask {
 		try (Connection connection = sinkPool.getConnection()) {
 			int processedRecords = 0;
 			for (SinkRecord record : records) {
-				final String tableName = tableNameMapper.getTableName(record);
-				JdbcSinkTable oraTable = tablesInProcessing.get(tableName);
 				final int version = record.valueSchema() != null
 						? record.valueSchema().version()
 						: 1;
+				final String tableNameWithoutVersion = tableNameMapper.getTableName(record);
+				final String tableName = tableNameWithoutVersion + ":" + Integer.toString(version);
+				JdbcSinkTable oraTable = tablesInProcessing.get(tableName);
 				if (oraTable != null && version != oraTable.getVersion()) {
 					LOGGER.info(
 							"\n=====================\n" +
@@ -99,12 +100,17 @@ public class JdbcSinkTask extends SinkTask {
 							"\n=====================\n",
 							version, oraTable.getTableFqn(), oraTable.getVersion());
 					tablesInProcessing.remove(tableName);
-					oraTable = null;
+					tablesInProcess.remove(tableName);
+					return;
 				}
 				if (oraTable == null) {
-					LOGGER.debug("Create new table definition for {} and add it to processing map,", tableName);
+					LOGGER.info(
+							"\n=====================\n" +
+							"Creating definition for table {} with version {}" +
+							"\n=====================\n",
+							tableNameWithoutVersion, version);
 					oraTable = new JdbcSinkTable(
-								sinkPool, tableName, record, schemaType, config);
+								sinkPool, tableNameWithoutVersion, record, schemaType, config);
 					tablesInProcessing.put(tableName, oraTable);
 				}
 				if (!tablesInProcess.contains(tableName)) {
