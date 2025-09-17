@@ -34,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -1295,7 +1296,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		else
 			preprocessedDdl = alterTablePreProcessor(new String(((OraCdcRedoMinerStatement) stmt).redoData()));
 		int updatedColumnCount = 0;
-		final String[] ddlDataArray = StringUtils.split(preprocessedDdl);
+		final String[] ddlDataArray = StringUtils.split(preprocessedDdl, OraSqlUtils.DELIMITER);
 		final String operation = ddlDataArray[0];
 		final String preProcessed = ddlDataArray[1];
 		final String originalDdl;
@@ -1303,7 +1304,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			originalDdl = ddlDataArray[2];
 		else
 			originalDdl = "N/A";
-		boolean rebuildSchema = false;
+		boolean rebuildSchemaFromDb = false;
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("BEGIN: Processing DDL for table {}:\n\t'{}'\n\t'{}'",
 					tableFqn, originalDdl, preProcessed);
@@ -1325,7 +1326,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"Ignoring DDL statement\n\t'{}'\n for adding column {} to table {} since this column already present in table definition",
 							originalDdl, newColumnName, this.fqn());
 				} else {
-					rebuildSchema = true;
+					rebuildSchemaFromDb = true;
 				}
 			}
 			break;
@@ -1340,7 +1341,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 				}
 				if (columnIndex > -1) {
-					rebuildSchema = true;
+					rebuildSchemaFromDb = true;
 				} else {
 					LOGGER.error("Unable to perform\n'{}'\nColumn {} not exist in {}!",
 							originalDdl, columnToDrop, fqn());
@@ -1363,7 +1364,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"Ignoring DDL statement\n\t'{}'\n for modifying column {} in table {} since this column not exists in table definition",
 							originalDdl, changedColumnName, this.fqn());
 				} else {
-					rebuildSchema = true;
+					rebuildSchemaFromDb = true;
 				}
 			}
 			break;
@@ -1374,26 +1375,45 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			boolean newNamePresent = false;
 			int columnIndex = -1;
 			for (int i = 0; i < allColumns.size(); i++) {
-				if ((columnIndex < 0) && Strings.CS.equals(oldName, allColumns.get(i).getColumnName())) {
+				final String columnName = allColumns.get(i).getColumnName();
+				if ((columnIndex < 0) && Strings.CS.equals(oldName, columnName)) {
 					columnIndex = i;
 				}
-				if (!newNamePresent && Strings.CS.equals(newName, allColumns.get(i).getColumnName())) {
+				if (!newNamePresent && Strings.CS.equals(newName, columnName)) {
 					newNamePresent = true;
 				}
 			}
 			if (newNamePresent) {
-				LOGGER.error("Unable to perform\n'{}'\nColumn {} already exist in {}!",
+				LOGGER.error(
+						"\n=====================\n" +
+						"Unable to parse\n'{}'\nColumn {} already exists in {}!" +
+						"\n=====================\n",
 						originalDdl, newName, fqn());
-			} else if (columnIndex < 0) {
-				LOGGER.error("Unable to perform\n'{}'\nColumn {} not exist in {}!",
-						originalDdl, oldName, fqn());
 			} else {
-				rebuildSchema = true;
+				if (columnIndex < 0) {
+					LOGGER.error(
+						"\n=====================\n" +
+						"Unable to parse\n'{}'\nColumn {} not exists in {}!" +
+						"\n=====================\n",
+						originalDdl, oldName, fqn());
+				} else {
+					allColumns.get(columnIndex).setColumnName(newName);
+					final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(++version);
+					for (Field field : valueSchema.fields()) {
+						if (Strings.CS.equals(oldName, field.name()))
+							valueSchemaBuilder.field(newName, field.schema());
+						else
+							valueSchemaBuilder.field(field.name(), field.schema());
+					}
+					addPseudoColumns(valueSchemaBuilder);
+					schemaEiplogue(tableFqn, valueSchemaBuilder);
+					updatedColumnCount = 1;
+				}
 			}
 			break;
 		}
 
-		if (rebuildSchema) {
+		if (rebuildSchemaFromDb) {
 			if (allColumns != null)
 				allColumns.clear();
 			if (pkColumns != null)
@@ -2818,12 +2838,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 
 		// Schema
-		if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-			//TODO
-			//TODO Beter handling for 'debezium'-like schemas are required for this case...
-			//TODO
-			pseudoColumns.addToSchema(valueSchemaBuilder);
-		}
+		addPseudoColumns(valueSchemaBuilder);
 		schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
 		if (LOGGER.isDebugEnabled()) {
 			if (mandatoryColumnsCount > 0) {
@@ -2854,4 +2869,13 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 	}
 
+	
+	private void addPseudoColumns(final SchemaBuilder valueSchemaBuilder) {
+		if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+			//TODO
+			//TODO Beter handling for 'debezium'-like schemas are required for this case...
+			//TODO
+			pseudoColumns.addToSchema(valueSchemaBuilder);
+		}
+	}
 }
