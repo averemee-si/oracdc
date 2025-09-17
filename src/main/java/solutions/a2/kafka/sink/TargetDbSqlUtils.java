@@ -176,21 +176,7 @@ public class TargetDbSqlUtils {
 			final Map<String, OraColumn> pkColumns,
 			final List<OraColumn> allColumns,
 			final Map<String, Object> lobColumns) {
-		final Map<Integer, String> dataTypesMap;
-		switch (dbType) {
-		case DB_TYPE_POSTGRESQL:
-			dataTypesMap = POSTGRESQL_MAPPING;
-			break;
-		case DB_TYPE_ORACLE:
-			dataTypesMap = ORACLE_MAPPING;
-			break;
-		case DB_TYPE_MSSQL:
-			dataTypesMap = MSSQL_MAPPING;
-			break;
-		default:
-			//TODO - more types required
-			dataTypesMap = MYSQL_MAPPING;
-		}
+		final Map<Integer, String> dataTypesMap = dataTypesMap(dbType);
 
 		final boolean onlyValue = pkColumns.size() == 0;
 		final List<String> sqlStrings = new ArrayList<>();
@@ -593,21 +579,7 @@ public class TargetDbSqlUtils {
 			final String tableName,
 			final int dbType,
 			final OraColumn columnToAdd) {
-		final Map<Integer, String> dataTypesMap;
-		switch (dbType) {
-		case DB_TYPE_POSTGRESQL:
-			dataTypesMap = POSTGRESQL_MAPPING;
-			break;
-		case DB_TYPE_ORACLE:
-			dataTypesMap = ORACLE_MAPPING;
-			break;
-		case DB_TYPE_MSSQL:
-			dataTypesMap = MSSQL_MAPPING;
-			break;
-		default:
-			//TODO - more types required
-			dataTypesMap = MYSQL_MAPPING;
-		}
+		final Map<Integer, String> dataTypesMap = dataTypesMap(dbType);
 		
 		final StringBuilder sbAlterTable = new StringBuilder(0x80);
 		sbAlterTable
@@ -616,6 +588,20 @@ public class TargetDbSqlUtils {
 			.append(" ADD ")
 			.append(getTargetDbColumn(dbType, -1, dataTypesMap, columnToAdd));
 		return sbAlterTable.toString();
+	}
+
+	private static Map<Integer, String> dataTypesMap(final int dbType) {
+		switch (dbType) {
+		case DB_TYPE_POSTGRESQL:
+			return POSTGRESQL_MAPPING;
+		case DB_TYPE_ORACLE:
+			return ORACLE_MAPPING;
+		case DB_TYPE_MSSQL:
+			return MSSQL_MAPPING;
+		default:
+			//TODO - more types required
+			return MYSQL_MAPPING;
+		}
 	}
 
 }
