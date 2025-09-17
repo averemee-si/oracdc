@@ -480,8 +480,9 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	int getTableVersion(final long combinedDataObjectId) {
 		if (context != null && context.offsetStorageReader() != null) {
 			final Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(rdbmsInfo.partition());
-			if (offsetFromKafka != null && offsetFromKafka.containsKey(Long.toString(combinedDataObjectId)))
-				return (int) offsetFromKafka.get(Long.toString(combinedDataObjectId));
+			if (offsetFromKafka != null && offsetFromKafka.containsKey(Long.toString(combinedDataObjectId))) {
+				return Integer.parseInt((String) offsetFromKafka.get(Long.toString(combinedDataObjectId)));
+			}
 		}
 		return 1;
 	}
