@@ -43,6 +43,8 @@ public class OraSqlUtils {
 	public static final String RESERVED_WORD_SUPPLEMENTAL = "supplemental";
 	public static final String RESERVED_WORD_TO = "to";
 
+	public static final String DELIMITER = "%%";
+
 	private static final String COMMA_INSIDE = ",(?=[^()]*\\))";
 
 	public static String parseTableSchemaList(final boolean exclude, final int mode, final List<String> listSchemaObj) {
@@ -153,9 +155,9 @@ public class OraSqlUtils {
 							Strings.CI.equals(tokens[beginIndex + 3], RESERVED_WORD_TO)) {
 						// tokens[beginIndex + 2] - old name
 						// tokens[beginIndex + 4] - new name
-						final String renameColumn = ALTER_TABLE_COLUMN_RENAME + "\n" +
+						final String renameColumn = ALTER_TABLE_COLUMN_RENAME + DELIMITER +
 							tokens[beginIndex + 2] + ";" + tokens[beginIndex + 4];
-						return renameColumn + "\n" + originalText; 
+						return renameColumn + DELIMITER + originalText; 
 					} else {
 						return null;
 					}
@@ -173,33 +175,33 @@ public class OraSqlUtils {
 					return null;
 				} else if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
 					// alter table table_name drop column column_name;
-					return ALTER_TABLE_COLUMN_DROP + "\n" +
-						StringUtils.trim(tokens[beginIndex + 2]) + "\n" +
+					return ALTER_TABLE_COLUMN_DROP + DELIMITER +
+						StringUtils.trim(tokens[beginIndex + 2]) + DELIMITER +
 						originalText;
 				} else if (Strings.CS.startsWith(tokens[beginIndex + 1], "(")) {
 					// alter table table_name drop (column_name1, column_name2);
-					final String dropColumns = ALTER_TABLE_COLUMN_DROP + "\n" +
+					final String dropColumns = ALTER_TABLE_COLUMN_DROP + DELIMITER +
 						Arrays
 							.stream(StringUtils.split(
 									StringUtils.substringBetween(
 											originalText, "(", ")"), ","))
 							.map(s -> StringUtils.trim(s))
 							.collect(Collectors.joining(";"));
-					return dropColumns + "\n" + originalText;
+					return dropColumns + DELIMITER + originalText;
 				} else {
 					return null;
 				}
 			case ALTER_TABLE_COLUMN_SET:
 				if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_UNUSED)) {
 					// alter table table_name set unused (column_name1, column_name2);
-					final String setUnused = ALTER_TABLE_COLUMN_DROP + "\n" +
+					final String setUnused = ALTER_TABLE_COLUMN_DROP + DELIMITER +
 						Arrays
 							.stream(StringUtils.split(
 										StringUtils.substringBetween(
 												originalText, "(", ")"), ","))
 							.map(s -> StringUtils.trim(s))
 							.collect(Collectors.joining(";"));
-					return setUnused + "\n" + originalText;
+					return setUnused + DELIMITER + originalText;
 				} else {
 					return null;
 				}
@@ -215,7 +217,7 @@ public class OraSqlUtils {
 			final String originalText, final String operation, final String[] tokens, final int beginIndex) {
 		if (Strings.CI.equals(tokens[beginIndex + 1], RESERVED_WORD_COLUMN)) {
 			// alter table add column <COLUMN_NAME> .......
-			return operation + "\n" +
+			return operation + DELIMITER +
 				Arrays
 					.stream(tokens, beginIndex + 2, tokens.length)
 					.map(s -> StringUtils.trim(s))
@@ -234,7 +236,7 @@ public class OraSqlUtils {
 							Strings.CS.lastIndexOf(originalText, ")")),
 							COMMA_INSIDE, "|"),
 						",");
-			return operation + "\n" +
+			return operation + DELIMITER +
 				Arrays
 					.stream(columnsToAdd)
 					.map(s -> StringUtils.trim(s))
@@ -246,7 +248,7 @@ public class OraSqlUtils {
 			// alter table add SuPpLeMeNtAl LoG DaTa ...
 			return null;
 		} else {
-			return operation + "\n" +
+			return operation + DELIMITER +
 				Arrays
 					.stream(tokens, beginIndex + 1, tokens.length)
 					.map(s -> StringUtils.trim(s))
