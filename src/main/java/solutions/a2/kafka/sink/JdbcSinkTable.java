@@ -64,6 +64,9 @@ import static java.sql.Types.NCLOB;
 import static java.sql.Types.SQLXML;
 import static oracle.jdbc.OracleTypes.JSON;
 import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
+import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_MYSQL;
+import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_ORACLE;
+import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
 
 /**
  * 
@@ -139,7 +142,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			this.tableOwner = "oracdc";
 			this.tableName = tableName;
 		}
-		if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+		if (dbType == DB_TYPE_POSTGRESQL) {
 			LOGGER.debug("Working with PostgreSQL specific lower case only names");
 			// PostgreSQL specific...
 			// Also look at https://stackoverflow.com/questions/43111996/why-postgresql-does-not-like-uppercase-table-names
@@ -190,7 +193,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 					}
 					delayedObjectsCreation = true;
 				} else {
-					prepareSql(record, tableMetadata);
+					prepareSql(connection, record, tableMetadata);
 				}
 			} else {
 				if (config.autoCreateTable()) {
@@ -229,11 +232,14 @@ public class JdbcSinkTable extends OraTableDefinition {
 	}
 
 
-	private void prepareSql(final SinkRecord record, final Entry<Set<String>, ResultSet> tableMetadata) throws SQLException {
+	private void prepareSql(final Connection connection, final SinkRecord record, final Entry<Set<String>, ResultSet> tableMetadata) throws SQLException {
 
 		final Entry<List<Field>, List<Field>> keyValue = getFieldsFromSinkRecord(record);
 		final List<Field> keyFields = keyValue.getKey();
 		final List<Field> valueFields = keyValue.getValue();
+		final Map<String, Field> allFields = new HashMap<>();
+		keyFields.forEach(f -> allFields.put(f.name(), f));
+		valueFields.forEach(f -> allFields.put(f.name(), f));
 		//TODO - currently - case insensitive columns/fields (((
 		final Map<String, Field> topicKeys = new HashMap<>();
 		keyFields.forEach(f -> topicKeys.put(StringUtils.upperCase(f.name()), f));
@@ -297,6 +303,8 @@ public class JdbcSinkTable extends OraTableDefinition {
 			final String dbValueColumn = rsAllColumns.getString("COLUMN_NAME");
 			//TODO - case sensitive!
 			final String dbValueColumn4M = StringUtils.upperCase(dbValueColumn);
+			if (allFields.remove(dbValueColumn4M) == null)
+				LOGGER.warn("Unable to remove field {} from Map named allFields!", dbValueColumn4M);
 			if (!pkColumns.containsKey(dbValueColumn4M)) {
 				if (topicKeys.containsKey(dbValueColumn4M)) {
 					isKey = true;
@@ -316,8 +324,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 							.add(unnestedValues.get(dbValueColumn4M));
 				} else {
 					LOGGER.warn(
-							"\n" +
-							"=====================\n" +
+							"\n=====================\n" +
 							"{} column {}.{} with type {} is present in the database but not in the Kafka topic!\n" +
 							"=====================\n",
 							Strings.CI.equals("YES", rsAllColumns.getString("IS_NULLABLE")) ?
@@ -360,6 +367,35 @@ public class JdbcSinkTable extends OraTableDefinition {
 			});
 		} else {
 			onlyPkColumns = false;
+		}
+		if (!allFields.isEmpty()) {
+			for (final String columnName : allFields.keySet()) {
+				final Field field = allFields.get(columnName);
+				final OraColumn column = new OraColumn(field, false, false);
+				final String alterTableSql = TargetDbSqlUtils.addColumnSql(tableName, dbType, column);
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug("Adding new column ta table {} with command '()'", tableName, alterTableSql);
+				//TODO
+				//TODO retry with backoff here!!!
+				//TODO
+				try {
+					Statement statement = connection.createStatement();
+					statement.executeUpdate(alterTableSql);
+					if (dbType == DB_TYPE_POSTGRESQL)
+						connection.commit();
+					statement.close();
+					statement = null;
+				} catch (SQLException sqle) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Unable to execute '{}'!" +
+							"\n=====================\n",
+							alterTableSql);
+					throw sqle;
+				}
+				allColumns.add(column);
+			}
+
 		}
 		prepareSql();
 	}
@@ -448,7 +484,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 				if (delayedObjectsCreation) {
 					final Entry<Set<String>, ResultSet> tableMetadata = checkPresence(connection);
 					if (exists) {
-						prepareSql(record, tableMetadata);
+						prepareSql(connection, record, tableMetadata);
 					} else {
 						createTable(connection, record, pkStringLength);
 					}
@@ -533,14 +569,14 @@ public class JdbcSinkTable extends OraTableDefinition {
 			sinkUpsert.executeBatch();
 		} catch(SQLException sqle) {
 			boolean raiseException = true;
-			if (dbType == JdbcSinkConnectionPool.DB_TYPE_ORACLE) {
+			if (dbType == DB_TYPE_ORACLE) {
 				if (onlyPkColumns && sqle.getErrorCode() == 1) {
 					// ORA-00001: unique constraint %s violated
 					// ignore for tables with PK only column(s)
 					raiseException = false;
 					LOGGER.warn(sqle.getMessage());
 				}
-			} else if (dbType == JdbcSinkConnectionPool.DB_TYPE_MYSQL) {
+			} else if (dbType == DB_TYPE_MYSQL) {
 				if (onlyPkColumns && Strings.CS.startsWith(sqle.getMessage(), "Duplicate entry")) {
 					// Duplicate entry 'XXX' for key 'YYYYY'
 					// ignore for tables with PK only column(s)
@@ -915,7 +951,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 
 		List<String> sqlCreateTexts = TargetDbSqlUtils.createTableSql(
 				tableName, dbType, pkStringLength, pkColumns, allColumns, lobColumns);
-		if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
+		if (dbType == DB_TYPE_POSTGRESQL &&
 				sqlCreateTexts.size() > 1) {
 			for (int i = 1; i < sqlCreateTexts.size(); i++) {
 				LOGGER.debug("\tPostgreSQL lo trigger:\n\t{}", sqlCreateTexts.get(i));
@@ -931,7 +967,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 					"Table '{}' created in the target database using:\n{}" +
 					"=====================",
 					tableName, sqlCreateTexts.get(0));
-			if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL &&
+			if (dbType == DB_TYPE_POSTGRESQL &&
 					sqlCreateTexts.size() > 1) {
 				for (int i = 1; i < sqlCreateTexts.size(); i++) {
 					try {
@@ -962,7 +998,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			// No keys at all...
 			return false;
 		} else {
-			if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+			if (dbType == DB_TYPE_POSTGRESQL) {
 				final StringBuilder keyString = new StringBuilder(256);
 				Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
 				boolean firstColumn = true;
@@ -991,7 +1027,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 		LOGGER.debug("Check for table {} in database", this.tableName);
 		final DatabaseMetaData metaData = connection.getMetaData();
 		final String schema;
-		if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+		if (dbType == DB_TYPE_POSTGRESQL) {
 			final PreparedStatement psSchema = connection.prepareStatement("select CURRENT_SCHEMA",
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			final ResultSet rsSchema = psSchema.executeQuery();
@@ -1021,7 +1057,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 					dbTable, resultSet.getString("TABLE_TYPE"), catalog, dbSchema);
 			exists = true;
 			final Set<String> pkFields;
-			if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
+			if (dbType == DB_TYPE_POSTGRESQL) {
 				pkFields = PgRdbmsInfo.getPkColumnsFromDict(connection, dbSchema, dbTable);
 			} else {
 				//TODO
