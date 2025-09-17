@@ -62,54 +62,63 @@ public class OraCdcAlterTablePreProcessorTest {
 				alterTablePreProcessor(originalText),
 				"Unexpected results");
 
-
+		originalText = "alter table SCOTT . EMP add column AMOUNT number(5,2) default 0";
 		assertEquals(
 				ALTER_TABLE_COLUMN_ADD + DELIMITER + "AMOUNT number(5|2) default 0",
-				alterTablePreProcessor("alter table SCOTT . EMP add column AMOUNT number(5,2) default 0"),
+				alterTablePreProcessor(originalText),
 				"Unexpected results");
+		originalText = "alter table SCOTT.DEPT add DESCRIPTION varchar2(255)";
 		assertEquals(
 				ALTER_TABLE_COLUMN_ADD + DELIMITER + "DESCRIPTION varchar2(255)",
-				alterTablePreProcessor("alter table SCOTT.DEPT add DESCRIPTION varchar2(255)"),
+				alterTablePreProcessor(originalText),
 				"Unexpected results");
+		originalText = "ALTER TABLE SCOTT . EMP ADD (jcol JSON, AMOUNT number(5,2) default -1)";
 		assertEquals(
 				ALTER_TABLE_COLUMN_ADD + DELIMITER + "jcol JSON;AMOUNT number(5|2) default -1",
-				alterTablePreProcessor("ALTER TABLE SCOTT . EMP ADD (jcol JSON, AMOUNT number(5,2) default -1)"),
+				alterTablePreProcessor(originalText),
 				"Unexpected results");
+		originalText = "ALTER TABLE SCOTT . EMP ADD AMOUNT number(5,2)";
 		assertEquals(
 				ALTER_TABLE_COLUMN_ADD + DELIMITER + "AMOUNT number(5|2)",
-				alterTablePreProcessor("ALTER TABLE SCOTT . EMP ADD AMOUNT number(5,2)"),
+				alterTablePreProcessor(originalText),
 				"Unexpected results");
 
-
+		originalText = "alter table SCOTT . EMP modify REF_NO number(9) default 0";
 		assertEquals(
 				ALTER_TABLE_COLUMN_MODIFY + DELIMITER + "REF_NO number(9) default 0",
-				alterTablePreProcessor("alter table SCOTT . EMP modify REF_NO number(9) default 0"),
+				alterTablePreProcessor(originalText),
 				"Unexpected results");
+		originalText = "alter table SCOTT.DEPT modify column DESCRIPTION varchar2(1000)";
 		assertEquals(
 				ALTER_TABLE_COLUMN_MODIFY + DELIMITER + "DESCRIPTION varchar2(1000)",
-				alterTablePreProcessor("alter table SCOTT.DEPT modify column DESCRIPTION varchar2(1000)"),
+				alterTablePreProcessor(originalText),
 				"Unexpected results");
+		originalText = "ALTER TABLE SCOTT . EMP MODIFY (REF_NO number(9) default 0, AMOUNT number(5,2) default -1)";
 		assertEquals(
 				ALTER_TABLE_COLUMN_MODIFY + DELIMITER + "REF_NO number(9) default 0;AMOUNT number(5|2) default -1",
-				alterTablePreProcessor("ALTER TABLE SCOTT . EMP MODIFY (REF_NO number(9) default 0, AMOUNT number(5,2) default -1)"),
+				alterTablePreProcessor(originalText),
 				"Unexpected results");
 
+		originalText = "alter table SALARY drop column SALGRADE";
+		assertEquals(
+				ALTER_TABLE_COLUMN_DROP + DELIMITER + "SALGRADE" + DELIMITER + originalText,
+				alterTablePreProcessor(originalText),
+				"Unexpected results");
+		originalText = "alter table SCOTT.SALARY drop (SALGRADE, BONUS)";
+		assertEquals(
+				ALTER_TABLE_COLUMN_DROP + DELIMITER + "SALGRADE;BONUS" + DELIMITER + originalText,
+				alterTablePreProcessor(originalText),
+				"Unexpected results");
+		originalText = "alter table SCOTT. EMP set unused (SALGRADE)";
+		assertEquals(
+				ALTER_TABLE_COLUMN_DROP + DELIMITER + "SALGRADE" + DELIMITER + originalText,
+				alterTablePreProcessor(originalText),
+				"Unexpected results");
+		originalText = "alter table SCOTT .EMP set unused (BONUS, SALGRADE)";
+		assertEquals(
+				ALTER_TABLE_COLUMN_DROP + DELIMITER + "BONUS;SALGRADE" + DELIMITER + originalText,
+				alterTablePreProcessor(originalText),
+				"Unexpected results");
 
-		assertEquals(
-				ALTER_TABLE_COLUMN_DROP + DELIMITER + "SALGRADE" + DELIMITER + "alter table SALARY drop column SALGRADE",
-				alterTablePreProcessor("alter table SALARY drop column SALGRADE"),
-				"Unexpected results");
-		assertEquals(
-				ALTER_TABLE_COLUMN_DROP + DELIMITER + "SALGRADE;BONUS" + DELIMITER + "alter table SCOTT.SALARY drop (SALGRADE, BONUS)",
-				alterTablePreProcessor("alter table SCOTT.SALARY drop (SALGRADE, BONUS)"),
-				"Unexpected results");
-		assertEquals(
-				ALTER_TABLE_COLUMN_DROP + DELIMITER + "SALGRADE" + DELIMITER + "alter table SCOTT. EMP set unused (SALGRADE)",
-				alterTablePreProcessor("alter table SCOTT. EMP set unused (SALGRADE)"),
-				"Unexpected results");
-		assertEquals(
-				ALTER_TABLE_COLUMN_DROP + DELIMITER + "BONUS;SALGRADE" + DELIMITER + "alter table SCOTT .EMP set unused (BONUS, SALGRADE)",
-				alterTablePreProcessor("alter table SCOTT .EMP set unused (BONUS, SALGRADE)"),
-				"Unexpected results");		
 	}
 }
