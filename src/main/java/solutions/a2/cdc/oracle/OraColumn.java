@@ -1676,13 +1676,11 @@ public class OraColumn {
 	}
 
 	public static String canonicalColumnName(final String rawColumnName) {
-		if (Strings.CS.startsWith(rawColumnName, "\"") && Strings.CS.endsWith(rawColumnName, "\"")) {
+		if (Strings.CS.startsWith(rawColumnName, "\"") && Strings.CS.endsWith(rawColumnName, "\""))
 			// Column name is escaped by "
-			return StringUtils.substringBetween(rawColumnName, "\"", "\"");
-		} else {
-			// Uppercase it!
+			return StringUtils.substringBetween(StringUtils.remove(rawColumnName, (char)0), "\"", "\"");
+		else
 			return StringUtils.upperCase(StringUtils.remove(rawColumnName, (char)0));
-		}
 	}
 
 	/**
