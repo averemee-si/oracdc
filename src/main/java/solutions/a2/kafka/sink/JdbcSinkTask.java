@@ -92,17 +92,6 @@ public class JdbcSinkTask extends SinkTask {
 				final String tableNameWithoutVersion = tableNameMapper.getTableName(record);
 				final String tableName = tableNameWithoutVersion + ":" + Integer.toString(version);
 				JdbcSinkTable oraTable = tablesInProcessing.get(tableName);
-				if (oraTable != null && version != oraTable.getVersion()) {
-					LOGGER.info(
-							"\n=====================\n" +
-							"New version {} for table {} with existing version {} detected.\n" +
-							"Table definition will be updated to new version." +
-							"\n=====================\n",
-							version, oraTable.getTableFqn(), oraTable.getVersion());
-					tablesInProcessing.remove(tableName);
-					tablesInProcess.remove(tableName);
-					return;
-				}
 				if (oraTable == null) {
 					LOGGER.info(
 							"\n=====================\n" +
