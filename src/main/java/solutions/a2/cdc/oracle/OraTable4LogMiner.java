@@ -209,7 +209,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final String pdbName, final short conId, final String tableOwner,
 			final String tableName, final boolean rowLevelScnDependency,
 			final OraCdcSourceConnectorConfig config,
-			final OraRdbmsInfo rdbmsInfo, final Connection connection) {
+			final OraRdbmsInfo rdbmsInfo, final Connection connection, final int version) {
 		this(pdbName, tableOwner, tableName, config.schemaType(),
 				config.processLobs(), config.transformLobsImpl(), config.logMiner());
 		setTopicDecoderPartition(config, rdbmsInfo.odd(), rdbmsInfo.partition());
@@ -225,6 +225,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.pseudoColumns = config.pseudoColumnsProcessor();
 		this.allUpdates = config.allUpdates();
 		this.config = config;
+		this.version = version;
 		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		snm = config.getSchemaNameMapper();
 		snm.configure(config);

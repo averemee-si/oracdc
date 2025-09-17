@@ -638,7 +638,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 							isCdb ? (short) conId : -1,
 							resultSet.getString("OWNER"), tableName,
 							Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
-							config, rdbmsInfo, connection);
+							config, rdbmsInfo, connection, getTableVersion(combinedDataObjectId));
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

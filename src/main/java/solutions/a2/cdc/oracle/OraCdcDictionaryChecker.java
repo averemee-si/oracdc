@@ -232,7 +232,7 @@ public class OraCdcDictionaryChecker {
 							isCdb ? (short) conId : -1,
 							tableOwner, tableName,
 							"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
-							config, rdbmsInfo, connection);
+							config, rdbmsInfo, connection, task.getTableVersion(combinedDataObjectId));
 						task.putTableVersion(combinedDataObjectId, 1);
 
 						if (isPartition) {
