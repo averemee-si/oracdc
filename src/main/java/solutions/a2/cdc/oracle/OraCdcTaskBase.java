@@ -473,7 +473,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		offset.put("S:SSN", transData.getRight());
 	}
 
-	void putTableAndVersion(final long combinedDataObjectId, final int version) {
+	void putTableVersion(final long combinedDataObjectId, final int version) {
 		offset.put(Long.toString(combinedDataObjectId), Integer.toString(version));
 	}
 
