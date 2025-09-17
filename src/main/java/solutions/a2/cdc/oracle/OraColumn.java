@@ -1681,7 +1681,7 @@ public class OraColumn {
 			return StringUtils.substringBetween(rawColumnName, "\"", "\"");
 		} else {
 			// Uppercase it!
-			return StringUtils.upperCase(rawColumnName);
+			return StringUtils.upperCase(StringUtils.remove(rawColumnName, (char)0));
 		}
 	}
 
