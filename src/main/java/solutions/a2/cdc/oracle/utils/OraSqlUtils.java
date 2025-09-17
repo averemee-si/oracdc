@@ -153,8 +153,9 @@ public class OraSqlUtils {
 							Strings.CI.equals(tokens[beginIndex + 3], RESERVED_WORD_TO)) {
 						// tokens[beginIndex + 2] - old name
 						// tokens[beginIndex + 4] - new name
-						return ALTER_TABLE_COLUMN_RENAME + "\n" +
+						final String renameColumn = ALTER_TABLE_COLUMN_RENAME + "\n" +
 							tokens[beginIndex + 2] + ";" + tokens[beginIndex + 4];
+						return renameColumn + "\n" + originalText; 
 					} else {
 						return null;
 					}

@@ -29,25 +29,32 @@ public class OraCdcAlterTablePreProcessorTest {
 	@Test
 	public void test() {
 
+		String originalText = null;
+
+		originalText = "alter table dept rename column DESCRIPTION to COMMENTARY";
 		assertEquals(
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY" + "\n" + originalText,
 				OraSqlUtils.alterTablePreProcessor("alter table dept rename column DESCRIPTION to COMMENTARY"),
 				"Unexpected results");
+		originalText = "alter table SCOTT.DEPT rename column DESCRIPTION to COMMENTARY";
 		assertEquals(
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
-				OraSqlUtils.alterTablePreProcessor("alter table SCOTT.DEPT rename column DESCRIPTION to COMMENTARY"),
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY" + "\n" + originalText,
+				OraSqlUtils.alterTablePreProcessor(originalText),
 				"Unexpected results");
+		originalText = "alter table scott. DEPT rename column DESCRIPTION to COMMENTARY";
 		assertEquals(
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
-				OraSqlUtils.alterTablePreProcessor("alter table scott. DEPT rename column DESCRIPTION to COMMENTARY"),
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY" + "\n" + originalText,
+				OraSqlUtils.alterTablePreProcessor(originalText),
 				"Unexpected results");
+		originalText = "alter table SCOTT .dept rename column DESCRIPTION to COMMENTARY";
 		assertEquals(
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
-				OraSqlUtils.alterTablePreProcessor("alter table SCOTT .dept rename column DESCRIPTION to COMMENTARY"),
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY" + "\n" + originalText,
+				OraSqlUtils.alterTablePreProcessor(originalText),
 				"Unexpected results");
+		originalText = "alter table scott . dept rename column DESCRIPTION to COMMENTARY";
 		assertEquals(
-				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY",
-				OraSqlUtils.alterTablePreProcessor("alter table scott . dept rename column DESCRIPTION to COMMENTARY"),
+				OraSqlUtils.ALTER_TABLE_COLUMN_RENAME + "\n" + "DESCRIPTION;COMMENTARY" + "\n" + originalText,
+				OraSqlUtils.alterTablePreProcessor(originalText),
 				"Unexpected results");
 
 
