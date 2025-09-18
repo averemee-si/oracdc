@@ -130,6 +130,8 @@ public class OraColumn {
 	private static final int CHAR_MAX = 4000;
 	private static final int RAW_MAX = 2000;
 
+	private static final char CHAR_0 = (char)0;
+
 	private String columnName;
 	private int columnId;
 	private String nameFromId;
@@ -1271,7 +1273,7 @@ public class OraColumn {
 			case VARCHAR:
 				// 0x00 PostgreSQL problem
 				if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
-					statement.setString(columnNo, Strings.CS.replace((String) columnValue, "\0", StringUtils.EMPTY));
+					statement.setString(columnNo, StringUtils.remove((String) columnValue, CHAR_0));
 				} else { 
 					statement.setString(columnNo, (String) columnValue);
 				}
@@ -1673,9 +1675,9 @@ public class OraColumn {
 	public static String canonicalColumnName(final String rawColumnName) {
 		if (Strings.CS.startsWith(rawColumnName, "\"") && Strings.CS.endsWith(rawColumnName, "\""))
 			// Column name is escaped by "
-			return StringUtils.substringBetween(StringUtils.remove(rawColumnName, (char)0), "\"", "\"");
+			return StringUtils.substringBetween(StringUtils.remove(rawColumnName, CHAR_0), "\"", "\"");
 		else
-			return StringUtils.upperCase(StringUtils.remove(rawColumnName, (char)0));
+			return StringUtils.upperCase(StringUtils.remove(rawColumnName, CHAR_0));
 	}
 
 	/**
