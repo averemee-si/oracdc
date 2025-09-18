@@ -1255,19 +1255,15 @@ public class OraColumn {
 						setNull = true;
 					}
 				}
-				if (dbType == JdbcSinkConnectionPool.DB_TYPE_ORACLE) {
-					((OraclePreparedStatement) statement).setNUMBER(columnNo, new NUMBER(ba));
+				BigDecimal bd = null;
+				bd = OraNumber.toLogical(ba);
+				if (bd == null) {
+					setNull = true;
+				}
+				if (setNull) {
+					statement.setNull(columnNo, NUMERIC);
 				} else {
-					BigDecimal bd = null;
-					bd = OraNumber.toLogical(ba);
-					if (bd == null) {
-						setNull = true;
-					}
-					if (setNull) {
-						statement.setNull(columnNo, NUMERIC);
-					} else {
-						statement.setBigDecimal(columnNo, bd);
-					}
+					statement.setBigDecimal(columnNo, bd);
 				}
 				break;
 			case BINARY:
