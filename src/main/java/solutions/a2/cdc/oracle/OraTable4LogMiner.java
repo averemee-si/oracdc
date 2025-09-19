@@ -22,6 +22,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -1291,10 +1293,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final String xid,
 			final long commitScn) throws SQLException {
 		final String preprocessedDdl;
-		if (stmt instanceof OraCdcLogMinerStatement)
+		final boolean logMiner;
+		if (stmt instanceof OraCdcLogMinerStatement) {
 			preprocessedDdl = ((OraCdcLogMinerStatement) stmt).getSqlRedo();
-		else
+			logMiner = true;
+		} else {
 			preprocessedDdl = alterTablePreProcessor(new String(((OraCdcRedoMinerStatement) stmt).redoData()));
+			logMiner = false;
+		}
 		int updatedColumnCount = 0;
 		final String[] ddlDataArray = StringUtils.split(preprocessedDdl, OraSqlUtils.DELIMITER);
 		final String operation = ddlDataArray[0];
@@ -1331,21 +1337,106 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			}
 			break;
 		case OraSqlUtils.ALTER_TABLE_COLUMN_DROP:
-			for (String columnName : StringUtils.split(preProcessed, ";")) {
-				final String columnToDrop = OraColumn.canonicalColumnName(columnName); 
-				int columnIndex = -1;
-				for (int i = 0; i < allColumns.size(); i++) {
-					if (Strings.CS.equals(columnToDrop, allColumns.get(i).getColumnName())) {
-						columnIndex = i;
+			final String[] columnNamesToDrop = StringUtils.split(preProcessed, ";");
+			final List<OraColumn> unusedColumns = new ArrayList<>();
+			final Set<Integer> unusedColumnIndexes = new HashSet<>();
+			for (int i = 0; i < columnNamesToDrop.length; i++) {
+				unusedColumnIndexes.add(i);
+				final String columnToDrop = OraColumn.canonicalColumnName(columnNamesToDrop[i]);
+				if (pkColumns.containsKey(columnToDrop)) {
+					LOGGER.error(
+							"\n=====================\n" +
+							"Automatic DROP of a column '{}' included in the key for table '{}' is not supported!\n" +
+							"Please do this manually. For further support, please contact us at oracle@a2.solutions." +
+							"\n=====================\n",
+							columnToDrop, fqn());
+					throw new ConnectException("Automatic DROP of a column included in the key for table is not supported.");
+				}
+				for (OraColumn column : allColumns)
+					if (Strings.CS.equals(columnToDrop, column.getColumnName())) {
+						unusedColumns.add(column);
+						unusedColumnIndexes.remove(i);
 						break;
 					}
+			}
+			if (!unusedColumnIndexes.isEmpty()) {
+				boolean first = true;
+				final StringBuilder sb = new StringBuilder(0x40);
+				for (final int index : unusedColumnIndexes) {
+					if (first)
+						first = false;
+					else
+						sb.append(", ");
+					sb.append(columnNamesToDrop[index]);
 				}
-				if (columnIndex > -1) {
-					rebuildSchemaFromDb = true;
-				} else {
-					LOGGER.error("Unable to perform\n'{}'\nColumn {} not exist in {}!",
-							originalDdl, columnToDrop, fqn());
+				LOGGER.error(
+						"\n=====================\n" +
+						"Cannot drop column(s) '{}' because this column(s) {} not present in the oracdc dictionary for table {}.\n" +
+						"Original DDL text: '{}'" +
+						"\n=====================\n",
+				sb.toString(), unusedColumnIndexes.size() == 1 ? "is" : "are", fqn(), originalDdl);
+			}
+			if (!unusedColumns.isEmpty()) {
+				final Comparator<OraColumn> comparator = new Comparator<OraColumn>() {
+					public int compare(OraColumn col1, OraColumn col2){
+						return col1.getColumnId() - col2.getColumnId();
+					}
+				};
+				Collections.sort(unusedColumns, comparator);
+				Collections.sort(allColumns, comparator);
+				for (final OraColumn unusedColumn : unusedColumns) {
+					int indexToRemove = -1;
+					final String unusedColName = unusedColumn.getColumnName();
+					final int unusedColId = unusedColumn.getColumnId();
+					for (int i = 0; i < allColumns.size(); i++) {
+						final OraColumn column = allColumns.get(i);
+						if (column.getColumnId() == unusedColumn.getColumnId()) {
+							indexToRemove = i;
+							if (withLobs) {
+								if (lobColumnsNames != null)
+									lobColumnsNames.remove(unusedColName);
+								if (lobColumnSchemas != null)
+									lobColumnSchemas.remove(unusedColName);
+							}
+							if (logMiner) {
+								idToNameMap.remove(unusedColName);
+							} else {
+								pureIdMap.remove(unusedColId);
+								if (withLobs && lobColumnIds != null)
+									lobColumnIds.remove(unusedColId);
+							}
+						} else if (column.getColumnId() > unusedColumn.getColumnId()) {
+							if (!logMiner) {
+								final int oldColumnId = column.getColumnId();
+								pureIdMap.put(oldColumnId - 1, column);
+								if (withLobs && lobColumnIds != null && lobColumnIds.contains(oldColumnId)) {
+									lobColumnIds.remove(oldColumnId);
+									lobColumnIds.add(oldColumnId - 1);
+								}
+							}
+							column.setColumnId(column.getColumnId() - 1);
+						}
+					}
+					OraColumn columnToRemove = allColumns.get(indexToRemove);
+					if (!columnToRemove.isNullable())
+						mandatoryColumnsProcessed--;
+					allColumns.remove(indexToRemove);
+					columnToRemove = null;
 				}
+				final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(++version);
+				for (final Field field : valueSchema.fields()) {
+					final boolean present = allColumns
+								.stream()
+								.filter(c -> Strings.CS.equals(c.getColumnName(), field.name()))
+								.findFirst()
+								.isPresent();
+					if (present)
+						valueSchemaBuilder.field(field.name(), field.schema());
+				}
+				addPseudoColumns(valueSchemaBuilder);
+				schemaEiplogue(tableFqn, valueSchemaBuilder);
+				maxColumnId = allColumns.size();
+				updatedColumnCount = unusedColumns.size();
 			}
 			break;
 		case OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY:
@@ -1399,7 +1490,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				} else {
 					allColumns.get(columnIndex).setColumnName(newName);
 					final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(++version);
-					for (Field field : valueSchema.fields()) {
+					for (final Field field : valueSchema.fields()) {
 						if (Strings.CS.equals(oldName, field.name()))
 							valueSchemaBuilder.field(newName, field.schema());
 						else
