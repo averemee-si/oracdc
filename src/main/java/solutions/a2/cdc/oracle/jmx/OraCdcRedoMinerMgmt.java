@@ -138,9 +138,6 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcRedoMin
 		}
 	}
 
-	public void addRecord() {
-		totalRecordsCount++;
-	}
 	@Override
 	public long getTotalRecordsCount() {
 		return totalRecordsCount;
@@ -150,6 +147,7 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcRedoMin
 			final int committedRecords, final long transSize,
 			final int currentSentSize, final int currentProcessingSize) {
 		recordsCommittedCount += committedRecords;
+		totalRecordsCount += committedRecords;
 		transactionsCommittedCount++;
 		bytesWrittenCQ += transSize;
 		if (transSize > maxTransSizeBytes) {
@@ -176,6 +174,7 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcRedoMin
 	public void addRolledBackRecords(
 			final int rolledBackRecords, final long transSize, final int currentProcessingSize) {
 		recordsRolledBackCount += rolledBackRecords;
+		totalRecordsCount += rolledBackRecords;
 		transactionsRolledBackCount++;
 		bytesWrittenCQ += transSize;
 		if (transSize > maxTransSizeBytes) {
