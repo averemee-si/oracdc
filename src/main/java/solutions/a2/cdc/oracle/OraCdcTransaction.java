@@ -218,6 +218,67 @@ public abstract class OraCdcTransaction {
 		} else if (LOGGER.isTraceEnabled()) {
 			print(false);
 		}
+		if (!halfDone.isEmpty()) {
+			StringBuilder sb = new StringBuilder(0x400);
+			sb
+				.append("\n=====================\n")
+				.append("Not all redo records in transaction {} have been processed.\n")
+				.append("Please send the message below to us by email oracle@a2.solutions\n\n")
+				.append("List of unprocessed redo records:");
+			int problemNo = 1;
+			for (final int halfDoneKey : halfDone.keySet()) {
+				sb
+					.append("\n")
+					.append(problemNo)
+					.append(") halfDoneKey=")
+					.append(halfDoneKey);
+				for (final RowChangeHolder rowChangeHolder : halfDone.get(halfDoneKey)) {
+					sb
+						.append("\n\trowChangeHolder information:")
+						.append(" homogeneous=")
+						.append(rowChangeHolder.homogeneous)
+						.append(" needHeadFlag=")
+						.append(rowChangeHolder.needHeadFlag)
+						.append(" onlyLmn=")
+						.append(rowChangeHolder.onlyLmn)
+						.append(" operation=")
+						.append(rowChangeHolder.operation)
+						.append(" oppositeOrder=")
+						.append(rowChangeHolder.oppositeOrder)
+						.append(" lmOp=")
+						.append(rowChangeHolder.lmOp);
+					for (final OraCdcRedoRecord rr : rowChangeHolder.records) {
+						sb
+							.append("\n\t\t")
+							.append(rr.rba());
+						if (rr.has5_1()) {
+							sb
+								.append(" 5.1 FB=")
+								.append(printFbFlags(rr.change5_1().fb()));
+							if (rr.change5_1().supplementalFb() != 0) {
+								sb
+									.append(" 5.1 Supplemental FB=")
+									.append(printFbFlags(rr.change5_1().supplementalFb()));
+							}
+							if (rr.has11_x() || rr.has10_x()) {
+								sb
+									.append(' ')
+									.append(formatOpCode(rr.has11_x() ? rr.change11_x().operation() : rr.change10_x().operation()))
+									.append(" FB=")
+									.append(printFbFlags(rr.has11_x() ? rr.change11_x().fb() : rr.change10_x().fb()));
+							}
+						}
+						sb
+							.append("\n")
+							.append(rr.toString())
+							.append("\n");
+					}
+				}
+				problemNo++;
+			}
+			sb.append("\n=====================\n");
+			LOGGER.error(sb.toString(), xid);
+		}
 	}
 
 	public void setCommitScn(long commitScn, OraCdcPseudoColumnsProcessor pseudoColumns, ResultSet resultSet) throws SQLException {
