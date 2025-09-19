@@ -420,13 +420,13 @@ public class OraCdcRedoRecord {
 		if (has5_1() && has11_x()) {
 			return Objects.hash(false,
 					change11_x().operation == _11_3_DRP ? _11_3_DRP : _11_6_ORP,
-					change5_1().xid, change11_x().dataObj);
+					change11_x().dataObj);
 		} else if (hasPrb() && has11_x()) {
-			return Objects.hash(true, changePrb().xid, changePrb().dataObj);
+			return Objects.hash(true, changePrb().dataObj);
 		} else if (has5_1() && has10_x()) {
 			return Objects.hash(false,
 					change10_x().operation == _10_4_LDE ? _11_3_DRP : _11_6_ORP,
-					change5_1().xid, change10_x().dataObj);
+					change10_x().dataObj);
 		} else {
 			return 0;
 		}
