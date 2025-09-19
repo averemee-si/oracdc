@@ -105,11 +105,12 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	 * @param rootDir
 	 * @param xid
 	 * @param firstChange
+	 * @param isCdb
 	 * @throws IOException
 	 */
 	public OraCdcTransactionChronicleQueue(final LobProcessingStatus processLobs,
-			final Path rootDir, final String xid, final long firstChange) throws IOException {
-		super(xid, firstChange);
+			final Path rootDir, final String xid, final long firstChange, final boolean isCdb) throws IOException {
+		super(xid, firstChange, isCdb);
 		LOGGER.debug("BEGIN: create OraCdcTransactionChronicleQueue for new transaction");
 		this.processLobs = processLobs;
 		queueDirectory = Files.createTempDirectory(rootDir, xid + ".");
@@ -209,11 +210,12 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	 * @param rootDir
 	 * @param xid
 	 * @param firstStatement
+	 * @param isCdb
 	 * @throws IOException
 	 */
 	public OraCdcTransactionChronicleQueue(
-			final Path rootDir, final String xid, final OraCdcStatementBase firstStatement) throws IOException {
-		this(LobProcessingStatus.NOT_AT_ALL, rootDir, xid, firstStatement.getScn());
+			final Path rootDir, final String xid, final OraCdcStatementBase firstStatement, final boolean isCdb) throws IOException {
+		this(LobProcessingStatus.NOT_AT_ALL, rootDir, xid, firstStatement.getScn(), isCdb);
 		this.addStatement(firstStatement);
 	}
 

@@ -70,12 +70,12 @@ public class OraCdcPersistenceTest {
 
 		final String tmpDir = System.getProperty("java.io.tmpdir");
 		final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
-		final OraCdcTransaction trans1 = new OraCdcTransactionChronicleQueue(queuesRoot, xid1, updIn1);
+		final OraCdcTransaction trans1 = new OraCdcTransactionChronicleQueue(queuesRoot, xid1, updIn1, false);
 		trans1.setCommitScn(275168436063l);
-		final OraCdcTransaction trans2 = new OraCdcTransactionChronicleQueue(queuesRoot, xid2, updIn2);
+		final OraCdcTransaction trans2 = new OraCdcTransactionChronicleQueue(queuesRoot, xid2, updIn2, false);
 		List<Map<String, Object>> inProgress = new ArrayList<>();
 		inProgress.add(((OraCdcTransactionChronicleQueue)trans2).attrsAsMap());
-		final OraCdcTransaction trans3 = new OraCdcTransactionChronicleQueue(queuesRoot, xid3, updIn3);
+		final OraCdcTransaction trans3 = new OraCdcTransactionChronicleQueue(queuesRoot, xid3, updIn3, false);
 		List<Map<String, Object>> committed = new ArrayList<>();
 		committed.add(((OraCdcTransactionChronicleQueue)trans3).attrsAsMap());
 
