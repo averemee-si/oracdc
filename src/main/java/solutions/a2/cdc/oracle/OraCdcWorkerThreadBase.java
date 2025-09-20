@@ -149,7 +149,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		if (useChronicleQueue)
 			return getChronicleQueue(xidAsString, firstScn);
 		else
-			return new OraCdcTransactionArrayList(xidAsString, firstScn, initialCapacity);
+			return new OraCdcTransactionArrayList(xidAsString, firstScn, initialCapacity, isCdb);
 	}
 
 	private OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString, final long firstScn) {
@@ -162,7 +162,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 			else
 				attempt++;
 			try {
-				return new OraCdcTransactionChronicleQueue(lobProcessingStatus, queuesRoot, xidAsString, firstScn);
+				return new OraCdcTransactionChronicleQueue(lobProcessingStatus, queuesRoot, xidAsString, firstScn, isCdb);
 			} catch (Exception cqe) {
 				lastException = cqe;
 				if (cqe.getCause() != null &&

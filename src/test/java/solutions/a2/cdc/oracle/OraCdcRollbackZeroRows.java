@@ -42,11 +42,11 @@ public class OraCdcRollbackZeroRows implements Closeable {
 				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x00327b.00715538.00e0 "), 12,
 				new RowId("AAAqvBABcAACu52AAM"), false); 
 		if (arrayList) {
-			transaction = new OraCdcTransactionArrayList(xid, firstStmt);
+			transaction = new OraCdcTransactionArrayList(xid, firstStmt, false);
 		} else {
 			final String tmpDir = System.getProperty("java.io.tmpdir");
 			final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
-			transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, firstStmt);
+			transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, firstStmt, false);
 		}
 		transaction.addStatement(new OraCdcLogMinerStatement(175041, (short)3,
 				"update \"WSH\".\"WSH_TRIPS\" set".getBytes(StandardCharsets.US_ASCII),

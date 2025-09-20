@@ -58,11 +58,11 @@ public class OraCdcRollbackData implements Closeable {
 				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0031f7.008fcf21.0010 "), 0,
 				new RowId("AAAqT4AAmAAHL6bAAO"), false); 
 		if (arrayList) {
-			transaction = new OraCdcTransactionArrayList(xid, firstStmt);
+			transaction = new OraCdcTransactionArrayList(xid, firstStmt, false);
 		} else {
 			final String tmpDir = System.getProperty("java.io.tmpdir");
 			final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
-			transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, firstStmt);
+			transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, firstStmt, false);
 		}
 		transaction.addStatement(new OraCdcLogMinerStatement(186929, (short)1,
 				"insert into \"INV\".\"MLOG$_MTL_MATERIAL_TRANSAC\"(".getBytes(StandardCharsets.US_ASCII),
