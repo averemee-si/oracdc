@@ -50,6 +50,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	private static final byte KDICLRE = 0x5;
 	private static final byte KDICLUP = 0x12;
 	private static final byte KDICLNU = 0x1E;
+	private static final byte KDILCNU = 0x23;
 
 	boolean supplementalLogData = false;
 	byte supplementalFb = 0;
@@ -105,25 +106,36 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					elementLengthCheck("kdilk", "(OP:5.1)", 0, KDILK_MIN_LENGTH, "");
 					kdilk |= KDLIK;
 					kdilkType = record[coords[3][0]];
+					if (kdilkType == KDILCNU && coords.length > 5) {
+						columnCount = coords[5][1]/Short.BYTES;
+					}
 					if ((kdilkType == KDICLPU ||
 						kdilkType == KDICLRE ||
 						kdilkType == KDICLUP ||
-						kdilkType == KDICLNU) &&
+						kdilkType == KDICLNU ||
+						kdilkType == KDILCNU) &&
 							(record[coords[3][0] + 2] & 0x80) > 0) {
 						supplementalLogData = true;
-						suppDataStartIndex = coords.length - 1;
+						if (kdilkType == KDILCNU) {
+							suppDataStartIndex = 6 + columnCount;
+							if (coords.length > suppDataStartIndex) {
+								supplementalCc = coords[suppDataStartIndex + 1][1]/Short.BYTES;
+							}
+						} else {
+							suppDataStartIndex = coords.length - 1;
+						}
 						elementLengthCheck("mandatory supplemental logging data", "(OP:5.1)", suppDataStartIndex, SUPPL_LOG_MIN_LENGTH, "");
 						supplementalFb = record[coords[suppDataStartIndex][0] + 0x1];
 						suppOffsetUndo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x6));
 						suppOffsetRedo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x8));
-						supplementalCc = 0;
-						supplementalCcNn = 0;
 					}
-					if (coords.length > 3) {
+					if (coords.length > 3 && kdilkType != KDILCNU) {
 						kdilk |= KDLIK_KEY;
 						if (coords.length > 4 && suppDataStartIndex > 5) {
 							kdilk |= KDLIK_NONKEY;
-							columnCount = Byte.toUnsignedInt(record[coords[5][0] + 2]);
+							if (kdilkType != KDILCNU) {
+								columnCount = Byte.toUnsignedInt(record[coords[5][0] + 2]);
+							}
 							fb = record[coords[5][0]];
 						}
 					}
@@ -264,6 +276,9 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			case KDICLNU:
 				sb.append("\n(kdxlnu): whole nonkey update");
 				break;
+			case KDILCNU: 
+				sb.append("\n(kdxlcnu): column-vector nonkey update");
+				break;
 			}
 			if (kdilkType == KDICLPU)
 				sb.append("\n(kdxlpu): purge leaf row");
@@ -272,9 +287,29 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			else if (kdilkType == KDICLUP)
 				sb.append("\n(kdxlup): update keydata in row");
 			if (coords.length > 3) {
-				printIndexKey(sb, true, 4);
-				if (coords.length > 4 && suppDataStartIndex > 5) {
-					printIndexKey(sb, false, 5);
+				if (kdilkType == KDILCNU) {
+					if (coords[3][1] > 0x19) {
+						sb
+							.append("\nncol: ")
+							.append(Byte.toUnsignedInt(record[coords[3][0] + 0x15]))
+							.append(" nnew: ")
+							.append(Byte.toUnsignedInt(record[coords[3][0] + 0x16]))
+							.append(" size: ")
+							.append(redoLog.bu().getU16(record, coords[3][0] + 0x18))
+							.append(" flag: ")
+							.append(String.format("0x%02x", Byte.toUnsignedInt(record[coords[3][0] + 0x14])));
+					}
+					printIndexKey(sb, true, 4);
+					sb.append("\nnonkey columns updated:");
+					for (int i = 0; i < columnCount; i++) {
+						final int index = i + 6;
+						printColumnBytes(sb, record[coords[5][0] + Short.BYTES * i], coords[index][1], index, 0);
+					}
+				} else {
+					printIndexKey(sb, true, 4);
+					if (coords.length > 4 && suppDataStartIndex > 5) {
+						printIndexKey(sb, false, 5);
+					}
 				}
 			}
 		}
@@ -299,16 +334,42 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				.append(" fb: ")
 				.append(printFbFlags(supplementalFb));
 			if (supplementalCc > 0) {
-				final int colNumArrayPos = suppDataStartIndex + 1;
-				final int dataEndPos = supplementalCc + suppDataStartIndex + 0x3;
-				int colOrder = 0;
-				for (int i = suppDataStartIndex + 0x3; i < dataEndPos; i++) {
-					if (i < coords.length) {
-						final int colNum = redoLog.bu().getU16(record, coords[colNumArrayPos][0] + colOrder * Short.BYTES);
-						colOrder++;
-						printColumnBytes(sb, colNum, coords[i][1], i, 0);
-					} else {
-						break;
+				if (kdilkType == KDILCNU) {
+					sb.append("\n Supplemental logging:");
+					for (int i = 0; i < supplementalCc; i++) {
+						final int colNum = redoLog.bu().getU16(record, coords[suppDataStartIndex + 1][0] + i * Short.BYTES);
+						final int colSize = redoLog.bu().getU16(record, coords[suppDataStartIndex + 2][0] + i * Short.BYTES);
+						sb
+							.append("\n  col  ")
+							.append(String.format("%2d", i))
+							.append(":  segcol#: ")
+							.append(String.format("%2d", colNum))
+							.append('(')
+							.append(String.format("%2d", colSize))
+							.append("): ");
+						if (colSize == 0) {
+							sb.append("*NULL*");
+						} else {
+							for (int j = 0; j < colSize; j++) {
+								sb
+									.append(' ')
+									.append(String.format("%02x", Byte.toUnsignedInt(record[coords[suppDataStartIndex + 3 + i][0] + j])))
+									.append((j % 0x19 == 0x18) && (j != colSize - 1) ? "\n" : "" );
+							}
+						}
+					}
+				} else {
+					final int colNumArrayPos = suppDataStartIndex + 1;
+					final int dataEndPos = supplementalCc + suppDataStartIndex + 0x3;
+					int colOrder = 0;
+					for (int i = suppDataStartIndex + 0x3; i < dataEndPos; i++) {
+						if (i < coords.length) {
+							final int colNum = redoLog.bu().getU16(record, coords[colNumArrayPos][0] + colOrder * Short.BYTES);
+							colOrder++;
+							printColumnBytes(sb, colNum, coords[i][1], i, 0);
+						} else {
+							break;
+						}
 					}
 				}
 			}
@@ -384,9 +445,9 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 	@Override
 	public int columnCountNn() {
-		if ((kdilk & KDLIK) != 0) {
+		if ((kdilk & KDLIK) != 0)
 			return indexKeyColCount(4);
-		} else
+		else
 			return columnCountNn;
 	}
 

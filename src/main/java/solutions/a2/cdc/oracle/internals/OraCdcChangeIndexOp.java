@@ -42,16 +42,21 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 		// Element 1: KTB Redo
 		ktbRedo(0);
 		// Element 2: Index info
+		elementLengthCheck("index info", formatOpCode(operation), 1, 6, "");
 		if (coords.length > 1) {
-			elementLengthCheck("index info", formatOpCode(operation), 1, 6, "");
-			if (coords.length > 3) {
+			if (operation == _10_35_LCU) {
 				nonKeyData = true;
-				columnCount = Byte.toUnsignedInt(record[coords[3][0] + 2]);
-				fb = record[coords[3][0]];
-			} else if (operation == _10_30_LNU) {
-				nonKeyData = true;
-				columnCount = Byte.toUnsignedInt(record[coords[2][0] + 2]);
-				fb = record[coords[2][0]];
+				columnCount = coords[2][1] / Short.BYTES;
+			} else {
+				if (coords.length > 3) {
+					nonKeyData = true;
+					columnCount = Byte.toUnsignedInt(record[coords[3][0] + 2]);
+					fb = record[coords[3][0]];
+				} else if (operation == _10_30_LNU) {
+					nonKeyData = true;
+					columnCount = Byte.toUnsignedInt(record[coords[2][0] + 2]);
+					fb = record[coords[2][0]];
+				}
 			}
 		}
 	}
@@ -74,10 +79,14 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 
 	@Override
 	public int columnCountNn() {
-		if (coords.length > 2 && operation != _10_30_LNU)
-			return indexKeyColCount(2);
-		else
+		if (operation == _10_35_LCU)
 			return 0;
+		else {
+			if (coords.length > 2 && operation != _10_30_LNU)
+				return indexKeyColCount(2);
+			else
+				return 0;
+		}
 	}
 
 	@Override
@@ -92,7 +101,9 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 					? "\nindex redo (kdxlde):  delete leaf row, count="
 					: operation == _10_18_LUP
 						? "\nindex redo (kdxlup): update keydata, count="
-						: "\nindex redo (kdxlnu): update nonkey, count=")
+						: operation == _10_30_LNU
+							? "\nindex redo (kdxlnu): update nonkey, count="
+							: "\nindex redo (kdxlcnu): update nonkey, count=")
 			.append(coords.length);
 		ktbRedo(sb, 0);
 		if (coords.length > 1) {
@@ -109,6 +120,21 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 				.append(Short.toUnsignedInt(redoLog.bu().getU16(record, coords[1][0] + 4)));
 			if (operation == _10_30_LNU) {
 				printNonKeyData(sb, 2);
+			} else if (operation == _10_35_LCU && coords[1][1] > 0xB) {
+				sb
+					.append("\nncol: ")
+					.append(Byte.toUnsignedInt(record[coords[1][0] + 0x7]))
+					.append(" nnew: ")
+					.append(Byte.toUnsignedInt(record[coords[1][0] + 0x8]))
+					.append(" size: ")
+					.append(redoLog.bu().getU16(record, coords[1][0] + 0xA))
+					.append(" flag: ")
+					.append(String.format("0x%02x", Byte.toUnsignedInt(record[coords[1][0] + 0x6])))
+					.append("\nnonkey columns updated:");
+				for (int i = 0; i < columnCount; i++) {
+					final int index = i + 3;
+					printColumnBytes(sb, record[coords[2][0] + Short.BYTES * i], coords[index][1], index, 0);
+				}
 			} else {
 				if (coords.length > 2) {
 					sb
@@ -151,7 +177,7 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 			.append("):")
 			.append(coords[index][1] - 3 > 0x14 ? "\n" : " ");
 		for (int i = 3; i < coords[index][1]; i++) {
-			if ((i - 3) % 25 == 24 && i != coords[3][1] - 1)
+			if ((i - 3) % 25 == 24 && i != coords[index][1] - 1)
 				sb.append('\n');
 			sb.append(String.format(" %02x", Byte.toUnsignedInt(record[coords[index][0] + i])));
 		}

@@ -76,6 +76,8 @@ public class OraCdcChange {
 	public static final short _10_22_ULK = 0x0A16;
 	/** KDICLNU: IOT leaf block nonkey update */
 	public static final short _10_30_LNU = 0x0A1E;
+	/** KDICLCU: IOT nonkey update */
+	public static final short _10_35_LCU = 0x0A23;
 
 	/** Layer 11: Row Operation    -  KCOCODRW     [kdocts.h] */
 	public static final byte KCOCODRW = 0x0B;
