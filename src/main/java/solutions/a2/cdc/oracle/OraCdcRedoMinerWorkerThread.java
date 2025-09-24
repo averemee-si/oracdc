@@ -60,20 +60,16 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.FLG_ROWDEPENDENCIES;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.FLG_KDLI_CMAP;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_2_LIN;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_4_LDE;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_18_LUP;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_30_LNU;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_10_SKL;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_4_LKR;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_6_ORP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_8_CFA;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_10_SKL;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
@@ -397,22 +393,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} else if (record.has5_1() && record.has10_x()) {
 							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
 								continue;
-							final short operation = record.change10_x().operation();
-							switch (operation) {
-							case _10_2_LIN:
-							case _10_4_LDE:
-							case _10_18_LUP:
-							case _10_30_LNU:
-								iotObjRemap(false, record);
-								if (record.change5_1().fb() == 0 &&
-										record.change10_x().fb() == 0 &&
-										record.change5_1().supplementalFb() == 0)
-									continue;
-								getTransaction(record).processRowChange(record, false, lwnUnixMillis);
-								break;
-							default:
-								break;
-							}
+							iotObjRemap(false, record);
+							if (record.change5_1().fb() == 0 &&
+									record.change10_x().fb() == 0 &&
+									record.change5_1().supplementalFb() == 0)
+								continue;
+							getTransaction(record).processRowChange(record, false, lwnUnixMillis);
 							continue;
 						} else if (record.hasColb()) {
 							final OraCdcChangeColb colb = record.changeColb();
