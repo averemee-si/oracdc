@@ -148,7 +148,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 		} else if (operation == UPDATE) {
 			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
 			final Set<Integer> changedCols = new HashSet<>(setColCount);
-			final int[][] setColDefs = new int[setColCount][3];
+			int[][] setColDefs = new int[setColCount][3];
 			int pos = readAndSortColDefs(setColDefs, Short.BYTES);
 
 			sql
@@ -180,28 +180,54 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 				}				
 			}
 
-			pos = readAndSortColDefs(setColDefs, pos + 3);
+			final int beforeDataLength = getU24BE(redoData, pos);
+			pos += 0x3;
+			int beforeColCount = 0;
+			for (int dbPos = pos; dbPos < pos + beforeDataLength; ) {
+				beforeColCount++;
+				dbPos += Short.BYTES;
+				int colSize = Byte.toUnsignedInt(redoData[dbPos++]);
+				if (colSize ==  0xFE) {
+					colSize = (redoData[dbPos++] << 8 | (redoData[dbPos++] & 0xFF));
+				} else if (colSize == 0xFF) {
+					colSize = -1;
+				}
+				if (colSize > 0) {
+					dbPos += colSize;
+				}
+			}
+
 			sql.append(" where ");
 			first = true;
-			for (int i = 0; i < setColCount; i++) {
-				if (first) {
-					first = false;
-				} else {
-					sql.append(" and ");
-				}
-				final int colSize = setColDefs[i][1];
-				sql
-					.append("\"COL ")
-					.append(setColDefs[i][0])
-					.append('"');		
-				if (colSize < 0) {
-					sql.append(" IS NULL");
-				} else {
-					sql.append(" = '");
-					for (int j = 0; j < colSize; j++) {
-						sql.append(String.format("%02x", redoData[setColDefs[i][2] + j]));
+
+			if (beforeColCount < setColCount && beforeColCount > 0) {
+				setColDefs = null;
+				setColDefs = new int[beforeColCount][3];
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug("Reducing setColDefs array dimension from {} to {}", setColCount, beforeColCount);
+			}
+			if (beforeColCount > 0) {
+				pos = readAndSortColDefs(setColDefs, pos);
+				for (int i = 0; i < beforeColCount; i++) {
+					if (first) {
+						first = false;
+					} else {
+						sql.append(" and ");
 					}
-					sql.append('\'');
+					final int colSize = setColDefs[i][1];
+					sql
+						.append("\"COL ")
+						.append(setColDefs[i][0])
+						.append('"');		
+					if (colSize < 0) {
+						sql.append(" IS NULL");
+					} else {
+						sql.append(" = '");
+						for (int j = 0; j < colSize; j++) {
+							sql.append(String.format("%02x", redoData[setColDefs[i][2] + j]));
+						}
+						sql.append('\'');
+					}
 				}
 			}
 
