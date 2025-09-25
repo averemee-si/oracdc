@@ -1557,57 +1557,55 @@ public class OraCdcChange {
 		return idxColCount;
 	}
 
-	int writeIndexColumns(final ByteArrayOutputStream baos, final int index, final boolean nonKeyData, final int colNumIndex) throws IOException {
+	public int writeIndexColumns(final ByteArrayOutputStream baos, final int index, final boolean nonKeyData, final int colNumIndex) throws IOException {
 		if (index > coords.length - 1)
 			return 0;
 		int col = 0;
-		if (operation != _10_30_LNU) {
-			for (int pos = 0; pos < coords[index][1];) {
-				final int colNum = col + colNumIndex;
-				putU16(baos, colNum);
-				int colSize = Byte.toUnsignedInt(record[coords[index][0] + pos]);
-				pos += Byte.BYTES;
-				if (colSize ==  0xFE) {
-					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + pos));
-					pos += Short.BYTES;
-				}
-				if (colSize == 0xFF) {
-					colSize = 0;
-					baos.write(0xFF);
-				} else {
-					putOraColSize(baos, colSize);
-					baos.write(record, coords[index][0] + pos, colSize);
-				}
-				pos += colSize;
-				col++;
-			}
+		for (int pos = 0; pos < coords[index][1];) {
+			final int colNum = col + colNumIndex;
+			pos = writeSingleIndexCol(baos, index, colNum, pos);
+			col++;
 		}
 		if (nonKeyData) {
-			final int nkIdx = index + 1;
-			final int startPos = (flgHeadPart(fb) && flgFirstPart(fb) && flgLastPart(fb)) ? 3 : 9;
-			int nonKeyCol = 0;
-			for (int pos = startPos; pos < coords[nkIdx][1];) {
-				nonKeyCol++;
-				final int colNum = col + colNumIndex;
-				putU16(baos, colNum);
-				int colSize = Byte.toUnsignedInt(record[coords[nkIdx][0] + pos]);
-				pos += Byte.BYTES;
-				if (colSize ==  0xFE) {
-					colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[nkIdx][0] + pos));
-					pos += Short.BYTES;
-				}
-				if (colSize == 0xFF) {
-					colSize = 0;
-					baos.write(0xFF);
-				} else {
-					putOraColSize(baos, colSize);
-					baos.write(record, coords[nkIdx][0] + pos, colSize);
-				}
-				col++;
-				if (nonKeyCol == columnCount)
-					break;
-				pos += colSize;
-			}
+			col = writeIndexNonKeyColumns(baos, index + 1, colNumIndex, col);
+		}
+		return col;
+	}
+
+	int writeSingleIndexCol(final ByteArrayOutputStream baos, final int index, final int colNum, int pos) throws IOException {
+		putU16(baos, colNum);
+		int colSize = Byte.toUnsignedInt(record[coords[index][0] + pos]);
+		pos += Byte.BYTES;
+		if (colSize ==  0xFE) {
+			colSize = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + pos));
+			pos += Short.BYTES;
+		}
+		if (colSize == 0xFF) {
+			colSize = 0;
+			baos.write(0xFF);
+		} else {
+			putOraColSize(baos, colSize);
+			baos.write(record, coords[index][0] + pos, colSize);
+		}
+		pos += colSize;
+		return pos;
+	}
+
+	public int writeIndexNonKeyColumns(
+			final ByteArrayOutputStream baos, final int index, final int colNumIndex, int col) throws IOException {
+		int nonKeyCol = 0;
+		final int startPos = (flgHeadPart(fb) && flgFirstPart(fb) && flgLastPart(fb)) ? 3 : 9;
+		for (int pos = startPos; pos < coords[index][1] && nonKeyCol < columnCount;) {
+			final int colNum = col + colNumIndex;
+			pos = writeSingleIndexCol(baos, index, colNum, pos);
+			col++;
+			nonKeyCol++;
+		}
+		for (int i = nonKeyCol; i < columnCount; i++) {
+			final int colNum = col + colNumIndex;
+			putU16(baos, colNum);
+			baos.write(0xFF);
+			col++;
 		}
 		return col;
 	}
@@ -1678,5 +1676,21 @@ public class OraCdcChange {
 		return colNumOffset;
 	}
 
+	public int writeIndexColumnsOp35(final ByteArrayOutputStream baos, final int colNumIndex, final int colNumOffset) throws IOException {
+		final int colDataIndex = colNumIndex + 1;
+		for (int i = 0; i < columnCount; i++) {
+			final int colNum = record[coords[colNumIndex][0] + Short.BYTES * i] + colNumOffset;
+			final int colSize = coords[colDataIndex + i][1];
+			putU16(baos, colNum);
+			if (colSize == 0)
+				//TODO - nullPos in element 3(5.1). element 1(10.35)
+				baos.write(0xFF);
+			else {
+				putOraColSize(baos, colSize);
+				baos.write(record, coords[colDataIndex + i][0], colSize);
+			}
+		}
+		return columnCount;
+	}
 
 }

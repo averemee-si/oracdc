@@ -31,6 +31,9 @@ import java.io.IOException;
 
 public class OraCdcChangeIndexOp extends OraCdcChange {
 
+	public static final int NON_KEY_10_30_POS = 2;
+	public static final int COL_NUM_10_35_POS = 2;
+
 	private boolean nonKeyData = false; 
 
 	OraCdcChangeIndexOp(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
@@ -62,10 +65,7 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 	}
 
 	public int writeIndexColumns(final ByteArrayOutputStream baos, final int colNumIndex) throws IOException {
-		if (operation != _10_30_LNU)
-			return writeIndexColumns(baos, 2, nonKeyData, colNumIndex);
-		else
-			return writeIndexColumns(baos, 1, nonKeyData, colNumIndex);
+		return writeIndexColumns(baos, 2, nonKeyData, colNumIndex);
 	}
 
 	@Override

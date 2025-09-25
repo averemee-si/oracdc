@@ -25,11 +25,12 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_2_LIN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_4_LDE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_18_LUP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_30_LNU;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_35_LCU;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_6_ORP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgFirstPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgHeadPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgLastPart;
@@ -57,6 +58,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcChange;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeIndexOp;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeRowOp;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndo;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock;
@@ -364,7 +366,7 @@ public abstract class OraCdcTransaction {
 	}
 
 	abstract void addStatement(final OraCdcStatementBase oraSql);
-	abstract boolean getStatement(OraCdcStatementBase oraSql);
+	public abstract boolean getStatement(OraCdcStatementBase oraSql);
 	abstract long size();
 	abstract int length();
 	abstract int offset();
@@ -412,8 +414,13 @@ public abstract class OraCdcTransaction {
 			records.add(record);
 			if (record.rba().compareTo(rba) < 0)
 				rba = record.rba();
-			if (!partialRollback && record.has11_x())
-				onlyLmn = onlyLmn && (record.change11_x().operation() == _11_16_LMN);
+			if (!partialRollback) {
+				if (record.has11_x())
+					onlyLmn = onlyLmn && (record.change11_x().operation() == _11_16_LMN);
+				else
+					//IOT
+					onlyLmn = false;
+			}			
 			if (!complete && !partialRollback && records.size() == 1) {
 				final byte fb5_1 = record.change5_1().fb();
 				final byte fb11_x = record.has11_x() ? record.change11_x().fb() : record.change10_x().fb();
@@ -562,7 +569,7 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	void processRowChange(final OraCdcRedoRecord record, final boolean partialRollback,
+	public void processRowChange(final OraCdcRedoRecord record, final boolean partialRollback,
 			final long lwnUnixMillis) throws IOException {
 		RowChangeHolder row = createRowChangeHolder(record, partialRollback);
 		if (row.complete) {
@@ -719,6 +726,8 @@ public abstract class OraCdcTransaction {
 					row.complete = true;
 				break;
 			case _10_18_LUP:
+			case _10_30_LNU:
+			case _10_35_LCU:
 				row.lmOp = UPDATE;
 				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
@@ -735,11 +744,11 @@ public abstract class OraCdcTransaction {
 				else if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
 						flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
-				else if (!flgHeadPart(record.change5_1().fb()))
+				else if (!flgHeadPart(undoChange.fb()))
 					row.oppositeOrder = true;
 				if (row.operation == _11_16_LMN) {
 					row.needHeadFlag = false;
-					if (!flgFirstPart(record.change5_1().fb()) || flgFirstPart(rowChange.fb()))
+					if (!flgFirstPart(undoChange.fb()) || flgFirstPart(rowChange.fb()))
 						row.oppositeOrder = true;
 				}
 				break;
@@ -789,8 +798,20 @@ public abstract class OraCdcTransaction {
 				else if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
 					flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
-				else if (!flgHeadPart(record.change5_1().fb()))
+				else if (!flgHeadPart(undoChange.fb()))
 					row.oppositeOrder = true;
+				break;
+			case _10_30_LNU:
+				row.lmOp = UPDATE;
+				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+					row.complete = true;
+				else if (!flgHeadPart(rowChange.fb()))
+					row.oppositeOrder = true;
+				break;
+			case _10_35_LCU:
+				row.lmOp = UPDATE;
+				if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
+					row.complete = true;
 				break;
 			}
 		}
@@ -1023,8 +1044,11 @@ public abstract class OraCdcTransaction {
 						setOrValColCount += change.columnCount();
 					} else if (rowChange.operation() == _10_18_LUP) {
 						whereColCount += change.columnCount();
-					} else if (rowChange.operation() == _10_30_LNU) {
+					} else if (rowChange.operation() == _10_30_LNU ||
+								rowChange.operation() == _10_35_LCU) {
 						setOrValColCount += rowChange.columnCount();
+						whereColCount += change.columnCount();
+						whereColCount += change.supplementalCc();						
 					} else {
 						LOGGER.error(
 								"\n=====================\n" +
@@ -1033,18 +1057,20 @@ public abstract class OraCdcTransaction {
 								rr.rba(), formatOpCode(rowChange.operation()));
 					}
 				} else {
-					//TODO
-					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to properly process the following RBA's with partial rollback\n");
-					for (final OraCdcRedoRecord ocrr : row.records) {
-						LOGGER.error("\t{}", ocrr.rba());
-					}
-					LOGGER.error(
-							"\nPlease send message above along with the resulting dump of command execution\n\n" +
-							"alter system dump logfile '{}' scn min {} scn max {};\n\n" +
-							"to oracle@a2.solutions" +
-							"\n=====================\n",
+					final StringBuilder sb = new StringBuilder(0x400);
+					sb
+						.append("\n=====================\n")
+						.append("Unable to properly process the following RBA's with partial rollback\n");
+					for (final OraCdcRedoRecord ocrr : row.records)
+						sb
+							.append("\n\t")
+							.append(ocrr.rba());
+					sb
+						.append("\nPlease send message above along with the resulting dump of command execution\n\n")
+						.append("alter system dump logfile '{}' scn min {} scn max {};\n\n")
+						.append("to oracle@a2.solutions")
+						.append("\n=====================\n");
+					LOGGER.error(sb.toString(),
 							first.redoLog().fileName(), first.scn(), row.last().scn());
 					return;
 				}
@@ -1151,7 +1177,7 @@ public abstract class OraCdcTransaction {
 				if (row.homogeneous) {
 					for (final OraCdcRedoRecord rr : row.records) {
 						final OraCdcChangeUndoBlock change = rr.change5_1();
-						final OraCdcChangeRowOp rowChange = rr.change11_x();
+						final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
 						if (rowChange.operation() == _11_5_URP &&
 								(rowChange.flags() & KDO_KDOM2) != 0) {
 							if (rowChange.coords()[OraCdcChangeRowOp.KDO_POS + 1][1] > 1 &&
@@ -1192,6 +1218,17 @@ public abstract class OraCdcTransaction {
 						} else if (row.onlyLmn) {
 							change.writeSupplementalCols(baos);
 							change.writeSupplementalCols(baosB);
+						} else if (rowChange.operation() == _10_30_LNU) {
+							rowChange.writeIndexNonKeyColumns(
+									baos, OraCdcChangeIndexOp.NON_KEY_10_30_POS,
+									change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(), 0);
+							change.writeIndexNonKeyColumns(
+									baosB, OraCdcChangeUndoBlock.NON_KEY_10_30_POS, colNumOffsetSet, colNumOffsetWhere);
+						} else if (rowChange.operation() == _10_35_LCU) {
+							rowChange.writeIndexColumnsOp35(
+									baos, OraCdcChangeIndexOp.COL_NUM_10_35_POS, change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
+							change.writeIndexColumnsOp35(
+									baosB, OraCdcChangeUndoBlock.COL_NUM_10_35_POS, change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
 						} else {
 							LOGGER.warn("Unable to read column data for UPDATE (SET) at RBA {}, change #{}",
 									rr.rba(), rowChange.num());
@@ -1212,29 +1249,48 @@ public abstract class OraCdcTransaction {
 							final OraCdcChangeUndoBlock change = rr.change5_1();
 							change.writeSupplementalCols(baos);
 							if (change.columnCount() > 0) {
-								final short selector = (short) ((change.op() & 0x1F) | (KCOCODRW << 0x08));
-								if (change.operation() == _11_5_URP &&
-										(change.flags() & KDO_KDOM2) != 0) {
-									if (change.coords()[OraCdcChangeUndoBlock.KDO_POS + 1][1] > 1 &&
-											OraCdcChangeUndoBlock.KDO_POS + 2 < change.coords().length) {
-										change.writeKdoKdom2(baos, OraCdcChangeUndoBlock.KDO_POS);
+								if (rr.has11_x()) {
+									final short selector = (short) ((change.op() & 0x1F) | (KCOCODRW << 0x08));
+									if (change.operation() == _11_5_URP &&
+											(change.flags() & KDO_KDOM2) != 0) {
+										if (change.coords()[OraCdcChangeUndoBlock.KDO_POS + 1][1] > 1 &&
+												OraCdcChangeUndoBlock.KDO_POS + 2 < change.coords().length) {
+											change.writeKdoKdom2(baos, OraCdcChangeUndoBlock.KDO_POS);
+										} else {
+											LOGGER.warn("Not enough data to process KDO_KDOM2 structure at RBA {}, change #{}",
+													rr.rba(), change.num());
+										}
+									} else if (selector == _11_5_URP &&
+											OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCountNn() < change.coords().length) {
+										change.writeColsWithNulls(baos, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
+												change.suppOffsetUndo() == 0 ? colNumOffsetWhere : change.suppOffsetUndo(),
+												KDO_URP_NULL_POS);
+									} else if (selector == _11_6_ORP &&
+											OraCdcChangeUndoBlock.KDO_POS + change.columnCountNn() < change.coords().length) {
+										change.writeColsWithNulls(baos, OraCdcChangeUndoBlock.KDO_POS, 0,
+												change.suppOffsetUndo() == 0 ? colNumOffsetWhere : change.suppOffsetUndo(),
+												KDO_ORP_IRP_NULL_POS);
 									} else {
-										LOGGER.warn("Not enough data to process KDO_KDOM2 structure at RBA {}, change #{}",
+										LOGGER.warn("Unable to read column data for UPDATE(WHERE) at RBA {}, change #{}",
 												rr.rba(), change.num());
 									}
-								} else if (selector == _11_5_URP &&
-										OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCountNn() < change.coords().length) {
-									change.writeColsWithNulls(baos, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
-											change.suppOffsetUndo() == 0 ? colNumOffsetWhere : change.suppOffsetUndo(),
-											KDO_URP_NULL_POS);
-								} else if (selector == _11_6_ORP &&
-										OraCdcChangeUndoBlock.KDO_POS + change.columnCountNn() < change.coords().length) {
-									change.writeColsWithNulls(baos, OraCdcChangeUndoBlock.KDO_POS, 0,
-											change.suppOffsetUndo() == 0 ? colNumOffsetWhere : change.suppOffsetUndo(),
-											KDO_ORP_IRP_NULL_POS);
 								} else {
-									LOGGER.warn("Unable to read column data for UPDATE(WHERE) at RBA {}, change #{}",
-											rr.rba(), change.num());
+									if (change.kdilkType() == OraCdcChangeUndoBlock.KDICLNU) {
+										// OP:10.30
+										change.writeIndexColumns(baos, OraCdcChangeUndoBlock.KEY_10_30_POS, false,
+												change.suppOffsetUndo() == 0 ? colNumOffsetWhere : change.suppOffsetUndo());
+									} else if (change.kdilkType() == OraCdcChangeUndoBlock.KDILCNU) {
+										// OP:10.35
+										change.writeIndexColumns(baos, OraCdcChangeUndoBlock.KEY_10_30_POS, false,
+												change.suppOffsetUndo() == 0 ? colNumOffsetWhere : change.suppOffsetUndo());
+										change.writeSupplementalCols(baos);
+									} else {
+										LOGGER.warn(
+												"\n=====================\n" +
+												"Unable to process redo record at RBA {} with kdilkType={}.\nRedo record countent:\n{}" +
+												"\n=====================\n",
+												rr.rba(), change.kdilkType(), rr.toString());
+									}
 								}
 								colNumOffsetWhere += change.columnCount();
 							}
