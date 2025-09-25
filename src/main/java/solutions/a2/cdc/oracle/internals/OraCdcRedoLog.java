@@ -797,4 +797,68 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return false;
 	}
 
+	static final int VSN_11_2_0_0 = 0x0B020000;
+	static final int VSN_12_1_0_0 = 0x0C010000;
+	static final int VSN_19_0_0_0 = 0x13000000;
+	static final int VSN_23_0_0_0 = 0x17000000;
+
+	private OraCdcRedoLog(final boolean littleEndian, final int compatibilityVsn) throws IOException {
+		fileName = "virtual";
+		this.littleEndian = littleEndian;
+		bu = BinaryUtils.get(littleEndian);
+		blockSize = BLOCK_SIZE_0512;
+		block = null;
+		redoFileTypeByte = redoFileTypeByte(blockSize, fileName);;
+		validateChecksum = true;
+		firstScn = 0;
+		nextScn = Long.MAX_VALUE;
+		firstTime = 0;
+		nextTime = 0;
+		resetLogsCnt = 0;
+		resetLogsScn = 0;
+		prevResetLogsCnt = 0;
+		prevResetLogsScn = 0;
+		sequence = 1;
+		dbId = 19670904;
+		activationId = 0;
+		thread = 1;
+		blockCount = 7;
+		this.compatibilityVsn = compatibilityVsn;
+		versionMajor = (byte)(compatibilityVsn >> 0x18);
+		versionString = new StringBuilder();
+		versionString
+			.append(versionMajor)
+			.append('.')
+			.append((byte)(compatibilityVsn >> 0x10))
+			.append('.')
+			.append((byte)(compatibilityVsn >> 0x08))
+			.append('.')
+			.append((byte)(compatibilityVsn));
+		if (versionMajor >= ORA_CDB_START) {
+			cdb = true;
+			if (compatibilityVsn > 0x0C100000) {
+				//12.2+
+				bigScn = true;
+			} else {
+				bigScn = false;
+			}
+		} else {
+			bigScn = false;
+		}
+		oracleSid = new StringBuilder();
+		oracleSid.append("ORCL");
+		largestLwn = 0;
+		controlSeq = 1;
+		fileSize = 0x800;
+		fileNo = 1;
+		description = "T 0001, S 0000000001, SCN 0x0000000000000000-0xffffffffffffffff";
+		nab = 0;
+	}
+
+	static OraCdcRedoLog getLinux19c() {
+		try {
+			return new OraCdcRedoLog(true, VSN_19_0_0_0);
+		} catch(IOException ioe) {throw new IllegalArgumentException();}
+	}
+
 }

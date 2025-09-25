@@ -94,13 +94,13 @@ public class OraCdcRedoRecord {
 	private final byte vld;
 	private final long scn;
 	private final short subScn;
-	private final int ts;
 	private final RedoByteAddress rba;
-	private final int conUid;
 	private final byte[] record;
 	private final List<OraCdcChange> changeVectors;
-	private final boolean hasLwn;
-	private final int lwnLen;
+	private int ts;
+	private int conUid;
+	private boolean hasLwn;
+	private int lwnLen;
 	private int indKTURDB = -1;
 	private int indKTURCM = -1;
 	private int indKTUTSL = -1;
@@ -127,7 +127,10 @@ public class OraCdcRedoRecord {
 		vld = record[0x04];
 		subScn = redoLog.bu().getU16(record, 0x0C);
 		changeVectors = new ArrayList<>(0x8);
+		buildChangeVector();
+	}
 
+	private void buildChangeVector() {
 		final int changeHeaderLen;
 		if (redoLog.cdb()) {
 			changeHeaderLen = 0x20;
@@ -148,7 +151,6 @@ public class OraCdcRedoRecord {
 			ts = 0;
 			offset = HEADER_LEN_PLAIN;
 		}
-	
 		short changeNo = 1;
 		while (offset < len) {
 			final byte layer = record[offset + 0x00];
@@ -546,6 +548,18 @@ public class OraCdcRedoRecord {
 
 	public byte[] content() {
 		return record;
+	}
+
+	OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn, final String rbaAsString, byte[] data) {
+		this.redoLog = redoLog;
+		this.scn = scn;
+		record = data;
+		rba = RedoByteAddress.fromLogmnrContentsRs_Id(rbaAsString);
+		len = redoLog.bu().getU32(record, 0x00);
+		vld = record[0x04];
+		subScn = redoLog.bu().getU16(record, 0x0C);
+		changeVectors = new ArrayList<>(0x8);
+		buildChangeVector();
 	}
 
 }
