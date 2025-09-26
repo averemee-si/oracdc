@@ -290,3 +290,5 @@ Default - 86,400,000 (24 hours)
 
 `a2.process.all.update.statements` - When set to TRUE connector processes all UPDATE statements. When set to FALSE connector ignores UPDATE statements that do not actually change the data, i.e. 'update DEPT set DNAME=DNAME where DEPTNO=10'.
 Default - true.
+
+`a2.unable.to.map.col.id.warning` - When the value is set to 'true' and a redo record contains a column identifier that is not in the data dictionary, a message about that column and information about the redo record is printed. Default - 'true'.

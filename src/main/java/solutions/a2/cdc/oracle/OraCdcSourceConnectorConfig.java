@@ -435,6 +435,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			"When set to FALSE connector ignores UPDATE statements that do not actually change the data, i.e. 'update DEPT set DNAME=DNAME where DEPTNO=10'.\n" +
 			"Default - " + ALL_UPDATES_DEFAULT;
 
+	private static final String PRINT_UNABLE2MAP_COL_ID_WARNING_PARAM = "a2.unable.to.map.col.id.warning";
+	private static final boolean PRINT_UNABLE2MAP_COL_ID_WARNING_DEFAULT = true;
+	private static final String PRINT_UNABLE2MAP_COL_ID_WARNING_DOC = "When the value is set to 'true' and a redo record contains a column identifier that is not in the data dictionary, a message about that column and information about the redo record is printed. Default - 'true'.";
+
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
@@ -579,6 +583,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(TDE_WALLET_PATH_PARAM, STRING, "", LOW, TDE_WALLET_PATH_DOC)
 				.define(TDE_WALLET_PASSWORD_PARAM, PASSWORD, "", LOW, TDE_WALLET_PASSWORD_DOC)
 				.define(ALL_UPDATES_PARAM, BOOLEAN, ALL_UPDATES_DEFAULT, LOW, ALL_UPDATES_DOC)
+				.define(PRINT_UNABLE2MAP_COL_ID_WARNING_PARAM, BOOLEAN, PRINT_UNABLE2MAP_COL_ID_WARNING_DEFAULT, LOW, PRINT_UNABLE2MAP_COL_ID_WARNING_DOC)
 				;
 	}
 
@@ -1522,4 +1527,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		return getBoolean(PRINT_ALL_ONLINE_REDO_RANGES_PARAM);
 	}
 
+	public boolean printUnable2MapColIdWarning() {
+		return getBoolean(PRINT_UNABLE2MAP_COL_ID_WARNING_PARAM);
+	}
 }

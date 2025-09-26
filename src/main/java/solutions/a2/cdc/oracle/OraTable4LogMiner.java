@@ -166,6 +166,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private OraCdcSourceConnectorConfig config;
 	private SchemaNameMapper snm;
 	private Set<String> pkColsSet;
+	private boolean printUnableToMapColIdWarning;
 
 	/**
 	 * 
@@ -229,6 +230,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this.allUpdates = config.allUpdates();
 		this.config = config;
 		this.version = version;
+		this.printUnableToMapColIdWarning = config.printUnable2MapColIdWarning();
 		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		snm = config.getSchemaNameMapper();
 		snm.configure(config);
@@ -2681,11 +2683,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	}
 
 	private void printUnableToMapColIdWarning(final int colId, final String xid, final OraCdcRedoMinerStatement stmt) {
-		LOGGER.warn(
-				"\n=====================\n" +
-				"Unable to map column with id {} to dictionary for table {} in XID {}!\nDML operation details:\n{}\n" +
-				"\n=====================\n",
-				colId, fqn(), xid, stmt.toString());
+		if (printUnableToMapColIdWarning)
+			LOGGER.warn(
+					"\n=====================\n" +
+					"Unable to map column with id {} to dictionary for table {} in XID {}!\nDML operation details:\n{}\n" +
+					"\n=====================\n",
+					colId, fqn(), xid, stmt.toString());
 	}
 
 	private SchemaBuilder keySchemaBuilder(final boolean useRowIdAsKey) {
