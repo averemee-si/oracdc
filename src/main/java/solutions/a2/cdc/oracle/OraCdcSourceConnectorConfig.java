@@ -96,7 +96,24 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String PRINT_INVALID_HEX_WARNING_DOC = 
 			"Default - false.\n" +
 			"When set to true oracdc prints information about invalid hex values (like single byte value for DATE/TIMESTAMP/TIMESTAMPTZ) in log.";
+
+	protected static final String PROCESS_ONLINE_REDO_LOGS_PARAM = "a2.process.online.redo.logs";
+	private static final String PROCESS_ONLINE_REDO_LOGS_DOC = 
+			"Default - false.\n" +
+			"When set to true oracdc process online redo logs.";
 	
+	private static final String CURRENT_SCN_QUERY_INTERVAL_PARAM = "a2.scn.query.interval.ms";
+	private static final String CURRENT_SCN_QUERY_INTERVAL_DOC = 
+			"Default - 60_000.\n" +
+			"Minimum time in milliseconds to determine the current SCN during online redo log processing.";
+	private static final int CURRENT_SCN_QUERY_INTERVAL_DEFAULT = 60_000;
+
+	private static final String PRINT_ALL_ONLINE_REDO_RANGES_PARAM = "a2.print.all.online.scn.ranges";
+	private static final String PRINT_ALL_ONLINE_REDO_RANGES_DOC =
+			"Default - true.\n" +
+			"If set to true oracdc prints detailed information about SCN ranges when working with the online log every time interval specified by the a2.scn.query.interval.ms parameter.\n" +
+			"If set to false oracdc prints information about current online redo only when SEQUENCE# is changed.";
+
 	private static final String PROTOBUF_SCHEMA_NAMING_PARAM = "a2.protobuf.schema.naming";
 	private static final String PROTOBUF_SCHEMA_NAMING_DOC = 
 			"Default - false.\n" +
@@ -476,15 +493,15 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 								ParamConstants.ORA_TRANSACTION_IMPL_JVM),
 						LOW, ParamConstants.ORA_TRANSACTION_IMPL_DOC)
 				.define(PRINT_INVALID_HEX_WARNING_PARAM, BOOLEAN, false, LOW, PRINT_INVALID_HEX_WARNING_DOC)
-				.define(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM, BOOLEAN, false, LOW, ParamConstants.PROCESS_ONLINE_REDO_LOGS_DOC)
-				.define(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM, INT, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DEFAULT, LOW, ParamConstants.CURRENT_SCN_QUERY_INTERVAL_DOC)
+				.define(PROCESS_ONLINE_REDO_LOGS_PARAM, BOOLEAN, false, LOW, PROCESS_ONLINE_REDO_LOGS_DOC)
+				.define(CURRENT_SCN_QUERY_INTERVAL_PARAM, INT, CURRENT_SCN_QUERY_INTERVAL_DEFAULT, LOW, CURRENT_SCN_QUERY_INTERVAL_DOC)
 				.define(INCOMPLETE_REDO_TOLERANCE_PARAM, STRING, INCOMPLETE_REDO_TOLERANCE_ERROR,
 						ConfigDef.ValidString.in(
 								INCOMPLETE_REDO_TOLERANCE_ERROR,
 								INCOMPLETE_REDO_TOLERANCE_SKIP,
 								INCOMPLETE_REDO_TOLERANCE_RESTORE),
 						LOW, INCOMPLETE_REDO_TOLERANCE_DOC)
-				.define(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM, BOOLEAN, true, LOW, ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_DOC)
+				.define(PRINT_ALL_ONLINE_REDO_RANGES_PARAM, BOOLEAN, true, LOW, PRINT_ALL_ONLINE_REDO_RANGES_DOC)
 				.define(LM_RECONNECT_INTERVAL_MS_PARAM, LONG, Long.MAX_VALUE, LOW, LM_RECONNECT_INTERVAL_MS_DOC)
 				.define(PK_TYPE_PARAM, STRING, PK_TYPE_WELL_DEFINED,
 						ConfigDef.ValidString.in(
@@ -1491,6 +1508,18 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public boolean allUpdates() {
 		return getBoolean(ALL_UPDATES_PARAM);
+	}
+
+	public boolean processOnlineRedoLogs() {
+		return getBoolean(PROCESS_ONLINE_REDO_LOGS_PARAM);
+	}
+
+	public int currentScnQueryInterval() {
+		return getInt(CURRENT_SCN_QUERY_INTERVAL_PARAM);
+	}
+
+	public boolean printAllOnlineRedoRanges() {
+		return getBoolean(PRINT_ALL_ONLINE_REDO_RANGES_PARAM);
 	}
 
 }

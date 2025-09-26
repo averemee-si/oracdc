@@ -89,21 +89,4 @@ public class ParamConstants {
 	public static final String ORA_TRANSACTION_IMPL_CHRONICLE = "ChronicleQueue";
 	public static final String ORA_TRANSACTION_IMPL_JVM = "ArrayList";
 	
-	public static final String PROCESS_ONLINE_REDO_LOGS_PARAM = "a2.process.online.redo.logs";
-	public static final String PROCESS_ONLINE_REDO_LOGS_DOC = 
-			"Default - false.\n" +
-			"When set to true oracdc process online redo logs.";
-	
-	public static final String CURRENT_SCN_QUERY_INTERVAL_PARAM = "a2.scn.query.interval.ms";
-	public static final String CURRENT_SCN_QUERY_INTERVAL_DOC = 
-			"Default - 60_000.\n" +
-			"Minimum time in milliseconds to determine the current SCN during online redo log processing.";
-	public static final int CURRENT_SCN_QUERY_INTERVAL_DEFAULT = 60_000;
-
-	public static final String PRINT_ALL_ONLINE_REDO_RANGES_PARAM = "a2.print.all.online.scn.ranges";
-	public static final String PRINT_ALL_ONLINE_REDO_RANGES_DOC =
-			"Default - true.\n" +
-			"If set to true oracdc prints detailed information about SCN ranges when working with the online log every time interval specified by the a2.scn.query.interval.ms parameter.\n" +
-			"If set to false oracdc prints information about current online redo only when SEQUENCE# is changed.";
-
 }

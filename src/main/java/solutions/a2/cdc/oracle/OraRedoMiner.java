@@ -167,10 +167,10 @@ public class OraRedoMiner {
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
 		}
 
-		processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
+		processOnlineRedoLogs = config.processOnlineRedoLogs();
 		if (processOnlineRedoLogs) {
-			printAllOnlineScnRanges = config.getBoolean(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM);
-			onlineRedoQueryMsMin = config.getInt(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM);
+			printAllOnlineScnRanges = config.printAllOnlineRedoRanges();
+			onlineRedoQueryMsMin = config.currentScnQueryInterval();
 		} else {
 			printAllOnlineScnRanges = false;
 			onlineRedoQueryMsMin = Integer.MIN_VALUE;

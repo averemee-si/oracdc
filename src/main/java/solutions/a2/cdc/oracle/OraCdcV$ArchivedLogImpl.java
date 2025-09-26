@@ -29,6 +29,8 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.PROCESS_ONLINE_REDO_LOGS_PARAM;
+
 /**
  * 
  * Wrapper for LogMiner operations (V$ARCHIVED_LOG as source) implementation
@@ -95,7 +97,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			callDbmsLogmnrAddLogFile = false;
 			processOnlineRedoLogs = false;
 			onlineRedoQueryMsMin = Integer.MIN_VALUE;
-			if (config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM)) {
+			if (config.getBoolean(PROCESS_ONLINE_REDO_LOGS_PARAM)) {
 				LOGGER.warn(
 						"\n" +
 						"=====================\n" +
@@ -103,7 +105,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 						"Value TRUE of the parameter '{}' is ignored!\n" +
 						"=====================\n",
 						useStandby ? "standby database" : "PDB",
-						ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
+						PROCESS_ONLINE_REDO_LOGS_PARAM);
 			}
 		} else {
 			callDbmsLogmnrAddLogFile = true;
@@ -111,12 +113,12 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 				processOnlineRedoLogs = false;
 				onlineRedoQueryMsMin = Integer.MIN_VALUE;
 			} else {
-				processOnlineRedoLogs = config.getBoolean(ParamConstants.PROCESS_ONLINE_REDO_LOGS_PARAM);
-				onlineRedoQueryMsMin = config.getInt(ParamConstants.CURRENT_SCN_QUERY_INTERVAL_PARAM);
+				processOnlineRedoLogs = config.processOnlineRedoLogs();
+				onlineRedoQueryMsMin = config.currentScnQueryInterval();
 			}
 		}
 		if (processOnlineRedoLogs) {
-			printAllOnlineScnRanges = config.getBoolean(ParamConstants.PRINT_ALL_ONLINE_REDO_RANGES_PARAM);
+			printAllOnlineScnRanges = config.printAllOnlineRedoRanges();
 		} else {
 			printAllOnlineScnRanges = false;
 		}
