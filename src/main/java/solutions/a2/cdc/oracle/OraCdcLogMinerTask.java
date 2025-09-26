@@ -243,26 +243,14 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 			}
 
 			if (execInitialLoad) {
-				LOGGER.debug("Initial load table list SQL {}", initialLoadSql);
-				buildInitialLoadTableList(initialLoadSql);
-				initialLoadWorker = new OraCdcInitialLoadThread(
-						WAIT_FOR_WORKER_MILLIS,
-						coords.getLeft(),
-						tablesInProcessing,
-						config,
-						rdbmsInfo,
-						initialLoadMetrics,
-						tablesQueue,
-						oraConnections);
+				prepareInitialLoadWorker(initialLoadSql, coords.getLeft());
 			}
-
 
 		} catch (SQLException e) {
 			LOGGER.error("Unable to start oracdc logminer task!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new ConnectException(e);
 		}
-		LOGGER.trace("Starting worker thread.");
 		if (execInitialLoad) {
 			initialLoadWorker.start();
 		}

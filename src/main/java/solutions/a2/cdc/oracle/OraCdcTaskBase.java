@@ -325,10 +325,6 @@ public abstract class OraCdcTaskBase extends SourceTask {
 					LOGGER.info("Initial load set to {} (value from offset)", INITIAL_LOAD_COMPLETED);
 				}
 			}
-			if (execInitialLoad) {
-				tablesQueue = new LinkedBlockingQueue<>();
-				initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, connectorName);
-			}
 			// End - initial load analysis...
 
 		} catch (SQLException sqle) {
@@ -524,6 +520,45 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		return 1;
 	}
 
+	void prepareInitialLoadWorker(final String initialLoadSql, final long scn) throws SQLException {
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("Initial load table list SQL {}", initialLoadSql);
+		try (Connection connection = oraConnections.getConnection();
+				PreparedStatement statement = connection.prepareStatement(initialLoadSql);
+				ResultSet resultSet = statement.executeQuery()) {
+			final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
+			while (resultSet.next()) {
+				final long objectId = resultSet.getLong("OBJECT_ID");
+				final long conId = isCdb ? resultSet.getLong("CON_ID") : 0L;
+				final long combinedDataObjectId = (conId << 32) | (objectId & 0xFFFFFFFFL);
+				final String tableName = resultSet.getString("TABLE_NAME");
+				if (!tablesInProcessing.containsKey(combinedDataObjectId)
+						&& !Strings.CS.startsWith(tableName, "MLOG$_")) {
+					OraTable4LogMiner oraTable = new OraTable4LogMiner(
+							isCdb ? resultSet.getString("PDB_NAME") : null,
+							isCdb ? (short) conId : -1,
+							resultSet.getString("OWNER"), tableName,
+							Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
+							config, rdbmsInfo, connection, getTableVersion(combinedDataObjectId));
+					tablesInProcessing.put(combinedDataObjectId, oraTable);
+				}
+			}
+		} catch (SQLException sqle) {
+			throw new SQLException(sqle);
+		}
+		tablesQueue = new LinkedBlockingQueue<>();
+		initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, connectorName);
+		initialLoadWorker = new OraCdcInitialLoadThread(
+				WAIT_FOR_WORKER_MILLIS,
+				scn,
+				tablesInProcessing,
+				config,
+				rdbmsInfo,
+				initialLoadMetrics,
+				tablesQueue,
+				oraConnections);
+	}
+
 	boolean executeInitialLoad() throws InterruptedException {
 		// Execute initial load...
 		if (!initialLoadWorker.isRunning() && tablesQueue.isEmpty() && table4InitialLoad == null) {
@@ -569,32 +604,6 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			}
 		}
 		return false;
-	}
-
-	void buildInitialLoadTableList(final String initialLoadSql) throws SQLException {
-		try (Connection connection = oraConnections.getConnection();
-				PreparedStatement statement = connection.prepareStatement(initialLoadSql);
-				ResultSet resultSet = statement.executeQuery()) {
-			final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
-			while (resultSet.next()) {
-				final long objectId = resultSet.getLong("OBJECT_ID");
-				final long conId = isCdb ? resultSet.getLong("CON_ID") : 0L;
-				final long combinedDataObjectId = (conId << 32) | (objectId & 0xFFFFFFFFL);
-				final String tableName = resultSet.getString("TABLE_NAME");
-				if (!tablesInProcessing.containsKey(combinedDataObjectId)
-						&& !Strings.CS.startsWith(tableName, "MLOG$_")) {
-					OraTable4LogMiner oraTable = new OraTable4LogMiner(
-							isCdb ? resultSet.getString("PDB_NAME") : null,
-							isCdb ? (short) conId : -1,
-							resultSet.getString("OWNER"), tableName,
-							Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
-							config, rdbmsInfo, connection, getTableVersion(combinedDataObjectId));
-					tablesInProcessing.put(combinedDataObjectId, oraTable);
-				}
-			}
-		} catch (SQLException sqle) {
-			throw new SQLException(sqle);
-		}
 	}
 
 }
