@@ -120,6 +120,12 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			"When set to true oracdc generates schema names as valid Protocol Buffers identifiers using underscore as separator.\n" + 
 			"When set to false (default) oracdc generates schema names using dot as separator.\n";
 	
+	private static final String INITIAL_LOAD_PARAM = "a2.initial.load";
+	private static final String INITIAL_LOAD_DOC = "A mode for performing initial load of data from tables when set to EXECUTE. Default - IGNORE";
+	protected static final String INITIAL_LOAD_IGNORE = "IGNORE";
+	protected static final String INITIAL_LOAD_EXECUTE = "EXECUTE";
+	protected static final String INITIAL_LOAD_COMPLETED = "COMPLETED";
+
 	private static final String TOPIC_NAME_DELIMITER_PARAM = "a2.topic.name.delimiter";
 	private static final String TOPIC_NAME_DELIMITER_DOC = "Kafka topic name delimiter when a2.schema.type=kafka and a2.topic.name.style set to SCHEMA_TABLE or PDB_SCHEMA_TABLE. Valid values - '_' (Default), '-', '.'";
 	private static final String TOPIC_NAME_DELIMITER_UNDERSCORE = "_";
@@ -456,11 +462,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(ParamConstants.STANDBY_URL_PARAM, STRING, "", LOW, ParamConstants.STANDBY_URL_DOC)
 				.define(ORACDC_SCHEMAS_PARAM, BOOLEAN, false, LOW, ORACDC_SCHEMAS_DOC)
 				.define(ParamConstants.DICTIONARY_FILE_PARAM, STRING, "", LOW, ParamConstants.DICTIONARY_FILE_DOC)
-				.define(ParamConstants.INITIAL_LOAD_PARAM, STRING, ParamConstants.INITIAL_LOAD_IGNORE,
+				.define(INITIAL_LOAD_PARAM, STRING, INITIAL_LOAD_IGNORE,
 						ConfigDef.ValidString.in(
-								ParamConstants.INITIAL_LOAD_IGNORE,
-								ParamConstants.INITIAL_LOAD_EXECUTE),
-						LOW, ParamConstants.INITIAL_LOAD_DOC)
+								INITIAL_LOAD_IGNORE,
+								INITIAL_LOAD_EXECUTE),
+						LOW, INITIAL_LOAD_DOC)
 				.define(TOPIC_NAME_STYLE_PARAM, STRING, TOPIC_NAME_STYLE_TABLE,
 						ConfigDef.ValidString.in(
 								TOPIC_NAME_STYLE_TABLE,
@@ -1529,5 +1535,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public boolean printUnable2MapColIdWarning() {
 		return getBoolean(PRINT_UNABLE2MAP_COL_ID_WARNING_PARAM);
+	}
+
+	public String initialLoad() {
+		return getString(INITIAL_LOAD_PARAM);
 	}
 }

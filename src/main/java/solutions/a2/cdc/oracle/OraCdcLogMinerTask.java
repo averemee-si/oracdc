@@ -16,15 +16,11 @@ package solutions.a2.cdc.oracle;
 import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
@@ -35,7 +31,6 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
 import solutions.a2.cdc.oracle.schema.FileUtils;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
@@ -54,13 +49,6 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 	private String stateFileName;
 	private OraCdcLogMinerMgmt metrics;
 	private Map<String, OraCdcTransaction> activeTransactions;
-	private boolean execInitialLoad = false;
-	private String initialLoadStatus = ParamConstants.INITIAL_LOAD_IGNORE;
-	private OraCdcInitialLoadThread initialLoadWorker;
-	private BlockingQueue<OraTable4InitialLoad> tablesQueue;
-	private OraTable4InitialLoad table4InitialLoad;
-	private boolean lastRecordInTable = true;
-	private OraCdcInitialLoad initialLoadMetrics;
 	private final OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
 	private final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
 
@@ -75,25 +63,6 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
 			OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
 			processStoredSchemas(metrics);
-
-			// Initial load
-			if (Strings.CI.equals(
-					ParamConstants.INITIAL_LOAD_EXECUTE,
-					config.getString(ParamConstants.INITIAL_LOAD_PARAM))) {
-				execInitialLoad = true;
-				initialLoadStatus = ParamConstants.INITIAL_LOAD_EXECUTE;
-				final Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(rdbmsInfo.partition());
-				if (offsetFromKafka != null &&
-						Strings.CI.equals(
-								ParamConstants.INITIAL_LOAD_COMPLETED,
-								(String) offsetFromKafka.get("I"))) {
-					execInitialLoad = false;
-					initialLoadStatus = ParamConstants.INITIAL_LOAD_COMPLETED;
-					offset.put("I", ParamConstants.INITIAL_LOAD_COMPLETED);
-					LOGGER.info("Initial load set to {} (value from offset)", ParamConstants.INITIAL_LOAD_COMPLETED);
-				}
-			}
-			// End - initial load analysis...
 
 			List<String> excludeList = config.excludeObj();
 			if (excludeList.size() < 1)
@@ -275,9 +244,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 
 			if (execInitialLoad) {
 				LOGGER.debug("Initial load table list SQL {}", initialLoadSql);
-				tablesQueue = new LinkedBlockingQueue<>();
 				buildInitialLoadTableList(initialLoadSql);
-				initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, connectorName);
 				initialLoadWorker = new OraCdcInitialLoadThread(
 						WAIT_FOR_WORKER_MILLIS,
 						coords.getLeft(),
@@ -316,49 +283,8 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 			lobs.clear();
 		}
 		if (execInitialLoad) {
-			// Execute initial load...
-			if (!initialLoadWorker.isRunning() && tablesQueue.isEmpty() && table4InitialLoad == null) {
-				Thread.sleep(WAIT_FOR_WORKER_MILLIS);
-				if (tablesQueue.isEmpty()) {
-					LOGGER.info("Initial load completed");
-					execInitialLoad = false;
-					initialLoadStatus = ParamConstants.INITIAL_LOAD_COMPLETED;
-					offset.put("I", ParamConstants.INITIAL_LOAD_COMPLETED);
-					return null;
-				}
-			}
-			int recordCount = 0;
-			while (recordCount < batchSize) {
-				if (lastRecordInTable) {
-					//First table or end of table reached, need to poll new
-					table4InitialLoad = tablesQueue.poll();
-					if (table4InitialLoad != null) {
-						initialLoadMetrics.startSendTable(table4InitialLoad.fqn());
-						LOGGER.info("Table {} initial load (send to Kafka phase) started.",
-								table4InitialLoad.fqn());
-					}
-				}
-				if (table4InitialLoad == null) {
-					LOGGER.debug("Waiting {} ms for initial load data...", pollInterval);
-					Thread.sleep(pollInterval);
-					break;
-				} else {
-					lastRecordInTable = false;
-					// Processing.......
-					SourceRecord record = table4InitialLoad.getSourceRecord();
-					if (record == null) {
-						initialLoadMetrics.finishSendTable(table4InitialLoad.fqn());
-						LOGGER.info("Table {} initial load (send to Kafka phase) completed.",
-								table4InitialLoad.fqn());
-						lastRecordInTable = true;
-						table4InitialLoad.close();
-						table4InitialLoad = null;
-					} else {
-						result.add(record);
-						recordCount++;
-					}
-				}
-			}
+			if (executeInitialLoad())
+				return null;
 		} else {
 			// Load data from archived redo...
 			try (Connection connDictionary = oraConnections.getConnection()) {
@@ -619,32 +545,6 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 		schemaFileName += File.separator + "oracdc.schemas-" + System.currentTimeMillis();
 
 		FileUtils.writeDictionaryFile(tablesInProcessing, schemaFileName);
-	}
-
-	private void buildInitialLoadTableList(final String initialLoadSql) throws SQLException {
-		try (Connection connection = oraConnections.getConnection();
-				PreparedStatement statement = connection.prepareStatement(initialLoadSql);
-				ResultSet resultSet = statement.executeQuery()) {
-			final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
-			while (resultSet.next()) {
-				final long objectId = resultSet.getLong("OBJECT_ID");
-				final long conId = isCdb ? resultSet.getLong("CON_ID") : 0L;
-				final long combinedDataObjectId = (conId << 32) | (objectId & 0xFFFFFFFFL);
-				final String tableName = resultSet.getString("TABLE_NAME");
-				if (!tablesInProcessing.containsKey(combinedDataObjectId)
-						&& !Strings.CS.startsWith(tableName, "MLOG$_")) {
-					OraTable4LogMiner oraTable = new OraTable4LogMiner(
-							isCdb ? resultSet.getString("PDB_NAME") : null,
-							isCdb ? (short) conId : -1,
-							resultSet.getString("OWNER"), tableName,
-							Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
-							config, rdbmsInfo, connection, getTableVersion(combinedDataObjectId));
-					tablesInProcessing.put(combinedDataObjectId, oraTable);
-				}
-			}
-		} catch (SQLException sqle) {
-			throw new SQLException(sqle);
-		}
 	}
 
 }

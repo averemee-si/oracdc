@@ -15,6 +15,8 @@ package solutions.a2.cdc.oracle;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,6 +43,7 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.jmx.OraCdcMgmtBase;
 import solutions.a2.cdc.oracle.schema.FileUtils;
 import solutions.a2.cdc.oracle.utils.Version;
@@ -49,6 +52,9 @@ import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INITIAL_LOAD_COMPLETED;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INITIAL_LOAD_EXECUTE;
+import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INITIAL_LOAD_IGNORE;
 
 /**
  * 
@@ -91,6 +97,14 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	RedoByteAddress lastInProgressRba = null;
 	long lastInProgressSubScn = 0;
 	boolean restoreIncompleteRecord = false;
+
+	boolean execInitialLoad = false;
+	String initialLoadStatus = INITIAL_LOAD_IGNORE;
+	OraCdcInitialLoadThread initialLoadWorker;
+	BlockingQueue<OraTable4InitialLoad> tablesQueue;
+	OraTable4InitialLoad table4InitialLoad;
+	boolean lastRecordInTable = true;
+	OraCdcInitialLoad initialLoadMetrics;
 
 	@Override
 	public String version() {
@@ -294,6 +308,29 @@ public abstract class OraCdcTaskBase extends SourceTask {
 				}
 			}
 
+			// Initial load
+			if (Strings.CI.equals(
+					INITIAL_LOAD_EXECUTE,
+					config.initialLoad())) {
+				execInitialLoad = true;
+				initialLoadStatus = INITIAL_LOAD_EXECUTE;
+				final Map<String, Object> offsetFromKafka = context.offsetStorageReader().offset(rdbmsInfo.partition());
+				if (offsetFromKafka != null &&
+						Strings.CI.equals(
+								INITIAL_LOAD_COMPLETED,
+								(String) offsetFromKafka.get("I"))) {
+					execInitialLoad = false;
+					initialLoadStatus = INITIAL_LOAD_COMPLETED;
+					offset.put("I", INITIAL_LOAD_COMPLETED);
+					LOGGER.info("Initial load set to {} (value from offset)", INITIAL_LOAD_COMPLETED);
+				}
+			}
+			if (execInitialLoad) {
+				tablesQueue = new LinkedBlockingQueue<>();
+				initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, connectorName);
+			}
+			// End - initial load analysis...
+
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to prepare to start oracdc task!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
@@ -487,5 +524,77 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		return 1;
 	}
 
+	boolean executeInitialLoad() throws InterruptedException {
+		// Execute initial load...
+		if (!initialLoadWorker.isRunning() && tablesQueue.isEmpty() && table4InitialLoad == null) {
+			Thread.sleep(WAIT_FOR_WORKER_MILLIS);
+			if (tablesQueue.isEmpty()) {
+				LOGGER.info("Initial load completed");
+				execInitialLoad = false;
+				initialLoadStatus = INITIAL_LOAD_COMPLETED;
+				offset.put("I", INITIAL_LOAD_COMPLETED);
+				return true;
+			}
+		}
+		int recordCount = 0;
+		while (recordCount < batchSize) {
+			if (lastRecordInTable) {
+				//First table or end of table reached, need to poll new
+				table4InitialLoad = tablesQueue.poll();
+				if (table4InitialLoad != null) {
+					initialLoadMetrics.startSendTable(table4InitialLoad.fqn());
+					LOGGER.info("Table {} initial load (send to Kafka phase) started.",
+							table4InitialLoad.fqn());
+				}
+			}
+			if (table4InitialLoad == null) {
+				LOGGER.debug("Waiting {} ms for initial load data...", pollInterval);
+				Thread.sleep(pollInterval);
+				break;
+			} else {
+				lastRecordInTable = false;
+				// Processing.......
+				SourceRecord record = table4InitialLoad.getSourceRecord();
+				if (record == null) {
+					initialLoadMetrics.finishSendTable(table4InitialLoad.fqn());
+					LOGGER.info("Table {} initial load (send to Kafka phase) completed.",
+							table4InitialLoad.fqn());
+					lastRecordInTable = true;
+					table4InitialLoad.close();
+					table4InitialLoad = null;
+				} else {
+					result.add(record);
+					recordCount++;
+				}
+			}
+		}
+		return false;
+	}
+
+	void buildInitialLoadTableList(final String initialLoadSql) throws SQLException {
+		try (Connection connection = oraConnections.getConnection();
+				PreparedStatement statement = connection.prepareStatement(initialLoadSql);
+				ResultSet resultSet = statement.executeQuery()) {
+			final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
+			while (resultSet.next()) {
+				final long objectId = resultSet.getLong("OBJECT_ID");
+				final long conId = isCdb ? resultSet.getLong("CON_ID") : 0L;
+				final long combinedDataObjectId = (conId << 32) | (objectId & 0xFFFFFFFFL);
+				final String tableName = resultSet.getString("TABLE_NAME");
+				if (!tablesInProcessing.containsKey(combinedDataObjectId)
+						&& !Strings.CS.startsWith(tableName, "MLOG$_")) {
+					OraTable4LogMiner oraTable = new OraTable4LogMiner(
+							isCdb ? resultSet.getString("PDB_NAME") : null,
+							isCdb ? (short) conId : -1,
+							resultSet.getString("OWNER"), tableName,
+							Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
+							config, rdbmsInfo, connection, getTableVersion(combinedDataObjectId));
+					tablesInProcessing.put(combinedDataObjectId, oraTable);
+				}
+			}
+		} catch (SQLException sqle) {
+			throw new SQLException(sqle);
+		}
+	}
 
 }

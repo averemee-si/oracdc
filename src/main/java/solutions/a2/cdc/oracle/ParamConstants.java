@@ -41,12 +41,6 @@ public class ParamConstants {
 	public static final String DICTIONARY_FILE_PARAM = "a2.dictionary.file";
 	public static final String DICTIONARY_FILE_DOC = "File with stored columns data type mapping. For more details contact us at oracle@a2.solutions";
 
-	public static final String INITIAL_LOAD_PARAM = "a2.initial.load";
-	public static final String INITIAL_LOAD_DOC = "A mode for performing initial load of data from tables when set to EXECUTE. Default - IGNORE";
-	public static final String INITIAL_LOAD_IGNORE = "IGNORE";
-	public static final String INITIAL_LOAD_EXECUTE = "EXECUTE";
-	public static final String INITIAL_LOAD_COMPLETED = "COMPLETED";
-
 	public static final String ARCHIVED_LOG_CAT_PARAM = "a2.archived.log.catalog";
 	public static final String ARCHIVED_LOG_CAT_DOC = "name of class which implements solutions.a2.cdc.oracle.OraLogMiner interface. Default - solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl which reads archived log information from V$ARCHIVED_LOG fixed view";
 	public static final String ARCHIVED_LOG_CAT_DEFAULT = "solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl";
