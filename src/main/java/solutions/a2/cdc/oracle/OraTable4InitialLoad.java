@@ -54,6 +54,8 @@ import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
+
 /**
  * 
  * @author averemee
@@ -66,7 +68,6 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 	private static final short NULL_LENGTH_SHORT = (short) -1;
 	private static final int NULL_LENGTH_INT = (int) -1;
 	private static final int LOB_CHUNK_SIZE = 16384;
-	private static final int ORA_942 = 942;
 
 	private final String pdbName;
 	private final Path queueDirectory;
@@ -568,8 +569,10 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			final OraConnectionObjects oraConnections) {
 		metrics.startSelectTable(tableFqn);
 		boolean success = false;
+		String userName = null;
 		try (Connection connection = oraConnections.getConnection()) {
 			connTzData = connection;
+			userName = connection.getSchema();
 			if (pdbName != null) {
 				Statement alterSession = connection.createStatement();
 				alterSession.execute("alter session set CONTAINER=" + pdbName);
@@ -608,7 +611,14 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			}
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == ORA_942) {
-				LOGGER.error("ORA-942!\nPlease grant select on table {} for user running connector!", tableFqn);
+				LOGGER.error(
+						"\n" +
+						"=====================\n" +
+						"Please run as SYSDBA:\n" +
+						"\tgrant select on {} to {};\n" +
+						"And restart connector!\n" +
+						"=====================\n",
+						tableFqn, userName);
 			} else if (running.get()) {
 				LOGGER.error("Error while performing initial load of {}!", tableFqn);
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
