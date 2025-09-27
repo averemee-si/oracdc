@@ -73,19 +73,29 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 
 			processStoredSchemas(metrics);
 
+			final StringBuilder initialLoadSql = execInitialLoad ? new StringBuilder(0x200)  :null;
 			final int[] conUids;
 			if (rdbmsInfo.isCdb()) {
 				if (rdbmsInfo.isCdbRoot()) {
 					checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
 					conUids = rdbmsInfo.getConUidsArray(connDictionary);
+					if (execInitialLoad) {
+						initialLoadSql.append(OraDictSqlTexts.INITIAL_LOAD_LIST_CDB);
+					}
 				} else {
 					checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
 					conUids = new int[1];
 					conUids[0] = rdbmsInfo.conUid();
+					if (execInitialLoad) {
+						initialLoadSql.append(OraDictSqlTexts.INITIAL_LOAD_LIST_NON_CDB);
+					}
 				}
 			} else {
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
 				conUids = null;
+				if (execInitialLoad) {
+					initialLoadSql.append(OraDictSqlTexts.INITIAL_LOAD_LIST_NON_CDB);
+				}
 			}
 			Set<Integer> includeObjIds = null;
 			Map<Integer, Integer> iotMapping = null;
@@ -101,6 +111,9 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 						throw new ConnectException("Please check value of a2.include parameter or remove it from configuration!");
 				}
 				checkTableSql += tableList;
+				if (execInitialLoad) {
+					initialLoadSql.append(tableList);
+				}
 			}
 			Set<Integer> excludeObjIds = null;
 			if (excludeList != null && excludeList.size() > 0) {
@@ -114,6 +127,9 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 				}
 				final String tableList = OraSqlUtils.parseTableSchemaList(true, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList);
 				checkTableSql += tableList;
+				if (execInitialLoad) {
+					initialLoadSql.append(tableList);
+				}
 			}
 			if (config.staticObjIds() &&
 					(includeObjIds == null || includeObjIds.size() == 0)) {
@@ -144,6 +160,9 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 					iotMapping,
 					metrics,
 					rewind);
+			if (execInitialLoad) {
+				prepareInitialLoadWorker(initialLoadSql.toString(), coords.getLeft());
+			}
 
 		} catch (SQLException | InvalidPathException e) {
 			LOGGER.error("Unable to start oracdc logminer task!");
@@ -151,6 +170,9 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			throw new ConnectException(e);
 		}
 		LOGGER.trace("Starting worker thread.");
+		if (execInitialLoad) {
+			initialLoadWorker.start();
+		}
 		worker.start();
 		taskThreadId.set(Thread.currentThread().getId());
 		return;
@@ -167,145 +189,151 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		isPollRunning.set(true);
 		result.clear();
 
-		try {
-			Connection connDictionary;
-			if (restoreIncompleteRecord)
-				connDictionary = oraConnections.getConnection();
-			else
-				connDictionary = null;
-			int recordCount = 0;
-			int parseTime = 0;
-			while (recordCount < batchSize) {
-				if (lastStatementInTransaction) {
-					// End of transaction, need to poll new
-					transaction = committedTransactions.poll();
-				}
-				if (transaction == null) {
-					// No more records produced by RedoMiner worker
-					break;
-				} else {
-					lastStatementInTransaction = false;
-					boolean processTransaction = true;
-					if (transaction.getCommitScn() <= lastProcessedCommitScn) {
-						LOGGER.warn(
-								"Transaction '{}' with COMMIT_SCN {} is skipped because transaction with {} COMMIT_SCN {} was already sent to Kafka broker",
-								transaction.getXid(),
-								transaction.getCommitScn(),
-								transaction.getCommitScn() == lastProcessedCommitScn ? "same" : "greater",
-								lastProcessedCommitScn);
-						// Force poll new transaction
-						lastStatementInTransaction = true;
-						transaction.close();
-						transaction = null;
-						continue;
-					} else if (transaction.getCommitScn() == lastInProgressCommitScn) {
-						while (true) {
-							processTransaction = transaction.getStatement(stmt);
-							lastStatementInTransaction = !processTransaction;
-							if (stmt.getScn() == lastInProgressScn &&
-									lastInProgressRba.equals(stmt.getRba()) &&
-									stmt.getSsn() == lastInProgressSubScn) {
-								// Rewind completed
-								break;
-							}
-							if (!processTransaction) {
-								LOGGER.error("Unable to rewind transaction {} with COMMIT_SCN={} till requested {}:'{}':{}!",
-											transaction.getXid(), transaction.getCommitScn(), lastInProgressScn, lastInProgressRba, lastInProgressSubScn);
-								throw new ConnectException("Data corruption while restarting oracdc task!");
-							}
-						}
-					}
-					// Prepare records...
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",
-								transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
-					}
-					final Set<LobId> lobIds = useChronicleQueue
-								? ((OraCdcTransactionChronicleQueue)transaction).lobIds(false)
-								: null;
-					do {
-						processTransaction = transaction.getStatement(stmt);
-						lastStatementInTransaction = !processTransaction;
-
-						if (processTransaction && runLatch.getCount() > 0) {
-							OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
-							if (oraTable == null) {
-								checker.printConsistencyError(transaction, stmt);
-								isPollRunning.set(false);
-								runLatch.countDown();
-								throw new ConnectException("Strange consistency issue!!!");
-							}
-							try {
-								if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
-									final long ddlStartTs = System.currentTimeMillis();
-									final Connection connection = oraConnections.getConnection();
-									final int changedColumnCount = 
-											oraTable.processDdl(connection, stmt, transaction.getXid(), transaction.getCommitScn());
-									connection.close();
-									putTableVersion(stmt.getTableId(), oraTable.getVersion());
-									metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
-								} else {
-									final long startParseTs = System.currentTimeMillis();
-									offset.put("SCN", stmt.getScn());
-									offset.put("RS_ID", stmt.getRba().toString());
-									offset.put("SSN", stmt.getSsn());
-									offset.put("COMMIT_SCN", transaction.getCommitScn());
-									final SourceRecord record = oraTable.parseRedoRecord(
-											stmt, transaction, lobIds, offset, connDictionary);
-									if (record != null) {
-										result.add(record);
-										recordCount++;
-									}
-									parseTime += (System.currentTimeMillis() - startParseTs);
-								}
-							} catch (SQLException sqle) {
-								isPollRunning.set(false);
-								if (sqle.getErrorCode() != ORA_1013) {
-									LOGGER.error(sqle.getMessage());
-									LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-									throw new ConnectException(sqle);
-								}
-							}
-						}
-					} while (processTransaction && recordCount < batchSize);
+		if (execInitialLoad) {
+			if (executeInitialLoad())
+				return null;
+		} else {
+			try {
+				Connection connDictionary;
+				if (restoreIncompleteRecord)
+					connDictionary = oraConnections.getConnection();
+				else
+					connDictionary = null;
+				int recordCount = 0;
+				int parseTime = 0;
+				while (recordCount < batchSize) {
 					if (lastStatementInTransaction) {
-						// close Cronicle queue only when all statements are processed
+						// End of transaction, need to poll new
+						transaction = committedTransactions.poll();
+					}
+					if (transaction == null) {
+						// No more records produced by RedoMiner worker
+						break;
+					} else {
+						lastStatementInTransaction = false;
+						boolean processTransaction = true;
+						if (transaction.getCommitScn() <= lastProcessedCommitScn) {
+							LOGGER.warn(
+									"Transaction '{}' with COMMIT_SCN {} is skipped because transaction with {} COMMIT_SCN {} was already sent to Kafka broker",
+									transaction.getXid(),
+									transaction.getCommitScn(),
+									transaction.getCommitScn() == lastProcessedCommitScn ? "same" : "greater",
+									lastProcessedCommitScn);
+							// Force poll new transaction
+							lastStatementInTransaction = true;
+							transaction.close();
+							transaction = null;
+							continue;
+						} else if (transaction.getCommitScn() == lastInProgressCommitScn) {
+							while (true) {
+								processTransaction = transaction.getStatement(stmt);
+								lastStatementInTransaction = !processTransaction;
+								if (stmt.getScn() == lastInProgressScn &&
+										lastInProgressRba.equals(stmt.getRba()) &&
+										stmt.getSsn() == lastInProgressSubScn) {
+									// Rewind completed
+									break;
+								}
+								if (!processTransaction) {
+									LOGGER.error("Unable to rewind transaction {} with COMMIT_SCN={} till requested {}:'{}':{}!",
+												transaction.getXid(), transaction.getCommitScn(), lastInProgressScn, lastInProgressRba, lastInProgressSubScn);
+									throw new ConnectException("Data corruption while restarting oracdc task!");
+								}
+							}
+						}
+						// Prepare records...
 						if (LOGGER.isDebugEnabled()) {
-							LOGGER.debug("End of processing transaction XID {}, first change {}, commit SCN {}.",
+							LOGGER.debug("Start of processing transaction XID {}, first change {}, commit SCN {}.",
 									transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
 						}
-						// Store last successfully processed COMMIT_SCN to offset
-						offset.put("C:COMMIT_SCN", transaction.getCommitScn());
-						transaction.close();
-						transaction = null;
+						final Set<LobId> lobIds = useChronicleQueue
+									? ((OraCdcTransactionChronicleQueue)transaction).lobIds(false)
+									: null;
+						do {
+							processTransaction = transaction.getStatement(stmt);
+							lastStatementInTransaction = !processTransaction;
+
+							if (processTransaction && runLatch.getCount() > 0) {
+								OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
+								if (oraTable == null) {
+									checker.printConsistencyError(transaction, stmt);
+									isPollRunning.set(false);
+									runLatch.countDown();
+									throw new ConnectException("Strange consistency issue!!!");
+								}
+								try {
+									if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
+										final long ddlStartTs = System.currentTimeMillis();
+										final Connection connection = oraConnections.getConnection();
+										final int changedColumnCount = 
+												oraTable.processDdl(connection, stmt, transaction.getXid(), transaction.getCommitScn());
+										connection.close();
+										putTableVersion(stmt.getTableId(), oraTable.getVersion());
+										metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
+									} else {
+										final long startParseTs = System.currentTimeMillis();
+										offset.put("SCN", stmt.getScn());
+										offset.put("RS_ID", stmt.getRba().toString());
+										offset.put("SSN", stmt.getSsn());
+										offset.put("COMMIT_SCN", transaction.getCommitScn());
+										final SourceRecord record = oraTable.parseRedoRecord(
+												stmt, transaction, lobIds, offset, connDictionary);
+										if (record != null) {
+											result.add(record);
+											recordCount++;
+										}
+										parseTime += (System.currentTimeMillis() - startParseTs);
+									}
+								} catch (SQLException sqle) {
+									isPollRunning.set(false);
+									if (sqle.getErrorCode() != ORA_1013) {
+										LOGGER.error(sqle.getMessage());
+										LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+										throw new ConnectException(sqle);
+									}
+								}
+							}
+						} while (processTransaction && recordCount < batchSize);
+						if (lastStatementInTransaction) {
+							// close Cronicle queue only when all statements are processed
+							if (LOGGER.isDebugEnabled()) {
+								LOGGER.debug("End of processing transaction XID {}, first change {}, commit SCN {}.",
+										transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
+							}
+							// Store last successfully processed COMMIT_SCN to offset
+							offset.put("C:COMMIT_SCN", transaction.getCommitScn());
+							transaction.close();
+							transaction = null;
+						}
 					}
 				}
-			}
-			if (recordCount == 0) {
-				try {
-					LOGGER.debug("Waiting {} ms", pollInterval);
-					Thread.sleep(pollInterval);
-				} catch (InterruptedException ie) {
-					Thread.currentThread().interrupt();
+				if (recordCount == 0) {
+					try {
+						LOGGER.debug("Waiting {} ms", pollInterval);
+						Thread.sleep(pollInterval);
+					} catch (InterruptedException ie) {
+						Thread.currentThread().interrupt();
+					}
+				} else {
+					metrics.addSentRecords(result.size(), parseTime);
 				}
-			} else {
-				metrics.addSentRecords(result.size(), parseTime);
-			}
-			if (restoreIncompleteRecord) {
-				connDictionary.close();
-				connDictionary = null;
-			}
-		} catch (SQLException sqle) {
-			if (!isPollRunning.get() || runLatch.getCount() == 0) {
-				LOGGER.warn("Caught SQLException {} while stopping oracdc task.",
-							sqle.getMessage());
-			} else {
-				LOGGER.error(sqle.getMessage());
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-				isPollRunning.set(false);
-				throw new ConnectException(sqle);
+				if (restoreIncompleteRecord) {
+					connDictionary.close();
+					connDictionary = null;
+				}
+			} catch (SQLException sqle) {
+				if (!isPollRunning.get() || runLatch.getCount() == 0) {
+					LOGGER.warn("Caught SQLException {} while stopping oracdc task.",
+								sqle.getMessage());
+				} else {
+					LOGGER.error(sqle.getMessage());
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+					isPollRunning.set(false);
+					throw new ConnectException(sqle);
+				}
 			}
 		}
+
 		isPollRunning.set(false);
 		LOGGER.trace("END: poll()");
 		return result;
