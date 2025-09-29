@@ -984,6 +984,17 @@ Fix CVE-2020-36843 from dependencies
 
 3) Big fixes and enhancements
 
+#####2.12.0 (SEP-2025)
+
+1) New parameter `a2.process.all.update.statements` for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector
+
+2) New parameter `a2.unable.to.map.col.id.warning` for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector
+
+3) OP:10.30 & OP:10.35 parsing for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector
+
+4) Initial load backported to the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector
+
+5) Schema evolution support for Sink connector
 
 
 ## Authors
