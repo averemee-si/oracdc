@@ -68,7 +68,7 @@
 		<kafka.version>3.9.1</kafka.version>
 		<commons.lang3.version>3.19.0</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
-		<commons.cli.version>1.9.0</commons.cli.version>
+		<commons.cli.version>1.10.0</commons.cli.version>
 		<chronicle.queue.version>5.25ea17</chronicle.queue.version>
 		<chronicle.affinity.version>3.23.3</chronicle.affinity.version>
 		<ora.jdbc.version>23.9.0.25.07</ora.jdbc.version>
