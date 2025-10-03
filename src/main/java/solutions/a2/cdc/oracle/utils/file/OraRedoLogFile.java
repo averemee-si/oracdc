@@ -457,7 +457,7 @@ public class OraRedoLogFile  {
 				.hasArg(true)
 				.required(true)
 				.desc("Full path to Oracle RDBMS archived or online redo file")
-				.build();
+				.get();
 		options.addOption(redoFile);
 
 		final Option outputFile = Option.builder("o")
@@ -465,7 +465,7 @@ public class OraRedoLogFile  {
 				.hasArg(true)
 				.required(false)
 				.desc("Output file. If not specified, stdout will be used.")
-				.build();
+				.get();
 		options.addOption(outputFile);
 
 		final Option printRecords = Option.builder("r")
@@ -473,7 +473,7 @@ public class OraRedoLogFile  {
 				.hasArg(false)
 				.required(false)
 				.desc("If this option is specified, information about the redo records will be printed.")
-				.build();
+				.get();
 		options.addOption(printRecords);
 
 		final Option binaryDump = Option.builder("b")
@@ -481,7 +481,7 @@ public class OraRedoLogFile  {
 				.hasArg(false)
 				.required(false)
 				.desc("If this option is specified, binary dump of change vectors will be printed.")
-				.build();
+				.get();
 		options.addOption(binaryDump);
 
 		final OptionGroup startAddr = new OptionGroup();
@@ -490,7 +490,7 @@ public class OraRedoLogFile  {
 				.hasArg(true)
 				.required(false)
 				.desc("The RBA from which information about the redo records will be printed. Must be used in pair with -e/--end-rba")
-				.build();
+				.get();
 		startAddr.addOption(startRba);
 
 		final Option startScn = Option.builder("c")
@@ -498,7 +498,7 @@ public class OraRedoLogFile  {
 				.hasArg(true)
 				.required(false)
 				.desc("The SCN from which information about the redo records will be printed. Must be used in pair with -n/--end-scn")
-				.build();
+				.get();
 		startAddr.addOption(startScn);
 		options.addOptionGroup(startAddr);
 
@@ -508,7 +508,7 @@ public class OraRedoLogFile  {
 				.hasArg(true)
 				.required(false)
 				.desc("The RBA to which information about the redo records will be printed. Must be used in pair with -s/--start-rba")
-				.build();
+				.get();
 		endAddr.addOption(endRba);
 		
 		final Option endScn = Option.builder("n")
@@ -516,7 +516,7 @@ public class OraRedoLogFile  {
 				.hasArg(true)
 				.required(false)
 				.desc("The RBA to which information about the redo records will be printed. Must be used in pair with -c/--start-scn")
-				.build();
+				.get();
 		endAddr.addOption(endScn);
 		options.addOptionGroup(endAddr);
 
@@ -525,7 +525,7 @@ public class OraRedoLogFile  {
 				.hasArgs()
 				.required(false)
 				.desc("Identifier of the object(s) for which information will be printed. By default, information about all objects is printed")
-				.build();
+				.get();
 		options.addOption(objects);
 
 		final Option asmUrl = Option.builder("l")
@@ -533,7 +533,7 @@ public class OraRedoLogFile  {
 				.hasArg()
 				.required(false)
 				.desc("A valid JDBC URL pointing to an Oracle ASM instance. For example: -l jdbc:oracle:thin:@localhost:1521/+ASM")
-				.build();
+				.get();
 		options.addOption(asmUrl);
 
 		final Option asmUser = Option.builder("u")
@@ -541,7 +541,7 @@ public class OraRedoLogFile  {
 				.hasArg()
 				.required(false)
 				.desc("Oracle ASM user with SYSASM or SYSDBA role")
-				.build();
+				.get();
 		options.addOption(asmUser);
 
 		final Option asmPassword = Option.builder("p")
@@ -549,14 +549,14 @@ public class OraRedoLogFile  {
 				.hasArg()
 				.required(false)
 				.desc("Password of Oracle ASM User")
-				.build();
+				.get();
 		options.addOption(asmPassword);
 
 		final Option endianness = Option.builder("a")
 				.longOpt(BIG_ENDIAN)
 				.required(false)
 				.desc("When specified, Oracle redo log files are treated as big endian. By default, Oracle redo log files are assumed to be little endian.")
-				.build();
+				.get();
 		options.addOption(endianness);
 
 		final Option sshPassword = Option.builder("S")
@@ -564,7 +564,7 @@ public class OraRedoLogFile  {
 				.hasArg()
 				.required(false)
 				.desc("Password for ssh connection, if the redo file is specified in ssh notation (username@hostname:filename)")
-				.build();
+				.get();
 		options.addOption(sshPassword);
 
 		final Option sshIdentity = Option.builder("i")
@@ -572,7 +572,7 @@ public class OraRedoLogFile  {
 				.hasArg()
 				.required(false)
 				.desc("File from which the identity (private key) for public key authentication is read, if the redo file is specified in ssh notation (username@hostname:filename)")
-				.build();
+				.get();
 		options.addOption(sshIdentity);
 
 		final Option sshPort = Option.builder("P")
@@ -580,7 +580,7 @@ public class OraRedoLogFile  {
 				.hasArg()
 				.required(false)
 				.desc("Port to connect on the remote host, if the redo file is specified in ssh notation (username@hostname:filename)")
-				.build();
+				.get();
 		options.addOption(sshPort);
 
 		final Option smbUser = Option.builder("U")
@@ -588,7 +588,7 @@ public class OraRedoLogFile  {
 				.hasArg()
 				.required(false)
 				.desc("SMB (Windows) user in form of DOMAIN\\User, if the redo file is specified in SMB notation \\\\sewrver\\share\\path-to-file")
-				.build();
+				.get();
 		options.addOption(smbUser);
 
 		final Option smbPassword = Option.builder("W")
@@ -596,7 +596,7 @@ public class OraRedoLogFile  {
 				.hasArg()
 				.required(false)
 				.desc("Password for connection to SMB server")
-				.build();
+				.get();
 		options.addOption(smbPassword);
 
 	}
