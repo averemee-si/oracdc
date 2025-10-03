@@ -16,10 +16,10 @@ import java.nio.file.Paths;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.log4j.BasicConfigurator;
@@ -191,13 +191,15 @@ public class TargetDatabaseShipmentAgent {
 		options.addOption(directory);
 
 		CommandLineParser parser = new DefaultParser();
-		HelpFormatter formatter = new HelpFormatter();
+		HelpFormatter formatter = HelpFormatter.builder().get();
 		CommandLine cmd = null;
 		try {
 			cmd = parser.parse(options, argv);
 		} catch (ParseException pe) {
 			LOGGER.error(pe.getMessage());
-			formatter.printHelp(TargetDatabaseShipmentAgent.class.getCanonicalName(), options);
+			try {
+				formatter.printHelp(TargetDatabaseShipmentAgent.class.getCanonicalName(), "", options, "", true);
+			} catch (IOException ioe) {}
 		}
 
 		final String bindAddressArg = cmd.getOptionValue("bind-address", "0.0.0.0");

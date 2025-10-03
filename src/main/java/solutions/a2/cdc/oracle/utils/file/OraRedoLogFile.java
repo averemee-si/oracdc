@@ -26,11 +26,11 @@ import java.util.Properties;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.log4j.BasicConfigurator;
@@ -86,13 +86,15 @@ public class OraRedoLogFile  {
 		setupCliOptions(options);
 
 		final CommandLineParser parser = new DefaultParser();
-		final HelpFormatter formatter = new HelpFormatter();
+		final HelpFormatter formatter = HelpFormatter.builder().get();
 		CommandLine cmd = null;
 		try {
 			cmd = parser.parse(options, argv);
 		} catch (ParseException pe) {
 			LOGGER.error(pe.getMessage());
-			formatter.printHelp(OraRedoLogFile.class.getCanonicalName(), options);
+			try {
+				formatter.printHelp(OraRedoLogFile.class.getCanonicalName(), "", options, "", true);
+			} catch (IOException ioe) {}
 			System.exit(1);
 		}
 

@@ -13,6 +13,7 @@
 
 package solutions.a2.cdc.oracle.utils;
 
+import java.io.IOException;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -22,10 +23,10 @@ import java.sql.SQLException;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.commons.lang3.Strings;
 import org.apache.log4j.BasicConfigurator;
 import org.apache.log4j.Level;
@@ -69,13 +70,15 @@ public class OracleSetupCheck {
 		setupCliOptions(options);
 
 		final CommandLineParser parser = new DefaultParser();
-		final HelpFormatter formatter = new HelpFormatter();
+		final HelpFormatter formatter = HelpFormatter.builder().get();
 		CommandLine cmd = null;
 		try {
 			cmd = parser.parse(options, argv);
 		} catch (ParseException pe) {
 			LOGGER.error(pe.getMessage());
-			formatter.printHelp(OracleSetupCheck.class.getCanonicalName(), options);
+			try {
+				formatter.printHelp(OracleSetupCheck.class.getCanonicalName(), "", options, "", true);
+			} catch (IOException ioe) {}
 			System.exit(1);
 		}
 
