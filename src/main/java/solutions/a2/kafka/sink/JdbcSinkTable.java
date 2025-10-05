@@ -185,11 +185,14 @@ public class JdbcSinkTable extends OraTableDefinition {
 								connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL).get(TargetDbSqlUtils.DELETE);
 						ready4Delete = true;
 					} else {
-						LOGGER.warn("\n" +
-								"=====================\n" +
-								"data transfer to the  existing table {} will begin after first non-delete operation for it!\n" +
-								"=====================\n",
-								tableName);
+						LOGGER.warn(
+								"""
+								
+								=====================
+								"data transfer to the  existing table {} will begin after first non-delete operation for it!
+								=====================
+								""",
+									tableName);
 					}
 					delayedObjectsCreation = true;
 				} else {
@@ -198,11 +201,13 @@ public class JdbcSinkTable extends OraTableDefinition {
 			} else {
 				if (config.autoCreateTable()) {
 					LOGGER.info(
-							"\n" +
-							"=====================\n" +
-							"Table '{}' will be created in the target database.\n" +
-							"=====================\n",
-							tableNameCaseConv);
+							"""
+							
+							=====================
+							Table '{}' will be created in the target database.
+							=====================
+							""",
+								tableNameCaseConv);
 					if (opType == 'd' && (!config.useAllColsOnDelete())) {
 						delayedObjectsCreation = true;
 					} else {
@@ -212,11 +217,12 @@ public class JdbcSinkTable extends OraTableDefinition {
 					}
 				} else {
 					LOGGER.error(
-							"\n" +
-							"=====================\n" +
-							"Table '{}' does not exist in the target database and a2.autocreate=false!\n" +
-							"=====================\n",
-							tableNameCaseConv);
+							"""
+							=====================
+							Table '{}' does not exist in the target database and a2.autocreate=false!
+							=====================
+							""",
+								tableNameCaseConv);
 					throw new ConnectException("Table does not exists!");
 				}
 			}
@@ -303,8 +309,10 @@ public class JdbcSinkTable extends OraTableDefinition {
 			final String dbValueColumn = rsAllColumns.getString("COLUMN_NAME");
 			//TODO - case sensitive!
 			final String dbValueColumn4M = StringUtils.upperCase(dbValueColumn);
-			if (allFields.remove(dbValueColumn4M) == null)
-				LOGGER.warn("Unable to remove field {} from Map named allFields!", dbValueColumn4M);
+			if (allFields.remove(dbValueColumn4M) == null) {
+				if (allFields.remove(dbValueColumn) == null)
+					LOGGER.warn("Unable to remove field {} from Map named allFields!", dbValueColumn);
+			}
 			if (!pkColumns.containsKey(dbValueColumn4M)) {
 				if (topicKeys.containsKey(dbValueColumn4M)) {
 					isKey = true;
@@ -324,12 +332,15 @@ public class JdbcSinkTable extends OraTableDefinition {
 							.add(unnestedValues.get(dbValueColumn4M));
 				} else {
 					LOGGER.warn(
-							"\n=====================\n" +
-							"{} column {}.{} with type {} is present in the database but not in the Kafka topic!\n" +
-							"=====================\n",
-							Strings.CI.equals("YES", rsAllColumns.getString("IS_NULLABLE")) ?
-									"Nullable" : "Not nullable",
-							tableName, dbValueColumn, getTypeName(rsAllColumns.getInt("DATA_TYPE")));
+							"""
+							
+							=====================
+							{} column {}.{} with type {} is present in the database but not in the Kafka topic!
+							=====================
+							""",
+								Strings.CI.equals("YES", rsAllColumns.getString("IS_NULLABLE")) ?
+										"Nullable" : "Not nullable",
+								tableName, dbValueColumn, getTypeName(rsAllColumns.getInt("DATA_TYPE")));
 					continue;
 				}
 				if (valueField != null) {
@@ -387,10 +398,14 @@ public class JdbcSinkTable extends OraTableDefinition {
 					statement = null;
 				} catch (SQLException sqle) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to execute '{}'!" +
-							"\n=====================\n",
-							alterTableSql);
+							"""
+							
+							=====================
+							Unable to execute '{}'!
+							ErrorCode = {}, SQLState = '{}'
+							=====================
+							""",
+								alterTableSql, sqle.getErrorCode(), sqle.getSQLState());
 					throw sqle;
 				}
 				allColumns.add(column);
@@ -445,12 +460,16 @@ public class JdbcSinkTable extends OraTableDefinition {
 								processDelete(connection, record);
 							} catch (Exception e) {
 								final Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
-								LOGGER.error("\n" +
-										"=====================\n" +
-										"Unable to execute delete statement:\n{}\n" +
-										"keyStruct = {}\n",
-										"=====================\n",
-										sinkDeleteSql, structs.getKey().toString());
+								LOGGER.error(
+										"""
+										
+										=====================
+										Unable to execute DELETE statement:
+										'{}'
+										keyStruct = {}
+										=====================
+										""",
+											sinkDeleteSql, structs.getKey().toString());
 								throw e;
 							}
 							deleteTime += System.nanoTime() - nanosStart;
@@ -469,13 +488,17 @@ public class JdbcSinkTable extends OraTableDefinition {
 						processDelete(connection, record);
 					} catch (Exception e) {
 						final Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
-						LOGGER.error("\n" +
-								"=====================\n" +
-								"Unable to execute delete statement:\n{}\n" +
-								"keyStruct = {}\n",
-								"valueStruct = {}\n",
-								"=====================\n",
-								sinkDeleteSql, structs.getKey().toString(), structs.getValue().toString());
+						LOGGER.error(
+								"""
+								
+								=====================
+								Unable to execute DELETE statement:
+								'{}'
+								keyStruct = {}
+								valueStruct = {}
+								=====================
+								""",
+									sinkDeleteSql, structs.getKey().toString(), structs.getValue().toString());
 						throw e;
 					}
 					deleteTime += System.nanoTime() - nanosStart;
@@ -495,13 +518,17 @@ public class JdbcSinkTable extends OraTableDefinition {
 					processUpsert(connection, record);
 				} catch (Exception e) {
 					final Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
-					LOGGER.error("\n" +
-							"=====================\n" +
-							"Unable to execute upsert statement:\n{}\n" +
-							"keyStruct = {}\n",
-							"valueStruct = {}\n",
-							"=====================\n",
-							sinkUpsertSql, structs.getKey().toString(), structs.getValue().toString());
+					LOGGER.error(
+							"""
+							
+							=====================
+							Unable to execute UPSERT statement:
+							'{}'
+							keyStruct = {}
+							valueStruct = {}
+							=====================
+							""",
+								sinkUpsertSql, structs.getKey().toString(), structs.getValue().toString());
 					throw e;
 				}
 				upsertTime += System.nanoTime() - nanosStart;
@@ -585,8 +612,14 @@ public class JdbcSinkTable extends OraTableDefinition {
 				}
 			}
 			if (raiseException) {
-				LOGGER.error("Error while executing UPSERT (with {} statements in batch) statement {}",
-						upsertCount, sinkUpsertSql);
+				LOGGER.error(
+						"""
+						
+						=====================
+						Error while executing UPSERT (with {} statements in batch) statement '{}'
+						=====================
+						""",
+							upsertCount, sinkUpsertSql);
 				throw sqle;
 			}
 		}
@@ -596,8 +629,14 @@ public class JdbcSinkTable extends OraTableDefinition {
 		try {
 			sinkDelete.executeBatch();
 		} catch(SQLException sqle) {
-			LOGGER.error("Error while executing DELETE (with {} statements in batch) statement {}",
-					deleteCount, sinkDeleteSql);
+			LOGGER.error(
+					"""
+					
+					=====================
+					Error while executing DELETE (with {} statements in batch) statement '{}'
+					=====================
+					""",
+						deleteCount, sinkDeleteSql);
 			throw sqle;
 		}
 	}
@@ -626,8 +665,14 @@ public class JdbcSinkTable extends OraTableDefinition {
 						holder.STATEMENT = null;
 					}
 				} catch(SQLException sqle) {
-					LOGGER.error("Error {} while executing LOB update statement {}",
-							sqle.getMessage(), holder.SQL_TEXT);
+					LOGGER.error(
+							"""
+							
+							=====================
+							Error {} while executing LOB update statement '{}'
+							=====================
+							""",
+								sqle.getMessage(), holder.SQL_TEXT);
 					throw new SQLException(sqle);
 				}
 			}
@@ -651,9 +696,15 @@ public class JdbcSinkTable extends OraTableDefinition {
 				oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 				columnNo++;
 			} catch (DataException de) {
-				LOGGER.error("Data error while performing upsert! Table={}, PK column={}, {}.",
-						tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, structs.getKey()));
-				throw new DataException(de);
+				LOGGER.error(
+						"""
+						
+						=====================
+						Data error while performing upsert! Table={}, PK column={}, {}.
+						=====================
+						""",
+							tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, structs.getKey()));
+				throw de;
 			}
 		}
 		for (int i = 0; i < allColumns.size(); i++) {
@@ -962,11 +1013,14 @@ public class JdbcSinkTable extends OraTableDefinition {
 			Statement statement = connection.createStatement();
 			statement.executeUpdate(sqlCreateTexts.get(0));
 			LOGGER.info(
-					"\n" +
-					"=====================\n" +
-					"Table '{}' created in the target database using:\n{}" +
-					"=====================",
-					tableName, sqlCreateTexts.get(0));
+					"""
+					
+					=====================
+					Table '{}' created in the target database using:
+					{}
+					=====================
+					""",
+						tableName, sqlCreateTexts.get(0));
 			if (dbType == DB_TYPE_POSTGRESQL &&
 					sqlCreateTexts.size() > 1) {
 				for (int i = 1; i < sqlCreateTexts.size(); i++) {
@@ -1050,11 +1104,13 @@ public class JdbcSinkTable extends OraTableDefinition {
 			final String dbSchema = resultSet.getString("TABLE_SCHEM"); 
 			final String dbTable = resultSet.getString("TABLE_NAME"); 
 			LOGGER.info(
-					"\n" +
-					"=====================\n" +
-					"Table '{}' already exists with type '{}' in catalog '{}', schema '{}'.\n" +
-					"=====================\n",
-					dbTable, resultSet.getString("TABLE_TYPE"), catalog, dbSchema);
+					"""
+					
+					=====================
+					Table '{}' already exists with type '{}' in catalog '{}', schema '{}'.
+					=====================
+					""",
+						dbTable, resultSet.getString("TABLE_TYPE"), catalog, dbSchema);
 			exists = true;
 			final Set<String> pkFields;
 			if (dbType == DB_TYPE_POSTGRESQL) {
