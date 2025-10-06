@@ -267,6 +267,7 @@ ARG    ORACDC_VERSION=2.12.0
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
 COPY   target/${ORACDC_FILENAME} ${KAFKA_HOME}/connect/lib
 COPY   config/connect-log4j.properties ${KAFKA_HOME}/config
+COPY   config/connect-log4j2.yaml ${KAFKA_HOME}/config
 RUN    chown -R kafka:kafka ${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
 RUN    chown -R kafka:kafka ${KAFKA_HOME}/config
 ENV    ORACDC_JAR=${KAFKA_HOME}/connect/lib/${ORACDC_FILENAME}
