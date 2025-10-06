@@ -258,7 +258,7 @@ RUN    wget -q "https://dlcdn.apache.org/kafka/${KAFKA_VERSION}/${KAFKA_FILENAME
        && mkdir -p ${KAFKA_HOME}/connect/jmx \
        && chown -R kafka:kafka ${BASEDIR}/kafka_${SCALA_VERSION}-${KAFKA_VERSION} ${KAFKA_HOME}
 # BouncyCastle signed jars
-ARG    BC_VERSION="jdk18on-1.81"
+ARG    BC_VERSION="jdk18on-1.82"
 COPY   target/lib/bcprov-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 COPY   target/lib/bcpkix-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 COPY   target/lib/bcutil-${BC_VERSION}.jar ${KAFKA_HOME}/libs
