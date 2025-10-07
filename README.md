@@ -997,6 +997,15 @@ Fix CVE-2020-36843 from dependencies
 5) Schema evolution support for Sink connector
 
 
+#####2.12.1 (OCT-2025)
+
+1) New parameter `a2.ignore.stored.offset`
+
+2) Techstack upgrade (new version of BounceCastle JCE and others)
+
+3) Bug fixes and enhancements
+
+
 ## Authors
 
 * **Aleksej Veremeev** - *Initial work* - [A2 Rešitve d.o.o.](http://a2-solutions.eu/)
