@@ -62,7 +62,7 @@ public class OraNumberConverterTest {
 		try {
 			struct.put("QUANTITY", new NUMBER(quantity).getBytes());
 			struct.put("ACCEPTED_QUANTITY", new NUMBER(acceptedQuantity).getBytes());
-			struct.put("MAX_MINMAX_QUANTITY", new NUMBER("999999999999999999999999999999999").getBytes());
+			struct.put("MAX_MINMAX_QUANTITY", new NUMBER("9999999999999999999999999999999999999999").getBytes());
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
@@ -142,6 +142,8 @@ public class OraNumberConverterTest {
 		fromOra.close();
 
 		// Wildcard: oracle.sql.NUMBER -> decimal(38,10)
+		// hexToRaw("D10A64646464646464646464646464646464") too...
+		// hexToRaw("FF645B") too... 999000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 		int scale = 10;
 		int precision = 38;
 		props.clear();
@@ -157,7 +159,11 @@ public class OraNumberConverterTest {
 		assertEquals(BigDecimal.valueOf(invoicingRuleId, 0).setScale(scale), updated.get("INVOICING_RULE_ID"));
 		assertEquals(quantity.setScale(scale), updated.get("QUANTITY"));
 		assertEquals(BigDecimal.valueOf(acceptedQuantity).setScale(scale), updated.get("ACCEPTED_QUANTITY"));
-		assertEquals(new BigDecimal("99999999999999999999999999999999999999").setScale(scale), updated.get("MAX_MINMAX_QUANTITY"));
+		BigDecimal updatedBd = (BigDecimal) updated.get("MAX_MINMAX_QUANTITY");
+		
+		assertEquals(updatedBd.precision(), precision);
+		assertEquals(updatedBd.scale(), scale);
+		assertEquals(new BigDecimal("9999999999999999999999999999").setScale(scale), updatedBd);
 		fromOra.close();
 
 		// Wildcard: oracle.sql.NUMBER named %ID -> long

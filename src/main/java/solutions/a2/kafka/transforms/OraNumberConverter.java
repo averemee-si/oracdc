@@ -81,9 +81,14 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 	private static final String REPLACE_NULL_WITH_DEFAULT_PARAM = "replace.null.with.default";
 
 	private static final String CONV_ERROR_MSG =
-			"\n=====================\n" +
-			"Unable to convert oracle.sql.NUMBER to {}! Exception:\n\t{}" +
-			"\n=====================\n";
+			"""
+			
+			=====================
+			Unable to convert oracle.sql.NUMBER to {}! Exception:
+				{}
+			=====================
+			
+			""";
 
 
 	private static final ConfigDef CONFIG_DEF = new ConfigDef()
@@ -134,14 +139,18 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 							(bd.precision() - bd.scale()) <= (params.precision - params.scale)) {
 						return bd.setScale(params.scale, RoundingMode.HALF_DOWN);
 					} else {
-						final char[] nines = new char[params.precision];
+						final char[] nines = new char[params.precision - params.scale];
 						Arrays.fill(nines, '9');
 						final BigDecimal max = new BigDecimal(nines).setScale(params.scale, RoundingMode.HALF_DOWN);
 						LOGGER.error(
-								"\n=====================\n" +
-								"Precision {} of Oracle NUMBER with value {} is greater than allowed precision {}!\n" +
-								"Dump value of Oracle NUMBER ='HEXTORAW('{}').\nSetting value to {}!",
-								bd.precision(), bd, params.precision, rawToHex(number.getBytes()), max);
+								"""
+								=====================
+								Precision {} of Oracle NUMBER with value {} is greater than allowed precision {}!
+								Dump value of Oracle NUMBER ='HEXTORAW('{}').
+								Setting value to {}!
+								
+								""",
+									bd.precision(), bd, params.precision, rawToHex(number.getBytes()), max);
 						return max;
 					}
 				} catch (SQLException sqle) {
@@ -353,11 +362,15 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 						final OraNumberTranslator translator = CONVERTERS.get(params.targetType);
 						if (translator == null) {
 							LOGGER.error(
-									"\n=====================\n" +
-									"Unable to find mapping for field '{}' and target type '{}'!\n" +
-									"Original data are passed back to Sink connector!" +
-									"\n=====================\n",
-									params.field, params.targetType);
+									"""
+									
+									=====================
+									Unable to find mapping for field '{}' and target type '{}'!
+									Original data are passed back to Sink connector
+									=====================
+									
+									""",
+										params.field, params.targetType);
 							builder.field(field.name(), field.schema());
 						} else {
 							builder.field(field.name(), translator.typeSchema(field.schema().isOptional(), params));
