@@ -304,21 +304,34 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			"Unix/Linux only, on Windows oracdc creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called.\n" +
 			"Default - Long.MAX_VALUE";
 	private static final String CONC_TRANSACTIONS_THRESHOLD_PARAM = "a2.transactions.threshold";
-	private static final String CONC_TRANSACTIONS_THRESHOLD_DOC = "Maximum threshold of simultaneously processed (both in the process of reading from the database and in the process of sending) transactions in the connector on Linux systems. When not specified (0, default) value is calculated as (vm.max_map_count/16) *7";
+	private static final String CONC_TRANSACTIONS_THRESHOLD_DOC = 
+			"""
+			Maximum threshold of simultaneously processed (both in the process of reading from the database and in the process of sending) transactions in the connector on Linux systems.
+			When not specified (0, default) value is calculated as (vm.max_map_count/16) *7"
+			""";
 
 	private static final int REDUCE_LOAD_MS_DEFAULT = 60_000;
 	private static final String REDUCE_LOAD_MS_PARAM = "a2.reduce.load.ms";
-	private static final String REDUCE_LOAD_MS_DOC = 
-			"Wait time in ms to reduce the number of simultaneously processed transactions.\n" + 
-			"Sending of processed messages continues, pause occurs only for the process of reading from the database.\n" +
-			"Default - " + REDUCE_LOAD_MS_DEFAULT;
+	private static final String REDUCE_LOAD_MS_DOC =
+			"""
+			Wait time in ms to reduce the number of simultaneously processed transactions 
+			Sending of processed messages continues, pause occurs only for the process of reading from the database.
+			Default - """ + REDUCE_LOAD_MS_DEFAULT;
 
 	private static final int AL_CAPACITY_DEFAULT = 0x20;
 	private static final String AL_CAPACITY_PARAM = "a2.array.list.default.capacity";
-	private static final String AL_CAPACITY_DOC = 
-			"Initial capacity of ArrayList storing Oracle Database transaction data.\n" + 
-			"Default - " + AL_CAPACITY_DEFAULT;
-	
+	private static final String AL_CAPACITY_DOC =
+			"""
+			Initial capacity of ArrayList storing Oracle Database transaction data 
+			Default - """ + AL_CAPACITY_DEFAULT;
+
+	private static final boolean IGNORE_STORED_OFFSET_DEFAULT = false;
+	private static final String IGNORE_STORED_OFFSET_PARAM = "a2.ignore.stored.offset";
+	private static final String IGNORE_STORED_OFFSET_DOC = 
+			"""
+			When this parameter is set to true, the connector does not read the values ​​stored in the Kafka Connect offset for the last processed SCN/SUBSCN/RBA and instead, if the 'a2.first.change' parameter is set, it uses its value, otherwise it determines the minimum available SCN in the Oracle database.
+			Default - """ + IGNORE_STORED_OFFSET_DEFAULT;
+
 	private static final String NUMBER_MAP_PREFIX = "a2.map.number.";
 
 	private int incompleteDataTolerance = -1;
@@ -543,6 +556,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(CONC_TRANSACTIONS_THRESHOLD_PARAM, INT, 0, LOW, CONC_TRANSACTIONS_THRESHOLD_DOC)
 				.define(REDUCE_LOAD_MS_PARAM, INT, REDUCE_LOAD_MS_DEFAULT, LOW, REDUCE_LOAD_MS_DOC)
 				.define(AL_CAPACITY_PARAM, INT, AL_CAPACITY_DEFAULT, LOW, AL_CAPACITY_DOC)
+				.define(IGNORE_STORED_OFFSET_PARAM, BOOLEAN, IGNORE_STORED_OFFSET_DEFAULT, LOW, IGNORE_STORED_OFFSET_DOC)
 				// Redo Miner only!
 				.define(REDO_FILE_NAME_CONVERT_PARAM, STRING, "", HIGH, REDO_FILE_NAME_CONVERT_DOC)
 				.define(REDO_FILE_MEDIUM_PARAM, STRING, REDO_FILE_MEDIUM_FS,
@@ -1540,4 +1554,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	public String initialLoad() {
 		return getString(INITIAL_LOAD_PARAM);
 	}
+
+	public boolean ignoreStoredOffset() {
+		return getBoolean(IGNORE_STORED_OFFSET_PARAM);
+	}
+
 }

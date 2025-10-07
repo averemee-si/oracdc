@@ -196,6 +196,9 @@ Default - *${connectorName}.seq*
 - DOUBLE
 - DECIMAL([P],S), NUMERIC([P],S)
 
+`a2.ignore.stored.offset` - When this parameter is set to true, the connector does not read the values ​​stored in the Kafka Connect offset for the last processed SCN/SUBSCN/RBA and instead, if the 'a2.first.change' parameter is set, it uses its value, otherwise it determines the minimum available SCN in the Oracle database.
+Default - false.
+
 
 #### solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
 

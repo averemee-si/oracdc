@@ -132,12 +132,15 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		if (processLobs) {
 			if (!useChronicleQueue) {
 				LOGGER.error(
-						"\n" +
-						"=====================\n" +
-						"LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!\n" +
-						"Please set a2.process.lobs to false if a2.transaction.implementation is set to ConcurrentLinkedQueue\n" +
-						"and restart connector!!!\n" +
-						"=====================");
+						"""
+						
+						=====================
+						LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!
+						Please set a2.process.lobs to false if a2.transaction.implementation is set to ConcurrentLinkedQueue
+						and restart connector!!!
+						=====================
+						
+						""");
 				throw new ConnectException("LOB processing is only possible if a2.transaction.implementation is set to ChronicleQueue!");
 			}
 		}
@@ -227,13 +230,15 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			config.topicPartition(rdbmsInfo.getRedoThread() - 1);
 
 			LOGGER.info(
-					"\n" +
-					"=====================\n" +
-					"Connector {} connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.\n" +
-					"=====================",
-					connectorName,
-					rdbmsInfo.getRdbmsEdition(), rdbmsInfo.getVersionString(),
-					rdbmsInfo.getInstanceName(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
+					"""
+					
+					=====================
+					Connector {} connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.
+					=====================
+					""",
+						connectorName,
+						rdbmsInfo.getRdbmsEdition(), rdbmsInfo.getVersionString(),
+						rdbmsInfo.getInstanceName(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
 
 			if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot() && !rdbmsInfo.isPdbConnectionAllowed()) {
 				LOGGER.error(
@@ -245,11 +250,13 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			}
 			if (rdbmsInfo.isCdb() && rdbmsInfo.isPdbConnectionAllowed()) {
 				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"Connected to PDB {} (RDBMS 19.10+ Feature)\n" +
-						"=====================",
-						rdbmsInfo.getPdbName());
+						"""
+						
+						=====================
+						Connected to PDB {} (RDBMS 19.10+ Feature)
+						=====================
+						""",
+							rdbmsInfo.getPdbName());
 			}
 
 			if (useStandby) {
@@ -257,54 +264,64 @@ public abstract class OraCdcTaskBase extends SourceTask {
 						config.getString(ParamConstants.STANDBY_URL_PARAM),
 						config.getString(ParamConstants.STANDBY_WALLET_PARAM));
 				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"Connector {} will use connection to PHYSICAL STANDBY for LogMiner calls\n" +
-						"=====================",
-						connectorName);
+						"""
+						
+						=====================
+						Connector {} will use connection to PHYSICAL STANDBY for LogMiner calls
+						=====================
+						""",
+							connectorName);
 			}
 			if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
 				oraConnections.addDistributedConnection(
 						config.getString(ParamConstants.DISTRIBUTED_URL_PARAM),
 						config.getString(ParamConstants.DISTRIBUTED_WALLET_PARAM));
 				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"Connector {} will use remote database in distributed configuration for LogMiner calls\n" +
-						"=====================",
-						connectorName);
+						"""
+						
+						=====================
+						Connector {} will use remote database in distributed configuration for LogMiner calls
+						=====================
+						""",
+							connectorName);
 			}
 
 			if (Strings.CI.equals(rdbmsInfo.getSupplementalLogDataAll(), "YES")) {
 				LOGGER.info(
-						"\n" +
-						"=====================\n" +
-						"V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'YES'.\n" +
-						"\tNo additional checks for supplemental logging will performed at the table level.\n" +
-						"=====================");
+						"""
+						
+						=====================
+						V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'YES'.
+						    No additional checks for supplemental logging will performed at the table level.
+						=====================
+						""");
 			} else {
 				if (Strings.CI.equals(rdbmsInfo.getSupplementalLogDataMin(), "NO")) {
 					LOGGER.error(
-							"\n" +
-							"=====================\n" +
-							"Both V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL and V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN are set to 'NO'!\n" +
-							"For the connector to work properly, you need to set connecting Oracle RDBMS as SYSDBA:\n" +
-							"alter database add supplemental log data (ALL) columns;\n" +
-							"OR recommended but more time consuming settings\n" +
-							"alter database add supplemental log data;\n" +
-							"and then enable supplemental only for required tables:\n" +
-							"alter table <OWNER>.<TABLE_NAME> add supplemental log data (ALL) columns;\n" +
-							"=====================");
+							"""
+							
+							=====================
+							Both V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL and V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN are set to 'NO'!
+							For the connector to work properly, you need to set connecting Oracle RDBMS as SYSDBA:
+							alter database add supplemental log data (ALL) columns;
+							OR recommended but more time consuming settings
+							alter database add supplemental log data;
+							and then enable supplemental only for required tables:
+							alter table <OWNER>.<TABLE_NAME> add supplemental log data (ALL) columns;
+							=====================
+							""");
 					throw new ConnectException("Must set SUPPLEMENTAL LOGGING settings!");
 				} else {
 					LOGGER.info(
-							"\n" +
-							"=====================\n" +
-							"V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'NO'.\n" +
-							"V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN is set to '{}'.\n" + 
-							"\tAdditional checks for supplemental logging will performed at the table level.\n" +
-							"=====================",
-							rdbmsInfo.getSupplementalLogDataMin());
+							"""
+							
+							=====================
+							V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'NO'.
+							V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN is set to '{}'. 
+							    Additional checks for supplemental logging will performed at the table level.
+							=====================
+							""",
+								rdbmsInfo.getSupplementalLogDataMin());
 				}
 			}
 
@@ -419,8 +436,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			offsetFromKafka = null;
 		}
 
-		// New resiliency model
-		if (offsetFromKafka != null && offsetFromKafka.containsKey("C:COMMIT_SCN")) {
+		if (offsetFromKafka != null && offsetFromKafka.containsKey("C:COMMIT_SCN") && !config.ignoreStoredOffset()) {
 			// Use stored offset values for SCN and related from storage offset
 			if (startScnFromProps) {
 				LOGGER.info("Ignoring the value of parameter a2.first.change={}, since the offset is already present in the connector offset data!",
@@ -445,17 +461,21 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			}
 			if (firstScn < firstAvailableScn) {
 				LOGGER.warn(
-						"\n" +
-						"=====================\n" +
-						"Ignoring Point in time {}:{}:{} from offset, and setting it to first available SCN in V$ARCHIVED_LOG {}.\n" +
-						"=====================",
+						"""
+						
+						=====================
+						Ignoring Point in time {}:{}:{} from offset, and setting it to first available SCN in V$ARCHIVED_LOG {}.
+						=====================
+						""",
 							firstScn, firstRba, firstSubScn, firstAvailableScn);
 				firstScn = firstAvailableScn;
 			} else {
 				rewind = true;
 			}
 		} else {
-			LOGGER.info("No data present in connector's offset storage for {}:{}",
+			LOGGER.info(config.ignoreStoredOffset()
+					? "Ignoring data in connector offset storage for {}:{}"
+					: "No data present in connector's offset storage for {}:{}",
 					rdbmsInfo.sourcePartitionName(), rdbmsInfo.getDbId());
 			if (startScnFromProps) {
 				// a2.first.change set in connector properties, restart data are not present
