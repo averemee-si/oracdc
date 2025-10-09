@@ -687,8 +687,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			lmOp = rowChange.operation() == _11_11_QMI ? INSERT : DELETE;
 			final byte[] record = rowChange.record();
 			final int[][] coords = rowChange.coords();
-			final int rowCount = Short.toUnsignedInt(rowChange.qmRowCount());
-			for (int row = 0; row < rowCount; ++row) {
+			for (int row = 0; row < rowChange.qmRowCount(); ++row) {
 				final RowId rowId = new RowId(
 						change.dataObj(),
 						rowChange.bdba(),
@@ -715,7 +714,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final int[][] coords = qmData.coords();
 			final OraCdcRedoLog redoLog = qmData.redoLog();
 			int rowDiff = 0;
-			final int rowCount = Short.toUnsignedInt(change.qmRowCount());
+			final int rowCount = change.qmRowCount();
 			for (int row = 0; row < rowCount; ++row) {
 				rowDiff += 0x2;
 				final int columnCount = Byte.toUnsignedInt(record[coords[index + 2][0] + rowDiff++]);
