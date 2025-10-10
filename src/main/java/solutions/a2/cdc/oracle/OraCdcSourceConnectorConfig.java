@@ -369,8 +369,17 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String ASM_RECONNECT_INTERVAL_MS_PARAM = "a2.asm.reconnect.ms";
 	private static final long ASM_RECONNECT_INTERVAL_MS_DEFAULT = 604_800_000;
 	private static final String ASM_RECONNECT_INTERVAL_MS_DOC =
-			"The time interval in milliseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection.\n" +
-			"Default - " + ASM_RECONNECT_INTERVAL_MS_DEFAULT + " (one week)";
+			"""
+			The time interval in milliseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection.
+			Default - """ + ASM_RECONNECT_INTERVAL_MS_DEFAULT + " (one week)";
+	private static final String ASM_PRIVILEGE_SYSASM = "sysasm";
+	private static final String ASM_PRIVILEGE_SYSDBA = "sysdba";
+	private static final String ASM_PRIVILEGE_DEFAULT = ASM_PRIVILEGE_SYSASM;
+	private static final String ASM_PRIVILEGE_PARAM = "a2.asm.privilege";
+	private static final String ASM_PRIVILEGE_DOC = 
+			"""
+			The privilege used to connect to the ASM instance. Can be 'sysasm' or 'sysdba'.
+			Defaults to - """ + ASM_PRIVILEGE_SYSASM;
 
 	private static final String SSH_HOST_PARAM = "a2.ssh.hostname";
 	private static final String SSH_HOST_DOC = "FQDN or IP address of the remote server with redo log files";
@@ -572,6 +581,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(ASM_PASSWORD_PARAM, PASSWORD, "", LOW, ASM_PASSWORD_DOC)
 				.define(ASM_READ_AHEAD_PARAM, BOOLEAN, ASM_READ_AHEAD_DEFAULT, LOW, ASM_READ_AHEAD_DOC)
 				.define(ASM_RECONNECT_INTERVAL_MS_PARAM, LONG, ASM_RECONNECT_INTERVAL_MS_DEFAULT, LOW, ASM_RECONNECT_INTERVAL_MS_DOC)
+				.define(ASM_PRIVILEGE_PARAM, STRING, ASM_PRIVILEGE_DEFAULT,
+						ConfigDef.ValidString.in(
+								ASM_PRIVILEGE_SYSASM,
+								ASM_PRIVILEGE_SYSDBA),
+						HIGH, ASM_PRIVILEGE_DOC)
 				.define(SSH_HOST_PARAM, STRING, "", LOW, SSH_HOST_DOC)
 				.define(SSH_PORT_PARAM, INT, SSH_PORT_DEFAULT, LOW, SSH_PORT_DOC)
 				.define(SSH_USER_PARAM, STRING, "", LOW, SSH_USER_DOC)
@@ -1411,11 +1425,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		return getString(ASM_JDBC_URL_PARAM);
 	}
 
-	public String getAsmUser() {
+	public String asmUser() {
 		return getString(ASM_USER_PARAM);
 	}
 
-	public String getAsmPassword() {	
+	public String asmPassword() {	
 		return getPassword(ASM_PASSWORD_PARAM).value();
 	}
 
@@ -1425,6 +1439,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public long asmReconnectIntervalMs() {
 		return getLong(ASM_RECONNECT_INTERVAL_MS_PARAM);
+	}
+
+	public String asmPrivilege() {
+		return getString(ASM_PRIVILEGE_PARAM);
 	}
 
 	public String sshHostname() {

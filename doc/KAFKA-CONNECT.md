@@ -237,6 +237,8 @@ Default - false.
 
 `a2.asm.reconnect.ms` - The time interval in milleseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection. Default - 604,800,000 ms (one week)
 
+`a2.asm.privilege` - The privilege used to connect to the ASM instance. Can be 'sysasm' or 'sysdba'. Defaults to -  'sysasm'
+
 `a2.ssh.hostname` - FQDN or IP address of the remote server with redo log files
 
 `a2.ssh.port` - SSH port of the remote server with redo log files. Default - 22

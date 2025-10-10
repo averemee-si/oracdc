@@ -114,9 +114,18 @@ public class OraConnectionObjects {
 		}
 		final int index = taskId.getAndAdd(1);
 		if (index > (dbUrls.size() - 1)) {
-			LOGGER.error("Errors while processing following array of Oracle RAC URLs:");
-			dbUrls.forEach(v -> LOGGER.error("\t{}", v));
-			LOGGER.error("Size equals {}, but current index equals {} !", dbUrls.size(), index);
+			StringBuilder sb = new StringBuilder(0x400);
+			sb
+				.append("\n=====================\n")
+				.append("Errors while processing following array of Oracle RAC URLs:");
+			dbUrls.forEach(v -> sb.append("\n\t").append(v));
+			sb
+				.append("\nSize is ")
+				.append(dbUrls.size())
+				.append(", but current index is ")
+				.append(index)
+				.append("\n=====================\n");
+			LOGGER.error(sb.toString());
 			throw new SQLException("Unable to build connections to Oracle RAC!");
 		} else if (index == (dbUrls.size() - 1)) {
 			// Last element - reset back to 0
@@ -224,12 +233,15 @@ public class OraConnectionObjects {
 				alterSession.execute("alter session set events '10046 trace name context forever, level 8'");
 			} catch (SQLException sqle) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to set trace parameters (max_dump_file_size, tracefile_identifier, and event 10046 level 8)!\n" +
-						"To fix please run:\n" +
-						"\tgrant alter session to {};" +
-						"\n=====================\n",
-						((OracleConnection)logMinerConnection).getUserName());
+						"""
+						
+						=====================
+						Unable to set trace parameters (max_dump_file_size, tracefile_identifier, and event 10046 level 8)!
+						To fix please run:
+						    grant alter session to {};
+						=====================
+						""",
+							((OracleConnection)logMinerConnection).getUserName());
 			}
 		}
 		return logMinerConnection;
@@ -295,25 +307,31 @@ public class OraConnectionObjects {
 							ucpe.getMessage(), "", OraRdbmsInfo.ORA_17002, ucpe);
 				} else {
 					LOGGER.error(
-							"\n=====================\n" +
-							"UCPE Error Code = {}" +
-							"\n=====================\n",
-							ucpe.getErrorCode());
+							"""
+							
+							=====================
+							UCPE Error Code = {}
+							=====================
+							""",
+								ucpe.getErrorCode());
 					throw sqle;
 				}
 			} else if (sqle.getCause() instanceof NoAvailableConnectionsException) {
 				if (pds.getConnectionWaitDuration().getSeconds() == CONNECTION_WAIT_TIMEOUT &&
 						pds.getTimeToLiveConnectionTimeout() == TIME_TO_LIVE_CONNECTION_TIMEOUT) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"oracle.ucp.NoAvailableConnectionsException with:\n" +
-							"\tgetConnectionWaitTimeout() = {}\n" +
-							"\tgetTimeToLiveConnectionTimeout() = {}\n" +
-							"\tgetValidateConnectionOnBorrow() = {}\n" +
-							"=====================\n",
-							pds.getConnectionWaitDuration().getSeconds(),
-							pds.getTimeToLiveConnectionTimeout(),
-							pds.getValidateConnectionOnBorrow());
+							"""
+							
+							=====================
+							oracle.ucp.NoAvailableConnectionsException with:
+							    getConnectionWaitTimeout() = {}
+							    getTimeToLiveConnectionTimeout() = {}
+							    getValidateConnectionOnBorrow() = {}
+							=====================
+							""",
+								pds.getConnectionWaitDuration().getSeconds(),
+								pds.getTimeToLiveConnectionTimeout(),
+								pds.getValidateConnectionOnBorrow());
 					throw sqle;
 				} else {
 					try {
@@ -372,14 +390,29 @@ public class OraConnectionObjects {
 
 	public Connection getAsmConnection(final OraCdcSourceConnectorConfig config) throws SQLException {
 		final Properties props = new Properties();
-		props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysasm");
+		props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, config.asmPrivilege());
 		props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
 		final OracleDataSource ods = new OracleDataSource();
 		ods.setConnectionProperties(props);
 		ods.setURL(config.asmJdbcUrl());
-		ods.setUser(config.getAsmUser());
-		ods.setPassword(config.getAsmPassword());
-		return ods.getConnection();
+		ods.setUser(config.asmUser());
+		ods.setPassword(config.asmPassword());
+		try {
+			return ods.getConnection();
+		} catch (SQLException sqle) {
+			LOGGER.error(
+					"""
+					
+					=====================
+					Error '{}' with errorCode={} and SQLState='{}'
+					when connecting to {} using '{} as {}' with password with length {} 
+					=====================
+					""",
+						sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
+						config.asmJdbcUrl(), config.asmUser(),
+						config.asmPrivilege(), config.asmPassword().length());
+			throw sqle;
+		}
 	}
 
 }
