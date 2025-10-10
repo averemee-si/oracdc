@@ -1830,10 +1830,16 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 		if (stmt.rollback) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Redo record with partial rollback set to true in XID {}!\nDML operation details:\n{}\n" +
-					"\n=====================\n",
-					transaction.getXid(), stmt.toString());
+					"""
+					
+					=====================
+					Redo record with partial rollback set to true in XID {}!
+					DML operation details:
+					{}
+					=====================
+					
+					""",
+						transaction.getXid(), stmt.toString());
 			return null;
 		}
 		final String xid = transaction.getXid();
@@ -1861,9 +1867,33 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("{} is used as primary key for table {}", stmt.getRowId(), tableFqn);
 			}
-			keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
-			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-				valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
+			try {
+				keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
+				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+					valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
+				}
+			} catch (DataException de) {
+				StringBuilder sb = new StringBuilder(0x400);
+				sb.append("keyFields:");
+				keySchema.fields().forEach(f -> sb
+						.append("\n\t").append(f.name()).append("\t").append(f.schema().name()));
+				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+					sb.append("\nvalueFields:");
+					valueSchema.fields().forEach(f -> sb
+							.append("\n\t").append(f.name()).append("\t").append(f.schema().name()));
+				}
+				LOGGER.error(
+						"""
+						
+						=====================
+						Unable to set pseudo key for table {} with schemaType = {}
+						Schema details:
+						{}
+						=====================
+						
+						""",
+							fqn(), schemaType, sb.toString());
+				throw de;
 			}
 		}
 		mandatoryColumnsProcessed = 0;
