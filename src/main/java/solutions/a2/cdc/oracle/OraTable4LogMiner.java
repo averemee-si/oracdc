@@ -63,7 +63,6 @@ import solutions.a2.oracle.internals.LobLocator;
 import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.jdbc.types.OracleDate;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
-import solutions.a2.utils.ExceptionUtils;
 
 import static java.sql.Types.CHAR;
 import static java.sql.Types.VARCHAR;
@@ -167,6 +166,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 	private SchemaNameMapper snm;
 	private Set<String> pkColsSet;
 	private boolean printUnableToMapColIdWarning;
+	private short conId;
+
 
 	/**
 	 * 
@@ -217,6 +218,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		this(pdbName, tableOwner, tableName, config.schemaType(),
 				config.processLobs(), config.transformLobsImpl(), config.logMiner());
 		setTopicDecoderPartition(config, rdbmsInfo.odd(), rdbmsInfo.partition());
+		this.conId = conId;
 		this.tableWithPk = true;
 		this.setRowLevelScn(rowLevelScnDependency);
 		this.rdbmsInfo = rdbmsInfo;
@@ -246,58 +248,30 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						isCdb ? conId : -1, this.tableOwner, this.tableName);
 				if (!checkSupplementalLogData) {
 					LOGGER.error(
-							"\n" +
-							"=====================\n" +
-							"Supplemental logging for table '{}' is not configured correctly!\n" +
-							"Please set it according to the oracdc documentation!\n" +
-							"=====================\n", tableFqn);
+							"""
+							
+							=====================
+							Supplemental logging for table '{}' is not configured correctly!
+							Please set it according to the oracdc documentation
+							=====================
+							
+							""",
+								tableFqn);
 				}
 			}
-			final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
-			final boolean useRowIdAsKey;
-			switch (keyOverrideType.getKey()) {
-			case NONE:
-				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
-						isCdb ? conId : -1, this.tableOwner, this.tableName, config.getPkType());
-				useRowIdAsKey = config.useRowidAsKey();
-				break;
-			case ROWID:
-				pkColsSet = null;
-				useRowIdAsKey = true;
-				break;
-			case NOKEY:
-				pkColsSet = null;
-				useRowIdAsKey = false;
-				break;
-			default:
-				//INDEX
-				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
-						isCdb ? conId : -1, this.tableOwner, this.tableName, keyOverrideType.getValue());
-				useRowIdAsKey = config.useRowidAsKey();
-				break;
-			}
-			// Schema init - keySchema is immutable and with version 1
-			final SchemaBuilder keySchemaBuilder = keySchemaBuilder(useRowIdAsKey);
-			final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(version);
 
-			if (pkColsSet == null) {
-				tableWithPk = false;
-				if (!onlyValue && useRowIdAsKey) {
-					addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
-					pseudoKey = true;
-				}
-				LOGGER.warn(
-						"\n=====================\n" +
-						"No primary key detected for table {}. {}" +
-						"\n=====================\n",
-						tableFqn,
-						onlyValue ? "" : " ROWID will be used as primary key.");
-			}
-
-			readAndParseOraColumns(connection, isCdb, keySchemaBuilder, valueSchemaBuilder);
+			readAndParseOraColumns(connection, isCdb);
 		} catch (SQLException sqle) {
-			LOGGER.error("Unable to get information about table {}.{}!", tableOwner, tableName);
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error(
+					"""
+					
+					=====================
+					Unable to get information about table {}.{}
+					'{}', errorCode = {}, SQLState = '{}'
+					=====================
+					
+					""",
+					tableOwner, tableName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 			throw new ConnectException(sqle);
 		}
 	}
@@ -531,7 +505,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 											"=====================\n" +
 											"Null or zero length data for overload for LOB column {} with inline value in table {}.\n" +
 											"=====================\n",
-											oraColumn.getColumnName(), this.fqn());
+											oraColumn.getColumnName(), tableFqn);
 								}
 							}
 						} catch (DataException de) {
@@ -642,7 +616,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"Unable to perform delete operation on table {}, SCN={}, RBA='{}', ROWID='{}' without primary key!\n" +
 							"SQL_REDO:\n\t{}\n" +
 							"=====================\n",
-							this.fqn(), stmt.getScn(), stmt.getRba(), stmt.getRowId(), stmt.getSqlRedo());
+							tableFqn, stmt.getScn(), stmt.getRba(), stmt.getRowId(), stmt.getSqlRedo());
 				}
 			}
 		} else if (stmt.getOperation() == UPDATE) {
@@ -691,7 +665,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								valueStruct.put(oraColumn.getColumnName(), oraColumn.getTypedDefaultValue());
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
-											oraColumn.getColumnName(), fqn(), oraColumn.getDefaultValue());
+											oraColumn.getColumnName(), tableFqn, oraColumn.getDefaultValue());
 								}
 							}
 						}
@@ -748,7 +722,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								"{}\n" +
 								"Will be used to handle UPDATE statements without WHERE clause for table {}.\n" +
 								"=====================\n",
-								sqlGetKeysUsingRowId, fqn());
+								sqlGetKeysUsingRowId, tableFqn);
 						printSqlForMissedWhereInUpdate = false;
 					}
 					LOGGER.warn(
@@ -757,7 +731,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"UPDATE statement without WHERE clause for table {} at SCN='{}', RS_ID='{}', ROLLBACK='{}' for ROWID='{}'.\n" +
 							"We will try to get primary key values from table {} at ROWID='{}'.\n" +
 							"=====================\n",
-							fqn(), stmt.getScn(), stmt.getRba(), stmt.isRollback(), stmt.getRowId(), fqn(), stmt.getRowId());
+							tableFqn, stmt.getScn(), stmt.getRba(), stmt.isRollback(), stmt.getRowId(), tableFqn, stmt.getRowId());
 					getMissedColumnValues(connection, stmt.getRowId(), keyStruct);
 				}
 			} else {
@@ -923,7 +897,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					}
 					if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug("{}: setting value for BLOB/C column {}, value length={}.",
-							fqn(), lobColumnName, lob.getContent().length);
+								tableFqn, lobColumnName, lob.getContent().length);
 					}
 					if (lobColumnSchemas != null &&
 							lobColumnSchemas.containsKey(lobColumnName)) {
@@ -955,7 +929,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug(
 								"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
-								fqn(), mandatoryColumnsCount, mandatoryColumnsProcessed);
+								tableFqn, mandatoryColumnsCount, mandatoryColumnsProcessed);
 					}
 					final String message = 
 							"Mandatory columns count for table {} is " +
@@ -1103,7 +1077,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (bdValue.scale() > oraColumn.getDataScale()) {
 					LOGGER.warn(
 								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
-								columnName, this.fqn(), bdValue, bdValue.scale(), oraColumn.getDataScale());
+								columnName, tableFqn, bdValue, bdValue.scale(), oraColumn.getDataScale());
 					columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
 				} else if (bdValue.scale() !=  oraColumn.getDataScale()) {
 					columnValue = bdValue.setScale(oraColumn.getDataScale());
@@ -1272,7 +1246,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug(
 					"Kafka topic for table {} set to {}.",
-					this.fqn(), this.kafkaTopic);
+					tableFqn, this.kafkaTopic);
 		}
 		this.odd = odd;
 		this.sourcePartition = sourcePartition;
@@ -1332,7 +1306,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (alreadyExist) {
 					LOGGER.warn(
 							"Ignoring DDL statement\n\t'{}'\n for adding column {} to table {} since this column already present in table definition",
-							originalDdl, newColumnName, this.fqn());
+							originalDdl, newColumnName, tableFqn);
 				} else {
 					rebuildSchemaFromDb = true;
 				}
@@ -1351,7 +1325,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"Automatic DROP of a column '{}' included in the key for table '{}' is not supported!\n" +
 							"Please do this manually. For further support, please contact us at oracle@a2.solutions." +
 							"\n=====================\n",
-							columnToDrop, fqn());
+							columnToDrop, tableFqn);
 					throw new ConnectException("Automatic DROP of a column included in the key for table is not supported.");
 				}
 				for (OraColumn column : allColumns)
@@ -1376,7 +1350,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						"Cannot drop column(s) '{}' because this column(s) {} not present in the oracdc dictionary for table {}.\n" +
 						"Original DDL text: '{}'" +
 						"\n=====================\n",
-				sb.toString(), unusedColumnIndexes.size() == 1 ? "is" : "are", fqn(), originalDdl);
+				sb.toString(), unusedColumnIndexes.size() == 1 ? "is" : "are", tableFqn, originalDdl);
 			}
 			if (!unusedColumns.isEmpty()) {
 				final Comparator<OraColumn> comparator = new Comparator<OraColumn>() {
@@ -1455,7 +1429,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (columnIndex < 0) {
 					LOGGER.warn(
 							"Ignoring DDL statement\n\t'{}'\n for modifying column {} in table {} since this column not exists in table definition",
-							originalDdl, changedColumnName, this.fqn());
+							originalDdl, changedColumnName, tableFqn);
 				} else {
 					rebuildSchemaFromDb = true;
 				}
@@ -1481,14 +1455,14 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						"\n=====================\n" +
 						"Unable to parse\n'{}'\nColumn {} already exists in {}!" +
 						"\n=====================\n",
-						originalDdl, newName, fqn());
+						originalDdl, newName, tableFqn);
 			} else {
 				if (columnIndex < 0) {
 					LOGGER.error(
 						"\n=====================\n" +
 						"Unable to parse\n'{}'\nColumn {} not exists in {}!" +
 						"\n=====================\n",
-						originalDdl, oldName, fqn());
+						originalDdl, oldName, tableFqn);
 				} else {
 					allColumns.get(columnIndex).setColumnName(newName);
 					final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(++version);
@@ -1528,11 +1502,8 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 
 			mandatoryColumnsCount = 0;
 			updatedColumnCount = 1;
-			readAndParseOraColumns(
-					connection,
-					rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed(),
-					keySchemaBuilder(config.useRowidAsKey()),
-					valueSchemaBuilder(++version));
+			version++;
+			readAndParseOraColumns(connection, rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed());
 
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("END: Processing DDL for OraTable {} using dictionary  data...", tableFqn);
@@ -1633,7 +1604,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						"=====================\n" +
 						"Unable to find row in table {} with ROWID '{}'!\n" +
 						"=====================\n",
-						fqn(), rowId);
+						tableFqn, rowId);
 			}
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == OraRdbmsInfo.ORA_942) {
@@ -1645,7 +1616,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						"\tgrant select on {} to {};\n" +
 						"And restart connector!\n" +
 						"=====================\n",
-						fqn(), connection.getSchema());
+						tableFqn, connection.getSchema());
 			}
 			throw sqle;
 		} finally {
@@ -1702,7 +1673,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug(
 							"The following statement will be used to get missed data from {} using ROWID {}:\n{}\n",
-							fqn(), stmt.getRowId(), readData.toString());
+							tableFqn, stmt.getRowId(), readData.toString());
 				}
 			} else {
 				//OraCdcV$LogmnrContents.INSERT
@@ -1727,7 +1698,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug(
 							"The following statement will be used to get missed data from {} using PK values:\n{}\n",
-							fqn(), readData.toString());
+							tableFqn, readData.toString());
 				}
 			}
 
@@ -1763,7 +1734,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"=====================\n" +
 							"Unable to find row in table {} with ROWID '{}' using SQL statement\n{}\n" +
 							"=====================\n",
-							fqn(), stmt.getRowId(), readData.toString());
+							tableFqn, stmt.getRowId(), readData.toString());
 				}
 			} catch (SQLException sqle) {
 				if (sqle.getErrorCode() == OraRdbmsInfo.ORA_942) {
@@ -1775,7 +1746,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"\tgrant select on {} to {};\n" +
 							"And restart connector!\n" +
 							"=====================\n",
-							fqn(), connection.getSchema());
+							tableFqn, connection.getSchema());
 				} else {
 					printErrorMessage(Level.ERROR,
 							"Unable to restore row! Redo record information for table {}:\n",
@@ -1892,7 +1863,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						=====================
 						
 						""",
-							fqn(), schemaType, sb.toString());
+							tableFqn, schemaType, sb.toString());
 				throw de;
 			}
 		}
@@ -1968,7 +1939,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								"\n=====================\n" +
 								"Unable to map column with id {} to dictionary for table {} in XID {}!\nDML operation details:\n{}\n" +
 								"\n=====================\n",
-								colDefs[i][0], fqn(), xid, stmt.toString());
+								colDefs[i][0], tableFqn, xid, stmt.toString());
 				} else
 					printUnableToMapColIdWarning(colDefs[i][0], xid, stmt);
 			}
@@ -2048,7 +2019,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"Unable to perform delete operation on table {}, SCN={}, RBA='{}', ROWID='{}' without primary key!\n" +
 							"SQL_REDO:\n\t{}\n" +
 							"=====================\n",
-							this.fqn(), stmt.getScn(), stmt.getRba(), stmt.getRowId(), stmt.getSqlRedo());
+							tableFqn, stmt.getScn(), stmt.getRba(), stmt.getRowId(), stmt.getSqlRedo());
 				}
 			}
 		} else if (stmt.getOperation() == UPDATE) {
@@ -2085,7 +2056,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								valueStruct.put(oraColumn.getColumnName(), oraColumn.getTypedDefaultValue());
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
-											oraColumn.getColumnName(), fqn(), oraColumn.getDefaultValue());
+											oraColumn.getColumnName(), tableFqn, oraColumn.getDefaultValue());
 								}
 							}
 						}
@@ -2227,7 +2198,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 								"{}\n" +
 								"Will be used to handle UPDATE statements without WHERE clause for table {}.\n" +
 								"=====================\n",
-								sqlGetKeysUsingRowId, fqn());
+								sqlGetKeysUsingRowId, tableFqn);
 						printSqlForMissedWhereInUpdate = false;
 					}
 					LOGGER.warn(
@@ -2236,7 +2207,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 							"UPDATE statement without WHERE clause for table {} at SCN='{}', RS_ID='{}', ROLLBACK='{}' for ROWID='{}'.\n" +
 							"We will try to get primary key values from table {} at ROWID='{}'.\n" +
 							"=====================\n",
-							fqn(), stmt.getScn(), stmt.getRba(), stmt.isRollback(), stmt.getRowId(), fqn(), stmt.getRowId());
+							tableFqn, stmt.getScn(), stmt.getRba(), stmt.isRollback(), stmt.getRowId(), tableFqn, stmt.getRowId());
 					getMissedColumnValues(connection, stmt.getRowId(), keyStruct);
 				}
 			}
@@ -2266,7 +2237,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug(
 								"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
-								fqn(), mandatoryColumnsCount, mandatoryColumnsProcessed);
+								tableFqn, mandatoryColumnsCount, mandatoryColumnsProcessed);
 					}
 					final String message = 
 							"Mandatory columns count for table {} is " +
@@ -2413,7 +2384,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (bdValue.scale() > oraColumn.getDataScale()) {
 					LOGGER.warn(
 								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
-								columnName, this.fqn(), bdValue, bdValue.scale(), oraColumn.getDataScale());
+								columnName, this.tableFqn, bdValue, bdValue.scale(), oraColumn.getDataScale());
 					columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
 				} else if (bdValue.scale() !=  oraColumn.getDataScale()) {
 					columnValue = bdValue.setScale(oraColumn.getDataScale());
@@ -2559,7 +2530,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				if (bdValue.scale() > oraColumn.getDataScale()) {
 					LOGGER.warn(
 								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
-								columnName, this.fqn(), bdValue, bdValue.scale(), oraColumn.getDataScale());
+								columnName, this.tableFqn, bdValue, bdValue.scale(), oraColumn.getDataScale());
 					columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
 				} else if (bdValue.scale() !=  oraColumn.getDataScale()) {
 					columnValue = bdValue.setScale(oraColumn.getDataScale());
@@ -2718,7 +2689,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 					"\n=====================\n" +
 					"Unable to map column with id {} to dictionary for table {} in XID {}!\nDML operation details:\n{}\n" +
 					"\n=====================\n",
-					colId, fqn(), xid, stmt.toString());
+					colId, tableFqn, xid, stmt.toString());
 	}
 
 	private SchemaBuilder keySchemaBuilder(final boolean useRowIdAsKey) {
@@ -2749,7 +2720,53 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 				.version(version);
 	}
 
-	private void readAndParseOraColumns(final Connection connection, final boolean isCdb, final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) throws SQLException {
+	private void readAndParseOraColumns(final Connection connection, final boolean isCdb) throws SQLException {
+		final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
+		final boolean useRowIdAsKey;
+		switch (keyOverrideType.getKey()) {
+			case NONE -> {
+				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
+					isCdb ? conId : -1, this.tableOwner, this.tableName, config.getPkType());
+				useRowIdAsKey = config.useRowidAsKey();
+			}
+			case ROWID -> {
+				pkColsSet = null;
+				useRowIdAsKey = true;
+			}
+			case NOKEY -> {
+				pkColsSet = null;
+				useRowIdAsKey = false;
+			}
+			default -> {
+				//INDEX
+				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
+					isCdb ? conId : -1, this.tableOwner, this.tableName, keyOverrideType.getValue());
+				useRowIdAsKey = config.useRowidAsKey();
+			}
+		}
+
+		final SchemaBuilder keySchemaBuilder = keySchemaBuilder(config.useRowidAsKey());
+		final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(version);
+		
+		if (pkColsSet == null) {
+			tableWithPk = false;
+			if (!onlyValue && useRowIdAsKey) {
+				addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
+				pseudoKey = true;
+			}
+			LOGGER.warn(
+					"""
+					
+					=====================
+					No primary key detected for table {}. {}
+					=====================
+					
+					""",
+						tableFqn,
+						onlyValue ? "" : " ROWID will be used as primary key.");
+		}
+
+
 		final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberRemap;
 		if (isCdb) {
 			alterSessionSetContainer(connection, pdbName);
@@ -2800,7 +2817,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			} else if (rsColumns.getInt("COLUMN_ID") > 0) {
 				if (LOGGER.isDebugEnabled())
 					LOGGER.debug("Skipping shadow BLOB column {} in table {}",
-							rsColumns.getString("COLUMN_NAME"), fqn());
+							rsColumns.getString("COLUMN_NAME"), tableFqn);
 			} else {
 				final String columnName = rsColumns.getString("COLUMN_NAME");
 				final Matcher unusedMatcher = UNUSED_COLUMN.matcher(columnName);
@@ -2823,11 +2840,16 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 						}
 					} else {
 						LOGGER.warn(
-								"\n=====================\n" +
-								"Table {}.{} contains hidden column '{}' of unknown purpose.\nThis column will be excluded from processing.\n" +
-								"For more information, please email us with the DDL for the table at oracle@a2.solutions." +
-								"\n=====================\n",
-								this.tableOwner, this.tableName, columnName);
+								"""
+								
+								=====================
+								Table {} contains hidden column '{}' of unknown purpose.
+								This column will be excluded from processing.
+								For more information, please email us with the DDL for the table at oracle@a2.solutions
+								=====================
+								
+								""",
+									tableFqn, columnName);
 					}
 				}
 			}
@@ -2928,11 +2950,15 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			final OraCdcTdeWallet tw = rdbmsInfo.tdeWallet();
 			if (tw == null) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Table {}.{} contains encrypted columns!\n" +
-						"To continue, You must set the parameters a2.tde.wallet.path and a2.tde.wallet.password." +
-						"\n=====================\n",
-						tableOwner, tableName);
+						"""
+						
+						=====================
+						Table {} contains encrypted columns!
+						To continue, You must set the parameters a2.tde.wallet.path and a2.tde.wallet.password.
+						=====================
+						
+						""",
+							tableFqn);
 				throw new ConnectException("Unable to process encrypted columns without configured Oracle Wallet!");
 			} else {
 				decrypter = OraCdcTdeColumnDecrypter.get(connection, tw, tableOwner, tableName);
@@ -2966,12 +2992,12 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
 		if (LOGGER.isDebugEnabled()) {
 			if (mandatoryColumnsCount > 0) {
-				LOGGER.debug("Table {} has {} mandatory columns.", fqn(), mandatoryColumnsCount);
+				LOGGER.debug("Table {} has {} mandatory columns.", tableFqn, mandatoryColumnsCount);
 			}
 			if (keySchema != null &&
 					keySchema.fields() != null &&
 					keySchema.fields().size() > 0) {
-				LOGGER.debug("Key fields for table {}.", fqn());
+				LOGGER.debug("Key fields for table {}.", tableFqn);
 				keySchema.fields().forEach(f ->
 					LOGGER.debug(
 							"\t{} with schema {}",
@@ -2980,7 +3006,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 			if (valueSchema != null &&
 					valueSchema.fields() != null &&
 					valueSchema.fields().size() > 0) {
-				LOGGER.debug("Value fields for table {}.", fqn());
+				LOGGER.debug("Value fields for table {}.", tableFqn);
 				valueSchema.fields().forEach(f ->
 				LOGGER.debug(
 						"\t{} with schema {}",
@@ -2993,7 +3019,7 @@ public class OraTable4LogMiner extends OraTable4SourceConnector {
 		}
 	}
 
-	
+
 	private void addPseudoColumns(final SchemaBuilder valueSchemaBuilder) {
 		if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 			//TODO
