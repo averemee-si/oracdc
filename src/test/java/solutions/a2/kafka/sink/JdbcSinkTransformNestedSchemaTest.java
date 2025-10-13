@@ -61,7 +61,7 @@ public class JdbcSinkTransformNestedSchemaTest {
 		final SchemaBuilder valueSchemaBuilder = SchemaBuilder
 				.struct()
 				.optional()
-				.name("FND_LOBS.Valie")
+				.name("FND_LOBS.Value")
 				.version(1);
 		valueSchemaBuilder.field("FILE_NAME", Schema.OPTIONAL_STRING_SCHEMA);
 		valueSchemaBuilder.field("FILE_CONTENT_TYPE", Schema.STRING_SCHEMA);
