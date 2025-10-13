@@ -254,7 +254,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 							lastStatementInTransaction = !processTransaction;
 
 							if (processTransaction && runLatch.getCount() > 0) {
-								OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
+								OraTable4RedoMiner oraTable = (OraTable4RedoMiner) checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
 									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);

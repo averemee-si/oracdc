@@ -44,7 +44,7 @@ public class OraCdcInitialLoadThread extends Thread {
 	private final long asOfScn;
 	private final OraCdcInitialLoad metrics;
 	private final CountDownLatch runLatch;
-	private final Map<Long, OraTable4LogMiner> tablesInProcessing;
+	private final Map<Long, OraTable> tablesInProcessing;
 	private final Path queuesRoot;
 	private final BlockingQueue<OraTable4InitialLoad> tablesQueue;
 	private final AtomicBoolean running;
@@ -55,7 +55,7 @@ public class OraCdcInitialLoadThread extends Thread {
 	public OraCdcInitialLoadThread(
 			final int waitInterval,
 			final long asOfScn,
-			final Map<Long, OraTable4LogMiner> tablesInProcessing,
+			final Map<Long, OraTable> tablesInProcessing,
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraCdcInitialLoad metrics,

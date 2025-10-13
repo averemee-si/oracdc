@@ -428,7 +428,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								combinedDataObjectId = dataObjectId;
 							}
 							// First check for table definition...
-							OraTable4LogMiner oraTable = checker.getTable(combinedDataObjectId, dataObjectId, conId);
+							OraTable4LogMiner oraTable = (OraTable4LogMiner) checker.getTable(combinedDataObjectId, dataObjectId, conId);
 
 							if (oraTable != null) {
 								final byte[] redoBytes = readSqlRedo();

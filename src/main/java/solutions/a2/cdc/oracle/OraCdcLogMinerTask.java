@@ -336,7 +336,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 							lastStatementInTransaction = !processTransaction;
 
 							if (processTransaction) {
-								final OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
+								final OraTable4LogMiner oraTable = (OraTable4LogMiner) checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
 									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);

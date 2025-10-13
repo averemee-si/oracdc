@@ -58,7 +58,7 @@ import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class OraTable4InitialLoad extends OraTable4SourceConnector implements ReadMarshallable, WriteMarshallable {
@@ -99,12 +99,12 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 	 * @param rdbmsInfo
 	 * @throws IOException
 	 */
-	public OraTable4InitialLoad(final Path rootDir, final OraTable4LogMiner oraTable,
+	public OraTable4InitialLoad(final Path rootDir, final OraTable oraTable,
 				final OraCdcInitialLoad metrics,
 				final OraRdbmsInfo rdbmsInfo) throws IOException {
 		super(oraTable.getTableOwner(), oraTable.getTableName(), oraTable.getSchemaType());
 		LOGGER.trace("BEGIN: create OraCdcTableBuffer");
-		this.pdbName = oraTable.getPdbName();
+		this.pdbName = oraTable.pdbName();
 		this.allColumns = oraTable.getAllColumns();
 		this.pkColumns = oraTable.getPkColumns();
 		//TODO
@@ -114,9 +114,9 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		this.sourcePartition = oraTable.sourcePartition;
 		this.metrics = metrics;
 		this.tableFqn = oraTable.fqn();
-		this.kafkaTopic = oraTable.getKafkaTopic();
+		this.kafkaTopic = oraTable.kafkaTopic();
 		this.rdbmsInfo = rdbmsInfo;
-		this.setRowLevelScn(oraTable.isRowLevelScn());
+		this.rowLevelScn = oraTable.rowLevelScn;
 		// Build SQL select
 		final StringBuilder sb = new StringBuilder(512);
 		sb.append("select ");
@@ -136,7 +136,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		sb.append(tableOwner);
 		sb.append(".");
 		sb.append(tableName);
-		if (this.isRowLevelScn()) {
+		if (rowLevelScn) {
 			sb.append(" where ORA_ROWSCN < ?");
 		}
 		sqlSelect = sb.toString();
@@ -581,7 +581,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			}
 			PreparedStatement statement = connection.prepareStatement(sqlSelect,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			if (this.isRowLevelScn()) {
+			if (rowLevelScn) {
 				statement.setLong(1, asOfScn);
 				LOGGER.info("Table {} initial load (read phase) up to SCN {} started.", tableFqn, asOfScn);
 			} else {

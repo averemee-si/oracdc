@@ -81,7 +81,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	AtomicBoolean isPollRunning;
 	OraConnectionObjects oraConnections;
 	Map<String, Object> offset;
-	Map<Long, OraTable4LogMiner> tablesInProcessing;
+	Map<Long, OraTable> tablesInProcessing;
 	Set<Long> tablesOutOfScope;
 	BlockingQueue<OraCdcTransaction> committedTransactions;
 	OraCdcTransaction transaction;
@@ -554,12 +554,21 @@ public abstract class OraCdcTaskBase extends SourceTask {
 				final String tableName = resultSet.getString("TABLE_NAME");
 				if (!tablesInProcessing.containsKey(combinedDataObjectId)
 						&& !Strings.CS.startsWith(tableName, "MLOG$_")) {
-					OraTable4LogMiner oraTable = new OraTable4LogMiner(
-							isCdb ? resultSet.getString("PDB_NAME") : null,
-							isCdb ? (short) conId : -1,
-							resultSet.getString("OWNER"), tableName,
-							Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
-							config, rdbmsInfo, connection, getTableVersion(combinedDataObjectId));
+					OraTable oraTable;
+					if (config.logMiner())
+						oraTable = new OraTable4LogMiner(
+								isCdb ? resultSet.getString("PDB_NAME") : null,
+								isCdb ? (short) conId : -1,
+								resultSet.getString("OWNER"), tableName,
+								Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
+								config, rdbmsInfo, connection, getTableVersion(combinedDataObjectId));
+					else
+						oraTable = new OraTable4RedoMiner(
+								isCdb ? resultSet.getString("PDB_NAME") : null,
+								isCdb ? (short) conId : -1,
+								resultSet.getString("OWNER"), tableName,
+								Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
+								config, rdbmsInfo, connection, getTableVersion(combinedDataObjectId));
 					tablesInProcessing.put(combinedDataObjectId, oraTable);
 				}
 			}

@@ -58,6 +58,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraTable;
 import solutions.a2.cdc.oracle.OraTable4LogMiner;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -71,7 +72,7 @@ public class TableSchemaEditor extends JFrame {
 	private static final Logger LOGGER = LoggerFactory.getLogger(TableSchemaEditor.class);
 	private static final long serialVersionUID = 2286500183403204546L;
 
-	private Map<Long, OraTable4LogMiner> tables = new ConcurrentHashMap<>();
+	private Map<Long, OraTable> tables = new ConcurrentHashMap<>();
 	private String dictFileName;
 	private boolean dataChanged;
 	private DatabaseObjects dbObjects;
@@ -254,7 +255,7 @@ public class TableSchemaEditor extends JFrame {
 					tables = loader.doInBackground();
 					indexOfTables.clear();
 					for (long combinedDataObjectId : tables.keySet()) {
-						OraTable4LogMiner oraTable = tables.get(combinedDataObjectId);
+						OraTable4LogMiner oraTable = (OraTable4LogMiner) tables.get(combinedDataObjectId);
 						indexOfTables.add(
 								new SimpleImmutableEntry<Long, String>(combinedDataObjectId, oraTable.fqn()));
 					}
@@ -444,7 +445,7 @@ public class TableSchemaEditor extends JFrame {
 		dataChanged = true;
 	}
 
-	private static class FileLoader extends SwingWorker<Map<Long, OraTable4LogMiner>, Void> {
+	private static class FileLoader extends SwingWorker<Map<Long, OraTable>, Void> {
 		private final File file;
 
 		FileLoader(final JFrame frame, final File file) {
@@ -452,7 +453,7 @@ public class TableSchemaEditor extends JFrame {
 			this.file = file;
 		}
 		@Override
-		protected Map<Long, OraTable4LogMiner> doInBackground() throws Exception {
+		protected Map<Long, OraTable> doInBackground() throws Exception {
 			return FileUtils.readDictionaryFile(file, null);
 		}
 	}

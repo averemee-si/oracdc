@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.OraTable;
 import solutions.a2.cdc.oracle.OraTable4LogMiner;
 import solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
@@ -41,29 +42,29 @@ import solutions.a2.kafka.ConnectorParams;
  */
 public class FileUtils {
 
-	public static Map<Long, OraTable4LogMiner> readDictionaryFile(
+	public static Map<Long, OraTable> readDictionaryFile(
 			final String fileName, Integer schemaType,
 			final OraCdcLobTransformationsIntf transformLobs,
 			final OraRdbmsInfo rdbmsInfo)
 					throws IOException {
 		InputStream is = new FileInputStream(fileName);
-		Map<Long, OraTable4LogMiner> schemas =
+		Map<Long, OraTable> schemas =
 				readDictionaryFile(is, schemaType, transformLobs, rdbmsInfo);
 		is.close();
 		return schemas;
 	}
 
-	public static Map<Long, OraTable4LogMiner> readDictionaryFile(
+	public static Map<Long, OraTable> readDictionaryFile(
 			final File file, Integer schemaType) throws IOException {
 		InputStream is = new FileInputStream(file);
 		// GUI call - OK for default implementation
-		Map<Long, OraTable4LogMiner> schemas = readDictionaryFile(
+		Map<Long, OraTable> schemas = readDictionaryFile(
 				is, schemaType, new OraCdcDefaultLobTransformationsImpl(), null);
 		is.close();
 		return schemas;
 	}
 
-	private static Map<Long, OraTable4LogMiner> readDictionaryFile(
+	private static Map<Long, OraTable> readDictionaryFile(
 			final InputStream is, Integer schemaType,
 			final OraCdcLobTransformationsIntf transformLobs,
 			final OraRdbmsInfo rdbmsInfo) throws IOException {
@@ -71,7 +72,7 @@ public class FileUtils {
 		final ObjectReader reader = new ObjectMapper()
 				.readerFor(fileData.getClass());
 		fileData = reader.readValue(is);
-		final Map<Long, OraTable4LogMiner> schemas = new ConcurrentHashMap<>();
+		final Map<Long, OraTable> schemas = new ConcurrentHashMap<>();
 		try {
 			fileData.forEach((k, v) -> {
 				schemas.put(
@@ -90,7 +91,7 @@ public class FileUtils {
 	}
 
 	public static void writeDictionaryFile(
-			final Map<Long, OraTable4LogMiner> fileData,
+			final Map<Long, OraTable> fileData,
 			final String fileName) throws IOException {
 		final ObjectWriter writer = new ObjectMapper()
 				.enable(SerializationFeature.INDENT_OUTPUT)
