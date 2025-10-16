@@ -1220,6 +1220,17 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		if (useRac() || 
 			(activateStandby() && dg4RacThreads() != null && dg4RacThreads().size() > 1)) {
 			topicPartition = redoThread - 1;
+			if (topicPartition < 0) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						Invalid partition: {}. Partition number should always be non-negative.
+						=====================
+						
+						""");
+				throw new IllegalArgumentException("Invalid partition: " + topicPartition);
+			}
 		} else {
 			topicPartition = getInt(TOPIC_PARTITION_PARAM);
 		}
@@ -1232,9 +1243,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				if (Files.isDirectory(Paths.get(tempDir))) {
 					if (!Files.isWritable(Paths.get(tempDir))) {
 						LOGGER.error(
-								"\n=====================\n" +
-								"Parameter '{}' points to non-writable directory '{}'." +
-								"\n=====================\n",
+								"""
+								
+								=====================
+								Parameter '{}' points to non-writable directory '{}'.
+								=====================
+								
+								""",
 								TEMP_DIR_PARAM, tempDir);
 						throw new SQLException("Temp directory is not properly set!");
 					}
@@ -1243,9 +1258,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Files.createDirectories(Paths.get(tempDir));
 					} catch (IOException | UnsupportedOperationException | SecurityException  e) {
 						LOGGER.error(
-								"\n=====================\n" +
-								"Unable to create directory! Parameter {} points to non-existent or invalid directory {}." +
-								"\n=====================\n",
+								"""
+								
+								=====================
+								Unable to create directory! Parameter {} points to non-existent or invalid directory {}.
+								=====================
+								
+								""",
 								TEMP_DIR_PARAM, tempDir);
 						throw new SQLException(e);
 					}
@@ -1264,9 +1283,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			return Long.parseUnsignedLong(scnAsString);
 		} catch (NumberFormatException nfe) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse value '{}' of parameter '{}' as unsigned long!" +
-					"\n=====================\n",
+					"""
+					
+					=====================
+					Unable to parse value '{}' of parameter '{}' as unsigned long!
+					=====================
+					
+					""",
 					scnAsString, LGMNR_START_SCN_PARAM);
 			throw new SQLException(nfe);
 		}
@@ -1298,9 +1321,15 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				maxMapCount = Integer.parseInt(StringUtils.trim(new String(buffer, 0, size)));
 			} catch (IOException | NumberFormatException e) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to read and parse value of vm.max_map_count from  '/proc/sys/vm/max_map_count'!\nException:{}\n{}" +
-						"\n=====================\n",
+						"""
+						
+						=====================
+						Unable to read and parse value of vm.max_map_count from  '/proc/sys/vm/max_map_count'!
+						Exception: {}
+						{}
+						=====================
+						
+						""",
 						e.getMessage(), ExceptionUtils.getExceptionStackTrace(e));
 			}
 			return ((int)(maxMapCount / 0x10)) * 0x7;
@@ -1383,10 +1412,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				}
 				if (maxPrefixSize == -1) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to convert filename '{}' using parameter {}={} !\n" +
-							"Original filename will be returned!" +
-							"\n=====================\n",
+							"""
+							
+							=====================
+							Unable to convert filename '{}' using parameter {}={} !
+							Original filename will be returned!
+							=====================
+							
+							""",
 							originalName, REDO_FILE_NAME_CONVERT_PARAM, getString(REDO_FILE_NAME_CONVERT_PARAM));
 					return originalName;
 				} else {
