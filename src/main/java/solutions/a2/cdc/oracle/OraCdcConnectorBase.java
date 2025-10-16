@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
 import oracle.jdbc.OracleConnection;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.kafka.ConnectorParams;
-import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INTERNAL_DG4RAC_THREAD_PARAM;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INTERNAL_RAC_URLS_PARAM;
@@ -46,17 +45,35 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcConnectorBase.class);
 	private static final String DB_PARAM_ERROR_GENERIC = "Database connection parameters are not properly set!";
-	private static final String DB_PARAM_MUST_SET_WHEN = "Parameter value '{}' must be set when parameter value '{}' is set!";
-	private static final String DB_PARAM_MUST_SET_WHEN_TRUE = "Parameter '{}' must be set when '{}' set to true!";
+	private static final String DB_PARAM_MUST_SET_WHEN = 
+			"""
+			
+			=====================
+			Parameter value '{}' must be set when parameter value '{}' is set!
+			=====================
+			
+			""";
+	private static final String DB_PARAM_MUST_SET_WHEN_TRUE =
+			"""
+			
+			=====================
+			Parameter '{}' must be set when '{}' set to true!
+			=====================
+			
+			""";
 
 	// Generated using 	https://patorjk.com/software/taag/#p=display&f=Ogre&t=A2%20oracdc
 	private static final String LOGO =
-		"\n" +
-		"   _   ____                            _      \n" +
-		"  /_\\ |___ \\    ___  _ __ __ _  ___ __| | ___ \n" +
-		" //_\\\\  __) |  / _ \\| '__/ _` |/ __/ _` |/ __|\n" +
-		"/  _  \\/ __/  | (_) | | | (_| | (_| (_| | (__ \n" +
-		"\\_/ \\_/_____|  \\___/|_|  \\__,_|\\___\\__,_|\\___|\n\n";
+		"""
+			
+		   _   ____                            _      
+		  /_\\ |___ \\    ___  _ __ __ _  ___ __| | ___ 
+		 //_\\\\  __) |  / _ \\| '__/ _` |/ __/ _` |/ __|
+		/  _  \\/ __/  | (_) | | | (_| | (_| (_| | (__ 
+		\\_/ \\_/_____|  \\___/|_|  \\__,_|\\___\\__,_|\\___|
+		
+		
+		""";
 
 	private Map<String, String> connectorProperties;
 	private OraCdcSourceConnectorConfig config;
@@ -152,9 +169,15 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
-				LOGGER.warn("When the '{}' parameter is set to true, the '{}' parameter must be set to false!",
-						config.activateStandbyParamName(),
-						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
+				LOGGER.warn(
+						"""
+						
+						=====================
+						When the '{}' parameter is set to true, the '{}' parameter must be set to false!
+						=====================
+						
+						""", config.activateStandbyParamName(),
+							ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
 			}
 		}
 		if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
@@ -170,11 +193,18 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 			// When this set we need explicitly value of  a2.archived.log.catalog parameter
 			if (!OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName()
 					.equals(config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM))) {
-				LOGGER.warn("When {} set to true value of {} must be {}.", 
+				LOGGER.warn(
+						"""
+						
+						=====================
+						When {} set to true value of {} must be {}.
+						Setting {} value to {}.
+						=====================
+						
+						""",
 						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM,
 						ParamConstants.ARCHIVED_LOG_CAT_PARAM,
-						OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName());
-				LOGGER.warn("Setting {} value to {}.",
+						OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName(),
 						ParamConstants.ARCHIVED_LOG_CAT_PARAM,
 						OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName());
 			}
@@ -211,26 +241,57 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 				instances = OraRdbmsInfo.getInstances(connection);
 				if (instances.size() > 0) {
 					if (instances.size() > maxTasks) {
-						LOGGER.error("Number of Oracle RAC instances for connection '{}'\n\tis {}, but Kafka Connect 'tasks.max' parameter is set to {}!",
-								config.getString(ConnectorParams.CONNECTION_URL_PARAM), instances.size(), maxTasks);
-						LOGGER.error("Please set value of 'tasks.max' parameter to {} and restart connector!",
-								instances.size());
+						LOGGER.error(
+								"""
+								
+								=====================
+								Number of Oracle RAC instances for connection '{}'
+									is {}, but Kafka Connect 'tasks.max' parameter is set to {}!
+								Please set value of 'tasks.max' parameter to {} and restart connector!
+								=====================
+								
+								""",
+								config.getString(ConnectorParams.CONNECTION_URL_PARAM),
+								instances.size(), maxTasks, instances.size());
 						throw new ConnectException("Please increase value of 'tasks.max' parameter!");
 					}
-					LOGGER.info("'{}' instances of Oracle RAC found.", instances.size());
 					isRac = true;
 					urls = OraRdbmsInfo.generateRacJdbcUrls(
 							(String )connection.getProperties().get(OracleConnection.CONNECTION_PROPERTY_DATABASE),
 							instances);
+					final StringBuilder sb = new StringBuilder(0x100);
+					urls.forEach(url -> sb.append("\n\t").append(url));
+					LOGGER.info(
+							"""
+							
+							=====================
+							'{}' Oracle RAC instances found.
+							To connect to them, the JDBC URLs listed below will be used:{}
+							=====================
+							
+							""", instances.size(), sb.toString());
 				} else {
-					LOGGER.warn("Parameter '{}' is set to 'true', but no Oracle RAC is detected!",
-							config.useRacParamName());
-					LOGGER.warn("Connector continues operations with parameter '{}'='false'",
-							config.useRacParamName());
+					LOGGER.warn(
+							"""
+							
+							=====================
+							The '{}' parameter is set to 'true', but Oracle RAC is not detected!
+							The connector continues to operate with the '{}'='false' parameter.
+							=====================
+							
+							""", config.useRacParamName(), config.useRacParamName());
 					connectorProperties.put(config.useRacParamName(), Boolean.FALSE.toString());
 				}
 			} catch (SQLException sqle) {
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+				LOGGER.error(
+						"""
+						
+						=====================
+						'{}'
+						errorCode={}, SQLState = '{}'
+						=====================
+						
+						""", sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 				throw new ConnectException(sqle);
 			}
 		} else if (config.activateStandby()) {
@@ -241,38 +302,74 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 				isSingleInstDg4Rac = threads.size() > 1; 
 				if (isSingleInstDg4Rac) {
 					if (threads.size() > maxTasks) {
-						LOGGER.error("Number of Oracle standby database redo threads for connection '{}'\n\tis {}, but Kafka Connect 'tasks.max' parameter is set to {}!",
-								config.getString(ParamConstants.STANDBY_URL_PARAM), threads.size(), maxTasks);
-						LOGGER.error("Please set value of 'tasks.max' parameter to {} and restart connector!",
-								threads.size());
+						LOGGER.error(
+								"""
+								
+								=====================
+								Number of Oracle RAC instances for connection '{}'
+									is {}, but Kafka Connect 'tasks.max' parameter is set to {}!
+								Please set value of 'tasks.max' parameter to {} and restart connector!
+								=====================
+								
+								""",
+								config.getString(ParamConstants.STANDBY_URL_PARAM), threads.size(), maxTasks, threads.size());
 						throw new ConnectException("Please increase value of 'tasks.max' parameter!");
 					}
-					LOGGER.info("'{}' redo threads of Oracle Sigle Instance DataGuard for RAC are found.", threads.size());
+					LOGGER.info(
+							"""
+							
+							=====================
+							'{}' Oracle Sigle Instance DataGuard for RAC redo threads detected.
+							=====================
+							
+							""", threads.size());
 				}
 			} catch (SQLException sqle) {
 				if (sqle.getErrorCode() == OraRdbmsInfo.ORA_12514) {
 					//ORA-12514, TNS:listener does not currently know of service requested in connect descriptor
 					LOGGER.error(
-							"\n=====================\n" +
-							"{}\n" +
-							"Unable to connect to:\n\t{}!\nPlease check Oracle DataGuard connection parameters!\n" +
-							"=====================\n",
-							sqle.getMessage(), config.getString(ParamConstants.STANDBY_URL_PARAM));
+							"""
+							
+							=====================
+							'{}'
+							errorCode={}, SQLState = '{}'
+							Unable to connect to:
+								{}!
+							Please check Oracle DataGuard connection parameters!
+							=====================
+							
+							""",
+							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
+							config.getString(ParamConstants.STANDBY_URL_PARAM));
 				} else if (sqle.getErrorCode() == OraRdbmsInfo.ORA_1017) {
 					//ORA-01017: invalid username/password; logon denied
 					LOGGER.error(
-							"\n=====================\n" +
-							"{}\n" +
-							"Unable to connect to:\n\t{} using wallet at '{}'!\n" +
-							"Please review Oracle Support Services Note \"java.sql.SQLException: ORA-01017: invalid username/password; logon denied\" While Trying To Run The Program With Stored Credentials In The Wallet (Doc ID 2438265.1)!\n" +
-							"on https://support.oracle.com/rs?type=doc&id=2438265.1\n" +
-							"=====================\n",
-							sqle.getMessage(),
+							"""
+							
+							=====================
+							'{}'
+							errorCode={}, SQLState = '{}'
+							Unable to connect to:
+								'{}' using wallet at '{}'!
+							Please review Oracle Support Services Note 
+								"java.sql.SQLException: ORA-01017: invalid username/password; logon denied" While Trying To Run The Program With Stored Credentials In The Wallet (Doc ID 2438265.1)!
+							on https://support.oracle.com/rs?type=doc&id=2438265.1
+							=====================
+							
+							""",
+							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
 							config.getString(ParamConstants.STANDBY_URL_PARAM),
 							config.getString(ParamConstants.STANDBY_WALLET_PARAM));
-					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 				} else {
-					LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+					LOGGER.error(
+							"""
+							
+							=====================
+							'{}'
+							errorCode={}, SQLState = '{}'
+							=====================
+							
+							""", sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 				}
 				throw new ConnectException(sqle);
 			}
@@ -306,15 +403,21 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 	private void checkDeprecatedTnsParameters(final Map<String, String> props,
 			final String tnsAdminParam, final String tnsAliasParam, final String jdbcUrlParam) {
 		if (props.containsKey(tnsAdminParam) || props.containsKey(tnsAliasParam)) {
-			LOGGER.error("Parameters '{}' and '{}' are deprecated!!!",
-					tnsAdminParam, tnsAliasParam);
-			LOGGER.error("To connect using TNS alias please set '{}' with JDBC URL format below:", 
-					jdbcUrlParam);
-			LOGGER.error("\tjdbc:oracle:thin:@<alias_name>?TNS_ADMIN=<directory_with_tnsnames_sqlnet>");
-			LOGGER.error("For example:");
-			LOGGER.error("\tjdbc:oracle:thin:@prod_db?TNS_ADMIN=/u01/app/oracle/product/21.3.0/dbhome_1/network/admin/");
-			LOGGER.error("For more information on JDBC URL format please see Oracle® Database JDBC Java API Reference, Release 21c -");
-			LOGGER.error("\thttps://docs.oracle.com/en/database/oracle/oracle-database/23/jajdb/");
+			LOGGER.error(
+					"""
+					
+					=====================
+					Parameters '{}' and '{}' are deprecated!!!
+					To connect using TNS alias please set '{}' with JDBC URL format below:
+						jdbc:oracle:thin:@<alias_name>?TNS_ADMIN=<directory_with_tnsnames_sqlnet>
+					For example:
+						jdbc:oracle:thin:@prod_db?TNS_ADMIN=/u01/app/oracle/product/21.3.0/dbhome_1/network/admin/
+					For more information on JDBC URL format please see Oracle® Database JDBC Java API Reference, Release 26ai -
+						https://docs.oracle.com/en/database/oracle/oracle-database/26/jajdb/
+					=====================
+					
+					""",
+					tnsAdminParam, tnsAliasParam, jdbcUrlParam);
 			throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 		}
 	}
