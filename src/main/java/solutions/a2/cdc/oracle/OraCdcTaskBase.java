@@ -233,12 +233,14 @@ public abstract class OraCdcTaskBase extends SourceTask {
 					"""
 					
 					=====================
-					Connector {} connected to {}, {}\n\t$ORACLE_SID={}, running on {}, OS {}.
+					Connector {} connected to {}, {}\n\t$ORACLE_SID={}, THREAD#={} running on {}, OS {}.
 					=====================
+					
 					""",
 						connectorName,
 						rdbmsInfo.getRdbmsEdition(), rdbmsInfo.getVersionString(),
-						rdbmsInfo.getInstanceName(), rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
+						rdbmsInfo.getInstanceName(), rdbmsInfo.getRedoThread(),
+						rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
 
 			if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot() && !rdbmsInfo.isPdbConnectionAllowed()) {
 				LOGGER.error(
