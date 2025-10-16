@@ -272,10 +272,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 										metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
 									} else {
 										final long startParseTs = System.currentTimeMillis();
-										offset.put("SCN", stmt.getScn());
-										offset.put("RS_ID", stmt.getRba().toString());
-										offset.put("SSN", stmt.getSsn());
-										offset.put("COMMIT_SCN", transaction.getCommitScn());
+										putInProgressOffsets(stmt);
 										final SourceRecord record = oraTable.parseRedoRecord(
 												stmt, transaction, lobIds, offset, connDictionary);
 										if (record != null) {
@@ -301,7 +298,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 										transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
 							}
 							// Store last successfully processed COMMIT_SCN to offset
-							offset.put("C:COMMIT_SCN", transaction.getCommitScn());
+							putCompletedOffset();
 							transaction.close();
 							transaction = null;
 						}

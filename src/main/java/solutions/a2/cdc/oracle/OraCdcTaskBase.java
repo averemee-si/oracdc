@@ -105,6 +105,14 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	OraTable4InitialLoad table4InitialLoad;
 	boolean lastRecordInTable = true;
 	OraCdcInitialLoad initialLoadMetrics;
+	private String fldCommitScnInProgress = null;
+	private String fldCommitScnCompleted = null;
+	private String fldScnInProgress = null;
+	private String fldRbaInProgress = null;
+	private String fldSubScnInProgress = null;
+	private String fldScnStart = null;
+	private String fldRbaStart = null;
+	private String fldSubScnStart = null;
 
 	@Override
 	public String version() {
@@ -217,6 +225,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		if (config.useOracdcSchemas()) {
 			LOGGER.info("oracdc will use own schemas for Oracle NUMBER and TIMESTAMP WITH [LOCAL] TIMEZONE datatypes");
 		}
+
 		if (offset == null) offset = new ConcurrentHashMap<>();
 		if (tablesInProcessing == null) tablesInProcessing = new HashMap<>();
 		if (tablesOutOfScope == null) tablesOutOfScope = new HashSet<>();
@@ -228,6 +237,26 @@ public abstract class OraCdcTaskBase extends SourceTask {
 				rdbmsInfo.setRedoThread(threadNo);
 			}
 			config.topicPartition(rdbmsInfo.getRedoThread() - 1);
+			if (useRac) {
+				int redoThread = rdbmsInfo.getRedoThread();
+				fldCommitScnInProgress = "COMMIT_SCN/" + redoThread;
+				fldCommitScnCompleted = "C:COMMIT_SCN/" + redoThread;
+				fldScnInProgress = "SCN/" + redoThread;
+				fldRbaInProgress = "RBA/" + redoThread;
+				fldSubScnInProgress = "SSN/" + redoThread;
+				fldScnStart = "S:SCN/" + redoThread;
+				fldRbaStart = "S:RBA/" + redoThread;
+				fldSubScnStart = "S:SSN/" + redoThread;
+			} else {
+				fldCommitScnInProgress = "COMMIT_SCN";
+				fldCommitScnCompleted = "C:COMMIT_SCN";
+				fldScnInProgress = "SCN";
+				fldRbaInProgress = "RS_ID";
+				fldSubScnInProgress = "SSN";
+				fldScnStart = "S:SCN";
+				fldRbaStart = "S:RS_ID";
+				fldSubScnStart = "S:SSN";
+			}
 
 			LOGGER.info(
 					"""
@@ -438,26 +467,26 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			offsetFromKafka = null;
 		}
 
-		if (offsetFromKafka != null && offsetFromKafka.containsKey("C:COMMIT_SCN") && !config.ignoreStoredOffset()) {
+		if (offsetFromKafka != null && offsetFromKafka.containsKey(fldCommitScnCompleted) && !config.ignoreStoredOffset()) {
 			// Use stored offset values for SCN and related from storage offset
 			if (startScnFromProps) {
 				LOGGER.info("Ignoring the value of parameter a2.first.change={}, since the offset is already present in the connector offset data!",
 						firstScnFromProps);
 			}
-			firstScn = (long) offsetFromKafka.get("S:SCN");
-			firstRba = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get("S:RS_ID"));
-			firstSubScn = (long) offsetFromKafka.get("S:SSN");
+			firstScn = (long) offsetFromKafka.get(fldScnStart);
+			firstRba = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get(fldRbaStart));
+			firstSubScn = (long) offsetFromKafka.get(fldSubScnStart);
 			LOGGER.info("Point in time from offset data to start reading reading from SCN={}, RS_ID (RBA)='{}', SSN={}",
 						firstScn, firstRba, firstSubScn);
-			lastProcessedCommitScn = (long) offsetFromKafka.get("C:COMMIT_SCN");
-			lastInProgressCommitScn = (long) offsetFromKafka.get("COMMIT_SCN");
+			lastProcessedCommitScn = (long) offsetFromKafka.get(fldCommitScnCompleted);
+			lastInProgressCommitScn = (long) offsetFromKafka.get(fldCommitScnInProgress);
 			if (lastProcessedCommitScn == lastInProgressCommitScn) {
 				// Rewind not required, reset back lastInProgressCommitScn
 				lastInProgressCommitScn = 0;
 			} else {
-				lastInProgressScn = (long) offsetFromKafka.get("SCN");
-				lastInProgressRba = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get("RS_ID"));
-				lastInProgressSubScn = (long) offsetFromKafka.get("SSN");
+				lastInProgressScn = (long) offsetFromKafka.get(fldScnInProgress);
+				lastInProgressRba = RedoByteAddress.fromLogmnrContentsRs_Id((String) offsetFromKafka.get(fldRbaInProgress));
+				lastInProgressSubScn = (long) offsetFromKafka.get(fldSubScnInProgress);
 				LOGGER.info("Last sent SCN={}, RBA={}, SSN={} for  transaction with incomplete send",
 							lastInProgressScn, lastInProgressRba, lastInProgressSubScn);
 			}
@@ -523,9 +552,9 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	}
 
 	void putReadRestartScn(final Triple<Long, RedoByteAddress, Long> transData) {
-		offset.put("S:SCN", transData.getLeft());
-		offset.put("S:RS_ID", transData.getMiddle().toString());
-		offset.put("S:SSN", transData.getRight());
+		offset.put(fldScnStart, transData.getLeft());
+		offset.put(fldRbaStart, transData.getMiddle().toString());
+		offset.put(fldSubScnStart, transData.getRight());
 	}
 
 	void putTableVersion(final long combinedDataObjectId, final int version) {
@@ -637,4 +666,14 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		return false;
 	}
 
+	void putInProgressOffsets(final OraCdcStatementBase stmt) {
+		offset.put(fldScnInProgress, stmt.getScn());
+		offset.put(fldRbaInProgress, stmt.getRba().toString());
+		offset.put(fldSubScnInProgress, stmt.getSsn());
+		offset.put(fldCommitScnInProgress, transaction.getCommitScn());
+	}
+
+	void putCompletedOffset() {
+		offset.put(fldCommitScnCompleted, transaction.getCommitScn());
+	}
 }
