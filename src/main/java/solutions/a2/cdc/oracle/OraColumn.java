@@ -153,6 +153,8 @@ public class OraColumn {
 	private int dataLength;
 	private boolean encrypted;
 	private boolean salt;
+	private static final short FLG_LARGE_OBJECT               = (short)0x0001;
+	private short flags = 0;
 
 	/**
 	 * 
@@ -456,7 +458,7 @@ public class OraColumn {
 			}
 		} else {
 			switch (oraType) {
-				case TYPE_FLOAT:
+				case TYPE_FLOAT -> {
 					// A subtype of the NUMBER datatype having precision p.
 					// A FLOAT value is represented internally as NUMBER.
 					// The precision p can range from 1 to 126 binary digits.
@@ -470,8 +472,8 @@ public class OraColumn {
 						jdbcType = DOUBLE;
 						doubleField();
 					}
-					break;
-				case TYPE_NUMBER:
+				}
+				case TYPE_NUMBER -> {
 					number = true;
 					if (dataScale != null && dataPrecision == null) {
 						//DATA_SCALE set but DATA_PRECISION is unknown....
@@ -514,10 +516,8 @@ public class OraColumn {
 						jdbcType = DECIMAL;
 						decimalField(dataScale);
 					}
-					break;
-				case TYPE_INTEGER:
-				case TYPE_INT:
-				case TYPE_SMALLINT:
+				}
+				case TYPE_INTEGER, TYPE_INT, TYPE_SMALLINT -> {
 					// NUMBER(38, 0)
 					if (useOracdcSchemas) {
 						jdbcType = NUMERIC;
@@ -526,89 +526,96 @@ public class OraColumn {
 						jdbcType = DECIMAL;
 						decimalField(0);
 					}
-					break;
-				case TYPE_BINARY_FLOAT:
+				}
+				case TYPE_BINARY_FLOAT -> {
 					jdbcType = FLOAT;
 					binaryFloatDouble = true;
 					floatField();
-					break;
-				case TYPE_BINARY_DOUBLE:
+				}
+				case TYPE_BINARY_DOUBLE -> {
 					jdbcType = DOUBLE;
 					binaryFloatDouble = true;
 					doubleField();
-					break;
-				case TYPE_CHAR:
+				}
+				case TYPE_CHAR -> {
 					jdbcType = CHAR;
 					stringField();
 					secureFile = false;
-					break;
-				case TYPE_NCHAR:
+				}
+				case TYPE_NCHAR -> {
 					jdbcType = NCHAR;
 					stringField();
 					secureFile = false;
-					break;
-				case TYPE_VARCHAR2:
+				}
+				case TYPE_VARCHAR2 -> {
 					jdbcType = VARCHAR;
 					stringField();
-					if (dataLength > CHAR_MAX)
+					if (dataLength > CHAR_MAX) {
 						secureFile = true;
-					else
+					} else
 						secureFile = false;
-					break;
-				case TYPE_NVARCHAR2:
+				}
+				case TYPE_NVARCHAR2 -> {
 					jdbcType = NVARCHAR;
 					stringField();
-					if (dataLength > CHAR_MAX)
+					if (dataLength > CHAR_MAX) {
 						secureFile = true;
-					else
+					} else
 						secureFile = false;
-					break;
-				case TYPE_CLOB:
+				}
+				case TYPE_CLOB -> {
 					jdbcType = CLOB;
+					flags |= FLG_LARGE_OBJECT;
 					if (mviewSource)
 						stringField();
-					break;
-				case TYPE_NCLOB:
+				}
+				case TYPE_NCLOB -> {
 					jdbcType = NCLOB;
+					flags |= FLG_LARGE_OBJECT;
 					if (mviewSource)
 						stringField();
-					break;
-				case TYPE_RAW:
+				}
+				case TYPE_RAW -> {
 					jdbcType = BINARY;
 					bytesField();
-					if (dataLength > RAW_MAX)
+					if (dataLength > RAW_MAX) {
 						secureFile = true;
-					else
+					} else
 						secureFile = false;
-					break;
-				case TYPE_BLOB:
+				}
+				case TYPE_BLOB -> {
 					jdbcType = BLOB;
+					flags |= FLG_LARGE_OBJECT;
 					if (mviewSource)
 						bytesField();
-					break;
-				case TYPE_XMLTYPE:
+				}
+				case TYPE_XMLTYPE -> {
 					jdbcType = SQLXML;
+					flags |= FLG_LARGE_OBJECT;
 					if (mviewSource)
 						stringField();
-					break;
-				case TYPE_JSON:
+				}
+				case TYPE_JSON -> {
 					jdbcType = JSON;
+					flags |= FLG_LARGE_OBJECT;
 					if (mviewSource)
 						stringField();
-					break;
-				case TYPE_BOOLEAN:
+				}
+				case TYPE_BOOLEAN -> {
 					// 252
 					jdbcType = BOOLEAN;
 					booleanField();
-					break;
-				case TYPE_VECTOR:
+				}
+				case TYPE_VECTOR -> {
 					// 127
 					jdbcType = VECTOR;
-					break;
-				default:
+					flags |= FLG_LARGE_OBJECT;
+				}
+				default -> {
 					LOGGER.warn("Datatype {} for column {} is not supported!",
 							oraType, this.columnName);
 					throw new UnsupportedColumnDataTypeException(this.columnName);
+				}
 			}
 		}
 	}
@@ -1626,8 +1633,6 @@ public class OraColumn {
 		}
 	}
 
-
-
 	private void logDefaultValueError(final String dataTypeName) {
 		LOGGER.error(
 				"\n" +
@@ -1752,6 +1757,10 @@ public class OraColumn {
 
 	public boolean isSalted() {
 		return salt;
+	}
+
+	boolean largeObject() {
+		return (flags & FLG_LARGE_OBJECT) > 0;
 	}
 
 }
