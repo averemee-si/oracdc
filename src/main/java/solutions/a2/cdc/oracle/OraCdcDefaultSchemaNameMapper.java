@@ -15,7 +15,7 @@ package solutions.a2.cdc.oracle;
 
 import org.apache.commons.lang3.StringUtils;
 
-import solutions.a2.kafka.ConnectorParams;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
 
 /**
  *
@@ -53,6 +53,16 @@ public class OraCdcDefaultSchemaNameMapper implements SchemaNameMapper {
 		}
 	}
 
+	@Override
+	public String getEnvelopeSchemaName(
+			final String pdbName, final String tableOwner, final String tableName) {
+		if (protobufSchemaNaming) {
+			return getSchemaName(pdbName, '_', tableOwner, tableName, '_', "Envelope");
+		} else {
+			return getSchemaName(pdbName, ':', tableOwner, tableName, '.', "Envelope");
+		}
+	}
+
 	private String getSchemaName(final String pdbName, final char pdbDelimiter,
 			final String tableOwner, final String tableName, final char delimiter,
 			final String suffix) {
@@ -66,7 +76,7 @@ public class OraCdcDefaultSchemaNameMapper implements SchemaNameMapper {
 			.append(tableOwner)
 			.append(delimiter)
 			.append(tableName);
-		if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
+		if (schemaType != SCHEMA_TYPE_INT_SINGLE) {
 			sb
 				.append(delimiter)
 				.append(suffix);

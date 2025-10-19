@@ -23,5 +23,6 @@ public interface SchemaNameMapper {
 	default void configure(OraCdcSourceConnectorConfig config) {};
 	String getKeySchemaName(String pdbName, String tableOwner, String tableName);
 	String getValueSchemaName(String pdbName, String tableOwner, String tableName);
+	String getEnvelopeSchemaName(String pdbName, String tableOwner, String tableName);
 
 }
