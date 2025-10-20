@@ -15,6 +15,7 @@ package solutions.a2.cdc.oracle;
 
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.sql.SQLException;
 
@@ -24,8 +25,6 @@ import oracle.sql.BINARY_DOUBLE;
 import oracle.sql.BINARY_FLOAT;
 import oracle.sql.NUMBER;
 import solutions.a2.oracle.jdbc.types.OracleNumber;
-
-import static solutions.a2.cdc.oracle.OraDumpDecoder.hexToRaw;
 
 /**
  *  
