@@ -27,12 +27,12 @@ import oracle.jdbc.OraclePreparedStatement;
 import oracle.sql.NUMBER;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
+
 /**
+ *
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
- * Wrapper for LogMiner operations
- * 
- * 
- * @author averemee
  */
 public class OraCdcLargeObjectWorker {
 
@@ -258,7 +258,7 @@ public class OraCdcLargeObjectWorker {
 			}
 			break;
 		case Types.BLOB:
-			ba = OraDumpDecoder.hexToRaw(lobHexData.toString());
+			ba = hexToRaw(lobHexData.toString());
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("BLOB column {}, XID='{}' processing completed, processing time {} ms, data length={}",
 						oraColumn.getColumnName(), xid, (System.currentTimeMillis() - processingStartMillis), ba.length);

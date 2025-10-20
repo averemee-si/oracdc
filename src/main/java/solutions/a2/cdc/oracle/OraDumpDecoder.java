@@ -44,6 +44,7 @@ import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
 
 import static solutions.a2.oracle.utils.BinaryUtils.getU16BE;
 import static solutions.a2.oracle.utils.BinaryUtils.getU32BE;
+import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 
 /**
@@ -206,16 +207,6 @@ public class OraDumpDecoder {
 		} else {
 			throw new SQLException("Invalid Oracle HEX value DATE/TIMESTAMP - " + rawToHex(data) + "!");
 		}
-	}
-
-	public static byte[] hexToRaw(final String hex) {
-		final int len = hex.length();
-		final byte[] data = new byte[len / 2];
-		for (int i = 0; i < len; i += 2) {
-			data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4) +
-									Character.digit(hex.charAt(i+1), 16));
-		}
-		return data;
 	}
 
 	public static String toHexString(final byte[] hex) {
