@@ -52,6 +52,7 @@ import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
+import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
@@ -155,6 +156,7 @@ public class OraColumn {
 	private static final short FLG_LOCAL_TIME_ZONE     = (short)0x0200;
 	private static final short FLG_DEFAULT_VALUE       = (short)0x0200;
 	private short flags = 0;
+	private OraCdcTdeColumnDecrypter decrypter;
 
 	/**
 	 * 
@@ -173,7 +175,9 @@ public class OraColumn {
 			final boolean useOracdcSchemas,
 			final boolean processLobs,
 			final ResultSet resultSet,
-			final Set<String> pkColsSet) throws SQLException, UnsupportedColumnDataTypeException {
+			final Set<String> pkColsSet,
+			final OraCdcTdeColumnDecrypter decrypter) throws SQLException, UnsupportedColumnDataTypeException {
+		this.decrypter = decrypter;
 		oracleName = resultSet.getString("COLUMN_NAME");
 		if (!KafkaUtils.validAvroFieldName(oracleName)) {
 			columnName = KafkaUtils.fixAvroFieldName(oracleName, "_");

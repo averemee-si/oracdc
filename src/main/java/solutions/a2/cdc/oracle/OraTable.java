@@ -261,7 +261,9 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			OraColumn column = null;
 			if (Strings.CI.equals(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
 				try {
-					column = new OraColumn(false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0, rsColumns, pkColsSet);
+					column = new OraColumn(
+							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
+							rsColumns, pkColsSet, decrypter);
 					if (column.isNumber() && numberRemap != null) {
 						final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
 						if (newDefinition != null) {
