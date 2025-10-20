@@ -176,7 +176,8 @@ public class OraColumn {
 			final boolean processLobs,
 			final ResultSet resultSet,
 			final Set<String> pkColsSet,
-			final OraCdcTdeColumnDecrypter decrypter) throws SQLException, UnsupportedColumnDataTypeException {
+			final OraCdcTdeColumnDecrypter decrypter,
+			final OraRdbmsInfo rdbmsInfo) throws SQLException, UnsupportedColumnDataTypeException {
 		this.decrypter = decrypter;
 		oracleName = resultSet.getString("COLUMN_NAME");
 		if (!KafkaUtils.validAvroFieldName(oracleName)) {

@@ -263,7 +263,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				try {
 					column = new OraColumn(
 							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
-							rsColumns, pkColsSet, decrypter);
+							rsColumns, pkColsSet, decrypter, rdbmsInfo);
 					if (column.isNumber() && numberRemap != null) {
 						final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
 						if (newDefinition != null) {
