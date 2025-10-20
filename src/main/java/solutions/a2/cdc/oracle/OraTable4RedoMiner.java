@@ -42,6 +42,7 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toByte;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toDouble;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toFloat;
@@ -75,7 +76,6 @@ import org.slf4j.event.Level;
 import oracle.jdbc.OracleTypes;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
-import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
 
@@ -227,7 +227,27 @@ public class OraTable4RedoMiner extends OraTable {
 		} else {
 			keyStruct = new Struct(keySchema);
 		}
-		valueStruct = new Struct(valueSchema);
+		
+		Struct struct = null;
+		if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
+			struct = new Struct(valueSchema);
+			switch (stmt.getOperation()) {
+				case INSERT -> {
+					valueStruct = struct.getStruct("after");
+					struct.put("before", null);
+				}
+				case UPDATE -> {
+					valueStruct = struct.getStruct("after");
+					struct.put("before", null);
+				}
+				case DELETE -> {
+					valueStruct = struct.getStruct("before");
+					struct.put("after", null);
+				}
+			}
+		} else {
+			valueStruct = new Struct(valueSchema);
+		}
 		boolean skipRedoRecord = false;
 		List<OraColumn> missedColumns = null;
 
@@ -246,7 +266,7 @@ public class OraTable4RedoMiner extends OraTable {
 			}
 			try {
 				keyStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
-				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+				if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
 					valueStruct.put(OraColumn.ROWID_KEY, stmt.getRowId().toString());
 				}
 			} catch (DataException de) {
@@ -254,7 +274,7 @@ public class OraTable4RedoMiner extends OraTable {
 				sb.append("keyFields:");
 				keySchema.fields().forEach(f -> sb
 						.append("\n\t").append(f.name()).append("\t").append(f.schema().name()));
-				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+				if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
 					sb.append("\nvalueFields:");
 					valueSchema.fields().forEach(f -> sb
 							.append("\n\t").append(f.name()).append("\t").append(f.schema().name()));
@@ -902,8 +922,8 @@ public class OraTable4RedoMiner extends OraTable {
 		} else {
 			if (pkColumns.containsKey(columnName)) {
 				keyStruct.put(columnName, columnValue);
-				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-						valueStruct.put(columnName, columnValue);
+				if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
+					valueStruct.put(columnName, columnValue);
 				}
 			} else {
 				if ((columnType == BLOB || columnType == CLOB ||

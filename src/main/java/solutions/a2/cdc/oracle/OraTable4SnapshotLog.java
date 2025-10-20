@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -765,5 +766,18 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 			}
 		}
 	}
+
+	private void addPseudoKey(
+			final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) {
+		// Add ROWID (ORA$ROWID) - this column is not in dictionary!!!
+		OraColumn rowIdColumn = OraColumn.getRowIdKey();
+		allColumns.add(rowIdColumn);
+		pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
+		keySchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
+		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+			valueSchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
+		}
+	}
+
 
 }

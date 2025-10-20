@@ -47,11 +47,6 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 		} else {
 			keySchema = keySchemaBuilder.build();
 		}
-		schemaEiplogue(tableFqn, valueSchemaBuilder);
-	}
-
-	void schemaEiplogue(final String tableFqn,
-			final SchemaBuilder valueSchemaBuilder) throws SQLException {
 		valueSchema = valueSchemaBuilder.build();
 		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
 			final SchemaBuilder schemaBuilder = SchemaBuilder
@@ -65,18 +60,6 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 				schemaBuilder.field("source", rdbmsInfo.getSchema());
 			}
 			schema = schemaBuilder.build();
-		}
-	}
-
-	void addPseudoKey(
-			final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) {
-		// Add ROWID (ORA$ROWID) - this column is not in dictionary!!!
-		OraColumn rowIdColumn = OraColumn.getRowIdKey();
-		allColumns.add(rowIdColumn);
-		pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
-		keySchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
-		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-			valueSchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
 		}
 	}
 

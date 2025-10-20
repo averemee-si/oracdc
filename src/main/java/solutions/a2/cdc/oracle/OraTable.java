@@ -13,13 +13,7 @@
 
 package solutions.a2.cdc.oracle;
 
-import static java.sql.Types.BLOB;
-import static java.sql.Types.CLOB;
-import static java.sql.Types.NCLOB;
-import static java.sql.Types.SQLXML;
 import static java.sql.Types.VARCHAR;
-import static oracle.jdbc.OracleTypes.JSON;
-import static oracle.jdbc.OracleTypes.VECTOR;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
@@ -29,6 +23,8 @@ import static solutions.a2.cdc.oracle.OraColumn.GUARD_COLUMN;
 import static solutions.a2.cdc.oracle.OraColumn.UNUSED_COLUMN;
 import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -83,7 +79,6 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	final OraCdcSourceConnectorConfig config;
 	private String sqlGetKeysUsingRowId = null;
 	int incompleteDataTolerance = INCOMPLETE_REDO_INT_ERROR;
-	private Set<String> pkColsSet;
 	private int mandatoryColumnsCount = 0;
 	private int maxColumnId;
 	int mandatoryColumnsProcessed = 0;
@@ -97,8 +92,6 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	OraDumpDecoder odd;
 	Map<String, Schema> lobColumnSchemas;
 
-
-	static final short FLG_TABLE_WITHOUT_PK            = (short)0xFFFE;
 	static final short FLG_TABLE_WITH_PK               = (short)0x0001; 
 	static final short FLG_PROCESS_LOBS                = (short)0x0002;
 	static final short FLG_WITH_LOBS                   = (short)0x0004;
@@ -189,6 +182,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	void readAndParseOraColumns(final Connection connection, final boolean isCdb) throws SQLException {
 		final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
 		final boolean useRowIdAsKey;
+		final Set<String> pkColsSet;
 		switch (keyOverrideType.getKey()) {
 			case NONE -> {
 				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
@@ -211,14 +205,13 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			}
 		}
 
-		final SchemaBuilder keySchemaBuilder = keySchemaBuilder(config.useRowidAsKey());
-		final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(version);
-		
 		if (pkColsSet == null) {
-			flags &= FLG_TABLE_WITHOUT_PK;
+			flags &= (~FLG_TABLE_WITH_PK);
 			if ((flags & FLG_ONLY_VALUE) == 0 && useRowIdAsKey) {
-				addPseudoKey(keySchemaBuilder, valueSchemaBuilder);
 				flags |= FLG_PSEUDO_KEY;
+				final OraColumn rowIdColumn = OraColumn.getRowIdKey();
+				allColumns.add(rowIdColumn);
+				pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
 			}
 			LOGGER.warn(
 					"""
@@ -320,46 +313,24 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				}
 			}
 
+			if (columnAdded && column.largeObject()) {
+				if ((flags & FLG_PROCESS_LOBS) == 0) {
+					addLobColumnId(column.getColumnId());
+					columnAdded = false;
+				} else {
+					if ((flags & FLG_WITH_LOBS) == 0) {
+						flags |= FLG_WITH_LOBS;
+						createLobHolders();
+					}
+				}
+			}
+
 			if (columnAdded) {
 				if (!hasEncryptedColumns && column.isEncrypted()) {
 					hasEncryptedColumns = true;
 				}
-				// For archived redo more logic required
-				if (column.getJdbcType() == BLOB ||
-					column.getJdbcType() == CLOB ||
-					column.getJdbcType() == NCLOB ||
-					column.getJdbcType() == SQLXML ||
-					column.getJdbcType() == JSON ||
-					column.getJdbcType() == VECTOR) {
-					if ((flags & FLG_PROCESS_LOBS) > 0) {
-						if ((flags & FLG_WITH_LOBS) == 0) {
-							flags |= FLG_WITH_LOBS;
-							createLobHolders();
-						}
-						allColumns.add(column);
-						addToIdMap(column);
-						final String lobColumnName = column.getColumnName();
-						final Schema lobSchema = transformLobs.transformSchema(pdbName, tableOwner, tableName, column, valueSchemaBuilder);
-						if (lobSchema != null) {
-							// BLOB/CLOB/NCLOB/XMLTYPE is transformed
-							if (lobColumnSchemas == null) {
-								lobColumnSchemas = new HashMap<>();
-							}
-							lobColumnSchemas.put(lobColumnName, lobSchema);
-						}
-					} else {
-						addLobColumnId(column.getColumnId());
-						columnAdded = false;
-					}
-				} else {
-					allColumns.add(column);
-					addToIdMap(column);
-					// Just add to value schema
-					if (!column.isPartOfPk() || 
-							schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
-						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
-					}
-				}
+				allColumns.add(column);
+				addToIdMap(column);
 
 				if (column.getColumnId() > maxColumnId) {
 					maxColumnId = column.getColumnId();
@@ -375,13 +346,6 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				}
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
-					// Schema addition
-					if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
-						keySchemaBuilder.field(column.getColumnName(), column.getSchema());
-					}
-					if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
-					}
 				}
 
 				if (column.isPartOfPk() || (!column.isNullable() && !column.isDefaultValuePresent())) {
@@ -441,9 +405,8 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			sqlGetKeysUsingRowId = sb.toString();
 		}
 
-		// Schema
-		addPseudoColumns(valueSchemaBuilder);
-		schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
+		buildSchema(true);
+
 		if (LOGGER.isDebugEnabled()) {
 			if (mandatoryColumnsCount > 0) {
 				LOGGER.debug("Table {} has {} mandatory columns.", tableFqn, mandatoryColumnsCount);
@@ -472,6 +435,86 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
 		}
 	}
+
+	private void buildSchema(final boolean initial) throws SQLException {
+		final SchemaBuilder keySchemaBuilder;
+		if (initial) {
+			if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD ||
+					schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
+				if ((flags & FLG_TABLE_WITH_PK) > 0 || (flags & FLG_PSEUDO_KEY) > 0)
+					keySchemaBuilder = schemaBuilder(true, 1);
+				else
+					keySchemaBuilder = null;
+			} else {
+				keySchemaBuilder = null;
+			}
+		} else {
+			keySchemaBuilder = null;
+			if (lobColumnSchemas != null)
+				lobColumnSchemas.clear();
+		}
+		final SchemaBuilder valueSchemaBuilder = schemaBuilder(false, version);
+		for (final OraColumn column : allColumns) {
+			if (column.largeObject()) {
+				final String lobColumnName = column.getColumnName();
+				final Schema lobSchema = transformLobs.transformSchema(pdbName, tableOwner, tableName, column, valueSchemaBuilder);
+				if (lobSchema != null) {
+					// BLOB/CLOB/NCLOB/XMLTYPE is transformed
+					if (lobColumnSchemas == null) {
+						lobColumnSchemas = new HashMap<>();
+					}
+					lobColumnSchemas.put(lobColumnName, lobSchema);
+				}
+			}
+			if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
+				if (column.isPartOfPk()) {
+					if (initial)
+						keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+				} else {
+					if (!column.largeObject())
+						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+				}
+			} else {
+				if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
+					if (column.isPartOfPk()) {
+						if (initial)
+							keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+					}
+				}
+				if (!column.largeObject())
+					valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+			}
+		}
+		if (schemaType != SCHEMA_TYPE_INT_DEBEZIUM) {
+			//TODO
+			//TODO Beter handling for 'debezium'-like schemas are required for this case...
+			//TODO
+			pseudoColumns.addToSchema(valueSchemaBuilder);
+		}
+		// Epilogue
+		if (keySchemaBuilder == null) {
+			if (initial)
+				keySchema = null;
+		} else {
+			keySchema = keySchemaBuilder.build();
+		}
+		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+			final SchemaBuilder schemaBuilder = SchemaBuilder
+					.struct()
+					.name(snm.getEnvelopeSchemaName(pdbName, tableOwner, tableName))
+					.version(version);
+			schemaBuilder.field("before", valueSchemaBuilder.build());
+			schemaBuilder.field("after", valueSchemaBuilder.build());
+			schemaBuilder.field("source", rdbmsInfo.getSchema());
+			schemaBuilder.field("op", Schema.STRING_SCHEMA);
+			schemaBuilder.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA);
+			valueSchema = schemaBuilder.build();
+		} else {
+			valueSchema = valueSchemaBuilder.build();
+		}
+	}
+
+
 
 	SourceRecord createSourceRecord(
 			final OraCdcStatementBase stmt, final OraCdcTransaction transaction,
@@ -519,7 +562,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				}
 			}
 
-			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+			if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
 				final Struct struct = new Struct(schema);
 				final Struct source = rdbmsInfo.getStruct(
 						stmt.getSqlRedo(),
@@ -556,7 +599,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 							valueSchema,
 							valueStruct);
 				} else {
-					if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
+					if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
 						if (stmt.getOperation() == DELETE &&
 								(flags & FLG_ALL_COLS_ON_DELETE) == 0) {
 							sourceRecord = new SourceRecord(
@@ -710,20 +753,11 @@ public abstract class OraTable extends OraTable4SourceConnector {
 					allColumns.remove(indexToRemove);
 					columnToRemove = null;
 				}
-				final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(++version);
-				for (final Field field : valueSchema.fields()) {
-					final boolean present = allColumns
-								.stream()
-								.filter(c -> Strings.CS.equals(c.getColumnName(), field.name()))
-								.findFirst()
-								.isPresent();
-					if (present)
-						valueSchemaBuilder.field(field.name(), field.schema());
-				}
-				addPseudoColumns(valueSchemaBuilder);
-				schemaEiplogue(tableFqn, valueSchemaBuilder);
 				maxColumnId = allColumns.size();
 				updatedColumnCount = unusedColumns.size();
+
+				version++;
+				buildSchema(false);
 			}
 			break;
 		case OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY:
@@ -790,16 +824,14 @@ public abstract class OraTable extends OraTable4SourceConnector {
 							""", originalDdl, oldName, tableFqn);
 				} else {
 					allColumns.get(columnIndex).setColumnName(newName);
-					final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(++version);
-					for (final Field field : valueSchema.fields()) {
-						if (Strings.CS.equals(oldName, field.name()))
-							valueSchemaBuilder.field(newName, field.schema());
-						else
-							valueSchemaBuilder.field(field.name(), field.schema());
-					}
-					addPseudoColumns(valueSchemaBuilder);
-					schemaEiplogue(tableFqn, valueSchemaBuilder);
 					updatedColumnCount = 1;
+	
+					version++;
+					buildSchema(false);
+
+for (Field f : valueSchema.fields()) {
+	LOGGER.error("\t" + f.name() + "\t" + f.schema().isOptional() + "\t" + f.schema().name());
+}
 				}
 			}
 			break;
@@ -833,25 +865,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 		alterSession = null;
 	}
 
-	private SchemaBuilder keySchemaBuilder(final boolean useRowIdAsKey) {
-		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
-				(pkColsSet == null && !useRowIdAsKey)) {
-			flags |= FLG_ONLY_VALUE;
-			return null;
-		} else {
-			return keySchemaBuilder();
-		}
-	}
-
-	SchemaBuilder keySchemaBuilder() {
-		return schemaBuilder(true, 1);
-	}
-
-	SchemaBuilder valueSchemaBuilder(final int valueSchemaVersion) {
-		return schemaBuilder(false, valueSchemaVersion);
-	}
-
-	private SchemaBuilder schemaBuilder(final boolean isKey, final int version) {
+	SchemaBuilder schemaBuilder(final boolean isKey, final int version) {
 		return SchemaBuilder
 				.struct()
 				.optional()
@@ -859,15 +873,6 @@ public abstract class OraTable extends OraTable4SourceConnector {
 						? snm.getKeySchemaName(pdbName, tableOwner, tableName)
 						: snm.getValueSchemaName(pdbName, tableOwner, tableName))
 				.version(version);
-	}
-
-	private void addPseudoColumns(final SchemaBuilder valueSchemaBuilder) {
-		if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-			//TODO
-			//TODO Beter handling for 'debezium'-like schemas are required for this case...
-			//TODO
-			pseudoColumns.addToSchema(valueSchemaBuilder);
-		}
 	}
 
 	void getMissedColumnValues(final Connection connection,  final OraCdcStatementBase stmt) throws SQLException {

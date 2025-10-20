@@ -195,7 +195,7 @@ public class OraTable4LogMiner extends OraTable {
 		if ((boolean) tableData.get("tableWithPk"))
 			flags |= FLG_TABLE_WITH_PK;
 		else
-			flags &= FLG_TABLE_WITHOUT_PK;
+			flags &= (~FLG_TABLE_WITH_PK);
 		final Boolean rowLevelScnDependency = (Boolean) tableData.get("rowLevelScn");
 		if (rowLevelScnDependency == null || !rowLevelScnDependency)
 			rowLevelScn = false;
@@ -210,8 +210,8 @@ public class OraTable4LogMiner extends OraTable {
 		}
 
 		// Schema init
-		final SchemaBuilder keySchemaBuilder = keySchemaBuilder();
-		final SchemaBuilder valueSchemaBuilder = valueSchemaBuilder(version);
+		final SchemaBuilder keySchemaBuilder = schemaBuilder(true, 1);
+		final SchemaBuilder valueSchemaBuilder = schemaBuilder(false, version);
 
 		try {
 			@SuppressWarnings("unchecked")
