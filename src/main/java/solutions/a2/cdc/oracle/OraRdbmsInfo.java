@@ -37,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
+import oracle.sql.json.OracleJsonFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeWallet;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
@@ -103,6 +104,7 @@ public class OraRdbmsInfo {
 	private final boolean littleEndian;
 	private final int conUid;
 	private OraCdcTdeWallet tw = null;
+	private final OracleJsonFactory jsonFactory;
 
 	private static final int PDB_MINING_INTRODUCED = 21;
 	private static final int PDB_MINING_BACKPORT_MAJOR = 19;
@@ -344,6 +346,7 @@ public class OraRdbmsInfo {
 			schema = null;
 		}
 		odd = new OraDumpDecoder(dbCharset, dbNCharCharset);
+		jsonFactory = new OracleJsonFactory();
 		sourcePartitionName = instanceName + "_" + hostName;
 		partition = Collections.singletonMap(sourcePartitionName, Long.toString(dbId));
 		if (LOGGER.isDebugEnabled()) {
@@ -1181,6 +1184,10 @@ public class OraRdbmsInfo {
 
 	public OraCdcTdeWallet tdeWallet() {
 		return tw;
+	}
+
+	public OracleJsonFactory jsonFactory() {
+		return jsonFactory;
 	}
 
 	@Override
