@@ -1190,6 +1190,14 @@ public class OraRdbmsInfo {
 		return jsonFactory;
 	}
 
+	public String charset() {
+		return dbCharset;
+	}
+
+	public String nCharset() {
+		return dbNCharCharset;
+	}
+
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder(256);
