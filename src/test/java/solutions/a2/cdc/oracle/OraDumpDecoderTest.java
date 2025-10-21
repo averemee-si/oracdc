@@ -13,6 +13,10 @@
 
 package solutions.a2.cdc.oracle;
 
+import static java.sql.Types.FLOAT;
+import static java.sql.Types.DOUBLE;
+import static oracle.jdbc.OracleTypes.BINARY_FLOAT;
+import static oracle.jdbc.OracleTypes.BINARY_DOUBLE;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
@@ -24,7 +28,6 @@ import org.junit.jupiter.api.Test;
 import oracle.sql.BINARY_DOUBLE;
 import oracle.sql.BINARY_FLOAT;
 import oracle.sql.NUMBER;
-import solutions.a2.oracle.jdbc.types.OracleNumber;
 
 /**
  *  
@@ -76,42 +79,54 @@ public class OraDumpDecoderTest {
 		String binaryDoubleSqrt3 = "bffbb67ae8584caa";
 		String number_11_7_Sqrt3 = "c1024a153351";
 
-		OraDumpDecoder odd = null;
-		odd = new OraDumpDecoder("AL32UTF8", "AL16UTF16");
 		try {
-			System.out.println(odd.fromVarchar2(sUsAscii));
-			assertEquals(odd.fromVarchar2(sUsAscii), "thanks");
-			System.out.println(odd.fromVarchar2(sTrChinese));
-			assertEquals(odd.fromVarchar2(sTrChinese), "謝謝啦");
-			System.out.println(odd.fromVarchar2(sGreek));
-			assertEquals(odd.fromVarchar2(sGreek), "Σας ευχαριστώ");
-			System.out.println(odd.fromVarchar2(sCyrillic));
-			assertEquals(odd.fromVarchar2(sCyrillic), "Спасибо");
+			OraCdcDecoder decoder = OraCdcDecoderFactory.get("AL32UTF8");
+			System.out.println(decoder.decode(sUsAscii));
+			assertEquals(decoder.decode(sUsAscii), "thanks");
+			System.out.println(decoder.decode(sTrChinese));
+			assertEquals(decoder.decode(sTrChinese), "謝謝啦");
+			System.out.println(decoder.decode(sGreek));
+			assertEquals(decoder.decode(sGreek), "Σας ευχαριστώ");
+			System.out.println(decoder.decode(sCyrillic));
+			assertEquals(decoder.decode(sCyrillic), "Спасибо");
 
 			// BigDecimal
-			System.out.println(OraDumpDecoder.toBigDecimal(bdNegative));
-			assertEquals(OraDumpDecoder.toBigDecimal(bdNegative), NUMBER.toBigDecimal(hexToRaw(bdNegative)));
-			// float
-			System.out.println(OracleNumber.toFloat(hexToRaw(bdNegative)));
-			assertEquals(OracleNumber.toFloat(hexToRaw(bdNegative)), NUMBER.toFloat(hexToRaw(bdNegative)));
-			// double
-			System.out.println(OracleNumber.toDouble(hexToRaw(bdNegative)));
-			assertEquals(OracleNumber.toDouble(hexToRaw(bdNegative)), NUMBER.toDouble(hexToRaw(bdNegative)));
+			decoder = OraCdcDecoderFactory.getNUMBER(NUMBER.toBigDecimal(hexToRaw(bdNegative)).scale());
+			System.out.println(decoder.decode(bdNegative));
+			assertEquals(decoder.decode(bdNegative), NUMBER.toBigDecimal(hexToRaw(bdNegative)));
 
-			System.out.println(OraDumpDecoder.fromBinaryFloat(binaryFloatSqrt3));
-			assertEquals(OraDumpDecoder.fromBinaryFloat(binaryFloatSqrt3), new BINARY_FLOAT(hexToRaw(binaryFloatSqrt3)).floatValue());
-			System.out.println(OraDumpDecoder.fromBinaryDouble(binaryDoubleSqrt3));
-			assertEquals(OraDumpDecoder.fromBinaryDouble(binaryDoubleSqrt3), new BINARY_DOUBLE(hexToRaw(binaryDoubleSqrt3)).doubleValue());
+			// float
+			decoder = OraCdcDecoderFactory.get(FLOAT);
+			System.out.println(decoder.decode(hexToRaw(bdNegative)));
+			assertEquals(decoder.decode(hexToRaw(bdNegative)), NUMBER.toFloat(hexToRaw(bdNegative)));
+	
+			// double
+			decoder = OraCdcDecoderFactory.get(DOUBLE);
+			System.out.println(decoder.decode(hexToRaw(bdNegative)));
+			assertEquals(decoder.decode(hexToRaw(bdNegative)), NUMBER.toDouble(hexToRaw(bdNegative)));
+
+			decoder = OraCdcDecoderFactory.get(BINARY_FLOAT);
+			System.out.println(decoder.decode(binaryFloatSqrt3));
+			assertEquals(decoder.decode(binaryFloatSqrt3), new BINARY_FLOAT(hexToRaw(binaryFloatSqrt3)).floatValue());
+
+			decoder = OraCdcDecoderFactory.get(BINARY_DOUBLE);
+			System.out.println(decoder.decode(binaryDoubleSqrt3));
+			assertEquals(decoder.decode(binaryDoubleSqrt3), new BINARY_DOUBLE(hexToRaw(binaryDoubleSqrt3)).doubleValue());
 
 			// BigDecimal
-			System.out.println(OraDumpDecoder.toBigDecimal(number_11_7_Sqrt3));
-			assertEquals(OraDumpDecoder.toBigDecimal(number_11_7_Sqrt3), NUMBER.toBigDecimal(hexToRaw(number_11_7_Sqrt3)));
+			decoder = OraCdcDecoderFactory.getNUMBER(NUMBER.toBigDecimal(hexToRaw(number_11_7_Sqrt3)).scale());
+			System.out.println(decoder.decode(number_11_7_Sqrt3));
+			assertEquals(decoder.decode(number_11_7_Sqrt3), NUMBER.toBigDecimal(hexToRaw(number_11_7_Sqrt3)));
+
 			// float
-			System.out.println(OracleNumber.toFloat(hexToRaw(number_11_7_Sqrt3)));
-			assertEquals(OracleNumber.toFloat(hexToRaw(number_11_7_Sqrt3)), NUMBER.toFloat(hexToRaw(number_11_7_Sqrt3)));
+			decoder = OraCdcDecoderFactory.get(FLOAT);
+			System.out.println(decoder.decode(hexToRaw(number_11_7_Sqrt3)));
+			assertEquals(decoder.decode(hexToRaw(number_11_7_Sqrt3)), NUMBER.toFloat(hexToRaw(number_11_7_Sqrt3)));
+
 			// double
-			System.out.println(OracleNumber.toDouble(hexToRaw(number_11_7_Sqrt3)));
-			assertEquals(OracleNumber.toDouble(hexToRaw(number_11_7_Sqrt3)), NUMBER.toDouble(hexToRaw(number_11_7_Sqrt3)));
+			decoder = OraCdcDecoderFactory.get(DOUBLE);
+			System.out.println(decoder.decode(hexToRaw(number_11_7_Sqrt3)));
+			assertEquals(decoder.decode(hexToRaw(number_11_7_Sqrt3)), NUMBER.toDouble(hexToRaw(number_11_7_Sqrt3)));
 
 		} catch (SQLException e) {
 			e.printStackTrace();
