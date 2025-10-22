@@ -153,16 +153,17 @@ public class OraColumn {
 	private int dataLength;
 	private static final short FLG_NULLABLE            = (short)0x0001;
 	private static final short FLG_PART_OF_PK          = (short)0x0002;
-	private static final short FLG_LARGE_OBJECT        = (short)0x0004;
-	private static final short FLG_SECURE_FILE         = (short)0x0008;
-	private static final short FLG_SALT                = (short)0x0010;
-	private static final short FLG_ENCRYPTED           = (short)0x0020;
-	private static final short FLG_NUMBER              = (short)0x0040;
-	private static final short FLG_BINARY_FLOAT_DOUBLE = (short)0x0080;
-	private static final short FLG_PART_OF_KEY_STRUCT  = (short)0x0100;
-	private static final short FLG_LOCAL_TIME_ZONE     = (short)0x0200;
-	private static final short FLG_DEFAULT_VALUE       = (short)0x0400;
-	private static final short FLG_LOB_TRANSFORM       = (short)0x0800;
+	private static final short FLG_MANDATORY           = (short)0x0004;
+	private static final short FLG_LARGE_OBJECT        = (short)0x0008;
+	private static final short FLG_SECURE_FILE         = (short)0x0010;
+	private static final short FLG_SALT                = (short)0x0020;
+	private static final short FLG_ENCRYPTED           = (short)0x0040;
+	private static final short FLG_NUMBER              = (short)0x0080;
+	private static final short FLG_BINARY_FLOAT_DOUBLE = (short)0x0100;
+	private static final short FLG_PART_OF_KEY_STRUCT  = (short)0x0200;
+	private static final short FLG_LOCAL_TIME_ZONE     = (short)0x0400;
+	private static final short FLG_DEFAULT_VALUE       = (short)0x0800;
+	private static final short FLG_LOB_TRANSFORM       = (short)0x1000;
 	private static final short FLG_DECODE_WITH_TRANS   = (short) (FLG_LARGE_OBJECT | FLG_SECURE_FILE);
 	private short flags = 0;
 	private OraCdcDecoder decoder;
@@ -202,6 +203,8 @@ public class OraColumn {
 		}
 		if (Strings.CI.equals("Y", resultSet.getString("NULLABLE")))
 			flags |= FLG_NULLABLE;
+		else
+			flags |= FLG_MANDATORY;
 		this.setColumnId(resultSet.getInt("COLUMN_ID"));
 
 		defaultValue = resultSet.getString("DATA_DEFAULT");
@@ -216,10 +219,10 @@ public class OraColumn {
 
 		if (mviewSource) {
 			if (Strings.CI.equals("Y", resultSet.getString("PK")))
-				flags |= FLG_PART_OF_PK;
+				flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		} else {
 			if (pkColsSet != null && pkColsSet.contains(this.columnName))
-				flags |= FLG_PART_OF_PK;
+				flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		}
 
 		final String oraType = resultSet.getString("DATA_TYPE");
@@ -389,6 +392,8 @@ public class OraColumn {
 		} else if (posNot == -1) {
 			// NULL explicitly set
 			flags |= FLG_NULLABLE;
+		} else {
+			flags |= FLG_MANDATORY;
 		}
 		if (posDefault != -1 && posDefault + 1 <= tokens.length - 1) {
 			flags |= FLG_DEFAULT_VALUE;
@@ -645,9 +650,11 @@ public class OraColumn {
 	public OraColumn(final Field field, final boolean partOfPk, final boolean partOfKeyStruct) throws SQLException {
 		this.columnName = field.name();
 		if (partOfPk)
-			flags |= FLG_PART_OF_PK;
+			flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		if (field.schema().isOptional())
 			flags |= FLG_NULLABLE;
+		else
+			flags |= FLG_MANDATORY;
 		this.nameFromId = null;
 		if (partOfKeyStruct)
 			flags |= FLG_PART_OF_KEY_STRUCT;
@@ -763,10 +770,12 @@ public class OraColumn {
 		nameFromId = (String) columnData.get("nameFromId");
 		columnId = (int) columnData.get("columnId");
 		if ((boolean) columnData.get("partOfPk"))
-			flags |= FLG_PART_OF_PK;
+			flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		jdbcType = (int) columnData.get("jdbcType");
 		if ((boolean) columnData.get("nullable"))
 			flags |= FLG_NULLABLE;
+		else
+			flags |= FLG_MANDATORY;
 		dataScale = (Integer) columnData.get("dataScale");
 		if (columnData.get("binaryFloatDouble") != null && ((boolean) columnData.get("binaryFloatDouble")))
 			flags |= FLG_BINARY_FLOAT_DOUBLE;
@@ -903,7 +912,7 @@ public class OraColumn {
 
 	public static OraColumn getRowIdKey() {
 		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, ROWID, 0);
-		rowIdColumn.flags |= FLG_PART_OF_PK;
+		rowIdColumn.flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		rowIdColumn.schema = Schema.STRING_SCHEMA;
 		return rowIdColumn;
 	}
@@ -939,9 +948,11 @@ public class OraColumn {
 
 	public void setPartOfPk(boolean partOfPk) {
 		if (partOfPk)
-			flags |= FLG_PART_OF_PK;
-		else
+			flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
+		else {
 			flags &= (~FLG_PART_OF_PK);
+			flags &= (~FLG_MANDATORY);
+		}
 	}
 
 	public int getJdbcType() {
@@ -957,10 +968,13 @@ public class OraColumn {
 	}
 
 	public void setNullable(boolean nullable) {
-		if (nullable)
+		if (nullable) {
 			flags |= FLG_NULLABLE;
-		else
+			flags &= (~FLG_MANDATORY);
+		} else {
 			flags &= (~FLG_NULLABLE);
+			flags |= FLG_MANDATORY;
+		}
 	}
 
 	public int getDataScale() {
@@ -1786,6 +1800,10 @@ public class OraColumn {
 
 	boolean transformLob() {
 		return (flags & FLG_LOB_TRANSFORM) > 0;
+	}
+
+	boolean mandatory() {
+		return (flags & FLG_MANDATORY) > 0;
 	}
 
 }
