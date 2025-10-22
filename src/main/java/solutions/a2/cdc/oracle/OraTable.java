@@ -89,7 +89,6 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	Struct keyStruct;
 	Struct valueStruct;
 	OraCdcTdeColumnDecrypter decrypter;
-	OraDumpDecoder odd;
 	Map<String, Schema> lobColumnSchemas;
 
 	static final short FLG_TABLE_WITH_PK               = (short)0x0001; 
@@ -128,7 +127,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 		this.rdbmsInfo = rdbmsInfo;
 		this.config = config;
 		if (config != null) {
-			setTopicDecoderPartition(config, rdbmsInfo.odd(), rdbmsInfo.partition());
+			setTopicDecoderPartition(config, rdbmsInfo.partition());
 			incompleteDataTolerance = config.getIncompleteDataTolerance();
 			topicPartition = config.topicPartition();
 			pseudoColumns = config.pseudoColumnsProcessor();
@@ -150,8 +149,8 @@ public abstract class OraTable extends OraTable4SourceConnector {
 		this.transformLobs = transformLobs;
 	}
 
-	public void setTopicDecoderPartition(final OraCdcSourceConnectorConfig config,
-			final OraDumpDecoder odd, final Map<String, String> sourcePartition) {
+	public void setTopicDecoderPartition(
+			final OraCdcSourceConnectorConfig config, final Map<String, String> sourcePartition) {
 		final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
 		topicNameMapper.configure(config);
 		this.kafkaTopic = topicNameMapper.getTopicName(pdbName, tableOwner, tableName);
@@ -160,7 +159,6 @@ public abstract class OraTable extends OraTable4SourceConnector {
 					"Kafka topic for table {} set to {}.",
 					tableFqn, this.kafkaTopic);
 		}
-		this.odd = odd;
 		this.sourcePartition = sourcePartition;
 	}
 
@@ -267,7 +265,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 					if (column.isNumber() && numberRemap != null) {
 						final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
 						if (newDefinition != null) {
-							column.remap(newDefinition);
+							column.remap(newDefinition, decrypter);
 						}
 					}
 					columnAdded = true;

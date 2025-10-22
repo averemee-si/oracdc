@@ -439,7 +439,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 					LOGGER.info("{} table schema definitions loaded from file {}.",
 							tablesInProcessing.size(), schemaFileName);
 					tablesInProcessing.forEach((key, table) -> {
-						table.setTopicDecoderPartition(config, rdbmsInfo.odd(), rdbmsInfo.partition());
+						table.setTopicDecoderPartition(config, rdbmsInfo.partition());
 						metrics.addTableInProcessing(table.fqn());
 					});
 				} catch (IOException ioe) {

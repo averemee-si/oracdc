@@ -98,7 +98,6 @@ public class OraRdbmsInfo {
 	private final String logMode;
 	private final String controlFileType;
 	private final String openMode;
-	private final OraDumpDecoder odd;
 	private final String sourcePartitionName;
 	private final Map<String, String> partition;
 	private final boolean littleEndian;
@@ -345,7 +344,6 @@ public class OraRdbmsInfo {
 		} else {
 			schema = null;
 		}
-		odd = new OraDumpDecoder(dbCharset, dbNCharCharset);
 		jsonFactory = new OracleJsonFactory();
 		sourcePartitionName = instanceName + "_" + hostName;
 		partition = Collections.singletonMap(sourcePartitionName, Long.toString(dbId));
@@ -1160,10 +1158,6 @@ public class OraRdbmsInfo {
 
 	public String getOpenMode() {
 		return openMode;
-	}
-
-	public OraDumpDecoder odd() {
-		return odd;
 	}
 
 	public String sourcePartitionName() {

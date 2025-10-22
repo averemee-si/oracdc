@@ -13,26 +13,10 @@
 
 package solutions.a2.cdc.oracle;
 
-import static java.sql.Types.BIGINT;
-import static java.sql.Types.BINARY;
 import static java.sql.Types.BLOB;
-import static java.sql.Types.CHAR;
 import static java.sql.Types.CLOB;
-import static java.sql.Types.DATE;
-import static java.sql.Types.DECIMAL;
-import static java.sql.Types.DOUBLE;
-import static java.sql.Types.FLOAT;
-import static java.sql.Types.INTEGER;
-import static java.sql.Types.NCHAR;
 import static java.sql.Types.NCLOB;
-import static java.sql.Types.NUMERIC;
-import static java.sql.Types.NVARCHAR;
-import static java.sql.Types.SMALLINT;
 import static java.sql.Types.SQLXML;
-import static java.sql.Types.TIMESTAMP;
-import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
-import static java.sql.Types.TINYINT;
-import static java.sql.Types.VARCHAR;
 import static oracle.jdbc.OracleTypes.JSON;
 import static oracle.jdbc.OracleTypes.VECTOR;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
@@ -41,16 +25,8 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.XML_DOC_BEGIN;
-import static solutions.a2.oracle.jdbc.types.OracleNumber.toByte;
-import static solutions.a2.oracle.jdbc.types.OracleNumber.toDouble;
-import static solutions.a2.oracle.jdbc.types.OracleNumber.toFloat;
-import static solutions.a2.oracle.jdbc.types.OracleNumber.toInt;
-import static solutions.a2.oracle.jdbc.types.OracleNumber.toLong;
-import static solutions.a2.oracle.jdbc.types.OracleNumber.toShort;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -76,13 +52,8 @@ import org.slf4j.event.Level;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
-import oracle.jdbc.OracleTypes;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
-import solutions.a2.cdc.oracle.data.OraInterval;
-import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.kafka.ConnectorParams;
-import solutions.a2.oracle.jdbc.types.OracleDate;
-import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 
 /**
  * 
@@ -102,9 +73,6 @@ public class OraTable4LogMiner extends OraTable {
 
 	private static final int LOB_BASICFILES_DATA_BEGINS = 72;
 	private static final int LOB_SECUREFILES_DATA_BEGINS = 60;
-
-	private static final int DATE_DATA_LENGTH = OracleDate.DATA_LENGTH * 2;
-	private static final int TS_DATA_LENGTH = OracleTimestamp.DATA_LENGTH * 2;
 
 	private final Map<String, OraColumn> idToNameMap = new HashMap<>();
 	private final Set<String> setColumns = new HashSet<>();
@@ -765,119 +733,51 @@ public class OraTable4LogMiner extends OraTable {
 		//final String hex = StringUtils.substring(hexValue, 1, hexValue.length() - 1);
 		final String hex = StringUtils.substringBetween(hexValue, "'");
 		final Object columnValue;
-		switch (oraColumn.getJdbcType()) {
-			case DATE:
-			case TIMESTAMP:
-				if (hex.length() == DATE_DATA_LENGTH || hex.length() == TS_DATA_LENGTH) {
-					columnValue = OraDumpDecoder.toTimestamp(hex);
-				} else {
-					throw new SQLException("Invalid DATE (Typ=12) or TIMESTAMP (Typ=180)");
-				}
-				break;
-			case TIMESTAMP_WITH_TIMEZONE:
-				columnValue = OraTimestamp.fromLogical(
-					hexToRaw(hex), oraColumn.isLocalTimeZone(), rdbmsInfo.getDbTimeZone());
-				break;
-			case TINYINT:
-				columnValue = toByte(hexToRaw(hex));
-				break;
-			case SMALLINT:
-				columnValue = toShort(hexToRaw(hex));
-				break;
-			case INTEGER:
-				columnValue = toInt(hexToRaw(hex));
-				break;
-			case BIGINT:
-				columnValue = toLong(hexToRaw(hex));
-				break;
-			case FLOAT:
-				if (oraColumn.isBinaryFloatDouble()) {
-					columnValue = OraDumpDecoder.fromBinaryFloat(hex);
-				} else {
-					columnValue = toFloat(hexToRaw(hex));
-				}
-				break;
-			case DOUBLE:
-				if (oraColumn.isBinaryFloatDouble()) {
-					columnValue = OraDumpDecoder.fromBinaryDouble(hex);
-				} else {
-					columnValue = toDouble(hexToRaw(hex));
-				}
-				break;
-			case DECIMAL:
-				BigDecimal bdValue = OraDumpDecoder.toBigDecimal(hex);
-				if (bdValue.scale() > oraColumn.getDataScale()) {
-					LOGGER.warn(
-								"Different data scale for column {} in table {}! Current value={}. Data scale from redo={}, data scale in current dictionary={}",
-								columnName, tableFqn, bdValue, bdValue.scale(), oraColumn.getDataScale());
-					columnValue = bdValue.setScale(oraColumn.getDataScale(), RoundingMode.HALF_UP);
-				} else if (bdValue.scale() !=  oraColumn.getDataScale()) {
-					columnValue = bdValue.setScale(oraColumn.getDataScale());
-				} else {
-					columnValue = bdValue;
-				}
-				break;
-			case BINARY:
-			case NUMERIC:
-			case OracleTypes.INTERVALYM:
-			case OracleTypes.INTERVALDS:
-				// do not need to perform data type conversion here!
-				columnValue = hexToRaw(hex);
-				break;
-			case CHAR:
-			case VARCHAR:
-				columnValue = odd.fromVarchar2(hex);
-				break;
-			case NCHAR:
-			case NVARCHAR:
-				columnValue = odd.fromNvarchar2(hex);
-				break;
-			case CLOB:
-			case NCLOB:
-				final String clobValue;
-				if (oraColumn.getSecureFile()) {
-					if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
-						clobValue = "";
+		if (!oraColumn.largeObject()) {
+			columnValue = oraColumn.decoder().decode(hex);
+		} else {
+			switch (oraColumn.getJdbcType()) {
+				case CLOB, NCLOB -> {
+					final String clobValue;
+					if (oraColumn.getSecureFile()) {
+						if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
+							clobValue = "";
+						} else {
+							clobValue = OraDumpDecoder.fromClobNclob(StringUtils.substring(hex,
+								LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
+						}
 					} else {
-						clobValue = OraDumpDecoder.fromClobNclob(StringUtils.substring(hex,
-							LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
+						clobValue = OraDumpDecoder.fromClobNclob(
+									StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
 					}
-				} else {
-					clobValue = OraDumpDecoder.fromClobNclob(
-								StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
-				}
-				if (clobValue.length() == 0) {
-					columnValue = new byte[0];
-				} else {
-					columnValue = clobValue;
-				}
-				break;
-			case BLOB:
-				if (oraColumn.getSecureFile()) {
-					if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
+					if (clobValue.length() == 0) {
 						columnValue = new byte[0];
 					} else {
-						columnValue = hexToRaw(StringUtils.substring(hex,
-								LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
+						columnValue = clobValue;
 					}
-				} else {
-					columnValue = hexToRaw(
-								StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
 				}
-				break;
-			case SQLXML:
-				// We not expect SYS.XMLTYPE data here!!!
-				// Set it to 'Not touch at Sink!!!'
-				columnValue = null;
-				break;
-			case OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING:
-			case OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING:
-				columnValue = OraInterval.fromLogical(hexToRaw(hex));
-				break;
-			default:
-				columnValue = oraColumn.unsupportedTypeValue();
-				break;
+				case BLOB -> {
+					if (oraColumn.getSecureFile()) {
+						if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
+							columnValue = new byte[0];
+						} else {
+							columnValue = hexToRaw(StringUtils.substring(hex,
+									LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
+						}
+					} else {
+						columnValue = hexToRaw(
+									StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
+					}
+				}
+				case SQLXML -> {
+					// We not expect SYS.XMLTYPE data here!!!
+					// Set it to 'Not touch at Sink!!!'
+					columnValue = null;
+				}
+				default -> columnValue = oraColumn.unsupportedTypeValue();
+			}
 		}
+
 		if ((flags & FLG_ONLY_VALUE) > 0) {
 			valueStruct.put(columnName, columnValue);
 		} else {
@@ -887,12 +787,7 @@ public class OraTable4LogMiner extends OraTable {
 						valueStruct.put(columnName, columnValue);
 				}
 			} else {
-				if ((oraColumn.getJdbcType() == BLOB ||
-							oraColumn.getJdbcType() == CLOB ||
-							oraColumn.getJdbcType() == NCLOB ||
-							oraColumn.getJdbcType() == SQLXML ||
-							oraColumn.getJdbcType() == JSON ||
-							oraColumn.getJdbcType() == VECTOR) &&
+				if (oraColumn.largeObject() &&
 								(lobColumnSchemas != null &&
 								lobColumnSchemas.containsKey(columnName))) {
 					// Data are overloaded
