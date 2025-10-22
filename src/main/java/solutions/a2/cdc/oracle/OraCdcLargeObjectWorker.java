@@ -27,6 +27,7 @@ import oracle.jdbc.OraclePreparedStatement;
 import oracle.sql.NUMBER;
 import solutions.a2.utils.ExceptionUtils;
 
+import static java.nio.charset.StandardCharsets.UTF_16;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 /**
@@ -244,7 +245,7 @@ public class OraCdcLargeObjectWorker {
 		switch (oraColumn.getJdbcType()) {
 		case Types.CLOB:
 		case Types.NCLOB:
-			final String clobAsString = OraDumpDecoder.fromClobNclob(lobHexData.toString());
+			final String clobAsString = new String(hexToRaw(lobHexData.toString()), UTF_16);
 			ba = clobAsString.getBytes();
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("{} column {}, XID='{}' processing completed, processing time {} ms, data length={}, compressed data length={}",

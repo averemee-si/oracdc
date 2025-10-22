@@ -13,6 +13,7 @@
 
 package solutions.a2.cdc.oracle;
 
+import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
@@ -743,12 +744,14 @@ public class OraTable4LogMiner extends OraTable {
 						if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
 							clobValue = "";
 						} else {
-							clobValue = OraDumpDecoder.fromClobNclob(StringUtils.substring(hex,
-								LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));
+							clobValue = new String(hexToRaw(StringUtils.substring(
+									hex,
+									LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0))),
+									UTF_16);
 						}
 					} else {
-						clobValue = OraDumpDecoder.fromClobNclob(
-									StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS));
+						clobValue = new String(hexToRaw(StringUtils.substring(hex, LOB_BASICFILES_DATA_BEGINS)),
+									UTF_16);
 					}
 					if (clobValue.length() == 0) {
 						columnValue = new byte[0];
