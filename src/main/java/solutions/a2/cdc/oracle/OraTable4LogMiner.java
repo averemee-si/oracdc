@@ -790,9 +790,7 @@ public class OraTable4LogMiner extends OraTable {
 						valueStruct.put(columnName, columnValue);
 				}
 			} else {
-				if (oraColumn.largeObject() &&
-								(lobColumnSchemas != null &&
-								lobColumnSchemas.containsKey(columnName))) {
+				if (oraColumn.transformLob()) {
 					// Data are overloaded
 					valueStruct.put(columnName,
 								transformLobs.transformData(

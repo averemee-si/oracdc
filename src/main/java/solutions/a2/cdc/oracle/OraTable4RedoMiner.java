@@ -600,9 +600,7 @@ public class OraTable4RedoMiner extends OraTable {
 					valueStruct.put(columnName, columnValue);
 				}
 			} else {
-				if (oraColumn.largeObject() &&
-								(lobColumnSchemas != null &&
-								lobColumnSchemas.containsKey(columnName))) {
+				if (oraColumn.transformLob()) {
 					// Data are overloaded
 					LOGGER.warn("LOB transformation not implemented yet!");
 //					valueStruct.put(columnName,

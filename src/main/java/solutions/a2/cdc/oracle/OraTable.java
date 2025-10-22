@@ -464,6 +464,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 						lobColumnSchemas = new HashMap<>();
 					}
 					lobColumnSchemas.put(lobColumnName, lobSchema);
+					column.transformLob(true);
 				}
 			}
 			if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
@@ -1266,6 +1267,5 @@ for (Field f : valueSchema.fields()) {
 	String pdbName() {
 		return pdbName;
 	}
-
 
 }

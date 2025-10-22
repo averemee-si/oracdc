@@ -161,7 +161,8 @@ public class OraColumn {
 	private static final short FLG_BINARY_FLOAT_DOUBLE = (short)0x0080;
 	private static final short FLG_PART_OF_KEY_STRUCT  = (short)0x0100;
 	private static final short FLG_LOCAL_TIME_ZONE     = (short)0x0200;
-	private static final short FLG_DEFAULT_VALUE       = (short)0x0200;
+	private static final short FLG_DEFAULT_VALUE       = (short)0x0400;
+	private static final short FLG_LOB_TRANSFORM       = (short)0x0800;
 	private static final short FLG_DECODE_WITH_TRANS   = (short) (FLG_LARGE_OBJECT | FLG_SECURE_FILE);
 	private short flags = 0;
 	private OraCdcDecoder decoder;
@@ -1776,6 +1777,15 @@ public class OraColumn {
 		return (flags & FLG_DECODE_WITH_TRANS) == 0;
 	}
 
+	void transformLob(final boolean lobTransform) {
+		if (lobTransform)
+			flags |= FLG_LOB_TRANSFORM;
+		else
+			flags &= (~FLG_LOB_TRANSFORM);
+	}
 
+	boolean transformLob() {
+		return (flags & FLG_LOB_TRANSFORM) > 0;
+	}
 
 }
