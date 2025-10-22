@@ -24,9 +24,11 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
 
-import solutions.a2.cdc.oracle.OraDumpDecoder;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
+
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
+
 
 /**
  * 
@@ -63,17 +65,17 @@ public class OraTimestamp {
 			try {
 				zdt = OracleTimestamp.toZonedDateTime(dumpValue, offset, length, dbTimeZone);
 			} catch (SQLException sqle) {
-				throw new DataException("Unable to convert " +
-							OraDumpDecoder.toHexString(dumpValue) +
-							" to oracle.sql.TIMESTAMPLTZ !", sqle);
+				throw new DataException("Unable to convert '" +
+							rawToHex(dumpValue) +
+							"' to oracle.sql.TIMESTAMPLTZ !", sqle);
 			}
 		} else {
 			try {				
 				zdt = TimestampWithTimeZone.toZonedDateTime(dumpValue, offset);
 			} catch (SQLException sqle) {
-				throw new DataException("Unable to convert " +
-							OraDumpDecoder.toHexString(dumpValue) +
-							" to oracle.sql.TIMESTAMPTZ !", sqle);
+				throw new DataException("Unable to convert '" +
+							rawToHex(dumpValue) +
+							"' to oracle.sql.TIMESTAMPTZ !", sqle);
 			}
 		}
 		return ISO_8601_FMT.format(zdt);

@@ -23,9 +23,10 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
 
-import solutions.a2.cdc.oracle.OraDumpDecoder;
 import solutions.a2.oracle.jdbc.types.IntervalDayToSecond;
 import solutions.a2.oracle.jdbc.types.IntervalYearToMonth;
+
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 /**
  * 
@@ -57,20 +58,20 @@ public class OraInterval {
 			try {
 				return IntervalYearToMonth.toString(dumpValue);
 			} catch (SQLException e) {
-				throw new DataException("Unable to convert " +
-						OraDumpDecoder.toHexString(dumpValue) + " to oracle.sql.INTERVALYM");
+				throw new DataException("Unable to convert '" +
+						rawToHex(dumpValue) + "' to oracle.sql.INTERVALYM");
 			}
 		} else if (dumpValue.length == IntervalDayToSecond.DATA_LENGTH) {
 			// oracle.sql.INTERVALDS
 			try {
 				return IntervalDayToSecond.toString(dumpValue);
 			} catch (SQLException e) {
-				throw new DataException("Unable to convert " +
-						OraDumpDecoder.toHexString(dumpValue) + " to oracle.sql.INTERVALDS");
+				throw new DataException("Unable to convert '" +
+						rawToHex(dumpValue) + "' to oracle.sql.INTERVALDS");
 			}
 		} else {
-			throw new DataException("Unable to convert " +
-					OraDumpDecoder.toHexString(dumpValue) + " to " +  LOGICAL_NAME);
+			throw new DataException("Unable to convert '" +
+					rawToHex(dumpValue) + "' to " +  LOGICAL_NAME);
 		}
 	}
 
