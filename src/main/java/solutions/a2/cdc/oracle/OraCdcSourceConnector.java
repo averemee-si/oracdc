@@ -252,14 +252,8 @@ public class OraCdcSourceConnector extends SourceConnector {
 				taskParam.put(TASK_PARAM_MV_SEQUENCE,
 					resultSet.getString("SEQUENCE"));
 				config.schemaType(taskParam);
-
-				if (config.schemaType() == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
-					taskParam.put(ConnectorParams.TOPIC_PREFIX_PARAM,
+				taskParam.put(ConnectorParams.TOPIC_PREFIX_PARAM,
 							config.getString(ConnectorParams.TOPIC_PREFIX_PARAM));
-				} else {
-					// ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
-					config.kafkaTopic(taskParam);
-				}
 
 				configs.add(taskParam);
 			}
