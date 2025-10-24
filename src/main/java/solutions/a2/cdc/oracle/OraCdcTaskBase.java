@@ -13,7 +13,6 @@
 
 package solutions.a2.cdc.oracle;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -44,8 +43,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
-import solutions.a2.cdc.oracle.jmx.OraCdcMgmtBase;
-import solutions.a2.cdc.oracle.schema.FileUtils;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -424,28 +421,6 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			} catch (SQLException sqle) {
 				LOGGER.error("Unable to close all RDBMS connections!");
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-			}
-		}
-	}
-
-	void processStoredSchemas(final OraCdcMgmtBase metrics) {
-		if (config.useOracdcSchemas()) {
-			// Use stored schema only in this mode
-			final String schemaFileName = config.getString(ParamConstants.DICTIONARY_FILE_PARAM);
-			if (StringUtils.isNotBlank(schemaFileName)) {
-				try {
-					LOGGER.info("Loading stored schema definitions from file {}.", schemaFileName);
-					tablesInProcessing = FileUtils.readDictionaryFile(schemaFileName, schemaType, config.transformLobsImpl(), rdbmsInfo);
-					LOGGER.info("{} table schema definitions loaded from file {}.",
-							tablesInProcessing.size(), schemaFileName);
-					tablesInProcessing.forEach((key, table) -> {
-						table.setTopicDecoderPartition(config, rdbmsInfo.partition());
-						metrics.addTableInProcessing(table.fqn());
-					});
-				} catch (IOException ioe) {
-					LOGGER.warn("Unable to read stored definition from {}.", schemaFileName);
-					LOGGER.warn(ExceptionUtils.getExceptionStackTrace(ioe));
-				}
 			}
 		}
 	}

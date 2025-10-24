@@ -71,8 +71,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			List<String> excludeList = config.excludeObj();
 			List<String> includeList = config.includeObj();
 
-			processStoredSchemas(metrics);
-
 			final StringBuilder initialLoadSql = execInitialLoad ? new StringBuilder(0x200)  :null;
 			final int[] conUids;
 			if (rdbmsInfo.isCdb()) {

@@ -62,7 +62,6 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
 			OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
-			processStoredSchemas(metrics);
 
 			List<String> excludeList = config.excludeObj();
 			if (excludeList.size() < 1)
