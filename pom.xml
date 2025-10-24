@@ -455,7 +455,7 @@
 					</descriptors>
 					<archive>
 						<manifest>
-							<mainClass>solutions.a2.cdc.oracle.schema.TableSchemaEditor</mainClass>
+							<mainClass>solutions.a2.cdc.oracle.utils.file.OraRedoLogFile</mainClass>
 						</manifest>
 					</archive>
 				</configuration>

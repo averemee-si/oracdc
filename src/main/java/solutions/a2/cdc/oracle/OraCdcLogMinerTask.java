@@ -13,7 +13,6 @@
 
 package solutions.a2.cdc.oracle;
 
-import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -32,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
-import solutions.a2.cdc.oracle.schema.FileUtils;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
@@ -517,18 +515,5 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 		LOGGER.debug("State file contents:\n{}", ops.toString());
 	}
 
-	public void saveTablesSchema() throws IOException {
-		String schemaFileName = null;
-		try {
-			schemaFileName = stateFileName.substring(0, stateFileName.lastIndexOf(File.separator));
-		} catch (Exception e) {
-			LOGGER.error("Unable to detect parent directory for {} using {} separator.",
-					stateFileName, File.separator);
-			schemaFileName = System.getProperty("java.io.tmpdir");
-		}
-		schemaFileName += File.separator + "oracdc.schemas-" + System.currentTimeMillis();
-
-		FileUtils.writeDictionaryFile(tablesInProcessing, schemaFileName);
-	}
 
 }
