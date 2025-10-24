@@ -62,7 +62,7 @@ import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.SQLXML;
 import static oracle.jdbc.OracleTypes.JSON;
-import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
+import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_MYSQL;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_ORACLE;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;

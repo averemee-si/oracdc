@@ -92,7 +92,7 @@ import static oracle.jdbc.OracleTypes.INTERVALDS;
 import static oracle.jdbc.OracleTypes.INTERVALYM;
 import static oracle.jdbc.OracleTypes.JSON;
 import static oracle.jdbc.OracleTypes.VECTOR;
-import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
+import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 
 /**
  * 
