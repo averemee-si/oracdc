@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
-import solutions.a2.kafka.ConnectorParams;
 
 /**
  *
@@ -29,14 +28,12 @@ public class OraCdcDefaultTopicNameMapper implements TopicNameMapper {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcDefaultTopicNameMapper.class);
 
-	private int schemaType;
 	private String topicParam;
 	private int topicNameStyle;
 	private String delimiter;
 
 	@Override
 	public void configure(OraCdcSourceConnectorConfig config) {
-		schemaType = config.schemaType();
 		topicParam = config.topicOrPrefix();
 		topicNameStyle = config.getTopicNameStyle();
 		delimiter = config.getTopicNameDelimiter();
@@ -46,59 +43,56 @@ public class OraCdcDefaultTopicNameMapper implements TopicNameMapper {
 	public String getTopicName(
 			final String pdbName, final String tableOwner, final String tableName) {
 		final String kafkaTopic;
-		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD ||
-				schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
-			final StringBuilder sb = new StringBuilder(256);
+		final var sb = new StringBuilder(256);
 			// Add prefix
-			if (StringUtils.isNotBlank(topicParam)) {
-				sb
-					.append(topicParam)
-					.append(delimiter);
-			}
-			
-			if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_TABLE) {
-				sb.append(tableName);
-			} else if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE) {
+		if (StringUtils.isNotBlank(topicParam))
+			sb
+				.append(topicParam)
+				.append(delimiter);
+
+		if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_TABLE)
+			sb.append(tableName);
+		else if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE)
+			sb
+				.append(tableOwner)
+				.append(delimiter)
+				.append(tableName);
+		else {
+			// topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE
+			if (StringUtils.isBlank(pdbName)) {
 				sb
 					.append(tableOwner)
 					.append(delimiter)
 					.append(tableName);
-			} else {
-				// topicNameStyle == ParamConstants.TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE
-				if (StringUtils.isBlank(pdbName)) {
-					sb
-						.append(tableOwner)
-						.append(delimiter)
-						.append(tableName);
-					LOGGER.warn(
-							"\n=====================\n" +
-							"Unable to use a2.topic.name.style=PDB_SCHEMA_TABLE in non-CDB database for table {}.{}!\n" +
-							"Topic name is set to '{}'\n" +
-							"=====================\n",
-							tableOwner, tableName, sb.toString());
-				} else {
-					sb
-						.append(pdbName)
-						.append(delimiter)
-						.append(tableOwner)
-						.append(delimiter)
-						.append(tableName);
-				}
-			}
-			if (KafkaUtils.validTopicName(sb.toString())) {
-				kafkaTopic = sb.toString();
-			} else {
-				kafkaTopic = KafkaUtils.fixTopicName(sb.toString(), "zZ");
 				LOGGER.warn(
-						"\n=====================\n" +
-						"Calculated topic name '{}' contains characters that are not supported ny Apache Kafka!\n" +
-						"Topic name corrected to to '{}'\n" +
-						"=====================\n",
-						sb.toString(), kafkaTopic);
-			}
-		} else {
-			// SCHEMA_TYPE_INT_DEBEZIUM
-			kafkaTopic = topicParam;
+						"""
+						
+						=====================
+						Unable to use a2.topic.name.style=PDB_SCHEMA_TABLE in non-CDB database for table {}.{}!
+						Topic name is set to '{}'
+						=====================
+						
+						""", tableOwner, tableName, sb.toString());
+			} else
+				sb
+					.append(pdbName)
+					.append(delimiter)
+					.append(tableOwner)
+					.append(delimiter)
+					.append(tableName);
+		}
+		if (KafkaUtils.validTopicName(sb.toString()))
+			kafkaTopic = sb.toString();
+		else {
+			kafkaTopic = KafkaUtils.fixTopicName(sb.toString(), "zZ");
+			LOGGER.warn(
+					"""
+					
+					=====================
+					Calculated topic name '{}' contains characters that are not supported ny Apache Kafka!
+					Topic name changed to to '{}'
+					=====================
+					""", sb.toString(), kafkaTopic);
 		}
 		return kafkaTopic;
 	}

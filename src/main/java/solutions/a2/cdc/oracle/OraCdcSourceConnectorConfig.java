@@ -157,10 +157,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String TOPIC_MAPPER_DEFAULT = "solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper";
 	private static final String TOPIC_MAPPER_PARAM = "a2.topic.mapper";
 	private static final String TOPIC_MAPPER_DOC =
-			"The fully-qualified class name of the class that specifies which Kafka topic the data from the tables should be sent to.\n" +
-			"If value of thee parameter 'a2.shema.type' is set to 'debezium', the default OraCdcDefaultTopicNameMapper uses the parameter 'a2.kafka.topic' value as the Kafka topic name,\n" +
-			"otherwise it constructs the topic name according to the values of the parameters 'a2.topic.prefix', 'a2.topic.name.style', and 'a2.topic.name.delimiter', as well as the table name, table owner and PDB name.\n" +
-			"Default - " + TOPIC_MAPPER_DEFAULT;
+			"""
+			The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent.
+			The class must implement the `solutions.a2.cdc.oracle.TopicNameMapper` interface.
+			The connector comes with two predefined classes:
+			1) `solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper`, which generates a unique name for each table based on the PDB name, schema name, and table name using the values ​​of the `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter` parameters.
+			2) Another predefined class, `solutions.a2.cdc.oracle.OraCdcSingleTopicNameMapper`, uses the value of the `a2.kafka.topic` parameter as the Kafka topic name, and all change events for all tables are written to a single Kafka topic.
+			"""
+				+ TOPIC_MAPPER_DEFAULT;
 
 	private static final boolean STOP_ON_ORA_1284_DEFAULT = true;
 	private static final String STOP_ON_ORA_1284_PARAM = "a2.stop.on.ora.1284";

@@ -123,7 +123,9 @@ When set to _any_unique_ and the table does not have a [primary key](https://doc
 
 `a2.use.all.columns.on.delete` - When set to _false_ (default) **oracdc** reads and processes only the [primary](https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB) key columns from the redo record and sends only the key fields to the Apache Kafka topic. When set to _true_ **oracdc** reads and processes all table columns from the redo record. Default - *false*.
 
-`a2.topic.mapper` - The fully-qualified class name of the class that specifies which Kafka topic the data from the tables should be sent to. If value of thee parameter `a2.shema.type` is set to `debezium`, the default OraCdcDefaultTopicNameMapper uses the parameter `a2.kafka.topic` value as the Kafka topic name, otherwise it constructs the topic name according to the values of the parameters `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter`, as well as the table name, table owner and PDB name.
+`a2.topic.mapper` - The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent. The class must implement the solutions.a2.cdc.oracle.TopicNameMapper interface. The connector comes with two predefined classes:
+ 1) `solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper`, which generates a unique name for each table based on the PDB name, schema name, and table name using the values ​​of the `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter` parameters.
+2) Another predefined class, `solutions.a2.cdc.oracle.OraCdcSingleTopicNameMapper`, uses the value of the `a2.kafka.topic` parameter as the Kafka topic name, and all change events for all tables are written to a single Kafka topic.
 Default - *solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper*
 
 `a2.stop.on.ora.1284` - If set to true, the connector stops on an Oracle database error 'ORA-01284: file <Absolute-Path-To-Log-File> cannot be opened'. If set to false, the connector prints an error message and continues processing.
