@@ -20,11 +20,13 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.OraColumn.GUARD_COLUMN;
+import static solutions.a2.cdc.oracle.OraColumn.ROWID_KEY;
 import static solutions.a2.cdc.oracle.OraColumn.UNUSED_COLUMN;
-import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
+import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -46,7 +48,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
-import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -76,20 +77,23 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	final String pdbName;
 	final String tableFqn;
 	final OraCdcLobTransformationsIntf transformLobs;
-	final OraCdcSourceConnectorConfig config;
+	private final OraCdcSourceConnectorConfig config;
 	private String sqlGetKeysUsingRowId = null;
 	int incompleteDataTolerance = INCOMPLETE_REDO_INT_ERROR;
 	private int mandatoryColumnsCount = 0;
 	private int maxColumnId;
-	int mandatoryColumnsProcessed = 0;
-	final private OraCdcPseudoColumnsProcessor pseudoColumns;
-	final private SchemaNameMapper snm;
+	private int mandatoryColumnsProcessed = 0;
+	private final OraCdcPseudoColumnsProcessor pseudoColumns;
+	private final SchemaNameMapper snm;
 	private String kafkaTopic;
 	short conId;
 	Struct keyStruct;
-	Struct valueStruct;
-	OraCdcTdeColumnDecrypter decrypter;
+	private Struct valueStruct;
+	private Struct struct;
+	private OraCdcTdeColumnDecrypter decrypter;
 	Map<String, Schema> lobColumnSchemas;
+	StructWriter structWriter;
+	final List<OraColumn> missedColumns = new ArrayList<>();
 
 	static final short FLG_TABLE_WITH_PK               = (short)0x0001; 
 	static final short FLG_PROCESS_LOBS                = (short)0x0002;
@@ -127,7 +131,12 @@ public abstract class OraTable extends OraTable4SourceConnector {
 		this.rdbmsInfo = rdbmsInfo;
 		this.config = config;
 		if (config != null) {
-			setTopicDecoderPartition(config, rdbmsInfo.partition());
+			final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
+			topicNameMapper.configure(config);
+			this.kafkaTopic = topicNameMapper.getTopicName(pdbName, tableOwner, tableName);
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug("Kafka topic for table {} set to {}.", tableFqn, kafkaTopic);
+			this.sourcePartition = rdbmsInfo.partition();
 			incompleteDataTolerance = config.getIncompleteDataTolerance();
 			topicPartition = config.topicPartition();
 			pseudoColumns = config.pseudoColumnsProcessor();
@@ -147,19 +156,11 @@ public abstract class OraTable extends OraTable4SourceConnector {
 		if (processLobs)
 			flags |= FLG_PROCESS_LOBS;
 		this.transformLobs = transformLobs;
-	}
-
-	public void setTopicDecoderPartition(
-			final OraCdcSourceConnectorConfig config, final Map<String, String> sourcePartition) {
-		final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
-		topicNameMapper.configure(config);
-		this.kafkaTopic = topicNameMapper.getTopicName(pdbName, tableOwner, tableName);
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug(
-					"Kafka topic for table {} set to {}.",
-					tableFqn, this.kafkaTopic);
+		switch (schemaType) {
+			case SCHEMA_TYPE_INT_KAFKA_STD -> structWriter = new KafkaStructWriter(this);
+			case SCHEMA_TYPE_INT_SINGLE    -> structWriter = new SingleStructWriter(this); 
+			case SCHEMA_TYPE_INT_DEBEZIUM  -> structWriter = new DebeziumStructWriter(this); 
 		}
-		this.sourcePartition = sourcePartition;
 	}
 
 	abstract void addToIdMap(final OraColumn column);
@@ -500,16 +501,18 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			keySchema = keySchemaBuilder.build();
 		}
 		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-			final SchemaBuilder schemaBuilder = SchemaBuilder
+			valueSchema = valueSchemaBuilder.build();
+			schema = SchemaBuilder
 					.struct()
 					.name(snm.getEnvelopeSchemaName(pdbName, tableOwner, tableName))
-					.version(version);
-			schemaBuilder.field("before", valueSchemaBuilder.build());
-			schemaBuilder.field("after", valueSchemaBuilder.build());
-			schemaBuilder.field("source", rdbmsInfo.getSchema());
-			schemaBuilder.field("op", Schema.STRING_SCHEMA);
-			schemaBuilder.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA);
-			valueSchema = schemaBuilder.build();
+					.version(version)
+					.field("before", valueSchema)
+					.field("after", valueSchema)
+					.field("source", rdbmsInfo.getSchema())
+					.field("op", Schema.STRING_SCHEMA)
+					.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA)
+					.field("ts_ns", Schema.OPTIONAL_INT64_SCHEMA)
+					.build();
 		} else {
 			valueSchema = valueSchemaBuilder.build();
 		}
@@ -564,24 +567,26 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			}
 
 			if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
-				final Struct struct = new Struct(schema);
-				final Struct source = rdbmsInfo.getStruct(
-						stmt.getSqlRedo(),
-						pdbName, tableOwner, tableName,
-						stmt.getScn(), stmt.getTs(),
-						transaction.getXid(), transaction.getCommitScn(), stmt.getRowId().toString());
-				struct.put("source", source);
-				struct.put("before", keyStruct);
-				if (stmt.getOperation() != DELETE ||
-						((stmt.getOperation() == DELETE) && (flags & FLG_ALL_COLS_ON_DELETE) > 0)) {
-					struct.put("after", valueStruct);
+				switch (opType) {
+					case 'c' -> struct.put("after", valueStruct);
+					case 'd' -> struct.put("before", valueStruct);
+					case 'u' -> struct.put("before", valueStruct);
 				}
+				struct.put("source", rdbmsInfo.getStruct(
+						stmt.getSqlRedo(), pdbName, tableOwner, tableName,
+						stmt.getScn(), stmt.getTs(), transaction.getXid(),
+						transaction.getCommitScn(), stmt.getRowId().toString()));
 				struct.put("op", String.valueOf(opType));
 				struct.put("ts_ms", System.currentTimeMillis());
+				struct.put("ts_ns", System.nanoTime());
+
 				sourceRecord = new SourceRecord(
 						sourcePartition,
 						offset,
 						kafkaTopic,
+						topicPartition,
+						keySchema,
+						keyStruct,
 						schema,
 						struct);
 			} else {
@@ -826,13 +831,9 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				} else {
 					allColumns.get(columnIndex).setColumnName(newName);
 					updatedColumnCount = 1;
-	
+
 					version++;
 					buildSchema(false);
-
-for (Field f : valueSchema.fields()) {
-	LOGGER.error("\t" + f.name() + "\t" + f.schema().isOptional() + "\t" + f.schema().name());
-}
 				}
 			}
 			break;
@@ -867,12 +868,16 @@ for (Field f : valueSchema.fields()) {
 	}
 
 	SchemaBuilder schemaBuilder(final boolean isKey, final int version) {
-		return SchemaBuilder
+		if (isKey)
+			return SchemaBuilder
+				.struct()
+				.name(snm.getKeySchemaName(pdbName, tableOwner, tableName))
+				.version(version);
+		else
+			return SchemaBuilder
 				.struct()
 				.optional()
-				.name(isKey
-						? snm.getKeySchemaName(pdbName, tableOwner, tableName)
-						: snm.getValueSchemaName(pdbName, tableOwner, tableName))
+				.name(snm.getValueSchemaName(pdbName, tableOwner, tableName))
 				.version(version);
 	}
 
@@ -1241,18 +1246,18 @@ for (Field f : valueSchema.fields()) {
 				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo());
 	}
 
-	void printNullValueError(final OraColumn column, final OraCdcStatementBase stmt, Exception e) {
+	void printNullValueError(final OraColumn column, final OraCdcStatementBase stmt) {
 		LOGGER.error(
 				"""
 				
 				=====================
-				'{}' while setting '{}' to NULL in valueStruct in table {}.
+				Field '{}' is NULL in valueStruct in table {}.
 				SCN={}, RBA={}, SQL_REDO='{}'
 				Please check that '{}' is NULLABLE and not member of keyStruct.
 				=====================
 				
 				""",
-				e.getMessage(), column.getColumnName(), tableFqn,
+				column.getColumnName(), tableFqn,
 				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo(), column.getColumnName());
 	}
 
@@ -1266,6 +1271,170 @@ for (Field f : valueSchema.fields()) {
 
 	String pdbName() {
 		return pdbName;
+	}
+	static abstract class StructWriter {
+		final OraTable table;
+		StructWriter(OraTable table) {
+			this.table = table;
+		}
+		public void init(OraCdcStatementBase stmt) {
+			if ((table.flags & FLG_ONLY_VALUE) > 0) {
+				table.keyStruct = null;
+			} else {
+				table.keyStruct = new Struct(table.keySchema);
+			}
+			table.valueStruct = new Struct(table.valueSchema);
+			table.mandatoryColumnsProcessed = 0;
+			table.missedColumns.clear();
+		}
+		abstract void insert(OraColumn column, Object value);
+		abstract void delete(OraColumn column, Object value);
+		abstract void update(OraColumn column, Object value, boolean after);
+		void addRowId(OraCdcStatementBase stmt) {
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug("Do primary key substitution for table {}", table.tableFqn);
+			if (LOGGER.isTraceEnabled())
+				LOGGER.trace("{} is used as primary key for table {}", stmt.getRowId(), table.tableFqn);
+		}
+		void afterBefore() {}
+	}
+
+	private static class KafkaStructWriter extends StructWriter {
+		KafkaStructWriter(OraTable table) {
+			super(table);
+		}
+		@Override
+		public void insert(OraColumn column, Object value) {
+			if (column.isPartOfPk()) {
+				table.keyStruct.put(column.getColumnName(), value);
+				table.mandatoryColumnsProcessed++;
+			} else {
+				table.valueStruct.put(column.getColumnName(), value);
+				if (!column.isNullable())
+					table.mandatoryColumnsProcessed++;
+			}
+		}
+		@Override
+		public void delete(OraColumn column, Object value) {
+			if (column.isPartOfPk()) {
+				table.keyStruct.put(column.getColumnName(), value);
+				table.mandatoryColumnsProcessed++;
+			} else {
+				table.valueStruct.put(column.getColumnName(), value);
+				if (!column.isNullable())
+					table.mandatoryColumnsProcessed++;
+			}
+		}
+		@Override
+		public void update(OraColumn column, Object value, boolean after) {
+			if (column.isPartOfPk()) {
+				table.keyStruct.put(column.getColumnName(), value);
+				table.mandatoryColumnsProcessed++;
+			} else {
+				table.valueStruct.put(column.getColumnName(), value);
+				if (!column.isNullable())
+					table.mandatoryColumnsProcessed++;
+			}
+		}
+		@Override
+		public void addRowId(OraCdcStatementBase stmt) {
+			super.addRowId(stmt);
+			table.keyStruct.put(ROWID_KEY, stmt.getRowId().toString());
+		}
+	}
+
+	private static class SingleStructWriter extends StructWriter {
+		SingleStructWriter(OraTable table) {
+			super(table);
+		}
+		@Override
+		public void insert(OraColumn column, Object value) {
+			table.valueStruct.put(column.getColumnName(), value);
+			if (column.mandatory())
+				table.mandatoryColumnsProcessed++;
+		}
+		@Override
+		public void delete(OraColumn column, Object value) {
+			table.valueStruct.put(column.getColumnName(), value);
+			if (column.mandatory())
+				table.mandatoryColumnsProcessed++;
+		}
+		@Override
+		public void update(OraColumn column, Object value, boolean after) {
+			table.valueStruct.put(column.getColumnName(), value);
+			if (column.mandatory())
+				table.mandatoryColumnsProcessed++;
+		}
+		@Override
+		public void addRowId(OraCdcStatementBase stmt) {
+			super.addRowId(stmt);
+			table.valueStruct.put(ROWID_KEY, stmt.getRowId().toString());
+		}
+	}
+
+	private static class DebeziumStructWriter extends StructWriter {
+		DebeziumStructWriter(OraTable table) {
+			super(table);
+		}
+		@Override
+		public void init(OraCdcStatementBase stmt) {
+			super.init(stmt);
+			table.struct = new Struct(table.schema);
+		}
+		@Override
+		public void insert(OraColumn column, Object value) {
+			if (column.isPartOfPk()) {
+				table.keyStruct.put(column.getColumnName(), value);
+				table.valueStruct.put(column.getColumnName(), value);
+				table.mandatoryColumnsProcessed++;
+			} else {
+				table.valueStruct.put(column.getColumnName(), value);
+				if (!column.isNullable())
+					table.mandatoryColumnsProcessed++;
+			}
+		}
+		@Override
+		public void delete(OraColumn column, Object value) {
+			if (column.isPartOfPk()) {
+				table.keyStruct.put(column.getColumnName(), value);
+				table.valueStruct.put(column.getColumnName(), value);
+				table.mandatoryColumnsProcessed++;
+			} else {
+				table.valueStruct.put(column.getColumnName(), value);
+				if (!column.isNullable())
+					table.mandatoryColumnsProcessed++;
+			}
+		}
+		@Override
+		public void update(OraColumn column, Object value, boolean after) {
+			if (after) {
+				if (column.isPartOfPk()) {
+					table.keyStruct.put(column.getColumnName(), value);
+					table.valueStruct.put(column.getColumnName(), value);
+					table.mandatoryColumnsProcessed++;
+				} else {
+					table.valueStruct.put(column.getColumnName(), value);
+					if (!column.isNullable())
+						table.mandatoryColumnsProcessed++;
+				}
+			} else
+				table.valueStruct.put(column.getColumnName(), value);
+		}
+		@Override
+		public void addRowId(OraCdcStatementBase stmt) {
+			super.addRowId(stmt);
+			final String rowId = stmt.getRowId().toString();
+			table.keyStruct.put(ROWID_KEY, rowId);
+			table.valueStruct.put(ROWID_KEY, rowId);
+		}
+		@Override
+		void afterBefore() {
+			table.struct.put("after", table.valueStruct);
+			final Struct before = new Struct(table.valueSchema);
+			table.valueStruct.schema().fields().forEach(f -> 
+				before.put(f, table.valueStruct.get(f)));
+			table.valueStruct = before;
+		}
 	}
 
 }
