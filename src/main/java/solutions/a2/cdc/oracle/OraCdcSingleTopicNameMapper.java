@@ -24,7 +24,7 @@ public class OraCdcSingleTopicNameMapper implements TopicNameMapper {
 
 	@Override
 	public void configure(OraCdcSourceConnectorConfig config) {
-		topicName = config.topicOrPrefix();
+		topicName = config.kafkaTopic();
 	}
 
 	@Override
