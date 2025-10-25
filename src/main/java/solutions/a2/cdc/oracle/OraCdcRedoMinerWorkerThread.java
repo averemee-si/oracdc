@@ -478,7 +478,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							final OraCdcChangeLobs change = record.change26_x();
 							if (transaction != null)
 								if (change.kdliFillLen() > -1)
-									transaction.writeLobChunk(
+									if (record.change5_1().lobSupplemental())
+										transaction.writeLobChunk(
+											lid, record.change5_1().obj(), record.change5_1().lobCol(),
+											change.record(), change.lobDataOffset(), change.kdliFillLen(),
+											(change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
+									else
+										transaction.writeLobChunk(
 											lid, change.record(), change.lobDataOffset(), change.kdliFillLen(),
 											false, (change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
 								else if (LOGGER.isDebugEnabled()) skippingDebugMsg("change.kdliFillLen() < 0", change.operation(), record.rba());

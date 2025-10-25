@@ -205,7 +205,9 @@ public class OraCdcChange {
 	LobId lid;
 	short lobCol = -1;
 	int lobDataOffset = -1;
-	private boolean lobBimg = false;
+	byte lobFlags = 0;
+	static final byte FLG_LOB_BIMG   = 1; 
+	static final byte FLG_LOB_SUPLOG = 2; 
 	private byte kdli_flg2;
 
 	OraCdcChange(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
@@ -1006,6 +1008,7 @@ public class OraCdcChange {
 			break;
 		case KDLI_SUPLOG:
 			elementLengthCheck("KDLI", "suplog", index, KDLI_SUPLOG_MIN_LENGTH, "");
+			lobFlags |= FLG_LOB_SUPLOG;
 			obj = redoLog.bu().getU32(record, coords[index][0] + 0xC);
 			if (lobCol < 0)
 				lobCol = redoLog.bu().getU16(record, coords[index][0] + 0x12);
@@ -1220,7 +1223,7 @@ public class OraCdcChange {
 		elementLengthCheck("KDLI", "common", index, KDLI_COMMON_MIN_LENGTH, "");
 		dba = redoLog.bu().getU32(record, coords[index][0] + 0x08);
 		if (record[coords[index][0]] == (byte) 0x6) {
-			lobBimg = true;
+			lobFlags |= FLG_LOB_BIMG;
 		}
 	}
 
@@ -1529,7 +1532,11 @@ public class OraCdcChange {
 	}
 
 	public boolean lobBimg() {
-		return lobBimg;
+		return (lobFlags & FLG_LOB_BIMG) > 0;
+	}
+
+	public boolean lobSupplemental() {
+		return (lobFlags & FLG_LOB_SUPLOG) > 0;
 	}
 
 	public short lobCol() {
