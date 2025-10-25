@@ -50,6 +50,7 @@ import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSmbjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -78,15 +79,15 @@ public class OraRedoLogFile  {
 
 	public static void main(String[] argv) {
 		BasicConfigurator.configure();
-		long millis = System.currentTimeMillis();
+		var millis = System.currentTimeMillis();
 		LOGGER.info("Starting...");
 
 		// Command line options
-		final Options options = new Options();
+		final var options = new Options();
 		setupCliOptions(options);
 
 		final CommandLineParser parser = new DefaultParser();
-		final HelpFormatter formatter = HelpFormatter.builder().get();
+		final var formatter = HelpFormatter.builder().get();
 		CommandLine cmd = null;
 		try {
 			cmd = parser.parse(options, argv);
@@ -98,26 +99,30 @@ public class OraRedoLogFile  {
 			System.exit(1);
 		}
 
-		String redoFile = cmd.getOptionValue("f");
-		final BinaryUtils bu = BinaryUtils.get(!cmd.hasOption(BIG_ENDIAN));
+		var redoFile = cmd.getOptionValue("f");
+		final var bu = BinaryUtils.get(!cmd.hasOption(BIG_ENDIAN));
 		OraCdcRedoLogFactory rlf = null;
 		if (Strings.CS.startsWith(redoFile, "+")) {
-			final String asmUrl = cmd.getOptionValue(ASM_URL);
-			final String asmUser = cmd.getOptionValue(ASM_USER);
-			final String asmPassword = cmd.getOptionValue(ASM_PASSWORD);
+			final var asmUrl = cmd.getOptionValue(ASM_URL);
+			final var asmUser = cmd.getOptionValue(ASM_USER);
+			final var asmPassword = cmd.getOptionValue(ASM_PASSWORD);
 			if (StringUtils.isAnyBlank(asmUrl, asmUser, asmPassword)) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"To work with file '{}' located on Oracle ASM, parameters --{}, --{}, and --{} must be set!" +
-						"\n=====================\n",
-						redoFile, ASM_URL, ASM_USER, ASM_PASSWORD);
+						"""
+						
+						=====================
+						To work with file '{}' located on Oracle ASM, parameters --{}, --{}, and --{} must be set!
+						=====================
+												
+						
+						""", redoFile, ASM_URL, ASM_USER, ASM_PASSWORD);
 				System.exit(1);
 			}
 			try {
-				final Properties props = new Properties();
+				final var props = new Properties();
 				props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysasm");
 				props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
-				final OracleDataSource ods = new OracleDataSource();
+				final var ods = new OracleDataSource();
 				ods.setConnectionProperties(props);
 				ods.setURL(asmUrl);
 				ods.setUser(asmUser);
@@ -125,11 +130,17 @@ public class OraRedoLogFile  {
 				rlf = new OraCdcRedoLogAsmFactory(ods.getConnection(), bu, true, true);
 			} catch (SQLException sqle) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to connect to Oracle ASM Instance at {} as {} with password {}!\n" +
-						"Exception: '{}'\nStack trace:\n{}\n" +
-						"\n=====================\n",
-						asmUrl, asmUser, asmPassword, sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
+						"""
+						
+						=====================
+						Unable to connect to Oracle ASM Instance at {} as {} with password {}!
+						Exception: '{}'
+						Stack trace:
+						{}
+						=====================						
+						
+						""", asmUrl, asmUser, asmPassword, sqle.getMessage(),
+							ExceptionUtils.getExceptionStackTrace(sqle));
 				System.exit(1);
 			}
 		} else if (Strings.CS.startsWith(redoFile, "/") ||
@@ -138,19 +149,23 @@ public class OraRedoLogFile  {
 				Strings.CS.equals(StringUtils.substring(redoFile, 1, 2), ":")) {
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
 		} else if (Strings.CS.startsWith(redoFile, "\\\\")) {
-			final int shareIndex = Strings.CS.indexOf(StringUtils.substring(redoFile, 2), "\\");
-			final int pathIndex = Strings.CS.indexOf(StringUtils.substring(redoFile, shareIndex + 3), "\\");
-			final String smbServer = StringUtils.substring(redoFile, 2, shareIndex + 2);
-			final String shareName = StringUtils.substring(redoFile, shareIndex + 3, pathIndex + shareIndex + 3);
-			final String fileName = StringUtils.substring(redoFile, shareIndex + pathIndex + 4);
-			final String smbDomain = StringUtils.substringBefore(cmd.getOptionValue(SMB_USER), "\\");
-			final String smbUser = StringUtils.substringAfter(cmd.getOptionValue(SMB_USER), "\\");
-			final String smbPassword = cmd.getOptionValue(SMB_PASSWORD);
+			final var shareIndex = Strings.CS.indexOf(StringUtils.substring(redoFile, 2), "\\");
+			final var pathIndex = Strings.CS.indexOf(StringUtils.substring(redoFile, shareIndex + 3), "\\");
+			final var smbServer = StringUtils.substring(redoFile, 2, shareIndex + 2);
+			final var shareName = StringUtils.substring(redoFile, shareIndex + 3, pathIndex + shareIndex + 3);
+			final var fileName = StringUtils.substring(redoFile, shareIndex + pathIndex + 4);
+			final var smbDomain = StringUtils.substringBefore(cmd.getOptionValue(SMB_USER), "\\");
+			final var smbUser = StringUtils.substringAfter(cmd.getOptionValue(SMB_USER), "\\");
+			final var smbPassword = cmd.getOptionValue(SMB_PASSWORD);
 			if (StringUtils.isAnyBlank(smbServer, shareName, fileName, smbUser, smbDomain, smbPassword)) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to get required parameters for SMB connection!\n" +
-						"\n=====================\n");
+						"""
+						
+						=====================
+						Unable to connect to SMB server!
+						=====================
+												
+						""");
 				System.exit(1);
 			}
 			final Map<String, String> smbProps = new HashMap<>();
@@ -167,70 +182,91 @@ public class OraRedoLogFile  {
 						bu, true);
 			} catch (IOException ioe) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to connect to smb server {}!\n" +
-						"\n=====================\n",
-						smbServer);
+						"""
+						
+						=====================
+						Unable to connect to SMB server {} !
+						Exception: '{}'
+						Stack trace:
+						{}
+						=====================
+						
+						""", smbServer, ioe.getMessage(), ExceptionUtils.getExceptionStackTrace(ioe));
 				System.exit(1);
 			}
 		} else {
-			final String userName = StringUtils.substringBefore(redoFile, '@');
+			final var userName = StringUtils.substringBefore(redoFile, '@');
 			if (StringUtils.isBlank(userName) ||
 					Strings.CS.equals(redoFile, userName)) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to get username part from {}!\n" +
-						"ssh file specification must be in format  username@hostname:file" +
-						"\n=====================\n",
-						redoFile);
+						"""
+						
+						=====================
+						Unable to get username part from {}!
+						ssh file specification must be in format  username@hostname:file
+						=====================
+						
+						""", redoFile);
 				System.exit(1);
 			}
-			final String hostname = StringUtils.substringBetween(redoFile, "@", ":");
+			final var hostname = StringUtils.substringBetween(redoFile, "@", ":");
 			if (StringUtils.isBlank(hostname) ||
 					Strings.CS.equals(redoFile, hostname)) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to get hostname part from {}!\n" +
-						"ssh file specification must be in format  username@hostname:file" +
-						"\n=====================\n",
-						redoFile);
+						"""
+						
+						=====================
+						Unable to get hostname part from {}!
+						ssh file specification must be in format  username@hostname:file
+						=====================
+						
+						""", redoFile);
 				System.exit(1);
 			}
-			final String fileName = StringUtils.substringAfter(redoFile, ':');
+			final var fileName = StringUtils.substringAfter(redoFile, ':');
 			if (StringUtils.isBlank(fileName) ||
 					Strings.CS.equals(redoFile, fileName)) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to get filename part from {}!\n" +
-						"ssh file specification must be in format  username@hostname:file" +
-						"\n=====================\n",
-						redoFile);
+						"""
+						
+						=====================
+						Unable to get filename part from {}!
+						ssh file specification must be in format  username@hostname:file
+						=====================
+						
+						""", redoFile);
 				System.exit(1);
 			}
 			redoFile = fileName;
-			final String password = cmd.getOptionValue(SSH_PASSWORD);
-			final String identityFile = cmd.getOptionValue(SSH_IDENTITY);
-			int sshPort = 0x16;
-			final String sshPortString =  cmd.getOptionValue(SSH_PORT);
+			final var password = cmd.getOptionValue(SSH_PASSWORD);
+			final var identityFile = cmd.getOptionValue(SSH_IDENTITY);
+			var sshPort = 0x16;
+			final var sshPortString =  cmd.getOptionValue(SSH_PORT);
 			if (StringUtils.isNotBlank(sshPortString)) {
 				try {
 					sshPort = Integer.parseInt(sshPortString);
 				} catch (Exception e) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to parse {}!\n" +
-							"{} is set as value for {}!" +
-							"\n=====================\n",
-							sshPortString, sshPort, SSH_PORT);
+							"""
+							
+							=====================
+							Unable to parse {}!
+							{} is set as value for {}!
+							=====================
+							
+							""", sshPortString, sshPort, SSH_PORT);
 				}
 			}
 			if (StringUtils.isAllBlank(password, identityFile)) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Both parameters {} and {} are not specified!\n" +
-						"Must specify {} or {} parameter to work with remote file" +
-						"\n=====================\n",
-						SSH_PASSWORD, SSH_IDENTITY, SSH_PASSWORD, SSH_IDENTITY);
+						"""
+						
+						=====================
+						Both parameters {} and {} are not specified!
+						Must specify {} or {} parameter to work with remote file
+						=====================
+						
+						""", SSH_PASSWORD, SSH_IDENTITY, SSH_PASSWORD, SSH_IDENTITY);
 				System.exit(1);
 			}
 			try {
@@ -238,10 +274,16 @@ public class OraRedoLogFile  {
 						identityFile, password, false, 0x100, 0x8000, bu, true);
 			} catch (IOException ioe) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to connect to remote server {} using ssh!\n" +
-						"\n=====================\n",
-						hostname);
+						"""
+						
+						=====================
+						Unable to connect to remote server {} using ssh!
+						Exception: '{}'
+						Stack trace:
+						{}
+						=====================
+						
+						""", hostname, ioe.getMessage(), ExceptionUtils.getExceptionStackTrace(ioe));
 				System.exit(1);
 			}
 		}
@@ -250,16 +292,22 @@ public class OraRedoLogFile  {
 			orl = rlf.get(redoFile);
 		} catch (IOException ioe) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"'{}' opening redo file '{}'\nErrorstack:\n{}" +
-					"\n=====================\n",
-					ioe.getMessage(), redoFile, ExceptionUtils.getExceptionStackTrace(ioe));
+					"""
+					
+					=====================
+					Unable to open redo file {} using ssh!
+					Exception: '{}'
+					Stack trace:
+					{}
+					=====================
+					
+					""", redoFile, ioe.getMessage(), ExceptionUtils.getExceptionStackTrace(ioe));
 			System.exit(1);
 		}
 
-		boolean useFile = false;
+		var useFile = false;
 		PrintStream out = null;
-		final String outFileName = cmd.getOptionValue("o");
+		final var outFileName = cmd.getOptionValue("o");
 		if (StringUtils.isBlank(outFileName)) {
 			out = System.out;
 		} else {
@@ -268,29 +316,42 @@ public class OraRedoLogFile  {
 				useFile = true;
 			} catch (IOException ioe) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"'{}' opening output file '{}'\nErrorstack:\n{}" +
-						"\n=====================\n",
-						ioe.getMessage(), outFileName, ExceptionUtils.getExceptionStackTrace(ioe));
+						"""
+						
+						=====================
+						Unable to open output file {} !
+						Exception: '{}'
+						Stack trace:
+						{}
+						=====================
+						
+						""", outFileName, ioe.getMessage(), ExceptionUtils.getExceptionStackTrace(ioe));
 				System.exit(1);
 			}
 		}
-		boolean records = cmd.hasOption("r");
-		boolean dumps = cmd.hasOption("b");
-		boolean limits = false;
-		boolean useRba = true;
+		var records = cmd.hasOption("r");
+		var dumps = cmd.hasOption("b");
+		var limits = false;
+		var useRba = true;
 		RedoByteAddress startRba = null;
 		RedoByteAddress endRba = null;
-		long startScn = 0;
-		long endScn = 0;
+		var startScn = 0l;
+		var endScn = 0l;
 		if (cmd.hasOption("s")) {
 			try {
 				startRba = RedoByteAddress.fromLogmnrContentsRs_Id(cmd.getOptionValue("s"));
 			} catch (Exception e) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"'{}' parsing redo byte address '{}'\nErrorstack:\n{}" +
-						"\n=====================\n",
+						"""
+						
+						=====================
+						'{}' parsing redo byte address '{}'
+						Errorstack:
+						{}
+						=====================
+
+						
+						""",
 						e.getMessage(), cmd.getOptionValue("s"), ExceptionUtils.getExceptionStackTrace(e));
 				System.exit(1);
 			}
@@ -299,55 +360,84 @@ public class OraRedoLogFile  {
 					endRba = RedoByteAddress.fromLogmnrContentsRs_Id(cmd.getOptionValue("e"));
 				} catch (Exception e) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"'{}' parsing redo byte address '{}'\nErrorstack:\n{}" +
-							"\n=====================\n",
+							"""
+							
+							=====================
+							'{}' parsing redo byte address '{}'
+							Errorstack:
+							{}
+							=====================
+
+							
+							""",
 							e.getMessage(), cmd.getOptionValue("e"), ExceptionUtils.getExceptionStackTrace(e));
 					System.exit(1);
 				}
 			} else {
 				LOGGER.error(
-						"\n=====================\n" +
-						"'if you specified an option -s/--start-rba, then you must specify the corresponding option -e/--end-rba!" +
-						"\n=====================\n");
+						"""
+						
+						=====================
+						If you specified an option -s/--start-rba, then you must specify the corresponding option -e/--end-rba!
+						=====================
+						
+						""");
 				System.exit(1);
 			}
 			limits = true;
 		} else if (cmd.hasOption("c")) {
 			try {
-				final String strStartScn =  cmd.getOptionValue("c");
+				final var strStartScn =  cmd.getOptionValue("c");
 				if (Strings.CI.startsWith(strStartScn, "0x"))
 					startScn = Long.parseLong(StringUtils.substring(strStartScn, 2), 0x10);
 				else
 					startScn = Long.parseLong(strStartScn);
 			} catch (Exception e) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"'{}' parsing SCN '{}'\nErrorstack:\n{}" +
-						"\n=====================\n",
+						"""
+						
+						=====================
+						'{}' parsing SCN '{}'
+						Errorstack:
+						{}
+						=====================
+
+						
+						""",
 						e.getMessage(), cmd.getOptionValue("c"), ExceptionUtils.getExceptionStackTrace(e));
 				System.exit(1);
 			}
 			if (cmd.hasOption("n")) {
 				try {
-					final String strEndScn =  cmd.getOptionValue("n");
+					final var strEndScn =  cmd.getOptionValue("n");
 					if (Strings.CI.startsWith(strEndScn, "0x"))
 						endScn = Long.parseLong(StringUtils.substring(strEndScn, 2), 0x10);
 					else
 						endScn = Long.parseLong(strEndScn);
 				} catch (Exception e) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"'{}' parsing SCN '{}'\nErrorstack:\n{}" +
-							"\n=====================\n",
+							"""
+							
+							=====================
+							'{}' parsing SCN '{}'
+							Errorstack:
+							{}
+							=====================
+
+							
+							""",
 							e.getMessage(), cmd.getOptionValue("n"), ExceptionUtils.getExceptionStackTrace(e));
 					System.exit(1);
 				}
 			} else {
 				LOGGER.error(
-						"\n=====================\n" +
-						"'if you specified an option -c/--start-scn, then you must specify the corresponding option -n/--end-scn!" +
-						"\n=====================\n");
+						"""
+						
+						=====================
+						If you specified an option -c/--start-scn, then you must specify the corresponding option -n/--end-scn!
+						=====================
+						
+						""");
 				System.exit(1);
 			}
 			limits = true;
@@ -356,24 +446,31 @@ public class OraRedoLogFile  {
 
 		final boolean objFilter;
 		final int[] objects;
-		if (cmd.getOptionValues("d") == null || cmd.getOptionValues("d").length == 0) {
+		if (StringUtils.isAllBlank(cmd.getOptionValues("d"))) {
 			objects = null;
 			objFilter = false;
 		} else {
-			final String[] objIds = cmd.getOptionValues("d");
+			final var objIds = cmd.getOptionValues("d");
 			objects = new int[objIds.length];
 			for (int i = 0; i < objects.length; i++) {
 				try {
-					final String str =  objIds[i];
+					final var str =  objIds[i];
 					if (Strings.CI.startsWith(str, "0x"))
 						objects[i] = Integer.parseInt(StringUtils.substring(str, 2), 0x10);
 					else
 						objects[i] = Integer.parseInt(str);
 				} catch (Exception e) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"'{}' parsing objId '{}'\nErrorstack:\n{}" +
-							"\n=====================\n",
+							"""
+							
+							=====================
+							'{}' parsing obj# '{}'
+							Errorstack:
+							{}
+							=====================
+
+							
+							""",
 							e.getMessage(), objIds[i], ExceptionUtils.getExceptionStackTrace(e));
 					System.exit(1);
 				}
@@ -385,8 +482,58 @@ public class OraRedoLogFile  {
 			Arrays.sort(objects);
 		}
 
+		boolean xidFilter = false;
+		Xid xid = null;
+		if (!StringUtils.isBlank(cmd.getOptionValue("x"))) {
+			final var strXid =  cmd.getOptionValue("x");
+			try {
+				if (!Strings.CS.startsWith(strXid, "0x")) {
+					throw new NumberFormatException("XID must start with 0x!");
+				}
+
+				var pos = 2;
+				final var sb = new StringBuilder();
+				while (pos < strXid.length() && strXid.charAt(pos) != '.') {
+					sb.append(strXid.charAt(pos++));
+				}
+				final short usn = (short) Integer.parseUnsignedInt(sb.toString(), 0x10);
+
+				pos++;
+				sb.setLength(0);
+				while (pos < strXid.length() && strXid.charAt(pos) != '.') {
+					sb.append(strXid.charAt(pos++));
+				}
+				final short slt = (short) Integer.parseUnsignedInt(sb.toString(), 0x10);
+
+				pos++;
+				sb.setLength(0);
+				while (pos < strXid.length()) {
+					sb.append(strXid.charAt(pos++));
+				}
+				final int sqn = Integer.parseUnsignedInt(sb.toString(), 0x10);
+
+				xidFilter = true;
+				xid = new Xid(usn, slt, sqn);
+			} catch (NumberFormatException nfe) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						'{}' parsing obj# '{}'
+						Errorstack:
+						{}
+						=====================
+
+						
+						""",
+						nfe.getMessage(), strXid, ExceptionUtils.getExceptionStackTrace(nfe));
+				System.exit(1);
+			}
+		}
+
+
 		out.println(orl);
-		if (records || dumps) {
+		if (records || dumps || xidFilter) {
 			try {
 				final Iterator<OraCdcRedoRecord> iterator;
 				if (limits) {
@@ -399,8 +546,11 @@ public class OraRedoLogFile  {
 					iterator = orl.iterator();
 				}
 				while (iterator.hasNext()) {
-					final OraCdcRedoRecord record = iterator.next();
+					final var record = iterator.next();
 					final boolean printRecord;
+					if (xidFilter && !xid.equals(record.xid()))
+						continue;
+						
 					if (objFilter) {
 						if (record.has5_1() || record.hasPrb()) {
 							final OraCdcChangeUndo change;
@@ -527,6 +677,14 @@ public class OraRedoLogFile  {
 				.desc("Identifier of the object(s) for which information will be printed. By default, information about all objects is printed")
 				.get();
 		options.addOption(objects);
+
+		final var filter = Option.builder("x")
+				.longOpt("xid")
+				.hasArg()
+				.required(false)
+				.desc("Identifier of the transaction Id (XID) for which information will be printed. By default, information about all transaction is printed")
+				.get();
+		options.addOption(filter);
 
 		final Option asmUrl = Option.builder("l")
 				.longOpt(ASM_URL)
