@@ -54,6 +54,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.UnsupportedCharsetException;
 import java.sql.SQLException;
+import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -279,7 +280,11 @@ public class OraCdcDecoderFactory {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						return OracleDate.toTimestamp(plaintext);
+						try {
+							return OracleDate.toTimestamp(plaintext);
+						} catch (DateTimeException dte) {
+							throw new SQLException(dte);
+						}
 					}
 				};
 			}
@@ -288,7 +293,11 @@ public class OraCdcDecoderFactory {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						return OracleTimestamp.toTimestamp(plaintext);
+						try {
+							return OracleTimestamp.toTimestamp(plaintext);
+						} catch (DateTimeException dte) {
+							throw new SQLException(dte);
+						}
 					}
 				};
 			}
@@ -842,13 +851,21 @@ public class OraCdcDecoderFactory {
 		decoders.put(DATE, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return OracleDate.toTimestamp(raw, off);
+				try {
+					return OracleDate.toTimestamp(raw, off);
+				} catch (DateTimeException dte) {
+					throw new SQLException(dte);
+				}
 			}
 		});
 		decoders.put(TIMESTAMP, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return OracleTimestamp.toTimestamp(raw, off);
+				try {
+					return OracleTimestamp.toTimestamp(raw, off);
+				} catch (DateTimeException dte) {
+					throw new SQLException(dte);
+				}
 			}
 		});
 		decoders.put(JAVA_SQL_TYPE_INTERVALDS_STRING, new OraCdcDecoder() {
