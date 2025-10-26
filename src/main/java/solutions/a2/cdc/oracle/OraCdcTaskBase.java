@@ -465,7 +465,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 				LOGGER.info("Last sent SCN={}, RBA={}, SSN={} for  transaction with incomplete send",
 							lastInProgressScn, lastInProgressRba, lastInProgressSubScn);
 			}
-			if (firstScn < firstAvailableScn) {
+			if ((Long.compareUnsigned(firstScn, firstAvailableScn) < 0)) {
 				LOGGER.warn(
 						"""
 						
@@ -488,10 +488,15 @@ public abstract class OraCdcTaskBase extends SourceTask {
 				firstScn = config.startScn();
 				LOGGER.info("{}={} is set in connector properties, previous offset data is not available.",
 						config.startScnParam(), firstScn);
-				if (firstScn < firstAvailableScn) {
+				if ((Long.compareUnsigned(firstScn, firstAvailableScn) < 0)) {
 					LOGGER.warn(
-							"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.",
-							config.startScnParam(), firstScn, config.startScnParam(), firstAvailableScn);
+							"""
+							
+							=====================
+							"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.
+							=====================
+							""",
+								config.startScnParam(), firstScn, config.startScnParam(), firstAvailableScn);
 					firstScn = firstAvailableScn;
 				} else {
 					// We need to rewind, potentially
