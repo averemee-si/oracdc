@@ -18,6 +18,7 @@ import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_RED
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.oracle.utils.BinaryUtils.getU24BE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
@@ -50,6 +51,7 @@ public class OraTable4RedoMiner extends OraTable {
 	private final Map<Integer, OraColumn> pureIdMap = new HashMap<>();
 	private final Set<Integer> setColumns = new HashSet<>();
 	private Set<Integer> lobColumnIds;
+	private final boolean beforeData;
 
 	/**
 	 * 
@@ -75,6 +77,7 @@ public class OraTable4RedoMiner extends OraTable {
 		this.rowLevelScn = rowLevelScnDependency;
 		this.version = version;
 		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
+		beforeData = (schemaType == SCHEMA_TYPE_INT_DEBEZIUM);
 		try {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);
@@ -393,8 +396,6 @@ public class OraTable4RedoMiner extends OraTable {
 							final int colSize = whereColDefs[i][1];
 							if (colSize < 0) {
 								if (oraColumn.mandatory()) {
-									// Check again for column default value...
-									// This is due "SUPPLEMENTAL LOG DATA (ALL) COLUMNS"
 									boolean throwDataException = true;
 									if (oraColumn.isDefaultValuePresent()) {
 										final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
@@ -467,11 +468,48 @@ public class OraTable4RedoMiner extends OraTable {
 			}
 			//END: where clause processing...
 			structWriter.afterBefore();
-			//TODO
-			//TODO - skip BEFORE from origDataPos with origDataLen length
-			//TODO
+			if (beforeData) {
+				for (int i = 0; i < setColDefs.length; i++)
+					for (int j = 0; j < setColDefs[i].length; j++)
+						setColDefs[i][j] = 0;
+				pos = stmt.readColDefs(setColDefs, origDataPos);
+				for (int i = 0; i < setColCount; i++) {
+					final int colSize = setColDefs[i][1];
+					final OraColumn oraColumn = pureIdMap.get(setColDefs[i][0]);
+					if (oraColumn != null) {
+						if (colSize < 0) {
+							try {
+								structWriter.update(oraColumn, null, false);
+							} catch (DataException de) {
+								printInvalidFieldValue(oraColumn, stmt, transaction);
+								throw de;
+							}
+						} else {
+							try {
+								structWriter.update(oraColumn,
+									parseRedoRecordValues(oraColumn, redoData,
+										setColDefs[i][2], colSize, transaction, lobIds),
+									false);
+							} catch (SQLException sqle ) {
+								if (oraColumn.isNullable()) {
+									printToLogInvalidHexValueWarning(
+											rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
+											oraColumn.getColumnName(), stmt);
+								} else {
+									LOGGER.error("Invalid value {} for column {} in table {}",
+											rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
+											oraColumn.getColumnName(), tableFqn);
+									printInvalidFieldValue(oraColumn, stmt, transaction);
+									throw new SQLException(sqle);
+								}
+							}
+						}
+					} else
+						printUnableToMapColIdWarning(setColDefs[i][0], transaction, stmt);
+				}
+			}
 		} else {
-			// We expect here only 1,2,3 as valid values for OPERATION_CODE (and 68 for special cases)
+			// We expect here only 1,2,3 as valid values for OPERATION_CODE
 			printErrorMessage(
 					Level.ERROR,
 					"Corrupted record for table {} found!!!\nPlease send e-mail to oracle@a2.solutions with record details below:\n",
