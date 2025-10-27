@@ -125,11 +125,7 @@ public class OraCdcSourceBaseConfig extends AbstractConfig {
 	}
 
 	public String topicOrPrefix() {
-		if (schemaType() != ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-			return getString(ConnectorParams.TOPIC_PREFIX_PARAM);
-		} else {
-			return getString(KAFKA_TOPIC_PARAM);
-		}
+		return getString(ConnectorParams.TOPIC_PREFIX_PARAM);
 	}
 
 	public List<String> includeObj() {

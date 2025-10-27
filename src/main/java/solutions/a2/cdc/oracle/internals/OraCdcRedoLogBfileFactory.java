@@ -32,9 +32,12 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLogBfileFactory.class);
 	private static final String GET_BFILE =
-			"begin\n" +
-			"  ? := BFILENAME(?, ?);\n" +
-			"end;\n";
+			"""
+			begin
+			  ? := BFILENAME(?, ?);
+			end;
+			
+			""";
 
 	private final String dirOnline;
 	private final String dirArchive;
@@ -53,10 +56,16 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 			reset(connection);
 		} catch (SQLException sqle) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to create OraCdcRedoLogBfileFactory: SQL Error Code={}, SQL State='{}'!" +
-					"\n=====================\n",
-					sqle.getErrorCode(), sqle.getSQLState());
+					"""
+					
+					=====================
+					Unable to create OraCdcRedoLogBfileFactory for directories
+					ONLINE='{}', ARCHIVE='{}'  and buffer size={}
+					'{}', SQL Error Code={}, SQL State='{}'!
+					=====================
+					
+					""", dirOnline, dirArchive, bufferSize,
+					sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 			throw sqle;
 		}
 	}
@@ -79,10 +88,14 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 			return get(redoLog, false, (int)blockSizeAndCount[0], blockSizeAndCount[1]); 
 		} catch (SQLException sqle) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to detect attributes of {}: SQL Error Code={}, SQL State='{}'!" +
-					"\n=====================\n",
-					redoLog, sqle.getErrorCode(), sqle.getSQLState());
+					"""
+					
+					=====================
+					Unable to detect attributes of {}:
+					'{}', SQL Error Code={}, SQL State='{}'!
+					=====================
+					
+					""", redoLog, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 			throw new IOException(sqle);
 		}
 	}
@@ -118,10 +131,14 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 
 	private void printCloseWarningMessage(final String blockName, final SQLException sqle) {
 		LOGGER.warn(
-				"\n=====================\n" +
-				"Unable to '{}' due to SQL Exception {}\n\tSQL Error code={}, SQL State='{}'!" +
-				"\n=====================\n",
-				blockName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+				"""
+				
+				=====================
+				Unable to '{}' due to SQL Exception '{}'
+					SQL Error code={}, SQL State='{}'!
+				=====================
+				
+				""", blockName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 	}
 
 }

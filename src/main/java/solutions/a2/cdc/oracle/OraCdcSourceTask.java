@@ -52,7 +52,7 @@ public class OraCdcSourceTask extends SourceTask {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceTask.class);
 	private static final String PARTITION_FIELD = "mvlog";
 
-	private OraTable oraTable;
+	private OraTable4SnapshotLog oraTable;
 	private int batchSize;
 	private int pollInterval;
 	private int schemaType;
@@ -110,7 +110,7 @@ public class OraCdcSourceTask extends SourceTask {
 							OraColumn.MVLOG_SEQUENCE, sourcePartitionName, (long) offset.get(OraColumn.MVLOG_SEQUENCE));
 			}
 
-			oraTable = new OraTable(
+			oraTable = new OraTable4SnapshotLog(
 					tableOwner, tableName,
 					props.get(TASK_PARAM_MV_LOG),
 					"YES".equalsIgnoreCase(props.get(TASK_PARAM_MV_ROWID)),

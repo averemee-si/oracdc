@@ -157,10 +157,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String TOPIC_MAPPER_DEFAULT = "solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper";
 	private static final String TOPIC_MAPPER_PARAM = "a2.topic.mapper";
 	private static final String TOPIC_MAPPER_DOC =
-			"The fully-qualified class name of the class that specifies which Kafka topic the data from the tables should be sent to.\n" +
-			"If value of thee parameter 'a2.shema.type' is set to 'debezium', the default OraCdcDefaultTopicNameMapper uses the parameter 'a2.kafka.topic' value as the Kafka topic name,\n" +
-			"otherwise it constructs the topic name according to the values of the parameters 'a2.topic.prefix', 'a2.topic.name.style', and 'a2.topic.name.delimiter', as well as the table name, table owner and PDB name.\n" +
-			"Default - " + TOPIC_MAPPER_DEFAULT;
+			"""
+			The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent.
+			The class must implement the `solutions.a2.cdc.oracle.TopicNameMapper` interface.
+			The connector comes with two predefined classes:
+			1) `solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper`, which generates a unique name for each table based on the PDB name, schema name, and table name using the values ​​of the `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter` parameters.
+			2) Another predefined class, `solutions.a2.cdc.oracle.OraCdcSingleTopicNameMapper`, uses the value of the `a2.kafka.topic` parameter as the Kafka topic name, and all change events for all tables are written to a single Kafka topic.
+			"""
+				+ TOPIC_MAPPER_DEFAULT;
 
 	private static final boolean STOP_ON_ORA_1284_DEFAULT = true;
 	private static final String STOP_ON_ORA_1284_PARAM = "a2.stop.on.ora.1284";
@@ -1220,6 +1224,17 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		if (useRac() || 
 			(activateStandby() && dg4RacThreads() != null && dg4RacThreads().size() > 1)) {
 			topicPartition = redoThread - 1;
+			if (topicPartition < 0) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						Invalid partition: {}. Partition number should always be non-negative.
+						=====================
+						
+						""");
+				throw new IllegalArgumentException("Invalid partition: " + topicPartition);
+			}
 		} else {
 			topicPartition = getInt(TOPIC_PARTITION_PARAM);
 		}
@@ -1232,9 +1247,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				if (Files.isDirectory(Paths.get(tempDir))) {
 					if (!Files.isWritable(Paths.get(tempDir))) {
 						LOGGER.error(
-								"\n=====================\n" +
-								"Parameter '{}' points to non-writable directory '{}'." +
-								"\n=====================\n",
+								"""
+								
+								=====================
+								Parameter '{}' points to non-writable directory '{}'.
+								=====================
+								
+								""",
 								TEMP_DIR_PARAM, tempDir);
 						throw new SQLException("Temp directory is not properly set!");
 					}
@@ -1243,9 +1262,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						Files.createDirectories(Paths.get(tempDir));
 					} catch (IOException | UnsupportedOperationException | SecurityException  e) {
 						LOGGER.error(
-								"\n=====================\n" +
-								"Unable to create directory! Parameter {} points to non-existent or invalid directory {}." +
-								"\n=====================\n",
+								"""
+								
+								=====================
+								Unable to create directory! Parameter {} points to non-existent or invalid directory {}.
+								=====================
+								
+								""",
 								TEMP_DIR_PARAM, tempDir);
 						throw new SQLException(e);
 					}
@@ -1264,9 +1287,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			return Long.parseUnsignedLong(scnAsString);
 		} catch (NumberFormatException nfe) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse value '{}' of parameter '{}' as unsigned long!" +
-					"\n=====================\n",
+					"""
+					
+					=====================
+					Unable to parse value '{}' of parameter '{}' as unsigned long!
+					=====================
+					
+					""",
 					scnAsString, LGMNR_START_SCN_PARAM);
 			throw new SQLException(nfe);
 		}
@@ -1298,9 +1325,15 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				maxMapCount = Integer.parseInt(StringUtils.trim(new String(buffer, 0, size)));
 			} catch (IOException | NumberFormatException e) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to read and parse value of vm.max_map_count from  '/proc/sys/vm/max_map_count'!\nException:{}\n{}" +
-						"\n=====================\n",
+						"""
+						
+						=====================
+						Unable to read and parse value of vm.max_map_count from  '/proc/sys/vm/max_map_count'!
+						Exception: {}
+						{}
+						=====================
+						
+						""",
 						e.getMessage(), ExceptionUtils.getExceptionStackTrace(e));
 			}
 			return ((int)(maxMapCount / 0x10)) * 0x7;
@@ -1383,10 +1416,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				}
 				if (maxPrefixSize == -1) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to convert filename '{}' using parameter {}={} !\n" +
-							"Original filename will be returned!" +
-							"\n=====================\n",
+							"""
+							
+							=====================
+							Unable to convert filename '{}' using parameter {}={} !
+							Original filename will be returned!
+							=====================
+							
+							""",
 							originalName, REDO_FILE_NAME_CONVERT_PARAM, getString(REDO_FILE_NAME_CONVERT_PARAM));
 					return originalName;
 				} else {

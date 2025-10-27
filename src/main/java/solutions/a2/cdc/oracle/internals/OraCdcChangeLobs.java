@@ -46,7 +46,7 @@ public class OraCdcChangeLobs extends OraCdcChange {
 				kdli(2);
 			}
 			if (coords.length > LOB_BIMG_INDEX) {
-				if (lobBimg()) {
+				if ((lobFlags & FLG_LOB_BIMG) > 0) {
 					if (lobDataOffset < 0)
 						lobDataOffset = coords[LOB_BIMG_INDEX][0];
 				} else {
@@ -84,7 +84,7 @@ public class OraCdcChangeLobs extends OraCdcChange {
 				kdli(sb, 2);
 			}
 			if (coords.length > LOB_BIMG_INDEX) {
-				if (lobBimg()) {
+				if ((lobFlags & FLG_LOB_BIMG) > 0) {
 					sb.append("\nKDLI data load\n");
 					printLobContent(sb, LOB_BIMG_INDEX, 0);
 				} else {

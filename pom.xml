@@ -396,6 +396,8 @@
 								<tag>collect</tag>
 								<tag>Hadoop</tag>
 								<tag>data lake</tag>
+								<tag>Iceberg</tag>
+								<tag>LakeHouse</tag>
 								<tag>JDBC</tag>
 								<tag>BFILE</tag>
 								<tag>SSH</tag>
@@ -416,6 +418,7 @@
 								<requirement>Oracle 21c</requirement>
 								<requirement>Oracle 23c</requirement>
 								<requirement>Oracle 23ai</requirement>
+								<requirement>Oracle 26ai</requirement>
 								<requirement>Oracle DataGuard</requirement>
 								<requirement>Oracle Active DataGuard</requirement>
 								<requirement>Oracle Standby Database</requirement>
@@ -452,7 +455,7 @@
 					</descriptors>
 					<archive>
 						<manifest>
-							<mainClass>solutions.a2.cdc.oracle.schema.TableSchemaEditor</mainClass>
+							<mainClass>solutions.a2.cdc.oracle.utils.file.OraRedoLogFile</mainClass>
 						</manifest>
 					</archive>
 				</configuration>

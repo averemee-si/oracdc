@@ -357,16 +357,4 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 		}
 	}
 
-	@Override
-	public void saveCurrentTablesSchema() {
-		if (task != null) {
-			try {
-				task.saveTablesSchema();
-			} catch (IOException ioe) {
-				LOGGER.error("Unable to schemas to file from JMX subsys!");
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-			}
-		}
-	}
-
 }

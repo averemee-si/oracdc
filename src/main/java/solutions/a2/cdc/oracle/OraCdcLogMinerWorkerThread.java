@@ -53,7 +53,7 @@ import solutions.a2.utils.ExceptionUtils;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static solutions.a2.cdc.oracle.OraCdcStatementBase.APPROXIMATE_SIZE;
-
+import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -428,7 +428,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								combinedDataObjectId = dataObjectId;
 							}
 							// First check for table definition...
-							OraTable4LogMiner oraTable = checker.getTable(combinedDataObjectId, dataObjectId, conId);
+							OraTable4LogMiner oraTable = (OraTable4LogMiner) checker.getTable(combinedDataObjectId, dataObjectId, conId);
 
 							if (oraTable != null) {
 								final byte[] redoBytes = readSqlRedo();
@@ -1079,7 +1079,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			}
 		}
 		final String xmlAsString = new String(
-				OraDumpDecoder.hexToRaw(withHexToRaw
+				hexToRaw(withHexToRaw
 						? StringUtils.substringBetween(xmlHexData.toString(), "HEXTORAW('", ")'")
 						: xmlHexData.toString()));
 		if (LOGGER.isTraceEnabled()) {

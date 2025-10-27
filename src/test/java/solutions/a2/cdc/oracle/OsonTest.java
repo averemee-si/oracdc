@@ -18,14 +18,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static solutions.a2.oracle.internals.LobLocator.BLOB;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
-import java.nio.ByteBuffer;
+import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Set;
 
+import org.apache.kafka.connect.data.Struct;
 import org.junit.jupiter.api.Test;
 
-import oracle.sql.json.OracleJsonException;
 import oracle.sql.json.OracleJsonFactory;
-import oracle.sql.json.OracleJsonParser;
-import oracle.sql.json.OracleJsonValue;
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
 
 /**
@@ -50,14 +51,15 @@ public class OsonTest {
 		assertEquals(0x37, ll.dataLength());
 		assertTrue(ll.dataInRow());
 
-		ByteBuffer bb = ByteBuffer.wrap(oson, oson.length - ll.dataLength(), ll.dataLength());
 		OracleJsonFactory factory = new OracleJsonFactory();
-		try (OracleJsonParser parser = factory.createJsonBinaryParser(bb)) {
-			parser.next();
-			OracleJsonValue value = parser.getValue();
-			assertEquals(value.toString(), "{\"fruit\":\"pineapple\",\"quantity\":20}");
-		} catch(OracleJsonException oje) {
-			oje.printStackTrace();
+		OraCdcDecoder decoder = OraCdcDecoderFactory.get(factory);
+		final Set<LobId> lobIds = new HashSet<>();
+		final OraCdcTransaction transaction = null;
+		try {
+			Struct osonData = (Struct) decoder.decode(oson, 0, oson.length, transaction, lobIds);
+			assertEquals(osonData.get("V"), "{\"fruit\":\"pineapple\",\"quantity\":20}");
+		} catch (SQLException sqle) {
+			sqle.printStackTrace();
 		}
 		
 	}

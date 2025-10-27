@@ -18,7 +18,7 @@ import java.nio.ByteBuffer;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Map;
+import java.time.ZoneId;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -41,6 +41,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
+import oracle.sql.json.OracleJsonFactory;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraInterval;
@@ -52,8 +53,8 @@ import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
+import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
-import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -80,11 +81,16 @@ import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.SQLXML;
+import static java.sql.Types.OTHER;
+import static java.sql.Types.LONGNVARCHAR;
+import static java.sql.Types.LONGVARCHAR;
+import static oracle.jdbc.OracleTypes.BINARY_FLOAT;
+import static oracle.jdbc.OracleTypes.BINARY_DOUBLE;
 import static oracle.jdbc.OracleTypes.INTERVALDS;
 import static oracle.jdbc.OracleTypes.INTERVALYM;
 import static oracle.jdbc.OracleTypes.JSON;
 import static oracle.jdbc.OracleTypes.VECTOR;
-import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
+import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 
 /**
  * 
@@ -135,24 +141,30 @@ public class OraColumn {
 	private String columnName;
 	private int columnId;
 	private String nameFromId;
-	private boolean partOfPk;
 	private int jdbcType;
-	private boolean nullable;
 	private Integer dataScale;
-	private Boolean binaryFloatDouble;
-	private Boolean localTimeZone;
-	private Boolean secureFile;
-	private Boolean defaultValuePresent;
 	private String defaultValue;
 	private Object typedDefaultValue;
 	@JsonIgnore
 	private Schema schema;
 	private String oracleName;
-	private boolean partOfKeyStruct;
-	private boolean number = false;
 	private int dataLength;
-	private boolean encrypted;
-	private boolean salt;
+	private static final short FLG_NULLABLE            = (short)0x0001;
+	private static final short FLG_PART_OF_PK          = (short)0x0002;
+	private static final short FLG_MANDATORY           = (short)0x0004;
+	private static final short FLG_LARGE_OBJECT        = (short)0x0008;
+	private static final short FLG_SECURE_FILE         = (short)0x0010;
+	private static final short FLG_SALT                = (short)0x0020;
+	private static final short FLG_ENCRYPTED           = (short)0x0040;
+	private static final short FLG_NUMBER              = (short)0x0080;
+	private static final short FLG_BINARY_FLOAT_DOUBLE = (short)0x0100;
+	private static final short FLG_PART_OF_KEY_STRUCT  = (short)0x0200;
+	private static final short FLG_LOCAL_TIME_ZONE     = (short)0x0400;
+	private static final short FLG_DEFAULT_VALUE       = (short)0x0800;
+	private static final short FLG_LOB_TRANSFORM       = (short)0x1000;
+	private static final short FLG_DECODE_WITH_TRANS   = (short) (FLG_LARGE_OBJECT | FLG_SECURE_FILE);
+	private short flags = 0;
+	private OraCdcDecoder decoder;
 
 	/**
 	 * 
@@ -171,7 +183,9 @@ public class OraColumn {
 			final boolean useOracdcSchemas,
 			final boolean processLobs,
 			final ResultSet resultSet,
-			final Set<String> pkColsSet) throws SQLException, UnsupportedColumnDataTypeException {
+			final Set<String> pkColsSet,
+			final OraCdcTdeColumnDecrypter decrypter,
+			final OraRdbmsInfo rdbmsInfo) throws SQLException, UnsupportedColumnDataTypeException {
 		oracleName = resultSet.getString("COLUMN_NAME");
 		if (!KafkaUtils.validAvroFieldName(oracleName)) {
 			columnName = KafkaUtils.fixAvroFieldName(oracleName, "_");
@@ -185,35 +199,28 @@ public class OraColumn {
 		} else {
 			columnName = oracleName;
 		}
-		this.nullable = "Y".equals(resultSet.getString("NULLABLE")) ? true : false;
+		if (Strings.CI.equals("Y", resultSet.getString("NULLABLE")))
+			flags |= FLG_NULLABLE;
+		else
+			flags |= FLG_MANDATORY;
 		this.setColumnId(resultSet.getInt("COLUMN_ID"));
 
 		defaultValue = resultSet.getString("DATA_DEFAULT");
-		if (resultSet.wasNull()) {
-			defaultValuePresent = false;
-		} else {
+		if (!resultSet.wasNull()) {
 			if (Strings.CI.equals(
 					StringUtils.trim(defaultValue), "NULL")) {
-				defaultValuePresent = false;
 				defaultValue = null;
 			} else {
-				defaultValuePresent = true;
+				flags |= FLG_DEFAULT_VALUE;
 			}
 		}
 
 		if (mviewSource) {
-			final String partOfPkString = resultSet.getString("PK");
-			if (!resultSet.wasNull() && "Y".equals(partOfPkString)) {
-				this.partOfPk = true;
-			} else {
-				this.partOfPk = false;
-			}
+			if (Strings.CI.equals("Y", resultSet.getString("PK")))
+				flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		} else {
-			if (pkColsSet != null && pkColsSet.contains(this.columnName)) {
-				this.partOfPk = true;
-			} else {
-				this.partOfPk = false;
-			}
+			if (pkColsSet != null && pkColsSet.contains(this.columnName))
+				flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		}
 
 		final String oraType = resultSet.getString("DATA_TYPE");
@@ -226,9 +233,11 @@ public class OraColumn {
 			dataPrecision = null;
 		}
 		dataLength = resultSet.getInt("DATA_LENGTH");
-		encrypted = Strings.CI.equals("YES", resultSet.getString("ENCRYPTED"));
-		salt = Strings.CI.equals("YES", resultSet.getString("SALT"));
-		detectTypeAndSchema(oraType, mviewSource, useOracdcSchemas, dataPrecision);
+		if (Strings.CI.equals("YES", resultSet.getString("ENCRYPTED")))
+			flags |= FLG_ENCRYPTED;
+		if (Strings.CI.equals("YES", resultSet.getString("SALT")))
+			flags |= FLG_SALT;
+		detectTypeAndSchema(oraType, mviewSource, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 
 	}
 
@@ -250,58 +259,57 @@ public class OraColumn {
 			final String columnName,
 			final String columnAttributes,
 			final String originalDdl,
-			final int columnId)
+			final int columnId,
+			final OraCdcTdeColumnDecrypter decrypter,
+			final OraRdbmsInfo rdbmsInfo)
 			throws UnsupportedColumnDataTypeException {
 		this.columnName = columnName;
 		this.setColumnId(columnId);
-		// 
-		this.partOfPk = false;
 		Integer dataPrecision = null;
 		this.dataScale = null;
 	
-
 		if (Strings.CI.startsWith(columnAttributes, TYPE_VARCHAR2)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_VARCHAR2, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_VARCHAR2, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_NVARCHAR2)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_NVARCHAR2, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_NVARCHAR2, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_CHAR)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_CHAR, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_CHAR, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_NCHAR)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_NCHAR, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_NCHAR, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_RAW)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_RAW, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_RAW, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_FLOAT)) {
 			// Ignore PRECISION for FLOAT
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_FLOAT, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_FLOAT, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_DATE)) {
 			// No PRECISION for DATE
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_DATE, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_DATE, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_TIMESTAMP)) {
 			// Ignore fractional seconds!!!
 			if (Strings.CI.contains(columnAttributes, "LOCAL")) {
 				// 231: TIMESTAMP [(fractional_seconds_precision)] WITH LOCAL TIME ZONE
 				detectIsNullAndDefault(columnAttributes);
-				detectTypeAndSchema("TIMESTAMP WITH LOCAL TIME ZONE", false, useOracdcSchemas, dataPrecision);
+				detectTypeAndSchema("TIMESTAMP WITH LOCAL TIME ZONE", false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 			} else if (Strings.CI.contains(columnAttributes, "ZONE")) {
 				// 181: TIMESTAMP [(fractional_seconds_precision)] WITH TIME ZONE
 				detectIsNullAndDefault(columnAttributes);
-				detectTypeAndSchema("TIMESTAMP WITH TIME ZONE", false, useOracdcSchemas, dataPrecision);
+				detectTypeAndSchema("TIMESTAMP WITH TIME ZONE", false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 			} else {
 				// 180: TIMESTAMP [(fractional_seconds_precision)]
 				detectIsNullAndDefault(columnAttributes);
-				detectTypeAndSchema(TYPE_TIMESTAMP, false, useOracdcSchemas, dataPrecision);
+				detectTypeAndSchema(TYPE_TIMESTAMP, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 			}
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_NUMBER)) {
 			detectIsNullAndDefault(columnAttributes);
@@ -324,40 +332,34 @@ public class OraColumn {
 					dataScale = null;
 				}
 			}
-			detectTypeAndSchema(TYPE_NUMBER, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_NUMBER, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_BINARY_FLOAT)) {
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_BINARY_FLOAT, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_BINARY_FLOAT, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_BINARY_DOUBLE)) {
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_BINARY_DOUBLE, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_BINARY_DOUBLE, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_BLOB)) {
-			nullable = true;
-			defaultValuePresent = false;
-			detectTypeAndSchema(TYPE_BLOB, false, useOracdcSchemas, dataPrecision);
+			flags |= FLG_NULLABLE;
+			detectTypeAndSchema(TYPE_BLOB, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_CLOB)) {
-			nullable = true;
-			defaultValuePresent = false;
-			detectTypeAndSchema(TYPE_CLOB, false, useOracdcSchemas, dataPrecision);
+			flags |= FLG_NULLABLE;
+			detectTypeAndSchema(TYPE_CLOB, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_NCLOB)) {
-			nullable = true;
-			defaultValuePresent = false;
-			detectTypeAndSchema(TYPE_NCLOB, false, useOracdcSchemas, dataPrecision);
+			flags |= FLG_NULLABLE;
+			detectTypeAndSchema(TYPE_NCLOB, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_XMLTYPE)) {
-			nullable = true;
-			defaultValuePresent = false;
-			detectTypeAndSchema(TYPE_XMLTYPE, false, useOracdcSchemas, dataPrecision);
+			flags |= FLG_NULLABLE;
+			detectTypeAndSchema(TYPE_XMLTYPE, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_JSON)) {
-			nullable = true;
-			defaultValuePresent = false;
-			detectTypeAndSchema(TYPE_JSON, false, useOracdcSchemas, dataPrecision);
+			flags |= FLG_NULLABLE;
+			detectTypeAndSchema(TYPE_JSON, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_BOOLEAN)) {
 			detectIsNullAndDefault(columnAttributes);
-			detectTypeAndSchema(TYPE_BOOLEAN, false, useOracdcSchemas, dataPrecision);
+			detectTypeAndSchema(TYPE_BOOLEAN, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_VECTOR)) {
-			nullable = true;
-			defaultValuePresent = false;
-			detectTypeAndSchema(TYPE_VECTOR, false, useOracdcSchemas, dataPrecision);
+			flags |= FLG_NULLABLE;
+			detectTypeAndSchema(TYPE_VECTOR, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo);
 		} else {
 			throw new UnsupportedColumnDataTypeException("Unable to parse DDL statement\n'" +
 												originalDdl + "'\nUnsupported datatype");
@@ -384,95 +386,99 @@ public class OraColumn {
 		}
 		if (posNull == -1) {
 			// By default - NULL
-			nullable = true;
+			flags |= FLG_NULLABLE;
 		} else if (posNot == -1) {
 			// NULL explicitly set
-			nullable = true;
+			flags |= FLG_NULLABLE;
 		} else {
-			nullable = false;
+			flags |= FLG_MANDATORY;
 		}
-
-		if (posDefault == -1) {
-			defaultValuePresent = false;
-		} else if (posDefault + 1 <= tokens.length - 1) {
-			defaultValuePresent = true;
+		if (posDefault != -1 && posDefault + 1 <= tokens.length - 1) {
+			flags |= FLG_DEFAULT_VALUE;
 			defaultValue = tokens[posDefault + 1]; 
 		}
-
 	}
 
 	private void detectTypeAndSchema(
 			final String oraType,
 			final boolean mviewSource,
 			final boolean useOracdcSchemas,
-			Integer dataPrecision) throws UnsupportedColumnDataTypeException {
+			Integer dataPrecision,
+			final OraCdcTdeColumnDecrypter decrypter,
+			final OraRdbmsInfo rdbmsInfo) throws UnsupportedColumnDataTypeException {
 		if (Strings.CS.equals(oraType, TYPE_DATE) || Strings.CS.startsWith(oraType, TYPE_TIMESTAMP)) {
 			if (useOracdcSchemas) {
 				if (Strings.CS.endsWith(oraType, "WITH LOCAL TIME ZONE")) {
 					// 231:
 					// TIMESTAMP [(fractional_seconds)] WITH LOCAL TIME ZONE
-					localTimeZone = true;
+					flags |= FLG_LOCAL_TIME_ZONE;
 					jdbcType = TIMESTAMP_WITH_TIMEZONE;
-					oraTimestampField();
+					oraTimestampField(true, decrypter, rdbmsInfo == null ? ZoneId.systemDefault() : rdbmsInfo.getDbTimeZone());
 				} else if (Strings.CS.endsWith(oraType, "WITH TIME ZONE")) {
 					// 181: TIMESTAMP [(fractional_seconds)] WITH TIME ZONE
-					localTimeZone = false;
 					jdbcType = TIMESTAMP_WITH_TIMEZONE;
-					oraTimestampField();
+					oraTimestampField(false, decrypter, rdbmsInfo == null ? ZoneId.systemDefault() : rdbmsInfo.getDbTimeZone());
 				} else {
 					// 12: DATE, 180: TIMESTAMP [(fractional_seconds_precision)]
 					jdbcType = TIMESTAMP;
-					timestampField();
+					timestampField(Strings.CS.equals(oraType, TYPE_DATE), decrypter);
 				}
 			} else {
 				jdbcType = TIMESTAMP;
-				timestampField();
+				timestampField(Strings.CS.equals(oraType, TYPE_DATE), decrypter);
 			}
 		} else if (Strings.CS.startsWith(oraType, "INTERVAL")) {
 			if (Strings.CS.contains(oraType, "TO MONTH")) {
 				if (useOracdcSchemas) {
 					jdbcType = INTERVALYM;
-					if (partOfPk || !nullable) {
+					decoder = (flags & FLG_ENCRYPTED) > 0
+							? OraCdcDecoderFactory.get(decrypter, (flags & FLG_SALT) > 0)
+							: OraCdcDecoderFactory.get();
+					if ((flags & FLG_PART_OF_PK) > 0 || (flags & FLG_NULLABLE) == 0) {
 						schema = OraIntervalYM.builder().required().build();
 					} else {
 						schema = OraIntervalYM.builder().optional().build();
 					}
 				} else {
 					jdbcType = JAVA_SQL_TYPE_INTERVALYM_STRING;
-					oraIntervalField();				}
+					oraIntervalField(decrypter);
+				}
 			} else {
 				// 'TO SECOND'
 				if (useOracdcSchemas) {
 					jdbcType = INTERVALDS;
-					if (partOfPk || !nullable) {
+					decoder = (flags & FLG_ENCRYPTED) > 0
+							? OraCdcDecoderFactory.get(decrypter, (flags & FLG_SALT) > 0)
+							: OraCdcDecoderFactory.get();
+					if ((flags & FLG_PART_OF_PK) > 0 || (flags & FLG_NULLABLE) == 0) {
 						schema = OraIntervalDS.builder().required().build();
 					} else {
 						schema = OraIntervalDS.builder().optional().build();
 					}
 				} else {
 					jdbcType = JAVA_SQL_TYPE_INTERVALDS_STRING;
-					oraIntervalField();
+					oraIntervalField(decrypter);
 				}
 			}
 		} else {
 			switch (oraType) {
-				case TYPE_FLOAT:
+				case TYPE_FLOAT -> {
 					// A subtype of the NUMBER datatype having precision p.
 					// A FLOAT value is represented internally as NUMBER.
 					// The precision p can range from 1 to 126 binary digits.
 					// A FLOAT value requires from 1 to 22 bytes.
-					number = true;
+					flags |= FLG_NUMBER;
 					if (useOracdcSchemas) {
 						jdbcType = NUMERIC;
-						oraNumberField();
+						oraNumberField(decrypter);
 					} else {
-						binaryFloatDouble = false;
 						jdbcType = DOUBLE;
+						decoderFromJdbcType(decrypter);
 						doubleField();
 					}
-					break;
-				case TYPE_NUMBER:
-					number = true;
+				}
+				case TYPE_NUMBER -> {
+					flags |= FLG_NUMBER;
 					if (dataScale != null && dataPrecision == null) {
 						//DATA_SCALE set but DATA_PRECISION is unknown....
 						//Set it to MAX
@@ -484,131 +490,150 @@ public class OraColumn {
 						// Can be Integer or decimal or float....
 						if (useOracdcSchemas) {
 							jdbcType = NUMERIC;
-							oraNumberField();
+							oraNumberField(decrypter);
 						} else {
-							binaryFloatDouble = false;
 							jdbcType = DOUBLE;
+							decoderFromJdbcType(decrypter);
 							doubleField();
 						}
 					} else if (dataScale == null || dataScale == 0) {
 						// Integer 
 						if (dataPrecision < 3) {
 							jdbcType = TINYINT;
-							byteField();
+							byteField(decrypter);
 						} else if (dataPrecision < 5) {
 							jdbcType = SMALLINT;
-							shortField();
+							shortField(decrypter);
 						} else if (dataPrecision < 10) {
 							jdbcType = INTEGER;
-							intField();
+							intField(decrypter);
 						} else if (dataPrecision < 19) {
 							jdbcType = BIGINT;
-							longField();
+							longField(decrypter);
 						} else {
 							// Too big for BIGINT...
 							jdbcType = DECIMAL;
-							decimalField(0);
+							decimalField(0, decrypter);
 						}
 					} else {
 						// Decimal values
 						jdbcType = DECIMAL;
-						decimalField(dataScale);
+						decimalField(dataScale, decrypter);
 					}
-					break;
-				case TYPE_INTEGER:
-				case TYPE_INT:
-				case TYPE_SMALLINT:
+				}
+				case TYPE_INTEGER, TYPE_INT, TYPE_SMALLINT -> {
 					// NUMBER(38, 0)
 					if (useOracdcSchemas) {
 						jdbcType = NUMERIC;
-						oraNumberField();
+						oraNumberField(decrypter);
 					} else {
 						jdbcType = DECIMAL;
-						decimalField(0);
+						decimalField(0, decrypter);
 					}
-					break;
-				case TYPE_BINARY_FLOAT:
+				}
+				case TYPE_BINARY_FLOAT -> {
 					jdbcType = FLOAT;
-					binaryFloatDouble = true;
+					flags |= FLG_BINARY_FLOAT_DOUBLE;
+					decoder = (flags & FLG_ENCRYPTED) > 0
+							? OraCdcDecoderFactory.get(BINARY_FLOAT, decrypter, (flags & FLG_SALT) > 0)
+							: OraCdcDecoderFactory.get(BINARY_FLOAT);
 					floatField();
-					break;
-				case TYPE_BINARY_DOUBLE:
+				}
+				case TYPE_BINARY_DOUBLE -> {
 					jdbcType = DOUBLE;
-					binaryFloatDouble = true;
+					flags |= FLG_BINARY_FLOAT_DOUBLE;
+					decoder = (flags & FLG_ENCRYPTED) > 0
+							? OraCdcDecoderFactory.get(BINARY_DOUBLE, decrypter, (flags & FLG_SALT) > 0)
+							: OraCdcDecoderFactory.get(BINARY_DOUBLE);
 					doubleField();
-					break;
-				case TYPE_CHAR:
+				}
+				case TYPE_CHAR -> {
 					jdbcType = CHAR;
-					stringField();
-					secureFile = false;
-					break;
-				case TYPE_NCHAR:
+					stringField(OTHER, rdbmsInfo == null ? "US7ASCII" : rdbmsInfo.charset(), decrypter);
+				}
+				case TYPE_NCHAR -> {
 					jdbcType = NCHAR;
-					stringField();
-					secureFile = false;
-					break;
-				case TYPE_VARCHAR2:
+					stringField(OTHER, rdbmsInfo == null ? "US7ASCII" : rdbmsInfo.nCharset(), decrypter);
+				}
+				case TYPE_VARCHAR2 -> {
 					jdbcType = VARCHAR;
-					stringField();
-					if (dataLength > CHAR_MAX)
-						secureFile = true;
-					else
-						secureFile = false;
-					break;
-				case TYPE_NVARCHAR2:
+					if (dataLength > CHAR_MAX) {
+						flags |= FLG_SECURE_FILE;
+						stringField(LONGVARCHAR, rdbmsInfo == null ? "US7ASCII" : rdbmsInfo.charset(), decrypter);
+					} else
+						stringField(OTHER, rdbmsInfo == null ? "US7ASCII" : rdbmsInfo.charset(), decrypter);
+				}
+				case TYPE_NVARCHAR2 -> {
 					jdbcType = NVARCHAR;
-					stringField();
-					if (dataLength > CHAR_MAX)
-						secureFile = true;
-					else
-						secureFile = false;
-					break;
-				case TYPE_CLOB:
+					if (dataLength > CHAR_MAX) {
+						flags |= FLG_SECURE_FILE;
+						stringField(LONGNVARCHAR, rdbmsInfo == null ? "US7ASCII" : rdbmsInfo.nCharset(), decrypter);
+					} else
+						stringField(OTHER, rdbmsInfo == null ? "US7ASCII" : rdbmsInfo.nCharset(), decrypter);
+				}
+				case TYPE_CLOB -> {
 					jdbcType = CLOB;
+					decoderFromJdbcType(decrypter);
+					flags |= FLG_LARGE_OBJECT;
 					if (mviewSource)
 						stringField();
-					break;
-				case TYPE_NCLOB:
+				}
+				case TYPE_NCLOB -> {
 					jdbcType = NCLOB;
+					decoderFromJdbcType(decrypter);
+					flags |= FLG_LARGE_OBJECT;
 					if (mviewSource)
 						stringField();
-					break;
-				case TYPE_RAW:
+				}
+				case TYPE_RAW -> {
 					jdbcType = BINARY;
+					decoder = (flags & FLG_ENCRYPTED) > 0
+							? OraCdcDecoderFactory.get(decrypter, (flags & FLG_SALT) > 0)
+							: OraCdcDecoderFactory.get();
 					bytesField();
 					if (dataLength > RAW_MAX)
-						secureFile = true;
-					else
-						secureFile = false;
-					break;
-				case TYPE_BLOB:
+						flags |= FLG_SECURE_FILE;
+				}
+				case TYPE_BLOB -> {
 					jdbcType = BLOB;
+					decoderFromJdbcType(decrypter);
+					flags |= FLG_LARGE_OBJECT;
 					if (mviewSource)
 						bytesField();
-					break;
-				case TYPE_XMLTYPE:
+				}
+				case TYPE_XMLTYPE -> {
 					jdbcType = SQLXML;
+					decoderFromJdbcType(decrypter);
+					flags |= FLG_LARGE_OBJECT;
 					if (mviewSource)
 						stringField();
-					break;
-				case TYPE_JSON:
+				}
+				case TYPE_JSON -> {
 					jdbcType = JSON;
+					flags |= FLG_LARGE_OBJECT;
+					decoder = (flags & FLG_ENCRYPTED) > 0
+							? OraCdcDecoderFactory.get(rdbmsInfo == null ? new OracleJsonFactory() : rdbmsInfo.jsonFactory(),
+												decrypter, (flags & FLG_SALT) > 0)
+							: OraCdcDecoderFactory.get(rdbmsInfo == null ? new OracleJsonFactory() : rdbmsInfo.jsonFactory());
 					if (mviewSource)
 						stringField();
-					break;
-				case TYPE_BOOLEAN:
+				}
+				case TYPE_BOOLEAN -> {
 					// 252
 					jdbcType = BOOLEAN;
-					booleanField();
-					break;
-				case TYPE_VECTOR:
+					booleanField(decrypter);
+				}
+				case TYPE_VECTOR -> {
 					// 127
 					jdbcType = VECTOR;
-					break;
-				default:
+					decoderFromJdbcType(decrypter);
+					flags |= FLG_LARGE_OBJECT;
+				}
+				default -> {
 					LOGGER.warn("Datatype {} for column {} is not supported!",
 							oraType, this.columnName);
 					throw new UnsupportedColumnDataTypeException(this.columnName);
+				}
 			}
 		}
 	}
@@ -622,251 +647,108 @@ public class OraColumn {
 	 */
 	public OraColumn(final Field field, final boolean partOfPk, final boolean partOfKeyStruct) throws SQLException {
 		this.columnName = field.name();
-		this.partOfPk = partOfPk;
-		this.nullable = field.schema().isOptional();
+		if (partOfPk)
+			flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
+		if (field.schema().isOptional())
+			flags |= FLG_NULLABLE;
+		else
+			flags |= FLG_MANDATORY;
 		this.nameFromId = null;
-		this.partOfKeyStruct = partOfKeyStruct;
+		if (partOfKeyStruct)
+			flags |= FLG_PART_OF_KEY_STRUCT;
 		final String typeFromSchema = field.schema().type().getName().toUpperCase();
 		switch (typeFromSchema) {
-		case "INT8":
-			jdbcType = TINYINT;
-			break;
-		case "INT16":
-			jdbcType = SMALLINT;
-			break;
-		case "INT32":
-			if (field.schema().name() != null && Date.LOGICAL_NAME.equals(field.schema().name())) {
-				jdbcType = DATE;
-			} else {
-				jdbcType = INTEGER;
+			case "INT8" -> jdbcType = TINYINT;
+			case "INT16" -> jdbcType = SMALLINT;
+			case "INT32" -> {
+				if (field.schema().name() != null && Date.LOGICAL_NAME.equals(field.schema().name()))
+					jdbcType = DATE;
+				else
+					jdbcType = INTEGER;
 			}
-			break;
-		case "INT64":
-			if (field.schema().name() != null && Timestamp.LOGICAL_NAME.equals(field.schema().name())) {
-				jdbcType = TIMESTAMP;
-			} else {
-				jdbcType = BIGINT;
+			case "INT64" -> {
+				if (field.schema().name() != null && Timestamp.LOGICAL_NAME.equals(field.schema().name()))
+					jdbcType = TIMESTAMP;
+				else
+					jdbcType = BIGINT;
 			}
-			break;
-		case "FLOAT32":
-			jdbcType = FLOAT;
-			break;
-		case "FLOAT64":
-			jdbcType = DOUBLE;
-			break;
-		case "BYTES":
-			if (field.schema().name() != null) {
-				switch (field.schema().name()) {
-				case Decimal.LOGICAL_NAME:
-					jdbcType = DECIMAL;
-					try {
-						dataScale = Integer.valueOf(field.schema().parameters().get(Decimal.SCALE_FIELD));
-					} catch (Exception e) {
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+			case "FLOAT32" -> jdbcType = FLOAT;
+			case "FLOAT64" -> jdbcType = DOUBLE;
+			case "BYTES" -> {
+				if (field.schema().name() != null) {
+					switch (field.schema().name()) {
+						case Decimal.LOGICAL_NAME -> {
+							jdbcType = DECIMAL;
+							try {
+								dataScale = Integer.valueOf(field.schema().parameters().get(Decimal.SCALE_FIELD));
+							} catch (Exception e) {
+								LOGGER.error(
+										"""
+										
+										=====================
+										'{}' while parsing SCALE_FIELD. Exception stack trace:
+										{}
+										=====================
+										
+										""", e.getMessage(), ExceptionUtils.getExceptionStackTrace(e));
+							}
+						}
+						case OraNumber.LOGICAL_NAME -> jdbcType = NUMERIC;
+						case OraIntervalYM.LOGICAL_NAME -> jdbcType = INTERVALYM;
+						case OraIntervalDS.LOGICAL_NAME -> jdbcType = INTERVALDS;
+						default -> {
+							LOGGER.error(
+									"""
+									
+									=====================
+									Unknown logical name {} for BYTES Schema.
+									Setting column {} JDBC type to BINARY.
+									=====================
+									
+									""", field.schema().name(), field.name());
+							jdbcType = BINARY;
+						}
 					}
-					break;
-				case OraNumber.LOGICAL_NAME:
-					jdbcType = NUMERIC;
-					break;
-				case OraIntervalYM.LOGICAL_NAME:
-					jdbcType = INTERVALYM;
-					break;
-				case OraIntervalDS.LOGICAL_NAME:
-					jdbcType = INTERVALDS;
-					break;
-				default:
-					LOGGER.error("Unknown logical name {} for BYTES Schema.", field.schema().name());
-					LOGGER.error("Setting column {} JDBC type to binary.", field.name());
+				} else {
 					jdbcType = BINARY;
 				}
-			} else {
-				jdbcType = BINARY;
 			}
-			break;
-		case "STRING":
-			if (field.schema().name() != null) {
-				switch (field.schema().name()) {
-				case  OraTimestamp.LOGICAL_NAME:
-					jdbcType = TIMESTAMP_WITH_TIMEZONE;
-					break;
-				case OraInterval.LOGICAL_NAME:
-					jdbcType = JAVA_SQL_TYPE_INTERVALDS_STRING;
-					break;
-				default:
-					LOGGER.error("Unknown logical name {} for STRING Schema.", field.schema().name());
-					LOGGER.error("Setting column {} JDBC type to varchar.", field.name());
+			case "STRING" -> {
+				if (field.schema().name() != null) {
+					switch (field.schema().name()) {
+						case  OraTimestamp.LOGICAL_NAME ->  jdbcType = TIMESTAMP_WITH_TIMEZONE;
+						case OraInterval.LOGICAL_NAME -> jdbcType = JAVA_SQL_TYPE_INTERVALDS_STRING;
+						default -> {
+							LOGGER.error(
+									"""
+									
+									=====================
+									Unknown logical name {} for STRING Schema.
+									Setting column {} JDBC type to VARCHAR.
+									=====================
+									
+									""", field.schema().name(), field.name());
+							jdbcType = VARCHAR;
+						}
+					}
+				} else {
 					jdbcType = VARCHAR;
 				}
-			} else {
-				jdbcType = VARCHAR;
 			}
-			break;
-		case "STRUCT":
-			if (field.schema().name() != null)
-				switch (field.schema().name()) {
-				case OraBlob.LOGICAL_NAME:
-					jdbcType = BLOB;
-					break;
-				case OraClob.LOGICAL_NAME:
-					jdbcType = CLOB;
-					break;
-				case OraNClob.LOGICAL_NAME:
-					jdbcType = NCLOB;
-					break;
-				case OraXml.LOGICAL_NAME:
-					jdbcType = SQLXML;
-					break;
-				case OraJson.LOGICAL_NAME:
-					jdbcType = JSON;
-					break;
-				case OraVector.LOGICAL_NAME:
-					jdbcType = VECTOR;
-					break;
-				}
-			break;
-		case "BOOLEAN":
-			jdbcType = BOOLEAN;
-			break;
-		default:
-			throw new SQLException("Not supported type '" + typeFromSchema + "'!");
+			case "STRUCT" -> {
+				if (field.schema().name() != null)
+					switch (field.schema().name()) {
+						case OraBlob.LOGICAL_NAME -> jdbcType = BLOB;
+						case OraClob.LOGICAL_NAME -> jdbcType = CLOB;
+						case OraNClob.LOGICAL_NAME -> jdbcType = NCLOB;
+						case OraXml.LOGICAL_NAME -> jdbcType = SQLXML;
+						case OraJson.LOGICAL_NAME -> jdbcType = JSON;
+						case OraVector.LOGICAL_NAME -> jdbcType = VECTOR;
+					}
+			}
+			case "BOOLEAN" ->  jdbcType = BOOLEAN;
+			default ->  throw new SQLException("Not supported type '" + typeFromSchema + "'!");
 		}
-	}
-
-	/**
-	 * 
-	 * Deserialize OraColumn
-	 * 
-	 * @param columnData
-	 * @param keySchema
-	 * @param valueSchema
-	 * @param schemaType
-	 * @throws SQLException 
-	 */
-	public OraColumn(Map<String, Object> columnData,
-			final SchemaBuilder keySchema, final SchemaBuilder valueSchema,
-			final int schemaType) throws SQLException {
-		columnName = (String) columnData.get("columnName");
-		nameFromId = (String) columnData.get("nameFromId");
-		columnId = (int) columnData.get("columnId");
-		partOfPk = (boolean) columnData.get("partOfPk");
-		jdbcType = (int) columnData.get("jdbcType");
-		nullable = (boolean) columnData.get("nullable");
-		dataScale = (Integer) columnData.get("dataScale");
-		binaryFloatDouble = (Boolean) columnData.get("binaryFloatDouble");
-		localTimeZone = (Boolean) columnData.get("localTimeZone");
-		
-		switch (jdbcType) {
-		case DATE:
-		case TIMESTAMP:
-			timestampField(keySchema, valueSchema);
-			break;
-		case TIMESTAMP_WITH_TIMEZONE:
-			if (localTimeZone == null) {
-				localTimeZone = false;
-			}
-			// This is only for oracdc extended types!!!
-			oraTimestampField(keySchema, valueSchema);
-		case TINYINT:
-			byteField(keySchema, valueSchema);
-			break;
-		case SMALLINT:
-			shortField(keySchema, valueSchema);
-			break;
-		case INTEGER:
-			intField(keySchema, valueSchema);
-			break;
-		case BIGINT:
-			longField(keySchema, valueSchema);
-			break;
-		case DECIMAL:
-			if (dataScale == null) {
-				dataScale = 0;
-			}
-			decimalField(dataScale, keySchema, valueSchema);
-			break;
-		case NUMERIC:
-			// This is only for oracdc extended types!!!
-			oraNumberField(keySchema, valueSchema);
-			break;
-		case FLOAT:
-			if (binaryFloatDouble == null) {
-				binaryFloatDouble = false;
-			}
-			floatField(keySchema, valueSchema);
-			break;
-		case DOUBLE:
-			if (binaryFloatDouble == null) {
-				binaryFloatDouble = false;
-			}
-			doubleField(keySchema, valueSchema);
-			break;
-		case BINARY:
-			bytesField(keySchema, valueSchema);
-			break;
-		case CHAR:
-		case VARCHAR:
-		case NCHAR:
-		case NVARCHAR:
-		case ROWID:
-			stringField(keySchema, valueSchema);
-			break;
-		case CLOB:
-			valueSchema.field(this.columnName, OraClob.schema());
-			break;
-		case NCLOB:
-			valueSchema.field(this.columnName, OraNClob.schema());
-			break;
-		case BLOB:
-			valueSchema.field(this.columnName, OraBlob.schema());
-			break;
-		case SQLXML:
-			valueSchema.field(this.columnName, OraXml.schema());
-			break;
-		case JSON:
-			valueSchema.field(this.columnName, OraJson.schema());
-			break;
-		case BOOLEAN:
-			booleanField(keySchema, valueSchema);
-			break;
-		case VECTOR:
-			valueSchema.field(this.columnName, OraVector.schema());
-			break;
-		default:
-			throw new SQLException("Unsupported JDBC type " +
-					jdbcType + " for column " +
-					columnName + ".");
-		}
-		schemaEpilogue(keySchema, valueSchema, schemaType);
-	}
-
-	private void schemaEpilogue(
-			final SchemaBuilder keySchema, final SchemaBuilder valueSchema,
-			final int schemaType) {
-		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM && this.partOfPk) {
-			valueSchema.field(this.columnName,
-					keySchema.build().field(this.columnName).schema());
-		}
-	}
-	
-
-	/**
-	 * Used internally for ROWID support
-	 * 
-	 * @param columnName
-	 * @param partOfPk
-	 * @param jdbcType
-	 * @param nullable
-	 */
-	private OraColumn(
-			final String columnName,
-			final boolean partOfPk,
-			final int jdbcType,
-			boolean nullable) {
-		this.columnName = columnName;
-		this.partOfPk = partOfPk;
-		this.jdbcType = jdbcType;
-		this.nullable = nullable;
-		this.nameFromId = null;
 	}
 
 	/**
@@ -886,50 +768,36 @@ public class OraColumn {
 		
 	}
 
-	public void remap(final OraColumn newDef) {
+	public void remap(final OraColumn newDef, final OraCdcTdeColumnDecrypter decrypter) {
 		if (newDef.jdbcType != NULL && jdbcType != newDef.jdbcType) {
 			jdbcType = newDef.jdbcType;
 			switch (jdbcType) {
-			case BOOLEAN:
-				schema = nullable ? Schema.OPTIONAL_BOOLEAN_SCHEMA :
-									Schema.BOOLEAN_SCHEMA;
-				break;
-			case TINYINT:
-				schema = nullable ? Schema.OPTIONAL_INT8_SCHEMA :
-									Schema.INT8_SCHEMA;
-				break;
-			case SMALLINT:
-				schema = nullable ? Schema.OPTIONAL_INT16_SCHEMA :
-									Schema.INT16_SCHEMA;
-				break;
-			case INTEGER:
-				schema = nullable ? Schema.OPTIONAL_INT32_SCHEMA :
-									Schema.INT32_SCHEMA;
-				break;
-			case BIGINT:
-				schema = nullable ? Schema.OPTIONAL_INT64_SCHEMA :
-									Schema.INT64_SCHEMA;
-				break;
-			case FLOAT:
-				schema = nullable ? Schema.OPTIONAL_FLOAT32_SCHEMA :
-									Schema.FLOAT32_SCHEMA;
-				break;
-			case DOUBLE:
-				schema = nullable ? Schema.OPTIONAL_FLOAT64_SCHEMA :
-									Schema.FLOAT64_SCHEMA;
-				break;
-			case DECIMAL:
-				schema = optionalOrRequired(Decimal.builder(newDef.dataScale));
-				break;
+				case BOOLEAN  -> booleanField(decrypter); 
+				case TINYINT  -> byteField(decrypter);
+				case SMALLINT -> shortField(decrypter);
+				case INTEGER  -> intField(decrypter);
+				case BIGINT   -> longField(decrypter);
+				case FLOAT    -> {
+					schema = (flags & FLG_NULLABLE) > 0
+							? Schema.OPTIONAL_FLOAT32_SCHEMA
+							: Schema.FLOAT32_SCHEMA;
+					decoderFromJdbcType(decrypter);
+				}
+				case DOUBLE   -> {
+					schema = (flags & FLG_NULLABLE) > 0
+							? Schema.OPTIONAL_FLOAT64_SCHEMA
+							: Schema.FLOAT64_SCHEMA;
+					decoderFromJdbcType(decrypter);
+				}
+				case DECIMAL  -> decimalField(newDef.dataScale, decrypter);
 			}
 		}
 	}
 
-	/*
-	 * New Style call... ... ...
-	 */
 	public static OraColumn getRowIdKey() {
-		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, true, ROWID, false);
+		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, ROWID, 0);
+		rowIdColumn.flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
+		rowIdColumn.schema = Schema.STRING_SCHEMA;
 		return rowIdColumn;
 	}
 
@@ -959,11 +827,16 @@ public class OraColumn {
 	}
 
 	public boolean isPartOfPk() {
-		return partOfPk;
+		return (flags & FLG_PART_OF_PK) > 0;
 	}
 
 	public void setPartOfPk(boolean partOfPk) {
-		this.partOfPk = partOfPk;
+		if (partOfPk)
+			flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
+		else {
+			flags &= (~FLG_PART_OF_PK);
+			flags &= (~FLG_MANDATORY);
+		}
 	}
 
 	public int getJdbcType() {
@@ -975,11 +848,17 @@ public class OraColumn {
 	}
 
 	public boolean isNullable() {
-		return nullable;
+		return (flags & FLG_NULLABLE) > 0;
 	}
 
 	public void setNullable(boolean nullable) {
-		this.nullable = nullable;
+		if (nullable) {
+			flags |= FLG_NULLABLE;
+			flags &= (~FLG_MANDATORY);
+		} else {
+			flags &= (~FLG_NULLABLE);
+			flags |= FLG_MANDATORY;
+		}
 	}
 
 	public int getDataScale() {
@@ -994,31 +873,40 @@ public class OraColumn {
 	}
 
 	public Boolean isBinaryFloatDouble() {
-		return binaryFloatDouble;
+		return (flags & FLG_BINARY_FLOAT_DOUBLE) > 0;
 	}
 
-	public void setBinaryFloatDouble(Boolean binaryFloatDouble) {
-		this.binaryFloatDouble = binaryFloatDouble;
+	public void setBinaryFloatDouble(boolean binaryFloatDouble) {
+		if (binaryFloatDouble)
+			flags |= FLG_BINARY_FLOAT_DOUBLE;
+		else
+			flags &= (~FLG_BINARY_FLOAT_DOUBLE);
 	}
 
-	public Boolean isLocalTimeZone() {
-		return localTimeZone;
+	public boolean isLocalTimeZone() {
+		return (flags & FLG_LOCAL_TIME_ZONE) > 0;
 	}
 
-	public void setLocalTimeZone(Boolean localTimeZone) {
-		this.localTimeZone = localTimeZone;
+	public void setLocalTimeZone(boolean localTimeZone) {
+		if (localTimeZone)
+			flags |= FLG_LOCAL_TIME_ZONE;
+		else
+			flags &= (~FLG_LOCAL_TIME_ZONE);
 	}
 
-	public Boolean getSecureFile() {
-		return secureFile;
+	public boolean getSecureFile() {
+		return (flags & FLG_SECURE_FILE) > 0;
 	}
 
-	public void setSecureFile(Boolean secureFile) {
-		this.secureFile = secureFile;
+	public void setSecureFile(boolean secureFile) {
+		if (secureFile)
+			flags |= FLG_SECURE_FILE;
+		else
+			flags &= (~FLG_SECURE_FILE);
 	}
 
 	public Boolean isDefaultValuePresent() {
-		return defaultValuePresent;
+		return (flags & FLG_DEFAULT_VALUE) > 0;
 	}
 
 	public String getDefaultValue() {
@@ -1034,7 +922,7 @@ public class OraColumn {
 	//TODO and this will be replaced with simple getter and setter for typedDefaultValue
 	//TODO
 	public Object getTypedDefaultValue() {
-		if (!defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) == 0) {
 			return null;
 		} else if (typedDefaultValue == null) {
 			//TODO
@@ -1141,7 +1029,7 @@ public class OraColumn {
 			final Struct keyStruct,
 			final Struct valueStruct) throws SQLException  {
 		bindWithPrepStmt(dbType, statement, columnNo,
-				(partOfKeyStruct ? keyStruct.get(columnName) : valueStruct.get(columnName)));
+				((flags & FLG_PART_OF_KEY_STRUCT) > 0 ? keyStruct.get(columnName) : valueStruct.get(columnName)));
 	}
 
 	/**
@@ -1191,7 +1079,7 @@ public class OraColumn {
 				break;
 			case FLOAT:
 				if (Float.NEGATIVE_INFINITY == (float) columnValue) {
-					if (nullable) {
+					if ((flags & FLG_NULLABLE) > 0) {
 						statement.setNull(columnNo, FLOAT);
 						LOGGER.error(
 								"\n=====================\n" +
@@ -1213,7 +1101,7 @@ public class OraColumn {
 				break;
 			case DOUBLE:
 				if (Double.NEGATIVE_INFINITY == (double) columnValue) {
-					if (nullable) {
+					if ((flags & FLG_NULLABLE) > 0) {
 						statement.setNull(columnNo, DOUBLE);
 						LOGGER.error(
 								"\n=====================\n" +
@@ -1297,14 +1185,26 @@ public class OraColumn {
 	}
 
 	private Schema optionalOrRequired(SchemaBuilder builder) {
-		return partOfPk || !nullable
+		return (flags & FLG_PART_OF_PK) > 0 || (flags & FLG_NULLABLE) == 0
 				? builder.required().build()
 				: builder.optional().build();
 	}
 
+	private void stringField(final int type, final String charset, final OraCdcTdeColumnDecrypter decrypter) {
+		if (type == OTHER)
+			decoder = (flags & FLG_ENCRYPTED) > 0
+					? OraCdcDecoderFactory.get(charset, decrypter, (flags & FLG_SALT) > 0)
+					: OraCdcDecoderFactory.get(charset);
+		else
+			decoder = (flags & FLG_ENCRYPTED) > 0
+					? OraCdcDecoderFactory.get(type, decrypter, (flags & FLG_SALT) > 0)
+					: OraCdcDecoderFactory.get(type);
+		stringField();
+	}
+
 	private void stringField() {
 		SchemaBuilder builder = SchemaBuilder.string();
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			final String trimmedDefault = StringUtils.trim(defaultValue); 
 			if (Strings.CS.startsWith(trimmedDefault, "'") &&
 					Strings.CS.endsWith(trimmedDefault, "'")) {
@@ -1325,40 +1225,20 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void stringField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (partOfPk) {
-			keySchema.field(this.columnName, Schema.STRING_SCHEMA);
-		} else {
-			if (nullable) {
-				valueSchema.field(this.columnName, Schema.OPTIONAL_STRING_SCHEMA);
-			} else {
-				valueSchema.field(this.columnName, Schema.STRING_SCHEMA);
-			}
-		}
-	}
 
+	
 	private void bytesField() {
-		if (partOfPk || !nullable) {
+		if ((flags & FLG_PART_OF_PK) > 0 || (flags & FLG_NULLABLE) == 0) {
 			schema = Schema.BYTES_SCHEMA;
 		} else {
 			schema = Schema.OPTIONAL_BYTES_SCHEMA;
 		}
 	}
-	private void bytesField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Schema.BYTES_SCHEMA);
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Schema.OPTIONAL_BYTES_SCHEMA);
-			} else {
-				valueSchema.field(this.columnName, Schema.BYTES_SCHEMA);
-			}
-		}
-	}
 
-	private void byteField() {
+	private void byteField(final OraCdcTdeColumnDecrypter decrypter) {
+		decoderFromJdbcType(decrypter);
 		SchemaBuilder builder = SchemaBuilder.int8();
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
 				typedDefaultValue = Byte.parseByte(StringUtils.trim(defaultValue));
 				builder.defaultValue(typedDefaultValue);
@@ -1368,21 +1248,11 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void byteField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Schema.INT8_SCHEMA);
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Schema.OPTIONAL_INT8_SCHEMA);
-			} else {
-				valueSchema.field(this.columnName, Schema.INT8_SCHEMA);
-			}
-		}
-	}
 
-	private void shortField() {
+	private void shortField(final OraCdcTdeColumnDecrypter decrypter) {
+		decoderFromJdbcType(decrypter);
 		SchemaBuilder builder = SchemaBuilder.int16();
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
 				typedDefaultValue = Short.parseShort(StringUtils.trim(defaultValue));
 				builder.defaultValue(typedDefaultValue);
@@ -1392,21 +1262,11 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void shortField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Schema.INT16_SCHEMA);
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Schema.OPTIONAL_INT16_SCHEMA);
-			} else {
-				valueSchema.field(this.columnName, Schema.INT16_SCHEMA);
-			}
-		}
-	}
 
-	private void intField() {
+	private void intField(final OraCdcTdeColumnDecrypter decrypter) {
+		decoderFromJdbcType(decrypter);
 		SchemaBuilder builder = SchemaBuilder.int32();
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
 				typedDefaultValue = Integer.parseInt(StringUtils.trim(defaultValue));
 				builder.defaultValue(typedDefaultValue);
@@ -1416,21 +1276,11 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void intField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Schema.INT32_SCHEMA);
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Schema.OPTIONAL_INT32_SCHEMA);
-			} else {
-				valueSchema.field(this.columnName, Schema.INT32_SCHEMA);
-			}
-		}
-	}
 
-	private void longField() {
+	private void longField(final OraCdcTdeColumnDecrypter decrypter) {
+		decoderFromJdbcType(decrypter);
 		SchemaBuilder builder = SchemaBuilder.int64();
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
 				typedDefaultValue = Long.parseLong(StringUtils.trim(defaultValue));
 				builder.defaultValue(typedDefaultValue);
@@ -1440,21 +1290,13 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void longField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Schema.INT64_SCHEMA);
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Schema.OPTIONAL_INT64_SCHEMA);
-			} else {
-				valueSchema.field(this.columnName, Schema.INT64_SCHEMA);
-			}
-		}
-	}
 
-	private void decimalField(final int scale) {
+	private void decimalField(final int scale, final OraCdcTdeColumnDecrypter decrypter) {
+		decoder = (flags & FLG_ENCRYPTED) > 0
+				? OraCdcDecoderFactory.getNUMBER(scale, decrypter, (flags & FLG_SALT) > 0)
+				: OraCdcDecoderFactory.getNUMBER(scale);
 		SchemaBuilder builder = Decimal.builder(scale);
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
 				typedDefaultValue = (new BigDecimal(StringUtils.trim(defaultValue))).setScale(scale);
 				builder.defaultValue(typedDefaultValue);
@@ -1464,21 +1306,10 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void decimalField(final int scale, final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Decimal.builder(scale).required().build());
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Decimal.builder(scale).optional().build());
-			} else {
-				valueSchema.field(this.columnName, Decimal.builder(scale).required().build());
-			}
-		}
-	}
 
 	private void doubleField() {
 		SchemaBuilder builder = SchemaBuilder.float64();
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
 				typedDefaultValue = Double.parseDouble(StringUtils.trim(defaultValue));
 				builder.defaultValue(typedDefaultValue);
@@ -1488,21 +1319,10 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void doubleField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT64_SCHEMA);
-			} else {
-				valueSchema.field(this.columnName, Schema.FLOAT64_SCHEMA);
-			}
-		}
-	}
 
 	private void floatField() {
 		SchemaBuilder builder = SchemaBuilder.float32();
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
 				typedDefaultValue = Float.parseFloat(StringUtils.trim(defaultValue));
 				builder.defaultValue(typedDefaultValue);
@@ -1512,21 +1332,13 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void floatField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Schema.OPTIONAL_FLOAT32_SCHEMA);
-			} else {
-				valueSchema.field(this.columnName, Schema.FLOAT32_SCHEMA);
-			}
-		}
-	}
 
-	private void oraNumberField() {
+	private void oraNumberField(final OraCdcTdeColumnDecrypter decrypter) {
+		decoder = (flags & FLG_ENCRYPTED) > 0
+				? OraCdcDecoderFactory.get(decrypter, (flags & FLG_SALT) > 0)
+				: OraCdcDecoderFactory.get();
 		SchemaBuilder builder = OraNumber.builder();
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
 				typedDefaultValue = (new NUMBER(StringUtils.trim(defaultValue), 10)).getBytes();
 				builder.defaultValue(typedDefaultValue);
@@ -1544,67 +1356,49 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void oraNumberField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, OraNumber.builder().required().build());
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, OraNumber.builder().optional().build());
-			} else {
-				valueSchema.field(this.columnName, OraNumber.builder().required().build());
-			}
-		}
-	}
 
-	private void timestampField() {
-		if (partOfPk || !nullable) {
+	private void timestampField(final boolean date, final OraCdcTdeColumnDecrypter decrypter) {
+		if (date)
+			decoder = (flags & FLG_ENCRYPTED) > 0
+					? OraCdcDecoderFactory.get(DATE, decrypter, (flags & FLG_SALT) > 0)
+					: OraCdcDecoderFactory.get(DATE);
+		else
+			decoder = (flags & FLG_ENCRYPTED) > 0
+					? OraCdcDecoderFactory.get(TIMESTAMP, decrypter, (flags & FLG_SALT) > 0)
+					: OraCdcDecoderFactory.get(TIMESTAMP);
+		if ((flags & FLG_PART_OF_PK) > 0 || (flags & FLG_NULLABLE) == 0) {
 			schema = Timestamp.builder().required().build();
 		} else {
 			schema = Timestamp.builder().optional().build();
 		}
 	}
-	private void timestampField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Timestamp.builder().required().build());
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Timestamp.builder().optional().build());
-			} else {
-				valueSchema.field(this.columnName, Timestamp.builder().required().build());
-			}
-		}
-	}
 
-	private void oraTimestampField() {
-		if (partOfPk || !nullable) {
+	private void oraTimestampField(final boolean local, final OraCdcTdeColumnDecrypter decrypter, final ZoneId zoneId) {
+		decoder = (flags & FLG_ENCRYPTED) > 0
+				? OraCdcDecoderFactory.get(zoneId, local, decrypter, (flags & FLG_SALT) > 0)
+				: OraCdcDecoderFactory.get(zoneId, local);
+		if ((flags & FLG_PART_OF_PK) > 0 || (flags & FLG_NULLABLE) == 0) {
 			schema = OraTimestamp.builder().required().build();
 		} else {
 			schema = OraTimestamp.builder().optional().build();
 		}
 	}
-	private void oraTimestampField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, OraTimestamp.builder().required().build());
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, OraTimestamp.builder().optional().build());
-			} else {
-				valueSchema.field(this.columnName, OraTimestamp.builder().required().build());
-			}
-		}
-	}
 
-	private void oraIntervalField() {
-		if (partOfPk || !nullable) {
+	private void oraIntervalField(final OraCdcTdeColumnDecrypter decrypter) {
+		decoder = (flags & FLG_ENCRYPTED) > 0
+				? OraCdcDecoderFactory.get(jdbcType, decrypter, (flags & FLG_SALT) > 0)
+				: OraCdcDecoderFactory.get(jdbcType);
+		if ((flags & FLG_PART_OF_PK) > 0 || (flags & FLG_NULLABLE) == 0) {
 			schema = OraInterval.builder().required().build();
 		} else {
 			schema = OraInterval.builder().optional().build();
 		}
 	}
 
-	private void booleanField() {
+	private void booleanField(final OraCdcTdeColumnDecrypter decrypter) {
+		decoderFromJdbcType(decrypter);
 		SchemaBuilder builder = SchemaBuilder.bool();
-		if (defaultValuePresent) {
+		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
 				typedDefaultValue = Boolean.parseBoolean(StringUtils.trim(defaultValue));
 				builder.defaultValue(typedDefaultValue);
@@ -1614,19 +1408,6 @@ public class OraColumn {
 		}
 		schema = optionalOrRequired(builder);
 	}
-	private void booleanField(final SchemaBuilder keySchema, final SchemaBuilder valueSchema) {
-		if (this.partOfPk) {
-			keySchema.field(this.columnName, Schema.BOOLEAN_SCHEMA);
-		} else {
-			if (this.nullable) {
-				valueSchema.field(this.columnName, Schema.OPTIONAL_BOOLEAN_SCHEMA);
-			} else {
-				valueSchema.field(this.columnName, Schema.BOOLEAN_SCHEMA);
-			}
-		}
-	}
-
-
 
 	private void logDefaultValueError(final String dataTypeName) {
 		LOGGER.error(
@@ -1641,9 +1422,8 @@ public class OraColumn {
 	@Override
 	public int hashCode() {
 		return Objects.hash(
-				columnName, columnId, partOfPk, jdbcType, nullable,
-				dataScale, binaryFloatDouble, localTimeZone, secureFile,
-				defaultValuePresent, defaultValue);
+				columnName, columnId, jdbcType, flags,
+				dataScale, dataLength, defaultValue);
 	}
 
 	@Override
@@ -1661,14 +1441,10 @@ public class OraColumn {
 		return
 				Objects.equals(columnName, other.columnName) &&
 				Objects.equals(columnId, other.columnId) &&
-				partOfPk == other.partOfPk &&
+				flags == other.flags &&
 				jdbcType == other.jdbcType &&
-				nullable == other.nullable &&
 				Objects.equals(dataScale, other.dataScale) && 
-				Objects.equals(binaryFloatDouble, other.binaryFloatDouble) &&
-				Objects.equals(localTimeZone, other.localTimeZone) &&
-				Objects.equals(secureFile, other.secureFile) &&
-				Objects.equals(defaultValuePresent, other.defaultValuePresent) &&
+				Objects.equals(dataLength, other.dataLength) &&
 				Objects.equals(defaultValue, other.defaultValue);
 	}
 
@@ -1690,68 +1466,84 @@ public class OraColumn {
 	public boolean setValueFromResultSet(
 			final Struct struct, final ResultSet resultSet) throws SQLException  {
 		switch (jdbcType) {
-		case DATE:
-		case TIMESTAMP:
-		case TIMESTAMP_WITH_TIMEZONE:
-			struct.put(columnName, resultSet.getTimestamp(columnName));
-			break;
-		case BOOLEAN:
-			struct.put(columnName, resultSet.getBoolean(columnName));
-			break;
-		case TINYINT:
-			struct.put(columnName, resultSet.getByte(columnName));
-			break;
-		case SMALLINT:
-			struct.put(columnName, resultSet.getShort(columnName));
-			break;
-		case INTEGER:
-			struct.put(columnName, resultSet.getInt(columnName));
-			break;
-		case BIGINT:
-			struct.put(columnName, resultSet.getLong(columnName));
-			break;
-		case FLOAT:
-			struct.put(columnName, resultSet.getFloat(columnName));
-			break;
-		case DOUBLE:
-			struct.put(columnName, resultSet.getDouble(columnName));
-			break;
-		case DECIMAL:
-			struct.put(columnName, resultSet.getBigDecimal(columnName));
-			break;
-		case NUMERIC:
-			struct.put(columnName, ((OracleResultSet) resultSet).getNUMBER(columnName).getBytes());
-			break;
-		case BINARY:
-			struct.put(columnName, resultSet.getBytes(columnName));
-			break;
-		case VARCHAR:
-			struct.put(columnName, resultSet.getString(columnName));
-			break;
-		default:
-			LOGGER.error("Unsupported data type {} for column {}.",
+			case DATE, TIMESTAMP, TIMESTAMP_WITH_TIMEZONE ->
+				struct.put(columnName, resultSet.getTimestamp(columnName));
+			case BOOLEAN ->
+				struct.put(columnName, resultSet.getBoolean(columnName));
+			case TINYINT ->
+				struct.put(columnName, resultSet.getByte(columnName));
+			case SMALLINT ->
+				struct.put(columnName, resultSet.getShort(columnName));
+			case INTEGER ->
+				struct.put(columnName, resultSet.getInt(columnName));
+			case BIGINT ->
+				struct.put(columnName, resultSet.getLong(columnName));
+			case FLOAT ->
+				struct.put(columnName, resultSet.getFloat(columnName));
+			case DOUBLE ->
+				struct.put(columnName, resultSet.getDouble(columnName));
+			case DECIMAL ->
+				struct.put(columnName, resultSet.getBigDecimal(columnName));
+			case NUMERIC ->
+				struct.put(columnName, ((OracleResultSet) resultSet).getNUMBER(columnName).getBytes());
+			case BINARY ->
+				struct.put(columnName, resultSet.getBytes(columnName));
+			case VARCHAR ->
+				struct.put(columnName, resultSet.getString(columnName));
+			default -> {
+				LOGGER.error("Unsupported data type {} for column {}.",
 					getTypeName(jdbcType), columnName);
-			throw new SQLException("Unsupported data type: " + getTypeName(jdbcType));
+				throw new SQLException("Unsupported data type: " + getTypeName(jdbcType));
+			}
 		}
 		return !resultSet.wasNull();
 	}
 
 	public String getValueAsString(final Struct keyStruct, final Struct valueStruct) {
-		return partOfKeyStruct ?
-					keyStruct.get(columnName).toString() :
-						valueStruct.get(columnName).toString();
+		return (flags & FLG_PART_OF_KEY_STRUCT) > 0
+					? keyStruct.get(columnName).toString()
+					: valueStruct.get(columnName).toString();
 	}
 
 	public boolean isNumber() {
-		return number;
+		return (flags & FLG_NUMBER) > 0;
 	}
 
 	public boolean isEncrypted() {
-		return encrypted;
+		return (flags & FLG_ENCRYPTED) > 0;
 	}
 
-	public boolean isSalted() {
-		return salt;
+	boolean largeObject() {
+		return (flags & FLG_LARGE_OBJECT) > 0;
+	}
+
+	private void decoderFromJdbcType(final OraCdcTdeColumnDecrypter decrypter) {
+		decoder = (flags & FLG_ENCRYPTED) > 0
+				? OraCdcDecoderFactory.get(jdbcType, decrypter, (flags & FLG_SALT) > 0)
+				: OraCdcDecoderFactory.get(jdbcType);
+	}
+
+	OraCdcDecoder decoder() {
+		return decoder;
+	}
+
+	boolean decodeWithoutTrans() {
+		return (flags & FLG_DECODE_WITH_TRANS) == 0;
+	}
+
+	void transformLob(final boolean lobTransform) {
+		if (lobTransform)
+			flags |= FLG_LOB_TRANSFORM;
+		else
+			flags &= (~FLG_LOB_TRANSFORM);
+	}
+
+	boolean transformLob() {
+		return (flags & FLG_LOB_TRANSFORM) > 0;
+	}
+
+	boolean mandatory() {
+		return (flags & FLG_MANDATORY) > 0;
 	}
 
 }

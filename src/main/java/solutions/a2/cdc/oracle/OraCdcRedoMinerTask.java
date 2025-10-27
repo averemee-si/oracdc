@@ -71,8 +71,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			List<String> excludeList = config.excludeObj();
 			List<String> includeList = config.includeObj();
 
-			processStoredSchemas(metrics);
-
 			final StringBuilder initialLoadSql = execInitialLoad ? new StringBuilder(0x200)  :null;
 			final int[] conUids;
 			if (rdbmsInfo.isCdb()) {
@@ -254,7 +252,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 							lastStatementInTransaction = !processTransaction;
 
 							if (processTransaction && runLatch.getCount() > 0) {
-								OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
+								OraTable4RedoMiner oraTable = (OraTable4RedoMiner) checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
 									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);
@@ -272,10 +270,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 										metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
 									} else {
 										final long startParseTs = System.currentTimeMillis();
-										offset.put("SCN", stmt.getScn());
-										offset.put("RS_ID", stmt.getRba().toString());
-										offset.put("SSN", stmt.getSsn());
-										offset.put("COMMIT_SCN", transaction.getCommitScn());
+										putInProgressOffsets(stmt);
 										final SourceRecord record = oraTable.parseRedoRecord(
 												stmt, transaction, lobIds, offset, connDictionary);
 										if (record != null) {
@@ -301,7 +296,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 										transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
 							}
 							// Store last successfully processed COMMIT_SCN to offset
-							offset.put("C:COMMIT_SCN", transaction.getCommitScn());
+							putCompletedOffset();
 							transaction.close();
 							transaction = null;
 						}

@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleBfile;
 import oracle.jdbc.OracleCallableStatement;
+import solutions.a2.utils.ExceptionUtils;
 
 import static oracle.jdbc.LargeObjectAccessMode.MODE_READONLY;
 import static oracle.jdbc.OracleTypes.BFILE;
@@ -87,11 +88,7 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 				bfile.closeLob();
 				bfile = null;
 			} catch (SQLException sqle) {
-				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to open '{}': SQL Error Code={}, SQL State='{}'!" +
-						"\n=====================\n",
-						redoLog, sqle.getErrorCode(), sqle.getSQLState());
+				printUnableToOpenMessage(sqle);
 				throw new IOException(sqle);
 			}
 			firstBlock = false;
@@ -117,11 +114,7 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 							LOGGER.debug("BFILE = {} created with InputStream starting at {}.", redoLog, currentBlock * blockSize + 1);
 						}
 					} catch (SQLException sqle) {
-						LOGGER.error(
-								"\n=====================\n" +
-								"Unable to open '{}': SQL Error Code={}, SQL State='{}'!" +
-								"\n=====================\n",
-								redoLog, sqle.getErrorCode(), sqle.getSQLState());
+						printUnableToOpenMessage(sqle);
 						throw new IOException(sqle);
 					}
 				}
@@ -143,6 +136,21 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 		return len;
 	}
 
+	private void printUnableToOpenMessage(SQLException sqle) {
+		LOGGER.error(
+				"""
+				
+				=====================
+				Unable to open '{}' in directory {}: SQL Error Code={}, SQL State='{}'
+				{}
+				{}
+				=====================
+				
+				""",
+				redoLog, directory, sqle.getErrorCode(), sqle.getSQLState(),
+				sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
+	}
+
 	private void execReadStatement(final long offset) throws SQLException {
 		read.registerOutParameter(1, BFILE);
 		read.setString(2, directory);
@@ -151,9 +159,13 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 		bfile = read.getBfile(1);
 		if (bfile == null) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"BFILENAME('{}','{}') returns NULL!" +
-					"\n=====================\n",
+					"""
+					
+					=====================
+					BFILENAME('{}','{}') returns NULL!" +
+					=====================
+					
+					""",
 					directory, redoLog);
 			throw new SQLException("BFILENAME() returns NULL!");
 		}
@@ -186,9 +198,13 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 				}
 			} catch (SQLException sqle) {
 				LOGGER.error(
-						"\n=====================\n" +
-								"Unable to close '{}': SQL Error Code={}, SQL State='{}'!" +
-						"\n=====================\n",
+						"""
+						
+						=====================
+						Unable to close '{}': SQL Error Code={}, SQL State='{}'!
+						=====================
+												
+						""",
 						redoLog, sqle.getErrorCode(), sqle.getSQLState());
 				throw new IOException(sqle);
 			}

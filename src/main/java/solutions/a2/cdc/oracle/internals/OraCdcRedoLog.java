@@ -28,6 +28,7 @@ import solutions.a2.oracle.utils.FormattingUtils;
 import solutions.a2.oracle.utils.BinaryUtils;
 
 import static solutions.a2.cdc.oracle.internals.OraCdcRedoRecord.KCRVALID;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 /**
  * 
@@ -47,6 +48,8 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	private static final int POS_RDBMS_VERSION = 0x0014;
 	private static final int POS_INSTANCE_NAME = 0x001c;
 	private static final int RECORD_SIZE_THRESHOLD = 0x18;
+	private static final byte AES_128 = 0x10; 
+	private static final byte AES_256 = 0x70; 
 
 	private static final int ORA_CDB_START = 0x0C;
 
@@ -87,6 +90,8 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	private final short fileNo;
 	private final String description;
 	private final int nab;
+	private final byte encFlag;
+	private byte[] encKey;
 	// Used in Iterator too
 	private boolean iteratorInited = false;
 	private long currentBlock = 0;
@@ -150,6 +155,13 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		compatibilityVsn = this.bu.getU32(block, POS_RDBMS_VERSION);
 		description = new String(Arrays.copyOfRange(block, 0x5C, 0x9B), StandardCharsets.US_ASCII);
 		nab = this.bu.getU32(block,  0x9C);
+		encFlag = block[0x1E0];
+		if ((encFlag & AES_256) == AES_256)
+			encKey = Arrays.copyOfRange(block, 0x1C0, 0x1E0);
+		else if ((encFlag & AES_128) == AES_128)
+			encKey = Arrays.copyOfRange(block, 0x1C0, 0x1D0);
+		else
+			encKey = Arrays.copyOfRange(block, 0x1C0, 0x1D0);
 		// RDBMS version
 		versionString = new StringBuilder();
 		if (littleEndian) {
@@ -373,7 +385,18 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 					BinaryUtils.parseTimestamp(nextTime).toString())
 			.append("\n Largest LWN: ")
 			.append(Integer.toUnsignedLong(largestLwn))
-			.append(" blocks\n");
+			.append(" blocks");
+		sb
+			.append("\n redo log key is ")
+			.append(rawToHex(encKey))
+			.append("   key length=")
+			.append(encKey.length)
+			.append(" bytes")
+			.append("\n redo log key flag is ")
+			.append(String.format("%x", Byte.toUnsignedInt(encFlag)));
+		sb
+			.append("\n Enabled redo threads: ")
+			.append(thread);
 		return sb.toString();
 	}
 
@@ -853,6 +876,8 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		fileNo = 1;
 		description = "T 0001, S 0000000001, SCN 0x0000000000000000-0xffffffffffffffff";
 		nab = 0;
+		// OR ? 0x7D : 0x1D
+		encFlag = (byte) ((versionMajor >= 0x17) ? 0x75 : 0x15);
 	}
 
 	static OraCdcRedoLog getLinux19c() {

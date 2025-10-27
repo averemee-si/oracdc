@@ -13,7 +13,6 @@
 
 package solutions.a2.cdc.oracle;
 
-import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -32,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
-import solutions.a2.cdc.oracle.schema.FileUtils;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
@@ -62,7 +60,6 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 
 			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
 			OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
-			processStoredSchemas(metrics);
 
 			List<String> excludeList = config.excludeObj();
 			if (excludeList.size() < 1)
@@ -336,7 +333,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 							lastStatementInTransaction = !processTransaction;
 
 							if (processTransaction) {
-								final OraTable4LogMiner oraTable = checker.getTable(stmt.getTableId());
+								final OraTable4LogMiner oraTable = (OraTable4LogMiner) checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
 									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);
@@ -353,10 +350,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 											metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
 										} else {
 											final long startParseTs = System.currentTimeMillis();
-											offset.put("SCN", stmt.getScn());
-											offset.put("RS_ID", stmt.getRba().toString());
-											offset.put("SSN", stmt.getSsn());
-											offset.put("COMMIT_SCN", transaction.getCommitScn());
+											putInProgressOffsets(stmt);
 											final SourceRecord record = oraTable.parseRedoRecord(
 													stmt, lobs,
 													transaction,
@@ -384,7 +378,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 									transaction.getXid(), transaction.getFirstChange(), transaction.getCommitScn());
 							}
 							// Store last successfully processed COMMIT_SCN to offset
-							offset.put("C:COMMIT_SCN", transaction.getCommitScn());
+							putCompletedOffset();
 							transaction.close();
 							transaction = null;
 						}
@@ -521,18 +515,5 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 		LOGGER.debug("State file contents:\n{}", ops.toString());
 	}
 
-	public void saveTablesSchema() throws IOException {
-		String schemaFileName = null;
-		try {
-			schemaFileName = stateFileName.substring(0, stateFileName.lastIndexOf(File.separator));
-		} catch (Exception e) {
-			LOGGER.error("Unable to detect parent directory for {} using {} separator.",
-					stateFileName, File.separator);
-			schemaFileName = System.getProperty("java.io.tmpdir");
-		}
-		schemaFileName += File.separator + "oracdc.schemas-" + System.currentTimeMillis();
-
-		FileUtils.writeDictionaryFile(tablesInProcessing, schemaFileName);
-	}
 
 }

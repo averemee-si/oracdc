@@ -44,7 +44,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.OraColumn;
-import solutions.a2.cdc.oracle.OraDumpDecoder;
 import solutions.a2.cdc.oracle.OraTableDefinition;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
@@ -63,10 +62,11 @@ import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.SQLXML;
 import static oracle.jdbc.OracleTypes.JSON;
-import static solutions.a2.cdc.oracle.schema.JdbcTypes.getTypeName;
+import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_MYSQL;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_ORACLE;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 /**
  * 
@@ -882,7 +882,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			case NUMERIC:
 			case BINARY:
 				ByteBuffer bb = (ByteBuffer) struct.get(oraColumn.getColumnName());
-				sb.append(OraDumpDecoder.toHexString(bb.array()));
+				sb.append(rawToHex(bb.array()));
 				break;
 			default:
 				sb.append(struct.get(oraColumn.getColumnName()));

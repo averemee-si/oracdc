@@ -18,11 +18,19 @@ package solutions.a2.cdc.oracle;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public interface SchemaNameMapper {
+public class OraCdcSingleTopicNameMapper implements TopicNameMapper {
 
-	default void configure(OraCdcSourceConnectorConfig config) {};
-	String getKeySchemaName(String pdbName, String tableOwner, String tableName);
-	String getValueSchemaName(String pdbName, String tableOwner, String tableName);
-	String getEnvelopeSchemaName(String pdbName, String tableOwner, String tableName);
+	private String topicName;
+
+	@Override
+	public void configure(OraCdcSourceConnectorConfig config) {
+		topicName = config.kafkaTopic();
+	}
+
+	@Override
+	public String getTopicName(
+			final String pdbName, final String tableOwner, final String tableName) {
+		return topicName;
+	}
 
 }

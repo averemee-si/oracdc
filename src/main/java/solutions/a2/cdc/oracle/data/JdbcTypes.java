@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle.schema;
+package solutions.a2.cdc.oracle.data;
 
 import static java.sql.Types.CHAR;
 import static java.sql.Types.VARCHAR;

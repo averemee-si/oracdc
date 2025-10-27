@@ -72,12 +72,17 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	private static final String PROCESS_LOBS = "processLobs";
 	private static final String CQ_ISSUE_1446_RETRY_MSG = "Received https://github.com/OpenHFT/Chronicle-Queue/issues/1446, will try again";
 	private static final String CQ_ISSUE_1446_MSG =
-			"\n=====================\n" +
-			"'{}' while initializing Chronicle Queue.\n" +
-			"Perhaps this is https://github.com/OpenHFT/Chronicle-Queue/issues/1446\n" +
-			"Please suggest increase the value of system property \"chronicle.table.store.timeoutMS\".\n" +
-			"\tFor more information on Chronicle Queue parameters please visit https://github.com/OpenHFT/Chronicle-Queue/blob/ea/systemProperties.adoc .\n" +
-			"=====================\n";
+			"""
+			
+			=====================
+			'{}' while initializing Chronicle Queue.\n
+			Perhaps this is https://github.com/OpenHFT/Chronicle-Queue/issues/1446
+			Please suggest increase the value of system property "chronicle.table.store.timeoutMS".
+				For more information on Chronicle Queue parameters please visit
+					https://github.com/OpenHFT/Chronicle-Queue/blob/ea/systemProperties.adoc .
+			=====================
+			
+			""";
 	private static final int LOCK_RETRY = 5;
 	private static final int PARTIAL_ROLLBACK_HEAP_THRESHOLD = 10;
 
@@ -564,9 +569,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		final LobId otherLid = lobCols.put(objCol(obj, col), lid);
 		if (otherLid != null && transLobs.get(otherLid).chunks.size() > 0) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Double entry in object {} column {} for lid '{}' and lid = {} at RBA {}, XID {}" +
-					"\n=====================\n",
+					"""
+					
+					=====================
+					Double entry in object {} column {} for lid '{}' and lid = {} at RBA {}, XID {}
+					=====================
+					
+					""",
 					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid, otherLid, rba, getXid());
 		}
 		if (open)
@@ -577,9 +586,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		final LobId lobId = lobCols.get(objCol(obj, col));
 		if (lobId == null) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Attempting to open unknown LOB for OBJ {}/COL {} at RBA {}, XID {}" +
-					"\n=====================\n",
+					"""
+					
+					=====================
+					Attempting to open unknown LOB for OBJ {}/COL {} at RBA {}, XID {}
+					=====================
+					
+					""",
 					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), rba, getXid());
 		} else {
 			LobHolder holder = transLobs.get(lobId);
@@ -593,9 +606,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		final LobId lobId = lobCols.get(objCol);
 		if (lobId == null) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Attempting to execute OP:11.17 TYP 3 on OBJ {}/COL {} without corresponding OP:11.17 TYP 1 at RBA {}, XID {}" +
-					"\n=====================\n",
+					"""
+					
+					=====================
+					Attempting to execute OP:11.17 TYP 3 on OBJ {}/COL {} without corresponding OP:11.17 TYP 1 at RBA {}, XID {}
+					=====================
+					
+					""",
 					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), rba, getXid());
 		} else {
 			LobHolder holder = transLobs.get(lobId);
@@ -636,9 +653,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		final LobId lobId = lobCols.get(objCol(obj, col));
 		if (lobId == null) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Attempting to write to unknown LOB for OBJ {}/COL {} in XID {}" +
-					"\n=====================\n",
+					"""
+					
+					=====================
+					Attempting to write to unknown LOB for OBJ {}/COL {} in XID {}" +
+					=====================
+					
+					""",
 					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), getXid());
 		} else {
 			writeLobChunk(lobId, data, off, len, false, false);
@@ -651,12 +672,11 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
 			transLobs.put(lid, holder);
 			holder.open(LOB_OP_WRITE);
-		} else {
-			try {
-				holder.write(data, off, len, colb, cmap);
-			} catch (IOException ioe) {
-				throw new SQLException(ioe);
-			}
+		} 
+		try {
+			holder.write(data, off, len, colb, cmap);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
 		}
 	}
 
@@ -664,6 +684,21 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		LobHolder holder = transLobs.get(lid);
 		if (holder == null) {
 			holder = new LobHolder(lid, obj, (short)0, lobsQueueDirectory);
+			transLobs.put(lid, holder);
+		}
+		holder.open(LOB_OP_WRITE);
+		try {
+			holder.write(data, off, len, false, cmap);
+			holder.close(len);	
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
+	}
+
+	public void writeLobChunk(final LobId lid, final int obj, final short col, final byte[] data, final int off, final int len, final boolean cmap) throws SQLException {
+		LobHolder holder = transLobs.get(lid);
+		if (holder == null) {
+			holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
 			transLobs.put(lid, holder);
 		}
 		holder.open(LOB_OP_WRITE);
@@ -689,9 +724,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		LobHolder holder = transLobs.get(ll.lid());
 		if (holder == null) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Attempt to read from unknown LOB {}!" +
-					"\n=====================\n",
+					"""
+					
+					=====================
+					Attempt to read from unknown LOB {}!
+					=====================
+					
+					""",
 					ll.lid());
 			throw new SQLException("Attempt to read from unknown LOB " + ll.lid() + " !");
 		} else {
@@ -769,9 +808,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		private void close(final int size) throws IOException {
 			if (status == LOB_OP_UNKNOWN || status == LOB_OP_PREPARE || status == LOB_OP_END)
 				LOGGER.error(
-						"\n=====================\n" +
-						"Attempting to execute OP:11.17 TYP 3 on OBJ {}/COL {}/LID {} without corresponding OP:11.17 TYP 1" +
-						"\n=====================\n",
+						"""
+						
+						=====================
+						Attempting to execute OP:11.17 TYP 3 on OBJ {}/COL {}/LID {} without corresponding OP:11.17 TYP 1
+						=====================
+						
+						""",
 						Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid.toString());
 			if (lastChunk != null) {
 				if (!binaryXml)

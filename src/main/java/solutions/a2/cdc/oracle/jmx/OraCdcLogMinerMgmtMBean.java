@@ -68,6 +68,5 @@ public interface OraCdcLogMinerMgmtMBean {
 	public int getCurrentNumberOfTransInProcessingQueue();
 
 	public void saveCurrentState();
-	public void saveCurrentTablesSchema();
 
 }
