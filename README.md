@@ -997,7 +997,7 @@ Fix CVE-2020-36843 from dependencies
 5) Schema evolution support for Sink connector
 
 
-#####2.12.1 (OCT-2025)
+######2.12.1 (OCT-2025)
 
 1) New parameter `a2.ignore.stored.offset`
 
@@ -1005,6 +1005,13 @@ Fix CVE-2020-36843 from dependencies
 
 3) Bug fixes and enhancements
 
+######2.12.2 (OCT-2025)
+
+1) New parameter `a2.ignore.stored.offset`
+
+2) Optimized code for converting from raw bytes to Java/Kafka data types
+
+3) Bug fixes and enhancements
 
 ## Authors
 
