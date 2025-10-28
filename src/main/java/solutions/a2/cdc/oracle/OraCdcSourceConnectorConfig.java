@@ -1229,10 +1229,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						"""
 						
 						=====================
-						Invalid partition: {}. Partition number should always be non-negative.
+						Invalid partition: '{}'! THREAD#={}. Partition number should always be non-negative.
 						=====================
 						
-						""");
+						""", topicPartition, redoThread);
 				throw new IllegalArgumentException("Invalid partition: " + topicPartition);
 			}
 		} else {
