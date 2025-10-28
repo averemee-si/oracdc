@@ -233,7 +233,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			if (dg4RacSingleInst) {
 				rdbmsInfo.setRedoThread(threadNo);
 			}
-			config.topicPartition(rdbmsInfo.getRedoThread() - 1);
+			config.topicPartition(rdbmsInfo.getRedoThread());
 			if (useRac) {
 				int redoThread = rdbmsInfo.getRedoThread();
 				fldCommitScnInProgress = "COMMIT_SCN/" + redoThread;
