@@ -471,6 +471,19 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final boolean PRINT_UNABLE2MAP_COL_ID_WARNING_DEFAULT = true;
 	private static final String PRINT_UNABLE2MAP_COL_ID_WARNING_DOC = "When the value is set to 'true' and a redo record contains a column identifier that is not in the data dictionary, a message about that column and information about the redo record is printed. Default - 'true'.";
 
+	private static final String SUPPLEMENTAL_LOGGING_ALL = "ALL";
+	private static final String SUPPLEMENTAL_LOGGING_NONE = "NONE";
+	private static final String SUPPLEMENTAL_LOGGING_DEFAULT = SUPPLEMENTAL_LOGGING_ALL;
+	private static final String SUPPLEMENTAL_LOGGING_PARAM = "a2.supplemental.logging";
+	private static final String SUPPLEMENTAL_LOGGING_DOC =
+			"""
+			The supplemental logging level required for the oracdc to function.
+			The parameter can take the values ​​ALL or NONE.
+			The default is ALL, and you must set SUPPLEMENTAL LOG DATA(ALL) COLUMND for all tables participating in replication, as well as SUPPLEMENTAL LOG DATA at the database level.
+			If this parameter is set to NONE, there are no or minimal requirements for supplemental logging.
+			Use this parameter only after consulting with us via email at oracle@a2.solutions or by scheduling a meeting on our website at https://a2.solutions.
+			Default - """ + SUPPLEMENTAL_LOGGING_DEFAULT;
+
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
@@ -622,7 +635,11 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(TDE_WALLET_PASSWORD_PARAM, PASSWORD, "", LOW, TDE_WALLET_PASSWORD_DOC)
 				.define(ALL_UPDATES_PARAM, BOOLEAN, ALL_UPDATES_DEFAULT, LOW, ALL_UPDATES_DOC)
 				.define(PRINT_UNABLE2MAP_COL_ID_WARNING_PARAM, BOOLEAN, PRINT_UNABLE2MAP_COL_ID_WARNING_DEFAULT, LOW, PRINT_UNABLE2MAP_COL_ID_WARNING_DOC)
-				;
+				.define(SUPPLEMENTAL_LOGGING_PARAM, STRING, SUPPLEMENTAL_LOGGING_DEFAULT,
+						ConfigDef.ValidString.in(
+								SUPPLEMENTAL_LOGGING_ALL,
+								SUPPLEMENTAL_LOGGING_NONE),
+						HIGH, SUPPLEMENTAL_LOGGING_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<String, String> originals) {
@@ -1612,6 +1629,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public boolean ignoreStoredOffset() {
 		return getBoolean(IGNORE_STORED_OFFSET_PARAM);
+	}
+
+	public boolean supplementalLogAll() {
+		return Strings.CI.equals(getString(SUPPLEMENTAL_LOGGING_PARAM), SUPPLEMENTAL_LOGGING_ALL);
 	}
 
 }

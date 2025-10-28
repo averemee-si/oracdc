@@ -223,7 +223,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 			boolean columnAdded = false;
 			OraColumn column = null;
 			try {
-				column = new OraColumn(true, false, false, rsColumns, null, null, rdbmsInfo);
+				column = new OraColumn(true, false, false, rsColumns, null, null, rdbmsInfo, true);
 				columnAdded = true;
 			} catch (UnsupportedColumnDataTypeException ucdte) {
 				LOGGER.warn("Column {} not added to definition of table {}.{}",

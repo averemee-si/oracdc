@@ -108,6 +108,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	static final short FLG_PRINT_INVALID_HEX_WARNING   = (short)0x0400;
 	static final short FLG_PRINT_UNABLE_DELETE_WARNING = (short)0x0800;
 	static final short FLG_PRINT_UNABLE_MAP_COL_ID     = (short)0x1000;
+	static final short FLG_SUPPLEMENTAL_LOG_ALL        = (short)0x2000;
 	short flags = FLG_TABLE_WITH_PK | FLG_ALL_UPDATES | FLG_CHECK_SUPPLEMENTAL | FLG_PRINT_SQL_FOR_MISSED_WHERE;
 
 	/**
@@ -148,6 +149,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			if (config.useOracdcSchemas()) flags |= FLG_ORACDC_SCHEMAS;
 			if (config.allUpdates()) flags |= FLG_ALL_UPDATES;
 			if (config.printUnable2MapColIdWarning()) flags |= FLG_PRINT_UNABLE_MAP_COL_ID;
+			if (config.supplementalLogAll()) flags |= FLG_SUPPLEMENTAL_LOG_ALL;
 		} else {
 			topicPartition = 0;
 			pseudoColumns = null;
@@ -262,7 +264,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				try {
 					column = new OraColumn(
 							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
-							rsColumns, pkColsSet, decrypter, rdbmsInfo);
+							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
 					if (column.isNumber() && numberRemap != null) {
 						final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
 						if (newDefinition != null) {

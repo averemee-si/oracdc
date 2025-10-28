@@ -175,6 +175,9 @@ public class OraColumn {
 	 * @param processLobs         when true and useOracdcSchemas eq true BLOB/CLOB/NCLOB columns are processed
 	 * @param resultSet
 	 * @param pkColsSet
+	 * @param decrypter
+	 * @param rdbmsInfo
+	 * @param suppLogAll
 	 * @throws SQLException
 	 * @throws UnsupportedColumnDataTypeException 
 	 */
@@ -185,7 +188,8 @@ public class OraColumn {
 			final ResultSet resultSet,
 			final Set<String> pkColsSet,
 			final OraCdcTdeColumnDecrypter decrypter,
-			final OraRdbmsInfo rdbmsInfo) throws SQLException, UnsupportedColumnDataTypeException {
+			final OraRdbmsInfo rdbmsInfo,
+			final boolean suppLogAll) throws SQLException, UnsupportedColumnDataTypeException {
 		oracleName = resultSet.getString("COLUMN_NAME");
 		if (!KafkaUtils.validAvroFieldName(oracleName)) {
 			columnName = KafkaUtils.fixAvroFieldName(oracleName, "_");
