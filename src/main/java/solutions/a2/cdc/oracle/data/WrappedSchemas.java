@@ -44,33 +44,37 @@ import org.apache.kafka.connect.data.SchemaBuilder;
  */
 public class WrappedSchemas {
 
-	public static final String WRAPPED_INT8       = "solutions.a2.int8";
-	public static final String WRAPPED_INT16      = "solutions.a2.int16";
-	public static final String WRAPPED_INT32      = "solutions.a2.int32";
-	public static final String WRAPPED_INT64      = "solutions.a2.int64";
-	public static final String WRAPPED_FLOAT32    = "solutions.a2.float32";
-	public static final String WRAPPED_FLOAT64    = "solutions.a2.float32";
-	public static final String WRAPPED_BOOLEAN    = "solutions.a2.bool";
-	public static final String WRAPPED_STRING     = "solutions.a2.string";
-	public static final String WRAPPED_BYTES      = "solutions.a2.bytes";
-	public static final String WRAPPED_NUMBER     = "solutions.a2.NUMBER";
-	public static final String WRAPPED_TIMESTAMP  = "solutions.a2.TIMESTAMP";
-	public static final String WRAPPED_INTERVALYM = "solutions.a2.INTERVALYM";
-	public static final String WRAPPED_INTERVALDS = "solutions.a2.INTERVALDS";
+	public static final String WRAPPED_INT8         = "solutions.a2.int8";
+	public static final String WRAPPED_INT16        = "solutions.a2.int16";
+	public static final String WRAPPED_INT32        = "solutions.a2.int32";
+	public static final String WRAPPED_INT64        = "solutions.a2.int64";
+	public static final String WRAPPED_FLOAT32      = "solutions.a2.float32";
+	public static final String WRAPPED_FLOAT64      = "solutions.a2.float32";
+	public static final String WRAPPED_BOOLEAN      = "solutions.a2.bool";
+	public static final String WRAPPED_STRING       = "solutions.a2.string";
+	public static final String WRAPPED_BYTES        = "solutions.a2.bytes";
+	public static final String WRAPPED_NUMBER       = "solutions.a2.NUMBER";
+	public static final String WRAPPED_TIMESTAMP    = "solutions.a2.TIMESTAMP";
+	public static final String WRAPPED_TIMESTAMPTZ  = "solutions.a2.TIMESTAMPTZ";
+	public static final String WRAPPED_TIMESTAMPLTZ = "solutions.a2.TIMESTAMPLTZ";
+	public static final String WRAPPED_INTERVALYM   = "solutions.a2.INTERVALYM";
+	public static final String WRAPPED_INTERVALDS   = "solutions.a2.INTERVALDS";
 
-	public static final String WRAPPED_OPT_INT8      = "solutions.a2.int8.opt";
-	public static final String WRAPPED_OPT_INT16     = "solutions.a2.int16.opt";
-	public static final String WRAPPED_OPT_INT32     = "solutions.a2.int32.opt";
-	public static final String WRAPPED_OPT_INT64     = "solutions.a2.int64.opt";
-	public static final String WRAPPED_OPT_FLOAT32   = "solutions.a2.float32.opt";
-	public static final String WRAPPED_OPT_FLOAT64   = "solutions.a2.float32.opt";
-	public static final String WRAPPED_OPT_BOOLEAN   = "solutions.a2.bool.opt";
-	public static final String WRAPPED_OPT_STRING    = "solutions.a2.string.opt";
-	public static final String WRAPPED_OPT_BYTES     = "solutions.a2.bytes.opt";
-	public static final String WRAPPED_OPT_NUMBER    = "solutions.a2.NUMBER.opt";
-	public static final String WRAPPED_OPT_TIMESTAMP = "solutions.a2.TIMESTAMP.opt";
-	public static final String WRAPPED_OPT_INTERVALYM = "solutions.a2.INTERVALYM.opt";
-	public static final String WRAPPED_OPT_INTERVALDS = "solutions.a2.INTERVALDS.opt";
+	public static final String WRAPPED_OPT_INT8         = "solutions.a2.int8.opt";
+	public static final String WRAPPED_OPT_INT16        = "solutions.a2.int16.opt";
+	public static final String WRAPPED_OPT_INT32        = "solutions.a2.int32.opt";
+	public static final String WRAPPED_OPT_INT64        = "solutions.a2.int64.opt";
+	public static final String WRAPPED_OPT_FLOAT32      = "solutions.a2.float32.opt";
+	public static final String WRAPPED_OPT_FLOAT64      = "solutions.a2.float32.opt";
+	public static final String WRAPPED_OPT_BOOLEAN      = "solutions.a2.bool.opt";
+	public static final String WRAPPED_OPT_STRING       = "solutions.a2.string.opt";
+	public static final String WRAPPED_OPT_BYTES        = "solutions.a2.bytes.opt";
+	public static final String WRAPPED_OPT_NUMBER       = "solutions.a2.NUMBER.opt";
+	public static final String WRAPPED_OPT_TIMESTAMP    = "solutions.a2.TIMESTAMP.opt";
+	public static final String WRAPPED_OPT_TIMESTAMPTZ  = "solutions.a2.TIMESTAMPTZ.opt";
+	public static final String WRAPPED_OPT_TIMESTAMPLTZ = "solutions.a2.TIMESTAMPLTZ.opt";
+	public static final String WRAPPED_OPT_INTERVALYM   = "solutions.a2.INTERVALYM.opt";
+	public static final String WRAPPED_OPT_INTERVALDS   = "solutions.a2.INTERVALDS.opt";
 
 	public static final Schema WRAPPED_INT8_SCHEMA = SchemaBuilder
 			.struct()
@@ -159,6 +163,23 @@ public class WrappedSchemas {
 			.version(1)
 			.doc("Wrapped TIMESTAMP schema")
 			.field("V", BYTES_SCHEMA)
+			.build();
+	public static final Schema WRAPPED_TIMESTAMPTZ_SCHEMA = SchemaBuilder
+			.struct()
+			.optional()
+			.name(WRAPPED_TIMESTAMPTZ)
+			.version(1)
+			.doc("Wrapped TIMESTAMPTZ schema")
+			.field("V", BYTES_SCHEMA)
+			.build();
+	public static final Schema WRAPPED_TIMESTAMPLTZ_SCHEMA = SchemaBuilder
+			.struct()
+			.optional()
+			.name(WRAPPED_TIMESTAMPLTZ)
+			.version(1)
+			.doc("Wrapped TIMESTAMPLTZ schema")
+			.field("V", BYTES_SCHEMA)
+			.field("Z", STRING_SCHEMA)
 			.build();
 	public static final Schema WRAPPED_INTERVALYM_SCHEMA = SchemaBuilder
 			.struct()
@@ -264,6 +285,23 @@ public class WrappedSchemas {
 			.version(1)
 			.doc("Wrapped optional TIMESTAMP schema")
 			.field("V", OPTIONAL_BYTES_SCHEMA)
+			.build();
+	public static final Schema WRAPPED_OPT_TIMESTAMPTZ_SCHEMA = SchemaBuilder
+			.struct()
+			.optional()
+			.name(WRAPPED_OPT_TIMESTAMPTZ)
+			.version(1)
+			.doc("Wrapped optional TIMESTAMPTZ schema")
+			.field("V", OPTIONAL_BYTES_SCHEMA)
+			.build();
+	public static final Schema WRAPPED_OPT_TIMESTAMPLTZ_SCHEMA = SchemaBuilder
+			.struct()
+			.optional()
+			.name(WRAPPED_OPT_TIMESTAMPLTZ)
+			.version(1)
+			.doc("Wrapped optional TIMESTAMPLTZ schema")
+			.field("V", OPTIONAL_BYTES_SCHEMA)
+			.field("Z", OPTIONAL_STRING_SCHEMA)
 			.build();
 	public static final Schema WRAPPED_OPT_INTERVALYM_SCHEMA = SchemaBuilder
 			.struct()
