@@ -53,6 +53,7 @@ public class WrappedSchemas {
 	public static final String WRAPPED_BOOLEAN      = "solutions.a2.bool";
 	public static final String WRAPPED_STRING       = "solutions.a2.string";
 	public static final String WRAPPED_BYTES        = "solutions.a2.bytes";
+	public static final String WRAPPED_DECIMAL      = "solutions.a2.DECIMAL";
 	public static final String WRAPPED_NUMBER       = "solutions.a2.NUMBER";
 	public static final String WRAPPED_TIMESTAMP    = "solutions.a2.TIMESTAMP";
 	public static final String WRAPPED_TIMESTAMPTZ  = "solutions.a2.TIMESTAMPTZ";
@@ -69,6 +70,7 @@ public class WrappedSchemas {
 	public static final String WRAPPED_OPT_BOOLEAN      = "solutions.a2.bool.opt";
 	public static final String WRAPPED_OPT_STRING       = "solutions.a2.string.opt";
 	public static final String WRAPPED_OPT_BYTES        = "solutions.a2.bytes.opt";
+	public static final String WRAPPED_OPT_DECIMAL      = "solutions.a2.DECIMAL.opt";
 	public static final String WRAPPED_OPT_NUMBER       = "solutions.a2.NUMBER.opt";
 	public static final String WRAPPED_OPT_TIMESTAMP    = "solutions.a2.TIMESTAMP.opt";
 	public static final String WRAPPED_OPT_TIMESTAMPTZ  = "solutions.a2.TIMESTAMPTZ.opt";
@@ -147,6 +149,15 @@ public class WrappedSchemas {
 			.version(1)
 			.doc("Wrapped bytes schema")
 			.field("V", BYTES_SCHEMA)
+			.build();
+	public static final Schema WRAPPED_DECIMAL_SCHEMA = SchemaBuilder
+			.struct()
+			.optional()
+			.name(WRAPPED_DECIMAL)
+			.version(1)
+			.doc("Wrapped DECIMAL schema")
+			.field("V", BYTES_SCHEMA)
+			.field("S", INT8_SCHEMA)
 			.build();
 	public static final Schema WRAPPED_NUMBER_SCHEMA = SchemaBuilder
 			.struct()
@@ -269,6 +280,15 @@ public class WrappedSchemas {
 			.version(1)
 			.doc("Wrapped optional bytes schema")
 			.field("V", OPTIONAL_BYTES_SCHEMA)
+			.build();
+	public static final Schema WRAPPED_OPT_DECIMAL_SCHEMA = SchemaBuilder
+			.struct()
+			.optional()
+			.name(WRAPPED_DECIMAL)
+			.version(1)
+			.doc("Wrapped DECIMAL schema")
+			.field("V", OPTIONAL_BYTES_SCHEMA)
+			.field("S", OPTIONAL_INT8_SCHEMA)
 			.build();
 	public static final Schema WRAPPED_OPT_NUMBER_SCHEMA = SchemaBuilder
 			.struct()
