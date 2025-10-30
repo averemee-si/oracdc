@@ -268,7 +268,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 					if (column.isNumber() && numberRemap != null) {
 						final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
 						if (newDefinition != null) {
-							column.remap(newDefinition, decrypter);
+							column.remap(newDefinition, decrypter, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
 						}
 					}
 					columnAdded = true;

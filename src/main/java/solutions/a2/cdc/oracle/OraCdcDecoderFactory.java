@@ -28,6 +28,7 @@ import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.SQLXML;
+import static java.sql.Types.LONGVARBINARY;
 import static java.sql.Types.LONGNVARCHAR;
 import static java.sql.Types.LONGVARCHAR;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
@@ -47,7 +48,6 @@ import static solutions.a2.oracle.utils.BinaryUtils.getU16BE;
 import static solutions.a2.oracle.utils.BinaryUtils.getU32BE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
-import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -143,8 +144,19 @@ public class OraCdcDecoderFactory {
 		};
 	}
 
+	static OraCdcDecoder get(final Schema schema) {
+		return new OraCdcDecoder() {
+		@Override
+		public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+			final var struct = new Struct(schema);
+				struct.put("V", Arrays.copyOfRange(raw, off, off + len));
+				return struct;
+			}
+		};
+	}
+
 	static OraCdcDecoder get(final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-		return new EncryptedBytesDecoder(decrypter, salted) {
+		return new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -167,14 +179,173 @@ public class OraCdcDecoderFactory {
 		};
 	}
 
+	static OraCdcDecoder get(final Schema schema, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var struct = new Struct(schema);
+					final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+					struct.put("V", plaintext);
+					return struct;
+				}
+			};
+	}
+
 	static OraCdcDecoder get(final int jdbcType) {
 		return decoders.get(jdbcType);
+	}
+
+	static OraCdcDecoder get(final Schema schema, final int jdbcType) {
+		switch (jdbcType) {
+			case BOOLEAN -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var struct = new Struct(schema);
+						struct.put("V", toBoolean(raw, off, len));
+						return struct;
+					}
+				};
+			}
+			case TINYINT -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var struct = new Struct(schema);
+						struct.put("V", toByte(raw, off, len));
+						return struct;
+					}
+				};
+			}
+			case SMALLINT -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var struct = new Struct(schema);
+						struct.put("V", toShort(raw, off, len));
+						return struct;
+					}
+				};
+			}
+			case INTEGER -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var struct = new Struct(schema);
+						struct.put("V", toInt(raw, off, len));
+						return struct;
+					}
+				};
+			}
+			case BIGINT -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var struct = new Struct(schema);
+						struct.put("V", toLong(raw, off, len));
+						return struct;
+					}
+				};
+			}
+			case BINARY_FLOAT -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw) throws SQLException {
+						try {
+							final var bf = new BINARY_FLOAT(raw);
+							final var struct = new Struct(schema);
+							struct.put("V", bf.floatValue());
+							return struct;
+						} catch (Exception e) {
+							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
+						}
+					}
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						try {
+							final var bf = new BINARY_FLOAT(Arrays.copyOfRange(raw, off, off + len));
+							final var struct = new Struct(schema);
+							struct.put("V", bf.floatValue());
+							return struct;
+						} catch (Exception e) {
+							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
+						}
+					}
+				};
+			}
+			case BINARY_DOUBLE -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw) throws SQLException {
+						try {
+							final var struct = new Struct(schema);
+							final var bd = new BINARY_DOUBLE(raw);
+							struct.put("V", bd.doubleValue());
+							return struct;
+						} catch (Exception e) {
+							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
+						}
+					}
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						try {
+							final var struct = new Struct(schema);
+							final var bd = new BINARY_DOUBLE(Arrays.copyOfRange(raw, off, off + len));
+							struct.put("V", bd.doubleValue());
+							return struct;
+						} catch (Exception e) {
+							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
+						}
+					}
+				};
+			}
+			// Special cases for extended size VARCHAR2/NVARCHAR2/RAW
+			case LONGNVARCHAR, LONGVARCHAR -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len,
+							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+						final var struct = new Struct(schema);
+						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+						final var ll = new LobLocator(raw, off, len);
+						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size NVARCHAR2/VARCHAR2");
+						if (lobIds.contains(ll.lid()))
+							struct.put("V", new String(cqTrans.getLob(ll), UTF_16));
+						else if (ll.dataInRow()) 
+							struct.put("V", new String(raw, off + len - ll.dataLength(), off + len, UTF_16));
+						else
+							throwLobNotFound(ll, "enc extended size NVARCHAR2/VARCHAR2");
+						return struct;
+					}
+				};
+			}
+			case LONGVARBINARY -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len,
+							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+						final var struct = new Struct(schema);
+						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+						final var ll = new LobLocator(raw, off, len);
+						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size RAW");
+						if (lobIds.contains(ll.lid()))
+							struct.put("V", cqTrans.getLob(ll));
+						else if (ll.dataInRow())
+							struct.put("V", Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len));
+						else
+							throwLobNotFound(ll, "enc extended size RAW");
+						return struct;
+					}
+				};
+			}
+		}
+		return null;
 	}
 
 	static OraCdcDecoder get(final int jdbcType, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
 		switch (jdbcType) {
 			case TINYINT -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -183,7 +354,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case SMALLINT -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -192,7 +363,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case INTEGER -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -201,7 +372,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case BIGINT -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -210,7 +381,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case FLOAT -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -219,12 +390,12 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case BINARY_FLOAT -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted);
 						try {
-							BINARY_FLOAT bf = new BINARY_FLOAT(plaintext);
+							var bf = new BINARY_FLOAT(plaintext);
 							return bf.floatValue();
 						} catch (Exception e) {
 							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
@@ -234,7 +405,7 @@ public class OraCdcDecoderFactory {
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
 						try {
-							BINARY_FLOAT bf = new BINARY_FLOAT(plaintext);
+							var bf = new BINARY_FLOAT(plaintext);
 							return bf.floatValue();
 						} catch (Exception e) {
 							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
@@ -243,7 +414,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case DOUBLE -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -252,12 +423,12 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case BINARY_DOUBLE -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted);
 						try {
-							BINARY_DOUBLE bd = new BINARY_DOUBLE(plaintext);
+							var bd = new BINARY_DOUBLE(plaintext);
 							return bd.doubleValue();
 						} catch (Exception e) {
 							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
@@ -267,7 +438,7 @@ public class OraCdcDecoderFactory {
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
 						try {
-							BINARY_DOUBLE bd = new BINARY_DOUBLE(plaintext);
+							var bd = new BINARY_DOUBLE(plaintext);
 							return bd.doubleValue();
 						} catch (Exception e) {
 							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
@@ -276,7 +447,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case DATE -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -289,7 +460,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case TIMESTAMP -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -302,7 +473,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case JAVA_SQL_TYPE_INTERVALDS_STRING -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -311,7 +482,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case JAVA_SQL_TYPE_INTERVALYM_STRING -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
@@ -320,7 +491,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case BLOB -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
 							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
@@ -338,7 +509,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case CLOB -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
 							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
@@ -356,7 +527,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case NCLOB -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
 							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
@@ -374,7 +545,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case SQLXML -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
 							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
@@ -394,7 +565,7 @@ public class OraCdcDecoderFactory {
 				};
 			}
 			case VECTOR -> {
-				return new EncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
 							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
@@ -411,9 +582,9 @@ public class OraCdcDecoderFactory {
 					}
 				};
 			}
-			// Special cases for extended size VARCHAR2/NVARCHAR2
+			// Special cases for extended size VARCHAR2/NVARCHAR2/RAW
 			case LONGNVARCHAR -> {
-				return new CharacterEncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
 							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
@@ -422,16 +593,16 @@ public class OraCdcDecoderFactory {
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size NVARCHAR2");
 						if (lobIds.contains(ll.lid()))
-							return new String(decrypter.decrypt(cqTrans.getLob(ll), salted), charset);
+							return new String(decrypter.decrypt(cqTrans.getLob(ll), salted), UTF_16);
 						else if (ll.dataInRow()) 
-							return new String(plaintext, plaintext.length - ll.dataLength(), plaintext.length, charset);
+							return new String(plaintext, plaintext.length - ll.dataLength(), plaintext.length, UTF_16);
 						else
 							return throwLobNotFound(ll, "enc extended size NVARCHAR2");
 					}
 				};
 			}
 			case LONGVARCHAR -> {
-				return new CharacterEncryptedBytesDecoder(decrypter, salted) {
+				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
 							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
@@ -440,11 +611,29 @@ public class OraCdcDecoderFactory {
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size VARCHAR2");
 						if (lobIds.contains(ll.lid()))
-							return new String(decrypter.decrypt(cqTrans.getLob(ll), salted), charset);
+							return new String(decrypter.decrypt(cqTrans.getLob(ll), salted), UTF_16);
 						else if (ll.dataInRow())
-							return new String(plaintext, plaintext.length - ll.dataLength(), plaintext.length, charset);
+							return new String(plaintext, plaintext.length - ll.dataLength(), plaintext.length, UTF_16);
 						else
 							return throwLobNotFound(ll, "enc extended size VARCHAR2");
+					}
+				};
+			}
+			case LONGVARBINARY -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len,
+							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+						final var ll = new LobLocator(plaintext, 0, plaintext.length);
+						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size RAW");
+						if (lobIds.contains(ll.lid()))
+							return decrypter.decrypt(cqTrans.getLob(ll), salted);
+						else if (ll.dataInRow())
+							return Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length);
+						else
+							return throwLobNotFound(ll, "enc extended size RAW");
 					}
 				};
 			}
@@ -452,215 +641,367 @@ public class OraCdcDecoderFactory {
 		return null;
 	}
 
-	static OraCdcDecoder get(final String oraleCharacterset) {
-		return new CharacterBytesDecoder(oraleCharacterset);
+	static OraCdcDecoder get(final Schema schema, final int jdbcType, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
+		switch (jdbcType) {
+			case TINYINT -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var struct = new Struct(schema);
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+						struct.put("V", toByte(plaintext, 0, plaintext.length));
+						return struct;
+					}
+				};						
+			}
+			case SMALLINT -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var struct = new Struct(schema);
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+						struct.put("V", toShort(plaintext, 0, plaintext.length));
+						return struct;
+					}
+				};						
+			}
+			case INTEGER -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var struct = new Struct(schema);
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+						struct.put("V", toInt(plaintext, 0, plaintext.length));
+						return struct;
+					}
+				};						
+			}
+			case BIGINT -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var struct = new Struct(schema);
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+						struct.put("V", toLong(plaintext, 0, plaintext.length));
+						return struct;
+					}
+				};						
+			}
+			case BINARY_FLOAT -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw) throws SQLException {
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted);
+						try {
+							final var bf = new BINARY_FLOAT(plaintext);
+							final var struct = new Struct(schema);
+							struct.put("V", bf.floatValue());
+							return struct;
+						} catch (Exception e) {
+							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
+						}
+					}
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+						try {
+							final var bf = new BINARY_FLOAT(plaintext);
+							final var struct = new Struct(schema);
+							struct.put("V", bf.floatValue());
+							return struct;
+						} catch (Exception e) {
+							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
+						}
+					}
+				};
+			}
+			case BINARY_DOUBLE -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw) throws SQLException {
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted);
+						try {
+							final var struct = new Struct(schema);
+							final var bd = new BINARY_DOUBLE(plaintext);
+							struct.put("V", bd.doubleValue());
+							return struct;
+						} catch (Exception e) {
+							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
+						}
+					}
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+						try {
+							final var struct = new Struct(schema);
+							final var bd = new BINARY_DOUBLE(plaintext);
+							struct.put("V", bd.doubleValue());
+							return struct;
+						} catch (Exception e) {
+							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
+						}
+					}
+				};
+			}
+			// Special cases for extended size VARCHAR2/NVARCHAR2/RAW
+			case LONGNVARCHAR, LONGVARCHAR -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len,
+							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+						final var struct = new Struct(schema);
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+						final var ll = new LobLocator(plaintext, 0, plaintext.length);
+						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size NVARCHAR2/VARCHAR2");
+						if (lobIds.contains(ll.lid()))
+							struct.put("V", new String(decrypter.decrypt(cqTrans.getLob(ll), salted), UTF_16));
+						else if (ll.dataInRow()) 
+							struct.put("V", new String(plaintext, plaintext.length - ll.dataLength(), plaintext.length, UTF_16));
+						else
+							throwLobNotFound(ll, "enc extended size NVARCHAR2/VARCHAR2");
+						return struct;
+					}
+				};
+			}
+			case LONGVARBINARY -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len,
+							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+						final var struct = new Struct(schema);
+						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+						final var ll = new LobLocator(plaintext, 0, plaintext.length);
+						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size RAW");
+						if (lobIds.contains(ll.lid()))
+							struct.put("V", decrypter.decrypt(cqTrans.getLob(ll), salted));
+						else if (ll.dataInRow())
+							struct.put("V", Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length));
+						else
+							throwLobNotFound(ll, "enc extended size RAW");
+						return struct;
+					}
+				};
+			}
+		}
+		return null;
 	}
 
-	static OraCdcDecoder get(final String oraleCharacterset, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-		return new CharacterEncryptedBytesDecoder(oraleCharacterset, decrypter, salted);
+	static OraCdcDecoder get(final String oraCharset) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				return new String(raw, off, len, charset(oraCharset));
+			}
+		};
+	}
+
+	static OraCdcDecoder get(final Schema schema, final String oraCharset) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var struct = new Struct(schema);
+				struct.put("V", new String(Arrays.copyOfRange(raw, off, off + len), charset(oraCharset)));
+				return struct;
+			}
+		};
+	}
+
+	static OraCdcDecoder get(final String oraCharset, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+				return new String(plaintext, charset(oraCharset));
+			}
+		};
+	}
+
+	static OraCdcDecoder get(final Schema schema, final String oraCharset, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var struct = new Struct(schema);
+				struct.put("V", new String(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted), charset(oraCharset)));
+				return struct;
+			}
+		};
 	}
 
 	static OraCdcDecoder get(final ZoneId zoneId, final boolean local) {
-		return new TsTzBytesDecoder(zoneId, local);
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final ZonedDateTime zdt;
+				if (local)
+					zdt = OracleTimestamp.toZonedDateTime(raw, off, len, zoneId);
+				else
+					zdt = TimestampWithTimeZone.toZonedDateTime(raw, off);
+				return ISO_OFFSET_DATE_TIME.format(zdt);
+			}
+		};
 	}
 
 	static OraCdcDecoder get(final ZoneId zoneId, final boolean local, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-		return new TsTzEncryptedBytesDecoder(zoneId, local, decrypter, salted);
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+				final ZonedDateTime zdt;
+				if (local)
+					zdt = OracleTimestamp.toZonedDateTime(plaintext, 0, plaintext.length, zoneId);
+				else
+					zdt = TimestampWithTimeZone.toZonedDateTime(plaintext, 0);
+				return ISO_OFFSET_DATE_TIME.format(zdt);
+			}
+		};
+	}
+
+	static OraCdcDecoder get(final Schema schema, final ZoneId zoneId) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw) throws SQLException {
+				final var struct = new Struct(schema);
+				struct.put("V", raw);
+				struct.put("Z", zoneId);
+				return struct;
+			}
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var struct = new Struct(schema);
+				struct.put("V", Arrays.copyOfRange(raw, off, off + len));
+				struct.put("Z", zoneId);
+				return struct;
+			}
+		};
+	}
+
+	static OraCdcDecoder get(final Schema schema, final ZoneId zoneId, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+				final var struct = new Struct(schema);
+				struct.put("V", plaintext);
+				struct.put("Z", zoneId);
+				return struct;
+			}
+		};
 	}
 
 	static OraCdcDecoder get(final OracleJsonFactory jsonFactory) {
-		return new JsonBytesDecoder(jsonFactory);
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len,
+					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+				final var ll = new LobLocator(raw, off, len);
+				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "JSON");
+				if (lobIds.contains(ll.lid()))
+					return oraJson(cqTrans.getLob(ll), jsonFactory);
+				else if (ll.dataInRow())
+					return oraJson(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len), jsonFactory);
+				else
+					return throwLobNotFound(ll, "JSON");
+			}
+		};
 	}
 
 	static OraCdcDecoder get(final OracleJsonFactory jsonFactory, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-		return new JsonEncryptedBytesDecoder(jsonFactory, decrypter, salted);
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len,
+					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
+				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+				final var ll = new LobLocator(plaintext, 0, plaintext.length);
+				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc JSON");
+				if (lobIds.contains(ll.lid()))
+					return oraJson(decrypter.decrypt(cqTrans.getLob(ll), salted), jsonFactory);
+				else if (ll.dataInRow())
+					return oraJson(Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length), jsonFactory);
+				else
+					return throwLobNotFound(ll, "enc JSON");
+			}
+		};
 	}
 
 	static OraCdcDecoder getNUMBER(final int scale) {
-		return new NumberBytesDecoder(scale);
-	}
-	
-	static OraCdcDecoder getNUMBER(final int scale, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-		return new NumberEncryptedBytesDecoder(scale, decrypter, salted);
-	}
-
-	static private abstract class EncryptedBytesDecoder implements OraCdcDecoder {
-		final OraCdcTdeColumnDecrypter decrypter;
-		final boolean salted;
-
-		EncryptedBytesDecoder(final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-			this.decrypter = decrypter;
-			this.salted = salted;
-		}
-	}
-
-	static private class NumberBytesDecoder implements OraCdcDecoder {
-		final int scale;
-
-		NumberBytesDecoder(final int scale) {
-			this.scale = scale;
-		}
-		@Override
-		public Object decode(final byte[] raw) throws SQLException {
-			BigDecimal bd = toBigDecimal(raw);
-			if (bd.scale() == scale)
-				return bd;
-			else if (bd.scale() > scale)
-				return bd.setScale(scale, RoundingMode.HALF_UP);
-			else
-				return bd.setScale(scale, RoundingMode.UNNECESSARY);
-		}
-		@Override
-		public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-			return decode(Arrays.copyOfRange(raw, off, off + len));
-		}
-	}
-
-	static private class NumberEncryptedBytesDecoder extends NumberBytesDecoder implements OraCdcDecoder {
-		final OraCdcTdeColumnDecrypter decrypter;
-		final boolean salted;
-
-		NumberEncryptedBytesDecoder(final int scale, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-			super(scale);
-			this.decrypter = decrypter;
-			this.salted = salted;
-		}
-		@Override
-		public Object decode(final byte[] raw) throws SQLException {
-			final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted);
-			return super.decode(plaintext);
-		}
-		@Override
-		public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-			final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-			return super.decode(plaintext);
-		}
-	}
-
-	static private class CharacterBytesDecoder implements OraCdcDecoder {
-		final Charset charset;
-
-		CharacterBytesDecoder() {
-			this.charset = UTF_16;
-		}
-		CharacterBytesDecoder(final String oraCharset) {
-			try {
-				charset = Charset.forName(oraToJava.get(oraCharset));				
-			} catch (UnsupportedCharsetException | IllegalCharsetNameException e) {
-				throw new IllegalArgumentException("Invalid or unsupported Oracle character set: " + oraCharset +  ".", e);
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw) throws SQLException {
+				var bd = toBigDecimal(raw);
+				if (bd.scale() == scale)
+					return bd;
+				else if (bd.scale() > scale)
+					return bd.setScale(scale, RoundingMode.HALF_UP);
+				else
+					return bd.setScale(scale, RoundingMode.UNNECESSARY);
 			}
-		}
-		@Override
-		public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-			return new String(raw, off, len, charset);
-		}
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				return decode(Arrays.copyOfRange(raw, off, off + len));
+			}
+		};
 	}
 
-	static private class CharacterEncryptedBytesDecoder extends CharacterBytesDecoder implements OraCdcDecoder {
-		final OraCdcTdeColumnDecrypter decrypter;
-		final boolean salted;
-
-		CharacterEncryptedBytesDecoder(final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-			super();
-			this.decrypter = decrypter;
-			this.salted = salted;
-		}
-		CharacterEncryptedBytesDecoder(final String oraCharset, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-			super(oraCharset);
-			this.decrypter = decrypter;
-			this.salted = salted;
-		}
-		@Override
-		public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-			final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-			return new String(plaintext, charset);
-		}
+	static OraCdcDecoder get(final int scale, final Schema schema) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw) throws SQLException {
+				final var struct = new Struct(schema);
+				struct.put("V", raw);
+				struct.put("S", scale);
+				return struct;
+			}
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var struct = new Struct(schema);
+				struct.put("V", Arrays.copyOfRange(raw, off, off + len));
+				struct.put("S", scale);
+				return struct;
+			}
+		};
 	}
 
-	static private class TsTzBytesDecoder implements OraCdcDecoder {
-		final ZoneId zoneId;
-		final boolean local;
-
-		TsTzBytesDecoder(final ZoneId zoneId, final boolean local) {
-			this.zoneId = zoneId;
-			this.local = local;
-		}
-		@Override
-		public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-			final ZonedDateTime zdt;
-			if (local)
-				zdt = OracleTimestamp.toZonedDateTime(raw, off, len, zoneId);
-			else
-				zdt = TimestampWithTimeZone.toZonedDateTime(raw, off);
-			return ISO_OFFSET_DATE_TIME.format(zdt);
-		}
+	static OraCdcDecoder getNUMBER(final int scale, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw) throws SQLException {
+				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted);
+				var bd = toBigDecimal(plaintext);
+				if (bd.scale() == scale)
+					return bd;
+				else if (bd.scale() > scale)
+					return bd.setScale(scale, RoundingMode.HALF_UP);
+				else
+					return bd.setScale(scale, RoundingMode.UNNECESSARY);
+			}
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				return decode(Arrays.copyOfRange(raw, off, off + len));
+			}
+		};
 	}
 
-	static private class TsTzEncryptedBytesDecoder extends TsTzBytesDecoder implements OraCdcDecoder {
-		final OraCdcTdeColumnDecrypter decrypter;
-		final boolean salted;
-
-		TsTzEncryptedBytesDecoder(final ZoneId zoneId, final boolean local, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-			super(zoneId, local);
-			this.decrypter = decrypter;
-			this.salted = salted;
-		}
-		@Override
-		public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-			final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-			final ZonedDateTime zdt;
-			if (local)
-				zdt = OracleTimestamp.toZonedDateTime(plaintext, 0, plaintext.length, zoneId);
-			else
-				zdt = TimestampWithTimeZone.toZonedDateTime(plaintext, 0);
-			return ISO_OFFSET_DATE_TIME.format(zdt);
-		}
-	}
-
-	static private class JsonBytesDecoder implements OraCdcDecoder {
-		final OracleJsonFactory jsonFactory;
-
-		JsonBytesDecoder(final OracleJsonFactory jsonFactory) {
-			this.jsonFactory = jsonFactory;
-		}
-		@Override
-		public Object decode(final byte[] raw, final int off, final int len,
-				final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-			final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
-			final var ll = new LobLocator(raw, off, len);
-			if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "JSON");
-			if (lobIds.contains(ll.lid()))
-				return oraJson(cqTrans.getLob(ll), jsonFactory);
-			else if (ll.dataInRow())
-				return oraJson(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len), jsonFactory);
-			else
-				return throwLobNotFound(ll, "JSON");
-		}
-	}
-
-	static private class JsonEncryptedBytesDecoder extends JsonBytesDecoder implements OraCdcDecoder {
-		final OraCdcTdeColumnDecrypter decrypter;
-		final boolean salted;
-
-		JsonEncryptedBytesDecoder(final OracleJsonFactory jsonFactory, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-			super(jsonFactory);
-			this.decrypter = decrypter;
-			this.salted = salted;
-		}
-		@Override
-		public Object decode(final byte[] raw, final int off, final int len,
-				final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-			final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-			final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
-			final var ll = new LobLocator(plaintext, 0, plaintext.length);
-			if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc JSON");
-			if (lobIds.contains(ll.lid()))
-				return oraJson(decrypter.decrypt(cqTrans.getLob(ll), salted), jsonFactory);
-			else if (ll.dataInRow())
-				return oraJson(Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length), jsonFactory);
-			else
-				return throwLobNotFound(ll, "enc JSON");
-		}
+	static OraCdcDecoder get(final int scale, final Schema schema, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
+		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw) throws SQLException {
+				final var struct = new Struct(schema);
+				struct.put("V", decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted));
+				struct.put("S", scale);
+				return struct;
+			}
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var struct = new Struct(schema);
+				struct.put("V", decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted));
+				struct.put("S", scale);
+				return struct;
+			}
+		};
 	}
 
 	private static Struct oraBlob(final byte[] data) {
@@ -762,16 +1103,28 @@ public class OraCdcDecoderFactory {
 		throw new SQLException("Lob with LID=" + ll.lid().toString() + " not found!");
 	}
 
+	private static Charset charset(final String oraCharset) {
+		try {
+			return Charset.forName(oraToJava.get(oraCharset));				
+		} catch (UnsupportedCharsetException | IllegalCharsetNameException e) {
+			throw new IllegalArgumentException("Invalid or unsupported Oracle character set: " + oraCharset +  ".", e);
+		}
+	}
+
+	private static boolean toBoolean(final byte[] raw, final int off, final int len) throws SQLException {
+		if (raw[off] == (byte) 1)
+			return true;
+		else if (raw[off] == (byte)0)
+			return false;
+		else
+			throw new SQLException("Incorrect value " + String.format("0x%02x", raw[off]) + " for BOOLEAN (252) data type!");
+	}
+
 	static {
 		decoders.put(BOOLEAN, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				if (raw[off] == (byte) 1)
-					return true;
-				else if (raw[off] == (byte)0)
-					return false;
-				else
-					throw new SQLException("Incorrect value " + String.format("0x%02x", raw[off]) + " for BOOLEAN (252) data type!");
+				return toBoolean(raw, off, len);
 			}
 		});
 		decoders.put(TINYINT, new OraCdcDecoder() {
@@ -955,8 +1308,8 @@ public class OraCdcDecoderFactory {
 					return throwLobNotFound(ll, "VECTOR");
 			}
 		});
-		// Special cases for extended size VARCHAR2/NVARCHAR2
-		decoders.put(LONGNVARCHAR, new CharacterBytesDecoder() {
+		// Special cases for extended size VARCHAR2/NVARCHAR2/RAW
+		decoders.put(LONGNVARCHAR, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
 					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
@@ -964,14 +1317,14 @@ public class OraCdcDecoderFactory {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "extended size NVARCHAR2");
 				if (lobIds.contains(ll.lid()))
-					return new String(cqTrans.getLob(ll), charset);
+					return new String(cqTrans.getLob(ll), UTF_16);
 				else if (ll.dataInRow())
-					return new String(raw, off + len - ll.dataLength(), off + len, charset);
+					return new String(raw, off + len - ll.dataLength(), off + len, UTF_16);
 				else
 					return throwLobNotFound(ll, "extended size NVARCHAR2");
 			}
 		});
-		decoders.put(LONGVARCHAR, new CharacterBytesDecoder() {
+		decoders.put(LONGVARCHAR, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
 					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
@@ -979,11 +1332,26 @@ public class OraCdcDecoderFactory {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "extended size VARCHAR2");
 				if (lobIds.contains(ll.lid()))
-					return new String(cqTrans.getLob(ll), charset);
+					return new String(cqTrans.getLob(ll), UTF_16);
 				else if (ll.dataInRow())
-					return new String(raw, off + len - ll.dataLength(), off + len, charset);
+					return new String(raw, off + len - ll.dataLength(), off + len, UTF_16);
 				else
 					return throwLobNotFound(ll, "extended size VARCHAR2");
+			}
+		});
+		decoders.put(LONGVARBINARY, new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len,
+					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+				final var ll = new LobLocator(raw, off, len);
+				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "extended size RAW");
+				if (lobIds.contains(ll.lid()))
+					return cqTrans.getLob(ll);
+				else if (ll.dataInRow())
+					return Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len);
+				else
+					return throwLobNotFound(ll, "extended size RAW");
 			}
 		});
 
