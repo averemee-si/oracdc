@@ -697,9 +697,21 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 	public void writeLobChunk(final LobId lid, final int obj, final short col, final byte[] data, final int off, final int len, final boolean cmap) throws SQLException {
 		LobHolder holder = transLobs.get(lid);
-		if (holder == null) {
+		if (holder == null) {			
 			holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
 			transLobs.put(lid, holder);
+			final LobId otherLid = lobCols.put(objCol(obj, col), lid);
+			if (otherLid != null && transLobs.get(otherLid).chunks.size() > 0) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						Double entry in object {} column {} for lid '{}' and lid = {} in XID {}
+						=====================
+						
+						""",
+						Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid, otherLid, getXid());
+			}
 		}
 		holder.open(LOB_OP_WRITE);
 		try {
