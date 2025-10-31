@@ -556,7 +556,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			final Map<String, Object> offset, final char opType, final boolean skipRedoRecord,
 			final Connection connection, final List<OraColumn> missedColumns) throws SQLException {
 
-		if (incompleteDataTolerance == INCOMPLETE_REDO_INT_RESTORE && missedColumns != null) {
+		if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0 && incompleteDataTolerance == INCOMPLETE_REDO_INT_RESTORE && missedColumns != null) {
 			if (getMissedColumnValues(connection, stmt, missedColumns, transaction)) {
 				printErrorMessage(Level.INFO, "Incomplete redo record restored from latest incarnation for table {}.", stmt, transaction);
 			} else {
