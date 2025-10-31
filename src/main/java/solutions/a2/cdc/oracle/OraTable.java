@@ -86,7 +86,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	private final OraCdcPseudoColumnsProcessor pseudoColumns;
 	private final SchemaNameMapper snm;
 	private String kafkaTopic;
-	short conId;
+	private final short conId;
 	Struct keyStruct;
 	private Struct valueStruct;
 	private Struct struct;
@@ -116,52 +116,80 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	 * @param pdbName      PDB name
 	 * @param tableOwner   owner
 	 * @param tableName    name
-	 * @param schemaType   type of schema
-	 * @param processLobs  true for LOB support
-	 * @param transformLobs
+	 * @param rowLevelScn
+	 * @param conId
 	 * @param config
+	 * @param rdbmsInfo
 	 */
 	OraTable(final String pdbName, final String tableOwner, final String tableName,
-			final int schemaType, final boolean processLobs,
-			final OraCdcLobTransformationsIntf transformLobs,
-			final OraCdcSourceConnectorConfig config, final OraRdbmsInfo rdbmsInfo) {
-		super(tableOwner, tableName, schemaType);
+			final boolean rowLevelScn, final short conId, final OraCdcSourceConnectorConfig config,
+			final OraRdbmsInfo rdbmsInfo, final Connection connection, final int version) {
+		super(tableOwner, tableName, config.schemaType());
 		this.pdbName = pdbName;
+		this.conId = conId;
 		this.tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
 				this.tableOwner + "." + this.tableName;
 		this.rdbmsInfo = rdbmsInfo;
 		this.config = config;
-		if (config != null) {
-			final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
-			topicNameMapper.configure(config);
-			this.kafkaTopic = topicNameMapper.getTopicName(pdbName, tableOwner, tableName);
-			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Kafka topic for table {} set to {}.", tableFqn, kafkaTopic);
-			this.sourcePartition = rdbmsInfo.partition();
-			incompleteDataTolerance = config.getIncompleteDataTolerance();
-			topicPartition = config.topicPartition();
-			pseudoColumns = config.pseudoColumnsProcessor();
-			snm = config.getSchemaNameMapper();
-			snm.configure(config);
-			if (config.isPrintInvalidHexValueWarning()) flags |= FLG_PRINT_INVALID_HEX_WARNING;
-			if (config.useAllColsOnDelete()) flags |=FLG_ALL_COLS_ON_DELETE;
-			if (config.printUnableToDeleteWarning()) flags |= FLG_PRINT_UNABLE_DELETE_WARNING;
-			if (config.useOracdcSchemas()) flags |= FLG_ORACDC_SCHEMAS;
-			if (config.allUpdates()) flags |= FLG_ALL_UPDATES;
-			if (config.printUnable2MapColIdWarning()) flags |= FLG_PRINT_UNABLE_MAP_COL_ID;
-			if (config.supplementalLogAll()) flags |= FLG_SUPPLEMENTAL_LOG_ALL;
-		} else {
-			topicPartition = 0;
-			pseudoColumns = null;
-			snm = null;
+		this.rowLevelScn = rowLevelScn;
+		this.version = version;
+		final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
+		topicNameMapper.configure(config);
+		this.kafkaTopic = topicNameMapper.getTopicName(pdbName, tableOwner, tableName);
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("Kafka topic for table {} set to {}.", tableFqn, kafkaTopic);
+		this.sourcePartition = rdbmsInfo.partition();
+		incompleteDataTolerance = config.getIncompleteDataTolerance();
+		topicPartition = config.topicPartition();
+		pseudoColumns = config.pseudoColumnsProcessor();
+		snm = config.getSchemaNameMapper();
+		snm.configure(config);
+		if (config.isPrintInvalidHexValueWarning()) flags |= FLG_PRINT_INVALID_HEX_WARNING;
+		if (config.useAllColsOnDelete()) flags |=FLG_ALL_COLS_ON_DELETE;
+		if (config.printUnableToDeleteWarning()) flags |= FLG_PRINT_UNABLE_DELETE_WARNING;
+		if (config.useOracdcSchemas()) flags |= FLG_ORACDC_SCHEMAS;
+		if (config.allUpdates()) flags |= FLG_ALL_UPDATES;
+		if (config.printUnable2MapColIdWarning()) flags |= FLG_PRINT_UNABLE_MAP_COL_ID;
+		if (config.supplementalLogAll()) flags |= FLG_SUPPLEMENTAL_LOG_ALL;
+		else {
+			flags |=FLG_ALL_COLS_ON_DELETE;
+			flags &= (~FLG_ORACDC_SCHEMAS);
 		}
-		if (processLobs)
+		if (config.processLobs()) {
 			flags |= FLG_PROCESS_LOBS;
-		this.transformLobs = transformLobs;
+			transformLobs = config.transformLobsImpl();
+		} else
+			transformLobs = null;
 		switch (schemaType) {
 			case SCHEMA_TYPE_INT_KAFKA_STD -> structWriter = new KafkaStructWriter(this);
 			case SCHEMA_TYPE_INT_SINGLE    -> structWriter = new SingleStructWriter(this); 
 			case SCHEMA_TYPE_INT_DEBEZIUM  -> structWriter = new DebeziumStructWriter(this); 
+		}
+		try {
+			if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0) {
+				if (rdbmsInfo.isCheckSupplementalLogData4Table()) {
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Need to check supplemental logging settings for table {}.", tableFqn);
+					}
+					if (!OraRdbmsInfo.supplementalLoggingSet(connection,
+							(rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) ? conId : -1,
+									this.tableOwner, this.tableName)) {
+						LOGGER.error(
+								"""
+								
+								=====================
+								Supplemental logging for table '{}' is not configured correctly!
+								Please set it according to the oracdc documentation
+								=====================
+								
+								""",
+									tableFqn);
+						flags &= (~FLG_CHECK_SUPPLEMENTAL);
+					}
+				}
+			}
+		} catch (SQLException sqle) {
+			throw sqlExceptionOnInit(sqle);
 		}
 	}
 
@@ -180,7 +208,8 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	abstract void createLobHolders();
 	abstract void addLobColumnId(final int columnId);
 
-	void readAndParseOraColumns(final Connection connection, final boolean isCdb) throws SQLException {
+	void readAndParseOraColumns(final Connection connection) throws SQLException {
+		final var isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
 		final boolean useRowIdAsKey;
 		final Set<String> pkColsSet;
@@ -853,7 +882,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			mandatoryColumnsCount = 0;
 			updatedColumnCount = 1;
 			version++;
-			readAndParseOraColumns(connection, rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed());
+			readAndParseOraColumns(connection);
 
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("END: Processing DDL for OraTable {} using dictionary  data...", tableFqn);
@@ -1261,6 +1290,20 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				""",
 				column.getColumnName(), tableFqn,
 				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo(), column.getColumnName());
+	}
+
+	ConnectException sqlExceptionOnInit(final SQLException sqle) {
+		LOGGER.error(
+				"""
+				
+				=====================
+				Unable to get information about table {}.{}
+				'{}', errorCode = {}, SQLState = '{}'
+				=====================
+				
+				""",
+				tableOwner, tableName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+		return new ConnectException(sqle);
 	}
 
 	public String fqn() {

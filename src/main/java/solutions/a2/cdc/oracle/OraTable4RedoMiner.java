@@ -61,60 +61,25 @@ public class OraTable4RedoMiner extends OraTable {
 	 * @param conId
 	 * @param tableOwner
 	 * @param tableName
-	 * @param rowLevelScnDependency
+	 * @param rowLevelScn
 	 * @param config
 	 * @param rdbmsInfo
 	 * @param connection
 	 */
 	public OraTable4RedoMiner(
 			final String pdbName, final short conId, final String tableOwner,
-			final String tableName, final boolean rowLevelScnDependency,
+			final String tableName, final boolean rowLevelScn,
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection, final int version) {
-		super(pdbName, tableOwner, tableName, config.schemaType(), config.processLobs(),
-				config.transformLobsImpl(), config, rdbmsInfo);
-		this.conId = conId;
-		this.rowLevelScn = rowLevelScnDependency;
-		this.version = version;
-		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
+		super(pdbName, tableOwner, tableName, rowLevelScn, conId, config, rdbmsInfo, connection, version);
 		beforeData = (schemaType == SCHEMA_TYPE_INT_DEBEZIUM);
 		try {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);
 			}
-			if (rdbmsInfo.isCheckSupplementalLogData4Table()) {
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Need to check supplemental logging settings for table {}.", tableFqn);
-				}
-				if (!OraRdbmsInfo.supplementalLoggingSet(connection,
-						isCdb ? conId : -1, this.tableOwner, this.tableName)) {
-					LOGGER.error(
-							"""
-							
-							=====================
-							Supplemental logging for table '{}' is not configured correctly!
-							Please set it according to the oracdc documentation
-							=====================
-							
-							""",
-								tableFqn);
-					flags &= (~FLG_CHECK_SUPPLEMENTAL);
-				}
-			}
-
-			readAndParseOraColumns(connection, isCdb);
+			readAndParseOraColumns(connection);
 		} catch (SQLException sqle) {
-			LOGGER.error(
-					"""
-					
-					=====================
-					Unable to get information about table {}.{}
-					'{}', errorCode = {}, SQLState = '{}'
-					=====================
-					
-					""",
-					tableOwner, tableName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
-			throw new ConnectException(sqle);
+			throw sqlExceptionOnInit(sqle);
 		}
 	}
 
