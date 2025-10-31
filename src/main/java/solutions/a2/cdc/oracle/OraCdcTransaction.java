@@ -122,12 +122,15 @@ public abstract class OraCdcTransaction {
 			if (oraSql.isRollback()) {
 				suspicious = true;
 				LOGGER.error(
-						"\n=====================\n" +
-						"The partial rollback redo record in transaction {} is the first statement in that transaction.\n" +
-						"\nDetailed information about redo record\n" +
-						oraSql.toStringBuilder().toString() +
-						"\n=====================\n",
-						xid);
+						"""
+						
+						=====================
+						"The partial rollback redo record in transaction {} is the first statement in that transaction.
+						Detailed information about redo record:
+						{}
+						=====================
+						
+						""", oraSql.toStringBuilder().toString(), xid);
 			}
 		} else {
 			if (startsWithBeginTrans &&
@@ -359,10 +362,13 @@ public abstract class OraCdcTransaction {
 	void printUnpairedRollbackEntryError(final PartialRollbackEntry pre) {
 		suspicious = true;
 		LOGGER.error(
-				"\n=====================\n" +
-				"No pair for partial rollback statement with ROWID={} at SCN={}, RBA(RS_ID)='{}' in transaction XID='{}'!\n" +
-				"\n=====================\n",
-				pre.rowId, pre.scn, pre.rsId, getXid());
+				"""
+				
+				=====================
+				No pair for partial rollback statement with ROWID={} at SCN={}, RBA(RS_ID)='{}' in transaction XID='{}'!
+				=====================
+				
+				""", pre.rowId, pre.scn, pre.rsId, getXid());
 	}
 
 	abstract void addStatement(final OraCdcStatementBase oraSql);
@@ -641,11 +647,15 @@ public abstract class OraCdcTransaction {
 			Deque<RowChangeHolder> deque =  halfDone.get(key);
 			if (deque == null) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to pair OP:11.16 record with row flags {} at RBA {}, SCN {}, XID {} in file {}\n" +
-						"Redo record information:\n{}" +
-						"\n=====================\n",
-						printFbFlags(fbLmn),record.rba(), record.scn(), record.xid(), record.redoLog().fileName(), record);
+						"""
+						
+						=====================
+						Unable to pair OP:11.16 record with row flags {} at RBA {}, SCN {}, XID {} in file {}
+						Redo record information:
+						{}
+						=====================
+						
+						""", printFbFlags(fbLmn),record.rba(), record.scn(), record.xid(), record.redoLog().fileName(), record);
 			} else {
 				RowChangeHolder halfDoneRow =  deque.pollFirst();
 				halfDoneRow.complete = true;
@@ -839,11 +849,15 @@ public abstract class OraCdcTransaction {
 					if (flgLastPart(fb)) last++;
 				} else {
 					LOGGER.warn(
-							"\n=====================\n" +
-							"Strange redo record without required op codes 5.6/5.11 and 11.x at RBA {} in '{}'.\n" +
-							"Redo record information:\n{}" +
-							"\n=====================\n",
-							rr.rba(), rr.redoLog().fileName(), rr.toString());
+							"""
+							
+							=====================
+							Strange redo record without required op codes 5.6/5.11 and 11.x at RBA {} in '{}'.
+							Redo record information
+							{}
+							=====================
+							
+							""", rr.rba(), rr.redoLog().fileName(), rr.toString());
 				}
 			}
 			if (head > 0 && first > 0 && last > 0) {
@@ -911,11 +925,15 @@ public abstract class OraCdcTransaction {
 					}
 				} else {
 					LOGGER.warn(
-							"\n=====================\n" +
-							"Strange redo record without required op codes 5.1 and 11.x at RBA {} in '{}'.\n" +
-							"Redo record information:\n{}" +
-							"\n=====================\n",
-							rr.rba(), rr.redoLog().fileName(), rr.toString());
+							"""
+							
+							=====================
+							Strange redo record without required op codes 5.1 and 11.x at RBA {} in '{}'.
+							Redo record information:
+							{}
+							=====================
+							
+							""", rr.rba(), rr.redoLog().fileName(), rr.toString());
 				}
 			}
 			if ((row.lmOp == INSERT || row.lmOp == DELETE) &&
@@ -1051,10 +1069,13 @@ public abstract class OraCdcTransaction {
 						whereColCount += change.supplementalCc();						
 					} else {
 						LOGGER.error(
-								"\n=====================\n" +
-								"Unable to count number of columns at RBA {} for OP:{}" +
-								"\n=====================\n",
-								rr.rba(), formatOpCode(rowChange.operation()));
+								"""
+								
+								=====================
+								Unable to count number of columns at RBA {} for OP:{}
+								=====================
+								
+								""", rr.rba(), formatOpCode(rowChange.operation()));
 					}
 				} else {
 					final StringBuilder sb = new StringBuilder(0x400);
@@ -1251,7 +1272,7 @@ public abstract class OraCdcTransaction {
 							if (change.columnCount() > 0) {
 								if (rr.has11_x()) {
 									final short selector = (short) ((change.op() & 0x1F) | (KCOCODRW << 0x08));
-									if (change.operation() == _11_5_URP &&
+									if (selector == _11_5_URP &&
 											(change.flags() & KDO_KDOM2) != 0) {
 										if (change.coords()[OraCdcChangeUndoBlock.KDO_POS + 1][1] > 1 &&
 												OraCdcChangeUndoBlock.KDO_POS + 2 < change.coords().length) {
@@ -1286,10 +1307,15 @@ public abstract class OraCdcTransaction {
 										change.writeSupplementalCols(baos);
 									} else {
 										LOGGER.warn(
-												"\n=====================\n" +
-												"Unable to process redo record at RBA {} with kdilkType={}.\nRedo record countent:\n{}" +
-												"\n=====================\n",
-												rr.rba(), change.kdilkType(), rr.toString());
+												"""
+												
+												=====================
+												Unable to process redo record at RBA {} with kdilkType={}.
+												Redo record countent:
+												{}
+												=====================
+												
+												""", rr.rba(), change.kdilkType(), rr.toString());
 									}
 								}
 								colNumOffsetWhere += change.columnCount();
