@@ -568,7 +568,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			return null;
 		else {
 			SourceRecord sourceRecord = null;
-			if (mandatoryColumnsProcessed < mandatoryColumnsCount) {
+			if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0 && mandatoryColumnsProcessed < mandatoryColumnsCount) {
 				if (opType != 'd') {
 					if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug(
