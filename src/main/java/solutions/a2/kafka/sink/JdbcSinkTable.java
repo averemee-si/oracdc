@@ -16,7 +16,6 @@ package solutions.a2.kafka.sink;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,7 +23,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -47,7 +45,6 @@ import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraXml;
-import solutions.a2.cdc.postgres.PgRdbmsInfo;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.jmx.SinkTableInfo;
 import solutions.a2.utils.ExceptionUtils;
@@ -67,7 +64,7 @@ import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class JdbcSinkTable extends OraTableDefinition {
+public class JdbcSinkTable extends JdbcSinkTableBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkTable.class);
 	private static final Struct DUMMY_STRUCT =
@@ -78,7 +75,6 @@ public class JdbcSinkTable extends OraTableDefinition {
 							.build());
 
 
-	private final int dbType;
 	private final SinkTableInfo metrics;
 	private String sinkUpsertSql = null;
 	private String sinkDeleteSql = null;
@@ -89,14 +85,10 @@ public class JdbcSinkTable extends OraTableDefinition {
 	private long upsertTime;
 	private long deleteTime;
 	private boolean onlyPkColumns;
-	private final Map<String, Object> lobColumns = new HashMap<>();
-	private Map<String, LobSqlHolder> lobColsSqlMap;
 	private boolean delayedObjectsCreation = false;
 	private final int pkStringLength;
 	private boolean onlyValue = false;
 	private final Set<String> pkInUpsertBatch = new HashSet<>();
-	private boolean exists = true;
-	private String tableNameCaseConv;
 	private boolean ready4Delete = false;
 	private int connectorMode = JdbcSinkConnectorConfig.CONNECTOR_REPLICATE;
 
@@ -114,10 +106,9 @@ public class JdbcSinkTable extends OraTableDefinition {
 			final JdbcSinkConnectionPool sinkPool, final String tableName,
 			final SinkRecord record, final int schemaType, 
 			final JdbcSinkConnectorConfig config) throws SQLException {
-		super(schemaType);
+		super(schemaType, sinkPool.getDbType());
 		LOGGER.debug("Creating OraTable object from Kafka connect SinkRecord...");
 		pkStringLength = config.getPkStringLength();
-		dbType = sinkPool.getDbType();
 		connectorMode = config.getConnectorMode();
 
 		if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
@@ -635,44 +626,6 @@ public class JdbcSinkTable extends OraTableDefinition {
 		}
 	}
 
-	private void execLobUpdate(final boolean closeCursor) throws SQLException {
-		if (lobColumns.size() > 0) {
-			Iterator<Entry<String, LobSqlHolder>> lobIterator = lobColsSqlMap.entrySet().iterator();
-			while (lobIterator.hasNext()) {
-				final LobSqlHolder holder = lobIterator.next().getValue();
-				try {
-					if (holder.EXEC_COUNT > 0) {
-						LOGGER.debug("Processing LOB update for {}.{} using SQL:\n\t",
-								this.tableName, holder.COLUMN, holder.SQL_TEXT);
-						holder.STATEMENT.executeBatch();
-						holder.STATEMENT.clearBatch();
-						//TODO
-						//TODO Add metric for counting LOB columns...
-						//TODO
-						holder.EXEC_COUNT = 0;
-						if (closeCursor) {
-							holder.STATEMENT.close();
-							holder.STATEMENT = null;
-						}
-					} else if (closeCursor && holder.STATEMENT != null) {
-						holder.STATEMENT.close();
-						holder.STATEMENT = null;
-					}
-				} catch(SQLException sqle) {
-					LOGGER.error(
-							"""
-							
-							=====================
-							Error {} while executing LOB update statement '{}'
-							=====================
-							""",
-								sqle.getMessage(), holder.SQL_TEXT);
-					throw new SQLException(sqle);
-				}
-			}
-		}
-	}
-
 	private void processUpsert(
 			final Connection connection, final SinkRecord record) throws SQLException {
 		LOGGER.trace("BEGIN: processUpsert()");
@@ -683,7 +636,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			upsertTime = 0;
 		}
 		int columnNo = 1;
-		Iterator<Entry<String, JdbcSinkColumn>> iterator = pkColumns.entrySet().iterator();
+		var iterator = pkColumns.entrySet().iterator();
 		while (iterator.hasNext()) {
 			final var oraColumn = iterator.next().getValue();
 			try {
@@ -714,7 +667,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 					LOGGER.error("SQL statement:\n\t{}", sinkUpsertSql);
 					LOGGER.error("PK value(s) for this row in table {} are", tableName);
 					int colNo = 1;
-					Iterator<Entry<String, JdbcSinkColumn>> pkIterator = pkColumns.entrySet().iterator();
+					var pkIterator = pkColumns.entrySet().iterator();
 					while (pkIterator.hasNext()) {
 						var pkColumn = pkIterator.next().getValue();
 						LOGGER.error("\t{}) PK column {}, {}",
@@ -729,7 +682,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 		upsertCount++;
 
 		if (lobColumns.size() > 0) {
-			Iterator<Entry<String, LobSqlHolder>> lobIterator = lobColsSqlMap.entrySet().iterator();
+			var lobIterator = lobColsSqlMap.entrySet().iterator();
 			while (lobIterator.hasNext()) {
 				final LobSqlHolder holder = lobIterator.next().getValue();
 				final Object objLobColumn = lobColumns.get(holder.COLUMN);
@@ -811,7 +764,7 @@ public class JdbcSinkTable extends OraTableDefinition {
 			deleteCount = 0;
 			deleteTime = 0;
 		}
-		Iterator<Entry<String, JdbcSinkColumn>> iterator = pkColumns.entrySet().iterator();
+		var iterator = pkColumns.entrySet().iterator();
 		int columnNo = 1;
 		while (iterator.hasNext()) {
 			final var oraColumn = iterator.next().getValue();
@@ -920,21 +873,6 @@ public class JdbcSinkTable extends OraTableDefinition {
 		}
 	}
 
-	private void buildLobColsSql(final Map<String, String> sqlTexts) {
-		if (lobColumns.size() > 0) {
-			lobColsSqlMap = new HashMap<>();
-			lobColumns.forEach((columnName, v) -> {
-				LobSqlHolder holder = new LobSqlHolder();
-				holder.COLUMN = columnName;
-				holder.EXEC_COUNT = 0;
-				holder.SQL_TEXT = sqlTexts.get(columnName);
-				lobColsSqlMap.put(columnName, holder);
-				LOGGER.debug("\tLOB column {}.{}, UPDATE statement ->\n{}",
-						this.tableName, columnName, holder.SQL_TEXT);
-			});
-		}
-	}
-
 	private void createTable(final Connection connection, final SinkRecord record, final int pkStringLength) throws SQLException {
 		LOGGER.debug("Prepare to create table {}", this.tableName);
 
@@ -1028,65 +966,6 @@ public class JdbcSinkTable extends OraTableDefinition {
 		}
 	}
 
-	private Entry<Set<String>, ResultSet> checkPresence(final Connection connection) throws SQLException {
-		LOGGER.debug("Check for table {} in database", this.tableName);
-		final DatabaseMetaData metaData = connection.getMetaData();
-		final String schema;
-		if (dbType == DB_TYPE_POSTGRESQL) {
-			final PreparedStatement psSchema = connection.prepareStatement("select CURRENT_SCHEMA",
-						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			final ResultSet rsSchema = psSchema.executeQuery();
-			if (rsSchema.next()) {
-				schema = rsSchema.getString(1);
-			} else {
-				throw new SQLException("Unable to execute 'select CURRENT_SCHEMA'!");
-			}
-			rsSchema.close();
-			psSchema.close();
-		} else {
-			//TODO - Microsoft SQL Server!
-			schema = null;
-		}
-		final Entry<Set<String>, ResultSet> result;
-		final String[] tableTypes = {"TABLE", "PARTITIONED TABLE"};
-		ResultSet resultSet = metaData.getTables(null, schema, tableNameCaseConv, tableTypes);
-		if (resultSet.next()) {
-			final String catalog = resultSet.getString("TABLE_CAT");
-			final String dbSchema = resultSet.getString("TABLE_SCHEM"); 
-			final String dbTable = resultSet.getString("TABLE_NAME"); 
-			LOGGER.info(
-					"""
-					
-					=====================
-					Table '{}' already exists with type '{}' in catalog '{}', schema '{}'.
-					=====================
-					""",
-						dbTable, resultSet.getString("TABLE_TYPE"), catalog, dbSchema);
-			exists = true;
-			final Set<String> pkFields;
-			if (dbType == DB_TYPE_POSTGRESQL) {
-				pkFields = PgRdbmsInfo.getPkColumnsFromDict(connection, dbSchema, dbTable);
-			} else {
-				//TODO
-				//TODO Additional testing required for non PG destinations
-				//TODO
-				pkFields = new HashSet<>();
-				ResultSet rsPk = metaData.getPrimaryKeys(catalog, dbSchema, dbTable); 
-				while (rsPk.next()) {
-					pkFields.add(rsPk.getString("COLUMN_NAME"));
-				}						
-			}
-			result = Map.entry(pkFields,
-					metaData.getColumns(catalog, dbSchema, dbTable, null));
-		} else {
-			exists = false;
-			result = null;
-		}
-		resultSet.close();
-		resultSet = null;
-		return result;
-	}
-
 	private Entry<List<Field>, List<Field>> getFieldsFromSinkRecord(final SinkRecord record) {
 		final List<Field> keyFields;
 		final List<Field> valueFields;
@@ -1139,13 +1018,6 @@ public class JdbcSinkTable extends OraTableDefinition {
 			}
 		}
 		return Map.entry(keyStruct, valueStruct);
-	}
-
-	private static class LobSqlHolder {
-		private String COLUMN;
-		private String SQL_TEXT;
-		private PreparedStatement STATEMENT;
-		private int EXEC_COUNT;
 	}
 
 }
