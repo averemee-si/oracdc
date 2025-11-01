@@ -74,7 +74,6 @@
 		<ora.jdbc.version>23.26.0.0.0</ora.jdbc.version>
 		<pg.jdbc.version>42.7.8</pg.jdbc.version>
 		<HikariCP.version>7.0.2</HikariCP.version>
-		<jackson.version>2.19.2</jackson.version>
 		<slf4j.version>2.0.17</slf4j.version>
 		<ojdbc.types.version>0.9.8</ojdbc.types.version>
 		<maverick.version>3.1.2</maverick.version>
@@ -223,24 +222,6 @@
 			<groupId>com.zaxxer</groupId>
 			<artifactId>HikariCP</artifactId>
 			<version>${HikariCP.version}</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-core -->
-		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-core</artifactId>
-			<version>${jackson.version}</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-annotations -->
-		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-annotations</artifactId>
-			<version>${jackson.version}</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind -->
-		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-databind</artifactId>
-			<version>${jackson.version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
  		<dependency>

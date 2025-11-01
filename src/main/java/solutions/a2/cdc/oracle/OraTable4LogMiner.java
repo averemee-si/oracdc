@@ -45,15 +45,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-@JsonInclude(Include.NON_EMPTY)
 public class OraTable4LogMiner extends OraTable {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4LogMiner.class);

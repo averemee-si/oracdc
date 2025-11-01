@@ -18,17 +18,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-@JsonInclude(Include.NON_EMPTY)
 public abstract class OraTableDefinition {
 
 	protected String tableOwner;
@@ -36,7 +31,6 @@ public abstract class OraTableDefinition {
 	protected final int schemaType;
 	protected int version;
 
-	@JsonProperty("columns")
 	protected List<OraColumn> allColumns;
 	protected Map<String, OraColumn> pkColumns;
 
