@@ -31,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.utils.Version;
-import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -65,12 +64,12 @@ public class JdbcSinkTask extends SinkTask {
 			sinkPool = new JdbcSinkConnectionPool(props.get("name"), config);
 			LOGGER.debug("END: Hikari Connection Pool initialization.");
 		} catch (SQLException sqle) {
-			LOGGER.error("Unable to connect to {}", config.getString(ConnectorParams.CONNECTION_URL_PARAM));
+			LOGGER.error("Unable to connect to {}", config.getJdbcUrl());
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
 			throw new ConnectException("Unable to start oracdc Sink Connector Task.");
 		}
 
-		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
+		batchSize = config.batchSize();
 		schemaType = config.getSchemaType();
 		tableNameMapper = config.getTableNameMapper();
 		tableNameMapper.configure(config);
@@ -94,10 +93,13 @@ public class JdbcSinkTask extends SinkTask {
 				JdbcSinkTable oraTable = tablesInProcessing.get(tableName);
 				if (oraTable == null) {
 					LOGGER.info(
-							"\n=====================\n" +
-							"Creating definition for table {} with version {}" +
-							"\n=====================\n",
-							tableNameWithoutVersion, version);
+							"""
+							
+							=====================
+							Creating definition for table {} with version {}
+							=====================
+							
+							""", tableNameWithoutVersion, version);
 					oraTable = new JdbcSinkTable(
 								sinkPool, tableNameWithoutVersion, record, schemaType, config);
 					tablesInProcessing.put(tableName, oraTable);
