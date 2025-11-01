@@ -13,18 +13,13 @@
 
 package solutions.a2.cdc.oracle.jmx;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.apache.commons.math3.util.Precision;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.OraCdcLogMinerTask;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.utils.ExceptionUtils;
 import solutions.a2.utils.OraCdcMBeanUtils;
 
 /**
@@ -33,8 +28,6 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  * 
  */
 public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerMgmt.class);
 
 	private long totalRecordsCount = 0;
 	private long recordsRolledBackCount = 0;
@@ -55,12 +48,9 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 	private int maxTransProcessingCount = 0;
 	private long lastProcessedSequence = 0;
 
-	private final OraCdcLogMinerTask task;
-
 	public OraCdcLogMinerMgmt(
-			final OraRdbmsInfo rdbmsInfo, final String connectorName, final OraCdcLogMinerTask task) {
+			final OraRdbmsInfo rdbmsInfo, final String connectorName) {
 		super(rdbmsInfo, connectorName, "LogMiner-metrics");
-		this.task = task;
 	}
 
 	@Override
@@ -345,16 +335,5 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 		this.lastProcessedSequence = lastProcessedSequence;
 	}
 
-	@Override
-	public void saveCurrentState() {
-		if (task != null) {
-			try {
-				task.saveState(false);
-			} catch (IOException ioe) {
-				LOGGER.error("Unable to save state to file from JMX subsys!");
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-			}
-		}
-	}
 
 }

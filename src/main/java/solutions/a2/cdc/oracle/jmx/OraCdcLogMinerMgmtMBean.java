@@ -67,6 +67,4 @@ public interface OraCdcLogMinerMgmtMBean {
 	public int getMaxNumberOfTransInProcessingQueue();
 	public int getCurrentNumberOfTransInProcessingQueue();
 
-	public void saveCurrentState();
-
 }
