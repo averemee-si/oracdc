@@ -35,10 +35,6 @@ import org.apache.kafka.connect.data.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
 import oracle.sql.json.OracleJsonFactory;
@@ -55,6 +51,7 @@ import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
+import solutions.a2.kafka.Column;
 import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -130,17 +127,13 @@ import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_OPT_BYTES_SCHE
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
-@JsonInclude(Include.NON_EMPTY)
-public class OraColumn {
+public class OraColumn extends Column {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraColumn.class);
 
 	static final String ROWID_KEY = "ORA_ROW_ID";
 	static final String MVLOG_SEQUENCE = "SEQUENCE$$";
 	static final String ORA_ROWSCN = "ORA_ROWSCN";
-
-	static final int JAVA_SQL_TYPE_INTERVALYM_STRING = -2_000_000_001;
-	static final int JAVA_SQL_TYPE_INTERVALDS_STRING = -2_000_000_003;
 
 	static final Pattern GUARD_COLUMN = Pattern.compile("^SYS_NC\\d{5}\\$$");
 	static final Pattern UNUSED_COLUMN = Pattern.compile("^SYS_C\\d{5}(?:_\\d{8}:\\d{2}:\\d{2})?\\$$");
@@ -172,32 +165,13 @@ public class OraColumn {
 
 	private static final char CHAR_0 = (char)0;
 
-	private String columnName;
 	private int columnId;
 	private String nameFromId;
-	private int jdbcType;
-	private Integer dataScale;
 	private String defaultValue;
 	private Object typedDefaultValue;
-	@JsonIgnore
 	private Schema schema;
 	private String oracleName;
 	private int dataLength;
-	private static final short FLG_NULLABLE            = (short)0x0001;
-	private static final short FLG_PART_OF_PK          = (short)0x0002;
-	private static final short FLG_MANDATORY           = (short)0x0004;
-	private static final short FLG_LARGE_OBJECT        = (short)0x0008;
-	private static final short FLG_SECURE_FILE         = (short)0x0010;
-	private static final short FLG_SALT                = (short)0x0020;
-	private static final short FLG_ENCRYPTED           = (short)0x0040;
-	private static final short FLG_NUMBER              = (short)0x0080;
-	private static final short FLG_BINARY_FLOAT_DOUBLE = (short)0x0100;
-	private static final short FLG_PART_OF_KEY_STRUCT  = (short)0x0200;
-	private static final short FLG_LOCAL_TIME_ZONE     = (short)0x0400;
-	private static final short FLG_DEFAULT_VALUE       = (short)0x0800;
-	private static final short FLG_LOB_TRANSFORM       = (short)0x1000;
-	private static final short FLG_DECODE_WITH_TRANS   = (short) (FLG_LARGE_OBJECT | FLG_SECURE_FILE);
-	private short flags = 0;
 	private OraCdcDecoder decoder;
 
 	/**
@@ -264,7 +238,7 @@ public class OraColumn {
 		final String oraType = resultSet.getString("DATA_TYPE");
 		dataScale = resultSet.getInt("DATA_SCALE");
 		if (resultSet.wasNull()) {
-			dataScale = null;
+			dataScale = -1;
 		}
 		Integer dataPrecision = resultSet.getInt("DATA_PRECISION");
 		if (resultSet.wasNull()) {
@@ -305,7 +279,7 @@ public class OraColumn {
 		this.columnName = columnName;
 		this.setColumnId(columnId);
 		Integer dataPrecision = null;
-		this.dataScale = null;
+		this.dataScale = -1;
 	
 		if (Strings.CI.startsWith(columnAttributes, TYPE_VARCHAR2)) {
 			// Ignore SIZE for VARCHAR2/NVARCHAR2/CHAR/NCHAR/RAW
@@ -368,7 +342,7 @@ public class OraColumn {
 							columnName, originalDdl, columnAttributes);
 					LOGGER.error("Both PRECISION and SCALE are reset to NULL!!!");
 					dataPrecision = null;
-					dataScale = null;
+					dataScale = -1;
 				}
 			}
 			detectTypeAndSchema(TYPE_NUMBER, false, useOracdcSchemas, dataPrecision, decrypter, rdbmsInfo, suppLogAll);
@@ -582,12 +556,12 @@ public class OraColumn {
 				}
 				case TYPE_NUMBER -> {
 					flags |= FLG_NUMBER;
-					if (dataScale != null && dataPrecision == null) {
+					if (dataScale > -1 && dataPrecision == null) {
 						//DATA_SCALE set but DATA_PRECISION is unknown....
 						//Set it to MAX
 						dataPrecision = 38;
 					}
-					if (dataPrecision == null && dataScale == null) {
+					if (dataPrecision == null && dataScale == -1) {
 						// NUMBER w/out precision and scale
 						// OEBS and other legacy systems specific
 						// Can be Integer or decimal or float....
@@ -609,7 +583,7 @@ public class OraColumn {
 									? OraCdcDecoderFactory.get(schema, decrypter, (flags & FLG_SALT) > 0)
 									: OraCdcDecoderFactory.get(schema);
 						}
-					} else if (dataScale == null || dataScale == 0) {
+					} else if (dataScale == -1 || dataScale == 0) {
 						// Integer 
 						if (dataPrecision < 3) {
 							jdbcType = TINYINT;
@@ -922,14 +896,6 @@ public class OraColumn {
 		return rowIdColumn;
 	}
 
-	public String getColumnName() {
-		return columnName;
-	}
-
-	public void setColumnName(String columnName) {
-		this.columnName = columnName;
-	}
-
 	public int getColumnId() {
 		return columnId;
 	}
@@ -945,52 +911,6 @@ public class OraColumn {
 
 	public void setNameFromId(String nameFromId) {
 		this.nameFromId = nameFromId;
-	}
-
-	public boolean isPartOfPk() {
-		return (flags & FLG_PART_OF_PK) > 0;
-	}
-
-	public void setPartOfPk(boolean partOfPk) {
-		if (partOfPk)
-			flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
-		else {
-			flags &= (~FLG_PART_OF_PK);
-			flags &= (~FLG_MANDATORY);
-		}
-	}
-
-	public int getJdbcType() {
-		return jdbcType;
-	}
-
-	public void setJdbcType(int jdbcType) {
-		this.jdbcType = jdbcType;
-	}
-
-	public boolean isNullable() {
-		return (flags & FLG_NULLABLE) > 0;
-	}
-
-	public void setNullable(boolean nullable) {
-		if (nullable) {
-			flags |= FLG_NULLABLE;
-			flags &= (~FLG_MANDATORY);
-		} else {
-			flags &= (~FLG_NULLABLE);
-			flags |= FLG_MANDATORY;
-		}
-	}
-
-	public int getDataScale() {
-		if (dataScale == null)
-			return 0;
-		else
-			return dataScale.intValue();
-	}
-
-	public void setDataScale(Integer dataScale) {
-		this.dataScale = dataScale;
 	}
 
 	public Boolean isBinaryFloatDouble() {
