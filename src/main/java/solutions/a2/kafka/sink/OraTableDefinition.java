@@ -11,12 +11,14 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.kafka.sink;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import solutions.a2.cdc.oracle.OraColumn;
 
 
 /**
@@ -51,10 +53,6 @@ public abstract class OraTableDefinition {
 		return tableOwner;
 	}
 
-	public void setTableOwner(String tableOwner) {
-		this.tableOwner = tableOwner;
-	}
-
 	public String getTableName() {
 		return tableName;
 	}
@@ -67,20 +65,8 @@ public abstract class OraTableDefinition {
 		return version;
 	}
 
-	public void setVersion(int version) {
-		this.version = version;
-	}
-
-	public void setTableName(String tableName) {
-		this.tableName = tableName;
-	}
-
 	public List<OraColumn> getAllColumns() {
 		return allColumns;
-	}
-
-	public void setAllColumns(List<OraColumn> allColumns) {
-		this.allColumns = allColumns;
 	}
 
 	public Map<String, OraColumn> getPkColumns() {
