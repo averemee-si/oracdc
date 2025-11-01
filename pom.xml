@@ -71,7 +71,7 @@
 		<commons.cli.version>1.10.0</commons.cli.version>
 		<chronicle.queue.version>5.25ea17</chronicle.queue.version>
 		<chronicle.affinity.version>3.23.3</chronicle.affinity.version>
-		<ora.jdbc.version>23.9.0.25.07</ora.jdbc.version>
+		<ora.jdbc.version>23.26.0.0.0</ora.jdbc.version>
 		<pg.jdbc.version>42.7.8</pg.jdbc.version>
 		<HikariCP.version>7.0.2</HikariCP.version>
 		<jackson.version>2.19.2</jackson.version>
