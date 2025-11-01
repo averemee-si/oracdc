@@ -18,10 +18,16 @@ package solutions.a2.kafka.sink.jmx;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public interface SinkTableInfoMBean extends SinkInfoBaseMBean {
-	public long getUpsertCount();
-	public long getUpsertProcessingMillis();
-	public String getUpsertProcessingTime();
-	public double getUpsertsPerSecond();
+public interface SinkInfoBaseMBean {
+	public String getStartTime();
+	public long getElapsedTimeMillis();
+	public String getElapsedTime();
+	public long getProcessingTimeMillis();
+	public String getProcessingTime();
+	public long getProcessedRecordsCount();
+	public long getDeleteCount();
+	public long getDeleteProcessingMillis();
+	public String getDeleteProcessingTime();
+	public double getDeletesPerSecond();
 
 }
