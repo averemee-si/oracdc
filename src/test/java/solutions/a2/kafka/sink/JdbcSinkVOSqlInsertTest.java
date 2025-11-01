@@ -25,8 +25,6 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.cdc.oracle.OraColumn;
-
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -46,14 +44,14 @@ public class JdbcSinkVOSqlInsertTest {
 		valueFields.add(hisal);
 
 
-		final List<OraColumn> allColumns = new ArrayList<>();
-		final Map<String, OraColumn> pkColumns = new HashMap<>();
+		final List<JdbcSinkColumn> allColumns = new ArrayList<>();
+		final Map<String, JdbcSinkColumn> pkColumns = new HashMap<>();
 		final Map<String, Object> lobColumns = new HashMap<>();
 
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
 				try {
-					final OraColumn column = new OraColumn(field, false, false);
+					final var column = new JdbcSinkColumn(field, false, false);
 					allColumns.add(column);
 				} catch (SQLException sqle) {
 					sqle.printStackTrace();

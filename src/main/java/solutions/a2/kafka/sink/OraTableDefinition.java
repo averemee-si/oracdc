@@ -13,12 +13,22 @@
 
 package solutions.a2.kafka.sink;
 
+import static java.sql.Types.BINARY;
+import static java.sql.Types.NUMERIC;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
+import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
+
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import solutions.a2.cdc.oracle.OraColumn;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.sink.SinkRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -28,49 +38,73 @@ import solutions.a2.cdc.oracle.OraColumn;
  */
 public abstract class OraTableDefinition {
 
-	protected String tableOwner;
-	protected String tableName;
-	protected final int schemaType;
-	protected int version;
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraTableDefinition.class);
 
-	protected List<OraColumn> allColumns;
-	protected Map<String, OraColumn> pkColumns;
+	String tableOwner;
+	String tableName;
+	final int schemaType;
+	int version;
 
-	protected OraTableDefinition(final int schemaType) {
+	List<JdbcSinkColumn> allColumns;
+	Map<String, JdbcSinkColumn> pkColumns;
+
+	OraTableDefinition(final int schemaType) {
 		this.pkColumns = new LinkedHashMap<>();
 		this.schemaType = schemaType;
 		this.allColumns = new ArrayList<>();
 		this.version = 1;
 	}
 
-	protected OraTableDefinition(final String tableOwner, final String tableName, final int schemaType) {
+	OraTableDefinition(final String tableOwner, final String tableName, final int schemaType) {
 		this(schemaType);
 		this.tableOwner = tableOwner;
 		this.tableName = tableName;
 	}
 
-	public String getTableOwner() {
-		return tableOwner;
-	}
-
-	public String getTableName() {
+	String tableName() {
 		return tableName;
 	}
 
-	public int getSchemaType() {
-		return schemaType;
+	String structValueAsString(final JdbcSinkColumn column, final Struct struct) {
+		final var sb = new StringBuilder(0x80);
+		sb
+			.append("Column Type =")
+			.append(getTypeName(column.getJdbcType()))
+			.append(", Column Value='");
+		switch (column.getJdbcType()) {
+			case NUMERIC, BINARY -> {
+				ByteBuffer bb = (ByteBuffer) struct.get(column.getColumnName());
+				sb.append(rawToHex(bb.array()));
+			}
+			default -> sb.append(struct.get(column.getColumnName()));
+		}
+		sb.append("'");
+		return sb.toString();
 	}
 
-	public int getVersion() {
-		return version;
+	char getOpType(final SinkRecord record) {
+		var opType = 'c';
+		if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
+			opType = ((Struct) record.value())
+							.getString("op")
+							.charAt(0);
+			LOGGER.debug("Operation type set payload to {}.", opType);
+		} else {
+			//SCHEMA_TYPE_INT_KAFKA_STD
+			//SCHEMA_TYPE_INT_SINGLE
+			var iterator = record.headers().iterator();
+			while (iterator.hasNext()) {
+				var header = iterator.next();
+				if ("op".equals(header.key())) {
+					opType = ((String) header.value())
+							.charAt(0);
+					break;
+				}
+			}
+			LOGGER.debug("Operation type set from headers to {}.", opType);
+		}
+		return opType;
 	}
 
-	public List<OraColumn> getAllColumns() {
-		return allColumns;
-	}
-
-	public Map<String, OraColumn> getPkColumns() {
-		return pkColumns;
-	}
 
 }

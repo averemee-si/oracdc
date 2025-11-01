@@ -173,8 +173,8 @@ public class TargetDbSqlUtils {
 			final String tableName,
 			final int dbType,
 			final int pkStringLength,
-			final Map<String, OraColumn> pkColumns,
-			final List<OraColumn> allColumns,
+			final Map<String, JdbcSinkColumn> pkColumns,
+			final List<JdbcSinkColumn> allColumns,
 			final Map<String, Object> lobColumns) {
 		final Map<Integer, String> dataTypesMap = dataTypesMap(dbType);
 
@@ -195,9 +195,9 @@ public class TargetDbSqlUtils {
 			sbPrimaryKey.append(tableName);
 			sbPrimaryKey.append("_PK primary key(");
 			
-			Iterator<Entry<String, OraColumn>> pkIterator = pkColumns.entrySet().iterator();
+			Iterator<Entry<String, JdbcSinkColumn>> pkIterator = pkColumns.entrySet().iterator();
 			while (pkIterator.hasNext()) {
-				OraColumn column = pkIterator.next().getValue();
+				var column = pkIterator.next().getValue();
 				sbCreateTable.append("  ");
 				sbCreateTable.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column));
 				sbCreateTable.append(" not null");
@@ -215,7 +215,7 @@ public class TargetDbSqlUtils {
 		boolean firstColumn = onlyValue;
 		final int nonPkColumnCount = allColumns.size();
 		for (int i = 0; i < nonPkColumnCount; i++) {
-			OraColumn column = allColumns.get(i);
+			var column = allColumns.get(i);
 			if (firstColumn) {
 				firstColumn = false;
 			} else {
@@ -232,8 +232,8 @@ public class TargetDbSqlUtils {
 			Iterator<Entry<String, Object>> lobIterator = lobColumns.entrySet().iterator();
 			while (lobIterator.hasNext()) {
 				final Object columnObject = lobIterator.next().getValue(); 
-				if (columnObject instanceof OraColumn) {
-					final OraColumn column = (OraColumn) columnObject;
+				if (columnObject instanceof JdbcSinkColumn) {
+					final var column = (JdbcSinkColumn) columnObject;
 					sbCreateTable.append("  ");
 					sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 
@@ -253,9 +253,9 @@ public class TargetDbSqlUtils {
 					}
 				} else {
 					@SuppressWarnings("unchecked")
-					final List<OraColumn> columnList = (List<OraColumn>) columnObject;
+					final List<JdbcSinkColumn> columnList = (List<JdbcSinkColumn>) columnObject;
 					for (int i = 0; i < columnList.size(); i++) {
-						final OraColumn column = columnList.get(i);
+						final var column = columnList.get(i);
 						sbCreateTable.append("  ");
 						sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 
@@ -278,7 +278,7 @@ public class TargetDbSqlUtils {
 		return sqlStrings;
 	}
 
-	private static String getTargetDbColumn(final int dbType, final int pkStringLength, final Map<Integer, String> dataTypesMap, final OraColumn column) {
+	private static String getTargetDbColumn(final int dbType, final int pkStringLength, final Map<Integer, String> dataTypesMap, final JdbcSinkColumn column) {
 		final StringBuilder sb = new StringBuilder(64);
 		sb.append(column.getColumnName());
 		sb.append(" ");
@@ -306,8 +306,8 @@ public class TargetDbSqlUtils {
 
 	public static Map<String, String> generateSinkSql(final String tableName,
 			final int dbType,
-			final Map<String, OraColumn> pkColumns,
-			final List<OraColumn> allColumns,
+			final Map<String, JdbcSinkColumn> pkColumns,
+			final List<JdbcSinkColumn> allColumns,
 			final Map<String, Object> lobColumns,
 			final boolean auditTrail) {
 
@@ -322,7 +322,7 @@ public class TargetDbSqlUtils {
 			sbInsSql.append(tableName);
 			sbInsSql.append("(");
 			boolean firstColumn = true;
-			for (final OraColumn column : allColumns) {
+			for (final var column : allColumns) {
 				if (firstColumn) {
 					firstColumn = false;
 				} else {
@@ -369,7 +369,7 @@ public class TargetDbSqlUtils {
 				}
 			}
 
-			Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+			Iterator<Entry<String, JdbcSinkColumn>> iterator = pkColumns.entrySet().iterator();
 			int pkColumnNo = 0;
 			while (iterator.hasNext()) {
 				final String columnName = iterator.next().getValue().getColumnName();
@@ -578,7 +578,7 @@ public class TargetDbSqlUtils {
 	public static String addColumnSql(
 			final String tableName,
 			final int dbType,
-			final OraColumn columnToAdd) {
+			final JdbcSinkColumn columnToAdd) {
 		final Map<Integer, String> dataTypesMap = dataTypesMap(dbType);
 		
 		final StringBuilder sbAlterTable = new StringBuilder(0x80);

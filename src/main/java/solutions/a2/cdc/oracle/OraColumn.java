@@ -14,7 +14,6 @@
 package solutions.a2.cdc.oracle;
 
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,9 +24,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
-import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -38,17 +35,11 @@ import org.slf4j.LoggerFactory;
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
 import oracle.sql.json.OracleJsonFactory;
-import solutions.a2.cdc.oracle.data.OraBlob;
-import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraIntervalDS;
 import solutions.a2.cdc.oracle.data.OraIntervalYM;
-import solutions.a2.cdc.oracle.data.OraJson;
-import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
-import solutions.a2.cdc.oracle.data.OraVector;
-import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.Column;
@@ -162,8 +153,6 @@ public class OraColumn extends Column {
 
 	private static final int CHAR_MAX = 4000;
 	private static final int RAW_MAX = 2000;
-
-	private static final char CHAR_0 = (char)0;
 
 	private int columnId;
 	private String nameFromId;
@@ -732,119 +721,6 @@ public class OraColumn extends Column {
 	}
 
 	/**
-	 * Used in Sink connector
-	 * 
-	 * @param field
-	 * @param partOfPk
-	 * @param partOfKeyStruct
-	 */
-	public OraColumn(final Field field, final boolean partOfPk, final boolean partOfKeyStruct) throws SQLException {
-		this.columnName = field.name();
-		if (partOfPk)
-			flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
-		if (field.schema().isOptional())
-			flags |= FLG_NULLABLE;
-		else
-			flags |= FLG_MANDATORY;
-		this.nameFromId = null;
-		if (partOfKeyStruct)
-			flags |= FLG_PART_OF_KEY_STRUCT;
-		final String typeFromSchema = field.schema().type().getName().toUpperCase();
-		switch (typeFromSchema) {
-			case "INT8" -> jdbcType = TINYINT;
-			case "INT16" -> jdbcType = SMALLINT;
-			case "INT32" -> {
-				if (field.schema().name() != null && Date.LOGICAL_NAME.equals(field.schema().name()))
-					jdbcType = DATE;
-				else
-					jdbcType = INTEGER;
-			}
-			case "INT64" -> {
-				if (field.schema().name() != null && Timestamp.LOGICAL_NAME.equals(field.schema().name()))
-					jdbcType = TIMESTAMP;
-				else
-					jdbcType = BIGINT;
-			}
-			case "FLOAT32" -> jdbcType = FLOAT;
-			case "FLOAT64" -> jdbcType = DOUBLE;
-			case "BYTES" -> {
-				if (field.schema().name() != null) {
-					switch (field.schema().name()) {
-						case Decimal.LOGICAL_NAME -> {
-							jdbcType = DECIMAL;
-							try {
-								dataScale = Integer.valueOf(field.schema().parameters().get(Decimal.SCALE_FIELD));
-							} catch (Exception e) {
-								LOGGER.error(
-										"""
-										
-										=====================
-										'{}' while parsing SCALE_FIELD. Exception stack trace:
-										{}
-										=====================
-										
-										""", e.getMessage(), ExceptionUtils.getExceptionStackTrace(e));
-							}
-						}
-						case OraNumber.LOGICAL_NAME -> jdbcType = NUMERIC;
-						case OraIntervalYM.LOGICAL_NAME -> jdbcType = INTERVALYM;
-						case OraIntervalDS.LOGICAL_NAME -> jdbcType = INTERVALDS;
-						default -> {
-							LOGGER.error(
-									"""
-									
-									=====================
-									Unknown logical name {} for BYTES Schema.
-									Setting column {} JDBC type to BINARY.
-									=====================
-									
-									""", field.schema().name(), field.name());
-							jdbcType = BINARY;
-						}
-					}
-				} else {
-					jdbcType = BINARY;
-				}
-			}
-			case "STRING" -> {
-				if (field.schema().name() != null) {
-					switch (field.schema().name()) {
-						case  OraTimestamp.LOGICAL_NAME ->  jdbcType = TIMESTAMP_WITH_TIMEZONE;
-						case OraInterval.LOGICAL_NAME -> jdbcType = JAVA_SQL_TYPE_INTERVALDS_STRING;
-						default -> {
-							LOGGER.error(
-									"""
-									
-									=====================
-									Unknown logical name {} for STRING Schema.
-									Setting column {} JDBC type to VARCHAR.
-									=====================
-									
-									""", field.schema().name(), field.name());
-							jdbcType = VARCHAR;
-						}
-					}
-				} else {
-					jdbcType = VARCHAR;
-				}
-			}
-			case "STRUCT" -> {
-				if (field.schema().name() != null)
-					switch (field.schema().name()) {
-						case OraBlob.LOGICAL_NAME -> jdbcType = BLOB;
-						case OraClob.LOGICAL_NAME -> jdbcType = CLOB;
-						case OraNClob.LOGICAL_NAME -> jdbcType = NCLOB;
-						case OraXml.LOGICAL_NAME -> jdbcType = SQLXML;
-						case OraJson.LOGICAL_NAME -> jdbcType = JSON;
-						case OraVector.LOGICAL_NAME -> jdbcType = VECTOR;
-					}
-			}
-			case "BOOLEAN" ->  jdbcType = BOOLEAN;
-			default ->  throw new SQLException("Not supported type '" + typeFromSchema + "'!");
-		}
-	}
-
-	/**
 	 * Used internally for mapping support
 	 * 
 	 * @param columnName
@@ -889,14 +765,14 @@ public class OraColumn extends Column {
 		}
 	}
 
-	public static OraColumn getRowIdKey() {
+	static OraColumn getRowIdKey() {
 		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, ROWID, 0);
 		rowIdColumn.flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		rowIdColumn.schema = Schema.STRING_SCHEMA;
 		return rowIdColumn;
 	}
 
-	public int getColumnId() {
+	int getColumnId() {
 		return columnId;
 	}
 
@@ -913,26 +789,12 @@ public class OraColumn extends Column {
 		this.nameFromId = nameFromId;
 	}
 
-	public Boolean isBinaryFloatDouble() {
+	boolean isBinaryFloatDouble() {
 		return (flags & FLG_BINARY_FLOAT_DOUBLE) > 0;
-	}
-
-	public void setBinaryFloatDouble(boolean binaryFloatDouble) {
-		if (binaryFloatDouble)
-			flags |= FLG_BINARY_FLOAT_DOUBLE;
-		else
-			flags &= (~FLG_BINARY_FLOAT_DOUBLE);
 	}
 
 	public boolean isLocalTimeZone() {
 		return (flags & FLG_LOCAL_TIME_ZONE) > 0;
-	}
-
-	public void setLocalTimeZone(boolean localTimeZone) {
-		if (localTimeZone)
-			flags |= FLG_LOCAL_TIME_ZONE;
-		else
-			flags &= (~FLG_LOCAL_TIME_ZONE);
 	}
 
 	public boolean getSecureFile() {
@@ -952,10 +814,6 @@ public class OraColumn extends Column {
 
 	public String getDefaultValue() {
 		return defaultValue;
-	}
-
-	public void setDefaultValue(String defaultValue) {
-		this.defaultValue = defaultValue;
 	}
 
 	//TODO
@@ -1036,10 +894,6 @@ public class OraColumn extends Column {
 		return oracleName;
 	}
 
-	public void setOracleName(String oracleName) {
-		this.oracleName = oracleName;
-	}
-
 	/**
 	 * 
 	 * @param statement
@@ -1054,166 +908,6 @@ public class OraColumn extends Column {
 		bindWithPrepStmt(JdbcSinkConnectionPool.DB_TYPE_ORACLE, statement, columnNo, columnValue);
 	}
 
-	/**
-	 * 
-	 * @param dbType
-	 * @param statement
-	 * @param columnNo
-	 * @param keyStruct
-	 * @param valueStruct
-	 * @throws SQLException
-	 */
-	public void bindWithPrepStmt(
-			final int dbType,
-			final PreparedStatement statement,
-			final int columnNo,
-			final Struct keyStruct,
-			final Struct valueStruct) throws SQLException  {
-		bindWithPrepStmt(dbType, statement, columnNo,
-				((flags & FLG_PART_OF_KEY_STRUCT) > 0 ? keyStruct.get(columnName) : valueStruct.get(columnName)));
-	}
-
-	/**
-	 * 
-	 * @param dbType
-	 * @param statement
-	 * @param columnNo
-	 * @param columnValue
-	 * @throws SQLException
-	 */
-	private void bindWithPrepStmt(
-			final int dbType,
-			final PreparedStatement statement,
-			final int columnNo,
-			final Object columnValue) throws SQLException  {
-		if (columnValue == null) {
-			statement.setNull(columnNo, jdbcType);
-		} else {
-			switch (jdbcType) {
-			case DATE:
-				statement.setDate(columnNo, new java.sql.Date(((java.util.Date) columnValue).getTime()));
-				break;
-			case TIMESTAMP:
-				statement.setTimestamp(columnNo, new java.sql.Timestamp(((java.util.Date) columnValue).getTime()));
-				break;
-			case TIMESTAMP_WITH_TIMEZONE:
-				statement.setObject(columnNo, OraTimestamp.toLogical((String) columnValue));
-				break;
-			case BOOLEAN:
-				statement.setBoolean(columnNo, (boolean) columnValue);
-				break;
-			case TINYINT:
-				statement.setByte(columnNo, (Byte) columnValue);
-				break;
-			case SMALLINT:
-				statement.setShort(columnNo, (Short) columnValue);
-				break;
-			case INTEGER:
-				statement.setInt(columnNo, (Integer) columnValue);
-				break;
-			case BIGINT:
-				try {
-					statement.setLong(columnNo, (Long) columnValue);
-				} catch (ClassCastException cce) {
-					statement.setLong(columnNo, (Integer) columnValue);
-				}
-				break;
-			case FLOAT:
-				if (Float.NEGATIVE_INFINITY == (float) columnValue) {
-					if ((flags & FLG_NULLABLE) > 0) {
-						statement.setNull(columnNo, FLOAT);
-						LOGGER.error(
-								"\n=====================\n" +
-								"Negative float infinity value for nullable column '{}' at position # {}!\n" +
-								"=====================\n",
-								columnName, columnNo);
-					} else {
-						statement.setDouble(columnNo, Float.MIN_VALUE);
-						LOGGER.error(
-								"\n=====================\n" +
-								"Negative float infinity value for column '{}' at position # {}!\n" +
-								"Column value is set to Float.MIN_VALUE = '{}'!\n" +
-								"=====================\n",
-								columnName, columnNo, Float.MIN_VALUE);
-					}
-				} else {
-					statement.setFloat(columnNo, (float) columnValue);
-				}
-				break;
-			case DOUBLE:
-				if (Double.NEGATIVE_INFINITY == (double) columnValue) {
-					if ((flags & FLG_NULLABLE) > 0) {
-						statement.setNull(columnNo, DOUBLE);
-						LOGGER.error(
-								"\n=====================\n" +
-								"Negative double infinity value for nullable column '{}' at position # {}!\n" +
-								"=====================\n",
-								columnName, columnNo);
-					} else {
-						statement.setDouble(columnNo, Double.MIN_VALUE);
-						LOGGER.error(
-								"\n=====================\n" +
-								"Negative double infinity value for column '{}' at position # {}!\n" +
-								"Column value is set to Double.MIN_VALUE = '{}'!\n" +
-								"=====================\n",
-								columnName, columnNo, Double.MIN_VALUE);
-					}
-				} else {
-					statement.setDouble(columnNo, (double) columnValue);
-				}
-				break;
-			case DECIMAL:
-				statement.setBigDecimal(columnNo, (BigDecimal) columnValue);
-				break;
-			case NUMERIC:
-				byte[] ba;
-				boolean setNull = false;
-				if (columnValue instanceof ByteBuffer) {
-					ba = new byte[((ByteBuffer)columnValue).remaining()];
-					((ByteBuffer)columnValue).get(ba);
-				} else {
-					try {
-						ba = (byte[]) columnValue;
-					} catch (Exception e) {
-						LOGGER.error(
-								"\n" +
-								"=====================\n" +
-								"Exception {} while converting {} to byte[] for column {}, bind # {}! \n" +
-								"=====================\n",
-								e.getClass().getName(), columnValue.getClass().getName(), columnName, columnNo);
-						ba = null;
-						setNull = true;
-					}
-				}
-				BigDecimal bd = null;
-				bd = OraNumber.toLogical(ba);
-				if (bd == null) {
-					setNull = true;
-				}
-				if (setNull) {
-					statement.setNull(columnNo, NUMERIC);
-				} else {
-					statement.setBigDecimal(columnNo, bd);
-				}
-				break;
-			case BINARY:
-				statement.setBytes(columnNo, ((ByteBuffer) columnValue).array());
-				break;
-			case VARCHAR:
-				// 0x00 PostgreSQL problem
-				if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
-					statement.setString(columnNo, StringUtils.remove((String) columnValue, CHAR_0));
-				} else { 
-					statement.setString(columnNo, (String) columnValue);
-				}
-				break;
-			default:
-				LOGGER.error("Unsupported data type {} for column {}.",
-						getTypeName(jdbcType), columnName);
-				throw new SQLException("Unsupported data type: " + getTypeName(jdbcType));
-			}
-		}
-	}
 
 	public String unsupportedTypeValue() {
 		final StringBuilder sb = new StringBuilder(128);
@@ -1639,12 +1333,6 @@ public class OraColumn extends Column {
 			}
 		}
 		return !resultSet.wasNull();
-	}
-
-	public String getValueAsString(final Struct keyStruct, final Struct valueStruct) {
-		return (flags & FLG_PART_OF_KEY_STRUCT) > 0
-					? keyStruct.get(columnName).toString()
-					: valueStruct.get(columnName).toString();
 	}
 
 	public boolean isNumber() {

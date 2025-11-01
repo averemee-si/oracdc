@@ -120,7 +120,7 @@ public class JdbcSinkTask extends SinkTask {
 				if (oraTable.duplicatedKeyInBatch(record)) {
 					// Prevent from "ON CONFLICT DO UPDATE command cannot affect row a second time"
 					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("Executing batch due to duplicate key for table {} .", oraTable.getTableName());
+						LOGGER.debug("Executing batch due to duplicate key for table {} .", oraTable.tableName());
 					}
 					for (String tableInProgress : tablesInProcess) {
 						LOGGER.debug("Executing batch for table {}.", tableInProgress);
