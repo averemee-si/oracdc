@@ -1190,11 +1190,11 @@ public class JdbcSinkTable extends OraTableDefinition {
 		return Map.entry(keyStruct, valueStruct);
 	}
 
-	private class LobSqlHolder {
-		protected String COLUMN;
-		protected String SQL_TEXT;
-		protected PreparedStatement STATEMENT;
-		protected int EXEC_COUNT;
+	private static class LobSqlHolder {
+		private String COLUMN;
+		private String SQL_TEXT;
+		private PreparedStatement STATEMENT;
+		private int EXEC_COUNT;
 	}
 
 }
