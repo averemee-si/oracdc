@@ -14,6 +14,9 @@
 package solutions.a2.cdc.oracle;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.kafka.connect.data.Schema;
@@ -27,8 +30,14 @@ import solutions.a2.kafka.ConnectorParams;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public abstract class OraTable4SourceConnector extends OraTableDefinition {
+public abstract class OraTable4SourceConnector {
 
+	String tableOwner;
+	String tableName;
+	final int schemaType;
+	int version;
+	List<OraColumn> allColumns;
+	Map<String, OraColumn> pkColumns;
 	Map<String, String> sourcePartition;
 	Schema schema;
 	Schema keySchema;
@@ -37,7 +46,12 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 	boolean rowLevelScn;
 
 	OraTable4SourceConnector(String tableOwner, String tableName, int schemaType) {
-		super(tableOwner, tableName, schemaType);
+		this.pkColumns = new LinkedHashMap<>();
+		this.schemaType = schemaType;
+		this.allColumns = new ArrayList<>();
+		this.version = 1;
+		this.tableOwner = tableOwner;
+		this.tableName = tableName;
 	}
 
 	void schemaEiplogue(final String tableFqn,
@@ -63,4 +77,7 @@ public abstract class OraTable4SourceConnector extends OraTableDefinition {
 		}
 	}
 
+	int version() {
+		return version;
+	}
 }

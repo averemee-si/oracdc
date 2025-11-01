@@ -102,11 +102,11 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 	public OraTable4InitialLoad(final Path rootDir, final OraTable oraTable,
 				final OraCdcInitialLoad metrics,
 				final OraRdbmsInfo rdbmsInfo) throws IOException {
-		super(oraTable.getTableOwner(), oraTable.getTableName(), oraTable.getSchemaType());
+		super(oraTable.tableOwner, oraTable.tableName, oraTable.schemaType);
 		LOGGER.trace("BEGIN: create OraCdcTableBuffer");
 		this.pdbName = oraTable.pdbName();
-		this.allColumns = oraTable.getAllColumns();
-		this.pkColumns = oraTable.getPkColumns();
+		this.allColumns = oraTable.allColumns;
+		this.pkColumns = oraTable.pkColumns;
 		//TODO
 		this.schema = oraTable.schema;
 		this.keySchema = oraTable.keySchema;
