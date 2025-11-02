@@ -23,8 +23,6 @@ import java.util.Map.Entry;
 
 import org.apache.commons.lang3.Strings;
 
-import solutions.a2.cdc.oracle.OraColumn;
-
 import static java.sql.Types.BOOLEAN;
 import static java.sql.Types.TINYINT;
 import static java.sql.Types.SMALLINT;
@@ -253,7 +251,7 @@ public class TargetDbSqlUtils {
 					}
 				} else {
 					@SuppressWarnings("unchecked")
-					final List<JdbcSinkColumn> columnList = (List<JdbcSinkColumn>) columnObject;
+					final var columnList = (List<JdbcSinkColumn>) columnObject;
 					for (int i = 0; i < columnList.size(); i++) {
 						final var column = columnList.get(i);
 						sbCreateTable.append("  ");
@@ -541,7 +539,7 @@ public class TargetDbSqlUtils {
 			if (lobColumns != null && lobColumns.size() > 0) {
 				for (Map.Entry<String, Object> entry : lobColumns.entrySet()) {
 					final String columnName = entry.getKey();
-					if (entry.getValue() instanceof OraColumn) {
+					if (entry.getValue() instanceof JdbcSinkColumn) {
 						final StringBuilder sbLobUpdate = new StringBuilder(256);
 						sbLobUpdate.append("update ");
 						sbLobUpdate.append(tableName);
@@ -553,7 +551,7 @@ public class TargetDbSqlUtils {
 					} else {
 						// Update for transformed lob
 						@SuppressWarnings("unchecked")
-						final List<OraColumn> columnList = (List<OraColumn>) entry.getValue();
+						final var columnList = (List<JdbcSinkColumn>) entry.getValue();
 						final StringBuilder sbLobUpdate = new StringBuilder(512);
 						sbLobUpdate.append("update ");
 						sbLobUpdate.append(tableName);
