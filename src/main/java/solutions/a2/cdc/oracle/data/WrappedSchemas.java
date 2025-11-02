@@ -49,7 +49,7 @@ public class WrappedSchemas {
 	public static final String WRAPPED_INT32        = "solutions.a2.int32";
 	public static final String WRAPPED_INT64        = "solutions.a2.int64";
 	public static final String WRAPPED_FLOAT32      = "solutions.a2.float32";
-	public static final String WRAPPED_FLOAT64      = "solutions.a2.float32";
+	public static final String WRAPPED_FLOAT64      = "solutions.a2.float64";
 	public static final String WRAPPED_BOOLEAN      = "solutions.a2.bool";
 	public static final String WRAPPED_STRING       = "solutions.a2.string";
 	public static final String WRAPPED_BYTES        = "solutions.a2.bytes";
@@ -66,7 +66,7 @@ public class WrappedSchemas {
 	public static final String WRAPPED_OPT_INT32        = "solutions.a2.int32.opt";
 	public static final String WRAPPED_OPT_INT64        = "solutions.a2.int64.opt";
 	public static final String WRAPPED_OPT_FLOAT32      = "solutions.a2.float32.opt";
-	public static final String WRAPPED_OPT_FLOAT64      = "solutions.a2.float32.opt";
+	public static final String WRAPPED_OPT_FLOAT64      = "solutions.a2.float64.opt";
 	public static final String WRAPPED_OPT_BOOLEAN      = "solutions.a2.bool.opt";
 	public static final String WRAPPED_OPT_STRING       = "solutions.a2.string.opt";
 	public static final String WRAPPED_OPT_BYTES        = "solutions.a2.bytes.opt";
