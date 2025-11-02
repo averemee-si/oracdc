@@ -146,11 +146,17 @@ public class OraCdcDecoderFactory {
 
 	static OraCdcDecoder get(final Schema schema) {
 		return new OraCdcDecoder() {
-		@Override
-		public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-			final var struct = new Struct(schema);
-				struct.put("V", Arrays.copyOfRange(raw, off, off + len));
-				return struct;
+			@Override
+			public Object decode(final byte[] raw) throws SQLException {
+				final var struct = new Struct(schema);
+					struct.put("V", raw);
+					return struct;
+			}
+			@Override
+			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+				final var struct = new Struct(schema);
+					struct.put("V", Arrays.copyOfRange(raw, off, off + len));
+					return struct;
 			}
 		};
 	}
@@ -181,6 +187,13 @@ public class OraCdcDecoderFactory {
 
 	static OraCdcDecoder get(final Schema schema, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
 		return new OraCdcDecoder() {
+			@Override
+			public Object decode(final byte[] raw) throws SQLException {
+				final var struct = new Struct(schema);
+					final var plaintext = decrypter.decrypt(raw, salted);
+					struct.put("V", plaintext);
+					return struct;
+				}
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 				final var struct = new Struct(schema);
@@ -858,38 +871,6 @@ public class OraCdcDecoderFactory {
 		};
 	}
 
-	static OraCdcDecoder get(final Schema schema, final ZoneId zoneId) {
-		return new OraCdcDecoder() {
-			@Override
-			public Object decode(final byte[] raw) throws SQLException {
-				final var struct = new Struct(schema);
-				struct.put("V", raw);
-				struct.put("Z", zoneId);
-				return struct;
-			}
-			@Override
-			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				final var struct = new Struct(schema);
-				struct.put("V", Arrays.copyOfRange(raw, off, off + len));
-				struct.put("Z", zoneId);
-				return struct;
-			}
-		};
-	}
-
-	static OraCdcDecoder get(final Schema schema, final ZoneId zoneId, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-		return new OraCdcDecoder() {
-			@Override
-			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-				final var struct = new Struct(schema);
-				struct.put("V", plaintext);
-				struct.put("Z", zoneId);
-				return struct;
-			}
-		};
-	}
-
 	static OraCdcDecoder get(final OracleJsonFactory jsonFactory) {
 		return new OraCdcDecoder() {
 			@Override
@@ -946,25 +927,6 @@ public class OraCdcDecoderFactory {
 		};
 	}
 
-	static OraCdcDecoder get(final int scale, final Schema schema) {
-		return new OraCdcDecoder() {
-			@Override
-			public Object decode(final byte[] raw) throws SQLException {
-				final var struct = new Struct(schema);
-				struct.put("V", raw);
-				struct.put("S", scale);
-				return struct;
-			}
-			@Override
-			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				final var struct = new Struct(schema);
-				struct.put("V", Arrays.copyOfRange(raw, off, off + len));
-				struct.put("S", scale);
-				return struct;
-			}
-		};
-	}
-
 	static OraCdcDecoder getNUMBER(final int scale, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
 		return new OraCdcDecoder() {
 			@Override
@@ -981,25 +943,6 @@ public class OraCdcDecoderFactory {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
 				return decode(Arrays.copyOfRange(raw, off, off + len));
-			}
-		};
-	}
-
-	static OraCdcDecoder get(final int scale, final Schema schema, final OraCdcTdeColumnDecrypter decrypter, final boolean salted) {
-		return new OraCdcDecoder() {
-			@Override
-			public Object decode(final byte[] raw) throws SQLException {
-				final var struct = new Struct(schema);
-				struct.put("V", decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted));
-				struct.put("S", scale);
-				return struct;
-			}
-			@Override
-			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				final var struct = new Struct(schema);
-				struct.put("V", decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted));
-				struct.put("S", scale);
-				return struct;
 			}
 		};
 	}

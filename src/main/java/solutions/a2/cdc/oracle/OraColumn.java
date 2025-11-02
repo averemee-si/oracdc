@@ -437,15 +437,13 @@ public class OraColumn extends Column {
 					// TIMESTAMP [(fractional_seconds)] WITH LOCAL TIME ZONE
 					flags |= FLG_LOCAL_TIME_ZONE;
 					jdbcType = TIMESTAMPLTZ;
+					final var tz = rdbmsInfo == null ? ZoneId.systemDefault() : rdbmsInfo.getDbTimeZone();
 					schema = ((flags & FLG_PART_OF_PK) > 0 || (flags & FLG_NULLABLE) == 0)
-							? WRAPPED_TIMESTAMPLTZ_SCHEMA
-							: WRAPPED_OPT_TIMESTAMPLTZ_SCHEMA;
+							? WRAPPED_TIMESTAMPLTZ_SCHEMA(tz.getId())
+							: WRAPPED_OPT_TIMESTAMPLTZ_SCHEMA(tz.getId());
 					decoder = (flags & FLG_ENCRYPTED) > 0
-							? OraCdcDecoderFactory.get(schema,
-									rdbmsInfo == null ? ZoneId.systemDefault() : rdbmsInfo.getDbTimeZone(),
-											decrypter, (flags & FLG_SALT) > 0)
-							: OraCdcDecoderFactory.get(schema,
-									rdbmsInfo == null ? ZoneId.systemDefault() : rdbmsInfo.getDbTimeZone());
+							? OraCdcDecoderFactory.get(schema, decrypter, (flags & FLG_SALT) > 0)
+							: OraCdcDecoderFactory.get(schema);
 				} else if (Strings.CS.endsWith(oraType, "WITH TIME ZONE")) {
 					// 181: TIMESTAMP [(fractional_seconds)] WITH TIME ZONE
 					jdbcType = TIMESTAMP_WITH_TIMEZONE;
@@ -1120,11 +1118,11 @@ public class OraColumn extends Column {
 			schema = optionalOrRequired(builder);
 		} else {
 			schema = ((flags & FLG_PART_OF_PK) > 0 || (flags & FLG_NULLABLE) == 0)
-					? WRAPPED_DECIMAL_SCHEMA
-					: WRAPPED_OPT_DECIMAL_SCHEMA;
+					? WRAPPED_DECIMAL_SCHEMA(scale)
+					: WRAPPED_OPT_DECIMAL_SCHEMA(scale);
 			decoder = (flags & FLG_ENCRYPTED) > 0
-					? OraCdcDecoderFactory.get(scale, schema, decrypter, (flags & FLG_SALT) > 0)
-					: OraCdcDecoderFactory.get(scale, schema);
+					? OraCdcDecoderFactory.get(schema, decrypter, (flags & FLG_SALT) > 0)
+					: OraCdcDecoderFactory.get(schema);
 		}
 	}
 

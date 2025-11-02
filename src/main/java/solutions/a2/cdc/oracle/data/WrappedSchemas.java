@@ -31,6 +31,7 @@ import static org.apache.kafka.connect.data.Schema.OPTIONAL_FLOAT64_SCHEMA;
 import static org.apache.kafka.connect.data.Schema.OPTIONAL_BOOLEAN_SCHEMA;
 import static org.apache.kafka.connect.data.Schema.OPTIONAL_STRING_SCHEMA;
 import static org.apache.kafka.connect.data.Schema.OPTIONAL_BYTES_SCHEMA;
+import static org.apache.kafka.connect.data.Decimal.SCALE_FIELD;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -150,15 +151,17 @@ public class WrappedSchemas {
 			.doc("Wrapped bytes schema")
 			.field("V", BYTES_SCHEMA)
 			.build();
-	public static final Schema WRAPPED_DECIMAL_SCHEMA = SchemaBuilder
+	public static final Schema WRAPPED_DECIMAL_SCHEMA(final int scale) {
+		return SchemaBuilder
 			.struct()
 			.optional()
 			.name(WRAPPED_DECIMAL)
 			.version(1)
 			.doc("Wrapped DECIMAL schema")
 			.field("V", BYTES_SCHEMA)
-			.field("S", INT8_SCHEMA)
+			.parameter(SCALE_FIELD, Integer.toString(scale))
 			.build();
+	}
 	public static final Schema WRAPPED_NUMBER_SCHEMA = SchemaBuilder
 			.struct()
 			.optional()
@@ -183,15 +186,17 @@ public class WrappedSchemas {
 			.doc("Wrapped TIMESTAMPTZ schema")
 			.field("V", BYTES_SCHEMA)
 			.build();
-	public static final Schema WRAPPED_TIMESTAMPLTZ_SCHEMA = SchemaBuilder
+	public static final Schema WRAPPED_TIMESTAMPLTZ_SCHEMA(final String tz) {
+			return SchemaBuilder
 			.struct()
 			.optional()
 			.name(WRAPPED_TIMESTAMPLTZ)
 			.version(1)
 			.doc("Wrapped TIMESTAMPLTZ schema")
 			.field("V", BYTES_SCHEMA)
-			.field("Z", STRING_SCHEMA)
+			.parameter("tz", tz)
 			.build();
+	}
 	public static final Schema WRAPPED_INTERVALYM_SCHEMA = SchemaBuilder
 			.struct()
 			.optional()
@@ -281,15 +286,17 @@ public class WrappedSchemas {
 			.doc("Wrapped optional bytes schema")
 			.field("V", OPTIONAL_BYTES_SCHEMA)
 			.build();
-	public static final Schema WRAPPED_OPT_DECIMAL_SCHEMA = SchemaBuilder
+	public static final Schema WRAPPED_OPT_DECIMAL_SCHEMA(final int scale) {
+			return SchemaBuilder
 			.struct()
 			.optional()
 			.name(WRAPPED_DECIMAL)
 			.version(1)
 			.doc("Wrapped DECIMAL schema")
 			.field("V", OPTIONAL_BYTES_SCHEMA)
-			.field("S", OPTIONAL_INT8_SCHEMA)
+			.parameter(SCALE_FIELD, Integer.toString(scale))
 			.build();
+	}
 	public static final Schema WRAPPED_OPT_NUMBER_SCHEMA = SchemaBuilder
 			.struct()
 			.optional()
@@ -314,15 +321,17 @@ public class WrappedSchemas {
 			.doc("Wrapped optional TIMESTAMPTZ schema")
 			.field("V", OPTIONAL_BYTES_SCHEMA)
 			.build();
-	public static final Schema WRAPPED_OPT_TIMESTAMPLTZ_SCHEMA = SchemaBuilder
+	public static final Schema WRAPPED_OPT_TIMESTAMPLTZ_SCHEMA(final String tz) {
+			return SchemaBuilder
 			.struct()
 			.optional()
 			.name(WRAPPED_OPT_TIMESTAMPLTZ)
 			.version(1)
 			.doc("Wrapped optional TIMESTAMPLTZ schema")
 			.field("V", OPTIONAL_BYTES_SCHEMA)
-			.field("Z", OPTIONAL_STRING_SCHEMA)
+			.parameter("tz", tz)
 			.build();
+	}
 	public static final Schema WRAPPED_OPT_INTERVALYM_SCHEMA = SchemaBuilder
 			.struct()
 			.optional()
