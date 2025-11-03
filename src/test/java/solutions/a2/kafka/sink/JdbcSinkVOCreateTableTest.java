@@ -53,7 +53,7 @@ public class JdbcSinkVOCreateTableTest {
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
 				try {
-					final var column = new JdbcSinkColumn(field, false, false);
+					final var column = new JdbcSinkColumn(field, false);
 					allColumns.add(column);
 				} catch (SQLException sqle) {
 					sqle.printStackTrace();

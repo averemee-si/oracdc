@@ -161,7 +161,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 					}
 					if (keyFields != null) {
 						for (Field field : keyFields) {
-							final var column = new JdbcSinkColumn(field, true, true);
+							final var column = new JdbcSinkColumn(field, true);
 							pkColumns.put(column.getColumnName(), column);
 						}
 
@@ -277,7 +277,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 							record.topic() + "!");
 				}
 				//TODO - currently JDBCType only from Kafka Topic!!!
-				final var column = new JdbcSinkColumn(pkField, true, isKey);
+				final var column = new JdbcSinkColumn(pkField, true);
 				pkColumns.put(column.getColumnName(), column);
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("Primary key column {}.{} from primary key {} is mapped to {} STRUCT.",
@@ -289,7 +289,6 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		boolean unnestingRequired = false;
 		final ResultSet rsAllColumns = tableMetadata.getValue();
 		while (rsAllColumns.next()) {
-			final boolean isKey;
 			final Field valueField;
 			final String dbValueColumn = rsAllColumns.getString("COLUMN_NAME");
 			//TODO - case sensitive!
@@ -300,13 +299,10 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 			}
 			if (!pkColumns.containsKey(dbValueColumn4M)) {
 				if (topicKeys.containsKey(dbValueColumn4M)) {
-					isKey = true;
 					valueField = topicKeys.get(dbValueColumn4M);
 				} else if (topicValues.containsKey(dbValueColumn4M)) {
-					isKey = false;
 					valueField = topicValues.get(dbValueColumn4M);
 				} else if (unnestedValues.containsKey(dbValueColumn4M)) {
-					isKey = false;
 					unnestingRequired = true;
 					valueField = null;
 					final String parentField = unnestedParents.get(dbValueColumn4M);
@@ -329,7 +325,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 					continue;
 				}
 				if (valueField != null) {
-					final var column = new JdbcSinkColumn(valueField, false, isKey);
+					final var column = new JdbcSinkColumn(valueField, false);
 					//TODO - currently JDBCType only from Kafka Topic!!!
 					if (column.getJdbcType() == BLOB ||
 							column.getJdbcType() == CLOB ||
@@ -347,7 +343,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 			for (final String parentName : unnestedColumns.keySet()) {
 				final List<JdbcSinkColumn> transformation = new ArrayList<>();
 				for (final Field unnestField : unnestedColumns.get(parentName)) {
-					transformation.add(new JdbcSinkColumn(unnestField, false, false));
+					transformation.add(new JdbcSinkColumn(unnestField, false));
 				}
 				lobColumns.put(parentName, transformation);
 			}
@@ -367,7 +363,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		if (!allFields.isEmpty()) {
 			for (final var columnName : allFields.keySet()) {
 				final var field = allFields.get(columnName);
-				final var column = new JdbcSinkColumn(field, false, false);
+				final var column = new JdbcSinkColumn(field, false);
 				final String alterTableSql = TargetDbSqlUtils.addColumnSql(tableName, dbType, column);
 				if (LOGGER.isDebugEnabled())
 					LOGGER.debug("Adding new column ta table {} with command '()'", tableName, alterTableSql);
@@ -640,7 +636,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		while (iterator.hasNext()) {
 			final var oraColumn = iterator.next().getValue();
 			try {
-				oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
+				oraColumn.binder().bind(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 				columnNo++;
 			} catch (DataException de) {
 				LOGGER.error(
@@ -659,7 +655,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD ||
 					(schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
 				try {
-					oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
+					oraColumn.binder().bind(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;
 				} catch (DataException | SQLException de) {
 					LOGGER.error("Data error while performing upsert! Table={}, column={}, {}.",
@@ -717,7 +713,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 							iterator = pkColumns.entrySet().iterator();
 							while (iterator.hasNext()) {
 								final var oraColumn = iterator.next().getValue();
-								oraColumn.bindWithPrepStmt(
+								oraColumn.binder().bind(
 										dbType, holder.STATEMENT, columnNo, structs.getKey(), structs.getValue());
 								columnNo++;
 							}
@@ -734,7 +730,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 						final List<JdbcSinkColumn> transformedCols = (List<JdbcSinkColumn>) objLobColumn;
 						columnNo = 1;
 						for (var transformedColumn : transformedCols) {
-							transformedColumn.bindWithPrepStmt(
+							transformedColumn.binder().bind(
 									dbType, holder.STATEMENT, columnNo, null, transformedStruct);
 							columnNo++;
 						}
@@ -742,7 +738,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 						iterator = pkColumns.entrySet().iterator();
 						while (iterator.hasNext()) {
 							final var oraColumn = iterator.next().getValue();
-							oraColumn.bindWithPrepStmt(
+							oraColumn.binder().bind(
 									dbType, holder.STATEMENT, columnNo, structs.getKey(), structs.getValue());
 							columnNo++;
 						}
@@ -769,7 +765,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		while (iterator.hasNext()) {
 			final var oraColumn = iterator.next().getValue();
 			try {
-				oraColumn.bindWithPrepStmt(dbType, sinkDelete, columnNo, structs.getKey(), structs.getValue());
+				oraColumn.binder().bind(dbType, sinkDelete, columnNo, structs.getKey(), structs.getValue());
 				columnNo++;
 			} catch (DataException de) {
 				LOGGER.error("Data error while performing delete! Table {}, PK column {}, {}.",
@@ -798,7 +794,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 					schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
 					(schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
 				try {
-					oraColumn.bindWithPrepStmt(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
+					oraColumn.binder().bind(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;
 				} catch (DataException | SQLException de) {
 					LOGGER.error("Data error while performing insert! Table={}, column={}, {}.",
@@ -843,11 +839,11 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 								OraJson.LOGICAL_NAME)) {
 					final List<JdbcSinkColumn> transformation = new ArrayList<>();
 					for (Field unnestField : field.schema().fields()) {
-						transformation.add(new JdbcSinkColumn(unnestField, false, false));
+						transformation.add(new JdbcSinkColumn(unnestField, false));
 					}
 					lobColumns.put(field.name(), transformation);
 				} else {
-					final var column = new JdbcSinkColumn(field, false, false);
+					final var column = new JdbcSinkColumn(field, false);
 					if (column.getJdbcType() == BLOB ||
 						column.getJdbcType() == CLOB ||
 						column.getJdbcType() == NCLOB ||
@@ -881,7 +877,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		final List<Field> valueFields = keyValue.getValue();
 		if (!onlyValue) {
 			for (Field field : keyFields) {
-				final var column = new JdbcSinkColumn(field, true, true);
+				final var column = new JdbcSinkColumn(field, true);
 				pkColumns.put(column.getColumnName(), column);
 			}
 		}

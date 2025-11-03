@@ -66,7 +66,7 @@ public class JdbcSinkCreateTableTest {
 
 		for (Field field : keyFields) {
 			try {
-				final var column = new JdbcSinkColumn(field, true, true);
+				final var column = new JdbcSinkColumn(field, true);
 				pkColumns.put(column.getColumnName(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();
@@ -76,7 +76,7 @@ public class JdbcSinkCreateTableTest {
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
 				try {
-					final var column = new JdbcSinkColumn(field, false, false);
+					final var column = new JdbcSinkColumn(field, false);
 					allColumns.add(column);
 				} catch (SQLException sqle) {
 					sqle.printStackTrace();
@@ -85,7 +85,7 @@ public class JdbcSinkCreateTableTest {
 		}
 		for (Field field : lobFields) {
 			try {
-				final var column = new JdbcSinkColumn(field, true, false);
+				final var column = new JdbcSinkColumn(field, false);
 				lobColumns.put(column.getColumnName(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();

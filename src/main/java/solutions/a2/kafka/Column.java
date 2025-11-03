@@ -34,13 +34,11 @@ import java.nio.ByteBuffer;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
-import solutions.a2.kafka.sink.JdbcSinkConnectionPool;
 
 /**
  * 
@@ -68,10 +66,10 @@ public abstract class Column {
 	protected static final short FLG_ENCRYPTED           = (short)0x0040;
 	protected static final short FLG_NUMBER              = (short)0x0080;
 	protected static final short FLG_BINARY_FLOAT_DOUBLE = (short)0x0100;
-	protected static final short FLG_PART_OF_KEY_STRUCT  = (short)0x0200;
-	protected static final short FLG_LOCAL_TIME_ZONE     = (short)0x0400;
-	protected static final short FLG_DEFAULT_VALUE       = (short)0x0800;
-	protected static final short FLG_LOB_TRANSFORM       = (short)0x1000;
+	protected static final short FLG_LOCAL_TIME_ZONE     = (short)0x0200;
+	protected static final short FLG_DEFAULT_VALUE       = (short)0x0400;
+	protected static final short FLG_LOB_TRANSFORM       = (short)0x0800;
+	protected static final short FLG_WRAPPED             = (short)0x1000;
 	protected static final short FLG_DECODE_WITH_TRANS   = (short) (FLG_LARGE_OBJECT | FLG_SECURE_FILE);
 
 	public String getColumnName() {
@@ -144,46 +142,12 @@ public abstract class Column {
 				}
 				break;
 			case FLOAT:
-				if (Float.NEGATIVE_INFINITY == (float) columnValue) {
-					if ((flags & FLG_NULLABLE) > 0) {
-						statement.setNull(columnNo, FLOAT);
-						LOGGER.error(
-								"\n=====================\n" +
-								"Negative float infinity value for nullable column '{}' at position # {}!\n" +
-								"=====================\n",
-								columnName, columnNo);
-					} else {
-						statement.setDouble(columnNo, Float.MIN_VALUE);
-						LOGGER.error(
-								"\n=====================\n" +
-								"Negative float infinity value for column '{}' at position # {}!\n" +
-								"Column value is set to Float.MIN_VALUE = '{}'!\n" +
-								"=====================\n",
-								columnName, columnNo, Float.MIN_VALUE);
-					}
-				} else {
+				if (!handleFloatNegativeInfinity(statement, columnNo, columnValue)) {
 					statement.setFloat(columnNo, (float) columnValue);
 				}
 				break;
 			case DOUBLE:
-				if (Double.NEGATIVE_INFINITY == (double) columnValue) {
-					if ((flags & FLG_NULLABLE) > 0) {
-						statement.setNull(columnNo, DOUBLE);
-						LOGGER.error(
-								"\n=====================\n" +
-								"Negative double infinity value for nullable column '{}' at position # {}!\n" +
-								"=====================\n",
-								columnName, columnNo);
-					} else {
-						statement.setDouble(columnNo, Double.MIN_VALUE);
-						LOGGER.error(
-								"\n=====================\n" +
-								"Negative double infinity value for column '{}' at position # {}!\n" +
-								"Column value is set to Double.MIN_VALUE = '{}'!\n" +
-								"=====================\n",
-								columnName, columnNo, Double.MIN_VALUE);
-					}
-				} else {
+				if (!handleFloatNegativeInfinity(statement, columnNo, columnValue)) {
 					statement.setDouble(columnNo, (double) columnValue);
 				}
 				break;
@@ -225,12 +189,7 @@ public abstract class Column {
 				statement.setBytes(columnNo, ((ByteBuffer) columnValue).array());
 				break;
 			case VARCHAR:
-				// 0x00 PostgreSQL problem
-				if (dbType == JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL) {
-					statement.setString(columnNo, StringUtils.remove((String) columnValue, CHAR_0));
-				} else { 
-					statement.setString(columnNo, (String) columnValue);
-				}
+				statement.setString(columnNo, (String) columnValue);
 				break;
 			default:
 				LOGGER.error("Unsupported data type {} for column {}.",
@@ -240,5 +199,37 @@ public abstract class Column {
 		}
 	}
 
+	public boolean handleFloatNegativeInfinity(PreparedStatement statement, int columnNo, Object value) throws SQLException {
+		if ((jdbcType == FLOAT && Float.NEGATIVE_INFINITY == (float) value) ||
+				(jdbcType == DOUBLE && Double.NEGATIVE_INFINITY == (double) value)) {
+			if ((flags & FLG_NULLABLE) > 0) {
+				statement.setNull(columnNo, jdbcType);
+				LOGGER.error(
+						"""
+						
+						=====================
+						Negative {} infinity value for nullable column '{}' at position # {}!
+						Column value is set to NULL !
+						=====================
+						
+						""", getTypeName(jdbcType), columnName, columnNo);
+			} else {
+				if (jdbcType == FLOAT) statement.setFloat(columnNo, Float.MIN_VALUE);
+				else statement.setDouble(columnNo, Double.MIN_VALUE);
+				LOGGER.error(
+						"""
+						
+						=====================
+						Negative {} infinity value for column '{}' at position # {}!
+						Column value is set to {}.MIN_VALUE = '{}'!
+						=====================
+						
+						""", getTypeName(jdbcType), columnName, columnNo, getTypeName(jdbcType),
+							jdbcType == FLOAT ? Float.MIN_VALUE : Double.MIN_VALUE);
+			}
+			return true;
+		} else
+			return false;
+	}
 
 }
