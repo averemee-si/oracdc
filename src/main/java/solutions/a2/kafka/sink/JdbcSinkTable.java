@@ -31,7 +31,6 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -67,13 +66,6 @@ import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
 public class JdbcSinkTable extends JdbcSinkTableBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkTable.class);
-	private static final Struct DUMMY_STRUCT =
-			new Struct(
-						SchemaBuilder
-							.struct()
-							.optional()
-							.build());
-
 
 	private final SinkTableInfo metrics;
 	private String sinkUpsertSql = null;
@@ -87,7 +79,6 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 	private boolean onlyPkColumns;
 	private boolean delayedObjectsCreation = false;
 	private final int pkStringLength;
-	private boolean onlyValue = false;
 	private final Set<String> pkInUpsertBatch = new HashSet<>();
 	private boolean ready4Delete = false;
 	private int connectorMode = JdbcSinkConnectorConfig.CONNECTOR_REPLICATE;
@@ -166,8 +157,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 						}
 
 						sinkDeleteSql = TargetDbSqlUtils.generateSinkSql(
-								tableName, dbType, pkColumns, allColumns, lobColumns,
-								connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL).get(TargetDbSqlUtils.DELETE);
+								tableName, dbType, pkColumns, allColumns, lobColumns).get(TargetDbSqlUtils.DELETE);
 						ready4Delete = true;
 					} else {
 						LOGGER.warn(
@@ -400,8 +390,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		// Prepare UPDATE/INSERT/DELETE statements...
 		LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
 		final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
-				tableName, dbType, pkColumns, allColumns, lobColumns,
-				connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL);
+				tableName, dbType, pkColumns, allColumns, lobColumns);
 		if (onlyValue ||
 				connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL) {
 			sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
@@ -960,60 +949,6 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 				return false;
 			}
 		}
-	}
-
-	private Entry<List<Field>, List<Field>> getFieldsFromSinkRecord(final SinkRecord record) {
-		final List<Field> keyFields;
-		final List<Field> valueFields;
-		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-			LOGGER.debug("Schema type set to Debezium style.");
-			keyFields = record.valueSchema().field("before").schema().fields();
-			valueFields = record.valueSchema().field("after").schema().fields();
-			version = record.valueSchema().version();
-		} else {
-			//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
-			//ParamConstants.SCHEMA_TYPE_INT_SINGLE
-			LOGGER.debug("Schema type set to Kafka Connect.");
-			if (record.keySchema() == null) {
-				keyFields = new ArrayList<>();
-				onlyValue = true;
-			} else {
-				keyFields = record.keySchema().fields();
-			}
-			if (record.valueSchema() != null) {
-				valueFields = record.valueSchema().fields();
-				version = record.valueSchema().version();
-			} else {
-				valueFields = new ArrayList<>();
-				version = 1;
-			}
-		}
-		return Map.entry(keyFields, valueFields);
-	}
-
-	private Entry<Struct, Struct> getStructsFromSinkRecord(final SinkRecord record) {
-		final Struct keyStruct;
-		final Struct valueStruct;
-		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-			LOGGER.debug("Schema type set to Debezium style.");
-			keyStruct = ((Struct) record.value()).getStruct("before");
-			valueStruct = ((Struct) record.value()).getStruct("after");
-		} else {
-			//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
-			//ParamConstants.SCHEMA_TYPE_INT_SINGLE
-			LOGGER.debug("Schema type set to Kafka Connect.");
-			if (record.key() == null) {
-				keyStruct = DUMMY_STRUCT;
-			} else {
-				keyStruct = (Struct) record.key();
-			}
-			if (record.value() == null) {
-				valueStruct = DUMMY_STRUCT;
-			} else {
-				valueStruct = (Struct) record.value();
-			}
-		}
-		return Map.entry(keyStruct, valueStruct);
 	}
 
 }

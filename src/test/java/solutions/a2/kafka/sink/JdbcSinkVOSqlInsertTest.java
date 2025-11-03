@@ -60,13 +60,13 @@ public class JdbcSinkVOSqlInsertTest {
 		}
 
 		final Map<String, String> sqlTextsOra = TargetDbSqlUtils.generateSinkSql(
-				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns, false);
+				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsPg = TargetDbSqlUtils.generateSinkSql(
-				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns, false);
+				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMySql = TargetDbSqlUtils.generateSinkSql(
-				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns, false);
+				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMsSql = TargetDbSqlUtils.generateSinkSql(
-				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns, false);
+				"SALGRADE", JdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns);
 
 		final String sinkInsertSqlOra = sqlTextsOra.get(TargetDbSqlUtils.INSERT);
 		final String sinkInsertSqlPg = sqlTextsPg.get(TargetDbSqlUtils.INSERT);

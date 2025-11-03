@@ -35,12 +35,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
 
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.postgres.PgRdbmsInfo;
+import solutions.a2.kafka.ConnectorParams;
 
 
 /**
@@ -51,6 +54,12 @@ import solutions.a2.cdc.postgres.PgRdbmsInfo;
 public abstract class JdbcSinkTableBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkTableBase.class);
+	private static final Struct DUMMY_STRUCT =
+			new Struct(SchemaBuilder
+							.struct()
+							.optional()
+							.build());
+
 
 	String tableOwner;
 	String tableName;
@@ -62,6 +71,7 @@ public abstract class JdbcSinkTableBase {
 	final Map<String, Object> lobColumns = new HashMap<>();
 	Map<String, LobSqlHolder> lobColsSqlMap;
 	boolean exists = true;
+	boolean onlyValue = false;
 	String tableNameCaseConv;
 
 	JdbcSinkTableBase(final int schemaType, final int dbType) {
@@ -76,7 +86,7 @@ public abstract class JdbcSinkTableBase {
 		return tableName;
 	}
 
-	String structValueAsString(final JdbcSinkColumn column, final Struct struct) {
+	static String structValueAsString(final JdbcSinkColumn column, final Struct struct) {
 		final var sb = new StringBuilder(0x80);
 		sb
 			.append("Column Type =")
@@ -190,6 +200,61 @@ public abstract class JdbcSinkTableBase {
 			});
 		}
 	}
+
+	Entry<List<Field>, List<Field>> getFieldsFromSinkRecord(final SinkRecord record) {
+		final List<Field> keyFields;
+		final List<Field> valueFields;
+		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+			LOGGER.debug("Schema type set to Debezium style.");
+			keyFields = record.valueSchema().field("before").schema().fields();
+			valueFields = record.valueSchema().field("after").schema().fields();
+			version = record.valueSchema().version();
+		} else {
+			//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
+			//ParamConstants.SCHEMA_TYPE_INT_SINGLE
+			LOGGER.debug("Schema type set to Kafka Connect.");
+			if (record.keySchema() == null) {
+				keyFields = new ArrayList<>();
+				onlyValue = true;
+			} else {
+				keyFields = record.keySchema().fields();
+			}
+			if (record.valueSchema() != null) {
+				valueFields = record.valueSchema().fields();
+				version = record.valueSchema().version();
+			} else {
+				valueFields = new ArrayList<>();
+				version = 1;
+			}
+		}
+		return Map.entry(keyFields, valueFields);
+	}
+
+	Entry<Struct, Struct> getStructsFromSinkRecord(final SinkRecord record) {
+		final Struct keyStruct;
+		final Struct valueStruct;
+		if (this.schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
+			LOGGER.debug("Schema type set to Debezium style.");
+			keyStruct = ((Struct) record.value()).getStruct("before");
+			valueStruct = ((Struct) record.value()).getStruct("after");
+		} else {
+			//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
+			//ParamConstants.SCHEMA_TYPE_INT_SINGLE
+			LOGGER.debug("Schema type set to Kafka Connect.");
+			if (record.key() == null) {
+				keyStruct = DUMMY_STRUCT;
+			} else {
+				keyStruct = (Struct) record.key();
+			}
+			if (record.value() == null) {
+				valueStruct = DUMMY_STRUCT;
+			} else {
+				valueStruct = (Struct) record.value();
+			}
+		}
+		return Map.entry(keyStruct, valueStruct);
+	}
+
 
 	void execLobUpdate(final boolean closeCursor) throws SQLException {
 		if (lobColumns.size() > 0) {

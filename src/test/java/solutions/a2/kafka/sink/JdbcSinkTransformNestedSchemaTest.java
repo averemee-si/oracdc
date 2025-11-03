@@ -148,13 +148,13 @@ public class JdbcSinkTransformNestedSchemaTest {
 		assertTrue(createScottDeptMsSql.get(0).contains("S3_URL nvarchar(4000)"));
 
 		final Map<String, String> sqlTextsOra = TargetDbSqlUtils.generateSinkSql(
-				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns, false);
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_ORACLE, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsPg = TargetDbSqlUtils.generateSinkSql(
-				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns, false);
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMySql = TargetDbSqlUtils.generateSinkSql(
-				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns, false);
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_MYSQL, pkColumns, allColumns, lobColumns);
 		final Map<String, String> sqlTextsMsSql = TargetDbSqlUtils.generateSinkSql(
-				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns, false);
+				"FND_LOBS", JdbcSinkConnectionPool.DB_TYPE_MSSQL, pkColumns, allColumns, lobColumns);
 
 		final String sinkUpsertSqlOra = sqlTextsOra.get(TargetDbSqlUtils.UPSERT);
 		final String sinkUpsertSqlPg = sqlTextsPg.get(TargetDbSqlUtils.UPSERT);

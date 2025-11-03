@@ -54,10 +54,11 @@ import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
  */
 public class TargetDbSqlUtils {
 
-	public static final String INSERT = "0#";
-	public static final String UPDATE = "1#";
-	public static final String DELETE = "2#";
-	public static final String UPSERT = "3#";
+	public static final String INSERT = "#0";
+	public static final String UPDATE = "#1";
+	public static final String DELETE = "#2";
+	public static final String UPSERT = "#3";
+	public static final String WHERE  = "#4";
 
 	private static final Map<Integer, String> MYSQL_MAPPING =
 			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
@@ -306,42 +307,32 @@ public class TargetDbSqlUtils {
 			final int dbType,
 			final Map<String, JdbcSinkColumn> pkColumns,
 			final List<JdbcSinkColumn> allColumns,
-			final Map<String, Object> lobColumns,
-			final boolean auditTrail) {
+			final Map<String, Object> lobColumns) {
 
 		final int pkColCount = pkColumns.size();
 		final boolean onlyPkColumns = allColumns.size() == 0;
-		final boolean onlyValue = (pkColCount == 0) || auditTrail;
 		final Map<String, String> generatedSql = new HashMap<>();
 
-		if (onlyValue) {
-			final StringBuilder sbInsSql = new StringBuilder(512);
-			sbInsSql.append("insert into ");
-			sbInsSql.append(tableName);
-			sbInsSql.append("(");
-			boolean firstColumn = true;
-			for (final var column : allColumns) {
-				if (firstColumn) {
-					firstColumn = false;
-				} else {
-					sbInsSql.append(", ");
-				}
-				sbInsSql.append(column.getColumnName());
-			}
-			sbInsSql.append(")\nvalues(");
-			firstColumn = true;
-			for (int i = 0; i < allColumns.size(); i++) {
-				if (firstColumn) {
-					firstColumn = false;
-				} else {
-					sbInsSql.append(", ");
-				}
-				sbInsSql.append("?");
-			}
-			sbInsSql.append(")");
-			generatedSql.put(INSERT, sbInsSql.toString());
+		final StringBuilder sbInsertSql = new StringBuilder(512);
+		sbInsertSql.append("insert into ");
+		sbInsertSql.append(tableName);
+		sbInsertSql.append("(");
+		boolean firstColumn = true;
+		for (final var column : allColumns) {
+			if (firstColumn) firstColumn = false;
+			else sbInsertSql.append(", ");
+			sbInsertSql.append(column.getColumnName());
+		}
+		sbInsertSql.append(")\nvalues(");
+		firstColumn = true;
+		for (int i = 0; i < allColumns.size(); i++) {
+			if (firstColumn) firstColumn = false;
+			else sbInsertSql.append(", ");
+			sbInsertSql.append("?");
+		}
+		sbInsertSql.append(")");
+		generatedSql.put(INSERT, sbInsertSql.toString());
 
-		} else {
 			final StringBuilder sbDelUpdWhere = new StringBuilder(128);
 			sbDelUpdWhere.append(" where ");
 
@@ -535,6 +526,7 @@ public class TargetDbSqlUtils {
 			generatedSql.put(UPSERT, sbInsSql.toString());
 			generatedSql.put(UPDATE, sbUpdSql.toString());
 			generatedSql.put(DELETE, sbDelSql.toString());
+			generatedSql.put(WHERE, sbDelUpdWhere.toString());
 
 			if (lobColumns != null && lobColumns.size() > 0) {
 				for (Map.Entry<String, Object> entry : lobColumns.entrySet()) {
@@ -568,7 +560,6 @@ public class TargetDbSqlUtils {
 					}
 				}
 			}
-		}
 
 		return generatedSql;
 	}
