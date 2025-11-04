@@ -14,10 +14,18 @@
 package solutions.a2.kafka.sink;
 
 import static java.sql.Types.BINARY;
+import static java.sql.Types.BLOB;
+import static java.sql.Types.CLOB;
+import static java.sql.Types.NCLOB;
 import static java.sql.Types.NUMERIC;
+import static java.sql.Types.SQLXML;
+import static oracle.jdbc.OracleTypes.JSON;
+import static oracle.jdbc.OracleTypes.VECTOR;
 import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
+import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_PREFIX;
+import static solutions.a2.kafka.sink.JdbcSinkConnectorConfig.CONNECTOR_REPLICATE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.nio.ByteBuffer;
@@ -26,6 +34,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -42,8 +52,15 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.data.OraBlob;
+import solutions.a2.cdc.oracle.data.OraClob;
+import solutions.a2.cdc.oracle.data.OraJson;
+import solutions.a2.cdc.oracle.data.OraNClob;
+import solutions.a2.cdc.oracle.data.OraVector;
+import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.postgres.PgRdbmsInfo;
 import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.utils.ExceptionUtils;
 
 
 /**
@@ -72,7 +89,10 @@ public abstract class JdbcSinkTableBase {
 	Map<String, LobSqlHolder> lobColsSqlMap;
 	boolean exists = true;
 	boolean onlyValue = false;
+	boolean onlyPkColumns;
 	String tableNameCaseConv;
+	int connectorMode = CONNECTOR_REPLICATE;
+	final Map<String, JdbcSinkColumn> allColsMap = new HashMap<>();
 
 	JdbcSinkTableBase(final int schemaType, final int dbType) {
 		this.pkColumns = new LinkedHashMap<>();
@@ -184,6 +204,115 @@ public abstract class JdbcSinkTableBase {
 		resultSet.close();
 		resultSet = null;
 		return result;
+	}
+
+	void createTable(final Connection connection, final SinkRecord record, final int pkStringLength) throws SQLException {
+		LOGGER.debug("Prepare to create table {}", this.tableName);
+
+		final Entry<List<Field>, List<Field>> keyValue = getFieldsFromSinkRecord(record);
+		final List<Field> keyFields = keyValue.getKey();
+		final List<Field> valueFields = keyValue.getValue();
+		if (!onlyValue) {
+			for (Field field : keyFields) {
+				final var column = new JdbcSinkColumn(field, true);
+				pkColumns.put(column.getColumnName(), column);
+			}
+		}
+
+		// Only non PK columns!!!
+		buildNonPkColsList(valueFields);
+
+		List<String> sqlCreateTexts = TargetDbSqlUtils.createTableSql(
+				tableName, dbType, pkStringLength, pkColumns, allColumns, lobColumns);
+		if (dbType == DB_TYPE_POSTGRESQL &&
+				sqlCreateTexts.size() > 1) {
+			for (int i = 1; i < sqlCreateTexts.size(); i++) {
+				LOGGER.debug("\tPostgreSQL lo trigger:\n\t{}", sqlCreateTexts.get(i));
+			}
+		}
+		boolean createLoTriggerFailed = false;
+		try {
+			Statement statement = connection.createStatement();
+			statement.executeUpdate(sqlCreateTexts.get(0));
+			LOGGER.info(
+					"""
+					
+					=====================
+					Table '{}' created in the target database using:
+					{}
+					=====================
+					
+					""", tableName, sqlCreateTexts.get(0));
+			if (dbType == DB_TYPE_POSTGRESQL &&
+					sqlCreateTexts.size() > 1) {
+				for (int i = 1; i < sqlCreateTexts.size(); i++) {
+					try {
+						statement.executeUpdate(sqlCreateTexts.get(i));
+					} catch (SQLException pge) {
+						createLoTriggerFailed = true;
+						LOGGER.error("Trigger creation has failed! Failed creation statement:\n");
+						LOGGER.error(sqlCreateTexts.get(i));
+						LOGGER.error(ExceptionUtils.getExceptionStackTrace(pge));
+						throw pge;
+					}
+				}
+			}
+			connection.commit();
+			exists = true;
+		} catch (SQLException sqle) {
+			if (!createLoTriggerFailed) {
+				LOGGER.error("Table creation has failed! Failed creation statement:\n");
+				LOGGER.error(sqlCreateTexts.get(0));
+				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			}
+			throw sqle;
+		}
+	}
+
+	private void buildNonPkColsList(final List<Field> valueFields) throws SQLException {
+		for (final Field field : valueFields) {
+			if (!pkColumns.containsKey(field.name())) {
+				if (Strings.CS.equals("struct", field.schema().type().getName()) &&
+						!Strings.CS.startsWithAny(field.schema().name(),
+								OraBlob.LOGICAL_NAME,
+								OraClob.LOGICAL_NAME,
+								OraNClob.LOGICAL_NAME,
+								OraXml.LOGICAL_NAME,
+								OraJson.LOGICAL_NAME,
+								OraVector.LOGICAL_NAME,
+								WRAPPED_PREFIX)) {
+					final List<JdbcSinkColumn> transformation = new ArrayList<>();
+					for (Field unnestField : field.schema().fields()) {
+						transformation.add(new JdbcSinkColumn(unnestField, false));
+					}
+					lobColumns.put(field.name(), transformation);
+				} else {
+					final var column = new JdbcSinkColumn(field, false);
+					if (column.getJdbcType() == BLOB ||
+						column.getJdbcType() == CLOB ||
+						column.getJdbcType() == NCLOB ||
+						column.getJdbcType() == SQLXML ||
+						column.getJdbcType() == JSON ||
+						column.getJdbcType() == VECTOR) {
+						lobColumns.put(column.getColumnName(), column);
+					} else {
+						allColumns.add(column);
+						allColsMap.put(column.getColumnName(), column);
+					}
+				}
+			}
+		}
+		if (allColumns.size() == 0) {
+			onlyPkColumns = true;
+			LOGGER.warn("Table {} contains only primary key column(s)!", this.tableName);
+			LOGGER.warn("Column list for {}:", this.tableName);
+			pkColumns.forEach((k, oraColumn) -> {
+				LOGGER.warn("\t{},\t JDBC Type -> {}",
+						oraColumn.getColumnName(), getTypeName(oraColumn.getJdbcType()));
+			});
+		} else {
+			onlyPkColumns = false;
+		}
 	}
 
 	void buildLobColsSql(final Map<String, String> sqlTexts) {

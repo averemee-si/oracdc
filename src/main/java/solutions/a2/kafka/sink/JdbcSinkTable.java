@@ -19,7 +19,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,7 +45,6 @@ import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.sink.jmx.SinkTableInfo;
-import solutions.a2.utils.ExceptionUtils;
 
 import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;
@@ -76,12 +74,10 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 	private int deleteCount;
 	private long upsertTime;
 	private long deleteTime;
-	private boolean onlyPkColumns;
 	private boolean delayedObjectsCreation = false;
 	private final int pkStringLength;
 	private final Set<String> pkInUpsertBatch = new HashSet<>();
 	private boolean ready4Delete = false;
-	private int connectorMode = JdbcSinkConnectorConfig.CONNECTOR_REPLICATE;
 
 	/**
 	 * This constructor is used only for Sink connector
@@ -157,7 +153,8 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 						}
 
 						sinkDeleteSql = TargetDbSqlUtils.generateSinkSql(
-								tableName, dbType, pkColumns, allColumns, lobColumns).get(TargetDbSqlUtils.DELETE);
+								tableName, dbType, pkColumns, allColumns, lobColumns,
+								connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL).get(TargetDbSqlUtils.DELETE);
 						ready4Delete = true;
 					} else {
 						LOGGER.warn(
@@ -390,7 +387,8 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		// Prepare UPDATE/INSERT/DELETE statements...
 		LOGGER.debug("Prepare UPDATE/INSERT/DELETE statements for table {}", this.tableName);
 		final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
-				tableName, dbType, pkColumns, allColumns, lobColumns);
+				tableName, dbType, pkColumns, allColumns, lobColumns,
+				connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL);
 		if (onlyValue ||
 				connectorMode == JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TRAIL) {
 			sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
@@ -814,111 +812,6 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		sb.append(this.tableName);
 		sb.append("\"");
 		return sb.toString();
-	}
-
-	private void buildNonPkColsList(final List<Field> valueFields) throws SQLException {
-		for (final Field field : valueFields) {
-			if (!pkColumns.containsKey(field.name())) {
-				if (Strings.CS.equals("struct", field.schema().type().getName()) &&
-						!Strings.CS.startsWithAny(field.schema().name(),
-								OraBlob.LOGICAL_NAME,
-								OraClob.LOGICAL_NAME,
-								OraNClob.LOGICAL_NAME,
-								OraXml.LOGICAL_NAME,
-								OraJson.LOGICAL_NAME)) {
-					final List<JdbcSinkColumn> transformation = new ArrayList<>();
-					for (Field unnestField : field.schema().fields()) {
-						transformation.add(new JdbcSinkColumn(unnestField, false));
-					}
-					lobColumns.put(field.name(), transformation);
-				} else {
-					final var column = new JdbcSinkColumn(field, false);
-					if (column.getJdbcType() == BLOB ||
-						column.getJdbcType() == CLOB ||
-						column.getJdbcType() == NCLOB ||
-						column.getJdbcType() == SQLXML ||
-						column.getJdbcType() == JSON) {
-						lobColumns.put(column.getColumnName(), column);
-					} else {
-						allColumns.add(column);
-					}
-				}
-			}
-		}
-		if (allColumns.size() == 0) {
-			onlyPkColumns = true;
-			LOGGER.warn("Table {} contains only primary key column(s)!", this.tableName);
-			LOGGER.warn("Column list for {}:", this.tableName);
-			pkColumns.forEach((k, oraColumn) -> {
-				LOGGER.warn("\t{},\t JDBC Type -> {}",
-						oraColumn.getColumnName(), getTypeName(oraColumn.getJdbcType()));
-			});
-		} else {
-			onlyPkColumns = false;
-		}
-	}
-
-	private void createTable(final Connection connection, final SinkRecord record, final int pkStringLength) throws SQLException {
-		LOGGER.debug("Prepare to create table {}", this.tableName);
-
-		final Entry<List<Field>, List<Field>> keyValue = getFieldsFromSinkRecord(record);
-		final List<Field> keyFields = keyValue.getKey();
-		final List<Field> valueFields = keyValue.getValue();
-		if (!onlyValue) {
-			for (Field field : keyFields) {
-				final var column = new JdbcSinkColumn(field, true);
-				pkColumns.put(column.getColumnName(), column);
-			}
-		}
-
-		// Only non PK columns!!!
-		buildNonPkColsList(valueFields);
-
-		List<String> sqlCreateTexts = TargetDbSqlUtils.createTableSql(
-				tableName, dbType, pkStringLength, pkColumns, allColumns, lobColumns);
-		if (dbType == DB_TYPE_POSTGRESQL &&
-				sqlCreateTexts.size() > 1) {
-			for (int i = 1; i < sqlCreateTexts.size(); i++) {
-				LOGGER.debug("\tPostgreSQL lo trigger:\n\t{}", sqlCreateTexts.get(i));
-			}
-		}
-		boolean createLoTriggerFailed = false;
-		try {
-			Statement statement = connection.createStatement();
-			statement.executeUpdate(sqlCreateTexts.get(0));
-			LOGGER.info(
-					"""
-					
-					=====================
-					Table '{}' created in the target database using:
-					{}
-					=====================
-					""",
-						tableName, sqlCreateTexts.get(0));
-			if (dbType == DB_TYPE_POSTGRESQL &&
-					sqlCreateTexts.size() > 1) {
-				for (int i = 1; i < sqlCreateTexts.size(); i++) {
-					try {
-						statement.executeUpdate(sqlCreateTexts.get(i));
-					} catch (SQLException pge) {
-						createLoTriggerFailed = true;
-						LOGGER.error("Trigger creation has failed! Failed creation statement:\n");
-						LOGGER.error(sqlCreateTexts.get(i));
-						LOGGER.error(ExceptionUtils.getExceptionStackTrace(pge));
-						throw pge;
-					}
-				}
-			}
-			connection.commit();
-			exists = true;
-		} catch (SQLException sqle) {
-			if (!createLoTriggerFailed) {
-				LOGGER.error("Table creation has failed! Failed creation statement:\n");
-				LOGGER.error(sqlCreateTexts.get(0));
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-			}
-			throw sqle;
-		}
 	}
 
 	public boolean duplicatedKeyInBatch(final SinkRecord record) {

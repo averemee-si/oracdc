@@ -307,31 +307,70 @@ public class TargetDbSqlUtils {
 			final int dbType,
 			final Map<String, JdbcSinkColumn> pkColumns,
 			final List<JdbcSinkColumn> allColumns,
-			final Map<String, Object> lobColumns) {
+			final Map<String, Object> lobColumns,
+			final boolean auditTrail) {
 
 		final int pkColCount = pkColumns.size();
 		final boolean onlyPkColumns = allColumns.size() == 0;
+		final boolean onlyValue = (pkColCount == 0) || auditTrail;
 		final Map<String, String> generatedSql = new HashMap<>();
 
-		final StringBuilder sbInsertSql = new StringBuilder(512);
-		sbInsertSql.append("insert into ");
-		sbInsertSql.append(tableName);
-		sbInsertSql.append("(");
-		boolean firstColumn = true;
-		for (final var column : allColumns) {
-			if (firstColumn) firstColumn = false;
-			else sbInsertSql.append(", ");
-			sbInsertSql.append(column.getColumnName());
-		}
-		sbInsertSql.append(")\nvalues(");
-		firstColumn = true;
-		for (int i = 0; i < allColumns.size(); i++) {
-			if (firstColumn) firstColumn = false;
-			else sbInsertSql.append(", ");
-			sbInsertSql.append("?");
-		}
-		sbInsertSql.append(")");
-		generatedSql.put(INSERT, sbInsertSql.toString());
+		if (onlyValue) {
+			final var sbInsertSql = new StringBuilder(0x200);
+			sbInsertSql.append("insert into ");
+			sbInsertSql.append(tableName);
+			sbInsertSql.append("(");
+			boolean firstColumn = true;
+			for (final var column : allColumns) {
+				if (firstColumn) firstColumn = false;
+				else sbInsertSql.append(", ");
+				sbInsertSql.append(column.getColumnName());
+			}
+			sbInsertSql.append(")\nvalues(");
+			firstColumn = true;
+			for (int i = 0; i < allColumns.size(); i++) {
+				if (firstColumn) firstColumn = false;
+				else sbInsertSql.append(", ");
+				sbInsertSql.append("?");
+			}
+			sbInsertSql.append(")");
+			generatedSql.put(INSERT, sbInsertSql.toString());
+		} else {
+			final var sbInsertSql = new StringBuilder(0x200);
+			sbInsertSql.append("insert into ");
+			sbInsertSql.append(tableName);
+			sbInsertSql.append("(");
+			boolean firstColumn = true;
+			var iterator = pkColumns.entrySet().iterator();
+			while (iterator.hasNext()) {
+				if (firstColumn) firstColumn = false;
+				else sbInsertSql.append(", ");
+				sbInsertSql.append(iterator.next().getValue().getColumnName());
+			}
+			for (final var column : allColumns) {
+				if (firstColumn) firstColumn = false;
+				else sbInsertSql.append(", ");
+				sbInsertSql.append(column.getColumnName());
+			}
+			iterator = null;
+
+			sbInsertSql.append(")\nvalues(");
+			firstColumn = true;
+			iterator = pkColumns.entrySet().iterator();
+			while (iterator.hasNext()) {
+				if (firstColumn) firstColumn = false;
+				else sbInsertSql.append(", ");
+				iterator.next();
+				sbInsertSql.append("?");
+			}
+			for (int i = 0; i < allColumns.size(); i++) {
+				if (firstColumn) firstColumn = false;
+				else sbInsertSql.append(", ");
+				sbInsertSql.append("?");
+			}
+			sbInsertSql.append(")");
+			iterator = null;
+			generatedSql.put(INSERT, sbInsertSql.toString());
 
 			final StringBuilder sbDelUpdWhere = new StringBuilder(128);
 			sbDelUpdWhere.append(" where ");
@@ -358,7 +397,7 @@ public class TargetDbSqlUtils {
 				}
 			}
 
-			Iterator<Entry<String, JdbcSinkColumn>> iterator = pkColumns.entrySet().iterator();
+			iterator = pkColumns.entrySet().iterator();
 			int pkColumnNo = 0;
 			while (iterator.hasNext()) {
 				final String columnName = iterator.next().getValue().getColumnName();
@@ -560,7 +599,7 @@ public class TargetDbSqlUtils {
 					}
 				}
 			}
-
+		}
 		return generatedSql;
 	}
 
