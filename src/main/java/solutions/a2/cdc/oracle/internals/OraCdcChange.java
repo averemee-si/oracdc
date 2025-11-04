@@ -1503,6 +1503,10 @@ public class OraCdcChange {
 		return bdba;
 	}
 
+	public int dba() {
+		return dba;
+	}
+
 	public short conId() {
 		return conId;
 	}

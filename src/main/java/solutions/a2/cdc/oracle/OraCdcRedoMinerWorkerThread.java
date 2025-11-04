@@ -796,7 +796,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				}
 			}
 			final RowId rowId = new RowId(
-				colb.obj(), colb.bdba(), (short)(row + 1));
+				colb.obj(), colb.dba(), (short) row);
 			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
 				isCdb ? (((long)colb.conId()) << 32) |  (colb.obj() & 0xFFFFFFFFL): colb.obj(),
 				INSERT, baos.toByteArray(), lwnUnixMillis, rr.scn(), rr.rba(),

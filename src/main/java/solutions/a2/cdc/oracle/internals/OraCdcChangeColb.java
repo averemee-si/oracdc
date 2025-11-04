@@ -63,7 +63,7 @@ public class OraCdcChangeColb extends OraCdcChange {
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, BLOCK_DUMP_MIN_SIZE, "");
 			obj = redoLog.bu().getU32(record, coords[0][0] + 0x4);
 			itc = redoLog.bu().getU16(record, coords[0][0] + 0x10);
-			bdba = redoLog.bu().getU32(record, coords[0][0] + 0x12);
+			bdba = redoLog.bu().getU32(record, coords[0][0] + 0x14);
 			lobDataOffset = (BLOCK_DUMP_MIN_SIZE + itc * 0x1A + 7) & 0xFFFFFFF8;
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, lobDataOffset + 8, "");
 			headerSize = redoLog.bu().getU16(record, coords[0][0] + lobDataOffset + 0x6);
