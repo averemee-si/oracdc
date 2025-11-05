@@ -180,7 +180,7 @@ public class OraRedoLogFile  {
 				rlf = new OraCdcRedoLogSmbjFactory(
 						new OraCdcSourceConnectorConfig(smbProps),
 						bu, true);
-			} catch (IOException ioe) {
+			} catch (SQLException sqle) {
 				LOGGER.error(
 						"""
 						
@@ -191,7 +191,7 @@ public class OraRedoLogFile  {
 						{}
 						=====================
 						
-						""", smbServer, ioe.getMessage(), ExceptionUtils.getExceptionStackTrace(ioe));
+						""", smbServer, sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 				System.exit(1);
 			}
 		} else {
@@ -272,7 +272,7 @@ public class OraRedoLogFile  {
 			try {
 				rlf = new OraCdcRedoLogSshjFactory(userName, hostname, sshPort,
 						identityFile, password, false, 0x100, 0x8000, bu, true);
-			} catch (IOException ioe) {
+			} catch (SQLException sqle) {
 				LOGGER.error(
 						"""
 						
@@ -283,14 +283,14 @@ public class OraRedoLogFile  {
 						{}
 						=====================
 						
-						""", hostname, ioe.getMessage(), ExceptionUtils.getExceptionStackTrace(ioe));
+						""", hostname, sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 				System.exit(1);
 			}
 		}
 		OraCdcRedoLog orl = null;
 		try {
 			orl = rlf.get(redoFile);
-		} catch (IOException ioe) {
+		} catch (SQLException sqle) {
 			LOGGER.error(
 					"""
 					
@@ -301,7 +301,7 @@ public class OraRedoLogFile  {
 					{}
 					=====================
 					
-					""", redoFile, ioe.getMessage(), ExceptionUtils.getExceptionStackTrace(ioe));
+					""", redoFile, sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 			System.exit(1);
 		}
 
@@ -584,12 +584,17 @@ public class OraRedoLogFile  {
 						}
 					}
 				}
-			} catch (IOException ioe) {
+			} catch (SQLException sqle) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"'{}' processing redo file '{}'\nErrorstack:\n{}" +
-						"\n=====================\n",
-						ioe.getMessage(), redoFile, ExceptionUtils.getExceptionStackTrace(ioe));
+						"""
+						
+						=====================
+						'{}' processing redo file '{}'
+						Errorstack:
+						{}
+						=====================
+						
+						""", sqle.getMessage(), redoFile, ExceptionUtils.getExceptionStackTrace(sqle));
 				System.exit(1);
 			}
 		}

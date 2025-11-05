@@ -136,16 +136,12 @@ public class OraRedoMiner {
 		} else if (ssh) {
 			needNameChange = rdbmsInfo.isWindows();
 			reconnectIntervalMs = config.sshReconnectIntervalMs();
-			try {
-				if (config.sshProviderMaverick()) {
-					rlf = new OraCdcRedoLogSshtoolsMaverickFactory(config, bu, true);
-					sshMaverick = true;
-				} else {
-					rlf = new OraCdcRedoLogSshjFactory(config, bu, true);
-					sshMaverick = false;
-				}
-			} catch (IOException ioe) {
-				throw new SQLException(ioe);
+			if (config.sshProviderMaverick()) {
+				rlf = new OraCdcRedoLogSshtoolsMaverickFactory(config, bu, true);
+				sshMaverick = true;
+			} else {
+				rlf = new OraCdcRedoLogSshjFactory(config, bu, true);
+				sshMaverick = false;
 			}
 		} else if (bfile) {
 			needNameChange = true;
@@ -156,11 +152,7 @@ public class OraRedoMiner {
 		} else if (smb) {
 			needNameChange = true;
 			reconnectIntervalMs = config.smbReconnectIntervalMs();
-			try {
-				rlf = new OraCdcRedoLogSmbjFactory(config, bu, true);
-			} catch (IOException ioe) {
-				throw new SQLException(ioe);
-			}
+			rlf = new OraCdcRedoLogSmbjFactory(config, bu, true);
 		} else {
 			needNameChange = true;
 			reconnectIntervalMs = Long.MAX_VALUE;
@@ -491,7 +483,11 @@ public class OraRedoMiner {
 								}
 								LOGGER.warn("Unexpected miner.hasNext() == false after RBA {}", lastProcessedRba);
 								miner = null;
-								redoLog.close();
+								try {
+									redoLog.close();
+								} catch (IOException ioe) {
+									throw new SQLException(ioe);
+								}
 								return false;
 							}
 						} else {
@@ -507,7 +503,7 @@ public class OraRedoMiner {
 				}
 				firstChange = nextChange;
 				readStartMillis = System.currentTimeMillis();
-			} catch (IOException ioe) {
+			} catch (SQLException ioe) {
 				if (runLatch.getCount() > 0)
 					throw new SQLException(ioe);
 				else
@@ -566,24 +562,15 @@ public class OraRedoMiner {
 	}
 
 	public void resetRedoLogFactory(final long startScn, final RedoByteAddress startRba) throws SQLException {
-		try {
-			if (asm)
-				((OraCdcRedoLogAsmFactory) rlf).reset(oraConnections.getAsmConnection(config));
-			else if (ssh)
-				if (sshMaverick)
-					((OraCdcRedoLogSshtoolsMaverickFactory) rlf).reset();
-				else
-					((OraCdcRedoLogSshjFactory) rlf).reset();
-			else if (bfile)
-				((OraCdcRedoLogBfileFactory) rlf).reset(oraConnections.getConnection());
-			else if (smb)
-				((OraCdcRedoLogSmbjFactory) rlf).reset();
-			inited = false;
-			firstChange = startScn;
-			firstRba = startRba;
-		} catch (IOException ioe) {
-			throw new SQLException(ioe);
-		}
+		if (asm)
+			rlf.reset(oraConnections.getAsmConnection(config));
+		else if (bfile)
+			rlf.reset(oraConnections.getConnection());
+		else
+			rlf.reset();
+		inited = false;
+		firstChange = startScn;
+		firstRba = startRba;
 	}
 
 }

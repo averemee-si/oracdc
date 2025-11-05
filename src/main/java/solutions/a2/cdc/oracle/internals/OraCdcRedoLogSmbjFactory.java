@@ -15,6 +15,7 @@ package solutions.a2.cdc.oracle.internals;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.SQLException;
 import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
 
@@ -52,7 +53,7 @@ public class OraCdcRedoLogSmbjFactory extends OraCdcRedoLogFactoryBase implement
 	private DiskShare shareOnline;
 	private DiskShare shareArchive;
 	
-	public OraCdcRedoLogSmbjFactory(final OraCdcSourceConnectorConfig config, final BinaryUtils bu, final boolean valCheckSum) throws IOException {
+	public OraCdcRedoLogSmbjFactory(final OraCdcSourceConnectorConfig config, final BinaryUtils bu, final boolean valCheckSum) throws SQLException {
 		super(bu, valCheckSum);
 		server = config.smbServer();
 		username = config.smbUser();
@@ -75,62 +76,85 @@ public class OraCdcRedoLogSmbjFactory extends OraCdcRedoLogFactoryBase implement
 		create();
 	}
 
-	private void create() throws IOException {
-		connection = smb.connect(server);
-		final AuthenticationContext ac = new AuthenticationContext(username, password, domain);
-		session = connection.authenticate(ac);
-		shareOnline = (DiskShare) session.connectShare(shareNameOnline);
-		if (singleShare)
-			shareArchive = shareOnline;
-		else
-			shareArchive = (DiskShare) session.connectShare(shareNameArchive);
+	private void create() throws SQLException {
+		try {
+			connection = smb.connect(server);
+			final AuthenticationContext ac = new AuthenticationContext(username, password, domain);
+			session = connection.authenticate(ac);
+			shareOnline = (DiskShare) session.connectShare(shareNameOnline);
+			if (singleShare)
+				shareArchive = shareOnline;
+			else
+				shareArchive = (DiskShare) session.connectShare(shareNameArchive);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 
 	@Override
-	public OraCdcRedoLog get(final String redoLog) throws IOException {
-		File file = shareOnline.openFile(redoLog,
+	public OraCdcRedoLog get(final String redoLog) throws SQLException {
+		try {
+			File file = shareOnline.openFile(redoLog,
 				EnumSet.of(AccessMask.FILE_READ_DATA), null, SMB2ShareAccess.ALL, null, null);
-		InputStream fis = file.getInputStream();
-		long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
-		fis.close();
-		fis = null;
-		file.close();
-		file = null;
-		return get(redoLog, false, (int)blockSizeAndCount[0], blockSizeAndCount[1]); 
+			InputStream fis = file.getInputStream();
+			long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
+			fis.close();
+			fis = null;
+			file.close();
+			file = null;
+			return get(redoLog, false, (int)blockSizeAndCount[0], blockSizeAndCount[1]);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override
-	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
-		return new OraCdcRedoLog(
+	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws SQLException {
+		try {
+			return new OraCdcRedoLog(
 				new OraCdcRedoSmbjReader(
 						online ? shareOnline : shareArchive, buffer, redoLog, blockSize, blockCount),
 				valCheckSum,
 				bu,
 				blockCount);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override
 	public void close() {
 		try {
 			closeObjects();
-		} catch(IOException ioe) {}
+		} catch(SQLException ioe) {}
 		smb.close();
 	}
 
-	private void closeObjects() throws IOException {
-		shareOnline.close();
-		shareOnline = null;
-		if (!singleShare)
-			shareArchive.close();
-		shareArchive = null;
-		session.close();
-		session = null;
-		connection.close();
-		connection = null;
+	private void closeObjects() throws SQLException {
+		try {
+			shareOnline.close();
+			shareOnline = null;
+			if (!singleShare)
+				shareArchive.close();
+			shareArchive = null;
+			session.close();
+			session = null;
+			connection.close();
+			connection = null;
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
-	public void reset() throws IOException {
+	@Override
+	public void reset() throws SQLException {
+		closeObjects();
+		create();
+	}
+
+	@Override
+	public void reset(java.sql.Connection connection) throws SQLException {
 		closeObjects();
 		create();
 	}

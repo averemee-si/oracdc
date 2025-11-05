@@ -18,6 +18,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 import solutions.a2.oracle.utils.BinaryUtils;
 
@@ -29,26 +31,41 @@ public class OraCdcRedoLogFileFactory extends OraCdcRedoLogFactoryBase implement
 	}
 
 	@Override
-	public OraCdcRedoLog get(final String redoLog) throws IOException {
-		InputStream fis = Files.newInputStream(Paths.get(redoLog), StandardOpenOption.READ);
-		long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
-		fis.close();
-		fis = null;
-
-		return new OraCdcRedoLog(
+	public OraCdcRedoLog get(final String redoLog) throws SQLException {
+		try {
+			InputStream fis = Files.newInputStream(Paths.get(redoLog), StandardOpenOption.READ);
+			long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
+			fis.close();
+			fis = null;
+			return new OraCdcRedoLog(
 				new OraCdcRedoFileReader(redoLog, (int) blockSizeAndCount[0]),
 				valCheckSum,
 				bu,
 				blockSizeAndCount[1]);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override
-	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
-		return new OraCdcRedoLog(
+	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws SQLException {
+		try {
+			return new OraCdcRedoLog(
 				new OraCdcRedoFileReader(redoLog, blockSize),
 				valCheckSum,
 				bu,
 				blockCount);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
+	}
+
+	@Override
+	public void reset() throws SQLException {
+	}
+
+	@Override
+	public void reset(Connection connection) throws SQLException {
 	}
 
 }

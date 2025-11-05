@@ -53,7 +53,7 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 			final byte[] buffer,
 			final String redoLog,
 			final int blockSize,
-			final long blockCount) throws IOException {
+			final long blockCount) throws SQLException {
 		this.read = read;
 		this.redoLog = redoLog;
 		this.directory = directory;
@@ -63,10 +63,9 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 		this.blockCount = blockCount;
 		bufferBlocks = bufferSize / blockSize;
 		if (bufferSize % blockSize != 0) {
-			throw new IOException(
-					"The buffer size (" + bufferSize  + 
-					") must be a multiple of the block size (" + blockSize +
-					")!");
+			throw new SQLException("The buffer size (" + bufferSize  + 
+					") must be a multiple of the block size (" + blockSize + ")!",
+					"BFILE", Integer.MIN_VALUE);
 		}
 		needToreadAhead = true;
 		currentBlock = 1;
@@ -76,20 +75,28 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 	}
 
 	@Override
-	public int read(byte b[], int off, int len) throws IOException {
+	public int read(byte b[], int off, int len) throws SQLException {
 		if (firstBlock) {
 			try {
 				execReadStatement(blockSize + 1);
-				if (is.read(b, off, len) != len) {
-					throw new IOException("Unable to read block #1 in " + redoLog);
+				try {
+					if (is.read(b, off, len) != len) {
+						throw new SQLException("Unable to read block #1 in " + redoLog, "BFILE", Integer.MIN_VALUE);
+					}
+				} catch (IOException ioe) {
+					throw new SQLException("Unable to read block #1 in " + redoLog, "BFILE", Integer.MIN_VALUE);
 				}
-				is.close();
-				is = null;
+				try {
+					is.close();
+				} catch (IOException ioe) {
+				} finally {
+					is = null;
+				}
 				bfile.closeLob();
 				bfile = null;
 			} catch (SQLException sqle) {
 				printUnableToOpenMessage(sqle);
-				throw new IOException(sqle);
+				throw sqle;
 			}
 			firstBlock = false;
 			currentBlock = 2;
@@ -115,14 +122,19 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 						}
 					} catch (SQLException sqle) {
 						printUnableToOpenMessage(sqle);
-						throw new IOException(sqle);
+						throw sqle;
 					}
 				}
-				final int actual = is.read(buffer, 0, bytesToRead);
+				int actual;
+				try {
+					actual = is.read(buffer, 0, bytesToRead);
+				} catch (IOException ioe) {
+					throw new SQLException(ioe.getMessage(), "BFILE", Integer.MIN_VALUE);
+				}
 				if (actual != bytesToRead) {
-					throw new IOException(
-							"The actual number of bytes read (" + actual + ")" +
-							" from the SMB remote file is not equal to the expected number of (" + bytesToRead + ")!");
+					throw new SQLException("The actual number of bytes read (" + actual + ")" +
+							" from the BFILE file is not equal to the expected number of (" + bytesToRead + ")!",
+							"BFILE", Integer.MIN_VALUE);
 				}
 				needToreadAhead = false;
 			}
@@ -174,7 +186,7 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 	}
 
 	@Override
-	public long skip(long n) throws IOException {
+	public long skip(long n) throws SQLException {
 		currentBlock += n;
 		startPos = currentBlock;
 		needToreadAhead = true;
@@ -185,12 +197,16 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void close() throws SQLException {
 		if (!initBfile) {
 			try {
 				if (is != null) {
+					try {
 					is.close();
-					is = null;
+					} catch (IOException ioe) {
+					} finally {
+						is = null;
+					}
 				}
 				if (bfile != null) {
 					bfile.closeLob();
@@ -206,13 +222,13 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 												
 						""",
 						redoLog, sqle.getErrorCode(), sqle.getSQLState());
-				throw new IOException(sqle);
+				throw sqle;
 			}
 		}
 	}
 
 	@Override
-	public void reset()  throws IOException {
+	public void reset()  throws SQLException {
 		currentBlock = 1;
 		startPos = currentBlock;
 		firstBlock = true;

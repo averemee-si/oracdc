@@ -72,16 +72,19 @@ public class OraCdcRedoLogAsmFactory extends OraCdcRedoLogFactoryBase implements
 			reset(connection);
 		} catch (SQLException sqle) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to create OraCdcRedoLogAsmFactory: SQL Error Code={}, SQL State='{}'!" +
-					"\n=====================\n",
-					sqle.getErrorCode(), sqle.getSQLState());
+					"""
+					
+					=====================
+					Unable to create OraCdcRedoLogAsmFactory: SQL Error Code={}, SQL State='{}'!
+					=====================
+					
+					""", sqle.getErrorCode(), sqle.getSQLState());
 			throw sqle;
 		}
 	}
 
 	@Override
-	public OraCdcRedoLog get(final String redoLog) throws IOException {
+	public OraCdcRedoLog get(final String redoLog) throws SQLException {
 		try {
 			CallableStatement cs = open.getConnection().prepareCall(ASM_FILE_ATTR);
 			cs.setString(1, redoLog);
@@ -90,30 +93,42 @@ public class OraCdcRedoLogAsmFactory extends OraCdcRedoLogFactoryBase implements
 			cs.execute();
 			final long blockCount = cs.getLong(2);
 			final int blockSize = cs.getInt(3);
-			return new OraCdcRedoLog(
+			try {
+				return new OraCdcRedoLog(
 					new OraCdcRedoAsmReader(open, read, close, redoLog, blockSize, blockCount, readAhead),
 					valCheckSum,
 					bu,
 					blockCount);
+			} catch (IOException ioe) {
+				throw new SQLException(ioe);
+			}
 		} catch (SQLException sqle) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to detect attributes of {}: SQL Error Code={}, SQL State='{}'!" +
-					"\n=====================\n",
-					redoLog, sqle.getErrorCode(), sqle.getSQLState());
-			throw new IOException(sqle);
+					"""
+					
+					=====================
+					Unable to detect attributes of {}: SQL Error Code={}, SQL State='{}'!
+					=====================
+					
+					""", redoLog, sqle.getErrorCode(), sqle.getSQLState());
+			throw sqle;
 		}
 	}
 
 	@Override
-	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
-		return new OraCdcRedoLog(
+	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws SQLException {
+		try {
+			return new OraCdcRedoLog(
 				new OraCdcRedoAsmReader(open, read, close, redoLog, blockSize, blockCount, readAhead),
 				valCheckSum,
 				bu,
 				blockCount);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
+	@Override
 	public void reset(final Connection connection) throws SQLException {
 		if (open != null) {
 			try {open.close();} catch (SQLException sqle) {
@@ -142,12 +157,21 @@ public class OraCdcRedoLogAsmFactory extends OraCdcRedoLogFactoryBase implements
 		close = (OracleCallableStatement) connection.prepareCall(ASM_CLOSE);
 	}
 
+	@Override
+	public void reset() throws SQLException {
+		throw new SQLException("Not implemented!");
+	}
+
 	private void printCloseWarningMessage(final String blockName, final SQLException sqle) {
 		LOGGER.warn(
-				"\n=====================\n" +
-				"Unable to '{}' due to SQL Exception {}\n\tSQL Error code={}, SQL State='{}'!" +
-				"\n=====================\n",
-				blockName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+				"""
+				
+				=====================
+				Unable to '{}' due to SQL Exception {}
+					SQL Error code={}, SQL State='{}'!
+				=====================
+				
+				""", blockName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 	}
 
 }

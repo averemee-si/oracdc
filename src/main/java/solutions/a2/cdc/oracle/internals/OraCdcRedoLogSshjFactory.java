@@ -15,6 +15,8 @@ package solutions.a2.cdc.oracle.internals;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.EnumSet;
 
 import org.apache.commons.lang3.StringUtils;
@@ -53,7 +55,7 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase
 			final String username, final String hostname, final int port,
 			final String keyFile, final String password, final boolean strictHostKeyChecking,
 			final int unconfirmedReads, final int bufferSize,
-			final BinaryUtils bu, final boolean valCheckSum) throws IOException {
+			final BinaryUtils bu, final boolean valCheckSum) throws SQLException {
 		super(bu, valCheckSum);
 		this.username = username;
 		this.hostname = hostname;
@@ -71,25 +73,29 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase
 		create();
 	}
 
-	private void create() throws IOException {
-		ssh = new SSHClient();
-		if (strictHostKeyChecking)
-			//TODO - pass file!!!
-			ssh.loadKnownHosts();
-		else
-			ssh.addHostKeyVerifier(new PromiscuousVerifier());
-		ssh.connect(hostname, port);
-		if (usePassword)
-			ssh.authPassword(username, secret);
-		else
-			ssh.authPublickey(username, secret);
-		ssh.getTransport().setDisconnectListener(this);
-		sftp = ssh.newSFTPClient();
-		connected = true;
+	private void create() throws SQLException {
+		try {
+			ssh = new SSHClient();
+			if (strictHostKeyChecking)
+				//TODO - pass file!!!
+				ssh.loadKnownHosts();
+			else
+				ssh.addHostKeyVerifier(new PromiscuousVerifier());
+			ssh.connect(hostname, port);
+			if (usePassword)
+				ssh.authPassword(username, secret);
+			else
+				ssh.authPublickey(username, secret);
+			ssh.getTransport().setDisconnectListener(this);
+			sftp = ssh.newSFTPClient();
+			connected = true;
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 
-	public OraCdcRedoLogSshjFactory(final OraCdcSourceConnectorConfig config, final BinaryUtils bu, final boolean valCheckSum) throws IOException {
+	public OraCdcRedoLogSshjFactory(final OraCdcSourceConnectorConfig config, final BinaryUtils bu, final boolean valCheckSum) throws SQLException {
 		this(config.sshUser(), config.sshHostname(), config.sshPort(),
 			config.sshKey(), config.sshPassword(), config.sshStrictHostKeyChecking(),
 			config.sshUnconfirmedReads(), config.sshBufferSize(),
@@ -97,25 +103,33 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase
 	}
 
 	@Override
-	public OraCdcRedoLog get(final String redoLog) throws IOException {
-		if (connected) {
-			RemoteFile handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
-			InputStream fis = handle.new RemoteFileInputStream();
-			long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
-			fis.close();
-			fis = null;
-			return get(redoLog, false, (int)blockSizeAndCount[0], blockSizeAndCount[1]);
-		} else
-			throw disconnectException();
+	public OraCdcRedoLog get(final String redoLog) throws SQLException {
+		try {
+			if (connected) {
+				RemoteFile handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
+				InputStream fis = handle.new RemoteFileInputStream();
+				long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);		
+				fis.close();
+				fis = null;
+				return get(redoLog, false, (int)blockSizeAndCount[0], blockSizeAndCount[1]);
+			} else
+				throw disconnectException();
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override
-	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
-		return new OraCdcRedoLog(
+	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws SQLException {
+		try {
+			return new OraCdcRedoLog(
 				new OraCdcRedoSshjReader(this, unconfirmedReads, bufferSize, redoLog, blockSize, blockCount),
 				valCheckSum,
 				bu,
 				blockCount);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override
@@ -130,7 +144,14 @@ public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase
 		}
 	}
 
-	public void reset() throws IOException {
+	@Override
+	public void reset() throws SQLException {
+		close();
+		create();
+	}
+
+	@Override
+	public void reset(Connection connection) throws SQLException {
 		close();
 		create();
 	}

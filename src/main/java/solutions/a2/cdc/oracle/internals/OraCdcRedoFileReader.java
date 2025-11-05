@@ -18,6 +18,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.sql.SQLException;
 
 public class OraCdcRedoFileReader implements OraCdcRedoReader {
 
@@ -25,35 +26,55 @@ public class OraCdcRedoFileReader implements OraCdcRedoReader {
 	private final String redoLog;
 	private final int blockSize;
 
-	OraCdcRedoFileReader(final String redoLog, final int blockSize) throws IOException {
-		is = Files.newInputStream(Paths.get(redoLog), StandardOpenOption.READ);
-		if (is.skip(blockSize) != blockSize) {
-			throw new IOException("Unable to skip " + blockSize + " bytes!");
+	OraCdcRedoFileReader(final String redoLog, final int blockSize) throws SQLException {
+		try {
+			is = Files.newInputStream(Paths.get(redoLog), StandardOpenOption.READ);
+			if (is.skip(blockSize) != blockSize) {
+				throw new SQLException("Unable to skip " + blockSize + " bytes!");
+			}
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
 		}
 		this.redoLog = redoLog;
 		this.blockSize = blockSize;
 	}
 
 	@Override
-	public int read(byte b[], int off, int len) throws IOException {
-		return is.read(b, off, len);
+	public int read(byte b[], int off, int len) throws SQLException {
+		try {
+			return is.read(b, off, len);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 	
 	@Override
-	public long skip(long n) throws IOException {
-		return is.skip(n * blockSize);
+	public long skip(long n) throws SQLException {
+		try {
+			return is.skip(n * blockSize);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override
-	public void close() throws IOException {
-		is.close();
+	public void close() throws SQLException {
+		try {
+			is.close();
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override
-	public void reset()  throws IOException {
-		is.close();
-		is = null;
-		is = Files.newInputStream(Paths.get(redoLog), StandardOpenOption.READ);
+	public void reset() throws SQLException {
+		try {
+			is.close();
+			is = null;
+			is = Files.newInputStream(Paths.get(redoLog), StandardOpenOption.READ);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override
