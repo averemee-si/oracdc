@@ -13,10 +13,16 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static com.hierynomus.mserref.NtStatus.STATUS_ACCESS_DENIED;
+import static com.hierynomus.mserref.NtStatus.STATUS_OBJECT_PATH_NOT_FOUND;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1170;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.SQL_STATE_FILE_NOT_FOUND;
+
 import java.util.EnumSet;
 
 import com.hierynomus.msdtyp.AccessMask;
 import com.hierynomus.mssmb2.SMB2ShareAccess;
+import com.hierynomus.mssmb2.SMBApiException;
 import com.hierynomus.smbj.share.DiskShare;
 import com.hierynomus.smbj.share.File;
 
@@ -49,8 +55,16 @@ public class OraCdcRedoSmbjReader implements OraCdcRedoReader {
 					"SMBJ", Integer.MIN_VALUE);
 		}
 		needToreadAhead = true;
-		file = share.openFile(redoLog,
+		try {
+			file = share.openFile(redoLog,
 				EnumSet.of(AccessMask.FILE_READ_DATA), null, SMB2ShareAccess.ALL, null, null);
+		} catch (SMBApiException smbae) {
+			if (smbae.getStatus() == STATUS_ACCESS_DENIED ||
+					smbae.getStatus() == STATUS_OBJECT_PATH_NOT_FOUND)
+				throw new SQLException(redoLog, SQL_STATE_FILE_NOT_FOUND, ORA_1170, smbae);
+			else
+				throw new SQLException(smbae);
+		}
 		currentBlock = 1;
 		startPos = 1;		
 	}

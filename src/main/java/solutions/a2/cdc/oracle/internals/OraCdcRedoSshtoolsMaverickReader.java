@@ -13,6 +13,10 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static com.sshtools.common.sftp.SftpStatusException.SSH_FX_NO_SUCH_FILE;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1170;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.SQL_STATE_FILE_NOT_FOUND;
+
 import java.io.InputStream;
 import java.sql.SQLException;
 
@@ -39,8 +43,13 @@ public class OraCdcRedoSshtoolsMaverickReader implements OraCdcRedoReader {
 		this.sftp = sftp;
 		try {
 			is = sftp.getInputStream(redoLog);
-		} catch (SshException | SftpStatusException e) {
-			throw new SQLException(e);
+		} catch (SftpStatusException sftps) {
+			if (sftps.getStatus() == SSH_FX_NO_SUCH_FILE)
+				throw new SQLException(redoLog, SQL_STATE_FILE_NOT_FOUND, ORA_1170, sftps);
+			else
+				throw new SQLException(sftps);
+		} catch (SshException sshe) {
+			throw new SQLException(sshe);
 		}
 		try {
 			if (is.skip(blockSize) != blockSize) {

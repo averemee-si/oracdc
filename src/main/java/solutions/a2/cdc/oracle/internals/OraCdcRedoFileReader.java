@@ -13,9 +13,13 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1170;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.SQL_STATE_FILE_NOT_FOUND;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.sql.SQLException;
@@ -32,6 +36,8 @@ public class OraCdcRedoFileReader implements OraCdcRedoReader {
 			if (is.skip(blockSize) != blockSize) {
 				throw new SQLException("Unable to skip " + blockSize + " bytes!");
 			}
+		} catch (NoSuchFileException nsfe) {
+			throw new SQLException(nsfe.getFile(), SQL_STATE_FILE_NOT_FOUND, ORA_1170, nsfe);
 		} catch (IOException ioe) {
 			throw new SQLException(ioe);
 		}

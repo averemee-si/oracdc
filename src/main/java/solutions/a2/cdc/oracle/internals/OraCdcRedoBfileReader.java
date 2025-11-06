@@ -26,6 +26,7 @@ import solutions.a2.utils.ExceptionUtils;
 
 import static oracle.jdbc.LargeObjectAccessMode.MODE_READONLY;
 import static oracle.jdbc.OracleTypes.BFILE;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_22288;
 
 public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 
@@ -149,7 +150,18 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 	}
 
 	private void printUnableToOpenMessage(SQLException sqle) {
-		LOGGER.error(
+		if (sqle.getErrorCode() == ORA_22288)
+			LOGGER.error(
+				"""
+				
+				=====================
+				Unable to open '{}' in directory {}: SQL Error Code={}, SQL State='{}'
+				=====================
+				
+				""",
+				redoLog, directory, sqle.getErrorCode(), sqle.getSQLState());
+		else
+			LOGGER.error(
 				"""
 				
 				=====================
@@ -158,8 +170,7 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 				{}
 				=====================
 				
-				""",
-				redoLog, directory, sqle.getErrorCode(), sqle.getSQLState(),
+				""", redoLog, directory, sqle.getErrorCode(), sqle.getSQLState(),
 				sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 	}
 

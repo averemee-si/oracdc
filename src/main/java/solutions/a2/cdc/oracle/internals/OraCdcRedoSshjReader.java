@@ -13,6 +13,10 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static net.schmizz.sshj.sftp.Response.StatusCode.NO_SUCH_FILE;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1170;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.SQL_STATE_FILE_NOT_FOUND;
+
 import java.util.EnumSet;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -22,6 +26,7 @@ import java.sql.SQLException;
 import net.schmizz.sshj.sftp.OpenMode;
 import net.schmizz.sshj.sftp.RemoteFile;
 import net.schmizz.sshj.sftp.SFTPClient;
+import net.schmizz.sshj.sftp.SFTPException;
 
 public class OraCdcRedoSshjReader implements OraCdcRedoReader {
 
@@ -50,6 +55,11 @@ public class OraCdcRedoSshjReader implements OraCdcRedoReader {
 			} else {
 				throw rlf.disconnectException();
 			}
+		} catch (SFTPException sftpe) {
+			if (sftpe.getStatusCode() == NO_SUCH_FILE)
+				throw new SQLException(redoLog, SQL_STATE_FILE_NOT_FOUND, ORA_1170, sftpe);
+			else
+				throw new SQLException(sftpe);
 		} catch (IOException ioe) {
 			throw new SQLException(ioe);
 		}
