@@ -1008,8 +1008,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private void redoMinerNext(final long startScn, final RedoByteAddress startRba, final long startSubScn, final boolean rewind) {
-		int attempt = 0;
-		final long redoMinerReadyStart = System.currentTimeMillis();
+		var attempt = 0;
+		final var redoMinerReadyStart = System.currentTimeMillis();
 		redoMinerReady = false;
 		while (!redoMinerReady && runLatch.getCount() > 0) {
 			try {
@@ -1030,10 +1030,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
 				if (attempt > Byte.MAX_VALUE && runLatch.getCount() > 0) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to execute redoMiner.next() (attempt #{}) after {} ms.\n" +
-							"\n=====================\n",
-							attempt, System.currentTimeMillis() - redoMinerReadyStart);
+							"""
+							
+							=====================
+							Unable to execute redoMiner.next() (attempt #{}) after {} ms.
+							=====================
+							
+							""", attempt, System.currentTimeMillis() - redoMinerReadyStart);
 					throw new ConnectException(sqle);
 				} else if (runLatch.getCount() < 1)
 					return;
@@ -1044,28 +1047,43 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					if (LOGGER.isDebugEnabled()) LOGGER.debug("Waiting for rewind {} ms", SMALL_MAGIC_WAIT);
 					continue;
 				}
-				else
-					LOGGER.error(
-							"\n=====================\n" +
-							"Failed to execute redoMiner.next() (attempt #{}) due to '{}'.\n" +
-							"oracdc will try again to execute redoMiner.next() in {} ms." + 
-							"\n=====================\n",
-							attempt, sqle.getMessage(), backofMs);
+				else {
+					if (redoMiner.waitOnError())
+						LOGGER.error(
+							"""
+							
+							=====================
+							Failed to execute redoMiner.next() (attempt #{}) due to '{}'.
+							oracdc will try again to execute redoMiner.next() in {} ms. 
+							=====================
+							
+							""", attempt, sqle.getMessage(), backofMs);
+				}
 			}
-			if (!redoMinerReady && runLatch.getCount() > 0) {
-				if (LOGGER.isDebugEnabled()) LOGGER.debug("Waiting {} ms", backofMs);
-				synchronized(this) {
-					try {wait(backofMs); } catch (InterruptedException ie) {}
+			if (redoMiner.waitOnError()) {
+				if (!redoMinerReady && runLatch.getCount() > 0) {
+					if (LOGGER.isDebugEnabled()) LOGGER.debug("Waiting {} ms", backofMs);
+					synchronized(this) {
+						try {wait(backofMs); } catch (InterruptedException ie) {}
+					}
+					try {
+						redoMiner.resetRedoLogFactory(startScn, startRba);
+					} catch (SQLException sqle) {
+						LOGGER.error(
+								"""
+								
+								=====================
+								'{}' while resetting RLF!
+								errorCode={}, SQLState='{}'. 
+								=====================
+								
+								""", sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+						if (LOGGER.isDebugEnabled())
+							LOGGER.debug("Stack trace for RLF reset:\n{}\n",
+									sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
+					}
+					attempt++;
 				}
-				try {
-					redoMiner.resetRedoLogFactory(startScn, startRba);
-				} catch (SQLException sqle) {
-					LOGGER.error("'{}' while resetting RLF!", sqle.getMessage());
-					if (LOGGER.isDebugEnabled())
-						LOGGER.debug("Stack trace for RLF reset:\n{}\n",
-								sqle.getMessage(), ExceptionUtils.getExceptionStackTrace(sqle));
-				}
-				attempt++;
 			}
 		}
 	}

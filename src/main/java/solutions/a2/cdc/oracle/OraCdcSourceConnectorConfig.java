@@ -484,6 +484,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			Use this parameter only after consulting with us via email at oracle@a2.solutions or by scheduling a meeting on our website at https://a2.solutions.
 			Default - """ + SUPPLEMENTAL_LOGGING_DEFAULT;
 
+	private static final boolean STOP_ON_MISSED_LOG_FILE_DEFAULT = true; 
+	private static final String STOP_ON_MISSED_LOG_FILE_PARAM = "a2.stop.on.missed_log.file";
+	private static final String STOP_ON_MISSED_LOG_FILE_DOC = 
+			"""
+			When the parameter value is set to true, the connector stops if it cannot open a redo log file whose description is present in the data dictionary.
+			When the parameter value is set to false, the connector attempts to continue using the next redo log file (with a SEQUENCE# value greater than that of the missing redo log file).
+			Default - """ + STOP_ON_MISSED_LOG_FILE_DEFAULT;
+
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
@@ -639,7 +647,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						ConfigDef.ValidString.in(
 								SUPPLEMENTAL_LOGGING_ALL,
 								SUPPLEMENTAL_LOGGING_NONE),
-						HIGH, SUPPLEMENTAL_LOGGING_DOC);
+						HIGH, SUPPLEMENTAL_LOGGING_DOC)
+				.define(STOP_ON_MISSED_LOG_FILE_PARAM, BOOLEAN, STOP_ON_MISSED_LOG_FILE_DEFAULT, HIGH, STOP_ON_MISSED_LOG_FILE_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<String, String> originals) {
@@ -1633,6 +1642,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public boolean supplementalLogAll() {
 		return Strings.CI.equals(getString(SUPPLEMENTAL_LOGGING_PARAM), SUPPLEMENTAL_LOGGING_ALL);
+	}
+
+	public boolean stopOnMissedLogFile() {
+		return getBoolean(STOP_ON_MISSED_LOG_FILE_PARAM);
 	}
 
 }
