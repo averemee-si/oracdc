@@ -22,6 +22,7 @@ import static java.sql.Types.INTEGER;
 import static java.sql.Types.BIGINT;
 import static java.sql.Types.FLOAT;
 import static java.sql.Types.DOUBLE;
+import static java.sql.Types.NUMERIC;
 import static java.sql.Types.DATE;
 import static java.sql.Types.TIMESTAMP;
 import static java.sql.Types.BLOB;
@@ -38,6 +39,7 @@ import static oracle.jdbc.OracleTypes.VECTOR;
 import static oracle.sql.NUMBER.toBigDecimal;
 import static oracle.sql.NUMBER.toDouble;
 import static oracle.sql.NUMBER.toFloat;
+import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING;
 import static solutions.a2.cdc.oracle.OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toByte;
@@ -214,9 +216,13 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var struct = new Struct(schema);
-						struct.put("V", toBoolean(raw, off, len));
-						return struct;
+						try {
+							final var struct = new Struct(schema);
+							struct.put("V", toBoolean(raw, off, len));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, false, jdbcType);
+						}
 					}
 				};
 			}
@@ -224,9 +230,13 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var struct = new Struct(schema);
-						struct.put("V", toByte(raw, off, len));
-						return struct;
+						try {
+							final var struct = new Struct(schema);
+							struct.put("V", toByte(raw, off, len));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, false, jdbcType);
+						}
 					}
 				};
 			}
@@ -234,9 +244,13 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var struct = new Struct(schema);
-						struct.put("V", toShort(raw, off, len));
-						return struct;
+						try {
+							final var struct = new Struct(schema);
+							struct.put("V", toShort(raw, off, len));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, false, jdbcType);
+						}
 					}
 				};
 			}
@@ -244,9 +258,13 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var struct = new Struct(schema);
-						struct.put("V", toInt(raw, off, len));
-						return struct;
+						try {
+							final var struct = new Struct(schema);
+							struct.put("V", toInt(raw, off, len));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, false, jdbcType);
+						}
 					}
 				};
 			}
@@ -254,9 +272,13 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var struct = new Struct(schema);
-						struct.put("V", toLong(raw, off, len));
-						return struct;
+						try {
+							final var struct = new Struct(schema);
+							struct.put("V", toLong(raw, off, len));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, false, jdbcType);
+						}
 					}
 				};
 			}
@@ -270,7 +292,7 @@ public class OraCdcDecoderFactory {
 							struct.put("V", bf.floatValue());
 							return struct;
 						} catch (Exception e) {
-							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
+							throw new SQLException("Invalid Oracle BINARY_FLOAT data " + rawToHex(raw), e);
 						}
 					}
 					@Override
@@ -281,7 +303,7 @@ public class OraCdcDecoderFactory {
 							struct.put("V", bf.floatValue());
 							return struct;
 						} catch (Exception e) {
-							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
+							throw new SQLException("Invalid Oracle BINARY_FLOAT data " + rawToHex(raw), e);
 						}
 					}
 				};
@@ -296,7 +318,7 @@ public class OraCdcDecoderFactory {
 							struct.put("V", bd.doubleValue());
 							return struct;
 						} catch (Exception e) {
-							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
+							throw new SQLException("Invalid Oracle BINARY_DOUBLE data " + rawToHex(raw), e);
 						}
 					}
 					@Override
@@ -307,7 +329,7 @@ public class OraCdcDecoderFactory {
 							struct.put("V", bd.doubleValue());
 							return struct;
 						} catch (Exception e) {
-							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
+							throw new SQLException("Invalid Oracle BINARY_DOUBLE data " + rawToHex(raw), e);
 						}
 					}
 				};
@@ -361,8 +383,11 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						return toByte(plaintext, 0, plaintext.length);
+						try {
+							return toByte(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted));
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};
 			}
@@ -370,8 +395,11 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						return toShort(plaintext, 0, plaintext.length);
+						try {
+							return toShort(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted));
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};
 			}
@@ -379,8 +407,11 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						return toInt(plaintext, 0, plaintext.length);
+						try {
+							return toInt(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted));
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};
 			}
@@ -388,8 +419,11 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						return toLong(plaintext, 0, plaintext.length);
+						try {
+							return toLong(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted));
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};
 			}
@@ -397,8 +431,11 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						return toFloat(plaintext);
+						try {
+							return toFloat(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted));
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};
 			}
@@ -406,20 +443,20 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted);
 						try {
-							var bf = new BINARY_FLOAT(plaintext);
-							return bf.floatValue();
+							return new BINARY_FLOAT(
+										decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted))
+									.floatValue();
 						} catch (Exception e) {
 							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
 						}
 					}
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
 						try {
-							var bf = new BINARY_FLOAT(plaintext);
-							return bf.floatValue();
+							return new BINARY_FLOAT(
+									decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted))
+								.floatValue();
 						} catch (Exception e) {
 							throw new SQLException("Invalid Oracle BINARY_FLOAT encrypted data " + rawToHex(raw), e);
 						}
@@ -430,8 +467,11 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						return toDouble(plaintext);
+						try {
+							return toDouble(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted));
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};
 			}
@@ -439,20 +479,20 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted);
 						try {
-							var bd = new BINARY_DOUBLE(plaintext);
-							return bd.doubleValue();
+							return new BINARY_DOUBLE(
+									decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted))
+									.doubleValue();
 						} catch (Exception e) {
 							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
 						}
 					}
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
 						try {
-							var bd = new BINARY_DOUBLE(plaintext);
-							return bd.doubleValue();
+							return new BINARY_DOUBLE(
+									decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted))
+									.doubleValue();
 						} catch (Exception e) {
 							throw new SQLException("Invalid Oracle BINARY_DOUBLE encrypted data " + rawToHex(raw), e);
 						}
@@ -660,10 +700,13 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var struct = new Struct(schema);
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						struct.put("V", toByte(plaintext, 0, plaintext.length));
-						return struct;
+						try {
+							final var struct = new Struct(schema);
+							struct.put("V", toByte(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted)));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};						
 			}
@@ -671,10 +714,13 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var struct = new Struct(schema);
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						struct.put("V", toShort(plaintext, 0, plaintext.length));
-						return struct;
+						try {
+							final var struct = new Struct(schema);
+							struct.put("V", toShort(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted)));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};						
 			}
@@ -682,10 +728,13 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var struct = new Struct(schema);
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						struct.put("V", toInt(plaintext, 0, plaintext.length));
-						return struct;
+						try {
+							final var struct = new Struct(schema);
+							struct.put("V", toInt(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted)));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};						
 			}
@@ -693,10 +742,13 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-						final var struct = new Struct(schema);
-						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						struct.put("V", toLong(plaintext, 0, plaintext.length));
-						return struct;
+						try {
+							final var struct = new Struct(schema);
+							struct.put("V", toLong(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted)));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
 					}
 				};						
 			}
@@ -912,17 +964,25 @@ public class OraCdcDecoderFactory {
 		return new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw) throws SQLException {
-				var bd = toBigDecimal(raw);
-				if (bd.scale() == scale)
-					return bd;
-				else if (bd.scale() > scale)
-					return bd.setScale(scale, RoundingMode.HALF_UP);
-				else
-					return bd.setScale(scale, RoundingMode.UNNECESSARY);
+				try {
+					var bd = toBigDecimal(raw);
+					if (bd.scale() == scale)
+						return bd;
+					else if (bd.scale() > scale)
+						return bd.setScale(scale, RoundingMode.HALF_UP);
+					else
+						return bd.setScale(scale, RoundingMode.UNNECESSARY);
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, 0, raw.length, false, NUMERIC);
+				}
 			}
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return decode(Arrays.copyOfRange(raw, off, off + len));
+				try {
+					return decode(Arrays.copyOfRange(raw, off, off + len));
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, off, len, false, NUMERIC);
+				}
 			}
 		};
 	}
@@ -931,18 +991,25 @@ public class OraCdcDecoderFactory {
 		return new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw) throws SQLException {
-				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted);
-				var bd = toBigDecimal(plaintext);
-				if (bd.scale() == scale)
-					return bd;
-				else if (bd.scale() > scale)
-					return bd.setScale(scale, RoundingMode.HALF_UP);
-				else
-					return bd.setScale(scale, RoundingMode.UNNECESSARY);
+				try {
+					var bd = toBigDecimal(decrypter.decrypt(Arrays.copyOfRange(raw, 0, raw.length), salted));
+					if (bd.scale() == scale)
+						return bd;
+					else if (bd.scale() > scale)
+						return bd.setScale(scale, RoundingMode.HALF_UP);
+					else
+						return bd.setScale(scale, RoundingMode.UNNECESSARY);
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, 0, raw.length, true, NUMERIC);
+				}
 			}
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return decode(Arrays.copyOfRange(raw, off, off + len));
+				try {
+					return decode(Arrays.copyOfRange(raw, off, off + len));
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, off, len, true, NUMERIC);
+				}
 			}
 		};
 	}
@@ -1063,85 +1130,141 @@ public class OraCdcDecoderFactory {
 			throw new SQLException("Incorrect value " + String.format("0x%02x", raw[off]) + " for BOOLEAN (252) data type!");
 	}
 
+	private static SQLException invalidNumberData(
+			final Exception e, final byte[] raw, final int off, final int len, final boolean enc, final int jdbcType) {
+		final var errMsg = new StringBuilder(0x80);
+		errMsg
+			.append("Invalid Oracle NUMBER")
+			.append(enc ? " encrypted " : " ")
+			.append("data '")
+			.append(rawToHex(Arrays.copyOfRange(raw, off, off + len)))
+			.append("' for ")
+			.append(getTypeName(jdbcType))
+			.append("!");
+		return new SQLException(errMsg.toString(), e);
+	}
+
 	static {
 		decoders.put(BOOLEAN, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return toBoolean(raw, off, len);
+				try {
+					return toBoolean(raw, off, len);
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, off, len, false, BOOLEAN);
+				}
 			}
 		});
 		decoders.put(TINYINT, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return toByte(raw, off, len);
+				try {
+					return toByte(raw, off, len);
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, off, len, false, TINYINT);
+				}
 			}
 		});
 		decoders.put(SMALLINT, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return toShort(raw, off, len);
+				try {
+					return toShort(raw, off, len);
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, off, len, false, SMALLINT);
+				}
 			}
 		});
 		decoders.put(INTEGER, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return toInt(raw, off, len);
+				try {
+					return toInt(raw, off, len);
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, off, len, false, INTEGER);
+				}
 			}
 		});
 		decoders.put(BIGINT, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return toLong(raw, off, len);
+				try {
+					return toLong(raw, off, len);
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, off, len, false, BIGINT);
+				}
 			}
 		});
 		decoders.put(FLOAT, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw) throws SQLException {
-				return toFloat(raw);
+				try {
+					return toFloat(raw);
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, 0, raw.length, false, FLOAT);
+				}
 			}
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return decode(Arrays.copyOfRange(raw, off, off + len));
+				try {
+					return decode(Arrays.copyOfRange(raw, off, off + len));
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, off, len, false, FLOAT);
+				}
 			}
 		});
 		decoders.put(BINARY_FLOAT, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw) throws SQLException {
 				try {
-					BINARY_FLOAT bf = new BINARY_FLOAT(raw);
-					return bf.floatValue();
+					return new BINARY_FLOAT(raw).floatValue();
 				} catch (Exception e) {
 					throw new SQLException("Invalid Oracle BINARY_FLOAT data " + rawToHex(raw), e);
 				}
 			}
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return decode(Arrays.copyOfRange(raw, off, off + len));
+				try {
+					return new BINARY_FLOAT(Arrays.copyOfRange(raw, off, off + len)).floatValue();
+				} catch (Exception e) {
+					throw new SQLException("Invalid Oracle BINARY_FLOAT data " + rawToHex(raw), e);
+				}
 			}
 		});
 		decoders.put(DOUBLE, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw) throws SQLException {
-				return toDouble(raw);
+				try {
+					return toDouble(raw);
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, 0, raw.length, false, DOUBLE);
+				}
 			}
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return decode(Arrays.copyOfRange(raw, off, off + len));
+				try {
+					return toDouble(Arrays.copyOfRange(raw, off, off + len));
+				} catch (Exception e) {
+					throw invalidNumberData(e, raw, off, len, false, DOUBLE);
+				}
 			}
 		});
 		decoders.put(BINARY_DOUBLE, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw) throws SQLException {
 				try {
-					BINARY_DOUBLE bd = new BINARY_DOUBLE(raw);
-					return bd.doubleValue();
+					return new BINARY_DOUBLE(raw).doubleValue();
 				} catch (Exception e) {
 					throw new SQLException("Invalid Oracle BINARY_DOUBLE data " + rawToHex(raw), e);
 				}
 			}
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
-				return decode(Arrays.copyOfRange(raw, off, off + len));
+				try {
+					return new BINARY_DOUBLE(Arrays.copyOfRange(raw, off, off + len)).doubleValue();
+				} catch (Exception e) {
+					throw new SQLException("Invalid Oracle BINARY_DOUBLE data " + rawToHex(raw), e);
+				}
 			}
 		});
 		decoders.put(DATE, new OraCdcDecoder() {
