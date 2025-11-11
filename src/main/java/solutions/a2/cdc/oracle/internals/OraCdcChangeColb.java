@@ -13,9 +13,6 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.UndoByteAddress;
 import solutions.a2.oracle.internals.Xid;
@@ -36,35 +33,25 @@ import solutions.a2.oracle.utils.FormattingUtils;
 
 public class OraCdcChangeColb extends OraCdcChange {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeColb.class);
-
 	public static final int LONG_DUMP_SIZE = 0x24;
 
 	private static final int BLOCK_DUMP_MIN_SIZE = 0x18;
 
 	private final boolean longDump;
 	private int lobPageNo;
-	private short itc;
+	private byte itc;
 	private short headerSize;
 
 	OraCdcChangeColb(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
-		if (coords.length < 1) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse mandatory elements for 19.1 (KCBLCOLB) #{} at RBA {} in '{}'.\n" +
-					"Change contents:\n{}\n" +
-					"=====================\n",
-					num, rba, redoLog.fileName(), binaryDump());
-			throw new IllegalArgumentException();
-		}
+		elementNumberCheck(1);
 		if (coords.length > 1 && record[coords[1][0]] == 0x6) {
 			longDump = false;
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, BLOCK_DUMP_MIN_SIZE, "");
 			obj = redoLog.bu().getU32(record, coords[0][0] + 0x4);
-			itc = redoLog.bu().getU16(record, coords[0][0] + 0x10);
+			itc = record[coords[0][0] + 0x10];
 			bdba = redoLog.bu().getU32(record, coords[0][0] + 0x14);
-			lobDataOffset = (BLOCK_DUMP_MIN_SIZE + itc * 0x1A + 7) & 0xFFFFFFF8;
+			lobDataOffset = (BLOCK_DUMP_MIN_SIZE + Byte.toUnsignedInt(itc) * 0x1A + 7) & 0xFFFFFFF8;
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, lobDataOffset + 8, "");
 			headerSize = redoLog.bu().getU16(record, coords[0][0] + lobDataOffset + 0x6);
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, lobDataOffset + headerSize, "");
@@ -125,14 +112,14 @@ public class OraCdcChangeColb extends OraCdcChange {
 			FormattingUtils.leftPad(sb, redoLog.bu().getScn(record, coords[0][0] + 0x8), 0x10);
 			sb
 				.append("  itc: ")
-				.append(Short.toUnsignedInt(itc))
+				.append(Byte.toUnsignedInt(itc))
 				//TODO flg: E  typ: 1 - DATA
 				.append("\n     brn: 0  bdba: 0x")	//TODO brn
 				//TODO ver: 0x01 opc: 0
 				//TODO inc: 0  exflg: 0
 				.append(String.format("%08x", Integer.toUnsignedLong(bdba)))
 				.append("\n\n Itl           Xid                  Uba         Flag  Lck        Scn/Fsc");
-			for (int i = 0; i < Short.toUnsignedInt(itc); i++) {
+			for (int i = 0; i < Byte.toUnsignedInt(itc); i++) {
 				final int startPos = coords[0][0] + BLOCK_DUMP_MIN_SIZE + i * 0x1A;
 				short lock = redoLog.bu().getU16(record, startPos + 0x10);
 				final StringBuilder flags = new StringBuilder();
