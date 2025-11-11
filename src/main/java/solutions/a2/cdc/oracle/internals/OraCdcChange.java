@@ -15,6 +15,7 @@ package solutions.a2.cdc.oracle.internals;
 
 import static solutions.a2.oracle.utils.BinaryUtils.putOraColSize;
 import static solutions.a2.oracle.utils.BinaryUtils.putU16;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -258,12 +259,19 @@ public class OraCdcChange {
 	void elementNumberCheck(final int minElements) {
 		if (coords.length < minElements) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse OP:{} for change #{} at RBA {} in '{}'.\n" +
-					"Actual number of elements {} is smaller than required {}!" +
-					"Change contents:\n{}\n" +
-					"=====================\n",
-					formatOpCode(operation), num, rba, redoLog.fileName(), coords.length, binaryDump());
+					"""
+					
+					=====================
+					Unable to parse OP:{} for change #{} at RBA {} in '{}'.
+					Actual number of elements {} is smaller than required {}!
+					Change contents:
+					{}
+					Redo record contents:
+					{}
+					=====================
+					
+					""", formatOpCode(operation), num, rba, redoLog.fileName(),
+						coords.length, binaryDump(), rawToHex(record));
 			throw new IllegalArgumentException();
 		}
 	}
@@ -271,12 +279,19 @@ public class OraCdcChange {
 	void elementLengthCheck(final String part, final String abbreviation, final int index, final int minLength, final String addClause) {
 		if (coords[index][1] < minLength) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse '{}' {} element for change #{} at RBA {} in '{}'.\n" +
-					"Actual size {} is smaller than required {}{}!" +
-					"Change contents:\n{}\n" +
-					"\n=====================\n",
-					part, abbreviation, num, rba, redoLog.fileName(), coords[index][1], minLength, addClause, binaryDump());
+					"""
+					
+					=====================
+					Unable to parse '{}' {} element for change #{} at RBA {} in '{}'.
+					Actual size {} is smaller than required {}{}!" +
+					Change contents:
+					{}
+					Redo record contents:
+					{}
+					=====================
+					
+					""", part, abbreviation, num, rba, redoLog.fileName(), coords[index][1],
+						minLength, addClause, binaryDump(), rawToHex(record));
 			throw new IllegalArgumentException();
 		}
 	}
