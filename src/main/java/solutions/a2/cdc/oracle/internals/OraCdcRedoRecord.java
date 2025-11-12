@@ -45,10 +45,15 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_6_DLR10;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_8_XML;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_6_BIMG;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
+import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
@@ -69,6 +74,8 @@ import solutions.a2.oracle.utils.FormattingUtils;
  */
 
 public class OraCdcRedoRecord {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoRecord.class);
 
 	/* VLD field constants */
 	/** The contents are not valid */
@@ -115,9 +122,6 @@ public class OraCdcRedoRecord {
 	private int indKCOCODLB = -1;
 	private int indKCOCODIX = -1;
 
-	boolean supplementalLogData = false;
-	byte supplementalFb = 0;
-
 	OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn) {
 		this.redoLog = redoLog;
 		this.scn = scn;
@@ -158,84 +162,82 @@ public class OraCdcRedoRecord {
 					(Byte.toUnsignedInt(layer) << 8 )| Byte.toUnsignedInt(record[offset + 0x01]));
 			final OraCdcChange change;
 			switch (operation) {
-			case _5_1_RDB:
-				change = new OraCdcChangeUndoBlock(changeNo, this, operation, record, offset, changeHeaderLen);
-				supplementalLogData = ((OraCdcChangeUndoBlock)change).supplementalLogData;
-				supplementalFb = ((OraCdcChangeUndoBlock)change).supplementalFb;
-				indKTURDB = changeNo - 1;
-				break;
-			case _5_2_RDH:
-				change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
-				break;
-			case _5_4_RCM:
-				change = new OraCdcChangeRcm(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKTURCM = changeNo - 1;
-				break;
-			case _5_6_IRB:
-			case _5_11_BRB:
-				change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKTUIRB = changeNo - 1;
-				break;
-			case _5_19_TSL:
-			case _5_20_TSC:
-				change = new OraCdcChangeAudit(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKTUTSL = changeNo - 1;
-				break;
-			case _10_2_LIN:
-			case _10_4_LDE:
-			case _10_18_LUP:
-			case _10_30_LNU:
-			case _10_35_LCU:
-				change = new OraCdcChangeIndexOp(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKCOCODIX = changeNo - 1;
-				break;
-			case _11_2_IRP:
-			case _11_3_DRP:
-			case _11_4_LKR:
-			case _11_5_URP:
-			case _11_6_ORP:
-			case _11_8_CFA:
-			case _11_11_QMI:
-			case _11_10_SKL:
-			case _11_12_QMD:
-			case _11_16_LMN:
-			case _11_22_CMP:
-				change = new OraCdcChangeRowOp(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKCOCODRW = changeNo - 1;
-				break;
-			case _11_17_LLB:
-				change = new OraCdcChangeLlb(changeNo, this, operation, record, offset, changeHeaderLen);
-				indLLB = changeNo - 1;
-				break;
-			case _24_1_DDL:
-				change = new OraCdcChangeDdl(changeNo, this, operation, record, offset, changeHeaderLen);
-				if (((OraCdcChangeDdl)change).valid()) {
-					indDDL = changeNo - 1;
+				case _5_1_RDB -> {
+					change = new OraCdcChangeUndoBlock(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKTURDB = changeNo - 1;
 				}
-				break;
-			case _24_4_MISC:
-				change = new OraCdcChangeKrvMisc(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKRVMISC = changeNo - 1;
-				break;
-			case _24_6_DLR10:
-				change = new OraCdcChangeKrvDlr10(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKRVDLR10 = changeNo - 1;
-				break;
-			case _24_8_XML:
-				change = new OraCdcChangeKrvXml(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKRVXML = changeNo - 1;
-				break;
-			case _26_2_REDO:
-			case _26_6_BIMG:
-				change = new OraCdcChangeLobs(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKCOCOLOB = changeNo - 1;
-				break;
-			case _19_1_COLB:
-				change = new OraCdcChangeColb(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKCOCODLB = changeNo - 1;
-				break;
-			default:
-				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
+				case _5_2_RDH -> {
+					change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
+				}
+				case _5_4_RCM -> {
+					change = new OraCdcChangeRcm(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKTURCM = changeNo - 1;
+				}
+				case _5_6_IRB, _5_11_BRB -> {
+					change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKTUIRB = changeNo - 1;
+				}
+				case _5_19_TSL, _5_20_TSC -> {
+					change = new OraCdcChangeAudit(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKTUTSL = changeNo - 1;
+				}
+				case _10_2_LIN, _10_4_LDE, _10_18_LUP, _10_30_LNU, _10_35_LCU -> {
+					change = new OraCdcChangeIndexOp(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKCOCODIX = changeNo - 1;
+				}
+				case _11_2_IRP, _11_3_DRP, _11_4_LKR, _11_5_URP, _11_6_ORP, _11_8_CFA,
+					_11_11_QMI, _11_10_SKL, _11_12_QMD, _11_16_LMN, _11_22_CMP -> {
+						change = new OraCdcChangeRowOp(changeNo, this, operation, record, offset, changeHeaderLen);
+						indKCOCODRW = changeNo - 1;
+				}
+				case _11_17_LLB -> {
+					change = new OraCdcChangeLlb(changeNo, this, operation, record, offset, changeHeaderLen);
+					indLLB = changeNo - 1;
+				}
+				case _24_1_DDL -> {
+					change = new OraCdcChangeDdl(changeNo, this, operation, record, offset, changeHeaderLen);
+					if (((OraCdcChangeDdl)change).valid())
+						indDDL = changeNo - 1;
+				}
+				case _24_4_MISC -> {
+					change = new OraCdcChangeKrvMisc(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKRVMISC = changeNo - 1;
+				}
+				case _24_6_DLR10 -> {
+					change = new OraCdcChangeKrvDlr10(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKRVDLR10 = changeNo - 1;
+				}
+				case _24_8_XML -> {
+					change = new OraCdcChangeKrvXml(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKRVXML = changeNo - 1;
+				}
+				case _26_2_REDO, _26_6_BIMG -> {
+					change = new OraCdcChangeLobs(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKCOCOLOB = changeNo - 1;
+				}
+				case _19_1_COLB -> {
+					change = new OraCdcChangeColb(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKCOCODLB = changeNo - 1;
+				}
+				default -> {
+					try {
+						change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
+					} catch (Exception e) {
+						LOGGER.error(
+								"""
+								
+								=====================
+								'{}' while parsing change# {} OP:{} at RBA={}, SCN={}, SUBSCN={} in '{}'
+								Erorstack:
+								{}
+								=====================
+								
+								""", e.getMessage(), changeNo, formatOpCode(operation), rba,
+									Long.toUnsignedString(scn), Short.toUnsignedInt(subScn),
+									redoLog.fileName(), getExceptionStackTrace(e));
+						throw e;
+					}
+				}
 			}
 			changeVectors.add(change);
 			if (has5_1() && layer == KCOCODRW) {
@@ -474,10 +476,6 @@ public class OraCdcRedoRecord {
 
 	public OraCdcRedoLog redoLog() {
 		return redoLog;
-	}
-
-	public boolean supplementalLogData() {
-		return supplementalLogData;
 	}
 
 	public int conUid() {

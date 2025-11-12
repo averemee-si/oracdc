@@ -670,7 +670,7 @@ public abstract class OraCdcTransaction {
 							printFbFlags(fbLmn),record.rba(), record.scn(), record.xid(), record.redoLog().fileName());
 				}
 			}
-		} else if (record.supplementalLogData()) {
+		} else if (record.has5_1() && record.change5_1().supplementalLogData()) {
 			if (flgFirstPart(fbLmn) && !flgNextPart(fbLmn)) {
 				processRowChange(record, false, lwnUnixMillis);
 			} else if (flgFirstPart(fbLmn) && flgNextPart(fbLmn)) {

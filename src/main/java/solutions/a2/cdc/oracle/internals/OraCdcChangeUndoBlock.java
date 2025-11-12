@@ -57,8 +57,8 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	public static final byte KDICLNU = 0x1E;
 	public static final byte KDILCNU = 0x23;
 
-	boolean supplementalLogData = false;
-	byte supplementalFb = 0;
+	private boolean supplementalLogData = false;
+	private byte supplementalFb = 0;
 	short supplementalSlot = -1;
 	int supplementalBdba;
 	int supplementalCc = 0;
@@ -498,52 +498,13 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			}
 		}
 	}
-/*
-	public void writeSupplementalCols(final ByteArrayOutputStream baos) throws IOException {
-		if (supplementalCc == 0)
-			return;
-		final int colNumIndex = suppDataStartIndex + 1;
-		if (kdilkType == KDILCNU) {
-			for (int i = 0; i < supplementalCc; i++) {
-				final int colNum = redoLog.bu().getU16(record, coords[colNumIndex][0] + i * Short.BYTES);
-				putU16(baos, colNum);
-				final int colSize = redoLog.bu().getU16(record, coords[suppDataStartIndex + 2][0] + i * Short.BYTES);
-				if (colSize == 0) {
-					baos.write(0xFF);
-				} else {
-					putOraColSize(baos, colSize);
-					baos.write(record, coords[suppDataStartIndex + 3 + i][0], colSize);
-				}
-			}
-		} else {
-			final int dataEndPos = supplementalCc + suppDataStartIndex + 0x3;
-			int colIndex = 0;
-			for (int i = suppDataStartIndex + 0x3; i < dataEndPos; i++) {
-				if (i < coords.length) {
-					final int colNum = redoLog.bu().getU16(record, coords[colNumIndex][0] + colIndex * Short.BYTES);
-					putU16(baos, colNum);
-					if (colIndex < supplementalCcNn) {
-						final int colSize = coords[i][1];
-						if (colSize == 0) {
-							baos.write(0xFF);
-						} else {
-							putOraColSize(baos, colSize);
-							baos.write(record, coords[i][0], colSize);
-						}
-					} else {
-						baos.write(0xFF);
-					}
-					colIndex++;
-				} else {
-					LOGGER.warn("Incorrect index {} when processing redo record at rba {}", i, rba);
-					break;
-				}
-			}
-		}
-	}
-*/
+
 	public byte kdilkType() {
 		return kdilkType;
+	}
+
+	public boolean supplementalLogData() {
+		return supplementalLogData;
 	}
 
 }
