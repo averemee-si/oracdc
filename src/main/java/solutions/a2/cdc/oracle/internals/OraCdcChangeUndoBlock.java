@@ -41,7 +41,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	public static final int NON_KEY_10_30_POS = 5;
 	public static final int KEY_10_30_POS = 4;
 	public static final int COL_NUM_10_35_POS = 5;
-	public static final byte SUPPL_LOG_DELETE = 0x4;
+	static final byte SUPPL_LOG_DELETE = 0x4;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndoBlock.class);
 	private static final int SUPPL_LOG_MIN_LENGTH = 0x14;
@@ -156,7 +156,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					kdoOpCode = true;
 					final int selector = (op & 0x1F) | (KCOCODRW << 0x08);
 					if ((selector == _11_3_DRP ||
-							selector == _11_2_IRP ||
 							selector == _11_6_ORP ||
 							selector == _11_16_LMN ||
 							selector == _11_4_LKR) &&
@@ -173,6 +172,9 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 							coords.length > (5 + columnCountNn)) {
 						supplementalLogData = true;
 						suppDataStartIndex = 0x5 + columnCountNn; 
+					} else if (selector == _11_2_IRP && coords.length > (4 + columnCount)) {
+						supplementalLogData = true;
+						suppDataStartIndex = 0x4 + columnCount;
 					}
 
 					if (supplementalLogData) {
@@ -438,7 +440,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		}
 	}
 
-	public byte supplementalDataFor() {
+	byte supplementalDataFor() {
 		return record[coords[suppDataStartIndex][0]];
 	}
 
