@@ -749,17 +749,22 @@ public abstract class OraCdcTransaction {
 			case _11_5_URP:
 			case _11_16_LMN:
 				row.lmOp = UPDATE;
-				if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
+				if (undoChange.supplementalLogData()) {
+					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 						row.complete = true;
-				else if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
-						flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
-					row.complete = true;
-				else if (!flgHeadPart(undoChange.fb()))
-					row.oppositeOrder = true;
-				if (row.operation == _11_16_LMN) {
-					row.needHeadFlag = false;
-					if (!flgFirstPart(undoChange.fb()) || flgFirstPart(rowChange.fb()))
+					else if (!flgHeadPart(undoChange.fb()))
 						row.oppositeOrder = true;
+				} else {
+					if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
+							flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb())) {
+						row.complete = true;
+					} else if (!flgHeadPart(undoChange.fb()))
+						row.oppositeOrder = true;
+					if (row.operation == _11_16_LMN) {
+						row.needHeadFlag = false;
+						if (!flgFirstPart(undoChange.fb()) || flgFirstPart(rowChange.fb()))
+							row.oppositeOrder = true;
+					}
 				}
 				break;
 			case _11_2_IRP:
@@ -775,10 +780,17 @@ public abstract class OraCdcTransaction {
 				break;
 			case _11_3_DRP:
 				row.lmOp = DELETE;
-				if (flgHeadPart(undoChange.fb()) && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
-					row.complete = true;
-				else if (!flgHeadPart(undoChange.fb()))
-					row.oppositeOrder = true;
+				if (undoChange.supplementalLogData()) {
+					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
+						row.complete = true;
+					else if (!flgHeadPart(undoChange.fb()))
+						row.oppositeOrder = true;
+				} else {
+					if (flgHeadPart(undoChange.fb()) && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
+						row.complete = true;
+					else if (!flgHeadPart(undoChange.fb()))
+						row.oppositeOrder = true;
+				}
 				break;
 			case _10_2_LIN:
 				row.lmOp = INSERT;
@@ -1045,37 +1057,44 @@ public abstract class OraCdcTransaction {
 					}
 				} else if (!row.partialRollback) {
 					final OraCdcChangeUndoBlock change = rr.change5_1();
-					if (rowChange.operation() == _11_2_IRP) {
-						setOrValColCount += rowChange.columnCount();
-						setOrValColCount += change.supplementalCc();
-					} else if (rowChange.operation() == _11_6_ORP) {
-						whereColCount += change.columnCount();
-						whereColCount += change.supplementalCc();
-						whereColCount += rowChange.columnCount();
-					} else if (rowChange.operation() == _11_5_URP) {
-						setOrValColCount += rowChange.columnCount();
-						whereColCount += change.columnCount();
-						whereColCount += change.supplementalCc();						
-					} else if (rowChange.operation() == _10_2_LIN) {
-						setOrValColCount += rowChange.columnCount();
-					} else if (rowChange.operation() == _10_4_LDE) {
-						setOrValColCount += change.columnCount();
-					} else if (rowChange.operation() == _10_18_LUP) {
-						whereColCount += change.columnCount();
-					} else if (rowChange.operation() == _10_30_LNU ||
-								rowChange.operation() == _10_35_LCU) {
-						setOrValColCount += rowChange.columnCount();
-						whereColCount += change.columnCount();
-						whereColCount += change.supplementalCc();						
-					} else {
-						LOGGER.error(
-								"""
-								
-								=====================
-								Unable to count number of columns at RBA {} for OP:{}
-								=====================
-								
-								""", rr.rba(), formatOpCode(rowChange.operation()));
+					switch (rowChange.operation()) {
+						case _11_2_IRP -> {
+							setOrValColCount += rowChange.columnCount();
+							setOrValColCount += change.supplementalCc();
+						}
+						case _11_6_ORP -> {
+							whereColCount += change.columnCount();
+							whereColCount += change.supplementalCc();
+							whereColCount += rowChange.columnCount();
+						}
+						case _11_5_URP -> {
+							setOrValColCount += rowChange.columnCount();
+							whereColCount += change.columnCount();
+							whereColCount += change.supplementalCc();						
+						}
+						case _11_16_LMN -> {
+							if (LOGGER.isDebugEnabled())
+								LOGGER.debug("Skipping OP:11.16 column count at RBA {}",rr.rba());
+						}
+						case _10_2_LIN ->
+							setOrValColCount += rowChange.columnCount();
+						case _10_4_LDE ->
+							setOrValColCount += change.columnCount();
+						case _10_18_LUP ->
+							whereColCount += change.columnCount();
+						case _10_30_LNU, _10_35_LCU -> {
+							setOrValColCount += rowChange.columnCount();
+							whereColCount += change.columnCount();
+							whereColCount += change.supplementalCc();
+						}
+						default -> LOGGER.error(
+							"""
+							
+							=====================
+							Unable to count number of columns at RBA {} for OP:{}
+							=====================
+							
+							""", rr.rba(), formatOpCode(rowChange.operation()));
 					}
 				} else {
 					final StringBuilder sb = new StringBuilder(0x400);
@@ -1369,6 +1388,9 @@ public abstract class OraCdcTransaction {
 										KDO_URP_NULL_POS);
 								colNumOffsetSet += rowChange.ncol(OraCdcChangeRowOp.KDO_POS);
 							}
+						} else if (rowChange.operation() == _11_16_LMN) {
+							change.writeSupplementalCols(baosB);
+							change.writeSupplementalCols(baosW);
 						} else if (rowChange.operation() == _10_18_LUP) {
 							colNumOffsetSet += change.writeIndexColumns(baosW,
 									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo());
@@ -1432,5 +1454,8 @@ public abstract class OraCdcTransaction {
 			LOGGER.trace("Statement created:\n\t{}" + orm.getSqlRedo());
 	}
 
+	public boolean completed() {
+		return halfDone.isEmpty();
+	}
 
 }
