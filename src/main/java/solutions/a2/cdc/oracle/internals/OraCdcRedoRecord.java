@@ -46,6 +46,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_8_XML;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_6_BIMG;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_DELETE;
 import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
@@ -430,7 +431,7 @@ public class OraCdcRedoRecord {
 			final var rowChange = (OraCdcChangeRowOp) changeVectors.get(indKCOCODRW);
 			if (rowChange.operation == _11_16_LMN)
 				return Objects.hash(false,
-							((OraCdcChangeUndoBlock) changeVectors.get(indKTURDB)).supplementalDataFor() == (byte) 0x4
+							((OraCdcChangeUndoBlock) changeVectors.get(indKTURDB)).supplementalDataFor() == SUPPL_LOG_DELETE
 								? _11_3_DRP : _11_6_ORP, 
 							rowChange.dataObj);				
 			else

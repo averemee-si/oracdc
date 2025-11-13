@@ -41,6 +41,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	public static final int NON_KEY_10_30_POS = 5;
 	public static final int KEY_10_30_POS = 4;
 	public static final int COL_NUM_10_35_POS = 5;
+	public static final byte SUPPL_LOG_DELETE = 0x4;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndoBlock.class);
 	private static final int SUPPL_LOG_MIN_LENGTH = 0x14;
@@ -437,7 +438,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		}
 	}
 
-	byte supplementalDataFor() {
+	public byte supplementalDataFor() {
 		return record[coords[suppDataStartIndex][0]];
 	}
 
