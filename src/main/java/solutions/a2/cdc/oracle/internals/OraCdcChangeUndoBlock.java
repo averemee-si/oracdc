@@ -437,6 +437,10 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		}
 	}
 
+	byte supplementalDataFor() {
+		return record[coords[suppDataStartIndex][0]];
+	}
+
 	@Override
 	public int columnCount() {
 		if ((kdilk & KDLIK) != 0)

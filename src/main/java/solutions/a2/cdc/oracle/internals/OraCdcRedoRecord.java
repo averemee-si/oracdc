@@ -427,15 +427,24 @@ public class OraCdcRedoRecord {
 
 	public int halfDoneKey() {
 		if (has5_1() && has11_x()) {
-			return Objects.hash(false,
-					change11_x().operation == _11_3_DRP ? _11_3_DRP : _11_6_ORP,
-					change11_x().dataObj);
+			final var rowChange = (OraCdcChangeRowOp) changeVectors.get(indKCOCODRW);
+			if (rowChange.operation == _11_16_LMN)
+				return Objects.hash(false,
+							((OraCdcChangeUndoBlock) changeVectors.get(indKTURDB)).supplementalDataFor() == (byte) 0x4
+								? _11_3_DRP : _11_6_ORP, 
+							rowChange.dataObj);				
+			else
+				return Objects.hash(false,
+						rowChange.operation == _11_3_DRP ? _11_3_DRP : _11_6_ORP,
+						rowChange.dataObj);
 		} else if (hasPrb() && has11_x()) {
-			return Objects.hash(true, changePrb().dataObj);
+			final var prbChange = (OraCdcChangeUndo) changeVectors.get(indKTUIRB);;
+			return Objects.hash(true, prbChange.dataObj);
 		} else if (has5_1() && has10_x()) {
+			final var idxChange = (OraCdcChangeIndexOp) changeVectors.get(indKCOCODIX);
 			return Objects.hash(false,
-					change10_x().operation == _10_4_LDE ? _11_3_DRP : _11_6_ORP,
-					change10_x().dataObj);
+					idxChange.operation == _10_4_LDE ? _11_3_DRP : _11_6_ORP,
+					idxChange.dataObj);
 		} else {
 			return 0;
 		}
