@@ -424,7 +424,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		}
 	}
 
-	private String printLmOpCode(final byte opCode) {
+	private static String printLmOpCode(final byte opCode) {
 		switch (opCode) {
 		case 1:
 			return "UPDATE";
