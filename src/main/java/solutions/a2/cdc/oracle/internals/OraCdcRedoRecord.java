@@ -47,6 +47,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_6_BIMG;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -228,13 +229,15 @@ public class OraCdcRedoRecord {
 								
 								=====================
 								'{}' while parsing change# {} OP:{} at RBA={}, SCN={}, SUBSCN={} in '{}'
+								Record content:
+								{}
 								Erorstack:
 								{}
 								=====================
 								
 								""", e.getMessage(), changeNo, formatOpCode(operation), rba,
 									Long.toUnsignedString(scn), Short.toUnsignedInt(subScn),
-									redoLog.fileName(), getExceptionStackTrace(e));
+									redoLog.fileName(), rawToHex(record), getExceptionStackTrace(e));
 						throw e;
 					}
 				}
