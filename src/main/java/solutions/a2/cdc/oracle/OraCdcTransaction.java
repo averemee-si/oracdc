@@ -17,12 +17,14 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UNSUPPORTED;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.FLG_ROWDEPENDENCIES;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCODRW;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_KDOM2;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_ORP_IRP_NULL_POS;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_URP_NULL_POS;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_2_LIN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_4_LDE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_18_LUP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_30_LNU;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_35_LCU;
@@ -58,10 +60,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcChange;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeColb;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeIndexOp;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeRowOp;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndo;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
@@ -639,7 +643,7 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	void processRowChangeLmnUpdate(final OraCdcRedoRecord record, final long lwnUnixMillis) throws IOException {
+	public void processRowChangeLmnUpdate(final OraCdcRedoRecord record, final long lwnUnixMillis) throws IOException {
 		final byte fbLmn = record.change11_x().fb();
 		if (flgPrevPart(fbLmn) && flgNextPart(fbLmn)) {
 			//Just complete previous record
@@ -692,6 +696,134 @@ public abstract class OraCdcTransaction {
 			}
 		}
 	}
+
+	private static final byte[] ZERO_COL_COUNT = {0, 0};
+	public void emitMultiRowChange(final OraCdcRedoRecord rr,
+			final boolean partialRollback,
+			final long lwnUnixMillis) throws IOException {
+		final int index;
+		final short lmOp;
+		final var rowChange = rr.change11_x();
+		final var bu = rr.redoLog().bu();
+		final OraCdcChangeUndo change;
+		if (partialRollback) {
+			change = rr.changePrb();
+			index = OraCdcChangeRowOp.KDO_POS;
+			lmOp = rowChange.operation() == _11_11_QMI ? INSERT : DELETE;
+			final byte[] record = rowChange.record();
+			final int[][] coords = rowChange.coords();
+			for (int row = 0; row < rowChange.qmRowCount(); ++row) {
+				final RowId rowId = new RowId(
+						change.dataObj(),
+						rowChange.bdba(),
+						bu.getU16(record, coords[index][0] + 0x14 + row * Short.BYTES));
+				final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
+						isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
+						lmOp, ZERO_COL_COUNT, lwnUnixMillis, rr.scn(), rr.rba(),
+						(long) rr.subScn(), rowId, partialRollback);
+				addStatement(orm);
+			}
+		} else {
+			change = rr.change5_1();
+			final OraCdcChange qmData;
+			if (rowChange.operation() == _11_11_QMI) {
+				index = OraCdcChangeRowOp.KDO_POS;
+				lmOp = INSERT;
+				qmData = rowChange;
+			} else {
+				index = OraCdcChangeUndoBlock.KDO_POS;
+				lmOp = DELETE;
+				qmData = change;
+			}
+			final byte[] record = qmData.record();
+			final int[][] coords = qmData.coords();
+			final OraCdcRedoLog redoLog = qmData.redoLog();
+			int rowDiff = 0;
+			final int rowCount = change.qmRowCount();
+			for (int row = 0; row < rowCount; ++row) {
+				rowDiff += 0x2;
+				final int columnCount = Byte.toUnsignedInt(record[coords[index + 2][0] + rowDiff++]);
+				if ((qmData.op() & FLG_ROWDEPENDENCIES) != 0) {
+					// Skip row SCN
+					rowDiff += redoLog.bigScn() ? Long.BYTES : (Integer.BYTES + Short.BYTES);
+				}
+				ByteArrayOutputStream baos = new ByteArrayOutputStream(coords[index + 2][1]/rowCount + 0x100);
+				putU16(baos, columnCount);
+				for (int col = 0; col < columnCount; col++) {
+					putU16(baos, col + 1);
+					int colSize = Byte.toUnsignedInt(record[coords[index +2][0] + rowDiff++]);
+					if (colSize ==  0xFE) {
+						baos.write(0xFE);
+						colSize = Short.toUnsignedInt(bu.getU16(record, coords[index + 2][0] + rowDiff));
+						putU16(baos, colSize);
+						rowDiff += Short.BYTES;
+					} else  if (colSize == 0xFF) {
+						colSize = 0;
+						baos.write(0xFF);
+					} else {
+						baos.write(colSize);
+					}
+					if (colSize != 0) {
+						baos.write(record, coords[index + 2][0] + rowDiff, colSize);
+						rowDiff += colSize;
+					}
+				}
+				final RowId rowId = new RowId(
+						change.dataObj(),
+						change.bdba(),
+						bu.getU16(record, coords[index][0] + 0x14 + row * Short.BYTES));
+				final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
+						isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
+						lmOp, baos.toByteArray(), lwnUnixMillis, rr.scn(), rr.rba(),
+						(long) rr.subScn(), rowId, partialRollback);
+				addStatement(orm);
+			}
+		}
+	}
+
+	public void emitDirectBlockChange(final OraCdcRedoRecord rr,
+			final OraCdcChangeColb colb,
+			final long lwnUnixMillis) throws IOException {
+		final var record = colb.record();
+		final var coords = colb.coords();
+		final var redoLog = colb.redoLog();
+		final var bu = redoLog.bu();
+		final int startPos = coords[0][0] + colb.lobDataOffset();
+		for (int row = 0; row < Short.toUnsignedInt(colb.qmRowCount()); row++) {
+			int offset = Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0x12 + row * Short.BYTES));
+			final int columnCount = Byte.toUnsignedInt(record[startPos + offset + 2]);
+			int rowDiff = colb.lobDataOffset() + offset + 3;
+			ByteArrayOutputStream baos = new ByteArrayOutputStream(columnCount * 0x80);
+			putU16(baos, columnCount);
+			for (int col = 0; col < columnCount; col++) {
+				putU16(baos, col + 1);
+				int colSize = Byte.toUnsignedInt(record[coords[0][0] + rowDiff++]);
+				if (colSize ==  0xFE) {
+					baos.write(0xFE);
+					colSize = Short.toUnsignedInt(bu.getU16(record, coords[0][0] + rowDiff));
+					putU16(baos, colSize);
+					rowDiff += Short.BYTES;
+				} else  if (colSize == 0xFF) {
+					colSize = 0;
+					baos.write(0xFF);
+				} else {
+					baos.write(colSize);
+				}
+				if (colSize != 0) {
+					baos.write(record, coords[0][0] + rowDiff, colSize);
+					rowDiff += colSize;
+				}
+			}
+			final RowId rowId = new RowId(
+				colb.obj(), colb.dba(), (short) row);
+			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
+				isCdb ? (((long)colb.conId()) << 32) |  (colb.obj() & 0xFFFFFFFFL): colb.obj(),
+				INSERT, baos.toByteArray(), lwnUnixMillis, rr.scn(), rr.rba(),
+				(long) rr.subScn(), rowId, false);
+			addStatement(orm);
+		}
+	}
+
 
 	private RowChangeHolder createRowChangeHolder(final OraCdcRedoRecord record, final boolean partialRollback) {
 		final OraCdcChange rowChange = record.has11_x() 
