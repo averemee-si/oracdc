@@ -561,7 +561,7 @@ public class OraCdcRedoRecord {
 		return record;
 	}
 
-	OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn, final String rbaAsString, byte[] data) {
+	public OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn, final String rbaAsString, byte[] data) {
 		this.redoLog = redoLog;
 		this.scn = scn;
 		record = data;
