@@ -888,7 +888,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		encFlag = (byte) ((versionMajor >= 0x17) ? 0x75 : 0x15);
 	}
 
-	static OraCdcRedoLog getLinux19c() {
+	public static OraCdcRedoLog getLinux19c() {
 		try {
 			return new OraCdcRedoLog(true, VSN_19_0_0_0);
 		} catch(IOException ioe) {throw new IllegalArgumentException();}
