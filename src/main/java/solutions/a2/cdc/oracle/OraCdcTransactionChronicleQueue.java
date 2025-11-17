@@ -605,9 +605,18 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			holder.open(LOB_OP_WRITE);
 		}
 	}
-	public void closeLob(final int obj, final short col, final int size, final RedoByteAddress rba) throws IOException {
-		final long objCol = objCol(obj, col);
-		final LobId lobId = lobCols.get(objCol);
+
+	public void closeLob(final OraCdcChangeLlb llb, final RedoByteAddress rba) throws IOException {
+		closeLob(llb.obj(), llb.lobCol(), llb.fsiz(), rba);
+	}
+
+	public void closeLob(final int obj, final short col, final RedoByteAddress rba) throws IOException {
+		closeLob(obj, col, 0, rba);
+	}
+
+	private void closeLob(final int obj, final short col, final int size, final RedoByteAddress rba) throws IOException {
+		final var objCol = objCol(obj, col);
+		final var lobId = lobCols.get(objCol);
 		if (lobId == null) {
 			LOGGER.error(
 					"""
@@ -619,9 +628,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 					""",
 					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), rba, getXid());
 		} else {
-			LobHolder holder = transLobs.get(lobId);
 			lobCols.remove(objCol);
-			holder.close(size);
+			transLobs.get(lobId).close(size);
 		}
 	}
 

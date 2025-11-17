@@ -421,7 +421,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 										intColumnId(llb.obj(), llb.lobCol(), true) == -1 ? true : false);
 							} else if (llb.type() == TYPE_3) {
 								if (intColumnId(llb.obj(), llb.lobCol(), true) == -1)
-									transaction.closeLob(llb.obj(), llb.lobCol(), llb.fsiz(), record.rba());
+									transaction.closeLob(llb, record.rba());
 								else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP:3 for XMLTYPE)", llb.operation(), record.rba());
 							} else if (llb.type() == TYPE_4) {
 								if (llb.hasXmlType()) {
@@ -454,7 +454,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								transaction.writeLobChunk(
 										xml.obj(), xmlColId, xml.record(), xml.coords()[7][0], xml.coords()[7][1]);
 								if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_END) != 0)
-									transaction.closeLob(xml.obj(), xmlColId, 0, record.rba());
+									transaction.closeLob(xml.obj(), xmlColId, record.rba());
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP!=1)", xml.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.has5_1() && record.has26_x()) {
