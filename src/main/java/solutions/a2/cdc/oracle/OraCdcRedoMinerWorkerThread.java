@@ -417,8 +417,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									(OraCdcTransactionChronicleQueue) getTransaction(record);
 							if (llb.type() == TYPE_1) {
 								transFromLobId.put(llb.lid(), record.xid());
-								transaction.openLob(
-										llb.lid(), llb.obj(), llb.lobCol(), llb.lobOp(), record.rba(),
+								transaction.openLob(llb, record.rba(),
 										intColumnId(llb.obj(), llb.lobCol(), true) == -1 ? true : false);
 							} else if (llb.type() == TYPE_3) {
 								if (intColumnId(llb.obj(), llb.lobCol(), true) == -1)

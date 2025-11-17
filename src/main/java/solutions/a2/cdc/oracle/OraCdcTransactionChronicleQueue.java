@@ -42,6 +42,7 @@ import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.queue.TailerDirection;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeLlb;
 import solutions.a2.oracle.internals.CMapInflater;
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
@@ -560,13 +561,16 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		super.setCommitScn(commitScn, pseudoColumns, resultSet);
 	}
 
-	public void openLob(final LobId lid, final int obj, final short col, final byte lobOp, final RedoByteAddress rba, final boolean open) {
-		LobHolder holder = transLobs.get(lid);
+	public void openLob(final OraCdcChangeLlb llb, final RedoByteAddress rba, final boolean open) {
+		final var lid = llb.lid();
+		final var obj = llb.obj();
+		final var col = llb.lobCol();
+		var holder = transLobs.get(lid);
 		if (holder == null) {
 			holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
 			transLobs.put(lid, holder);
 		}
-		final LobId otherLid = lobCols.put(objCol(obj, col), lid);
+		final var otherLid = lobCols.put(objCol(obj, col), lid);
 		if (otherLid != null && transLobs.get(otherLid).chunks.size() > 0) {
 			LOGGER.error(
 					"""
@@ -579,7 +583,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid, otherLid, rba, getXid());
 		}
 		if (open)
-			holder.open(lobOp);
+			holder.open(llb.lobOp());
 	}
 
 	public void openLob(final int obj, final short col, final RedoByteAddress rba) {
