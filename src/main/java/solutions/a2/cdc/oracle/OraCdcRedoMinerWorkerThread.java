@@ -62,6 +62,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeColb.LONG_DUMP_SIZE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_4;
@@ -100,8 +101,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private long lwnUnixMillis = 0;
 	private final TreeMap<Long, List<OraCdcRedoRecord>> halfDoneRcm;
 	private final Map<LobId, Xid> transFromLobId;
-	private final Map<Integer, Map<Short, Short>[]> intColIdsMap;
 	private final Map<Integer, Integer> iotMapping;
+	private final OraCdcLobExtras lobExtras;
 
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcRedoMinerTask task,
@@ -140,10 +141,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		});
 		if (processLobs) {
 			transFromLobId = new HashMap<>();
-			intColIdsMap = new HashMap<>();
+			lobExtras = new OraCdcLobExtras();
 		} else { 
 			transFromLobId = null;
-			intColIdsMap = null;
+			lobExtras = null;
 		}
 		try {
 			connDictionary = oraConnections.getConnection();
@@ -213,7 +214,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	@Override
 	public void run()  {
 		LOGGER.info("BEGIN: OraCdcRedoMinerWorkerThread.run()");
@@ -399,7 +399,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 										final OraCdcTransactionChronicleQueue transaction = 
 												(OraCdcTransactionChronicleQueue) activeTransactions.get(xid);
 										if (transaction != null) {
-											transaction.writeLobChunk(lid, colb.record(), colb.coords()[0][0] + OraCdcChangeColb.LONG_DUMP_SIZE, colb.colbSize(), true, false);
+											transaction.writeLobChunk(lid, colb.record(), colb.coords()[0][0] + LONG_DUMP_SIZE, colb.colbSize(), true, false);
 										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(null transaction)", colb.operation(), record.rba());
 									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(XID=NULL)", colb.operation(), record.rba());
 								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", colb.operation(), record.rba());
@@ -418,26 +418,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							if (llb.type() == TYPE_1) {
 								transFromLobId.put(llb.lid(), record.xid());
 								transaction.openLob(llb, record.rba(),
-										intColumnId(llb.obj(), llb.lobCol(), true) == -1 ? true : false);
+										lobExtras.intColumnId(llb.obj(), llb.lobCol(), true) == -1 ? true : false);
 							} else if (llb.type() == TYPE_3) {
-								if (intColumnId(llb.obj(), llb.lobCol(), true) == -1)
+								if (lobExtras.intColumnId(llb.obj(), llb.lobCol(), true) == -1)
 									transaction.closeLob(llb, record.rba());
 								else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP:3 for XMLTYPE)", llb.operation(), record.rba());
 							} else if (llb.type() == TYPE_4) {
 								if (llb.hasXmlType()) {
-									final short[][] columnMap = llb.columnMap();
-									Map<Short, Short>[] columns = intColIdsMap.get(llb.obj());
-									if (columns == null) {
-										columns = (Map<Short, Short>[]) new Map[2];
-										columns[0] = new HashMap<>();
-										columns[1] = new HashMap<>();
-										intColIdsMap.put(llb.obj(), columns);
-									}
-									for (int i = 0; i < columnMap.length; i++)
-										if (!columns[0].containsKey(columnMap[i][0])) {
-											columns[0].put(columnMap[i][0], columnMap[i][1]);
-											columns[1].put(columnMap[i][1], columnMap[i][0]);
-										}
+									lobExtras.buildColMap(llb);
 								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP:4)", llb.operation(), record.rba());
 							}
 							continue;
@@ -448,7 +436,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									continue;
 								final OraCdcTransactionChronicleQueue transaction =
 										(OraCdcTransactionChronicleQueue) getTransaction(record);
-								final short xmlColId = intColumnId(xml.obj(), xml.internalColId(), false);
+								final short xmlColId = lobExtras.intColumnId(xml.obj(), xml.internalColId(), false);
 								if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_BEGIN) != 0)
 										transaction.openLob(xml.obj(), xmlColId, record.rba());
 								transaction.writeLobChunk(
@@ -854,19 +842,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		LOGGER.debug("Skipping {} OP:{} at RBA {}",
 			reason, formatOpCode(operation), rba);
 
-	}
-
-	private short intColumnId(final int obj, final short col, final boolean direct) {
-		final Map<Short, Short>[] columns = intColIdsMap.get(obj);
-		if (columns == null)
-			return -1;
-		else {
-			Short intColumnIdBoxed = columns[direct ? 0 : 1].get(col);
-			if (intColumnIdBoxed == null)
-				return -1;
-			else
-				return intColumnIdBoxed;
-		}
 	}
 
 	private void redoMinerNext(final long startScn, final RedoByteAddress startRba, final long startSubScn, final boolean rewind) {
