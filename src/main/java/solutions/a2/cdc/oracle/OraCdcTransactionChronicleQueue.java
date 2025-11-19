@@ -60,6 +60,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_PREPARE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_TRIM;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_UNKNOWN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_WRITE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLobs.LOB_BIMG_INDEX;
 import static solutions.a2.oracle.internals.LobLocator.BLOB;
 
 /**
@@ -695,30 +696,16 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		}
 	}
 
-	public void writeLobChunk(final LobId lid, final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws SQLException {
+	public void writeLobChunk(final LobId lid, final OraCdcChangeLobs change) throws SQLException {
 		LobHolder holder = transLobs.get(lid);
 		if (holder == null) {
-			holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
-			transLobs.put(lid, holder);
-			holder.open(LOB_OP_WRITE);
-		} 
-		try {
-			holder.write(data, off, len, colb, cmap);
-		} catch (IOException ioe) {
-			throw new SQLException(ioe);
-		}
-	}
-
-	public void writeLobChunk(final LobId lid, final int obj, final byte[] data, final int off, final int len, final boolean cmap) throws SQLException {
-		LobHolder holder = transLobs.get(lid);
-		if (holder == null) {
-			holder = new LobHolder(lid, obj, (short)0, lobsQueueDirectory);
+			holder = new LobHolder(lid, change.dataObj(), (short)0, lobsQueueDirectory);
 			transLobs.put(lid, holder);
 		}
 		holder.open(LOB_OP_WRITE);
 		try {
-			holder.write(data, off, len, false, cmap);
-			holder.close(len);	
+			holder.write(change.record(), change.coords()[LOB_BIMG_INDEX][0], change.coords()[LOB_BIMG_INDEX][1], false, change.cmap());
+			holder.close(change.coords()[LOB_BIMG_INDEX][1]);
 		} catch (IOException ioe) {
 			throw new SQLException(ioe);
 		}
