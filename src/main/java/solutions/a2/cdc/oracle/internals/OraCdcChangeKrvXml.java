@@ -37,7 +37,7 @@ public class OraCdcChangeKrvXml extends OraCdcChange {
 	private byte type;
 	private short internalColId;
 
-	public static final int TYPE_XML_DOC = 0x1;
+	public static final byte TYPE_XML_DOC = 0x1;
 
 	public static final short XML_DOC_BEGIN = 0x01;
 	public static final short XML_DOC_END = 0x02;

@@ -34,10 +34,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.internals.OraCdcChangeColb;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeDdl;
-import solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml;
-import solutions.a2.cdc.oracle.internals.OraCdcChangeLlb;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeLobs;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcRedoMinerMgmt;
@@ -63,6 +60,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeColb.LONG_DUMP_SIZE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml.TYPE_XML_DOC;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_4;
@@ -390,13 +388,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							getTransaction(record).processRowChange(record, false, lwnUnixMillis);
 							continue;
 						} else if (record.hasColb()) {
-							final OraCdcChangeColb colb = record.changeColb();
+							final var colb = record.changeColb();
 							if (processLobs && colb.longDump()) {
-								final LobId lid = colb.lid();
+								final var lid = colb.lid();
 								if (lid != null) {
 									final Xid xid = transFromLobId.get(lid);
 									if (xid != null) {
-										final OraCdcTransactionChronicleQueue transaction = 
+										final var transaction = 
 												(OraCdcTransactionChronicleQueue) activeTransactions.get(xid);
 										if (transaction != null) {
 											transaction.writeLobChunk(lid, colb.record(), colb.coords()[0][0] + LONG_DUMP_SIZE, colb.colbSize(), true, false);
@@ -412,8 +410,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} else if (processLobs && record.hasLlb()) {
 							if (checker.notNeeded(record.changeLlb().obj(), record.changeLlb().conId()))
 								continue;
-							final OraCdcChangeLlb llb = record.changeLlb();
-							final OraCdcTransactionChronicleQueue transaction =
+							final var llb = record.changeLlb();
+							final var transaction =
 									(OraCdcTransactionChronicleQueue) getTransaction(record);
 							if (llb.type() == TYPE_1) {
 								transFromLobId.put(llb.lid(), record.xid());
@@ -430,28 +428,22 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							}
 							continue;
 						} else if (processLobs && record.hasKrvXml()) {
-							final OraCdcChangeKrvXml xml = record.changeKrvXml();
-							if (xml.type() == OraCdcChangeKrvXml.TYPE_XML_DOC) {
+							final var xml = record.changeKrvXml();
+							if (xml.type() == TYPE_XML_DOC) {
 								if (checker.notNeeded(xml.obj(), xml.conId()))
 									continue;
-								final OraCdcTransactionChronicleQueue transaction =
+								final var transaction =
 										(OraCdcTransactionChronicleQueue) getTransaction(record);
-								final short xmlColId = lobExtras.intColumnId(xml.obj(), xml.internalColId(), false);
-								if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_BEGIN) != 0)
-										transaction.openLob(xml.obj(), xmlColId, record.rba());
-								transaction.writeLobChunk(
-										xml.obj(), xmlColId, xml.record(), xml.coords()[7][0], xml.coords()[7][1]);
-								if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_END) != 0)
-									transaction.closeLob(xml.obj(), xmlColId, record.rba());
+								transaction.writeLobChunk(xml, lobExtras.intColumnId(xml.obj(), xml.internalColId(), false), record.rba());
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP!=1)", xml.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.has5_1() && record.has26_x()) {
 							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
 								continue;
-							final LobId lid = record.change26_x().lid();
+							final OraCdcChangeLobs change = record.change26_x();
+							final LobId lid = change.lid();
 							final OraCdcTransactionChronicleQueue transaction = 
 									(OraCdcTransactionChronicleQueue) activeTransactions.get(record.xid());
-							final OraCdcChangeLobs change = record.change26_x();
 							if (transaction != null)
 								if (change.kdliFillLen() > -1)
 									if (record.change5_1().lobSupplemental())
