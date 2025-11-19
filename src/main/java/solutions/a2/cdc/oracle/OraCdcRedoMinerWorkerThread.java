@@ -47,7 +47,6 @@ import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DDL;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange.FLG_KDLI_CMAP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_4_LKR;
@@ -440,21 +439,12 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} else if (processLobs && record.has5_1() && record.has26_x()) {
 							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
 								continue;
-							final OraCdcChangeLobs change = record.change26_x();
-							final LobId lid = change.lid();
-							final OraCdcTransactionChronicleQueue transaction = 
+							final var change = record.change26_x();
+							final var transaction = 
 									(OraCdcTransactionChronicleQueue) activeTransactions.get(record.xid());
 							if (transaction != null)
 								if (change.kdliFillLen() > -1)
-									if (record.change5_1().lobSupplemental())
-										transaction.writeLobChunk(
-											lid, record.change5_1().obj(), record.change5_1().lobCol(),
-											change.record(), change.lobDataOffset(), change.kdliFillLen(),
-											(change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
-									else
-										transaction.writeLobChunk(
-											lid, change.record(), change.lobDataOffset(), change.kdliFillLen(),
-											false, (change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
+									transaction.writeLobChunk(record.change5_1(), record.change26_x());
 								else if (LOGGER.isDebugEnabled()) skippingDebugMsg("change.kdliFillLen() < 0", change.operation(), record.rba());
 							else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
 							continue;
@@ -482,7 +472,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 											final int[][] coords = change.coords();
 											transaction.writeLobChunk(
 												lid, change.record(), coords[LOB_BIMG_INDEX][0], coords[LOB_BIMG_INDEX][1],
-												false, (change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
+												false, change.cmap());
 										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
 									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(lobBimg()=false)", change.operation(), record.rba());
 								} else {
@@ -494,7 +484,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 										final int[][] coords = change.coords();
 										transaction.writeLobChunk(
 												lid, change.dataObj(), change.record(), coords[LOB_BIMG_INDEX][0], coords[LOB_BIMG_INDEX][1],
-												(change.kdli_flg2() & FLG_KDLI_CMAP) > 0);
+												change.cmap());
 									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(lobBimg()=false)", change.operation(), record.rba());
 								}
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", record.change26_x().operation(), record.rba());

@@ -44,6 +44,8 @@ import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.queue.TailerDirection;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeLlb;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeLobs;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock;
 import solutions.a2.oracle.internals.CMapInflater;
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
@@ -692,28 +694,38 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		}
 	}
 
-	public void writeLobChunk(final LobId lid, final int obj, final short col, final byte[] data, final int off, final int len, final boolean cmap) throws SQLException {
-		LobHolder holder = transLobs.get(lid);
-		if (holder == null) {			
-			holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
-			transLobs.put(lid, holder);
-			final LobId otherLid = lobCols.put(objCol(obj, col), lid);
-			if (otherLid != null && transLobs.get(otherLid).chunks.size() > 0) {
-				LOGGER.error(
-						"""
-						
-						=====================
-						Double entry in object {} column {} for lid '{}' and lid = {} in XID {}
-						=====================
-						
-						""",
-						Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid, otherLid, getXid());
+	public void writeLobChunk(final OraCdcChangeUndoBlock undoChange, final OraCdcChangeLobs change) throws SQLException {
+		final var lid = change.lid();
+		var holder = transLobs.get(lid);
+		if (undoChange.lobSupplemental()) {
+			final var obj = undoChange.obj();
+			final var col = undoChange.lobCol();
+			if (holder == null) {
+				holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
+				transLobs.put(lid, holder);
+				final LobId otherLid = lobCols.put(objCol(obj, col), lid);
+				if (otherLid != null && transLobs.get(otherLid).chunks.size() > 0) {
+					LOGGER.error(
+							"""
+							
+							=====================
+							Double entry in object {} column {} for lid '{}' and lid = {} in XID {}
+							=====================
+							
+							""",
+							Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid, otherLid, getXid());
+				}
+			}
+		} else {
+			if (holder == null) {
+				holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
+				transLobs.put(lid, holder);
 			}
 		}
-		holder.open(LOB_OP_WRITE);
 		try {
-			holder.write(data, off, len, false, cmap);
-			holder.close(len);	
+			holder.open(LOB_OP_WRITE);
+			holder.write(change.record(), change.lobDataOffset(), change.kdliFillLen(), false, change.cmap());
+			holder.close(change.kdliFillLen());	
 		} catch (IOException ioe) {
 			throw new SQLException(ioe);
 		}

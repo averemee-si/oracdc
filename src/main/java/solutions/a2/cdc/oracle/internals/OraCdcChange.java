@@ -169,7 +169,7 @@ public class OraCdcChange {
 	};
 
 	public static final byte FLG_ROWDEPENDENCIES = 0x40;
-	public static final byte FLG_KDLI_CMAP = 0x10;
+	private static final byte FLG_KDLI_CMAP = 0x10;
 
 	private static final byte FLG_TDE_ENCRYPTION = (byte) 0x80;
 
@@ -1546,8 +1546,8 @@ public class OraCdcChange {
 		return lid;
 	}
 
-	public byte kdli_flg2() {
-		return kdli_flg2;
+	public boolean cmap() {
+		return (kdli_flg2 & FLG_KDLI_CMAP) > 0;
 	}
 
 	public boolean lobBimg() {
