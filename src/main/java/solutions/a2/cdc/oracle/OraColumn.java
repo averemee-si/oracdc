@@ -80,6 +80,7 @@ import static oracle.jdbc.OracleTypes.INTERVALYM;
 import static oracle.jdbc.OracleTypes.JSON;
 import static oracle.jdbc.OracleTypes.TIMESTAMPLTZ;
 import static oracle.jdbc.OracleTypes.VECTOR;
+import static org.apache.commons.lang3.StringUtils.trim;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_BOOLEAN_SCHEMA;
 import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_INT8_SCHEMA;
@@ -206,15 +207,11 @@ public class OraColumn extends Column {
 			flags |= FLG_MANDATORY;
 		this.setColumnId(resultSet.getInt("COLUMN_ID"));
 
-		defaultValue = resultSet.getString("DATA_DEFAULT");
-		if (!resultSet.wasNull()) {
-			if (Strings.CI.equals(
-					StringUtils.trim(defaultValue), "NULL")) {
-				defaultValue = null;
-			} else {
-				flags |= FLG_DEFAULT_VALUE;
-			}
-		}
+		defaultValue = trim(resultSet.getString("DATA_DEFAULT"));
+		if (StringUtils.isEmpty(defaultValue) || Strings.CI.equals(defaultValue, "NULL"))
+			defaultValue = null;
+		else
+			flags |= FLG_DEFAULT_VALUE;
 
 		if (mviewSource) {
 			if (Strings.CI.equals("Y", resultSet.getString("PK")))
@@ -315,14 +312,14 @@ public class OraColumn extends Column {
 			}
 		} else if (Strings.CI.startsWith(columnAttributes, TYPE_NUMBER)) {
 			detectIsNullAndDefault(columnAttributes);
-			final String precisionAndScale = StringUtils.trim(
+			final String precisionAndScale = trim(
 					StringUtils.substringBetween(columnAttributes, "(", ")")); 
 			if (precisionAndScale != null) {
 				try {
 					if (Strings.CS.contains(precisionAndScale, "|")) {
 						final String[] tokens = StringUtils.split(precisionAndScale, "|");
-						dataPrecision = Integer.parseInt(StringUtils.trim(tokens[0]));
-						dataScale = Integer.parseInt(StringUtils.trim(tokens[1]));
+						dataPrecision = Integer.parseInt(trim(tokens[0]));
+						dataScale = Integer.parseInt(trim(tokens[1]));
 					} else {
 						dataPrecision = Integer.parseInt(precisionAndScale);
 					}
@@ -953,14 +950,13 @@ public class OraColumn extends Column {
 	private void stringField() {
 		SchemaBuilder builder = SchemaBuilder.string();
 		if ((flags & FLG_DEFAULT_VALUE) > 0) {
-			final String trimmedDefault = StringUtils.trim(defaultValue); 
-			if (Strings.CS.startsWith(trimmedDefault, "'") &&
-					Strings.CS.endsWith(trimmedDefault, "'")) {
-				typedDefaultValue = StringUtils.substringBetween(trimmedDefault, "'", "'");
+			if (Strings.CS.startsWith(defaultValue, "'") &&
+					Strings.CS.endsWith(defaultValue, "'")) {
+				typedDefaultValue = StringUtils.substringBetween(defaultValue, "'", "'");
 				LOGGER.trace("Setting default value of column '{}' to '{}'",
 						columnName, typedDefaultValue);
 			} else {
-				typedDefaultValue = trimmedDefault;
+				typedDefaultValue = defaultValue;
 				LOGGER.warn(
 						"""
 						
@@ -1015,7 +1011,7 @@ public class OraColumn extends Column {
 			SchemaBuilder builder = SchemaBuilder.int8();
 			if ((flags & FLG_DEFAULT_VALUE) > 0) {
 				try {
-					typedDefaultValue = Byte.parseByte(StringUtils.trim(defaultValue));
+					typedDefaultValue = Byte.parseByte(defaultValue);
 					builder.defaultValue(typedDefaultValue);
 				} catch (NumberFormatException nfe) {
 					logDefaultValueError("byte");
@@ -1038,7 +1034,7 @@ public class OraColumn extends Column {
 			SchemaBuilder builder = SchemaBuilder.int16();
 			if ((flags & FLG_DEFAULT_VALUE) > 0) {
 				try {
-					typedDefaultValue = Short.parseShort(StringUtils.trim(defaultValue));
+					typedDefaultValue = Short.parseShort(defaultValue);
 					builder.defaultValue(typedDefaultValue);
 				} catch (NumberFormatException nfe) {
 					logDefaultValueError("short");
@@ -1061,7 +1057,7 @@ public class OraColumn extends Column {
 			SchemaBuilder builder = SchemaBuilder.int32();
 			if ((flags & FLG_DEFAULT_VALUE) > 0) {
 				try {
-					typedDefaultValue = Integer.parseInt(StringUtils.trim(defaultValue));
+					typedDefaultValue = Integer.parseInt(defaultValue);
 					builder.defaultValue(typedDefaultValue);
 				} catch (NumberFormatException nfe) {
 					logDefaultValueError("int");
@@ -1084,7 +1080,7 @@ public class OraColumn extends Column {
 			SchemaBuilder builder = SchemaBuilder.int64();
 			if ((flags & FLG_DEFAULT_VALUE) > 0) {
 				try {
-					typedDefaultValue = Long.parseLong(StringUtils.trim(defaultValue));
+					typedDefaultValue = Long.parseLong(defaultValue);
 					builder.defaultValue(typedDefaultValue);
 				} catch (NumberFormatException nfe) {
 					logDefaultValueError("long");
@@ -1109,7 +1105,7 @@ public class OraColumn extends Column {
 			SchemaBuilder builder = Decimal.builder(scale);
 			if ((flags & FLG_DEFAULT_VALUE) > 0) {
 				try {
-					typedDefaultValue = (new BigDecimal(StringUtils.trim(defaultValue))).setScale(scale);
+					typedDefaultValue = (new BigDecimal(defaultValue)).setScale(scale);
 					builder.defaultValue(typedDefaultValue);
 				} catch (NumberFormatException nfe) {
 					logDefaultValueError("java.math.BigDecimal");
@@ -1130,7 +1126,7 @@ public class OraColumn extends Column {
 		SchemaBuilder builder = SchemaBuilder.float64();
 		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
-				typedDefaultValue = Double.parseDouble(StringUtils.trim(defaultValue));
+				typedDefaultValue = Double.parseDouble(defaultValue);
 				builder.defaultValue(typedDefaultValue);
 			} catch (NumberFormatException nfe) {
 				logDefaultValueError("double");
@@ -1147,7 +1143,7 @@ public class OraColumn extends Column {
 			SchemaBuilder builder = SchemaBuilder.float32();
 			if ((flags & FLG_DEFAULT_VALUE) > 0) {
 				try {
-					typedDefaultValue = Float.parseFloat(StringUtils.trim(defaultValue));
+					typedDefaultValue = Float.parseFloat(defaultValue);
 					builder.defaultValue(typedDefaultValue);
 				} catch (NumberFormatException nfe) {
 					logDefaultValueError("float");
@@ -1171,7 +1167,7 @@ public class OraColumn extends Column {
 		SchemaBuilder builder = OraNumber.builder();
 		if ((flags & FLG_DEFAULT_VALUE) > 0) {
 			try {
-				typedDefaultValue = (new NUMBER(StringUtils.trim(defaultValue), 10)).getBytes();
+				typedDefaultValue = (new NUMBER(defaultValue, 10)).getBytes();
 				builder.defaultValue(typedDefaultValue);
 			} catch (SQLException sqle) {
 				LOGGER.error(
@@ -1228,7 +1224,7 @@ public class OraColumn extends Column {
 			SchemaBuilder builder = SchemaBuilder.bool();
 			if ((flags & FLG_DEFAULT_VALUE) > 0) {
 				try {
-					typedDefaultValue = Boolean.parseBoolean(StringUtils.trim(defaultValue));
+					typedDefaultValue = Boolean.parseBoolean(defaultValue);
 					builder.defaultValue(typedDefaultValue);
 				} catch (NumberFormatException nfe) {
 					logDefaultValueError("bool");
