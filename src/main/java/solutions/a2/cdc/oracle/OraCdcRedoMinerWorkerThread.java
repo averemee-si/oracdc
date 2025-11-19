@@ -485,7 +485,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								if (checker.notNeeded(ddl.obj(), ddl.conId()))
 									continue;
 								else
-									emitDdlChange(record);
+									getTransaction(record).emitDdlChange(record, lwnUnixMillis);
 							} else {
 								continue;
 							}
@@ -913,22 +913,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				record.change10_x().obj(iotObjId);
 				record.change10_x().dataObj(iotObjId);
 			}
-		}
-	}
-
-	private void emitDdlChange(OraCdcRedoRecord record) {
-		final OraCdcChangeDdl ddl = record.changeDdl();
-		final String preProcessed = alterTablePreProcessor(ddl.ddlText());
-		if (preProcessed != null) {
-			final OraCdcTransaction transaction = getTransaction(record);
-			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
-					isCdb ? (((long)ddl.conId()) << 32) |  (ddl.obj() & 0xFFFFFFFFL) : ddl.obj(),
-					DDL, ddl.ddlText().getBytes(), lwnUnixMillis, record.scn(), record.rba(),
-					(long) record.subScn(), RowId.ZERO, false);
-			transaction.addStatement(orm);
-		} else {
-			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Skipping OP:24.1\n{}\n", record);
 		}
 	}
 

@@ -13,6 +13,7 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DDL;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UNSUPPORTED;
@@ -40,6 +41,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgNextPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgPrevPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.printFbFlags;
+import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.oracle.utils.BinaryUtils.putU16;
 import static solutions.a2.oracle.utils.BinaryUtils.putU24;
 
@@ -61,6 +63,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcChange;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeColb;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeDdl;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeIndexOp;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeRowOp;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndo;
@@ -1588,6 +1591,21 @@ public abstract class OraCdcTransaction {
 
 	public boolean completed() {
 		return halfDone.isEmpty();
+	}
+
+	public void emitDdlChange(OraCdcRedoRecord record, final long lwnUnixMillis) {
+		final OraCdcChangeDdl ddl = record.changeDdl();
+		final String preProcessed = alterTablePreProcessor(ddl.ddlText());
+		if (preProcessed != null) {
+			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
+					isCdb ? (((long)ddl.conId()) << 32) |  (ddl.obj() & 0xFFFFFFFFL) : ddl.obj(),
+					DDL, ddl.ddlText().getBytes(), lwnUnixMillis, record.scn(), record.rba(),
+					(long) record.subScn(), RowId.ZERO, false);
+			addStatement(orm);
+		} else {
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug("Skipping OP:24.1\n{}\n", record);
+		}
 	}
 
 }
