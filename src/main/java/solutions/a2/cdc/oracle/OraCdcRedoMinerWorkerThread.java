@@ -39,13 +39,10 @@ import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcRedoMinerMgmt;
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
-import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
-import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DDL;
-import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_4_LKR;
