@@ -564,7 +564,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	 * @param startRba
 	 * @param endScn
 	 * @return
-	 * @throws IOException
+	 * @throws SQLException
 	 */
 	public Iterator<OraCdcRedoRecord> iterator(final RedoByteAddress startRba, long endScn) throws SQLException {
 		if (startRba.sqn() == sequence) {
