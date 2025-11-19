@@ -58,7 +58,6 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
-import static solutions.a2.cdc.oracle.internals.OraCdcChangeColb.LONG_DUMP_SIZE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml.TYPE_XML_DOC;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
@@ -396,7 +395,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 										final var transaction = 
 												(OraCdcTransactionChronicleQueue) activeTransactions.get(xid);
 										if (transaction != null) {
-											transaction.writeLobChunk(lid, colb.record(), colb.coords()[0][0] + LONG_DUMP_SIZE, colb.colbSize(), true, false);
+											transaction.writeLobChunk(lid, colb);
 										} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(null transaction)", colb.operation(), record.rba());
 									} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(XID=NULL)", colb.operation(), record.rba());
 								} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", colb.operation(), record.rba());

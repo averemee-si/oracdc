@@ -42,6 +42,7 @@ import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.queue.TailerDirection;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeColb;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeLlb;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeLobs;
@@ -52,6 +53,7 @@ import solutions.a2.oracle.internals.LobLocator;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeColb.LONG_DUMP_SIZE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_END;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_ERASE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_PREPARE;
@@ -640,9 +642,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			return null;
 	}
 
-	public void writeLobChunk(final OraCdcChangeKrvXml xml, final short col, final RedoByteAddress rba) throws IOException, SQLException {
-		final LobId lobId = lobCols.get(objCol(xml.obj(), col));
-		if (lobId == null) {
+	public void writeLobChunk(final OraCdcChangeKrvXml xml, final short col, final RedoByteAddress rba) throws SQLException {
+		final var lid = lobCols.get(objCol(xml.obj(), col));
+		if (lid == null) {
 			LOGGER.error(
 					"""
 					
@@ -653,15 +655,43 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 					""",
 					Integer.toUnsignedLong(xml.obj()), Short.toUnsignedInt(col), rba, getXid());
 		} else {
-			if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_BEGIN) != 0) {
-				LobHolder holder = transLobs.get(lobId);
+			var holder = transLobs.get(lid);
+			if (holder == null) {
+				holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
+				transLobs.put(lid, holder);
+			}
+			if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_BEGIN) > 0) {
 				if (!holder.binaryXml)
 					holder.binaryXml = true;
 				holder.open(LOB_OP_WRITE);
 			}
-			writeLobChunk(lobId, xml.record(), xml.coords()[7][0], xml.coords()[7][1], false, false);
-			if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_END) != 0)
-				closeLob(xml.obj(), col, 0, rba);
+			try {
+				holder.write(xml.record(), xml.coords()[7][0], xml.coords()[7][1], false, false);
+			} catch (IOException ioe) {
+				throw new SQLException(ioe);
+			}
+
+			if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_END) > 0) {
+				try {
+					closeLob(xml.obj(), col, 0, rba);
+				} catch (IOException ioe) {
+					throw new SQLException(ioe);
+				}
+			}
+		}
+	}
+
+	public void writeLobChunk(final LobId lid, final OraCdcChangeColb colb) throws SQLException {
+		LobHolder holder = transLobs.get(lid);
+		if (holder == null) {
+			holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
+			transLobs.put(lid, holder);
+			holder.open(LOB_OP_WRITE);
+		} 
+		try {
+			holder.write(colb.record(), colb.coords()[0][0] + LONG_DUMP_SIZE, colb.colbSize(), true, false);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
 		}
 	}
 
