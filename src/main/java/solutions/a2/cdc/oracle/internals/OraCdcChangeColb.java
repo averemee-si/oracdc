@@ -113,7 +113,11 @@ public class OraCdcChangeColb extends OraCdcChange {
 			sb
 				.append("  itc: ")
 				.append(Byte.toUnsignedInt(itc))
-				//TODO flg: E  typ: 1 - DATA
+				//TODO flg: E
+				.append("  typ: ")
+				.append(record[coords[0][0]])
+				.append(" - ")
+				.append(record[coords[0][0]] == 1 ? "DATA" : record[coords[0][0]] == 2 ? "INDEX" : "UNKNOWN")
 				.append("\n     brn: 0  bdba: 0x")	//TODO brn
 				//TODO ver: 0x01 opc: 0
 				//TODO inc: 0  exflg: 0
@@ -156,65 +160,67 @@ public class OraCdcChangeColb extends OraCdcChange {
 						.append(String.format("%08x", Integer.toUnsignedLong(redoLog.bu().getU32(record, startPos + 0x14))));
 				}
 			}
-			final int startPos = coords[0][0] + lobDataOffset;
-			//TODO bdba: 0x
-			//TODO data_block_dump,data header at 0x
-			sb
-				.append("\n===============")
-				.append("\ntsiz: 0x")
-				.append(String.format("%04x", coords[0][1] - lobDataOffset))
-				.append("\nhsiz: 0x")
-				.append(String.format("%02x", Short.toUnsignedInt(headerSize)))
-				//TODO pbl:
-				//TODO flag
-				.append("\nntab=")
-				.append(Byte.toUnsignedInt(record[startPos + 0x1]))
-				.append("\nnrow=")
-				.append(Short.toUnsignedInt(qmRowCount))
-				.append("\nfrre=")
-				.append(redoLog.bu().getU16(record, startPos + 0x4))
-				.append("\nfsbo=0x")
-				.append(String.format("%02x", Short.toUnsignedInt(headerSize)))
-				.append("\nfseo=0x")
-				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0x8))))
-				.append("\navsp=0x")
-				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0xA))))
-				.append("\ntosp=0x")
-				.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0xC))));
-			//TODO 0xe:pti[0]	nrow=XX	offs=0
-			for (int row = 0; row < Short.toUnsignedInt(qmRowCount); row++) {
-				int off = 0x12 + row * Short.BYTES;
+			if (record[coords[0][0]] == 1) {
+				final int startPos = coords[0][0] + lobDataOffset;
+				//TODO bdba: 0x
+				//TODO data_block_dump,data header at 0x
 				sb
-					.append("\n0x")
-					.append(String.format("%02x", off))
-					.append(":pri[")
-					.append(row)
-					.append("]\toffs=0x")
-					.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + off))));
-			}
-			sb.append("\nblock_row_dump:");
-			for (int row = 0; row < Short.toUnsignedInt(qmRowCount); row++) {
-				int off = Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0x12 + row * Short.BYTES));
-				fb = record[startPos + off];
-				columnCount = Byte.toUnsignedInt(record[startPos + off + 2]);
-				sb
-					.append("\ntab 0, row ")
-					.append(row)
-					.append(", @0x")
-					.append(String.format("%04x", off))
-					.append("\ntl: ")
-					.append(coords[0][1] - off - lobDataOffset)
-					.append(" fb: ")
-					.append(printFbFlags(fb))
-					.append(" lb: 0x")
-					.append(String.format("%1x", Byte.toUnsignedInt(record[startPos + off + 1])))
-					.append("  cc: ")
-					.append(columnCount);
-				int rowDiff = lobDataOffset + off + 3;
-				for (int col = 0; col < columnCount; col++) {
-					rowDiff = printColumnBytes(sb, col, 0, rowDiff);
+					.append("\n===============")
+					.append("\ntsiz: 0x")
+					.append(String.format("%04x", coords[0][1] - lobDataOffset))
+					.append("\nhsiz: 0x")
+					.append(String.format("%02x", Short.toUnsignedInt(headerSize)))
+					//TODO pbl:
+					//TODO flag
+					.append("\nntab=")
+					.append(Byte.toUnsignedInt(record[startPos + 0x1]))
+					.append("\nnrow=")
+					.append(Short.toUnsignedInt(qmRowCount))
+					.append("\nfrre=")
+					.append(redoLog.bu().getU16(record, startPos + 0x4))
+					.append("\nfsbo=0x")
+					.append(String.format("%02x", Short.toUnsignedInt(headerSize)))
+					.append("\nfseo=0x")
+					.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0x8))))
+					.append("\navsp=0x")
+					.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0xA))))
+					.append("\ntosp=0x")
+					.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0xC))));
+				//TODO 0xe:pti[0]	nrow=XX	offs=0
+				for (int row = 0; row < Short.toUnsignedInt(qmRowCount); row++) {
+					int off = 0x12 + row * Short.BYTES;
+					sb
+						.append("\n0x")
+						.append(String.format("%02x", off))
+						.append(":pri[")
+						.append(row)
+						.append("]\toffs=0x")
+						.append(String.format("%04x", Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + off))));
 				}
-			}			
+				sb.append("\nblock_row_dump:");
+				for (int row = 0; row < Short.toUnsignedInt(qmRowCount); row++) {
+					int off = Short.toUnsignedInt(redoLog.bu().getU16(record, startPos + 0x12 + row * Short.BYTES));
+					fb = record[startPos + off];
+					columnCount = Byte.toUnsignedInt(record[startPos + off + 2]);
+					sb
+						.append("\ntab 0, row ")
+						.append(row)
+						.append(", @0x")
+						.append(String.format("%04x", off))
+						.append("\ntl: ")
+						.append(coords[0][1] - off - lobDataOffset)
+						.append(" fb: ")
+						.append(printFbFlags(fb))
+						.append(" lb: 0x")
+						.append(String.format("%1x", Byte.toUnsignedInt(record[startPos + off + 1])))
+						.append("  cc: ")
+						.append(columnCount);
+					int rowDiff = lobDataOffset + off + 3;
+					for (int col = 0; col < columnCount; col++) {
+						rowDiff = printColumnBytes(sb, col, 0, rowDiff);
+					}
+				}
+			}
 			sb.append("\nend_of_block_dump");
 		}
 		return sb;

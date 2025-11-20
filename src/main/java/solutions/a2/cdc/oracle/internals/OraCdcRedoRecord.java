@@ -550,9 +550,23 @@ public class OraCdcRedoRecord {
 				.append(")");
 		}
 		for (OraCdcChange change : changeVectors) {
-			sb
-				.append("\n")
-				.append(change.toDumpFormat());
+			try {
+				sb
+					.append("\n")
+					.append(change.toDumpFormat());
+			} catch (Exception aiob) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						Unable to print change vectors from {} at SCN={}, RBA {} due to
+						{}
+						Redo record contents:
+						{}
+						Please send this output to oracle@a2.solutions
+						=====================
+						""", redoLog.fileName(), Long.toUnsignedString(scn), rba, aiob.getMessage(), rawToHex(record));
+			}
 		}
 		return sb.toString();
 	}
