@@ -34,7 +34,6 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.internals.OraCdcChangeDdl;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcRedoMinerMgmt;
 import solutions.a2.oracle.internals.LobId;
@@ -438,7 +437,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									(OraCdcTransactionChronicleQueue) activeTransactions.get(record.xid());
 							if (transaction != null)
 								if (change.kdliFillLen() > -1)
-									transaction.writeLobChunk(record.change5_1(), record.change26_x());
+									transaction.writeLobChunk(record.change5_1(), change);
 								else if (LOGGER.isDebugEnabled()) skippingDebugMsg("change.kdliFillLen() < 0", change.operation(), record.rba());
 							else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
 							continue;
@@ -455,7 +454,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								if (checker.notNeeded(change.dataObj(), change.conId()))
 									continue;
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(checkDataObj && dataObj=0)", change.operation(), record.rba());
-							final LobId lid = record.change26_x().lid();
+							final var lid = change.lid();
 							if (lid != null) {
 								Xid xid = transFromLobId.get(lid);
 								if (xid != null) {
@@ -477,7 +476,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(LOB_ID=NULL)", record.change26_x().operation(), record.rba());
 							continue;
 						} else if (record.hasDdl()) {
-							final OraCdcChangeDdl ddl = record.changeDdl();
+							final var ddl = record.changeDdl();
 							if (ddl.valid()) {
 								if (checker.notNeeded(ddl.obj(), ddl.conId()))
 									continue;
