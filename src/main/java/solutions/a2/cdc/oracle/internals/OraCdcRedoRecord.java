@@ -573,4 +573,16 @@ public class OraCdcRedoRecord {
 		buildChangeVector();
 	}
 
+	public OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn, final RedoByteAddress rba, byte[] data) {
+		this.redoLog = redoLog;
+		this.scn = scn;
+		record = data;
+		this.rba = rba;
+		len = redoLog.bu().getU32(record, 0x00);
+		vld = record[0x04];
+		subScn = redoLog.bu().getU16(record, 0x0C);
+		changeVectors = new ArrayList<>(0x8);
+		buildChangeVector();
+	}
+
 }
