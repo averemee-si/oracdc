@@ -292,7 +292,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								getTransaction(record).processRowChange(record, false, lwnUnixMillis);
 								break;
 							case _11_16_LMN:
-								getTransaction(record).processRowChangeLmnUpdate(record, lwnUnixMillis);
+								getTransaction(record).processRowChange(record, false, lwnUnixMillis);
 								break;
 							case _11_4_LKR:
 							case _11_8_CFA:
