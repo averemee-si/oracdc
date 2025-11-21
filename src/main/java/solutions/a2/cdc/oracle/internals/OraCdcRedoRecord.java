@@ -405,22 +405,24 @@ public class OraCdcRedoRecord {
 	}
 
 	public Xid xid() {
-		if (has5_1()) {
-			return change5_1().xid;
-		} else if (has5_4()) {
-			return change5_4().xid;
-		} else if (hasPrb()) {
-			return changePrb().xid;
-		} else if (hasLlb()) {
-			return changeLlb().xid;
-		} else if (has26_x()) {
-			return change26_x().xid;
-		} else if (hasKrvDlr10()) {
-			return changeKrvDlr10().xid;
-		} else if (hasKrvXml()) {
-			return changeKrvXml().xid;
-		} else if (hasDdl()) {
-			return changeDdl().xid;
+		if (indKTURDB > -1) {
+			return ((OraCdcChangeUndoBlock) changeVectors.get(indKTURDB)).xid;
+		} else if (indKTURCM > -1) {
+			return ((OraCdcChangeRcm) changeVectors.get(indKTURCM)).xid;
+		} else if (indKTUIRB > -1) {
+			return ((OraCdcChangeUndo) changeVectors.get(indKTUIRB)).xid;
+		} else if (indLLB > -1) {
+			return ((OraCdcChangeLlb) changeVectors.get(indLLB)).xid;
+		} else if (indKCOCOLOB > -1) {
+			return ((OraCdcChangeLobs) changeVectors.get(indKCOCOLOB)).xid;
+		} else if (indKRVMISC > -1) {
+			return ((OraCdcChangeKrvMisc) changeVectors.get(indKRVMISC)).xid;
+		} else if (indKRVDLR10 > -1) {
+			return ((OraCdcChangeKrvDlr10) changeVectors.get(indKRVDLR10)).xid;
+		} else if (indKRVXML > -1) {
+			return ((OraCdcChangeKrvXml) changeVectors.get(indKRVXML)).xid;
+		} else if (indDDL > -1) {
+			return ((OraCdcChangeDdl) changeVectors.get(indDDL)).xid;
 		} else {
 			return null;
 		}
