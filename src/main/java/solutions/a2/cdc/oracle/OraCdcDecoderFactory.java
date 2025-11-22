@@ -66,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.slf4j.Logger;
@@ -1135,11 +1136,13 @@ public class OraCdcDecoderFactory {
 				"""
 				
 				=====================
-				"Unable to find large object for {} with LID={}
+				Unable to find large object for {} with LID={}
 				locator length={}, locator data in row={}, locator type={}
+				{}
 				=====================
 				
-				""", entity, ll.lid(), ll.dataLength(), ll.dataInRow(), ll.type());
+				""", entity, ll.lid(), ll.dataLength(), ll.dataInRow(), ll.type(),
+				Strings.CI.replace(Arrays.toString(Thread.currentThread().getStackTrace()), ",", "\n"));
 		throw new SQLException("Lob with LID=" + ll.lid().toString() + " not found!");
 	}
 
