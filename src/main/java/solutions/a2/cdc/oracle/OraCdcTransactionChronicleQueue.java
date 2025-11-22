@@ -837,10 +837,12 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		}
 
 		private void open(final byte status) {
-			if (LOGGER.isDebugEnabled())
-				LOGGER.debug(
-						"Changing LOB {} status from {} to {}", lid.toString(), this.status, status);
-			this.status = status;
+			if (status != this.status) {
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug(
+							"Changing LOB {} status from {} to {}", lid.toString(), this.status, status);
+				this.status = status;
+			}
 		}
 
 		private void close(final int size) throws IOException {
@@ -864,30 +866,33 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 		void write(final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws IOException {
 			switch (status) {
-			case LOB_OP_WRITE:
-				if (lastChunk == null) {
-					lastChunk = new LobChunk();
-					chunks.add(lastChunk);
-					final Path path = Paths.get(directory, lid.toString() + "." + chunks.size());
-					lastChunk.os = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW);
+				case LOB_OP_WRITE -> {
+					if (lastChunk == null) {
+						lastChunk = new LobChunk();
+						chunks.add(lastChunk);
+						final var path = Paths.get(directory, lid.toString() + "." + chunks.size());
+						lastChunk.os = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW);
+						if (LOGGER.isDebugEnabled())
+							LOGGER.debug("Successfully created {} for writing large object {}",
+									path.toAbsolutePath().toString(), path.toString());
+						this.colb = colb;
+						this.cmap = cmap;
+					}
+					lastChunk.os.write(data, off, len);
 					if (LOGGER.isDebugEnabled())
-						LOGGER.debug("Successfully created {} for writing large object {}",
-								path.toAbsolutePath().toString(), path.toString());
-					this.colb = colb;
-					this.cmap = cmap;
+						LOGGER.debug("Completed writing {} bytes for LID {} /chunk # {}", len, lid, chunks.size());
+					if (binaryXml)
+						lastChunk.size += len;
 				}
-				lastChunk.os.write(data, off, len);
-				if (binaryXml)
-					lastChunk.size += len;
-				break;
-			case LOB_OP_ERASE:
-				//TODO
-				break;
-			case LOB_OP_TRIM:
-				//TODO
-				break;
-			default:
-				if (LOGGER.isDebugEnabled()) LOGGER.debug("Write to LOB {} in incorrect status {}", lid, status);
+				case LOB_OP_ERASE -> {
+					//TODO
+				}
+				case LOB_OP_TRIM -> {
+					//TODO
+				}
+				default -> {
+					if (LOGGER.isDebugEnabled()) LOGGER.debug("Write to LOB {} in incorrect status {}", lid, status);
+				}
 			}
 		}
 
