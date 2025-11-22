@@ -46,6 +46,9 @@ import solutions.a2.oracle.utils.FormattingUtils;
 
 public class OraCdcChange {
 
+	/** Layer 4: Transaction Block - KCOCOTBK     [ktbcts.h] */
+	public static final byte KCOCOTBK = 0x04;
+
 	/** Layer 5: Transaction Undo -  KCOCOTUN     [ktucts.h] */
 	public static final byte KCOCOTUN = 0x05;
 	/** KTURDB: Undo block */
@@ -58,6 +61,8 @@ public class OraCdcChange {
 	public static final short _5_6_IRB = 0x0506;
 	/** KTUBRB: Rollback DBA in transaction table entry: yet another PARTIAL ROLLBACK */
 	public static final short _5_11_BRB = 0x050B;
+	/** KTURST: Change transaction state (in transaction table entry) */
+	public static final short _5_12_RST = 0x050C;
 	/** KTUTSL: Transaction start audit log record */
 	public static final short _5_19_TSL = 0x0513;
 	/** KTUTSC: Transaction continue audit log record */
@@ -109,16 +114,31 @@ public class OraCdcChange {
 	/** KDOCMP: Logminer support */
 	public static final short _11_22_CMP = 0x0B16;
 
+	/** Layer 13: Transaction Segment - KCOCOTSG     [ktscts.h] */
+	public static final byte KCOCOTSG = 0x0D;
+
 	//TODO - truncate?
 	/** Layer 14: Transaction Extent - KCOCOTEX [kte.h] */
 	public static final byte KTEOPUTRN = 0x0E;
+	/** KTECUSH: Unlock Segment Header */
+	public static final short _14_1_CUSH = 0x0E01;
+	/** KTECRLK: Redo set extent map disk LocK */
+	public static final short _14_2_CRLK = 0x0E02;
+	/** KTEOPEMREDO: extent operation redo */
+	public static final short _14_4_OPEMREDO = 0x0E04;
 	/** KTEOPUTRN: undo for truncate ops, flush the object */
 	public static final short _14_8_OPUTRN = 0x0E08;
+
+	/** Layer 18: Hot Backup Log Blocks - KCOCOHLB [kcb.h/kcb2.h] */
+	public static final byte KCOCOHLB = 0x12;
 
 	/** Layer 19: Direct Loader Log Blocks - KCOCODLB [kcbl.h] */
 	public static final byte KCOCODLB = 0x13;
 	/** KCBLCOLB: Direct block logging */
 	public static final short _19_1_COLB = 0x1301;
+
+	/** Layer 22: Tablespace bitmapped file operations - KCOCOTBF [ktfb.h] */
+	public static final byte KCOCOTBF = 0x16;
 
 	/** Layer 24: Logminer related (DDL or OBJV# redo) - KCOCOKRV [krv0.h] */
 	public static final byte KCOCOKRV = 0x18;
@@ -130,6 +150,8 @@ public class OraCdcChange {
 	public static final short _24_6_DLR10 = 0x1806;
 	/** KRVXML:  xmlredo - doc or dif - opcode */
 	public static final short _24_8_XML = 0x1808;
+	/** KRVURU:  Uniform Redo Unchained */
+	public static final short _24_10_URU = 0x180A;
 
 	//TODO
 	//TODO
