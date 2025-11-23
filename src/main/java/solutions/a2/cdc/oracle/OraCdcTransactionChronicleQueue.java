@@ -577,12 +577,12 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			transLobs.put(lid, holder);
 		}
 		final var otherLid = lobCols.put(objCol(obj, col), lid);
-		if (otherLid != null && transLobs.get(otherLid).chunks.size() > 0) {
+		if (otherLid != null && !lid.equals(otherLid) && transLobs.get(otherLid).chunks.size() > 0) {
 			LOGGER.error(
 					"""
 					
 					=====================
-					Double entry in object {} column {} for lid '{}' and lid = {} at RBA {}, XID {}
+					Duplicate entry in object {} column {} for lid '{}' and lid = {} at RBA {}, XID {}
 					=====================
 					
 					""",
