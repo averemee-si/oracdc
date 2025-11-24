@@ -427,12 +427,16 @@ public class OraCdcChange {
 			sb.append("\nop: N");
 			break;
 		default:
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unknown 'KTB Redo' op code '{}' for change #{} at RBA {} in '{}'.\n" +
-					"Change contents:\n{}\n" +
-					"\n=====================\n",
-					opKtbRedo, num, rba, redoLog.fileName(), binaryDump());
+			LOGGER.warn(
+					"""
+					
+					=====================
+					Unknown 'KTB Redo' op code '{}' for change #{} at RBA {} in '{}'.
+					Change contents:
+					{}
+					=====================
+					
+					""", opKtbRedo, num, rba, redoLog.fileName(), binaryDump());
 		}
 		// Block cleanout
 		if ((opKtbRedo & 0x10) != 0) {
