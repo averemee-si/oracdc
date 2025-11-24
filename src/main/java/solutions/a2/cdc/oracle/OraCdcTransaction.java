@@ -905,6 +905,8 @@ public abstract class OraCdcTransaction {
 				if (undoChange.supplementalLogData()) {
 					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 						row.complete = true;
+					else if (undoChange.supplementalFb() == 0 && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
+						row.complete = true;
 					else if (!flgHeadPart(undoChange.fb()))
 						row.flags |= FLG_OPPOSITE_ORDER;
 				} else {
