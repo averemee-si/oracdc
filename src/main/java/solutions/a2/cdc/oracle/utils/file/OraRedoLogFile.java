@@ -54,6 +54,16 @@ import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTBK;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTSG;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOHLB;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTBF;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_12_RST;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_1_CUSH;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_2_CRLK;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_4_OPEMREDO;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_10_URU;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_3_FRMT;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 /**
@@ -76,6 +86,7 @@ public class OraRedoLogFile  {
 	private static final String SSH_PORT = "ssh-port";
 	private static final String SMB_USER = "smb-user";
 	private static final String SMB_PASSWORD = "smb-password";
+	private static final String TEST_CLASS = "test-data";
 
 	public static void main(String[] argv) {
 		BasicConfigurator.configure();
@@ -113,7 +124,6 @@ public class OraRedoLogFile  {
 						=====================
 						To work with file '{}' located on Oracle ASM, parameters --{}, --{}, and --{} must be set!
 						=====================
-												
 						
 						""", redoFile, ASM_URL, ASM_USER, ASM_PASSWORD);
 				System.exit(1);
@@ -144,9 +154,12 @@ public class OraRedoLogFile  {
 				System.exit(1);
 			}
 		} else if (Strings.CS.startsWith(redoFile, "/") ||
-				(redoFile.length() > 2) &&
+				(redoFile.length() > 2 &&
 				StringUtils.isAlpha(StringUtils.substring(redoFile, 0, 1)) &&
-				Strings.CS.equals(StringUtils.substring(redoFile, 1, 2), ":")) {
+				Strings.CS.equals(StringUtils.substring(redoFile, 1, 2), ":")) ||
+				(redoFile.length() > 2 &&
+				StringUtils.isAlpha(StringUtils.substring(redoFile, 0, 1)) &&
+				!Strings.CS.contains(redoFile, "@"))) {
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
 		} else if (Strings.CS.startsWith(redoFile, "\\\\")) {
 			final var shareIndex = Strings.CS.indexOf(StringUtils.substring(redoFile, 2), "\\");
@@ -349,7 +362,6 @@ public class OraRedoLogFile  {
 						Errorstack:
 						{}
 						=====================
-
 						
 						""",
 						e.getMessage(), cmd.getOptionValue("s"), ExceptionUtils.getExceptionStackTrace(e));
@@ -368,7 +380,6 @@ public class OraRedoLogFile  {
 							{}
 							=====================
 
-							
 							""",
 							e.getMessage(), cmd.getOptionValue("e"), ExceptionUtils.getExceptionStackTrace(e));
 					System.exit(1);
@@ -402,7 +413,6 @@ public class OraRedoLogFile  {
 						{}
 						=====================
 
-						
 						""",
 						e.getMessage(), cmd.getOptionValue("c"), ExceptionUtils.getExceptionStackTrace(e));
 				System.exit(1);
@@ -424,7 +434,6 @@ public class OraRedoLogFile  {
 							{}
 							=====================
 
-							
 							""",
 							e.getMessage(), cmd.getOptionValue("n"), ExceptionUtils.getExceptionStackTrace(e));
 					System.exit(1);
@@ -468,7 +477,6 @@ public class OraRedoLogFile  {
 							Errorstack:
 							{}
 							=====================
-
 							
 							""",
 							e.getMessage(), objIds[i], ExceptionUtils.getExceptionStackTrace(e));
@@ -524,16 +532,44 @@ public class OraRedoLogFile  {
 						{}
 						=====================
 
-						
 						""",
 						nfe.getMessage(), strXid, ExceptionUtils.getExceptionStackTrace(nfe));
 				System.exit(1);
 			}
 		}
 
-
-		out.println(orl);
-		if (records || dumps || xidFilter) {
+		var generateTestData = false;
+		String testFileName = null;
+		OraCdcIncidentWriter iw = null;
+		if (cmd.hasOption('t')) {
+			if (!xidFilter) {
+				LOGGER.error(
+						"""
+						
+						""");
+				System.exit(1);
+			}
+			generateTestData = true;
+			testFileName = useFile ? outFileName : "TestCase$" + System.currentTimeMillis() + ".trc";
+			try {
+				iw = new OraCdcIncidentWriter(xid, testFileName);
+			} catch (IOException ioe) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						'{}' while opening '{}'
+						Errorstack:
+						{}
+						=====================
+						
+						""",
+						ioe.getMessage(), testFileName, ExceptionUtils.getExceptionStackTrace(ioe));
+				System.exit(1);
+			}
+		} else
+			out.println(orl);
+		if (records || dumps || xidFilter || generateTestData) {
 			try {
 				final Iterator<OraCdcRedoRecord> iterator;
 				if (limits) {
@@ -545,12 +581,30 @@ public class OraRedoLogFile  {
 				} else {
 					iterator = orl.iterator();
 				}
+				var first = true;
+				var transEndRba = RedoByteAddress.MIN_VALUE;
+				var transStartRba = RedoByteAddress.MIN_VALUE;
+				var transEndScn = 0L;
+				var transStartScn = 0L;
 				while (iterator.hasNext()) {
 					final var record = iterator.next();
+					if (xidFilter) {
+						if (record.xid() != null && !xid.equals(record.xid()))
+							continue;
+						if (record.changeVectors().size() > 0 &&
+								((record.changeVectors().get(0).operation() >> 8) == KCOCOTBK ||
+								(record.changeVectors().get(0).operation() >> 8) == KCOCOTSG ||
+								(record.changeVectors().get(0).operation() >> 8) == KCOCOHLB ||
+								(record.changeVectors().get(0).operation() >> 8) == KCOCOTBF ||
+								record.changeVectors().get(0).operation() == _5_12_RST ||
+								record.changeVectors().get(0).operation() == _14_1_CUSH ||
+								record.changeVectors().get(0).operation() == _14_2_CRLK ||
+								record.changeVectors().get(0).operation() == _14_4_OPEMREDO ||
+								record.changeVectors().get(0).operation() == _24_10_URU ||
+								record.changeVectors().get(0).operation() == _26_3_FRMT))
+							continue;
+					}
 					final boolean printRecord;
-					if (xidFilter && !xid.equals(record.xid()))
-						continue;
-						
 					if (objFilter) {
 						if (record.has5_1() || record.hasPrb()) {
 							final OraCdcChangeUndo change;
@@ -567,21 +621,73 @@ public class OraRedoLogFile  {
 						}
 					} else {
 						printRecord = true;
-					}	
+					}
 					if (printRecord) {
-						if (records) {
-							out.println(record.toString());
-						}
-						if (dumps) {
-							if (!records) {
-								out.println("RBA: " + record.rba());
+						if (((xidFilter && !limits) || generateTestData) &&
+								record.xid() != null && xid.equals(record.xid())) {
+							transEndRba = record.rba();
+							transEndScn = record.scn();
+							if (first) {
+								transStartRba = record.rba();
+								transStartScn = record.scn();
+								LOGGER.info("Transaction {} starts at SCN/RBA {}/{}",
+										xid, Long.toUnsignedString(transStartScn), transStartRba);
+								first = false;
 							}
-							out.println("Content: ");
-							out.print(rawToHex(record.content()));
-							for (final OraCdcChange change : record.changeVectors()) {
-								out.println("\nChange # " + change.num() + change.binaryDump());
-							}
 						}
+						if (generateTestData)
+							try {
+								iw.write(record);
+							} catch (IOException ioe) {
+								LOGGER.error(
+										"""
+										
+										=====================
+										'{}' while writing to '{}'
+										Errorstack:
+										{}
+										=====================
+										
+										""",
+										ioe.getMessage(), testFileName, ExceptionUtils.getExceptionStackTrace(ioe));
+								System.exit(1);
+							}
+						else {
+							if (records) {
+								out.println(record.toString());
+							}
+							if (dumps) {
+								if (!records) {
+									out.println("RBA: " + record.rba());
+								}
+								out.println("Content: ");
+								out.print(rawToHex(record.content()));
+								for (final OraCdcChange change : record.changeVectors()) {
+									out.println("\nChange # " + change.num() + change.binaryDump());
+								}
+							}							
+						}
+					}
+				}
+				if ((xidFilter && !limits) || generateTestData)
+					LOGGER.info("Transaction {} ends at SCN/RBA {}/{}",
+							xid, Long.toUnsignedString(transEndScn), transEndRba);
+				if (generateTestData) {
+					try {
+						iw.writeHeader(transStartScn, transStartRba, transEndScn, transEndRba);
+					} catch (IOException ioe) {
+						LOGGER.error(
+								"""
+								
+								=====================
+								'{}' while writing to '{}'
+								Errorstack:
+								{}
+								=====================
+								
+								""",
+								ioe.getMessage(), testFileName, ExceptionUtils.getExceptionStackTrace(ioe));
+						System.exit(1);
 					}
 				}
 			} catch (SQLException sqle) {
@@ -762,6 +868,12 @@ public class OraRedoLogFile  {
 				.get();
 		options.addOption(smbPassword);
 
+		final Option testClassMode = Option.builder("t")
+				.longOpt(TEST_CLASS)
+				.required(false)
+				.desc("When this option is specified, the utility generates not a redo file dump, but a oracdc test class template for the specified transaction")
+				.get();
+		options.addOption(testClassMode);
 	}
 
 }

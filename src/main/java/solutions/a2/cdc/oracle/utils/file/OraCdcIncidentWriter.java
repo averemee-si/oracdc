@@ -13,10 +13,12 @@
 
 package solutions.a2.cdc.oracle.utils.file;
 
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
+
 import java.io.IOException;
-import java.io.RandomAccessFile;
 
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
+import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 
 /**
@@ -26,39 +28,59 @@ import solutions.a2.oracle.internals.Xid;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcIncidentWriter implements AutoCloseable {
+public class OraCdcIncidentWriter extends OraCdcIncidentBase {
 
-	private static final int HEADER_SIZE = 0x200;
-	private final RandomAccessFile out;
-	private final String outFileName;
-	
+	private long commitScn = 0L;
+	private RedoByteAddress commitRba = RedoByteAddress.MIN_VALUE;
 
 	OraCdcIncidentWriter(final Xid xid, final String outFileName) throws IOException {
-		this.outFileName = outFileName;
-		out = new RandomAccessFile(outFileName, "rw");
-		out.writeShort(xid.usn());
-		out.writeShort(xid.slt());
-		out.writeInt(xid.sqn());
-		out.seek(HEADER_SIZE - 2 * Short.BYTES - Integer.BYTES);
+		super(outFileName);
+		raf.writeShort(xid.usn());
+		raf.writeShort(xid.slt());
+		raf.writeInt(xid.sqn());
+		raf.seek(HEADER_SIZE);
 	}
 
-	public void write(final OraCdcRedoRecord rr) throws IOException {
-		out.writeInt(rr.rba().sqn());
-		out.writeInt(rr.rba().blk());
-		out.writeShort(rr.rba().offset());
-		out.writeLong(rr.scn());
+	void write(final OraCdcRedoRecord rr) throws IOException {
+		if (rr.has5_4() && !rr.change5_4().rollback()) {
+			commitScn = rr.scn();
+			commitRba = rr.rba();
+		}
+		if (rr.hasLlb() && rr.changeLlb().type() == TYPE_1) {
+			transFromLobId.add(rr.changeLlb().lid());
+		}
+		if (rr.hasColb()) {
+			var colb = rr.changeColb();
+			if (colb.longDump()) {
+				if (colb.lid() == null ||
+						(colb.lid() != null && !transFromLobId.contains(colb.lid())))
+					return;
+			}
+		}
+		raf.writeInt(rr.rba().sqn());
+		raf.writeInt(rr.rba().blk());
+		raf.writeShort(rr.rba().offset());
+		raf.writeLong(rr.scn());
 		final var content = rr.content();
-		out.writeInt(content.length);
-		out.write(content);
+		raf.writeInt(content.length);
+		raf.write(content);
 	}
 
-	@Override
-	public void close() throws IOException {
-		out.close();
-	}
-
-	public String outFileName() {
-		return outFileName;
+	void writeHeader(long transStartScn, RedoByteAddress transStartRba, long transEndScn,
+			RedoByteAddress transEndRba) throws IOException {
+		raf.seek(2 * Short.BYTES + Integer.BYTES);
+		raf.writeLong(transStartScn);
+		raf.writeInt(transStartRba.sqn());
+		raf.writeInt(transStartRba.blk());
+		raf.writeShort(transStartRba.offset());
+		raf.writeLong(transEndScn);
+		raf.writeInt(transEndRba.sqn());
+		raf.writeInt(transEndRba.blk());
+		raf.writeShort(transEndRba.offset());
+		raf.writeLong(commitScn);
+		raf.writeInt(commitRba.sqn());
+		raf.writeInt(commitRba.blk());
+		raf.writeShort(commitRba.offset());
 	}
 
 }
