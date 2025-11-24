@@ -37,8 +37,6 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgFirstPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgHeadPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgLastPart;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgNextPart;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgPrevPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.printFbFlags;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
@@ -582,16 +580,20 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public void processRowChange(final OraCdcRedoRecord record, final boolean partialRollback,
+	public void processRowChange(final OraCdcRedoRecord rr, final boolean partialRollback,
 			final long lwnUnixMillis) throws IOException {
-		RowChangeHolder row = createRowChangeHolder(record, partialRollback);
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("processRowChange(partialRollback={}) in XID {} at SCN/RBA {}/{} for OP:{}",
+					partialRollback, rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba(),
+					rr.has11_x() ? formatOpCode(rr.change11_x().operation()) : formatOpCode(rr.change10_x().operation()));
+		RowChangeHolder row = createRowChangeHolder(rr, partialRollback);
 		if (row.complete) {
 			emitRowChange(row, lwnUnixMillis);
 		} else {
-			final int key = record.halfDoneKey();
+			final int key = rr.halfDoneKey();
 			Deque<RowChangeHolder> deque =  halfDone.get(key);
 			if (deque == null) {
-				row.add(record);
+				row.add(rr);
 				deque = new ArrayDeque<>();
 				deque.addFirst(row);
 				halfDone.put(key, deque);
@@ -602,35 +604,35 @@ public abstract class OraCdcTransaction {
 						lastHalfDone.change11_x().fb() : lastHalfDone.change10_x().fb();
 				final boolean push;
 				if (partialRollback) {
-					if (record.has11_x())
-						push = lastHalfDoneRowFb == record.change11_x().fb();
+					if (rr.has11_x())
+						push = lastHalfDoneRowFb == rr.change11_x().fb();
 					else
-						push = lastHalfDoneRowFb == record.change10_x().fb();
+						push = lastHalfDoneRowFb == rr.change10_x().fb();
 				} else {
-					if (record.has11_x()) {
-						if (record.change11_x().fb() == 0 && record.change5_1().fb() == 0)
+					if (rr.has11_x()) {
+						if (rr.change11_x().fb() == 0 && rr.change5_1().fb() == 0)
 							push = false;
 						else
-							push = lastHalfDoneRowFb == record.change11_x().fb() && 
-									lastHalfDone.change5_1().fb() == record.change5_1().fb();
+							push = lastHalfDoneRowFb == rr.change11_x().fb() && 
+									lastHalfDone.change5_1().fb() == rr.change5_1().fb();
 					} else {
-						if (record.change10_x().fb() == 0 && record.change5_1().fb() == 0)
+						if (rr.change10_x().fb() == 0 && rr.change5_1().fb() == 0)
 							push = false;
 						else
-							push = lastHalfDoneRowFb == record.change10_x().fb() && 
-									lastHalfDone.change5_1().fb() == record.change5_1().fb();
+							push = lastHalfDoneRowFb == rr.change10_x().fb() && 
+									lastHalfDone.change5_1().fb() == rr.change5_1().fb();
 					} 
 				}
 				if (push) {
-					row.add(record);
+					row.add(rr);
 					deque.addFirst(row);
 					if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug(
 								"An stored incomplete change at RBA {} cannot be merged with an incomplete change in progress at RBA {}",
-								lastHalfDone.rba(), record.rba());
+								lastHalfDone.rba(), rr.rba());
 					}
 				} else {
-					halfDoneRow.add(record);
+					halfDoneRow.add(rr);
 					row = null;
 					completeRow(halfDoneRow);
 					if (halfDoneRow.complete) {
@@ -646,64 +648,14 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public void processRowChangeLmnUpdate(final OraCdcRedoRecord record, final long lwnUnixMillis) throws IOException {
-		final byte fbLmn = record.change11_x().fb();
-		if (flgPrevPart(fbLmn) && flgNextPart(fbLmn)) {
-			//Just complete previous record
-			final int key = record.halfDoneKey();
-			Deque<RowChangeHolder> deque =  halfDone.get(key);
-			if (deque == null) {
-				LOGGER.error(
-						"""
-						
-						=====================
-						Unable to pair OP:11.16 record with row flags {} at RBA {}, SCN {}, XID {} in file {}
-						Redo record information:
-						{}
-						=====================
-						
-						""", printFbFlags(fbLmn),record.rba(), record.scn(), record.xid(), record.redoLog().fileName(), record);
-			} else {
-				RowChangeHolder halfDoneRow =  deque.pollFirst();
-				halfDoneRow.complete = true;
-				emitRowChange(halfDoneRow, lwnUnixMillis);
-				if (deque.isEmpty()) {
-					halfDone.remove(key);
-				}
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Emitting {} with first RBA {}, last RBA {} using OP:11.16 record with row flags {} at RBA {}, SCN {}, XID {} in file {}",
-							halfDoneRow.lmOp == UPDATE ? "UPDATE" : halfDoneRow.lmOp == INSERT ? "INSERT" : "DELETE",
-							halfDoneRow.first().rba(), halfDoneRow.last().rba(), 
-							printFbFlags(fbLmn),record.rba(), record.scn(), record.xid(), record.redoLog().fileName());
-				}
-			}
-		} else if (record.has5_1() && record.change5_1().supplementalLogData()) {
-			if (flgFirstPart(fbLmn) && !flgNextPart(fbLmn)) {
-				processRowChange(record, false, lwnUnixMillis);
-			} else if (flgFirstPart(fbLmn) && flgNextPart(fbLmn)) {
-				LOGGER.debug("Skipping OP:11.16 record with row flags F and N set at RBA {}, SCN {}, XID {} in file {}",
-						record.rba(), record.scn(), record.xid(), record.redoLog().fileName());
-			} else if (flgLastPart(fbLmn) && flgNextPart(fbLmn)) {
-				LOGGER.debug("Skipping OP:11.16 record with row flags L and N set at RBA {}, SCN {}, XID {} in file {}",
-						record.rba(), record.scn(), record.xid(), record.redoLog().fileName());
-			} else {
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Skipping OP:11.16 record with row flags {} at RBA {}, SCN {}, XID {} in file {}",
-							printFbFlags(fbLmn),record.rba(), record.scn(), record.xid(), record.redoLog().fileName());
-				}
-			}
-		} else {
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("Skipping OP:11.16 record without supplemental log data at RBA {}, SCN {}, XID {} in file {}",
-						record.rba(), record.scn(), record.xid(), record.redoLog().fileName());
-			}
-		}
-	}
-
 	private static final byte[] ZERO_COL_COUNT = {0, 0};
 	public void emitMultiRowChange(final OraCdcRedoRecord rr,
 			final boolean partialRollback,
 			final long lwnUnixMillis) throws IOException {
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("emitMultiRowChange(partialRollback={}) in XID {} at SCN/RBA {}/{} for OP:{}",
+					partialRollback, rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba(),
+					formatOpCode(rr.change11_x().operation()));
 		final int index;
 		final short lmOp;
 		final var rowChange = rr.change11_x();
@@ -787,6 +739,10 @@ public abstract class OraCdcTransaction {
 	public void emitDirectBlockChange(final OraCdcRedoRecord rr,
 			final OraCdcChangeColb colb,
 			final long lwnUnixMillis) throws IOException {
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("emitDirectBlockChange() in XID {} at SCN/RBA {}/{} for OP:{}",
+					xid, Long.toUnsignedString(rr.scn()), rr.rba(),
+					formatOpCode(colb.operation()));
 		final var record = colb.record();
 		final var coords = colb.coords();
 		final var redoLog = colb.redoLog();
@@ -1593,18 +1549,22 @@ public abstract class OraCdcTransaction {
 		return halfDone.isEmpty();
 	}
 
-	public void emitDdlChange(OraCdcRedoRecord record, final long lwnUnixMillis) {
-		final OraCdcChangeDdl ddl = record.changeDdl();
+	public void emitDdlChange(OraCdcRedoRecord rr, final long lwnUnixMillis) {
+		final OraCdcChangeDdl ddl = rr.changeDdl();
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("emitDdlChange() in XID {} at SCN/RBA {}/{} for OP:{}",
+					xid, Long.toUnsignedString(rr.scn()), rr.rba(),
+					formatOpCode(ddl.operation()));
 		final String preProcessed = alterTablePreProcessor(ddl.ddlText());
 		if (preProcessed != null) {
 			final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)ddl.conId()) << 32) |  (ddl.obj() & 0xFFFFFFFFL) : ddl.obj(),
-					DDL, ddl.ddlText().getBytes(), lwnUnixMillis, record.scn(), record.rba(),
-					(long) record.subScn(), RowId.ZERO, false);
+					DDL, ddl.ddlText().getBytes(), lwnUnixMillis, rr.scn(), rr.rba(),
+					(long) rr.subScn(), RowId.ZERO, false);
 			addStatement(orm);
 		} else {
 			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Skipping OP:24.1\n{}\n", record);
+				LOGGER.debug("Skipping OP:24.1\n{}\n", rr);
 		}
 	}
 

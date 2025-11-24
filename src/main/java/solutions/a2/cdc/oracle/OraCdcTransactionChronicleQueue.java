@@ -571,6 +571,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		final var lid = llb.lid();
 		final var obj = llb.obj();
 		final var col = llb.lobCol();
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("openLob() in XID {} at RBA {} for LID {}, OBJ#/COL# {}/{}",
+					getXid(), rba, lid, obj, col);
 		var holder = transLobs.get(lid);
 		if (holder == null) {
 			holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
@@ -598,8 +601,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 	private void closeLob(final int obj, final short col, final int size, final RedoByteAddress rba) throws IOException {
 		final var objCol = objCol(obj, col);
-		final var lobId = lobCols.get(objCol);
-		if (lobId == null) {
+		final var lid = lobCols.get(objCol);
+		if (lid == null) {
 			LOGGER.error(
 					"""
 					
@@ -610,8 +613,11 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 					""",
 					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), rba, getXid());
 		} else {
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug("closeLob() in XID {} at RBA {} for LID {}, OBJ#/COL# {}/{}",
+						getXid(), rba, lid, obj, col);
 			lobCols.remove(objCol);
-			transLobs.get(lobId).close(size);
+			transLobs.get(lid).close(size);
 		}
 	}
 
