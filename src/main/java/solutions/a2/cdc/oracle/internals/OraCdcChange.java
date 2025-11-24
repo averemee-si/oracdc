@@ -923,7 +923,7 @@ public class OraCdcChange {
 		final StringBuilder sb = new StringBuilder();
 		sb
 			.append((rowFb & 0x80) != 0 ? 'K' : '-')		// Cluster key
-			.append((rowFb & 0x40) != 0 ? 'C' : '-')		// Clustered row or COMPLETED?
+			.append(flgCompleted(rowFb) ? 'C' : '-')		// Row completed
 			.append(flgHeadPart(rowFb)  ? 'H' : '-')		// Head piece of row 
 			.append((rowFb & 0x10) != 0 ? 'D' : '-')		// Deleted row
 			.append(flgFirstPart(rowFb) ? 'F' : '-')		// First piece in row
@@ -948,7 +948,9 @@ public class OraCdcChange {
 	public static boolean flgNextPart(final byte flag) {
 		return (flag & 0x01) != 0;
 	}
-
+	public static boolean flgCompleted(final byte flag) {
+		return (flag & 0x40) != 0;
+	}
 
 	int printColumnBytes(final StringBuilder sb, final int col, final int index, final int position) {
 		int rowDiff = position;

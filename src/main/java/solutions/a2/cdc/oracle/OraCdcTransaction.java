@@ -34,6 +34,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_6_ORP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgCompleted;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgFirstPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgHeadPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgLastPart;
@@ -42,6 +43,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange.printFbFlags;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.oracle.utils.BinaryUtils.putU16;
 import static solutions.a2.oracle.utils.BinaryUtils.putU24;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -246,15 +248,15 @@ public abstract class OraCdcTransaction {
 					sb
 						.append("\n\trowChangeHolder information:")
 						.append(" homogeneous=")
-						.append(rowChangeHolder.homogeneous)
+						.append((rowChangeHolder.flags & FLG_HOMOGENEOUS) > 0)
 						.append(" needHeadFlag=")
-						.append(rowChangeHolder.needHeadFlag)
+						.append((rowChangeHolder.flags & FLG_NEED_HEAD_FLAG) > 0)
 						.append(" onlyLmn=")
 						.append(rowChangeHolder.onlyLmn)
-						.append(" operation=")
-						.append(rowChangeHolder.operation)
+						.append(" OP:")
+						.append(formatOpCode(rowChangeHolder.operation))
 						.append(" oppositeOrder=")
-						.append(rowChangeHolder.oppositeOrder)
+						.append((rowChangeHolder.flags & FLG_OPPOSITE_ORDER) > 0)
 						.append(" lmOp=")
 						.append(rowChangeHolder.lmOp);
 					for (final OraCdcRedoRecord rr : rowChangeHolder.records) {
@@ -393,54 +395,51 @@ public abstract class OraCdcTransaction {
 		long ssn;
 	}
 
+	private static final byte FLG_NEED_HEAD_FLAG   = 0x01;
+	private static final byte FLG_REORDER          = 0x02;
+	private static final byte FLG_OPPOSITE_ORDER   = 0x04;
+	private static final byte FLG_HOMOGENEOUS      = 0x08;
+	private static final byte FLG_PARTIAL_ROLLBACK = 0x10;
 	private static class RowChangeHolder {
-		private final boolean partialRollback;
 		private final List<OraCdcRedoRecord> records;
 		private final short operation;
 		private boolean complete;
-		private boolean oppositeOrder;
 		private short lmOp;
-		private boolean homogeneous;
-		private boolean needHeadFlag;
-		private boolean reorder;
 		private RedoByteAddress rba = RedoByteAddress.MAX_VALUE;
 		private boolean onlyLmn;
+		private byte flags = FLG_NEED_HEAD_FLAG | FLG_HOMOGENEOUS;
 
 		RowChangeHolder(final boolean partialRollback, final short operation) {
-			this.partialRollback = partialRollback;
 			this.operation = operation;
 			this.records = new ArrayList<>();
 			this.complete = false;
-			this.oppositeOrder = false;
 			this.lmOp = UNSUPPORTED;
-			this.homogeneous = true;
-			this.needHeadFlag = true;
-			this.reorder = false;
-			if (partialRollback)
+			if (partialRollback) {
 				onlyLmn = false;
-			else
+				flags |= FLG_PARTIAL_ROLLBACK;
+			} else
 				onlyLmn = true;
 		}
 		void add(final OraCdcRedoRecord record) {
 			records.add(record);
 			if (record.rba().compareTo(rba) < 0)
 				rba = record.rba();
-			if (!partialRollback) {
+			if ((flags & FLG_PARTIAL_ROLLBACK) == 0) {
 				if (record.has11_x())
 					onlyLmn = onlyLmn && (record.change11_x().operation() == _11_16_LMN);
 				else
 					//IOT
 					onlyLmn = false;
 			}			
-			if (!complete && !partialRollback && records.size() == 1) {
+			if (!complete && (flags & FLG_PARTIAL_ROLLBACK) == 0 && records.size() == 1) {
 				final byte fb5_1 = record.change5_1().fb();
 				final byte fb11_x = record.has11_x() ? record.change11_x().fb() : record.change10_x().fb();
 				if (!flgFirstPart(fb5_1) && !flgLastPart(fb5_1) && !flgHeadPart(fb5_1) &&
 						!flgFirstPart(fb11_x) && !flgLastPart(fb11_x) && !flgHeadPart(fb11_x))
-					reorder = true;
+					flags |= FLG_REORDER;
 			}
 			if (LOGGER.isDebugEnabled()) {
-				if (partialRollback) {
+				if ((flags & FLG_PARTIAL_ROLLBACK) > 0) {
 					LOGGER.debug("Adding XID {}, SCN {}, RBA {}, OP:{} fb:{}, OP:{} fb:{}",
 							record.xid(),
 							record.scn(),
@@ -525,7 +524,7 @@ public abstract class OraCdcTransaction {
 					}					
 				switch (lmOp) {
 				case UPDATE:
-					if (homogeneous) {
+					if ((flags & FLG_HOMOGENEOUS) > 0) {
 						if (flgFirstPart(fb5_1) && flgFirstPart(fb11_x)) indexFirst = index;
 						if (flgLastPart(fb5_1) && flgLastPart(fb11_x)) indexLast = index;	
 						if (flgHeadPart(fb5_1) && flgHeadPart(fb11_x)) indexHead = index;
@@ -556,10 +555,10 @@ public abstract class OraCdcTransaction {
 				}
 			}
 			if (indexHead > -1 && indexHead > indexFirst)
-				oppositeOrder = true;
+				flags |= FLG_OPPOSITE_ORDER;
 			else
-				oppositeOrder = false;
-			if (oppositeOrder)
+				flags &= (~FLG_OPPOSITE_ORDER);
+			if ((flags & FLG_OPPOSITE_ORDER) > 0)
 				sortedRecs.add(records.get(indexLast));
 			else
 				sortedRecs.add(records.get(indexFirst));
@@ -569,7 +568,7 @@ public abstract class OraCdcTransaction {
 				for (int index = 0; index < indexValue; index++)
 					sortedRecs.add(records.get(index));
 			}
-			if (oppositeOrder)
+			if ((flags & FLG_OPPOSITE_ORDER) > 0)
 				sortedRecs.add(records.get(indexFirst));
 			else
 				sortedRecs.add(records.get(indexLast));
@@ -586,11 +585,43 @@ public abstract class OraCdcTransaction {
 			LOGGER.debug("processRowChange(partialRollback={}) in XID {} at SCN/RBA {}/{} for OP:{}",
 					partialRollback, rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba(),
 					rr.has11_x() ? formatOpCode(rr.change11_x().operation()) : formatOpCode(rr.change10_x().operation()));
+		if (!partialRollback && rr.has11_x() && rr.change11_x().operation() == _11_16_LMN) {
+			final var key = rr.halfDoneKey();
+			final var deque =  halfDone.get(key);
+			if (deque != null) {
+				final var halfDoneRow =  deque.peekFirst();
+				if (halfDoneRow != null && halfDoneRow.lmOp == UPDATE && flgCompleted(rr.change5_1().supplementalFb())) {
+					halfDoneRow.complete = true;
+					halfDoneRow.add(rr);
+					emitRowChange(halfDoneRow, lwnUnixMillis);
+					deque.removeFirst();
+					if (deque.isEmpty()) {
+						halfDone.remove(key);
+					}
+					return;
+				}
+			} else {
+				LOGGER.error(
+						"""
+						
+						=====================
+						Unable to pair OP:11.16 record with
+							OP:5.1 FB {}, supplemental FB {}, OP:11.16 FB {}
+						at SCN/RBA {}/{}, XID {} in file {}
+						Redo record information:
+						{}
+						=====================
+						
+						""",
+							printFbFlags(rr.change5_1().fb()), printFbFlags(rr.change5_1().supplementalFb()), printFbFlags(rr.change11_x().fb()), 
+							rr.scn(), rr.rba(), rr.xid(), rr.redoLog().fileName(), rawToHex(rr.content()));
+			}
+		}
 		RowChangeHolder row = createRowChangeHolder(rr, partialRollback);
 		if (row.complete) {
 			emitRowChange(row, lwnUnixMillis);
 		} else {
-			final int key = rr.halfDoneKey();
+			final var key = rr.halfDoneKey();
 			Deque<RowChangeHolder> deque =  halfDone.get(key);
 			if (deque == null) {
 				row.add(rr);
@@ -798,11 +829,11 @@ public abstract class OraCdcTransaction {
 				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(rowChange.fb()))
-					row.oppositeOrder = true;
+					row.flags |= FLG_OPPOSITE_ORDER;
 				if (row.operation == _11_16_LMN) {
-					row.needHeadFlag = false;
+					row.flags &= (~FLG_NEED_HEAD_FLAG);
 					if (flgFirstPart(rowChange.fb()))
-						row.oppositeOrder = true;
+						row.flags |= FLG_OPPOSITE_ORDER;
 				}
 				break;
 			case _11_2_IRP:
@@ -810,7 +841,7 @@ public abstract class OraCdcTransaction {
 				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(rowChange.fb()))
-					row.oppositeOrder = true;
+					row.flags |= FLG_OPPOSITE_ORDER;
 				break;
 			case _11_3_DRP:
 				row.lmOp = DELETE;
@@ -844,17 +875,17 @@ public abstract class OraCdcTransaction {
 					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 						row.complete = true;
 					else if (!flgHeadPart(undoChange.fb()))
-						row.oppositeOrder = true;
+						row.flags |= FLG_OPPOSITE_ORDER;
 				} else {
 					if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
 							flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb())) {
 						row.complete = true;
 					} else if (!flgHeadPart(undoChange.fb()))
-						row.oppositeOrder = true;
+						row.flags |= FLG_OPPOSITE_ORDER;
 					if (row.operation == _11_16_LMN) {
-						row.needHeadFlag = false;
+						row.flags &= (~FLG_NEED_HEAD_FLAG);
 						if (!flgFirstPart(undoChange.fb()) || flgFirstPart(rowChange.fb()))
-							row.oppositeOrder = true;
+							row.flags |= FLG_OPPOSITE_ORDER;
 					}
 				}
 				break;
@@ -867,7 +898,7 @@ public abstract class OraCdcTransaction {
 				if (flgHeadPart(rowChange.fb()) && flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(rowChange.fb()))
-					row.oppositeOrder = true;
+					row.flags |= FLG_OPPOSITE_ORDER;
 				break;
 			case _11_3_DRP:
 				row.lmOp = DELETE;
@@ -875,12 +906,12 @@ public abstract class OraCdcTransaction {
 					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 						row.complete = true;
 					else if (!flgHeadPart(undoChange.fb()))
-						row.oppositeOrder = true;
+						row.flags |= FLG_OPPOSITE_ORDER;
 				} else {
 					if (flgHeadPart(undoChange.fb()) && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
 						row.complete = true;
 					else if (!flgHeadPart(undoChange.fb()))
-						row.oppositeOrder = true;
+						row.flags |= FLG_OPPOSITE_ORDER;
 				}
 				break;
 			case _10_2_LIN:
@@ -891,7 +922,7 @@ public abstract class OraCdcTransaction {
 						flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 					row.complete = true;					
 				else if (!flgHeadPart(rowChange.fb()))
-					row.oppositeOrder = true;
+					row.flags |= FLG_OPPOSITE_ORDER;
 				break;
 			case _10_4_LDE:
 				row.lmOp = DELETE;
@@ -901,25 +932,25 @@ public abstract class OraCdcTransaction {
 						flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 					row.complete = true;					
 				else if (!flgHeadPart(undoChange.fb()))
-					row.oppositeOrder = true;
+					row.flags |= FLG_OPPOSITE_ORDER;
 				break;
 			case _10_18_LUP:
 				row.lmOp = UPDATE;
-				row.needHeadFlag = false;
+				row.flags &= (~FLG_NEED_HEAD_FLAG);
 				if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 					row.complete = true;
 				else if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
 					flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(undoChange.fb()))
-					row.oppositeOrder = true;
+					row.flags |= FLG_OPPOSITE_ORDER;
 				break;
 			case _10_30_LNU:
 				row.lmOp = UPDATE;
 				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(rowChange.fb()))
-					row.oppositeOrder = true;
+					row.flags |= FLG_OPPOSITE_ORDER;
 				break;
 			case _10_35_LCU:
 				row.lmOp = UPDATE;
@@ -934,7 +965,7 @@ public abstract class OraCdcTransaction {
 	}
 
 	private void completeRow(final RowChangeHolder row) {
-		if (row.partialRollback) {
+		if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
 			int head = 0;
 			int first = 0;
 			int last = 0;
@@ -976,11 +1007,11 @@ public abstract class OraCdcTransaction {
 				if (rr.has11_x() && rr.has5_1()) {
 					if (row.lmOp == INSERT && rr.change11_x().operation() == _11_6_ORP) {
 						row.lmOp = UPDATE;
-						row.homogeneous = false;
+						row.flags &= (~FLG_HOMOGENEOUS);
 						completeRow(row);
 					}
-					if (row.lmOp == UPDATE && rr.change11_x().operation() != _11_5_URP && row.homogeneous) {
-						row.homogeneous = false;
+					if (row.lmOp == UPDATE && rr.change11_x().operation() != _11_5_URP && (row.flags & FLG_HOMOGENEOUS) > 0) {
+						row.flags &= (~FLG_HOMOGENEOUS);
 					}
 					if (row.lmOp == DELETE) {
 						final byte fb = rr.change5_1().fb();
@@ -1043,9 +1074,12 @@ public abstract class OraCdcTransaction {
 					head > 0 && first > 0 && last > 0)
 				row.complete = true;
 			else if (row.lmOp == UPDATE) {
-				if (row.needHeadFlag && head > 1 && first > 1 && last > 1)
+if (row.rba.toString().equals("0x0042a3.007a7bc9.013c")) {
+	LOGGER.error("==>count={}, onlyLmn={}, needHeadFlag={}, head={}, first={}, last={}", row.records.size(), row.onlyLmn, (row.flags & FLG_NEED_HEAD_FLAG) > 0, head, first, last);
+}
+				if ((row.flags & FLG_NEED_HEAD_FLAG) > 0 && head > 1 && first > 1 && last > 1)
 					row.complete = true;
-				else if (!row.needHeadFlag && first > 1 && last > 1)
+				else if ((row.flags & FLG_NEED_HEAD_FLAG) == 0 && first > 1 && last > 1)
 					row.complete = true;
 				else if (iotUpdate && first > 0 && last > 0)
 					row.complete = true;
@@ -1064,7 +1098,7 @@ public abstract class OraCdcTransaction {
 						.append(record.scn())
 						.append(", RBA:")
 						.append(record.rba().toString());
-					if (row.partialRollback)
+					if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0)
 						sb
 							.append(", OP:")
 							.append(formatOpCode(record.changePrb().operation()))
@@ -1099,7 +1133,7 @@ public abstract class OraCdcTransaction {
 	}
 
 	private void emitRowChange(final RowChangeHolder row, final long lwnUnixMillis) throws IOException {
-		if (row.reorder) {
+		if ((row.flags & FLG_REORDER) > 0) {
 			if (LOGGER.isDebugEnabled()) {
 				final StringBuilder sb = new StringBuilder(0x100);
 				sb.append("Executing row.reorderRecords() for following RBA's: ");
@@ -1122,7 +1156,7 @@ public abstract class OraCdcTransaction {
 		}
 
 		final byte[] redoBytes;
-		if (row.partialRollback && row.lmOp == DELETE) {
+		if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0 && row.lmOp == DELETE) {
 			redoBytes = new byte[2];
 			redoBytes[0] = 0;
 			redoBytes[1] = 0;
@@ -1134,19 +1168,19 @@ public abstract class OraCdcTransaction {
 			for (final OraCdcRedoRecord rr : row.records) {
 				totalBytes += rr.len();
 				final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
-				if (row.homogeneous) {
+				if ((row.flags & FLG_HOMOGENEOUS) > 0) {
 					// URP, IRP
 					setOrValColCount += rowChange.columnCount();
 					//TODO Layer 11 operations where the partial rollback also contains
 					//TODO supplemental log data but we don't need the contents for partial rollback
-					if (!row.partialRollback) {
+					if ((row.flags & FLG_PARTIAL_ROLLBACK) == 0) {
 						final OraCdcChangeUndoBlock change = rr.change5_1();
 						// URP, IRP, DRP
 						supplColCount += change.supplementalCc();
 						// 	URP, DRP
 						whereColCount += change.columnCount();
 					}
-				} else if (!row.partialRollback) {
+				} else if ((row.flags & FLG_PARTIAL_ROLLBACK) == 0) {
 					final OraCdcChangeUndoBlock change = rr.change5_1();
 					switch (rowChange.operation()) {
 						case _11_2_IRP -> {
@@ -1218,8 +1252,8 @@ public abstract class OraCdcTransaction {
 			}
 			ByteArrayOutputStream baos = new ByteArrayOutputStream(totalBytes);
 			if (row.lmOp == INSERT || row.lmOp == DELETE ||
-					(row.partialRollback && row.lmOp == UPDATE && first.change11_x().operation() == _11_6_ORP)) {
-				if (row.partialRollback) {
+					((row.flags & FLG_PARTIAL_ROLLBACK) > 0 && row.lmOp == UPDATE && first.change11_x().operation() == _11_6_ORP)) {
+				if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
 					putU16(baos, setOrValColCount);
 				} else {
 					if (row.lmOp == INSERT)
@@ -1230,7 +1264,7 @@ public abstract class OraCdcTransaction {
 				int colNumOffset = 1;
 				final int rsiz = row.size();
 				int i = 0;
-				if (row.oppositeOrder)
+				if ((row.flags & FLG_OPPOSITE_ORDER) > 0)
 					i = rsiz - 1;
 				for (;;) {
 					final OraCdcRedoRecord rr = row.records.get(i);
@@ -1263,7 +1297,7 @@ public abstract class OraCdcTransaction {
 											baos, OraCdcChangeRowOp.KDO_POS, 0,
 											change.suppOffsetRedo() == 0 ? colNumOffset : change.suppOffsetRedo(),
 											KDO_ORP_IRP_NULL_POS);
-								} else if (row.partialRollback) {
+								} else if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
 									rowChange.writeColsWithNulls(
 											baos, OraCdcChangeRowOp.KDO_POS, 0,
 											colNumOffset, KDO_ORP_IRP_NULL_POS);
@@ -1279,7 +1313,7 @@ public abstract class OraCdcTransaction {
 							LOGGER.warn("Redo record {} does not contains expected row change operation!", rr.rba());
 						}
 					}
-					if (row.oppositeOrder) {
+					if ((row.flags & FLG_OPPOSITE_ORDER) > 0) {
 						i--;
 						if (i > -1)
 							continue;
@@ -1293,7 +1327,7 @@ public abstract class OraCdcTransaction {
 							break;
 					}
 				}
-				if (row.partialRollback && first.change11_x().operation() == _11_6_ORP) {
+				if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0 && first.change11_x().operation() == _11_6_ORP) {
 					putU16(baos, 0);
 				}
 			} else {
@@ -1305,7 +1339,7 @@ public abstract class OraCdcTransaction {
 					putU16(baos, whereColCount + supplColCount);
 				else
 					putU16(baos, setOrValColCount);
-				if (row.homogeneous) {
+				if ((row.flags & FLG_HOMOGENEOUS) > 0) {
 					for (final OraCdcRedoRecord rr : row.records) {
 						final OraCdcChangeUndoBlock change = rr.change5_1();
 						final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
@@ -1324,26 +1358,26 @@ public abstract class OraCdcTransaction {
 								OraCdcChangeRowOp.KDO_POS + 1 + rowChange.columnCount() < rowChange.coords().length) {
 							rowChange.writeColsWithNulls(
 									baos, OraCdcChangeRowOp.KDO_POS, OraCdcChangeRowOp.KDO_POS + 1,
-									row.partialRollback ?  colNumOffsetSet : 
+									(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet :
 										(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
 									KDO_URP_NULL_POS);
 							if (rr.has5_1())
 								change.writeColsWithNulls(
 									baosB, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
-									row.partialRollback ?  colNumOffsetSet : 
+									(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet :
 										(change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo()),
 									KDO_URP_NULL_POS);
 						} else if (rowChange.operation() == _11_6_ORP &&
 								OraCdcChangeRowOp.KDO_POS + rowChange.columnCount() < rowChange.coords().length) {
 							rowChange.writeColsWithNulls(
 									baos, OraCdcChangeRowOp.KDO_POS, 0,
-									row.partialRollback ?  colNumOffsetSet : 
+									(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet : 
 										(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
 									KDO_ORP_IRP_NULL_POS);
 							if (rr.has5_1())
 								change.writeColsWithNulls(
 									baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
-									row.partialRollback ?  colNumOffsetSet : 
+									(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet : 
 										(change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo()),
 									KDO_ORP_IRP_NULL_POS);
 						} else if (row.onlyLmn) {
@@ -1372,7 +1406,7 @@ public abstract class OraCdcTransaction {
 					baosB.close();
 					baosB = null;
 					baosBBytes = null;
-					if (row.partialRollback) {
+					if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
 						putU16(baos, 0);
 					} else {
 						putU16(baos, whereColCount + supplColCount);
@@ -1446,7 +1480,7 @@ public abstract class OraCdcTransaction {
 							if (rr.has5_1())
 								change.writeColsWithNulls(
 									baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
-									row.partialRollback ?  colNumOffsetSet : 
+									(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet : 
 										(change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo()),
 									KDO_ORP_IRP_NULL_POS);
 						} else if (rowChange.operation() == _11_6_ORP) {
@@ -1474,7 +1508,7 @@ public abstract class OraCdcTransaction {
 							if (OraCdcChangeRowOp.KDO_POS + 1 + rowChange.columnCount() < rowChange.coords().length) {
 								colNumOffsetSet += rowChange.writeColsWithNulls(
 										baos, OraCdcChangeRowOp.KDO_POS, OraCdcChangeRowOp.KDO_POS + 1,
-										row.partialRollback ?  colNumOffsetSet : 
+										(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet : 
 											(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
 										KDO_URP_NULL_POS);
 								colNumOffsetSet += rowChange.ncol(OraCdcChangeRowOp.KDO_POS);
@@ -1509,14 +1543,14 @@ public abstract class OraCdcTransaction {
 
 		final OraCdcRedoRecord last = row.last();
 		final OraCdcChangeUndo change;
-		if (row.oppositeOrder) {
-			if (row.partialRollback) {
+		if ((row.flags & FLG_OPPOSITE_ORDER) > 0) {
+			if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
 				change = last.changePrb();
 			} else {
 				change = last.change5_1();
 			}
 		} else {
-			if (row.partialRollback) {
+			if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
 				change = first.changePrb();
 			} else {
 				change = first.change5_1();
@@ -1524,14 +1558,14 @@ public abstract class OraCdcTransaction {
 		}
 
 		final OraCdcRedoMinerStatement orm;
-		if (row.oppositeOrder)
+		if ((row.flags & FLG_OPPOSITE_ORDER) > 0)
 			orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					row.lmOp, redoBytes,
 					lwnUnixMillis, last.scn(), row.rba,
 					(long) last.subScn(),
 					last.rowid(),
-					row.partialRollback);
+					(row.flags & FLG_PARTIAL_ROLLBACK) > 0);
 		else
 			orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
@@ -1539,7 +1573,7 @@ public abstract class OraCdcTransaction {
 					lwnUnixMillis, first.scn(), row.rba,
 					(long) first.subScn(),
 					first.rowid(),
-					row.partialRollback);
+					(row.flags & FLG_PARTIAL_ROLLBACK) > 0);
 		this.addStatement(orm);
 		if (LOGGER.isTraceEnabled())
 			LOGGER.trace("Statement created:\n\t{}" + orm.getSqlRedo());
