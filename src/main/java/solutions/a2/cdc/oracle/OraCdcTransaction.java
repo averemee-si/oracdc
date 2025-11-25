@@ -569,8 +569,17 @@ public abstract class OraCdcTransaction {
 			}
 			if ((flags & FLG_OPPOSITE_ORDER) > 0)
 				sortedRecs.add(records.get(indexFirst));
-			else
-				sortedRecs.add(records.get(indexLast));
+			else {
+				try {
+					sortedRecs.add(records.get(indexLast));
+				} catch (Exception e) {
+					LOGGER.error("{}\n\t{}", e.getMessage(), lmOp);
+					records.forEach(rr -> {
+						LOGGER.error("RBA={}, XID={}, OP:{}", rr.rba(), rr.xid(), formatOpCode(rr.change11_x().operation()));
+						LOGGER.error("5.1 FB={}, 5.1 SUPP FB={}, ROW FB={}", printFbFlags(rr.change5_1().fb()), printFbFlags(rr.change5_1().supplementalFb()), printFbFlags(rr.change11_x().fb()));
+					});
+				}
+			}
 			records.clear();
 			for (int index = 0; index < sortedRecs.size(); index++)
 				records.add(sortedRecs.get(index));
@@ -1386,9 +1395,9 @@ if (row.rba.toString().equals("0x0042a3.007a7bc9.013c")) {
 									baos, OraCdcChangeIndexOp.COL_NUM_10_35_POS, change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
 							change.writeIndexColumnsOp35(
 									baosB, OraCdcChangeUndoBlock.COL_NUM_10_35_POS, change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
-						} else {
-							LOGGER.warn("Unable to read column data for UPDATE (SET) at RBA {}, change #{}",
-									rr.rba(), rowChange.num());
+						} else if (rowChange.operation() != _11_16_LMN) {
+							LOGGER.warn("Unable to read column data for UPDATE (SET) at RBA {}, change #{} OP:{}",
+									rr.rba(), rowChange.num(), formatOpCode(rowChange.operation()));
 						}
 						colNumOffsetSet += rowChange.columnCount();
 					}
