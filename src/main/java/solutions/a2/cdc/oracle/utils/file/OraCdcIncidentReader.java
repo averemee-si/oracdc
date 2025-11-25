@@ -297,6 +297,7 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 				errorExit = true;
 			}
 			ir.close();
+			transaction.close();
 			if (errorExit)
 				System.exit(1);
 		} catch (IOException | SQLException e) {
