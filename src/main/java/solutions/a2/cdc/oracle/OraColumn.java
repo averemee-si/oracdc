@@ -803,11 +803,11 @@ public class OraColumn extends Column {
 			flags &= (~FLG_SECURE_FILE);
 	}
 
-	public Boolean isDefaultValuePresent() {
+	public boolean defaultValuePresent() {
 		return (flags & FLG_DEFAULT_VALUE) > 0;
 	}
 
-	public String getDefaultValue() {
+	public String defaultValue() {
 		return defaultValue;
 	}
 
@@ -815,7 +815,7 @@ public class OraColumn extends Column {
 	//TODO This will be splitted to appropriate type handler.....
 	//TODO and this will be replaced with simple getter and setter for typedDefaultValue
 	//TODO
-	public Object getTypedDefaultValue() {
+	public Object typedDefaultValue() {
 		if ((flags & FLG_DEFAULT_VALUE) == 0) {
 			return null;
 		} else if (typedDefaultValue == null) {

@@ -177,15 +177,22 @@ public class OraTable4RedoMiner extends OraTable {
 				if (oraColumn != null) {
 					if (colSize < 0) {
 						if (oraColumn.mandatory()) {
-							if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
-								printInvalidFieldValue(oraColumn, stmt, transaction);
-								throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
-							} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
-								printSkippingRedoRecordMessage(stmt, transaction);
-								return null;
+							if (oraColumn.defaultValuePresent()) {
+								structWriter.insert(oraColumn, oraColumn.typedDefaultValue());
+								if (LOGGER.isDebugEnabled())
+									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
+											oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
 							} else {
-								//INCOMPLETE_REDO_INT_RESTORE
-								missedColumns.add(oraColumn);
+								if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
+									printInvalidFieldValue(oraColumn, stmt, transaction);
+									throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+								} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
+									printSkippingRedoRecordMessage(stmt, transaction);
+									return null;
+								} else {
+									//INCOMPLETE_REDO_INT_RESTORE
+									missedColumns.add(oraColumn);
+								}
 							}
 						}
 					} else {
@@ -242,16 +249,23 @@ public class OraTable4RedoMiner extends OraTable {
 						final OraColumn oraColumn = pureIdMap.get(colDefs[i][0]);
 						if (oraColumn != null) {
 							if (colSize < 0) {
-								if (oraColumn.mandatory()) {
-									if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
-										printInvalidFieldValue(oraColumn, stmt, transaction);
-										throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
-									} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
-										printSkippingRedoRecordMessage(stmt, transaction);
-										return null;
-									} else {
-										//INCOMPLETE_REDO_INT_RESTORE
-										missedColumns.add(oraColumn);
+								if (oraColumn.defaultValuePresent()) {
+									structWriter.delete(oraColumn, oraColumn.typedDefaultValue());
+									if (LOGGER.isDebugEnabled())
+										LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
+												oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
+								} else {
+									if (oraColumn.mandatory()) {
+										if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
+											printInvalidFieldValue(oraColumn, stmt, transaction);
+											throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+										} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
+											printSkippingRedoRecordMessage(stmt, transaction);
+											return null;
+										} else {
+											//INCOMPLETE_REDO_INT_RESTORE
+											missedColumns.add(oraColumn);
+										}
 									}
 								}
 							} else if ((flags & FLG_ALL_COLS_ON_DELETE) > 0 || oraColumn.isPartOfPk()) {
@@ -311,16 +325,15 @@ public class OraTable4RedoMiner extends OraTable {
 					setColumns.add(setColDefs[i][0]);
 					if (colSize < 0) {
 						if (oraColumn.mandatory()) {
-							if (!oraColumn.isDefaultValuePresent()) {
+							if (!oraColumn.defaultValuePresent()) {
 								// throw error only if we don't expect to get value from WHERE clause
 								printInvalidFieldValue(oraColumn, stmt, transaction);
 								throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
 							} else {
-								structWriter.update(oraColumn, oraColumn.getTypedDefaultValue(), true);
-								if (LOGGER.isDebugEnabled()) {
+								structWriter.update(oraColumn, oraColumn.typedDefaultValue(), true);
+								if (LOGGER.isDebugEnabled())
 									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
-											oraColumn.getColumnName(), tableFqn, oraColumn.getDefaultValue());
-								}
+											oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
 							}
 						}
 					} else {
@@ -362,8 +375,8 @@ public class OraTable4RedoMiner extends OraTable {
 							if (colSize < 0) {
 								if (oraColumn.mandatory()) {
 									boolean throwDataException = true;
-									if (oraColumn.isDefaultValuePresent()) {
-										final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
+									if (oraColumn.defaultValuePresent()) {
+										final Object columnDefaultValue = oraColumn.typedDefaultValue();
 										if (columnDefaultValue != null) {
 											printSubstDefaultValueWarning(oraColumn, stmt);
 											structWriter.update(oraColumn, columnDefaultValue, true);

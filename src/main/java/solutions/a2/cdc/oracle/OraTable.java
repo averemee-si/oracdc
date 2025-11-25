@@ -372,15 +372,15 @@ public abstract class OraTable extends OraTable4SourceConnector {
 							column.isPartOfPk() ? " PK " : (column.isNullable() ? " " : " mandatory "),
 							column.getColumnName(), getTypeName(column.getJdbcType()),
 							column.getColumnId(), tableFqn);
-					if (column.isDefaultValuePresent()) {
-						LOGGER.debug("\tDefault value is set to \"{}\"", column.getDefaultValue());
+					if (column.defaultValuePresent()) {
+						LOGGER.debug("\tDefault value is set to \"{}\"", column.defaultValue());
 					}
 				}
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
 				}
 
-				if (column.isPartOfPk() || (!column.isNullable() && !column.isDefaultValuePresent())) {
+				if (column.isPartOfPk() || (!column.isNullable() && !column.defaultValuePresent())) {
 					mandatoryColumnsCount++;
 				}
 			}
@@ -1273,7 +1273,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				=====================
 				
 				""",
-				column.getColumnName(), tableFqn, column.getTypedDefaultValue(),
+				column.getColumnName(), tableFqn, column.typedDefaultValue(),
 				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo());
 	}
 

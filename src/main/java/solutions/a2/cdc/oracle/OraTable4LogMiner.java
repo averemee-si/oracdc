@@ -344,11 +344,11 @@ public class OraTable4LogMiner extends OraTable {
 							structWriter.update(oraColumn, new byte[0], true);
 						} else {
 							if (oraColumn.mandatory()) {
-								if (oraColumn.isDefaultValuePresent()) {
-									structWriter.update(oraColumn, oraColumn.getTypedDefaultValue(), true);
+								if (oraColumn.defaultValuePresent()) {
+									structWriter.update(oraColumn, oraColumn.typedDefaultValue(), true);
 									if (LOGGER.isDebugEnabled()) {
 										LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
-												oraColumn.getColumnName(), tableFqn, oraColumn.getDefaultValue());
+												oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
 									}
 								} else {
 									// throw error only if we don't expect to get value from WHERE clause
@@ -416,8 +416,8 @@ public class OraTable4LogMiner extends OraTable {
 									// Check again for column default value...
 									// This is due "SUPPLEMENTAL LOG DATA (ALL) COLUMNS"
 									boolean throwDataException = true;
-									if (oraColumn.isDefaultValuePresent()) {
-										final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
+									if (oraColumn.defaultValuePresent()) {
+										final Object columnDefaultValue = oraColumn.typedDefaultValue();
 										if (columnDefaultValue != null) {
 											printSubstDefaultValueWarning(oraColumn, stmt);
 											structWriter.update(oraColumn, columnDefaultValue, true);
