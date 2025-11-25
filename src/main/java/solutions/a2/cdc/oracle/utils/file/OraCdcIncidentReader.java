@@ -13,13 +13,17 @@
 
 package solutions.a2.cdc.oracle.utils.file;
 
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_10_SKL;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_4_LKR;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_6_ORP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_8_CFA;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml.TYPE_XML_DOC;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
@@ -149,9 +153,11 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 					case _11_2_IRP, _11_3_DRP, _11_5_URP, _11_6_ORP ->
 						transaction.processRowChange(rr, false, lwnUnixMillis);
 					case _11_16_LMN ->
-						transaction.processRowChange(rr, false, lwnUnixMillis);
+						transaction.processRowChangeLmn(rr, lwnUnixMillis);
 					case _11_11_QMI, _11_12_QMD ->
 						transaction.emitMultiRowChange(rr, false, lwnUnixMillis);
+					case _11_4_LKR, _11_8_CFA, _11_10_SKL ->
+						LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), rr.rba());
 				}
 			} else if (rr.hasPrb() && rr.has11_x()) {
 				final var operation = rr.change11_x().operation();

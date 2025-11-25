@@ -72,9 +72,9 @@ public class Ops_URP_LMN_BindingTest {
 		OraCdcRedoMinerStatement stmt = new OraCdcRedoMinerStatement();
 		try {
 			transaction.processRowChange(rrUpdate1, false, System.currentTimeMillis());
-			transaction.processRowChange(rr_11_16Lmn1, false, System.currentTimeMillis());
+			transaction.processRowChangeLmn(rr_11_16Lmn1, System.currentTimeMillis());
 			transaction.processRowChange(rrUpdate2, false, System.currentTimeMillis());
-			transaction.processRowChange(rr_11_16Lmn2, false, System.currentTimeMillis());
+			transaction.processRowChangeLmn(rr_11_16Lmn2, System.currentTimeMillis());
 			transaction.setCommitScn(0xd0696390dd8l);
 
 			assertTrue(transaction.completed());

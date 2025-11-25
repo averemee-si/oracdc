@@ -76,9 +76,9 @@ public class Ops_DRP_LMN_BindingTest {
 		OraCdcRedoMinerStatement stmt = new OraCdcRedoMinerStatement();
 		try {
 			transaction.processRowChange(rrDelete1, false, System.currentTimeMillis());
-			transaction.processRowChange(rr_11_16Lmn1, false, System.currentTimeMillis());
+			transaction.processRowChangeLmn(rr_11_16Lmn1, System.currentTimeMillis());
 			transaction.processRowChange(rrDelete2, false, System.currentTimeMillis());
-			transaction.processRowChange(rr_11_16Lmn2, false, System.currentTimeMillis());
+			transaction.processRowChangeLmn(rr_11_16Lmn2, System.currentTimeMillis());
 			transaction.setCommitScn(0xd05dbd26a4al);
 
 			assertTrue(transaction.completed());
@@ -149,15 +149,15 @@ public class Ops_DRP_LMN_BindingTest {
 
 		assertEquals(rrDelete3.halfDoneKey(), rr_11_16Lmn3.halfDoneKey());
 
-		OraCdcTransaction transaction = new OraCdcTransactionArrayList("0x000c.012.0005157c", 0x00000d05dbd26a43l, 0x10, orl.cdb());
+		OraCdcTransaction transaction = new OraCdcTransactionArrayList("0x0002.01b.000d3ec1", 0x00000d05dbd26a43l, 0x10, orl.cdb());
 		OraCdcRedoMinerStatement stmt = new OraCdcRedoMinerStatement();
 		try {
 			transaction.processRowChange(rrDelete1, false, System.currentTimeMillis());
-			transaction.processRowChange(rr_11_16Lmn1, false, System.currentTimeMillis());
+			transaction.processRowChangeLmn(rr_11_16Lmn1, System.currentTimeMillis());
 			transaction.processRowChange(rrDelete2, false, System.currentTimeMillis());
-			transaction.processRowChange(rr_11_16Lmn2, false, System.currentTimeMillis());
+			transaction.processRowChangeLmn(rr_11_16Lmn2, System.currentTimeMillis());
 			transaction.processRowChange(rrDelete3, false, System.currentTimeMillis());
-			transaction.processRowChange(rr_11_16Lmn3, false, System.currentTimeMillis());
+			transaction.processRowChangeLmn(rr_11_16Lmn3, System.currentTimeMillis());
 			transaction.setCommitScn(0xD05E761CF4EL);
 
 			assertTrue(transaction.completed());

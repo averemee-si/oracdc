@@ -43,7 +43,6 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange.printFbFlags;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.oracle.utils.BinaryUtils.putU16;
 import static solutions.a2.oracle.utils.BinaryUtils.putU24;
-import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -585,38 +584,6 @@ public abstract class OraCdcTransaction {
 			LOGGER.debug("processRowChange(partialRollback={}) in XID {} at SCN/RBA {}/{} for OP:{}",
 					partialRollback, rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba(),
 					rr.has11_x() ? formatOpCode(rr.change11_x().operation()) : formatOpCode(rr.change10_x().operation()));
-		if (!partialRollback && rr.has11_x() && rr.change11_x().operation() == _11_16_LMN) {
-			final var key = rr.halfDoneKey();
-			final var deque =  halfDone.get(key);
-			if (deque != null) {
-				final var halfDoneRow =  deque.peekFirst();
-				if (halfDoneRow != null && halfDoneRow.lmOp == UPDATE && flgCompleted(rr.change5_1().supplementalFb())) {
-					halfDoneRow.complete = true;
-					halfDoneRow.add(rr);
-					emitRowChange(halfDoneRow, lwnUnixMillis);
-					deque.removeFirst();
-					if (deque.isEmpty()) {
-						halfDone.remove(key);
-					}
-					return;
-				}
-			} else {
-				LOGGER.error(
-						"""
-						
-						=====================
-						Unable to pair OP:11.16 record with
-							OP:5.1 FB {}, supplemental FB {}, OP:11.16 FB {}
-						at SCN/RBA {}/{}, XID {} in file {}
-						Redo record information:
-						{}
-						=====================
-						
-						""",
-							printFbFlags(rr.change5_1().fb()), printFbFlags(rr.change5_1().supplementalFb()), printFbFlags(rr.change11_x().fb()), 
-							rr.scn(), rr.rba(), rr.xid(), rr.redoLog().fileName(), rawToHex(rr.content()));
-			}
-		}
 		RowChangeHolder row = createRowChangeHolder(rr, partialRollback);
 		if (row.complete) {
 			emitRowChange(row, lwnUnixMillis);
@@ -677,6 +644,29 @@ public abstract class OraCdcTransaction {
 			}
 
 		}
+	}
+
+	public void processRowChangeLmn(final OraCdcRedoRecord rr, final long lwnUnixMillis) throws IOException {
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("processRowChangeLmn() in XID {} at SCN/RBA {}/{} for OP:11.16",
+					partialRollback, rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba());
+			final var key = rr.halfDoneKey();
+			final var deque =  halfDone.get(key);
+			if (deque != null) {
+				final var halfDoneRow =  deque.peekFirst();
+				if (halfDoneRow != null && halfDoneRow.lmOp == UPDATE && flgCompleted(rr.change5_1().supplementalFb())) {
+					halfDoneRow.complete = true;
+					halfDoneRow.add(rr);
+					emitRowChange(halfDoneRow, lwnUnixMillis);
+					deque.removeFirst();
+					if (deque.isEmpty()) {
+						halfDone.remove(key);
+					}
+					return;
+				} else
+					processRowChange(rr, false, lwnUnixMillis);
+			} else
+				processRowChange(rr, false, lwnUnixMillis);
 	}
 
 	private static final byte[] ZERO_COL_COUNT = {0, 0};

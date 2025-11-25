@@ -284,30 +284,21 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								continue;
 							final short operation = record.change11_x().operation();
 							switch (operation) {
-							case _11_2_IRP:
-							case _11_3_DRP:
-							case _11_5_URP:
-							case _11_6_ORP:
-								iotObjRemap(true, record);
-								getTransaction(record).processRowChange(record, false, lwnUnixMillis);
-								break;
-							case _11_16_LMN:
-								getTransaction(record).processRowChange(record, false, lwnUnixMillis);
-								break;
-							case _11_4_LKR:
-							case _11_8_CFA:
-							case _11_10_SKL:
-								if (LOGGER.isDebugEnabled()) {
-									LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
+								case _11_2_IRP, _11_3_DRP, _11_5_URP,_11_6_ORP -> {
+									iotObjRemap(true, record);
+									getTransaction(record).processRowChange(record, false, lwnUnixMillis);
 								}
-								break;
-							case _11_11_QMI:
-							case _11_12_QMD:
-								getTransaction(record).emitMultiRowChange(record, false, lwnUnixMillis);
-								break;
-							default:
-								if (LOGGER.isDebugEnabled()) {
-									LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
+								case _11_16_LMN ->
+									getTransaction(record).processRowChangeLmn(record, lwnUnixMillis);
+								case _11_4_LKR, _11_8_CFA, _11_10_SKL -> {
+									if (LOGGER.isDebugEnabled())
+										LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
+								}
+								case _11_11_QMI, _11_12_QMD ->
+									getTransaction(record).emitMultiRowChange(record, false, lwnUnixMillis);
+								default -> {
+									if (LOGGER.isDebugEnabled())
+										LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
 								}
 							}
 							if (record.hasAudit()) {
