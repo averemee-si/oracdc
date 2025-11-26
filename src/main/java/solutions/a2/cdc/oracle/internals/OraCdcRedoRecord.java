@@ -46,7 +46,6 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_8_XML;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_6_BIMG;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
-import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_DELETE;
 import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
@@ -244,9 +243,9 @@ public class OraCdcRedoRecord {
 				}
 			}
 			changeVectors.add(change);
-			if (has5_1() && layer == KCOCODRW) {
-				change.dataObj = change5_1().dataObj;
-				change.obj = change5_1().obj;
+			if (indKTURDB > -1 && layer == KCOCODRW) {
+				change.dataObj = changeVectors.get(indKTURDB).dataObj;
+				change.obj = changeVectors.get(indKTURDB).obj;
 			}
 			changeNo++;
 			offset += change.length;
@@ -429,28 +428,32 @@ public class OraCdcRedoRecord {
 	}
 
 	public int halfDoneKey() {
-		if (has5_1() && has11_x()) {
-			final var rowChange = (OraCdcChangeRowOp) changeVectors.get(indKCOCODRW);
-			if (rowChange.operation == _11_16_LMN)
+		if (indKTURDB > -1) {
+			final var change = (OraCdcChangeUndoBlock) changeVectors.get(indKTURDB);
+			if (change.supplementalLogData())
 				return Objects.hash(false,
-							((OraCdcChangeUndoBlock) changeVectors.get(indKTURDB)).supplementalDataFor() == SUPPL_LOG_DELETE
-								? _11_3_DRP : _11_6_ORP, 
-							rowChange.dataObj);				
-			else
-				return Objects.hash(false,
-						rowChange.operation == _11_3_DRP ? _11_3_DRP : _11_6_ORP,
-						rowChange.dataObj);
-		} else if (hasPrb() && has11_x()) {
-			final var prbChange = (OraCdcChangeUndo) changeVectors.get(indKTUIRB);;
-			return Objects.hash(true, prbChange.dataObj);
-		} else if (has5_1() && has10_x()) {
-			final var idxChange = (OraCdcChangeIndexOp) changeVectors.get(indKCOCODIX);
-			return Objects.hash(false,
-					idxChange.operation == _10_4_LDE ? _11_3_DRP : _11_6_ORP,
-					idxChange.dataObj);
-		} else {
+						change.supplementalDataFor(),
+						change.dataObj);
+			else {
+				if (indKCOCODRW > -1) {
+					return Objects.hash(false,
+							changeVectors.get(indKCOCODRW).operation == _11_3_DRP ? _11_3_DRP : _11_6_ORP,
+							change.dataObj);
+				} else if (indKCOCODIX > -1) {
+					final var idxChange = changeVectors.get(indKCOCODIX);
+					return Objects.hash(false,
+							idxChange.operation == _10_4_LDE ? _11_3_DRP : _11_6_ORP,
+							idxChange.dataObj);
+				} else
+					return 0;
+			}
+		} else if (indKTUIRB > -1) {
+			if (indKCOCODRW > -1) {
+				return Objects.hash(true, changeVectors.get(indKTUIRB).dataObj);
+			} else
+				return 0;
+		} else
 			return 0;
-		}
 	}
 
 	public RowId rowid() {
