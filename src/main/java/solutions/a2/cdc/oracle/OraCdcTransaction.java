@@ -40,6 +40,9 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgHeadPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgLastPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.printFbFlags;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_UPDATE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_INSERT;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_DELETE;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.oracle.utils.BinaryUtils.putU16;
 import static solutions.a2.oracle.utils.BinaryUtils.putU24;
@@ -855,17 +858,33 @@ public abstract class OraCdcTransaction {
 				break;
 			}
 		} else {
-			final var undoChange = record.change5_1(); 
-			switch (row.operation) {
-			case _11_5_URP:
-			case _11_16_LMN:
-				row.lmOp = UPDATE;
-				if (undoChange.supplementalLogData()) {
+			final var undoChange = record.change5_1();
+			var setlmOp = true;
+			if (undoChange.supplementalLogData()) {
+				if (undoChange.supplementalDataFor() == SUPPL_LOG_INSERT) {
+					row.lmOp = INSERT;
+					setlmOp = false;
+				} else if (undoChange.supplementalDataFor() == SUPPL_LOG_UPDATE) {
+					row.lmOp = UPDATE;
 					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 						row.complete = true;
 					else if (!flgHeadPart(undoChange.fb()))
 						row.flags |= FLG_OPPOSITE_ORDER;
-				} else {
+					setlmOp = false;
+				} else if (undoChange.supplementalDataFor() == SUPPL_LOG_DELETE) {
+					row.lmOp = DELETE;
+					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
+						row.complete = true;
+					else if (!flgHeadPart(undoChange.fb()))
+						row.flags |= FLG_OPPOSITE_ORDER;
+					setlmOp = false;
+				}
+			}
+			switch (row.operation) {
+			case _11_5_URP:
+			case _11_16_LMN:
+				if (setlmOp) {
+					row.lmOp = UPDATE;
 					if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
 							flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb())) {
 						row.complete = true;
@@ -880,23 +899,20 @@ public abstract class OraCdcTransaction {
 				break;
 			case _11_2_IRP:
 			case _11_6_ORP:
-				if (row.operation == _11_2_IRP)
-					row.lmOp = INSERT;
-				else
-					row.lmOp = UPDATE;
+				if (setlmOp) {
+					if (row.operation == _11_2_IRP)
+						row.lmOp = INSERT;
+					else
+						row.lmOp = UPDATE;
+				}
 				if (flgHeadPart(rowChange.fb()) && flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(rowChange.fb()))
 					row.flags |= FLG_OPPOSITE_ORDER;
 				break;
 			case _11_3_DRP:
-				row.lmOp = DELETE;
-				if (undoChange.supplementalLogData()) {
-					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
-						row.complete = true;
-					else if (!flgHeadPart(undoChange.fb()))
-						row.flags |= FLG_OPPOSITE_ORDER;
-				} else {
+				if (setlmOp) {
+					row.lmOp = DELETE;
 					if (flgHeadPart(undoChange.fb()) && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
 						row.complete = true;
 					else if (!flgHeadPart(undoChange.fb()))
@@ -904,7 +920,7 @@ public abstract class OraCdcTransaction {
 				}
 				break;
 			case _10_2_LIN:
-				row.lmOp = INSERT;
+				if (setlmOp) row.lmOp = INSERT;
 				if (flgHeadPart(rowChange.fb()) && flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (rowChange.fb() == 0 &&
@@ -914,37 +930,31 @@ public abstract class OraCdcTransaction {
 					row.flags |= FLG_OPPOSITE_ORDER;
 				break;
 			case _10_4_LDE:
-				row.lmOp = DELETE;
-				if (flgHeadPart(undoChange.fb()) && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
-					row.complete = true;
-				else if (rowChange.fb() == 0 &&
-						flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
-					row.complete = true;					
-				else if (!flgHeadPart(undoChange.fb()))
-					row.flags |= FLG_OPPOSITE_ORDER;
+				if (setlmOp) {
+					row.lmOp = DELETE;
+					if (flgHeadPart(undoChange.fb()) && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
+						row.complete = true;
+					else if (!flgHeadPart(undoChange.fb()))
+						row.flags |= FLG_OPPOSITE_ORDER;
+				}
 				break;
 			case _10_18_LUP:
-				row.lmOp = UPDATE;
 				row.flags &= (~FLG_NEED_HEAD_FLAG);
-				if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
-					row.complete = true;
-				else if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
-					flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
-					row.complete = true;
-				else if (!flgHeadPart(undoChange.fb()))
-					row.flags |= FLG_OPPOSITE_ORDER;
+				if (setlmOp) {
+					row.lmOp = UPDATE;
+					if (flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()) &&
+							flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+							row.complete = true;
+						else if (!flgHeadPart(undoChange.fb()))
+							row.flags |= FLG_OPPOSITE_ORDER;
+				}
 				break;
 			case _10_30_LNU:
-				row.lmOp = UPDATE;
+				if (setlmOp) row.lmOp = UPDATE;
 				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(rowChange.fb()))
 					row.flags |= FLG_OPPOSITE_ORDER;
-				break;
-			case _10_35_LCU:
-				row.lmOp = UPDATE;
-				if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
-					row.complete = true;
 				break;
 			}
 		}
