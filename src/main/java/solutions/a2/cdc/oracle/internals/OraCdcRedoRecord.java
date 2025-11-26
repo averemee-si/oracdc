@@ -604,4 +604,14 @@ public class OraCdcRedoRecord {
 		buildChangeVector();
 	}
 
+
+	public OraCdcChange rowChange() {
+		if (indKCOCODRW > -1)
+			return changeVectors.get(indKCOCODRW);
+		else if (indKCOCODIX > -1)
+			return changeVectors.get(indKCOCODIX);
+		else
+			return null;
+	}
+
 }

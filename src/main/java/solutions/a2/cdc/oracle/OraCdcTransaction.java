@@ -432,7 +432,7 @@ public abstract class OraCdcTransaction {
 			}			
 			if (!complete && (flags & FLG_PARTIAL_ROLLBACK) == 0 && records.size() == 1) {
 				final byte fb5_1 = record.change5_1().fb();
-				final byte fb11_x = record.has11_x() ? record.change11_x().fb() : record.change10_x().fb();
+				final byte fb11_x = record.rowChange().fb();
 				if (!flgFirstPart(fb5_1) && !flgLastPart(fb5_1) && !flgHeadPart(fb5_1) &&
 						!flgFirstPart(fb11_x) && !flgLastPart(fb11_x) && !flgHeadPart(fb11_x))
 					flags |= FLG_REORDER;
@@ -445,12 +445,8 @@ public abstract class OraCdcTransaction {
 							record.rba(),
 							formatOpCode(record.changePrb().operation()),
 							printFbFlags(record.changePrb().fb()),
-							formatOpCode(record.has11_x() ?
-									record.change11_x().operation() :
-									record.change10_x().operation()),
-							printFbFlags(record.has11_x() ?
-									record.change11_x().fb() :
-									record.change10_x().fb()));
+							formatOpCode(record.rowChange().operation()),
+							printFbFlags(record.rowChange().fb()));
 				} else {
 					LOGGER.debug("Adding XID {}, SCN {}, RBA {}, OP:5.1 fb:{}, supp fb:{}, OP:{} fb:{}",
 							record.xid(),
@@ -458,12 +454,8 @@ public abstract class OraCdcTransaction {
 							record.rba(),
 							printFbFlags(record.change5_1().fb()),
 							printFbFlags(record.change5_1().supplementalFb()),
-							formatOpCode(record.has11_x() ?
-									record.change11_x().operation() :
-									record.change10_x().operation()),
-							printFbFlags(record.has11_x() ?
-									record.change11_x().fb() :
-									record.change10_x().fb()));
+							formatOpCode(record.rowChange().operation()),
+							printFbFlags(record.rowChange().fb()));
 				}
 			}
 		}
@@ -815,9 +807,7 @@ public abstract class OraCdcTransaction {
 
 
 	private RowChangeHolder createRowChangeHolder(final OraCdcRedoRecord record, final boolean partialRollback) {
-		final OraCdcChange rowChange = record.has11_x() 
-				? record.change11_x()
-				: record.change10_x();
+		final var rowChange = record.rowChange();
 		final RowChangeHolder row = new RowChangeHolder(partialRollback, rowChange.operation());
 		if (partialRollback) {
 			switch (row.operation) {
@@ -865,7 +855,7 @@ public abstract class OraCdcTransaction {
 				break;
 			}
 		} else {
-			final OraCdcChangeUndoBlock undoChange = record.change5_1(); 
+			final var undoChange = record.change5_1(); 
 			switch (row.operation) {
 			case _11_5_URP:
 			case _11_16_LMN:
@@ -903,8 +893,6 @@ public abstract class OraCdcTransaction {
 				row.lmOp = DELETE;
 				if (undoChange.supplementalLogData()) {
 					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
-						row.complete = true;
-					else if (undoChange.supplementalFb() == 0 && flgFirstPart(undoChange.fb()) && flgLastPart(undoChange.fb()))
 						row.complete = true;
 					else if (!flgHeadPart(undoChange.fb()))
 						row.flags |= FLG_OPPOSITE_ORDER;
@@ -1075,9 +1063,6 @@ public abstract class OraCdcTransaction {
 					head > 0 && first > 0 && last > 0)
 				row.complete = true;
 			else if (row.lmOp == UPDATE) {
-if (row.rba.toString().equals("0x0042a3.007a7bc9.013c")) {
-	LOGGER.error("==>count={}, onlyLmn={}, needHeadFlag={}, head={}, first={}, last={}", row.records.size(), row.onlyLmn, (row.flags & FLG_NEED_HEAD_FLAG) > 0, head, first, last);
-}
 				if ((row.flags & FLG_NEED_HEAD_FLAG) > 0 && head > 1 && first > 1 && last > 1)
 					row.complete = true;
 				else if ((row.flags & FLG_NEED_HEAD_FLAG) == 0 && first > 1 && last > 1)
@@ -1106,13 +1091,9 @@ if (row.rba.toString().equals("0x0042a3.007a7bc9.013c")) {
 							.append(" fb:")
 							.append(printFbFlags(record.changePrb().fb()))
 							.append(", OP:")
-							.append(formatOpCode(record.has11_x() ?
-										record.change11_x().operation() :
-										record.change10_x().operation()))
+							.append(formatOpCode(record.rowChange().operation()))
 							.append(" fb:")
-							.append(printFbFlags(record.has11_x() ?
-									record.change11_x().fb() :
-									record.change10_x().fb()));
+							.append(printFbFlags(record.rowChange().fb()));
 					else
 						sb
 							.append(", OP:5.1 fb:")
@@ -1120,13 +1101,9 @@ if (row.rba.toString().equals("0x0042a3.007a7bc9.013c")) {
 							.append(", supp fb:")
 							.append(printFbFlags(record.change5_1().supplementalFb()))
 							.append(", OP:")
-							.append(formatOpCode(record.has11_x() ?
-									record.change11_x().operation() :
-									record.change10_x().operation()))
+							.append(formatOpCode(record.rowChange().operation()))
 							.append(" fb:")
-							.append(printFbFlags(record.has11_x() ?
-									record.change11_x().fb() :
-									record.change10_x().fb()));
+							.append(printFbFlags(record.rowChange().fb()));
 				}
 				LOGGER.debug(sb.toString());
 			}
