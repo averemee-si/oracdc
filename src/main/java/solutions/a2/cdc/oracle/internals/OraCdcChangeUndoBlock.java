@@ -41,6 +41,8 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	public static final int NON_KEY_10_30_POS = 5;
 	public static final int KEY_10_30_POS = 4;
 	public static final int COL_NUM_10_35_POS = 5;
+	static final byte SUPPL_LOG_UPDATE = 0x1;
+	static final byte SUPPL_LOG_INSERT = 0x2;
 	static final byte SUPPL_LOG_DELETE = 0x4;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndoBlock.class);
@@ -154,15 +156,11 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					ktbRedo = true;
 					kdo(KDO_POS);
 					kdoOpCode = true;
-					final int selector = (op & 0x1F) | (KCOCODRW << 0x08);
-					if ((selector == _11_3_DRP ||
-							selector == _11_6_ORP ||
-							selector == _11_16_LMN ||
-							selector == _11_4_LKR) &&
-							coords.length > (5 + columnCount)) {
-						supplementalLogData = true;
-						suppDataStartIndex = 0x4 + columnCount; 
-					} else if ((selector == _11_5_URP) &&
+					final var selector = (op & 0x1F) | (KCOCODRW << 0x08);
+					if (selector == _11_5_URP && coords.length > (5 + columnCount)) {
+						
+					}
+					if ((selector == _11_5_URP) &&
 							columnCountNn == columnCount &&
 							coords.length > (5 + columnCount)) {
 						supplementalLogData = true;
@@ -172,7 +170,12 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 							coords.length > (5 + columnCountNn)) {
 						supplementalLogData = true;
 						suppDataStartIndex = 0x5 + columnCountNn; 
-					} else if (selector == _11_2_IRP && coords.length > (4 + columnCount)) {
+					} else if ((selector == _11_2_IRP ||
+							selector == _11_3_DRP ||
+							selector == _11_4_LKR ||
+							selector == _11_6_ORP ||
+							selector == _11_8_CFA ||
+							selector == _11_16_LMN) && coords.length > (4 + columnCount)) {
 						supplementalLogData = true;
 						suppDataStartIndex = 0x4 + columnCount;
 					}
@@ -429,14 +432,10 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 	private static String printLmOpCode(final byte opCode) {
 		switch (opCode) {
-		case 1:
-			return "UPDATE";
-		case 2:
-			return "INSERT";
-		case 4:
-			return "DELETE";
-		default:
-			return "??????";
+			case SUPPL_LOG_UPDATE: return "UPDATE";
+			case SUPPL_LOG_INSERT: return "INSERT";
+			case SUPPL_LOG_DELETE: return "DELETE";
+			default:               return "??????";
 		}
 	}
 
