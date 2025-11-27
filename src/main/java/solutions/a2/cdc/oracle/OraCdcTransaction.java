@@ -33,6 +33,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_6_ORP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_8_CFA;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgCompleted;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgFirstPart;
@@ -277,9 +278,9 @@ public abstract class OraCdcTransaction {
 							if (rr.has11_x() || rr.has10_x()) {
 								sb
 									.append(' ')
-									.append(formatOpCode(rr.has11_x() ? rr.change11_x().operation() : rr.change10_x().operation()))
+									.append(formatOpCode(rr.rowChange().operation()))
 									.append(" FB=")
-									.append(printFbFlags(rr.has11_x() ? rr.change11_x().fb() : rr.change10_x().fb()));
+									.append(printFbFlags(rr.rowChange().fb()));
 							}
 						}
 						sb
@@ -587,7 +588,7 @@ public abstract class OraCdcTransaction {
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("processRowChange(partialRollback={}) in XID {} at SCN/RBA {}/{} for OP:{}",
 					partialRollback, rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba(),
-					rr.has11_x() ? formatOpCode(rr.change11_x().operation()) : formatOpCode(rr.change10_x().operation()));
+					formatOpCode(rr.rowChange().operation()));
 		RowChangeHolder row = createRowChangeHolder(rr, partialRollback);
 		if (row.complete) {
 			emitRowChange(row, lwnUnixMillis);
@@ -606,24 +607,13 @@ public abstract class OraCdcTransaction {
 						lastHalfDone.change11_x().fb() : lastHalfDone.change10_x().fb();
 				final boolean push;
 				if (partialRollback) {
-					if (rr.has11_x())
-						push = lastHalfDoneRowFb == rr.change11_x().fb();
-					else
-						push = lastHalfDoneRowFb == rr.change10_x().fb();
+					push = lastHalfDoneRowFb == rr.rowChange().fb();
 				} else {
-					if (rr.has11_x()) {
-						if (rr.change11_x().fb() == 0 && rr.change5_1().fb() == 0)
-							push = false;
-						else
-							push = lastHalfDoneRowFb == rr.change11_x().fb() && 
-									lastHalfDone.change5_1().fb() == rr.change5_1().fb();
-					} else {
-						if (rr.change10_x().fb() == 0 && rr.change5_1().fb() == 0)
-							push = false;
-						else
-							push = lastHalfDoneRowFb == rr.change10_x().fb() && 
-									lastHalfDone.change5_1().fb() == rr.change5_1().fb();
-					} 
+					if (rr.rowChange().fb() == 0 && rr.change5_1().fb() == 0)
+						push = false;
+					else
+						push = lastHalfDoneRowFb == rr.rowChange().fb() && 
+								lastHalfDone.change5_1().fb() == rr.change5_1().fb();
 				}
 				if (push) {
 					row.add(rr);
@@ -1155,7 +1145,7 @@ public abstract class OraCdcTransaction {
 			int setOrValColCount = 0;
 			for (final OraCdcRedoRecord rr : row.records) {
 				totalBytes += rr.len();
-				final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
+				final var rowChange = rr.rowChange();
 				if ((row.flags & FLG_HOMOGENEOUS) > 0) {
 					// URP, IRP
 					setOrValColCount += rowChange.columnCount();
@@ -1175,6 +1165,9 @@ public abstract class OraCdcTransaction {
 							setOrValColCount += rowChange.columnCount();
 							setOrValColCount += change.supplementalCc();
 						}
+						case _11_3_DRP -> {
+							whereColCount += change.columnCount();
+						}
 						case _11_6_ORP -> {
 							whereColCount += change.columnCount();
 							whereColCount += change.supplementalCc();
@@ -1184,6 +1177,9 @@ public abstract class OraCdcTransaction {
 							setOrValColCount += rowChange.columnCount();
 							whereColCount += change.columnCount();
 							whereColCount += change.supplementalCc();						
+						}
+						case _11_8_CFA -> {
+							whereColCount += change.supplementalCc();
 						}
 						case _11_16_LMN -> {
 							if (LOGGER.isDebugEnabled())
@@ -1330,7 +1326,7 @@ public abstract class OraCdcTransaction {
 				if ((row.flags & FLG_HOMOGENEOUS) > 0) {
 					for (final OraCdcRedoRecord rr : row.records) {
 						final OraCdcChangeUndoBlock change = rr.change5_1();
-						final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
+						final var rowChange = rr.rowChange();
 						if (rowChange.operation() == _11_5_URP &&
 								(rowChange.flags() & KDO_KDOM2) != 0) {
 							if (rowChange.coords()[OraCdcChangeRowOp.KDO_POS + 1][1] > 1 &&
@@ -1456,62 +1452,83 @@ public abstract class OraCdcTransaction {
 					}
 				} else {
 					ByteArrayOutputStream baosW = new ByteArrayOutputStream(totalBytes);
-					for (final OraCdcRedoRecord rr : row.records) {
-						final OraCdcChangeUndoBlock change = rr.change5_1();
-						final OraCdcChange rowChange = rr.has11_x() ? rr.change11_x() : rr.change10_x();
-						if (rowChange.operation() == _11_2_IRP) {
-							change.writeSupplementalCols(baos);
-							rowChange.writeColsWithNulls(
-									baos, OraCdcChangeRowOp.KDO_POS, 0,
-									change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
-									KDO_ORP_IRP_NULL_POS);
-							if (rr.has5_1())
-								change.writeColsWithNulls(
-									baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
-									(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet : 
-										(change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo()),
-									KDO_ORP_IRP_NULL_POS);
-						} else if (rowChange.operation() == _11_6_ORP) {
-							change.writeSupplementalCols(baosW);
-							change.writeColsWithNulls(
-									baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
-									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
-									KDO_ORP_IRP_NULL_POS);
-							change.writeColsWithNulls(
-									baosW, OraCdcChangeUndoBlock.KDO_POS, 0,
-									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
-									KDO_ORP_IRP_NULL_POS);
-							colNumOffsetSet += change.columnCount();
-							rowChange.writeColsWithNulls(
-									baosW, OraCdcChangeRowOp.KDO_POS, 0,
-									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
-									KDO_ORP_IRP_NULL_POS);
-							colNumOffsetSet += rowChange.columnCount();
-						} else if (rowChange.operation() == _11_5_URP) {
-							change.writeSupplementalCols(baosW);
-							if (OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCountNn() < change.coords().length) {
-								change.writeColsWithNulls(baosB, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
-										change.suppOffsetUndo(), KDO_URP_NULL_POS);
+					for (final var rr : row.records) {
+						final var change = rr.change5_1();
+						final var rowChange = rr.rowChange();
+						switch (rowChange.operation()) {
+							case _11_5_URP -> {
+								change.writeSupplementalCols(baosW);
+								if (OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCountNn() < change.coords().length) {
+									change.writeColsWithNulls(baosB, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
+											change.suppOffsetUndo(), KDO_URP_NULL_POS);
+								}
+								if (OraCdcChangeRowOp.KDO_POS + 1 + rowChange.columnCount() < rowChange.coords().length) {
+									colNumOffsetSet += rowChange.writeColsWithNulls(
+											baos, OraCdcChangeRowOp.KDO_POS, OraCdcChangeRowOp.KDO_POS + 1,
+											(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet : 
+												(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
+											KDO_URP_NULL_POS);
+									colNumOffsetSet += rowChange.ncol(OraCdcChangeRowOp.KDO_POS);
+								}
 							}
-							if (OraCdcChangeRowOp.KDO_POS + 1 + rowChange.columnCount() < rowChange.coords().length) {
-								colNumOffsetSet += rowChange.writeColsWithNulls(
-										baos, OraCdcChangeRowOp.KDO_POS, OraCdcChangeRowOp.KDO_POS + 1,
+							case _11_2_IRP -> {
+								change.writeSupplementalCols(baos);
+								rowChange.writeColsWithNulls(
+										baos, OraCdcChangeRowOp.KDO_POS, 0,
+										change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
+										KDO_ORP_IRP_NULL_POS);
+								if (rr.has5_1())
+									change.writeColsWithNulls(
+										baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
 										(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet : 
-											(change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo()),
-										KDO_URP_NULL_POS);
-								colNumOffsetSet += rowChange.ncol(OraCdcChangeRowOp.KDO_POS);
+											(change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo()),
+										KDO_ORP_IRP_NULL_POS);
 							}
-						} else if (rowChange.operation() == _11_16_LMN) {
-							change.writeSupplementalCols(baosB);
-							change.writeSupplementalCols(baosW);
-						} else if (rowChange.operation() == _10_18_LUP) {
-							colNumOffsetSet += change.writeIndexColumns(baosW,
-									change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo());
-						} else if (rowChange.operation() == _10_30_LNU) {
-							colNumOffsetSet += rr.change10_x().writeIndexColumns(baos,
-									change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
-						} else {
-							LOGGER.error("Unknow operation OP:{} at RBA {}", formatOpCode(rowChange.operation()), rr.rba());
+							case _11_6_ORP -> {
+								change.writeSupplementalCols(baosW);
+								change.writeColsWithNulls(
+										baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
+										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
+										KDO_ORP_IRP_NULL_POS);
+								change.writeColsWithNulls(
+										baosW, OraCdcChangeUndoBlock.KDO_POS, 0,
+										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
+										KDO_ORP_IRP_NULL_POS);
+								colNumOffsetSet += change.columnCount();
+								rowChange.writeColsWithNulls(
+										baosW, OraCdcChangeRowOp.KDO_POS, 0,
+										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
+										KDO_ORP_IRP_NULL_POS);
+								colNumOffsetSet += rowChange.columnCount();
+							}
+							case _11_16_LMN -> {
+								change.writeSupplementalCols(baosB);
+								change.writeSupplementalCols(baosW);
+							}
+							case _11_8_CFA -> {
+								change.writeSupplementalCols(baosW);
+							}
+							case _11_3_DRP -> {
+								change.writeColsWithNulls(
+										baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
+										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
+										KDO_ORP_IRP_NULL_POS);
+								change.writeColsWithNulls(
+										baosW, OraCdcChangeUndoBlock.KDO_POS, 0,
+										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
+										KDO_ORP_IRP_NULL_POS);
+								colNumOffsetSet += change.columnCount();
+							}
+							case _10_18_LUP -> {
+								colNumOffsetSet += change.writeIndexColumns(baosW,
+										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo());
+							}
+							case _10_30_LNU -> {
+								colNumOffsetSet += ((OraCdcChangeIndexOp) rowChange).writeIndexColumns(baos,
+										change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
+							}
+							default ->
+								LOGGER.warn("Unknow operation OP:{} at RBA {}", formatOpCode(rowChange.operation()), rr.rba());
 						}
 					}
 					byte[] baosBBytes = baosB.toByteArray();

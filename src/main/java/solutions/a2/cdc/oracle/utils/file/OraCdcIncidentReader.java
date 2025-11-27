@@ -152,11 +152,11 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 				switch (operation) {
 					case _11_2_IRP, _11_3_DRP, _11_5_URP, _11_6_ORP ->
 						transaction.processRowChange(rr, false, lwnUnixMillis);
-					case _11_16_LMN ->
+					case _11_16_LMN, _11_8_CFA ->
 						transaction.processRowChangeLmn(rr, lwnUnixMillis);
 					case _11_11_QMI, _11_12_QMD ->
 						transaction.emitMultiRowChange(rr, false, lwnUnixMillis);
-					case _11_4_LKR, _11_8_CFA, _11_10_SKL ->
+					case _11_4_LKR, _11_10_SKL ->
 						LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), rr.rba());
 				}
 			} else if (rr.hasPrb() && rr.has11_x()) {

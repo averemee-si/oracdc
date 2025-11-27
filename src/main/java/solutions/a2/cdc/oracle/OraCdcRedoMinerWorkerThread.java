@@ -288,9 +288,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									iotObjRemap(true, record);
 									getTransaction(record).processRowChange(record, false, lwnUnixMillis);
 								}
-								case _11_16_LMN ->
+								case _11_16_LMN, _11_8_CFA ->
 									getTransaction(record).processRowChangeLmn(record, lwnUnixMillis);
-								case _11_4_LKR, _11_8_CFA, _11_10_SKL -> {
+								case _11_4_LKR, _11_10_SKL -> {
 									if (LOGGER.isDebugEnabled())
 										LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
 								}
