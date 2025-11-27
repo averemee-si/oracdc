@@ -20,6 +20,7 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DDL;
+import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
 import static solutions.a2.oracle.utils.BinaryUtils.getU16BE;
 import static solutions.a2.oracle.utils.BinaryUtils.getU24BE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
@@ -271,12 +272,12 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 	}
 
 	int readColDefs(final int[][] colDefs, int pos) {
-		final int colCount = colDefs.length;
-		int i = 0;
+		final var colCount = colDefs.length;
+		var i = 0;
 		try {
 			for (; i < colCount; i++) {
 				colDefs[i][0] = redoData[pos++] << 8 | redoData[pos++] & 0xFF;
-				int colSize = Byte.toUnsignedInt(redoData[pos++]);
+				var colSize = Byte.toUnsignedInt(redoData[pos++]);
 				if (colSize ==  0xFE) {
 					colSize = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
 				} else if (colSize == 0xFF) {
@@ -293,11 +294,17 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 			return pos;
 		} catch (ArrayIndexOutOfBoundsException oob) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"{} when reading columns for {} statement starting at SCN/SUBSCN/RBA {}/{}/{}\n" +
-					"Column count = {}, last column = {}, pos = {}. Byte array content:\n{}" +
-					"\n=====================\n",
-					oob.getMessage(),
+					"""
+					
+					=====================
+					'{}' at
+					{} 
+					when reading columns for {} statement starting at SCN/SUBSCN/RBA {}/{}/{}
+					Column count = {}, last column = {}, pos = {}. Byte array content:
+					{}
+					=====================
+					
+					""", oob.getMessage(), getExceptionStackTrace(oob),
 					operation == INSERT ? "INSERT" : operation == DELETE ? "DELETE" : "UPDATE",
 					scn, ssn, rba, colCount, i, pos, rawToHex(redoData));
 			throw oob;
@@ -312,8 +319,8 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 
 	@Override
 	public String toString() {
-		final StringBuilder sb = new StringBuilder(APPROXIMATE_SIZE);
-		final int conId = (int) (tableId >> 32);
+		final var sb = new StringBuilder(APPROXIMATE_SIZE);
+		final var conId = (int) (tableId >> 32);
 		sb.append("OraCdcRedoMinerStatement [");
 			if (conId != 0) {
 				sb
@@ -336,13 +343,13 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 
 	boolean updateWithoutChanges() {
 		if (operation == UPDATE) {
-			final int setColCount = getU16BE(redoData, 0);
-			int i = 0;
-			int lastSetAfterIndex = Short.BYTES;
+			final var setColCount = (int) getU16BE(redoData, 0);
+			var i = 0;
+			var lastSetAfterIndex = Short.BYTES;
 			try {
 				for (; i < setColCount; i++) {
 					lastSetAfterIndex += Short.BYTES;
-					int colSize = Byte.toUnsignedInt(redoData[lastSetAfterIndex++]);
+					var colSize = Byte.toUnsignedInt(redoData[lastSetAfterIndex++]);
 					if (colSize ==  0xFE) {
 						colSize =  getU16BE(redoData, lastSetAfterIndex);
 						lastSetAfterIndex += Short.BYTES;
@@ -355,11 +362,17 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 				}
 			} catch (ArrayIndexOutOfBoundsException oob) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"{} when reading columns for {} statement starting at SCN/SUBSCN/RBA {}/{}/{}\n" +
-						"Column count = {}, last column = {}, pos = {}. Byte array content:\n{}" +
-						"\n=====================\n",
-						oob.getMessage(),
+						"""
+						
+						=====================
+						'{}' at
+						{}
+						when reading columns for {} statement starting at SCN/SUBSCN/RBA {}/{}/{}
+						Column count = {}, last column = {}, pos = {}. Byte array content:
+						{}
+						=====================
+						
+						""", oob.getMessage(), getExceptionStackTrace(oob),
 						operation == INSERT ? "INSERT" : operation == DELETE ? "DELETE" : "UPDATE",
 						scn, ssn, rba, setColCount, i, lastSetAfterIndex, rawToHex(redoData));
 				throw oob;
