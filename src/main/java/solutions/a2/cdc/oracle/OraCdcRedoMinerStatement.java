@@ -201,13 +201,14 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 			sql.append(" where ");
 			first = true;
 
-			if (beforeColCount < setColCount && beforeColCount > 0) {
-				setColDefs = null;
-				setColDefs = new int[beforeColCount][3];
-				if (LOGGER.isDebugEnabled())
-					LOGGER.debug("Reducing setColDefs array dimension from {} to {}", setColCount, beforeColCount);
-			}
 			if (beforeColCount > 0) {
+				if (beforeColCount != setColCount) {
+					setColDefs = null;
+					setColDefs = new int[beforeColCount][3];
+					if (LOGGER.isDebugEnabled())
+						LOGGER.debug("Changing setColDefs array dimension from {} to {}", setColCount, beforeColCount);
+				}
+
 				pos = readAndSortColDefs(setColDefs, pos);
 				for (int i = 0; i < beforeColCount; i++) {
 					if (first) {

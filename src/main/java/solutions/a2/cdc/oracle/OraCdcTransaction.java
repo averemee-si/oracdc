@@ -322,10 +322,6 @@ public abstract class OraCdcTransaction {
 		return startsWithBeginTrans;
 	}
 
-	public boolean needsSorting() {
-		return needsSorting;
-	}
-
 	public long getFirstChange() {
 		return firstChange;
 	}
@@ -881,7 +877,6 @@ public abstract class OraCdcTransaction {
 					} else if (!flgHeadPart(undoChange.fb()))
 						row.flags |= FLG_OPPOSITE_ORDER;
 					if (row.operation == _11_16_LMN) {
-						row.flags &= (~FLG_NEED_HEAD_FLAG);
 						if (!flgFirstPart(undoChange.fb()) || flgFirstPart(rowChange.fb()))
 							row.flags |= FLG_OPPOSITE_ORDER;
 					}
@@ -987,10 +982,10 @@ public abstract class OraCdcTransaction {
 				row.complete = true;
 			}
 		} else {
-			boolean iotUpdate = false;
-			int head = 0;
-			int first = 0;
-			int last = 0;
+			var iotUpdate = false;
+			var head = 0;
+			var first = 0;
+			var last = 0;
 			for (int i = 0; i < row.records.size(); i++) {
 				final OraCdcRedoRecord rr = row.records.get(i);
 				if (rr.has11_x() && rr.has5_1()) {
@@ -1001,6 +996,8 @@ public abstract class OraCdcTransaction {
 					}
 					if (row.lmOp == UPDATE && rr.change11_x().operation() != _11_5_URP && (row.flags & FLG_HOMOGENEOUS) > 0) {
 						row.flags &= (~FLG_HOMOGENEOUS);
+						if ((row.flags & FLG_NEED_HEAD_FLAG) > 0 && rr.change11_x().operation() == _11_16_LMN)
+							row.flags &= (~FLG_NEED_HEAD_FLAG);
 					}
 					if (row.lmOp == DELETE) {
 						final byte fb = rr.change5_1().fb();
@@ -1176,14 +1173,13 @@ public abstract class OraCdcTransaction {
 						case _11_5_URP -> {
 							setOrValColCount += rowChange.columnCount();
 							whereColCount += change.columnCount();
-							whereColCount += change.supplementalCc();						
+							whereColCount += change.supplementalCc();
 						}
 						case _11_8_CFA -> {
 							whereColCount += change.supplementalCc();
 						}
 						case _11_16_LMN -> {
-							if (LOGGER.isDebugEnabled())
-								LOGGER.debug("Skipping OP:11.16 column count at RBA {}",rr.rba());
+							whereColCount += change.supplementalCc();
 						}
 						case _10_2_LIN ->
 							setOrValColCount += rowChange.columnCount();
@@ -1461,6 +1457,8 @@ public abstract class OraCdcTransaction {
 								if (OraCdcChangeUndoBlock.KDO_POS + 1 + change.columnCountNn() < change.coords().length) {
 									change.writeColsWithNulls(baosB, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
 											change.suppOffsetUndo(), KDO_URP_NULL_POS);
+									change.writeColsWithNulls(baosW, OraCdcChangeUndoBlock.KDO_POS, OraCdcChangeUndoBlock.KDO_POS + 1,
+											change.suppOffsetUndo(), KDO_URP_NULL_POS);
 								}
 								if (OraCdcChangeRowOp.KDO_POS + 1 + rowChange.columnCount() < rowChange.coords().length) {
 									colNumOffsetSet += rowChange.writeColsWithNulls(
@@ -1502,7 +1500,6 @@ public abstract class OraCdcTransaction {
 								colNumOffsetSet += rowChange.columnCount();
 							}
 							case _11_16_LMN -> {
-								change.writeSupplementalCols(baosB);
 								change.writeSupplementalCols(baosW);
 							}
 							case _11_8_CFA -> {
