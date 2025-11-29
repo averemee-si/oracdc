@@ -39,6 +39,8 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgCompleted;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgFirstPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgHeadPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgLastPart;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgPrevPart;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgNextPart;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.printFbFlags;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_UPDATE;
@@ -475,13 +477,14 @@ public abstract class OraCdcTransaction {
 			int indexFirst= -1;
 			int indexLast = -1;
 			for (int index = 0; index < records.size(); index++) {
-				final OraCdcRedoRecord record = records.get(index);
-				final byte fb5_1 = record.change5_1().fb();
-				final boolean rowOp = record.has11_x();
-				final byte fb11_x = rowOp 
+				final var record = records.get(index);
+				final var fb5_1 = record.change5_1().fb();
+				final var supplementalFb = record.change5_1().supplementalFb();
+				final var rowOp = record.has11_x();
+				final var fb11_x = rowOp 
 						? record.change11_x().fb()
 						: record.change10_x().fb() == 0
-								? record.change5_1().supplementalFb()
+								? supplementalFb
 								: record.change10_x().fb();
 				if (indexValue == -1)
 					switch (lmOp) {
@@ -521,9 +524,16 @@ public abstract class OraCdcTransaction {
 						if (flgHeadPart(fb5_1) && flgHeadPart(fb11_x)) indexHead = index;
 					} else {
 						if (rowOp) {
-							if (flgFirstPart(fb5_1) || flgFirstPart(fb11_x)) indexFirst = index;
-							if (flgLastPart(fb5_1) || flgLastPart(fb11_x)) indexLast = index;	
-							if (flgHeadPart(fb5_1) || flgHeadPart(fb11_x)) indexHead = index;
+							if (flgFirstPart(fb5_1) ||
+								flgFirstPart(fb11_x) ||
+								((flgPrevPart(fb5_1) || flgNextPart(fb5_1)) && flgFirstPart(supplementalFb)))
+								indexFirst = index;
+							if (flgLastPart(fb5_1) ||
+								flgLastPart(fb11_x) ||
+								((flgPrevPart(fb5_1) || flgNextPart(fb5_1)) && flgLastPart(supplementalFb)))
+								indexLast = index;	
+							if (flgHeadPart(fb5_1) || flgHeadPart(fb11_x))
+								indexHead = index;
 						} else {
 							if (flgFirstPart(fb11_x)) indexFirst = index;
 							if (flgLastPart(fb11_x)) indexLast = index;	
@@ -545,6 +555,35 @@ public abstract class OraCdcTransaction {
 					LOGGER.error("Unknown lmOp code!");
 				}
 			}
+			if (indexFirst < 0 || indexLast < 0) {
+				var sb = new StringBuilder(records.size() * 0x50);
+				records.forEach(rr -> {
+					sb
+						.append("\nRBA ")
+						.append(rr.rba().toString())
+						.append(", OP:5.1 fb:")
+						.append(printFbFlags(rr.change5_1().fb()))
+						.append(", supp fb:")
+						.append(printFbFlags(rr.change5_1().supplementalFb()))
+						.append(", OP:")
+						.append(formatOpCode(rr.rowChange().operation()))
+						.append(" fb:")
+						.append(printFbFlags(rr.rowChange().fb()));
+				});
+				LOGGER.error(
+						"""
+						
+						=====================
+						Unable to determine first and/or last part of operation!
+						indexFirst={}, indexLast={}
+						Please send the message below to us by email oracle@a2.solutions
+						XID={}, lmOp={}
+						{}
+						=====================
+						
+						""", indexFirst, indexLast, records.get(0).xid(), lmOp, sb.toString());
+				throw new IndexOutOfBoundsException();
+			}
 			if (indexHead > -1 && indexHead > indexFirst)
 				flags |= FLG_OPPOSITE_ORDER;
 			else
@@ -561,17 +600,8 @@ public abstract class OraCdcTransaction {
 			}
 			if ((flags & FLG_OPPOSITE_ORDER) > 0)
 				sortedRecs.add(records.get(indexFirst));
-			else {
-				try {
-					sortedRecs.add(records.get(indexLast));
-				} catch (Exception e) {
-					LOGGER.error("{}\n\t{}", e.getMessage(), lmOp);
-					records.forEach(rr -> {
-						LOGGER.error("RBA={}, XID={}, OP:{}", rr.rba(), rr.xid(), formatOpCode(rr.change11_x().operation()));
-						LOGGER.error("5.1 FB={}, 5.1 SUPP FB={}, ROW FB={}", printFbFlags(rr.change5_1().fb()), printFbFlags(rr.change5_1().supplementalFb()), printFbFlags(rr.change11_x().fb()));
-					});
-				}
-			}
+			else
+				sortedRecs.add(records.get(indexLast));
 			records.clear();
 			for (int index = 0; index < sortedRecs.size(); index++)
 				records.add(sortedRecs.get(index));
@@ -949,10 +979,10 @@ public abstract class OraCdcTransaction {
 	}
 
 	private void completeRow(final RowChangeHolder row) {
+		var head = 0;
+		var first = 0;
+		var last = 0;
 		if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
-			int head = 0;
-			int first = 0;
-			int last = 0;
 			for (int i = 0; i < row.records.size(); i++) {
 				final OraCdcRedoRecord rr = row.records.get(i);
 				if (rr.has11_x() && rr.hasPrb()) {
@@ -982,10 +1012,9 @@ public abstract class OraCdcTransaction {
 				row.complete = true;
 			}
 		} else {
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug("Entered complete for row.lmOp={} with size={}", row.lmOp, row.records.size());
 			var iotUpdate = false;
-			var head = 0;
-			var first = 0;
-			var last = 0;
 			for (int i = 0; i < row.records.size(); i++) {
 				final OraCdcRedoRecord rr = row.records.get(i);
 				if (rr.has11_x() && rr.has5_1()) {
@@ -1011,6 +1040,10 @@ public abstract class OraCdcTransaction {
 						if (flgLastPart(fb)) last++;
 					} else {
 						//UPDATE
+						if (flgCompleted(rr.change5_1().supplementalFb())) {
+							row.complete = true;
+							break;
+						}
 						final byte fb5_1 = rr.change5_1().fb();
 						if (flgHeadPart(fb5_1)) head++;
 						if (flgFirstPart(fb5_1)) first++;
@@ -1056,52 +1089,65 @@ public abstract class OraCdcTransaction {
 							""", rr.rba(), rr.redoLog().fileName(), rr.toString());
 				}
 			}
-			if ((row.lmOp == INSERT || row.lmOp == DELETE) &&
-					head > 0 && first > 0 && last > 0)
-				row.complete = true;
-			else if (row.lmOp == UPDATE) {
-				if ((row.flags & FLG_NEED_HEAD_FLAG) > 0 && head > 1 && first > 1 && last > 1)
+			if (!row.complete) {
+				if ((row.lmOp == INSERT || row.lmOp == DELETE) &&
+						head > 0 && first > 0 && last > 0)
 					row.complete = true;
-				else if ((row.flags & FLG_NEED_HEAD_FLAG) == 0 && first > 1 && last > 1)
-					row.complete = true;
-				else if (iotUpdate && first > 0 && last > 0)
-					row.complete = true;
-			} else
-				row.complete = false;
+				else if (row.lmOp == UPDATE) {
+					if ((row.flags & FLG_NEED_HEAD_FLAG) > 0 && head > 1 && first > 1 && last > 1)
+						row.complete = true;
+					else if ((row.flags & FLG_NEED_HEAD_FLAG) == 0 && first > 1 && last > 1)
+						row.complete = true;
+					else if (iotUpdate && first > 0 && last > 0)
+						row.complete = true;
+				} else
+					row.complete = false;
+			}
 		}
 		if (LOGGER.isDebugEnabled()) {
-			if (row.complete) {
-				final StringBuilder sb = new StringBuilder(0x800);
+			final StringBuilder sb = new StringBuilder(0x800);
+			if (row.complete)
 				sb.append("Ready to merge redo records into one row for RBA's");
-				for (final OraCdcRedoRecord record : row.records) {
+			else
+				sb
+					.append("Unable to merge redo records for lmOp=")
+					.append(row.lmOp)
+					.append(", needHeadFlag=")
+					.append((row.flags & FLG_NEED_HEAD_FLAG) > 0)
+					.append(", head=")
+					.append(head)
+					.append(", first=")
+					.append(first)
+					.append(", last=")
+					.append(last);
+			for (final OraCdcRedoRecord record : row.records) {
+				sb
+					.append("\n\tXID:")
+					.append(record.xid().toString())
+					.append(", SCN:")
+					.append(record.scn())
+					.append(", RBA:")
+					.append(record.rba().toString());
+				if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0)
 					sb
-						.append("\n\tXID:")
-						.append(record.xid().toString())
-						.append(", SCN:")
-						.append(record.scn())
-						.append(", RBA:")
-						.append(record.rba().toString());
-					if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0)
-						sb
-							.append(", OP:")
-							.append(formatOpCode(record.changePrb().operation()))
-							.append(" fb:")
-							.append(printFbFlags(record.changePrb().fb()))
-							.append(", OP:")
-							.append(formatOpCode(record.rowChange().operation()))
-							.append(" fb:")
-							.append(printFbFlags(record.rowChange().fb()));
-					else
-						sb
-							.append(", OP:5.1 fb:")
-							.append(printFbFlags(record.change5_1().fb()))
-							.append(", supp fb:")
-							.append(printFbFlags(record.change5_1().supplementalFb()))
-							.append(", OP:")
-							.append(formatOpCode(record.rowChange().operation()))
-							.append(" fb:")
-							.append(printFbFlags(record.rowChange().fb()));
-				}
+						.append(", OP:")
+						.append(formatOpCode(record.changePrb().operation()))
+						.append(" fb:")
+						.append(printFbFlags(record.changePrb().fb()))
+						.append(", OP:")
+						.append(formatOpCode(record.rowChange().operation()))
+						.append(" fb:")
+						.append(printFbFlags(record.rowChange().fb()));
+				else
+					sb
+						.append(", OP:5.1 fb:")
+						.append(printFbFlags(record.change5_1().fb()))
+						.append(", supp fb:")
+						.append(printFbFlags(record.change5_1().supplementalFb()))
+						.append(", OP:")
+						.append(formatOpCode(record.rowChange().operation()))
+						.append(" fb:")
+						.append(printFbFlags(record.rowChange().fb()));
 				LOGGER.debug(sb.toString());
 			}
 		}
