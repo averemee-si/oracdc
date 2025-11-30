@@ -25,7 +25,6 @@ import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.io.IOException;
 
-import org.apache.log4j.BasicConfigurator;
 import org.junit.jupiter.api.Test;
 
 import solutions.a2.cdc.oracle.OraCdcRedoMinerStatement;
@@ -37,12 +36,10 @@ import solutions.a2.cdc.oracle.OraCdcTransactionArrayList;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class Ops_IRP_DRP_BindingTest {
+public class Ops_IRP_DRP_BindingTest extends TestWithOutput {
 
 	@Test
 	public void test_IRP_DRP_CFA_Binding() {
-
-		BasicConfigurator.configure();
 
 		OraCdcRedoLog orl = OraCdcRedoLog.getLinux19c();
 		

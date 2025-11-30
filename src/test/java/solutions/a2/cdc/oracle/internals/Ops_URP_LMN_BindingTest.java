@@ -25,7 +25,6 @@ import java.io.IOException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.log4j.BasicConfigurator;
 import org.junit.jupiter.api.Test;
 
 import solutions.a2.cdc.oracle.OraCdcRedoMinerStatement;
@@ -37,13 +36,10 @@ import solutions.a2.cdc.oracle.OraCdcTransactionArrayList;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class Ops_URP_LMN_BindingTest {
+public class Ops_URP_LMN_BindingTest extends TestWithOutput {
 
 	@Test
 	public void test() {
-
-		BasicConfigurator.configure();
-		
 
 		OraCdcRedoLog orl = OraCdcRedoLog.getLinux19c();
 		
@@ -115,7 +111,6 @@ public class Ops_URP_LMN_BindingTest {
 
 	@Test
 	public void testRaInterfaceLinesAll_1() {
-		BasicConfigurator.configure();
 
 		OraCdcRedoLog orl = OraCdcRedoLog.getLinux19c();
 		
@@ -155,7 +150,6 @@ public class Ops_URP_LMN_BindingTest {
 
 	@Test
 	public void testRaInterfaceLinesAll_2() {
-		BasicConfigurator.configure();
 
 		OraCdcRedoLog orl = OraCdcRedoLog.getLinux19c();
 		
@@ -238,7 +232,6 @@ public class Ops_URP_LMN_BindingTest {
 
 	@Test
 	public void testOeOrderLinesAll() {
-		BasicConfigurator.configure();
 
 		OraCdcRedoLog orl = OraCdcRedoLog.getLinux19c();
 		
