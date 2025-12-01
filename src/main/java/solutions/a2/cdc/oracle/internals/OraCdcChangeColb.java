@@ -37,7 +37,7 @@ public class OraCdcChangeColb extends OraCdcChange {
 
 	private static final int BLOCK_DUMP_MIN_SIZE = 0x18;
 
-	private final boolean longDump;
+	private boolean longDump;
 	private int lobPageNo;
 	private byte itc;
 	private short headerSize;
@@ -45,7 +45,11 @@ public class OraCdcChangeColb extends OraCdcChange {
 	OraCdcChangeColb(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
 		elementNumberCheck(1);
-		if (coords.length > 1 && record[coords[1][0]] == 0x6) {
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return;
+		if (coords.length > 1 && (
+				record[coords[1][0]] == 0x6 ||
+				(encrypted && record[coords[1][0]] == (byte) 0x89))) {
 			longDump = false;
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, BLOCK_DUMP_MIN_SIZE, "");
 			obj = redoLog.bu().getU32(record, coords[0][0] + 0x4);
@@ -78,6 +82,8 @@ public class OraCdcChangeColb extends OraCdcChange {
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
 		sb.append("\nDirect Loader block redo entry");
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return sb;
 		if (longDump) {
 			sb
 				.append("\nLong field block dump:\nObject Id  ")
