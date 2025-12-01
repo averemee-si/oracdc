@@ -117,6 +117,7 @@ public abstract class OraCdcTransaction {
 	private String clientId;
 
 	private final Map<Integer, Deque<RowChangeHolder>> halfDone = new HashMap<>();
+	private final Map<Integer, List<RowChangeHolder>> finishedQueue = new HashMap<>();
 	private boolean isCdb = false;
 
 
@@ -627,15 +628,16 @@ public abstract class OraCdcTransaction {
 				deque.addFirst(row);
 				halfDone.put(key, deque);
 			} else {
-				RowChangeHolder halfDoneRow =  deque.peekFirst();
-				final OraCdcRedoRecord lastHalfDone = halfDoneRow.last();
-				final byte lastHalfDoneRowFb = lastHalfDone.has11_x() ?
-						lastHalfDone.change11_x().fb() : lastHalfDone.change10_x().fb();
+				var halfDoneRow =  deque.peekFirst();
+				final var lastHalfDone = halfDoneRow.last();
 				final boolean push;
+				final var lastHalfDoneRowFb = lastHalfDone.rowChange().fb();
 				if (partialRollback) {
 					push = lastHalfDoneRowFb == rr.rowChange().fb();
 				} else {
-					if (rr.rowChange().fb() == 0 && rr.change5_1().fb() == 0)
+					if (flgFirstPart(rr.change5_1().supplementalFb()) && flgFirstPart(lastHalfDone.change5_1().supplementalFb()))
+						push = true;
+					else if (rr.rowChange().fb() == 0 && rr.change5_1().fb() == 0)
 						push = false;
 					else
 						push = lastHalfDoneRowFb == rr.rowChange().fb() && 
@@ -644,17 +646,41 @@ public abstract class OraCdcTransaction {
 				if (push) {
 					row.add(rr);
 					deque.addFirst(row);
-					if (LOGGER.isDebugEnabled()) {
+					var waitingList = finishedQueue.get(key);
+					if (waitingList == null) {
+						waitingList = new ArrayList<>();
+						waitingList.add(halfDoneRow);
+						finishedQueue.put(key, waitingList);
+					}
+					waitingList.add(row);
+					if (LOGGER.isDebugEnabled())
 						LOGGER.debug(
 								"An stored incomplete change at RBA {} cannot be merged with an incomplete change in progress at RBA {}",
 								lastHalfDone.rba(), rr.rba());
-					}
 				} else {
 					halfDoneRow.add(rr);
 					row = null;
 					completeRow(halfDoneRow);
 					if (halfDoneRow.complete) {
-						emitRowChange(halfDoneRow, lwnUnixMillis);
+						if (deque.size() == 1) {
+							var waitingList = finishedQueue.get(key);
+							if (waitingList == null)
+								emitRowChange(halfDoneRow, lwnUnixMillis);
+							else {
+								for (final var waitingRow : waitingList) {
+									emitRowChange(waitingRow, lwnUnixMillis);
+								}
+								waitingList.clear();
+								finishedQueue.remove(key);
+								waitingList = null;
+							}
+						} else {
+							if (LOGGER.isDebugEnabled()) {
+								var waitingList = finishedQueue.get(key);
+								LOGGER.debug("awaiting processing for key {}. deque.size()={}, waitingList.size()={}",
+										key, deque.size(), waitingList == null ? 0: waitingList.size());
+							}
+						}
 						deque.removeFirst();
 						if (deque.isEmpty()) {
 							halfDone.remove(key);
@@ -662,7 +688,6 @@ public abstract class OraCdcTransaction {
 					}
 				}
 			}
-
 		}
 	}
 
