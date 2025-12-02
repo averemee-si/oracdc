@@ -167,9 +167,19 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			}
 			final int index = taskId.getAndAdd(1);
 			if (index > (standbyThreads.size() - 1)) {
-				LOGGER.error("Errors while processing following array of Oracle Signgle Instance DataGuard for RAC threads:");
-				standbyThreads.forEach(v -> LOGGER.error("\t{}", v));
-				LOGGER.error("Size equals {}, but current index equals {} !", standbyThreads.size(), index);
+				final var sb = new StringBuilder(0x200);
+				sb
+					.append("\n=====================")
+					.append("Errors while processing following array of Oracle Signgle Instance DataGuard for RAC threads:");
+				standbyThreads.forEach(v -> sb.append("\n\t").append(v));
+				sb
+					.append("\nSize equals ")
+					.append(standbyThreads.size())
+					.append(", but current index equals ")
+					.append(index)
+					.append(" !")
+					.append("\n=====================");
+				LOGGER.error(sb.toString());
 				throw new ConnectException("Unable to properly assign Kafka tasks to Oracle Single Instance DataGuard for RAC!");
 			} else if (index == (standbyThreads.size() - 1)) {
 				// Last element - reset back to 0
@@ -233,7 +243,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			if (dg4RacSingleInst) {
 				rdbmsInfo.setRedoThread(threadNo);
 			}
-			config.topicPartition(rdbmsInfo.getRedoThread() - 1);
+			config.topicPartition(rdbmsInfo.getRedoThread());
 			if (useRac) {
 				int redoThread = rdbmsInfo.getRedoThread();
 				fldCommitScnInProgress = "COMMIT_SCN/" + redoThread;
@@ -268,7 +278,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 						rdbmsInfo.getInstanceName(), rdbmsInfo.getRedoThread(),
 						rdbmsInfo.getHostName(), rdbmsInfo.getPlatformName());
 
-			if (rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot() && !rdbmsInfo.isPdbConnectionAllowed()) {
+			if (config.logMiner() && rdbmsInfo.isCdb() && !rdbmsInfo.isCdbRoot() && !rdbmsInfo.isPdbConnectionAllowed()) {
 				LOGGER.error(
 						"Connector {} must be connected to CDB$ROOT while using oracdc for mining data using LogMiner!",
 						connectorName);
@@ -314,42 +324,44 @@ public abstract class OraCdcTaskBase extends SourceTask {
 							connectorName);
 			}
 
-			if (Strings.CI.equals(rdbmsInfo.getSupplementalLogDataAll(), "YES")) {
-				LOGGER.info(
-						"""
-						
-						=====================
-						V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'YES'.
-						    No additional checks for supplemental logging will performed at the table level.
-						=====================
-						""");
-			} else {
-				if (Strings.CI.equals(rdbmsInfo.getSupplementalLogDataMin(), "NO")) {
-					LOGGER.error(
-							"""
-							
-							=====================
-							Both V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL and V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN are set to 'NO'!
-							For the connector to work properly, you need to set connecting Oracle RDBMS as SYSDBA:
-							alter database add supplemental log data (ALL) columns;
-							OR recommended but more time consuming settings
-							alter database add supplemental log data;
-							and then enable supplemental only for required tables:
-							alter table <OWNER>.<TABLE_NAME> add supplemental log data (ALL) columns;
-							=====================
-							""");
-					throw new ConnectException("Must set SUPPLEMENTAL LOGGING settings!");
-				} else {
+			if (config.supplementalLogAll()) {
+				if (Strings.CI.equals(rdbmsInfo.getSupplementalLogDataAll(), "YES")) {
 					LOGGER.info(
 							"""
 							
 							=====================
-							V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'NO'.
-							V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN is set to '{}'. 
-							    Additional checks for supplemental logging will performed at the table level.
+							V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'YES'.
+							    No additional checks for supplemental logging will performed at the table level.
 							=====================
-							""",
-								rdbmsInfo.getSupplementalLogDataMin());
+							""");
+				} else {
+					if (Strings.CI.equals(rdbmsInfo.getSupplementalLogDataMin(), "NO")) {
+						LOGGER.error(
+								"""
+								
+								=====================
+								Both V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL and V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN are set to 'NO'!
+								For the connector to work properly, you need to set connecting Oracle RDBMS as SYSDBA:
+								alter database add supplemental log data (ALL) columns;
+								OR recommended but more time consuming settings
+								alter database add supplemental log data;
+								and then enable supplemental only for required tables:
+								alter table <OWNER>.<TABLE_NAME> add supplemental log data (ALL) columns;
+								=====================
+								""");
+						throw new ConnectException("Must set SUPPLEMENTAL LOGGING settings!");
+					} else {
+						LOGGER.info(
+								"""
+								
+								=====================
+								V$DATABASE.SUPPLEMENTAL_LOG_DATA_ALL is set to 'NO'.
+								V$DATABASE.SUPPLEMENTAL_LOG_DATA_MIN is set to '{}'. 
+								    Additional checks for supplemental logging will performed at the table level.
+								=====================
+								""",
+									rdbmsInfo.getSupplementalLogDataMin());
+					}
 				}
 			}
 

@@ -13,7 +13,6 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.io.IOException;
 import java.sql.SQLException;
 
 import org.slf4j.Logger;
@@ -68,7 +67,7 @@ public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 			final String redoLog,
 			final int blockSize,
 			final long blockCount,
-			final boolean readAhead) throws IOException {
+			final boolean readAhead) throws SQLException {
 		this.open = open;
 		this.read = read;
 		this.close = close;
@@ -112,16 +111,19 @@ public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 			}
 		} catch (SQLException sqle) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to open '{}': SQL Error Code={}, SQL State='{}'!" +
-					"\n=====================\n",
-					redoLog, sqle.getErrorCode(), sqle.getSQLState());
-			throw new IOException(sqle);
+					"""
+					
+					=====================
+					Unable to open '{}': SQL Error Code={}, SQL State='{}'!
+					=====================
+					
+					""", redoLog, sqle.getErrorCode(), sqle.getSQLState());
+			throw sqle;
 		}
 	}
 
 	@Override
-	public int read(byte b[], int off, int len) throws IOException {
+	public int read(byte b[], int off, int len) throws SQLException {
 		if (readAhead) {
 			if (needToreadAhead) {
 				final NUMBER bytesToRead;
@@ -140,7 +142,7 @@ public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 					read.setNUMBER(3, bytesToRead);
 					read.registerOutParameter(4, RAW);
 					read.execute();
-					final RAW data = read.getRAW(4);
+					final var data = read.getRAW(4);
 					if (data != null) {
 						final byte[] ba = data.getBytes();
 						System.arraycopy(ba, 0, readAheadBuffer, 0, ba.length);
@@ -148,19 +150,24 @@ public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 							LOGGER.debug("Copying {} bytes at block {}", ba.length, currentBlock);
 						}
 					} else {
-						throw new IOException("RAW result is NULL while reading data from ASM!");
+						throw new SQLException("RAW result is NULL while reading data from ASM file '" +
+													redoLog + "'!");
 					}
 					needToreadAhead = false;
 				} catch (SQLException sqle) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to read '{}': SQL Error Code={}, SQL State='{}'\nError message:\n'{}'!" +
-							"\n=====================\n",
-							redoLog, sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
-					throw new IOException(sqle);
+							"""
+							
+							=====================
+							Unable to read '{}': SQL Error Code={}, SQL State='{}'. Error message:
+							{}!
+							=====================\n",
+							
+							""", redoLog, sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
+					throw sqle;
 				}
 			}
-			int srcPos = (int) (((currentBlock - startPos) % readAheadBlocks) * blockSize);
+			var srcPos = (int) (((currentBlock - startPos) % readAheadBlocks) * blockSize);
 			System.arraycopy(readAheadBuffer, srcPos, b, 0, len);
 			currentBlock += 1;
 			if (((currentBlock - startPos) % readAheadBlocks) == 0) {
@@ -180,21 +187,25 @@ public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 					currentBlock += 1;
 					return len;
 				} else {
-					throw new IOException("RAW result is NULL while reading data from ASM!");
+					throw new SQLException("RAW result is NULL while reading data from ASM file '" +
+							redoLog + "'!");
 				}
 			} catch (SQLException sqle) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to read '{}': SQL Error Code={}, SQL State='{}'!" +
-						"\n=====================\n",
-						redoLog, sqle.getErrorCode(), sqle.getSQLState());
-				throw new IOException(sqle);
+						"""
+						
+						=====================
+						Unable to read '{}': SQL Error Code={}, SQL State='{}'!
+						=====================
+						
+						""", redoLog, sqle.getErrorCode(), sqle.getSQLState());
+				throw sqle;
 			}
 		}
 	}
 	
 	@Override
-	public long skip(long n) throws IOException {
+	public long skip(long n) throws SQLException {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Changing current block in ASM file handle = {} from {} to {}.",
 					handle.stringValue(), currentBlock, currentBlock + n);
@@ -206,7 +217,7 @@ public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void close() throws SQLException {
 		if (readAhead)
 			readAheadBuffer = null;
 		try {
@@ -217,16 +228,19 @@ public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 			}
 		} catch (SQLException sqle) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to close '{}': SQL Error Code={}, SQL State='{}'!" +
-					"\n=====================\n",
-					redoLog, sqle.getErrorCode(), sqle.getSQLState());
-			throw new IOException(sqle);
+					"""
+					
+					=====================
+					Unable to close '{}': SQL Error Code={}, SQL State='{}'!
+					=====================
+					
+					""", redoLog, sqle.getErrorCode(), sqle.getSQLState());
+			throw sqle;
 		}
 	}
 
 	@Override
-	public void reset()  throws IOException {
+	public void reset()  throws SQLException {
 		currentBlock = 1;
 	}
 

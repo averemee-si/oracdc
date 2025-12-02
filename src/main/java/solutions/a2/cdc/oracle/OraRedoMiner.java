@@ -26,6 +26,7 @@ import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Triple;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,11 +43,15 @@ import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.utils.BinaryUtils;
 
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1170;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_2396;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_15173;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17002;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17008;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17410;
-import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_2396;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_22288;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.UCP_44;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.SQL_STATE_FILE_NOT_FOUND;
 
 /**
  * 
@@ -63,11 +68,9 @@ public class OraRedoMiner {
 	private final OraCdcSourceConnectorConfig config;
 	private long firstChange;
 	private RedoByteAddress firstRba;
-	private boolean inited = true;
 	private long nextChange = 0;
 	private long lastSequence = 0;
 	private final String connectorName;
-	private final boolean processOnlineRedoLogs;
 	private final int onlineRedoQueryMsMin;
 	private final OraCdcLogMinerMgmtIntf metrics;
 	private PreparedStatement psGetArchivedLogs;
@@ -78,9 +81,7 @@ public class OraRedoMiner {
 	private long readStartMillis;
 	private final OraRdbmsInfo rdbmsInfo;
 	private long lastOnlineRedoTime = 0;
-	private final boolean printAllOnlineScnRanges;
 	private long lastOnlineSequence = 0;
-	private final boolean useNotifier;
 	private final LastProcessedSeqNotifier notifier;
 	private OraCdcRedoLog redoLog;
 	private Iterator<OraCdcRedoRecord> miner;
@@ -95,9 +96,15 @@ public class OraRedoMiner {
 	private final OraConnectionObjects oraConnections;
 	private long sessionStartMs = 0;
 	private final int backofMs;
-	private final boolean needNameChange;
-	private boolean sshMaverick;
 	final CountDownLatch runLatch;
+	private static final byte FLG1_WAIT_ON_ERROR           = (byte)0x01;
+	private static final byte FLG1_PRINT_ALL_ONLINE_RANGES = (byte)0x02;
+	private static final byte FLG1_INITED                  = (byte)0x04;
+	private static final byte FLG1_USE_NOTIFIER            = (byte)0x08;
+	private static final byte FLG1_NEED_NAME_CHANGE        = (byte)0x10;
+	private static final byte FLG1_PROCESS_ONLINE_REDO     = (byte)0x20;
+	private static final byte FLG1_STOP_ON_MISSED_FILE     = (byte)0x40;
+	private byte flags1 = FLG1_WAIT_ON_ERROR | FLG1_INITED;
 
 	public OraRedoMiner(
 			final Connection connection,
@@ -121,64 +128,49 @@ public class OraRedoMiner {
 		this.backofMs = config.connectionRetryBackoff();
 		this.runLatch = runLatch;
 		config.msWindows(rdbmsInfo.isWindows());
-		if (notifier == null) {
-			useNotifier = false;
-		} else {
-			useNotifier = true;
+		if (notifier != null) {
+			flags1 |= FLG1_USE_NOTIFIER;
 			notifier.configure(config);
 		}
 		this.oraConnections = oraConnections;
 		if (asm) {
-			needNameChange = false;
 			reconnectIntervalMs = config.asmReconnectIntervalMs();
 			rlf = new OraCdcRedoLogAsmFactory(oraConnections.getAsmConnection(config),
 					bu, true, config.asmReadAhead());
 		} else if (ssh) {
-			needNameChange = rdbmsInfo.isWindows();
+			if (rdbmsInfo.isWindows()) flags1 |= FLG1_NEED_NAME_CHANGE;
 			reconnectIntervalMs = config.sshReconnectIntervalMs();
-			try {
-				if (config.sshProviderMaverick()) {
-					rlf = new OraCdcRedoLogSshtoolsMaverickFactory(config, bu, true);
-					sshMaverick = true;
-				} else {
-					rlf = new OraCdcRedoLogSshjFactory(config, bu, true);
-					sshMaverick = false;
-				}
-			} catch (IOException ioe) {
-				throw new SQLException(ioe);
-			}
+			if (config.sshProviderMaverick())
+				rlf = new OraCdcRedoLogSshtoolsMaverickFactory(config, bu, true);
+			else
+				rlf = new OraCdcRedoLogSshjFactory(config, bu, true);
 		} else if (bfile) {
-			needNameChange = true;
+			flags1 |= FLG1_NEED_NAME_CHANGE;
 			reconnectIntervalMs = config.bfileReconnectIntervalMs();
 			rlf = new OraCdcRedoLogBfileFactory(oraConnections.getConnection(),
 					config.bfileDirOnline(), config.bfileDirArchive(), config.bfileBufferSize(),
 					bu, true);
 		} else if (smb) {
-			needNameChange = true;
+			flags1 |= FLG1_NEED_NAME_CHANGE;
 			reconnectIntervalMs = config.smbReconnectIntervalMs();
-			try {
-				rlf = new OraCdcRedoLogSmbjFactory(config, bu, true);
-			} catch (IOException ioe) {
-				throw new SQLException(ioe);
-			}
+			rlf = new OraCdcRedoLogSmbjFactory(config, bu, true);
 		} else {
-			needNameChange = true;
+			flags1 |= FLG1_NEED_NAME_CHANGE;
 			reconnectIntervalMs = Long.MAX_VALUE;
 			rlf = new OraCdcRedoLogFileFactory(bu, true);
 		}
 
-		processOnlineRedoLogs = config.processOnlineRedoLogs();
-		if (processOnlineRedoLogs) {
-			printAllOnlineScnRanges = config.printAllOnlineRedoRanges();
+		if (config.processOnlineRedoLogs()) {
+			flags1 |= FLG1_PROCESS_ONLINE_REDO;
+			if (config.printAllOnlineRedoRanges()) flags1 |= FLG1_PRINT_ALL_ONLINE_RANGES;
 			onlineRedoQueryMsMin = config.currentScnQueryInterval();
 		} else {
-			printAllOnlineScnRanges = false;
 			onlineRedoQueryMsMin = Integer.MIN_VALUE;
 		}
-
+		if (config.stopOnMissedLogFile()) flags1 |= FLG1_STOP_ON_MISSED_FILE;
 		this.firstChange = startFrom.getLeft();
 		if (startFrom.getMiddle() != null) {
-			inited = false;
+			flags1 &= (~FLG1_INITED);
 			firstRba = startFrom.getMiddle();
 		}
 		createStatements(connection);
@@ -197,7 +189,6 @@ public class OraRedoMiner {
 		sb
 			.append("Oracle Database DBID is {}, RedoMiner will start from SCN {}.")
 			.append("\n=====================\n");
-			
 		LOGGER.info(
 				sb.toString(),
 				rdbmsInfo.getDbUniqueName(), rdbmsInfo.getOpenMode(), rdbmsInfo.getDbId(), firstChange);
@@ -212,7 +203,7 @@ public class OraRedoMiner {
 	public void createStatements(final Connection connection) throws SQLException {
 		psGetArchivedLogs = connection.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		if (processOnlineRedoLogs) {
+		if ((flags1 & FLG1_PROCESS_ONLINE_REDO) > 0) {
 			psUpToCurrentScn = connection.prepareStatement(OraDictSqlTexts.UP_TO_CURRENT_SCN,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		}
@@ -225,12 +216,13 @@ public class OraRedoMiner {
 	 * @throws SQLException
 	 */
 	public boolean next() throws SQLException {
-		boolean redoLogAvailable = false;
-		boolean limits = false;
+		var redoLogAvailable = false;
+		var limits = false;
 		long blocks = 0;
+		flags1 |= FLG1_WAIT_ON_ERROR;
 
 		ResultSet rs = null;
-		boolean rsReady = false;
+		var rsReady = false;
 		while (!rsReady && runLatch.getCount() > 0) {
 			try {
 				psGetArchivedLogs.setLong(1, firstChange);
@@ -249,14 +241,17 @@ public class OraRedoMiner {
 						sqle instanceof SQLRecoverableException ||
 						(sqle.getCause() != null && sqle.getCause() instanceof SQLRecoverableException)) {
 					LOGGER.warn(
-							"\n=====================\n" +
-							"Encontered an 'ORA-{}: {}'\n" +
-							"Attempting to reconnect to dictionary...\n" +
-							"=====================\n",
-							sqle.getErrorCode(), sqle.getMessage());
+							"""
+							
+							=====================
+							Encontered an 'ORA-{}: {}', SQLState = '{}'
+							Attempting to reconnect to dictionary...
+							=====================
+							
+							""", sqle.getErrorCode(), sqle.getMessage(), sqle.getSQLState());
 					try {
-						boolean ready = false;
-						int retries = 0;
+						var ready = false;
+						var retries = 0;
 						while (!ready) {
 							try {
 								Connection connection = oraConnections.getConnection();
@@ -264,10 +259,13 @@ public class OraRedoMiner {
 							} catch(SQLException sqleRestore) {
 								if (retries > MAX_RETRIES) {
 									LOGGER.error(
-											"\n=====================\n" +
-											"Unable to restore dictionary connection after {} retries!\n" +
-											"=====================\n",
-											retries);
+											"""
+											
+											=====================
+											Unable to restore dictionary connection after {} retries!
+											=====================
+											
+											""", retries);
 									throw sqleRestore;
 								}
 							}
@@ -282,20 +280,26 @@ public class OraRedoMiner {
 						}
 					} catch (SQLException ucpe) {
 						LOGGER.error(
-								"\n=====================\n" +
-								"SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables\n" +
-								"SQL error message = {}\n" +
-								"=====================\n",
-								ucpe.getErrorCode(), ucpe.getSQLState(), ucpe.getMessage());
+								"""
+								
+								=====================
+								SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables
+								SQL error message = {}
+								=====================
+								
+								""", ucpe.getErrorCode(), ucpe.getSQLState(), ucpe.getMessage());
 						throw new SQLException(sqle);
 					}
 				} else {
 					LOGGER.error(
-							"\n=====================\n" +
-							"SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dictionary tables\n" +
-							"SQL error message = {}\n" +
-							"=====================\n",
-							sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
+							"""
+							
+							=====================
+							SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dictionary tables
+							SQL error message = {}
+							=====================
+							
+							""", sqle.getErrorCode(), sqle.getSQLState(), sqle.getMessage());
 					throw new SQLException(sqle);
 				}
 			}
@@ -303,7 +307,7 @@ public class OraRedoMiner {
 		int lagSeconds = 0;
 		short blockSize = 0x200;
 		while (rs.next()) {
-			final long sequence = rs.getLong("SEQUENCE#");
+			final var sequence = rs.getLong("SEQUENCE#");
 			nextChange = rs.getLong("NEXT_CHANGE#");
 			lagSeconds = rs.getInt("ACTUAL_LAG_SECONDS");
 			blockSize = rs.getShort("BLOCK_SIZE");
@@ -320,7 +324,7 @@ public class OraRedoMiner {
 							(sequence == lastSequence && firstChange < nextChange)) {
 					if (sequence > lastSequence && lastSequence > 0) {
 						metrics.setLastProcessedSequence(lastSequence);
-						if (useNotifier) {
+						if ((flags1 & FLG1_USE_NOTIFIER) > 0) {
 							notifier.notify(Instant.now(), lastSequence);
 						}
 						if (LOGGER.isDebugEnabled()) {
@@ -347,7 +351,7 @@ public class OraRedoMiner {
 
 		processOnlineRedo = false;
 		if (!redoLogAvailable) {
-			if (!processOnlineRedoLogs) {
+			if ((flags1 & FLG1_PROCESS_ONLINE_REDO) == 0) {
 				LOGGER.debug("END: no archived redo yet, return false");
 				return false;
 			} else {
@@ -360,7 +364,7 @@ public class OraRedoMiner {
 				psUpToCurrentScn.setInt(2, rdbmsInfo.getRedoThread());
 				long onlineSequence = 0;
 				final String onlineRedoMember;
-				ResultSet rsUpToCurrentScn = psUpToCurrentScn.executeQuery();
+				var rsUpToCurrentScn = psUpToCurrentScn.executeQuery();
 				if (rsUpToCurrentScn.next()) {
 					nextChange =  rsUpToCurrentScn.getLong(1);
 					lagSeconds = rsUpToCurrentScn.getInt(2);
@@ -379,19 +383,19 @@ public class OraRedoMiner {
 				}
 
 				currentRedoLog = onlineRedoMember;
-				if (printAllOnlineScnRanges) {
+				if ((flags1 & FLG1_PRINT_ALL_ONLINE_RANGES) > 0) {
 					printRedoLogInfo(false, true, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
 				}
 				if (lastOnlineSequence != onlineSequence) {
 					if (lastOnlineSequence > lastSequence && lastSequence > 0) {
 						metrics.setLastProcessedSequence(lastSequence);
-						if (useNotifier) {
+						if ((flags1 & FLG1_USE_NOTIFIER) > 0) {
 							notifier.notify(Instant.now(), lastSequence, "ONLINE");
 						}
 						lastSequence = lastOnlineSequence;
 					}
 					lastOnlineSequence = onlineSequence;
-					if (!printAllOnlineScnRanges) {
+					if ((flags1 & FLG1_PRINT_ALL_ONLINE_RANGES) == 0) {
 						printRedoLogInfo(false, false, onlineRedoMember, rdbmsInfo.getRedoThread(), onlineSequence, firstChange);
 					}
 				}
@@ -411,9 +415,9 @@ public class OraRedoMiner {
 							LOGGER.debug("Recreating {} connection after {} ms.",
 									readerName(), sessionElapsed);
 						}
-						boolean done = false;
-						int attempt = 0;
-						final long reconnectStart = System.currentTimeMillis();
+						var done = false;
+						var attempt = 0;
+						final var reconnectStart = System.currentTimeMillis();
 						SQLException lastException = null;
 						while (!done && runLatch.getCount() > 0) {
 							if (attempt > Byte.MAX_VALUE)
@@ -422,43 +426,49 @@ public class OraRedoMiner {
 								attempt++;
 							try {
 								if (asm)
-									((OraCdcRedoLogAsmFactory) rlf).reset(oraConnections.getAsmConnection(config));
-								else if (ssh)
-									if (sshMaverick)
-										((OraCdcRedoLogSshtoolsMaverickFactory) rlf).reset();
-									else
-										((OraCdcRedoLogSshjFactory) rlf).reset();
+									rlf.reset(oraConnections.getAsmConnection(config));
 								else if (bfile)
-									((OraCdcRedoLogBfileFactory) rlf).reset(oraConnections.getConnection());
+									rlf.reset(oraConnections.getConnection());
 								else
-									((OraCdcRedoLogSmbjFactory) rlf).reset();
+									rlf.reset();
 								done = true;
 								sessionStartMs = System.currentTimeMillis();
 							} catch (SQLException sqle) {
 								lastException = sqle;
 								if (asm || bfile)
 									LOGGER.error(
-										"\n=====================\n" +
-										"Failed to reconnect (attempt #{}) to {} due to '{}'.\nSQL Error Code = {}, SQL State = '{}'" +
-										"oarcdc will try again to reconnect in {} ms." + 
-										"\n=====================\n",
-										attempt, readerName(), sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(), backofMs);
+										"""
+										
+										=====================
+										Failed to reconnect (attempt #{}) to {} due to '{}'.
+										SQL Error Code = {}, SQL State = '{}'
+										oracdc will try again to reconnect in {} ms. 
+										=====================
+										
+										""", attempt, readerName(),
+										sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(), backofMs);
 								else
 									LOGGER.error(
-										"\n=====================\n" +
-										"Failed to reconnect (attempt #{}) to {} due to '{}'.\n" +
-										"oarcdc will try again to reconnect in {} ms." + 
-										"\n=====================\n",
-										readerName(), attempt, sqle.getMessage(), backofMs);
+										"""
+										
+										=====================
+										Failed to reconnect (attempt #{}) to {} due to '{}'.
+										oracdc will try again to reconnect in {} ms. 
+										=====================
+										
+										""", readerName(), attempt, sqle.getMessage(), backofMs);
 								try {Thread.sleep(backofMs);} catch (InterruptedException ie) {}
 							}
 						}
 						if (!done) {
 							LOGGER.error(
-									"\n=====================\n" +
-									"Failed to reconnect to {} after {} attempts in {} ms." +
-									"\n=====================\n",
-									readerName(), attempt, (System.currentTimeMillis() - reconnectStart));
+									"""
+									
+									=====================
+									Failed to reconnect to {} after {} attempts in {} ms.
+									=====================
+									
+									""", readerName(), attempt, (System.currentTimeMillis() - reconnectStart));
 							if (lastException != null)
 								throw new SQLException(lastException);
 							else
@@ -470,10 +480,35 @@ public class OraRedoMiner {
 						}
 					}
 				}
-				redoLog = rlf.get(
-						(needNameChange) ? config.convertRedoFileName(currentRedoLog, bfile) : currentRedoLog,
+				try {
+					redoLog = rlf.get(
+						(flags1 & FLG1_NEED_NAME_CHANGE) > 0 ? config.convertRedoFileName(currentRedoLog, bfile) : currentRedoLog,
 						processOnlineRedo, blockSize, blocks);
-				if (inited) {
+				} catch (SQLException sqle) {
+					if ((sqle.getErrorCode() == ORA_1170 &&
+							Strings.CS.equals(sqle.getSQLState(), SQL_STATE_FILE_NOT_FOUND)) ||
+						(sqle.getErrorCode() == ORA_15173) ||
+						(sqle.getErrorCode() == ORA_22288)) {
+						if ((flags1 & FLG1_STOP_ON_MISSED_FILE) > 0) {
+							runLatch.countDown();
+							LOGGER.error(
+									"""
+									
+									=====================
+									Missed redo log file '{}'!
+									oracdc terminated.
+									=====================
+									
+									""", (flags1 & FLG1_NEED_NAME_CHANGE) > 0 ? config.convertRedoFileName(currentRedoLog, bfile) : currentRedoLog);
+							throw new ConnectException("Missed redo log file " + currentRedoLog + " !");
+						} else {
+							firstChange = nextChange;
+							flags1 &= (~FLG1_WAIT_ON_ERROR);
+						}
+					}
+					throw sqle;
+				}
+				if ((flags1 & FLG1_INITED) > 0) {
 					if (limits || processOnlineRedo) {
 						if (lastProcessedRba != null && redoLog.sequence() == lastProcessedRba.sqn()) {
 							miner = redoLog.iterator(lastProcessedRba, nextChange);
@@ -491,7 +526,11 @@ public class OraRedoMiner {
 								}
 								LOGGER.warn("Unexpected miner.hasNext() == false after RBA {}", lastProcessedRba);
 								miner = null;
-								redoLog.close();
+								try {
+									redoLog.close();
+								} catch (IOException ioe) {
+									throw new SQLException(ioe);
+								}
 								return false;
 							}
 						} else {
@@ -503,13 +542,13 @@ public class OraRedoMiner {
 				} else {
 
 					miner = redoLog.iterator(firstRba, nextChange);
-					inited = true;
+					flags1 |= FLG1_INITED;
 				}
 				firstChange = nextChange;
 				readStartMillis = System.currentTimeMillis();
-			} catch (IOException ioe) {
+			} catch (SQLException sqle) {
 				if (runLatch.getCount() > 0)
-					throw new SQLException(ioe);
+					throw sqle;
 				else
 					return false;
 			}
@@ -535,7 +574,7 @@ public class OraRedoMiner {
 
 	private void printRedoLogInfo(final boolean archived, final boolean printNextChange,
 			final String fileName, final int thread, final long sequence, final long logFileFirstChange) {
-		final StringBuilder sb = new StringBuilder(512);
+		final var sb = new StringBuilder(0x200);
 		if (archived) {
 			sb.append("Adding archived log ");
 		} else {
@@ -565,25 +604,20 @@ public class OraRedoMiner {
 							smb ? "SMB" : "FS reader";
 	}
 
-	public void resetRedoLogFactory(final long startScn, final RedoByteAddress startRba) throws SQLException {
-		try {
-			if (asm)
-				((OraCdcRedoLogAsmFactory) rlf).reset(oraConnections.getAsmConnection(config));
-			else if (ssh)
-				if (sshMaverick)
-					((OraCdcRedoLogSshtoolsMaverickFactory) rlf).reset();
-				else
-					((OraCdcRedoLogSshjFactory) rlf).reset();
-			else if (bfile)
-				((OraCdcRedoLogBfileFactory) rlf).reset(oraConnections.getConnection());
-			else if (smb)
-				((OraCdcRedoLogSmbjFactory) rlf).reset();
-			inited = false;
-			firstChange = startScn;
-			firstRba = startRba;
-		} catch (IOException ioe) {
-			throw new SQLException(ioe);
-		}
+	void resetRedoLogFactory(final long startScn, final RedoByteAddress startRba) throws SQLException {
+		if (asm)
+			rlf.reset(oraConnections.getAsmConnection(config));
+		else if (bfile)
+			rlf.reset(oraConnections.getConnection());
+		else
+			rlf.reset();
+		flags1 &= (~FLG1_INITED);
+		firstChange = startScn;
+		firstRba = startRba;
+	}
+
+	boolean waitOnError() {
+		return (flags1 & FLG1_WAIT_ON_ERROR) > 0;
 	}
 
 }

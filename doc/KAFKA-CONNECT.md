@@ -299,3 +299,10 @@ Default - 86,400,000 (24 hours)
 Default - true.
 
 `a2.unable.to.map.col.id.warning` - When the value is set to 'true' and a redo record contains a column identifier that is not in the data dictionary, a message about that column and information about the redo record is printed. Default - 'true'.
+
+`a2.supplemental.logging` - The supplemental logging level required for the oracdc to function.
+The parameter can take the values ​​ALL or NONE.
+The default is ALL, and you must set SUPPLEMENTAL LOG DATA(ALL) COLUMND for all tables participating in replication, as well as SUPPLEMENTAL LOG DATA at the database level.
+If this parameter is set to NONE, there are no or minimal requirements for supplemental logging.
+Use this parameter only after consulting with us via email at oracle@a2.solutions or by scheduling a meeting on our website at https://a2.solutions.
+Default - ALL

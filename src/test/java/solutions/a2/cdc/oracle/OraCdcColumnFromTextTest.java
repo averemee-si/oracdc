@@ -33,72 +33,72 @@ public class OraCdcColumnFromTextTest {
 	public void test() throws UnsupportedColumnDataTypeException {
 		OraColumn colDname = new OraColumn(true, "DNAME", "varchar2(100) null default 'SALES'",
 				"alter table dept add DNAME varchar2(100) null default 'SALES'",
-				4, null, null);
+				4, null, null, true);
 		assertTrue(colDname.isNullable());
-		assertEquals(colDname.getDefaultValue(), "'SALES'");
+		assertEquals(colDname.defaultValue(), "'SALES'");
 		assertEquals(colDname.getJdbcType(), Types.VARCHAR);
 
 		OraColumn colDnameSimple = new OraColumn(true, "DNAME", "varchar2(100)",
 				"alter table dept add DNAME varchar2(100)",
-				4, null, null);
+				4, null, null, true);
 		assertTrue(colDnameSimple.isNullable());
-		assertNull(colDnameSimple.getDefaultValue());
+		assertNull(colDnameSimple.defaultValue());
 		assertEquals(colDnameSimple.getJdbcType(), Types.VARCHAR);
 
 		OraColumn colDloc = new OraColumn(true, "DLOC", "varchar2(10) not null default 'NY'",
 				"alter table dept add DLOC varchar2(10) not null default 'NY'",
-				5, null, null);
+				5, null, null, true);
 		assertFalse(colDloc.isNullable());
-		assertEquals(colDloc.getDefaultValue(), "'NY'");
+		assertEquals(colDloc.defaultValue(), "'NY'");
 		assertEquals(colDloc.getJdbcType(), Types.VARCHAR);
 
 		OraColumn colDeptDate = new OraColumn(true, "DEPT_FOUNDED", "date not null default SYSDATE",
 				"alter table dept add DEPT_FOUNDED date not null default SYSDATE",
-				6, null, null);
+				6, null, null, true);
 		assertFalse(colDeptDate.isNullable());
-		assertEquals(colDeptDate.getDefaultValue(), "SYSDATE");
+		assertEquals(colDeptDate.defaultValue(), "SYSDATE");
 		assertEquals(colDeptDate.getJdbcType(), Types.TIMESTAMP);
 
 		OraColumn colDeptDateSimple = new OraColumn(true, "DEPT_FOUNDED", "date",
 				"alter table dept add DEPT_FOUNDED date",
-				6, null, null);
+				6, null, null, true);
 		assertTrue(colDeptDateSimple.isNullable());
-		assertNull(colDeptDateSimple.getDefaultValue());
+		assertNull(colDeptDateSimple.defaultValue());
 		assertEquals(colDeptDateSimple.getJdbcType(), Types.TIMESTAMP);
 
 		OraColumn colDeptNumberTinyInt = new OraColumn(true, "SOME_NUMBER", "NUMBER(2)",
 				"alter table dept add SOME_NUMBER number(2)",
-				7, null, null);
+				7, null, null, true);
 		assertTrue(colDeptNumberTinyInt.isNullable());
-		assertNull(colDeptNumberTinyInt.getDefaultValue());
+		assertNull(colDeptNumberTinyInt.defaultValue());
 		assertEquals(colDeptNumberTinyInt.getJdbcType(), Types.TINYINT);
 
 		OraColumn colDeptNumberSmallInt = new OraColumn(true, "SOME_NUMBER", "NUMBER(4)",
 				"alter table dept add SOME_NUMBER NUMBER(4)",
-				7, null, null);
+				7, null, null, true);
 		assertTrue(colDeptNumberSmallInt.isNullable());
-		assertNull(colDeptNumberSmallInt.getDefaultValue());
+		assertNull(colDeptNumberSmallInt.defaultValue());
 		assertEquals(colDeptNumberSmallInt.getJdbcType(), Types.SMALLINT);
 
 		OraColumn colDeptNumberInteger = new OraColumn(true, "SOME_NUMBER", "NUMBER(8)",
 				"alter table dept add SOME_NUMBER NUMBER(8)",
-				7, null, null);
+				7, null, null, true);
 		assertTrue(colDeptNumberInteger.isNullable());
-		assertNull(colDeptNumberInteger.getDefaultValue());
+		assertNull(colDeptNumberInteger.defaultValue());
 		assertEquals(colDeptNumberInteger.getJdbcType(), Types.INTEGER);
 
 		OraColumn colDeptNumberBigInt = new OraColumn(true, "SOME_NUMBER", "NUMBER(18) not null",
 				"alter table dept add SOME_NUMBER NUMBER(18) not null",
-				7, null, null);
+				7, null, null, true);
 		assertFalse(colDeptNumberBigInt.isNullable());
-		assertNull(colDeptNumberBigInt.getDefaultValue());
+		assertNull(colDeptNumberBigInt.defaultValue());
 		assertEquals(colDeptNumberBigInt.getJdbcType(), Types.BIGINT);
 
 		OraColumn colDeptNumber = new OraColumn(true, "SOME_NUMBER", "NUMBER not null",
 				"alter table dept add SOME_NUMBER NUMBER not null",
-				7, null, null);
+				7, null, null, true);
 		assertFalse(colDeptNumber.isNullable());
-		assertNull(colDeptNumber.getDefaultValue());
+		assertNull(colDeptNumber.defaultValue());
 		assertEquals(colDeptNumber.getJdbcType(), Types.NUMERIC);
 
 	}

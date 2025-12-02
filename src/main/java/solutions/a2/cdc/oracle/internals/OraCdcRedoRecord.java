@@ -45,10 +45,17 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_6_DLR10;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_8_XML;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_2_REDO;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_6_BIMG;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
+import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
@@ -68,7 +75,9 @@ import solutions.a2.oracle.utils.FormattingUtils;
  *
  */
 
-public class OraCdcRedoRecord {
+public class OraCdcRedoRecord implements Comparator<OraCdcRedoRecord> {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoRecord.class);
 
 	/* VLD field constants */
 	/** The contents are not valid */
@@ -115,9 +124,6 @@ public class OraCdcRedoRecord {
 	private int indKCOCODLB = -1;
 	private int indKCOCODIX = -1;
 
-	boolean supplementalLogData = false;
-	byte supplementalFb = 0;
-
 	OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn) {
 		this.redoLog = redoLog;
 		this.scn = scn;
@@ -158,89 +164,89 @@ public class OraCdcRedoRecord {
 					(Byte.toUnsignedInt(layer) << 8 )| Byte.toUnsignedInt(record[offset + 0x01]));
 			final OraCdcChange change;
 			switch (operation) {
-			case _5_1_RDB:
-				change = new OraCdcChangeUndoBlock(changeNo, this, operation, record, offset, changeHeaderLen);
-				supplementalLogData = ((OraCdcChangeUndoBlock)change).supplementalLogData;
-				supplementalFb = ((OraCdcChangeUndoBlock)change).supplementalFb;
-				indKTURDB = changeNo - 1;
-				break;
-			case _5_2_RDH:
-				change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
-				break;
-			case _5_4_RCM:
-				change = new OraCdcChangeRcm(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKTURCM = changeNo - 1;
-				break;
-			case _5_6_IRB:
-			case _5_11_BRB:
-				change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKTUIRB = changeNo - 1;
-				break;
-			case _5_19_TSL:
-			case _5_20_TSC:
-				change = new OraCdcChangeAudit(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKTUTSL = changeNo - 1;
-				break;
-			case _10_2_LIN:
-			case _10_4_LDE:
-			case _10_18_LUP:
-			case _10_30_LNU:
-			case _10_35_LCU:
-				change = new OraCdcChangeIndexOp(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKCOCODIX = changeNo - 1;
-				break;
-			case _11_2_IRP:
-			case _11_3_DRP:
-			case _11_4_LKR:
-			case _11_5_URP:
-			case _11_6_ORP:
-			case _11_8_CFA:
-			case _11_11_QMI:
-			case _11_10_SKL:
-			case _11_12_QMD:
-			case _11_16_LMN:
-			case _11_22_CMP:
-				change = new OraCdcChangeRowOp(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKCOCODRW = changeNo - 1;
-				break;
-			case _11_17_LLB:
-				change = new OraCdcChangeLlb(changeNo, this, operation, record, offset, changeHeaderLen);
-				indLLB = changeNo - 1;
-				break;
-			case _24_1_DDL:
-				change = new OraCdcChangeDdl(changeNo, this, operation, record, offset, changeHeaderLen);
-				if (((OraCdcChangeDdl)change).valid()) {
-					indDDL = changeNo - 1;
+				case _5_1_RDB -> {
+					change = new OraCdcChangeUndoBlock(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKTURDB = changeNo - 1;
 				}
-				break;
-			case _24_4_MISC:
-				change = new OraCdcChangeKrvMisc(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKRVMISC = changeNo - 1;
-				break;
-			case _24_6_DLR10:
-				change = new OraCdcChangeKrvDlr10(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKRVDLR10 = changeNo - 1;
-				break;
-			case _24_8_XML:
-				change = new OraCdcChangeKrvXml(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKRVXML = changeNo - 1;
-				break;
-			case _26_2_REDO:
-			case _26_6_BIMG:
-				change = new OraCdcChangeLobs(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKCOCOLOB = changeNo - 1;
-				break;
-			case _19_1_COLB:
-				change = new OraCdcChangeColb(changeNo, this, operation, record, offset, changeHeaderLen);
-				indKCOCODLB = changeNo - 1;
-				break;
-			default:
-				change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
+				case _5_2_RDH -> {
+					change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
+				}
+				case _5_4_RCM -> {
+					change = new OraCdcChangeRcm(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKTURCM = changeNo - 1;
+				}
+				case _5_6_IRB, _5_11_BRB -> {
+					change = new OraCdcChangeUndo(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKTUIRB = changeNo - 1;
+				}
+				case _5_19_TSL, _5_20_TSC -> {
+					change = new OraCdcChangeAudit(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKTUTSL = changeNo - 1;
+				}
+				case _10_2_LIN, _10_4_LDE, _10_18_LUP, _10_30_LNU, _10_35_LCU -> {
+					change = new OraCdcChangeIndexOp(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKCOCODIX = changeNo - 1;
+				}
+				case _11_2_IRP, _11_3_DRP, _11_4_LKR, _11_5_URP, _11_6_ORP, _11_8_CFA,
+					_11_11_QMI, _11_10_SKL, _11_12_QMD, _11_16_LMN, _11_22_CMP -> {
+						change = new OraCdcChangeRowOp(changeNo, this, operation, record, offset, changeHeaderLen);
+						indKCOCODRW = changeNo - 1;
+				}
+				case _11_17_LLB -> {
+					change = new OraCdcChangeLlb(changeNo, this, operation, record, offset, changeHeaderLen);
+					indLLB = changeNo - 1;
+				}
+				case _24_1_DDL -> {
+					change = new OraCdcChangeDdl(changeNo, this, operation, record, offset, changeHeaderLen);
+					if (((OraCdcChangeDdl)change).valid())
+						indDDL = changeNo - 1;
+				}
+				case _24_4_MISC -> {
+					change = new OraCdcChangeKrvMisc(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKRVMISC = changeNo - 1;
+				}
+				case _24_6_DLR10 -> {
+					change = new OraCdcChangeKrvDlr10(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKRVDLR10 = changeNo - 1;
+				}
+				case _24_8_XML -> {
+					change = new OraCdcChangeKrvXml(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKRVXML = changeNo - 1;
+				}
+				case _26_2_REDO, _26_6_BIMG -> {
+					change = new OraCdcChangeLobs(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKCOCOLOB = changeNo - 1;
+				}
+				case _19_1_COLB -> {
+					change = new OraCdcChangeColb(changeNo, this, operation, record, offset, changeHeaderLen);
+					indKCOCODLB = changeNo - 1;
+				}
+				default -> {
+					try {
+						change = new OraCdcChange(changeNo, this, operation, record, offset, changeHeaderLen);
+					} catch (Exception e) {
+						LOGGER.error(
+								"""
+								
+								=====================
+								'{}' while parsing change# {} OP:{} at RBA={}, SCN={}, SUBSCN={} in '{}'
+								Record content:
+								{}
+								Erorstack:
+								{}
+								=====================
+								
+								""", e.getMessage(), changeNo, formatOpCode(operation), rba,
+									Long.toUnsignedString(scn), Short.toUnsignedInt(subScn),
+									redoLog.fileName(), rawToHex(record), getExceptionStackTrace(e));
+						throw e;
+					}
+				}
 			}
 			changeVectors.add(change);
-			if (has5_1() && layer == KCOCODRW) {
-				change.dataObj = change5_1().dataObj;
-				change.obj = change5_1().obj;
+			if (indKTURDB > -1 && layer == KCOCODRW) {
+				change.dataObj = changeVectors.get(indKTURDB).dataObj;
+				change.obj = changeVectors.get(indKTURDB).obj;
 			}
 			changeNo++;
 			offset += change.length;
@@ -399,41 +405,56 @@ public class OraCdcRedoRecord {
 	}
 
 	public Xid xid() {
-		if (has5_1()) {
-			return change5_1().xid;
-		} else if (has5_4()) {
-			return change5_4().xid;
-		} else if (hasPrb()) {
-			return changePrb().xid;
-		} else if (hasLlb()) {
-			return changeLlb().xid;
-		} else if (has26_x()) {
-			return change26_x().xid;
-		} else if (hasKrvDlr10()) {
-			return changeKrvDlr10().xid;
-		} else if (hasKrvXml()) {
-			return changeKrvXml().xid;
-		} else if (hasDdl()) {
-			return changeDdl().xid;
+		if (indKTURDB > -1) {
+			return ((OraCdcChangeUndoBlock) changeVectors.get(indKTURDB)).xid;
+		} else if (indKTURCM > -1) {
+			return ((OraCdcChangeRcm) changeVectors.get(indKTURCM)).xid;
+		} else if (indKTUIRB > -1) {
+			return ((OraCdcChangeUndo) changeVectors.get(indKTUIRB)).xid;
+		} else if (indLLB > -1) {
+			return ((OraCdcChangeLlb) changeVectors.get(indLLB)).xid;
+		} else if (indKCOCOLOB > -1) {
+			return ((OraCdcChangeLobs) changeVectors.get(indKCOCOLOB)).xid;
+		} else if (indKRVMISC > -1) {
+			return ((OraCdcChangeKrvMisc) changeVectors.get(indKRVMISC)).xid;
+		} else if (indKRVDLR10 > -1) {
+			return ((OraCdcChangeKrvDlr10) changeVectors.get(indKRVDLR10)).xid;
+		} else if (indKRVXML > -1) {
+			return ((OraCdcChangeKrvXml) changeVectors.get(indKRVXML)).xid;
+		} else if (indDDL > -1) {
+			return ((OraCdcChangeDdl) changeVectors.get(indDDL)).xid;
 		} else {
 			return null;
 		}
 	}
 
 	public int halfDoneKey() {
-		if (has5_1() && has11_x()) {
-			return Objects.hash(false,
-					change11_x().operation == _11_3_DRP ? _11_3_DRP : _11_6_ORP,
-					change11_x().dataObj);
-		} else if (hasPrb() && has11_x()) {
-			return Objects.hash(true, changePrb().dataObj);
-		} else if (has5_1() && has10_x()) {
-			return Objects.hash(false,
-					change10_x().operation == _10_4_LDE ? _11_3_DRP : _11_6_ORP,
-					change10_x().dataObj);
-		} else {
+		if (indKTURDB > -1) {
+			final var change = (OraCdcChangeUndoBlock) changeVectors.get(indKTURDB);
+			if (change.supplementalLogData())
+				return Objects.hash(false,
+						change.supplementalDataFor(),
+						change.dataObj);
+			else {
+				if (indKCOCODRW > -1) {
+					return Objects.hash(false,
+							changeVectors.get(indKCOCODRW).operation == _11_3_DRP ? _11_3_DRP : _11_6_ORP,
+							change.dataObj);
+				} else if (indKCOCODIX > -1) {
+					final var idxChange = changeVectors.get(indKCOCODIX);
+					return Objects.hash(false,
+							idxChange.operation == _10_4_LDE ? _11_3_DRP : _11_6_ORP,
+							idxChange.dataObj);
+				} else
+					return 0;
+			}
+		} else if (indKTUIRB > -1) {
+			if (indKCOCODRW > -1) {
+				return Objects.hash(true, changeVectors.get(indKTUIRB).dataObj);
+			} else
+				return 0;
+		} else
 			return 0;
-		}
 	}
 
 	public RowId rowid() {
@@ -474,10 +495,6 @@ public class OraCdcRedoRecord {
 
 	public OraCdcRedoLog redoLog() {
 		return redoLog;
-	}
-
-	public boolean supplementalLogData() {
-		return supplementalLogData;
 	}
 
 	public int conUid() {
@@ -539,9 +556,23 @@ public class OraCdcRedoRecord {
 				.append(")");
 		}
 		for (OraCdcChange change : changeVectors) {
-			sb
-				.append("\n")
-				.append(change.toDumpFormat());
+			try {
+				sb
+					.append("\n")
+					.append(change.toDumpFormat());
+			} catch (Exception aiob) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						Unable to print change vectors from {} at SCN={}, RBA {} due to
+						{}
+						Redo record contents:
+						{}
+						Please send this output to oracle@a2.solutions
+						=====================
+						""", redoLog.fileName(), Long.toUnsignedString(scn), rba, aiob.getMessage(), rawToHex(record));
+			}
 		}
 		return sb.toString();
 	}
@@ -550,7 +581,7 @@ public class OraCdcRedoRecord {
 		return record;
 	}
 
-	OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn, final String rbaAsString, byte[] data) {
+	public OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn, final String rbaAsString, byte[] data) {
 		this.redoLog = redoLog;
 		this.scn = scn;
 		record = data;
@@ -560,6 +591,37 @@ public class OraCdcRedoRecord {
 		subScn = redoLog.bu().getU16(record, 0x0C);
 		changeVectors = new ArrayList<>(0x8);
 		buildChangeVector();
+	}
+
+	public OraCdcRedoRecord(final OraCdcRedoLog redoLog, final long scn, final RedoByteAddress rba, byte[] data) {
+		this.redoLog = redoLog;
+		this.scn = scn;
+		record = data;
+		this.rba = rba;
+		len = redoLog.bu().getU32(record, 0x00);
+		vld = record[0x04];
+		subScn = redoLog.bu().getU16(record, 0x0C);
+		changeVectors = new ArrayList<>(0x8);
+		buildChangeVector();
+	}
+
+
+	public OraCdcChange rowChange() {
+		if (indKCOCODRW > -1)
+			return changeVectors.get(indKCOCODRW);
+		else if (indKCOCODIX > -1)
+			return changeVectors.get(indKCOCODIX);
+		else
+			return null;
+	}
+
+	@Override
+	public int compare(OraCdcRedoRecord first, OraCdcRedoRecord second) {
+		var scnCompare = Long.compareUnsigned(first.scn, second.scn);
+		if (scnCompare == 0)
+			return ((int)first.subScn & 0xFFFF) - ((int)second.subScn & 0xFFFF);
+		else
+			return scnCompare;
 	}
 
 }

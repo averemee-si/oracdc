@@ -86,7 +86,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	private final OraCdcPseudoColumnsProcessor pseudoColumns;
 	private final SchemaNameMapper snm;
 	private String kafkaTopic;
-	short conId;
+	private final short conId;
 	Struct keyStruct;
 	private Struct valueStruct;
 	private Struct struct;
@@ -108,6 +108,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	static final short FLG_PRINT_INVALID_HEX_WARNING   = (short)0x0400;
 	static final short FLG_PRINT_UNABLE_DELETE_WARNING = (short)0x0800;
 	static final short FLG_PRINT_UNABLE_MAP_COL_ID     = (short)0x1000;
+	static final short FLG_SUPPLEMENTAL_LOG_ALL        = (short)0x2000;
 	short flags = FLG_TABLE_WITH_PK | FLG_ALL_UPDATES | FLG_CHECK_SUPPLEMENTAL | FLG_PRINT_SQL_FOR_MISSED_WHERE;
 
 	/**
@@ -115,51 +116,80 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	 * @param pdbName      PDB name
 	 * @param tableOwner   owner
 	 * @param tableName    name
-	 * @param schemaType   type of schema
-	 * @param processLobs  true for LOB support
-	 * @param transformLobs
+	 * @param rowLevelScn
+	 * @param conId
 	 * @param config
+	 * @param rdbmsInfo
 	 */
 	OraTable(final String pdbName, final String tableOwner, final String tableName,
-			final int schemaType, final boolean processLobs,
-			final OraCdcLobTransformationsIntf transformLobs,
-			final OraCdcSourceConnectorConfig config, final OraRdbmsInfo rdbmsInfo) {
-		super(tableOwner, tableName, schemaType);
+			final boolean rowLevelScn, final short conId, final OraCdcSourceConnectorConfig config,
+			final OraRdbmsInfo rdbmsInfo, final Connection connection, final int version) {
+		super(tableOwner, tableName, config.schemaType());
 		this.pdbName = pdbName;
+		this.conId = conId;
 		this.tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
 				this.tableOwner + "." + this.tableName;
 		this.rdbmsInfo = rdbmsInfo;
 		this.config = config;
-		if (config != null) {
-			final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
-			topicNameMapper.configure(config);
-			this.kafkaTopic = topicNameMapper.getTopicName(pdbName, tableOwner, tableName);
-			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Kafka topic for table {} set to {}.", tableFqn, kafkaTopic);
-			this.sourcePartition = rdbmsInfo.partition();
-			incompleteDataTolerance = config.getIncompleteDataTolerance();
-			topicPartition = config.topicPartition();
-			pseudoColumns = config.pseudoColumnsProcessor();
-			snm = config.getSchemaNameMapper();
-			snm.configure(config);
-			if (config.isPrintInvalidHexValueWarning()) flags |= FLG_PRINT_INVALID_HEX_WARNING;
-			if (config.useAllColsOnDelete()) flags |=FLG_ALL_COLS_ON_DELETE;
-			if (config.printUnableToDeleteWarning()) flags |= FLG_PRINT_UNABLE_DELETE_WARNING;
-			if (config.useOracdcSchemas()) flags |= FLG_ORACDC_SCHEMAS;
-			if (config.allUpdates()) flags |= FLG_ALL_UPDATES;
-			if (config.printUnable2MapColIdWarning()) flags |= FLG_PRINT_UNABLE_MAP_COL_ID;
-		} else {
-			topicPartition = 0;
-			pseudoColumns = null;
-			snm = null;
+		this.rowLevelScn = rowLevelScn;
+		this.version = version;
+		final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
+		topicNameMapper.configure(config);
+		this.kafkaTopic = topicNameMapper.getTopicName(pdbName, tableOwner, tableName);
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("Kafka topic for table {} set to {}.", tableFqn, kafkaTopic);
+		this.sourcePartition = rdbmsInfo.partition();
+		incompleteDataTolerance = config.getIncompleteDataTolerance();
+		topicPartition = config.topicPartition();
+		pseudoColumns = config.pseudoColumnsProcessor();
+		snm = config.getSchemaNameMapper();
+		snm.configure(config);
+		if (config.isPrintInvalidHexValueWarning()) flags |= FLG_PRINT_INVALID_HEX_WARNING;
+		if (config.useAllColsOnDelete()) flags |=FLG_ALL_COLS_ON_DELETE;
+		if (config.printUnableToDeleteWarning()) flags |= FLG_PRINT_UNABLE_DELETE_WARNING;
+		if (config.useOracdcSchemas()) flags |= FLG_ORACDC_SCHEMAS;
+		if (config.allUpdates()) flags |= FLG_ALL_UPDATES;
+		if (config.printUnable2MapColIdWarning()) flags |= FLG_PRINT_UNABLE_MAP_COL_ID;
+		if (config.supplementalLogAll()) flags |= FLG_SUPPLEMENTAL_LOG_ALL;
+		else {
+			flags |=FLG_ALL_COLS_ON_DELETE;
+			flags &= (~FLG_ORACDC_SCHEMAS);
 		}
-		if (processLobs)
+		if (config.processLobs()) {
 			flags |= FLG_PROCESS_LOBS;
-		this.transformLobs = transformLobs;
+			transformLobs = config.transformLobsImpl();
+		} else
+			transformLobs = null;
 		switch (schemaType) {
 			case SCHEMA_TYPE_INT_KAFKA_STD -> structWriter = new KafkaStructWriter(this);
 			case SCHEMA_TYPE_INT_SINGLE    -> structWriter = new SingleStructWriter(this); 
 			case SCHEMA_TYPE_INT_DEBEZIUM  -> structWriter = new DebeziumStructWriter(this); 
+		}
+		try {
+			if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0) {
+				if (rdbmsInfo.isCheckSupplementalLogData4Table()) {
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Need to check supplemental logging settings for table {}.", tableFqn);
+					}
+					if (!OraRdbmsInfo.supplementalLoggingSet(connection,
+							(rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) ? conId : -1,
+									this.tableOwner, this.tableName)) {
+						LOGGER.error(
+								"""
+								
+								=====================
+								Supplemental logging for table '{}' is not configured correctly!
+								Please set it according to the oracdc documentation
+								=====================
+								
+								""",
+									tableFqn);
+						flags &= (~FLG_CHECK_SUPPLEMENTAL);
+					}
+				}
+			}
+		} catch (SQLException sqle) {
+			throw sqlExceptionOnInit(sqle);
 		}
 	}
 
@@ -178,7 +208,8 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	abstract void createLobHolders();
 	abstract void addLobColumnId(final int columnId);
 
-	void readAndParseOraColumns(final Connection connection, final boolean isCdb) throws SQLException {
+	void readAndParseOraColumns(final Connection connection) throws SQLException {
+		final var isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
 		final boolean useRowIdAsKey;
 		final Set<String> pkColsSet;
@@ -262,11 +293,11 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				try {
 					column = new OraColumn(
 							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
-							rsColumns, pkColsSet, decrypter, rdbmsInfo);
+							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
 					if (column.isNumber() && numberRemap != null) {
 						final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
 						if (newDefinition != null) {
-							column.remap(newDefinition, decrypter);
+							column.remap(newDefinition, decrypter, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
 						}
 					}
 					columnAdded = true;
@@ -341,15 +372,15 @@ public abstract class OraTable extends OraTable4SourceConnector {
 							column.isPartOfPk() ? " PK " : (column.isNullable() ? " " : " mandatory "),
 							column.getColumnName(), getTypeName(column.getJdbcType()),
 							column.getColumnId(), tableFqn);
-					if (column.isDefaultValuePresent()) {
-						LOGGER.debug("\tDefault value is set to \"{}\"", column.getDefaultValue());
+					if (column.defaultValuePresent()) {
+						LOGGER.debug("\tDefault value is set to \"{}\"", column.defaultValue());
 					}
 				}
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
 				}
 
-				if (column.isPartOfPk() || (!column.isNullable() && !column.isDefaultValuePresent())) {
+				if (column.isPartOfPk() || (!column.isNullable() && !column.defaultValuePresent())) {
 					mandatoryColumnsCount++;
 				}
 			}
@@ -525,7 +556,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			final Map<String, Object> offset, final char opType, final boolean skipRedoRecord,
 			final Connection connection, final List<OraColumn> missedColumns) throws SQLException {
 
-		if (incompleteDataTolerance == INCOMPLETE_REDO_INT_RESTORE && missedColumns != null) {
+		if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0 && incompleteDataTolerance == INCOMPLETE_REDO_INT_RESTORE && missedColumns != null) {
 			if (getMissedColumnValues(connection, stmt, missedColumns, transaction)) {
 				printErrorMessage(Level.INFO, "Incomplete redo record restored from latest incarnation for table {}.", stmt, transaction);
 			} else {
@@ -537,7 +568,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			return null;
 		else {
 			SourceRecord sourceRecord = null;
-			if (mandatoryColumnsProcessed < mandatoryColumnsCount) {
+			if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0 && mandatoryColumnsProcessed < mandatoryColumnsCount) {
 				if (opType != 'd') {
 					if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug(
@@ -851,7 +882,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			mandatoryColumnsCount = 0;
 			updatedColumnCount = 1;
 			version++;
-			readAndParseOraColumns(connection, rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed());
+			readAndParseOraColumns(connection);
 
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("END: Processing DDL for OraTable {} using dictionary  data...", tableFqn);
@@ -1242,7 +1273,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				=====================
 				
 				""",
-				column.getColumnName(), tableFqn, column.getTypedDefaultValue(),
+				column.getColumnName(), tableFqn, column.typedDefaultValue(),
 				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo());
 	}
 
@@ -1259,6 +1290,20 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				""",
 				column.getColumnName(), tableFqn,
 				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo(), column.getColumnName());
+	}
+
+	ConnectException sqlExceptionOnInit(final SQLException sqle) {
+		LOGGER.error(
+				"""
+				
+				=====================
+				Unable to get information about table {}.{}
+				'{}', errorCode = {}, SQLState = '{}'
+				=====================
+				
+				""",
+				tableOwner, tableName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+		return new ConnectException(sqle);
 	}
 
 	public String fqn() {

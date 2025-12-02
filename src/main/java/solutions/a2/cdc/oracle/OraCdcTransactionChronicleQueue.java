@@ -42,18 +42,25 @@ import net.openhft.chronicle.queue.ChronicleQueue;
 import net.openhft.chronicle.queue.ExcerptAppender;
 import net.openhft.chronicle.queue.ExcerptTailer;
 import net.openhft.chronicle.queue.TailerDirection;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeColb;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeLlb;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeLobs;
+import solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock;
 import solutions.a2.oracle.internals.CMapInflater;
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeColb.LONG_DUMP_SIZE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_END;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_ERASE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_PREPARE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_TRIM;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_UNKNOWN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_WRITE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLobs.LOB_BIMG_INDEX;
 import static solutions.a2.oracle.internals.LobLocator.BLOB;
 
 /**
@@ -560,51 +567,42 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		super.setCommitScn(commitScn, pseudoColumns, resultSet);
 	}
 
-	public void openLob(final LobId lid, final int obj, final short col, final byte lobOp, final RedoByteAddress rba, final boolean open) {
-		LobHolder holder = transLobs.get(lid);
+	public void openLob(final OraCdcChangeLlb llb, final RedoByteAddress rba, final boolean open) {
+		final var lid = llb.lid();
+		final var obj = llb.obj();
+		final var col = llb.lobCol();
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("openLob() in XID {} at RBA {} for LID {}, OBJ#/COL# {}/{}",
+					getXid(), rba, lid, obj, col);
+		var holder = transLobs.get(lid);
 		if (holder == null) {
 			holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
 			transLobs.put(lid, holder);
 		}
-		final LobId otherLid = lobCols.put(objCol(obj, col), lid);
-		if (otherLid != null && transLobs.get(otherLid).chunks.size() > 0) {
+		final var otherLid = lobCols.put(objCol(obj, col), lid);
+		if (otherLid != null && !lid.equals(otherLid) && transLobs.get(otherLid).chunks.size() > 0) {
 			LOGGER.error(
 					"""
 					
 					=====================
-					Double entry in object {} column {} for lid '{}' and lid = {} at RBA {}, XID {}
+					Duplicate entry in object {} column {} for lid '{}' and lid = {} at RBA {}, XID {}
 					=====================
 					
 					""",
 					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid, otherLid, rba, getXid());
 		}
 		if (open)
-			holder.open(lobOp);
+			holder.open(llb.lobOp());
 	}
 
-	public void openLob(final int obj, final short col, final RedoByteAddress rba) {
-		final LobId lobId = lobCols.get(objCol(obj, col));
-		if (lobId == null) {
-			LOGGER.error(
-					"""
-					
-					=====================
-					Attempting to open unknown LOB for OBJ {}/COL {} at RBA {}, XID {}
-					=====================
-					
-					""",
-					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), rba, getXid());
-		} else {
-			LobHolder holder = transLobs.get(lobId);
-			if (!holder.binaryXml)
-				holder.binaryXml = true;
-			holder.open(LOB_OP_WRITE);
-		}
+	public void closeLob(final OraCdcChangeLlb llb, final RedoByteAddress rba) throws IOException {
+		closeLob(llb.obj(), llb.lobCol(), llb.fsiz(), rba);
 	}
-	public void closeLob(final int obj, final short col, final int size, final RedoByteAddress rba) throws IOException {
-		final long objCol = objCol(obj, col);
-		final LobId lobId = lobCols.get(objCol);
-		if (lobId == null) {
+
+	private void closeLob(final int obj, final short col, final int size, final RedoByteAddress rba) throws IOException {
+		final var objCol = objCol(obj, col);
+		final var lid = lobCols.get(objCol);
+		if (lid == null) {
 			LOGGER.error(
 					"""
 					
@@ -615,9 +613,11 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 					""",
 					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), rba, getXid());
 		} else {
-			LobHolder holder = transLobs.get(lobId);
+			if (LOGGER.isDebugEnabled())
+				LOGGER.debug("closeLob() in XID {} at RBA {} for LID {}, OBJ#/COL# {}/{}",
+						getXid(), rba, lid, obj, col);
 			lobCols.remove(objCol);
-			holder.close(size);
+			transLobs.get(lid).close(size);
 		}
 	}
 
@@ -649,24 +649,46 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			return null;
 	}
 
-	public void writeLobChunk(final int obj, final short col, final byte[] data, final int off, final int len) throws SQLException {
-		final LobId lobId = lobCols.get(objCol(obj, col));
-		if (lobId == null) {
+	public void writeLobChunk(final OraCdcChangeKrvXml xml, final short col, final RedoByteAddress rba) throws SQLException {
+		final var lid = lobCols.get(objCol(xml.obj(), col));
+		if (lid == null) {
 			LOGGER.error(
 					"""
 					
 					=====================
-					Attempting to write to unknown LOB for OBJ {}/COL {} in XID {}" +
+					Attempting to write to unknown LOB(XMLDATA) for OBJ {}/COL {} at RBA {}, XID {}" +
 					=====================
 					
 					""",
-					Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), getXid());
+					Integer.toUnsignedLong(xml.obj()), Short.toUnsignedInt(col), rba, getXid());
 		} else {
-			writeLobChunk(lobId, data, off, len, false, false);
+			var holder = transLobs.get(lid);
+			if (holder == null) {
+				holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
+				transLobs.put(lid, holder);
+			}
+			if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_BEGIN) > 0) {
+				if (!holder.binaryXml)
+					holder.binaryXml = true;
+				holder.open(LOB_OP_WRITE);
+			}
+			try {
+				holder.write(xml.record(), xml.coords()[7][0], xml.coords()[7][1], false, false);
+			} catch (IOException ioe) {
+				throw new SQLException(ioe);
+			}
+
+			if ((xml.status() & OraCdcChangeKrvXml.XML_DOC_END) > 0) {
+				try {
+					closeLob(xml.obj(), col, 0, rba);
+				} catch (IOException ioe) {
+					throw new SQLException(ioe);
+				}
+			}
 		}
 	}
 
-	public void writeLobChunk(final LobId lid, final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws SQLException {
+	public void writeLobChunk(final LobId lid, final OraCdcChangeColb colb) throws SQLException {
 		LobHolder holder = transLobs.get(lid);
 		if (holder == null) {
 			holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
@@ -674,37 +696,59 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			holder.open(LOB_OP_WRITE);
 		} 
 		try {
-			holder.write(data, off, len, colb, cmap);
+			holder.write(colb.record(), colb.coords()[0][0] + LONG_DUMP_SIZE, colb.colbSize(), true, false);
 		} catch (IOException ioe) {
 			throw new SQLException(ioe);
 		}
 	}
 
-	public void writeLobChunk(final LobId lid, final int obj, final byte[] data, final int off, final int len, final boolean cmap) throws SQLException {
+	public void writeLobChunk(final LobId lid, final OraCdcChangeLobs change) throws SQLException {
 		LobHolder holder = transLobs.get(lid);
 		if (holder == null) {
-			holder = new LobHolder(lid, obj, (short)0, lobsQueueDirectory);
+			holder = new LobHolder(lid, change.dataObj(), (short)0, lobsQueueDirectory);
 			transLobs.put(lid, holder);
 		}
 		holder.open(LOB_OP_WRITE);
 		try {
-			holder.write(data, off, len, false, cmap);
-			holder.close(len);	
+			holder.write(change.record(), change.coords()[LOB_BIMG_INDEX][0], change.coords()[LOB_BIMG_INDEX][1], false, change.cmap());
+			holder.close(change.coords()[LOB_BIMG_INDEX][1]);
 		} catch (IOException ioe) {
 			throw new SQLException(ioe);
 		}
 	}
 
-	public void writeLobChunk(final LobId lid, final int obj, final short col, final byte[] data, final int off, final int len, final boolean cmap) throws SQLException {
-		LobHolder holder = transLobs.get(lid);
-		if (holder == null) {
-			holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
-			transLobs.put(lid, holder);
+	public void writeLobChunk(final OraCdcChangeUndoBlock undoChange, final OraCdcChangeLobs change) throws SQLException {
+		final var lid = change.lid();
+		var holder = transLobs.get(lid);
+		if (undoChange.lobSupplemental()) {
+			final var obj = undoChange.obj();
+			final var col = undoChange.lobCol();
+			if (holder == null) {
+				holder = new LobHolder(lid, obj, col, lobsQueueDirectory);
+				transLobs.put(lid, holder);
+				final LobId otherLid = lobCols.put(objCol(obj, col), lid);
+				if (otherLid != null && transLobs.get(otherLid).chunks.size() > 0) {
+					LOGGER.error(
+							"""
+							
+							=====================
+							Double entry in object {} column {} for lid '{}' and lid = {} in XID {}
+							=====================
+							
+							""",
+							Integer.toUnsignedLong(obj), Short.toUnsignedInt(col), lid, otherLid, getXid());
+				}
+			}
+		} else {
+			if (holder == null) {
+				holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
+				transLobs.put(lid, holder);
+			}
 		}
-		holder.open(LOB_OP_WRITE);
 		try {
-			holder.write(data, off, len, false, cmap);
-			holder.close(len);	
+			holder.open(LOB_OP_WRITE);
+			holder.write(change.record(), change.lobDataOffset(), change.kdliFillLen(), false, change.cmap());
+			holder.close(change.kdliFillLen());	
 		} catch (IOException ioe) {
 			throw new SQLException(ioe);
 		}
@@ -799,10 +843,12 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		}
 
 		private void open(final byte status) {
-			if (LOGGER.isDebugEnabled())
-				LOGGER.debug(
-						"Changing LOB {} status from {} to {}", lid.toString(), this.status, status);
-			this.status = status;
+			if (status != this.status) {
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug(
+							"Changing LOB {} status from {} to {}", lid.toString(), this.status, status);
+				this.status = status;
+			}
 		}
 
 		private void close(final int size) throws IOException {
@@ -826,30 +872,33 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 		void write(final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws IOException {
 			switch (status) {
-			case LOB_OP_WRITE:
-				if (lastChunk == null) {
-					lastChunk = new LobChunk();
-					chunks.add(lastChunk);
-					final Path path = Paths.get(directory, lid.toString() + "." + chunks.size());
-					lastChunk.os = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW);
+				case LOB_OP_WRITE -> {
+					if (lastChunk == null) {
+						lastChunk = new LobChunk();
+						chunks.add(lastChunk);
+						final var path = Paths.get(directory, lid.toString() + "." + chunks.size());
+						lastChunk.os = Files.newOutputStream(path, StandardOpenOption.CREATE_NEW);
+						if (LOGGER.isDebugEnabled())
+							LOGGER.debug("Successfully created {} for writing large object {}",
+									path.toAbsolutePath().toString(), path.toString());
+						this.colb = colb;
+						this.cmap = cmap;
+					}
+					lastChunk.os.write(data, off, len);
 					if (LOGGER.isDebugEnabled())
-						LOGGER.debug("Successfully created {} for writing large object {}",
-								path.toAbsolutePath().toString(), path.toString());
-					this.colb = colb;
-					this.cmap = cmap;
+						LOGGER.debug("Completed writing {} bytes for LID {} /chunk # {}", len, lid, chunks.size());
+					if (binaryXml)
+						lastChunk.size += len;
 				}
-				lastChunk.os.write(data, off, len);
-				if (binaryXml)
-					lastChunk.size += len;
-				break;
-			case LOB_OP_ERASE:
-				//TODO
-				break;
-			case LOB_OP_TRIM:
-				//TODO
-				break;
-			default:
-				if (LOGGER.isDebugEnabled()) LOGGER.debug("Write to LOB {} in incorrect status {}", lid, status);
+				case LOB_OP_ERASE -> {
+					//TODO
+				}
+				case LOB_OP_TRIM -> {
+					//TODO
+				}
+				default -> {
+					if (LOGGER.isDebugEnabled()) LOGGER.debug("Write to LOB {} in incorrect status {}", lid, status);
+				}
 			}
 		}
 

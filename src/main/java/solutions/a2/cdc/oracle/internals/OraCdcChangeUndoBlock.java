@@ -41,6 +41,9 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	public static final int NON_KEY_10_30_POS = 5;
 	public static final int KEY_10_30_POS = 4;
 	public static final int COL_NUM_10_35_POS = 5;
+	public static final byte SUPPL_LOG_UPDATE = 0x1;
+	public static final byte SUPPL_LOG_INSERT = 0x2;
+	public static final byte SUPPL_LOG_DELETE = 0x4;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndoBlock.class);
 	private static final int SUPPL_LOG_MIN_LENGTH = 0x14;
@@ -57,8 +60,8 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	public static final byte KDICLNU = 0x1E;
 	public static final byte KDILCNU = 0x23;
 
-	boolean supplementalLogData = false;
-	byte supplementalFb = 0;
+	private boolean supplementalLogData = false;
+	private byte supplementalFb = 0;
 	short supplementalSlot = -1;
 	int supplementalBdba;
 	int supplementalCc = 0;
@@ -153,16 +156,11 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					ktbRedo = true;
 					kdo(KDO_POS);
 					kdoOpCode = true;
-					final int selector = (op & 0x1F) | (KCOCODRW << 0x08);
-					if ((selector == _11_3_DRP ||
-							selector == _11_2_IRP ||
-							selector == _11_6_ORP ||
-							selector == _11_16_LMN ||
-							selector == _11_4_LKR) &&
-							coords.length > (5 + columnCount)) {
-						supplementalLogData = true;
-						suppDataStartIndex = 0x4 + columnCount; 
-					} else if ((selector == _11_5_URP) &&
+					final var selector = (op & 0x1F) | (KCOCODRW << 0x08);
+					if (selector == _11_5_URP && coords.length > (5 + columnCount)) {
+						
+					}
+					if ((selector == _11_5_URP) &&
 							columnCountNn == columnCount &&
 							coords.length > (5 + columnCount)) {
 						supplementalLogData = true;
@@ -172,6 +170,14 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 							coords.length > (5 + columnCountNn)) {
 						supplementalLogData = true;
 						suppDataStartIndex = 0x5 + columnCountNn; 
+					} else if ((selector == _11_2_IRP ||
+							selector == _11_3_DRP ||
+							selector == _11_4_LKR ||
+							selector == _11_6_ORP ||
+							selector == _11_8_CFA ||
+							selector == _11_16_LMN) && coords.length > (4 + columnCount)) {
+						supplementalLogData = true;
+						suppDataStartIndex = 0x4 + columnCount;
 					}
 
 					if (supplementalLogData) {
@@ -424,17 +430,17 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		}
 	}
 
-	private String printLmOpCode(final byte opCode) {
+	private static String printLmOpCode(final byte opCode) {
 		switch (opCode) {
-		case 1:
-			return "UPDATE";
-		case 2:
-			return "INSERT";
-		case 4:
-			return "DELETE";
-		default:
-			return "??????";
+			case SUPPL_LOG_UPDATE: return "UPDATE";
+			case SUPPL_LOG_INSERT: return "INSERT";
+			case SUPPL_LOG_DELETE: return "DELETE";
+			default:               return "??????";
 		}
+	}
+
+	public byte supplementalDataFor() {
+		return record[coords[suppDataStartIndex][0]];
 	}
 
 	@Override
@@ -498,52 +504,13 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			}
 		}
 	}
-/*
-	public void writeSupplementalCols(final ByteArrayOutputStream baos) throws IOException {
-		if (supplementalCc == 0)
-			return;
-		final int colNumIndex = suppDataStartIndex + 1;
-		if (kdilkType == KDILCNU) {
-			for (int i = 0; i < supplementalCc; i++) {
-				final int colNum = redoLog.bu().getU16(record, coords[colNumIndex][0] + i * Short.BYTES);
-				putU16(baos, colNum);
-				final int colSize = redoLog.bu().getU16(record, coords[suppDataStartIndex + 2][0] + i * Short.BYTES);
-				if (colSize == 0) {
-					baos.write(0xFF);
-				} else {
-					putOraColSize(baos, colSize);
-					baos.write(record, coords[suppDataStartIndex + 3 + i][0], colSize);
-				}
-			}
-		} else {
-			final int dataEndPos = supplementalCc + suppDataStartIndex + 0x3;
-			int colIndex = 0;
-			for (int i = suppDataStartIndex + 0x3; i < dataEndPos; i++) {
-				if (i < coords.length) {
-					final int colNum = redoLog.bu().getU16(record, coords[colNumIndex][0] + colIndex * Short.BYTES);
-					putU16(baos, colNum);
-					if (colIndex < supplementalCcNn) {
-						final int colSize = coords[i][1];
-						if (colSize == 0) {
-							baos.write(0xFF);
-						} else {
-							putOraColSize(baos, colSize);
-							baos.write(record, coords[i][0], colSize);
-						}
-					} else {
-						baos.write(0xFF);
-					}
-					colIndex++;
-				} else {
-					LOGGER.warn("Incorrect index {} when processing redo record at rba {}", i, rba);
-					break;
-				}
-			}
-		}
-	}
-*/
+
 	public byte kdilkType() {
 		return kdilkType;
+	}
+
+	public boolean supplementalLogData() {
+		return supplementalLogData;
 	}
 
 }

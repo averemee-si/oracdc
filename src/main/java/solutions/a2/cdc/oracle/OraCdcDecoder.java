@@ -16,9 +16,8 @@ package solutions.a2.cdc.oracle;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Set;
-
-import org.bouncycastle.util.Arrays;
 
 import solutions.a2.oracle.internals.LobId;
 

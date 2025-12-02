@@ -16,6 +16,8 @@ package solutions.a2.cdc.oracle.internals;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -46,7 +48,7 @@ public class OraCdcRedoLogSshtoolsMaverickFactory extends OraCdcRedoLogFactoryBa
 	public OraCdcRedoLogSshtoolsMaverickFactory(
 			final String username, final String hostname, final int port,
 			final String keyFile, final String password, final boolean strictHostKeyChecking,
-			final BinaryUtils bu, final boolean valCheckSum) throws IOException {
+			final BinaryUtils bu, final boolean valCheckSum) throws SQLException {
 		super(bu, valCheckSum);
 		this.username = username;
 		this.hostname = hostname;
@@ -63,7 +65,7 @@ public class OraCdcRedoLogSshtoolsMaverickFactory extends OraCdcRedoLogFactoryBa
 
 	}
 
-	private void create() throws IOException {
+	private void create() throws SQLException {
 		SshClientBuilder sshBuilder = SshClientBuilder.create()
 				.withHostname(hostname)
 				.withPort(port)
@@ -80,38 +82,42 @@ public class OraCdcRedoLogSshtoolsMaverickFactory extends OraCdcRedoLogFactoryBa
 					.withClient(ssh)
 					.build();
 			sftp.setTransferMode(SftpClient.MODE_BINARY);
-		} catch (SshException | PermissionDeniedException e) {
-			throw new IOException(e);
+		} catch (IOException | SshException | PermissionDeniedException e) {
+			throw new SQLException(e);
 		}
 	}
 
 
-	public OraCdcRedoLogSshtoolsMaverickFactory(final OraCdcSourceConnectorConfig config, final BinaryUtils bu, final boolean valCheckSum) throws IOException {
+	public OraCdcRedoLogSshtoolsMaverickFactory(final OraCdcSourceConnectorConfig config, final BinaryUtils bu, final boolean valCheckSum) throws SQLException {
 		this(config.sshUser(), config.sshHostname(), config.sshPort(),
 			config.sshKey(), config.sshPassword(), config.sshStrictHostKeyChecking(),
 			bu, valCheckSum);
 	}
 
 	@Override
-	public OraCdcRedoLog get(final String redoLog) throws IOException {
+	public OraCdcRedoLog get(final String redoLog) throws SQLException {
 		try {
 			InputStream fis = sftp.getInputStream(redoLog);
 			long[] blockSizeAndCount = blockSizeAndCount(fis, redoLog);
 			fis.close();
 			fis = null;
 			return get(redoLog, false, (int)blockSizeAndCount[0], blockSizeAndCount[1]); 
-		} catch (SshException | SftpStatusException sftpe) {
-			throw new IOException(sftpe);
+		} catch (SshException | SftpStatusException | IOException sftpe) {
+			throw new SQLException(sftpe);
 		}
 	}
 
 	@Override
-	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
+	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws SQLException {
+		try {
 		return new OraCdcRedoLog(
 				new OraCdcRedoSshtoolsMaverickReader(sftp, redoLog, blockSize, blockCount),
 				valCheckSum,
 				bu,
 				blockCount);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override
@@ -130,7 +136,14 @@ public class OraCdcRedoLogSshtoolsMaverickFactory extends OraCdcRedoLogFactoryBa
 		}
 	}
 
-	public void reset() throws IOException {
+	@Override
+	public void reset() throws SQLException {
+		close();
+		create();
+	}
+
+	@Override
+	public void reset(Connection connection) throws SQLException {
 		close();
 		create();
 	}

@@ -25,7 +25,6 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraXml;
 
@@ -59,13 +58,13 @@ public class JdbcSinkSqlInsertTest {
 		lobFields.add(deptCodeDocx);
 		lobFields.add(deptCodeXml);
 
-		final List<OraColumn> allColumns = new ArrayList<>();
-		final Map<String, OraColumn> pkColumns = new HashMap<>();
+		final List<JdbcSinkColumn> allColumns = new ArrayList<>();
+		final Map<String, JdbcSinkColumn> pkColumns = new HashMap<>();
 		final Map<String, Object> lobColumns = new HashMap<>();
 
 		for (Field field : keyFields) {
 			try {
-				final OraColumn column = new OraColumn(field, true, true);
+				final var column = new JdbcSinkColumn(field, true);
 				pkColumns.put(column.getColumnName(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();
@@ -75,7 +74,7 @@ public class JdbcSinkSqlInsertTest {
 		for (Field field : valueFields) {
 			if (!pkColumns.containsKey(field.name())) {
 				try {
-					final OraColumn column = new OraColumn(field, false, false);
+					final var column = new JdbcSinkColumn(field, false);
 					allColumns.add(column);
 				} catch (SQLException sqle) {
 					sqle.printStackTrace();
@@ -84,7 +83,7 @@ public class JdbcSinkSqlInsertTest {
 		}
 		for (Field field : lobFields) {
 			try {
-				final OraColumn column = new OraColumn(field, true, false);
+				final var column = new JdbcSinkColumn(field, false);
 				lobColumns.put(column.getColumnName(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();

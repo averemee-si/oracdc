@@ -16,6 +16,7 @@ package solutions.a2.cdc.oracle.internals;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Iterator;
 
@@ -98,7 +99,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	private long recordScn = 0;
 
 	public OraCdcRedoLog(final OraCdcRedoReader reader, final boolean validateChecksum,
-			final BinaryUtils bu, final long blockCount) throws IOException {
+			final BinaryUtils bu, final long blockCount) throws SQLException, IOException {
 		this.reader = reader;
 		this.fileName = reader.redoLog();
 		this.validateChecksum = validateChecksum;
@@ -299,7 +300,11 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	@Override
 	public void close() throws IOException {
 		if (reader != null) {
-			reader.close();
+			try {
+				reader.close();
+			} catch (SQLException sqle) {
+				throw new IOException(sqle);
+			}
 			reader = null;
 		}
 	}
@@ -423,7 +428,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	private RedoByteAddress endRba;
 	private OraCdcRedoRecord redoRecord;
 
-	private void initIterator(final long blocksToSkip) throws IOException {
+	private void initIterator(final long blocksToSkip) throws SQLException {
 		final long deltaBytes;
 		final long relBlocks2Skip;
 		if (iteratorInited) {
@@ -449,7 +454,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 						"\n=====================\n",
 						deltaBytes, skipped, fileName);
 				reader.close();
-				throw new IOException("Unable to skip " + deltaBytes + " bytes in '" + fileName + "'!");
+				throw new SQLException("Unable to skip " + deltaBytes + " bytes in '" + fileName + "'!");
 			}
 		}
 		currentBlock = blocksToSkip - 1;
@@ -473,9 +478,9 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	 * Creates an iterator over the entire redo log file
 	 * 
 	 * @return
-	 * @throws IOException
+	 * @throws SQLException
 	 */
-	public Iterator<OraCdcRedoRecord> iterator() throws IOException {
+	public Iterator<OraCdcRedoRecord> iterator() throws SQLException {
 		initIterator(0x2);
 		endScn = UnsignedLong.MAX_VALUE;
 		return this;
@@ -488,9 +493,9 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	 * @param startScn
 	 * @param endScn
 	 * @return
-	 * @throws IOException
+	 * @throws SQLException
 	 */
-	public Iterator<OraCdcRedoRecord> iterator(final long startScn, final long endScn) throws IOException {
+	public Iterator<OraCdcRedoRecord> iterator(final long startScn, final long endScn) throws SQLException {
 		initIterator(0x2);
 		limitedByScn = true;
 		this.endScn = endScn;
@@ -527,9 +532,9 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	 * @param startRba
 	 * @param endRba
 	 * @return
-	 * @throws IOException
+	 * @throws SQLException
 	 */
-	public Iterator<OraCdcRedoRecord> iterator(final RedoByteAddress startRba, final RedoByteAddress endRba) throws IOException {
+	public Iterator<OraCdcRedoRecord> iterator(final RedoByteAddress startRba, final RedoByteAddress endRba) throws SQLException {
 		if (startRba.sqn() == sequence && endRba.sqn() == sequence) {
 			initIterator(startRba.blk());
 			limitedByScn = false;
@@ -559,9 +564,9 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	 * @param startRba
 	 * @param endScn
 	 * @return
-	 * @throws IOException
+	 * @throws SQLException
 	 */
-	public Iterator<OraCdcRedoRecord> iterator(final RedoByteAddress startRba, long endScn) throws IOException {
+	public Iterator<OraCdcRedoRecord> iterator(final RedoByteAddress startRba, long endScn) throws SQLException {
 		if (startRba.sqn() == sequence) {
 			initIterator(startRba.blk());
 			limitedByScn = true;
@@ -582,7 +587,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 					"\n=====================\n",
 					startRba, Integer.toUnsignedLong(startRba.sqn()), endScn,
 					Integer.toUnsignedLong(sequence), Long.toUnsignedString(firstScn), Long.toUnsignedString(nextScn), fileName);
-			throw new IOException("Unable to create iterator!");
+			throw new SQLException("Unable to create iterator!");
 		}
 		return this;
 	}
@@ -593,9 +598,9 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	 * 
 	 * @param endScn
 	 * @return
-	 * @throws IOException
+	 * @throws SQLException
 	 */
-	public Iterator<OraCdcRedoRecord> iterator(long endScn) throws IOException {
+	public Iterator<OraCdcRedoRecord> iterator(long endScn) throws SQLException {
 			return iterator(firstScn, endScn);
 	}
 
@@ -626,12 +631,15 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 							return lastStatus;
 						}
 					}
-				} catch (IOException e) {
+				} catch (SQLException e) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to read '{}' at block {}!" +
-							"\n=====================\n",
-							fileName, currentBlock);
+							"""
+							
+							=====================
+							Unable to read '{}' at block {}!
+							=====================
+							
+							""", fileName, currentBlock);
 					needNextBlock = false;
 					lastStatus = false;
 					return lastStatus;
@@ -762,12 +770,12 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return lastStatus;
 	}
 
-	private boolean nextBlock() throws IOException {
+	private boolean nextBlock() throws SQLException {
 		final int bytesRead = reader.read(block, 0, blockSize);
 		if (blockSize == bytesRead) {
 			if (validateChecksum && checksum(block) != 0x00) {
 				reader.close();
-				throw new IOException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
+				throw new SQLException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
 			}
 			if (block[0] != 0x01 || block[1] != redoFileTypeByte) {
 				LOGGER.error(
@@ -778,7 +786,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 						String.format("0x%02x", Byte.toUnsignedInt(block[1])),
 						fileName, currentBlock, blockSize);
 				reader.close();
-				throw new IOException("Invalid Oracle RDBMS redo file block signature!");
+				throw new SQLException("Invalid Oracle RDBMS redo file block signature!");
 			}
 			currentBlock++;
 		} else if (bytesRead == Integer.MIN_VALUE) {
@@ -792,7 +800,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 					"\n=====================\n",
 					currentBlock, blockSize, fileName);
 			reader.close();
-			throw new IOException("Unable to read block # " + currentBlock + " !");
+			throw new SQLException("Unable to read block # " + currentBlock + " !");
 		}
 		return true;
 	}
@@ -880,7 +888,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		encFlag = (byte) ((versionMajor >= 0x17) ? 0x75 : 0x15);
 	}
 
-	static OraCdcRedoLog getLinux19c() {
+	public static OraCdcRedoLog getLinux19c() {
 		try {
 			return new OraCdcRedoLog(true, VSN_19_0_0_0);
 		} catch(IOException ioe) {throw new IllegalArgumentException();}

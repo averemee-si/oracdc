@@ -13,7 +13,12 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static com.sshtools.common.sftp.SftpStatusException.SSH_FX_NO_SUCH_FILE;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1170;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.SQL_STATE_FILE_NOT_FOUND;
+
 import java.io.InputStream;
+import java.sql.SQLException;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
@@ -24,7 +29,6 @@ import java.io.IOException;
 import com.sshtools.client.sftp.SftpClient;
 import com.sshtools.common.sftp.SftpStatusException;
 import com.sshtools.common.ssh.SshException;
-import com.sshtools.common.ssh.SshIOException;
 
 public class OraCdcRedoSshtoolsMaverickReader implements OraCdcRedoReader {
 
@@ -35,54 +39,75 @@ public class OraCdcRedoSshtoolsMaverickReader implements OraCdcRedoReader {
     private final int blockSize;
     private final SftpClient sftp;
 
-	OraCdcRedoSshtoolsMaverickReader(final SftpClient sftp, final String redoLog, final int blockSize, final long blockCount) throws IOException {
+	OraCdcRedoSshtoolsMaverickReader(final SftpClient sftp, final String redoLog, final int blockSize, final long blockCount) throws SQLException {
 		this.sftp = sftp;
 		try {
 			is = sftp.getInputStream(redoLog);
-		} catch (SshException | SftpStatusException e) {
-			throw new IOException(e);
+		} catch (SftpStatusException sftps) {
+			if (sftps.getStatus() == SSH_FX_NO_SUCH_FILE)
+				throw new SQLException(redoLog, SQL_STATE_FILE_NOT_FOUND, ORA_1170, sftps);
+			else
+				throw new SQLException(sftps);
+		} catch (SshException sshe) {
+			throw new SQLException(sshe);
 		}
-		if (is.skip(blockSize) != blockSize) {
-			throw new IOException("Unable to skip " + blockSize + " bytes!");
+		try {
+			if (is.skip(blockSize) != blockSize) {
+				throw new SQLException("Unable to skip " + blockSize + " bytes!", "MaverickSSH", Integer.MIN_VALUE);
+			}
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
 		}
 		this.redoLog = redoLog;
 		this.blockSize = blockSize;
 	}
 
 	@Override
-	public int read(byte b[], int off, int len) throws IOException {
-		return is.read(b, off, len);
+	public int read(byte b[], int off, int len) throws SQLException {
+		try {
+			return is.read(b, off, len);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 	
 	@Override
-	public long skip(long n) throws IOException {
+	public long skip(long n) throws SQLException {
 		try {
 			return is.skip(n * blockSize);
-		} catch (SshIOException sioe) {
+		} catch (IOException ioe) {
 			LOGGER.error(
-					"\n=====================\n" +
-					"{} while skipping {} blocks of size {} in {}!\n{}" +
-					"\n=====================\n",
-					sioe.getMessage(), n, blockSize, redoLog, ExceptionUtils.getStackTrace(sioe));
-			throw new IOException(sioe);
+					"""
+					
+					=====================
+					{} while skipping {} blocks of size {} in {}!
+					{}
+					=====================
+					
+					""", ioe.getMessage(), n, blockSize, redoLog, ExceptionUtils.getStackTrace(ioe));
+			throw new SQLException(ioe);
 		}
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void close() throws SQLException {
 		if (is != null) {
-			is.close();
+			try {
+				is.close();
+			} catch (IOException ioe) {
+				throw new SQLException(ioe);
+			}
 			is = null;
 		}
 	}
 
 	@Override
-	public void reset()  throws IOException {
+	public void reset() throws SQLException {
 		close();
 		try {
 			is = sftp.getInputStream(redoLog);
 		} catch (SshException | SftpStatusException sftpe) {
-			throw new IOException(sftpe);
+			throw new SQLException(sftpe);
 		}
 	}
 

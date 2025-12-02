@@ -30,9 +30,8 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.utils.Version;
-import solutions.a2.kafka.ConnectorParams;
-import solutions.a2.utils.ExceptionUtils;
+import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
+import static solutions.a2.cdc.oracle.utils.Version.getVersion;
 
 /**
  * 
@@ -52,7 +51,7 @@ public class JdbcSinkTask extends SinkTask {
 
 	@Override
 	public String version() {
-		return Version.getVersion();
+		return getVersion();
 	}
 
 	@Override
@@ -65,12 +64,21 @@ public class JdbcSinkTask extends SinkTask {
 			sinkPool = new JdbcSinkConnectionPool(props.get("name"), config);
 			LOGGER.debug("END: Hikari Connection Pool initialization.");
 		} catch (SQLException sqle) {
-			LOGGER.error("Unable to connect to {}", config.getString(ConnectorParams.CONNECTION_URL_PARAM));
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error(
+					"""
+					
+					=====================
+					'{}' on attempt to connect to ''.
+					SQL errorCode = {}, SQL state = '{}'. Stack trace:
+					{}
+					=====================
+					
+					""", sqle.getMessage(), config.getJdbcUrl(), sqle.getErrorCode(),
+						sqle.getSQLState(), getExceptionStackTrace(sqle));
 			throw new ConnectException("Unable to start oracdc Sink Connector Task.");
 		}
 
-		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
+		batchSize = config.batchSize();
 		schemaType = config.getSchemaType();
 		tableNameMapper = config.getTableNameMapper();
 		tableNameMapper.configure(config);
@@ -94,10 +102,13 @@ public class JdbcSinkTask extends SinkTask {
 				JdbcSinkTable oraTable = tablesInProcessing.get(tableName);
 				if (oraTable == null) {
 					LOGGER.info(
-							"\n=====================\n" +
-							"Creating definition for table {} with version {}" +
-							"\n=====================\n",
-							tableNameWithoutVersion, version);
+							"""
+							
+							=====================
+							Creating definition for table {} with version {}
+							=====================
+							
+							""", tableNameWithoutVersion, version);
 					oraTable = new JdbcSinkTable(
 								sinkPool, tableNameWithoutVersion, record, schemaType, config);
 					tablesInProcessing.put(tableName, oraTable);
@@ -109,7 +120,7 @@ public class JdbcSinkTask extends SinkTask {
 				if (oraTable.duplicatedKeyInBatch(record)) {
 					// Prevent from "ON CONFLICT DO UPDATE command cannot affect row a second time"
 					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug("Executing batch due to duplicate key for table {} .", oraTable.getTableName());
+						LOGGER.debug("Executing batch due to duplicate key for table {} .", oraTable.tableName());
 					}
 					for (String tableInProgress : tablesInProcess) {
 						LOGGER.debug("Executing batch for table {}.", tableInProgress);
@@ -150,9 +161,16 @@ public class JdbcSinkTask extends SinkTask {
 				LOGGER.info("{} changes processed successfully.", records.size());
 			}
 		} catch (SQLException sqle) {
-			LOGGER.error("Error '{}' when put to target system, SQL errorCode = {}, SQL state = '{}'",
-					sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
+			LOGGER.error(
+					"""
+					
+					=====================
+					'{}' when put to target system.
+					SQL errorCode = {}, SQL state = '{}'. Stack trace:
+					{}
+					=====================
+					
+					""", sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(), getExceptionStackTrace(sqle));
 			throw new ConnectException(sqle);
 		}
 		LOGGER.debug("END: put()");

@@ -13,14 +13,20 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static net.schmizz.sshj.sftp.Response.StatusCode.NO_SUCH_FILE;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1170;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.SQL_STATE_FILE_NOT_FOUND;
+
 import java.util.EnumSet;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.SQLException;
 
 import net.schmizz.sshj.sftp.OpenMode;
 import net.schmizz.sshj.sftp.RemoteFile;
 import net.schmizz.sshj.sftp.SFTPClient;
+import net.schmizz.sshj.sftp.SFTPException;
 
 public class OraCdcRedoSshjReader implements OraCdcRedoReader {
 
@@ -34,62 +40,83 @@ public class OraCdcRedoSshjReader implements OraCdcRedoReader {
 	private final OraCdcRedoLogSshjFactory rlf;
 
 	OraCdcRedoSshjReader(final OraCdcRedoLogSshjFactory rlf, final int unconfirmedReads, final int bufferSize,
-			final String redoLog, final int blockSize, final long blockCount) throws IOException {
+			final String redoLog, final int blockSize, final long blockCount) throws SQLException {
 		this.rlf = rlf;
 		this.sftp = rlf.sftp();
 		this.unconfirmedReads = unconfirmedReads;
 		this.bufferSize = bufferSize;
-		if (rlf.connected()) {
-			handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
-			is = new BufferedInputStream(handle.new ReadAheadRemoteFileInputStream(unconfirmedReads), bufferSize);
-			if (is.skip(blockSize) != blockSize) {
-				throw new IOException("Unable to skip " + blockSize + " bytes!");
+		try {
+			if (rlf.connected()) {
+				handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
+				is = new BufferedInputStream(handle.new ReadAheadRemoteFileInputStream(unconfirmedReads), bufferSize);
+				if (is.skip(blockSize) != blockSize) {
+					throw new IOException("Unable to skip " + blockSize + " bytes!");
+				}
+			} else {
+				throw rlf.disconnectException();
 			}
-		} else {
-			throw rlf.disconnectException();
+		} catch (SFTPException sftpe) {
+			if (sftpe.getStatusCode() == NO_SUCH_FILE)
+				throw new SQLException(redoLog, SQL_STATE_FILE_NOT_FOUND, ORA_1170, sftpe);
+			else
+				throw new SQLException(sftpe);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
 		}
 		this.redoLog = redoLog;
 		this.blockSize = blockSize;
 	}
 
 	@Override
-	public int read(byte b[], int off, int len) throws IOException {
-		if (rlf.connected())
-			return is.read(b, off, len);
-		else
-			throw rlf.disconnectException();
+	public int read(byte b[], int off, int len) throws SQLException {
+		try {
+			if (rlf.connected()) return is.read(b, off, len);
+			else throw rlf.disconnectException();
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 	
 	@Override
-	public long skip(long n) throws IOException {
-		if (rlf.connected())
-			return is.skip(n * blockSize);
-		else
-			throw rlf.disconnectException();
-	}
-
-	@Override
-	public void close() throws IOException {
-		if (is != null) {
-			if (rlf.connected())
-				is.close();
-			is = null;
-		}
-		if (handle != null) {
-			if (rlf.connected())
-				handle.close();
-			handle = null;
+	public long skip(long n) throws SQLException {
+		try {
+			if (rlf.connected()) return is.skip(n * blockSize);
+			else throw rlf.disconnectException();
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
 		}
 	}
 
 	@Override
-	public void reset()  throws IOException {
+	public void close() throws SQLException {
+		try {
+			if (is != null) {
+				if (rlf.connected())
+					is.close();
+				is = null;
+			}
+			if (handle != null) {
+				if (rlf.connected())
+					handle.close();
+				handle = null;
+			}
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
+	}
+
+	@Override
+	public void reset() throws SQLException {
 		close();
-		if (rlf.connected()) {
-			handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
-			is = new BufferedInputStream(handle.new ReadAheadRemoteFileInputStream(unconfirmedReads), bufferSize);
-		} else
-			throw rlf.disconnectException();
+		try {
+			if (rlf.connected()) {
+				handle = sftp.open(redoLog, EnumSet.of(OpenMode.READ));
+				is = new BufferedInputStream(handle.new ReadAheadRemoteFileInputStream(unconfirmedReads), bufferSize);
+			} else
+				throw rlf.disconnectException();
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
 	@Override

@@ -71,7 +71,7 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 	}
 
 	@Override
-	public OraCdcRedoLog get(final String redoLog) throws IOException {
+	public OraCdcRedoLog get(final String redoLog) throws SQLException {
 		try {
 			read.registerOutParameter(1, BFILE);
 			read.setString(2, dirArchive);
@@ -96,23 +96,30 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 					=====================
 					
 					""", redoLog, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
-			throw new IOException(sqle);
+			throw sqle;
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
 		}
 	}
 
 	@Override
-	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws IOException {
-		return new OraCdcRedoLog(
-				new OraCdcRedoBfileReader(
-						read,
-						online ? dirOnline : dirArchive,
-						buffer,
-						redoLog, blockSize, blockCount),
-				valCheckSum,
-				bu,
-				blockCount);
+	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws SQLException {
+		try {
+			return new OraCdcRedoLog(
+					new OraCdcRedoBfileReader(
+							read,
+							online ? dirOnline : dirArchive,
+							buffer,
+							redoLog, blockSize, blockCount),
+					valCheckSum,
+					bu,
+					blockCount);
+		} catch (IOException ioe) {
+			throw new SQLException(ioe);
+		}
 	}
 
+	@Override
 	public void reset(final Connection connection) throws SQLException {
 		if (read != null) {
 			try {read.close();} catch (SQLException sqle) {
@@ -127,6 +134,11 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 		this.connection = connection;
 		read = (OracleCallableStatement) connection.prepareCall(GET_BFILE);
 		read.setLobPrefetchSize(0);
+	}
+
+	@Override
+	public void reset() throws SQLException {
+		throw new SQLException("Not implemented!");
 	}
 
 	private void printCloseWarningMessage(final String blockName, final SQLException sqle) {

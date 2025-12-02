@@ -13,7 +13,6 @@
 
 package solutions.a2.cdc.oracle;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -44,7 +43,6 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerTask.class);
 
-	private String stateFileName;
 	private OraCdcLogMinerMgmt metrics;
 	private Map<String, OraCdcTransaction> activeTransactions;
 	private final OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
@@ -58,7 +56,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 
 		try (Connection connDictionary = oraConnections.getConnection()) {
 
-			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName, this);
+			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName);
 			OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
 
 			List<String> excludeList = config.excludeObj();
@@ -346,7 +344,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 											final int changedColumnCount = 
 													oraTable.processDdl(connection, stmt, transaction.getXid(), transaction.getCommitScn());
 											connection.close();
-											putTableVersion(stmt.getTableId(), oraTable.getVersion());
+											putTableVersion(stmt.getTableId(), oraTable.version());
 											metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
 										} else {
 											final long startParseTs = System.currentTimeMillis();
@@ -433,87 +431,5 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 		}
 		super.stopEpilogue();
 	}
-
-	/**
-	 * 
-	 * @param saveFinalState     when set to true performs full save, when set to false only
-	 *                           in-progress transactions are saved
-	 * @throws IOException
-	 */
-	public void saveState(boolean saveFinalState) throws IOException {
-		final long saveStarted = System.currentTimeMillis();
-		final String fileName = saveFinalState ?
-				stateFileName : (stateFileName + "-jmx-" + System.currentTimeMillis());
-		LOGGER.info("Saving oracdc state to {} file...", fileName);
-		OraCdcPersistentState ops = new OraCdcPersistentState();
-		ops.setDbId(rdbmsInfo.getDbId());
-		ops.setInstanceName(rdbmsInfo.getInstanceName());
-		ops.setHostName(rdbmsInfo.getHostName());
-		ops.setLastOpTsMillis(System.currentTimeMillis());
-		ops.setLastScn(worker.lastScn());
-		ops.setLastRsId(worker.lastRba());
-		ops.setLastSsn(worker.lastSubScn());
-		ops.setInitialLoad(initialLoadStatus);
-		if (saveFinalState && useChronicleQueue) {
-			if (transaction != null) {
-				ops.setCurrentTransaction(((OraCdcTransactionChronicleQueue) transaction).attrsAsMap());
-				LOGGER.debug("Added to state file transaction {}", transaction.toString());
-			}
-			if (!committedTransactions.isEmpty()) {
-				final List<Map<String, Object>> committed = new ArrayList<>();
-				committedTransactions.stream().forEach(trans -> {
-					committed.add(((OraCdcTransactionChronicleQueue) trans).attrsAsMap());
-					LOGGER.debug("Added to state file committed transaction {}", trans.toString());
-				});
-				ops.setCommittedTransactions(committed);
-			}
-		}
-		if (!activeTransactions.isEmpty() && useChronicleQueue) {
-			final List<Map<String, Object>> wip = new ArrayList<>();
-			activeTransactions.forEach((xid, trans) -> {
-				wip.add(((OraCdcTransactionChronicleQueue) trans).attrsAsMap());
-				LOGGER.debug("Added to state file in progress transaction {}", trans.toString());
-			});
-			ops.setInProgressTransactions(wip);
-		}
-		if (!tablesInProcessing.isEmpty()) {
-			final List<String> wipTables = new ArrayList<>();
-			tablesInProcessing.forEach((combinedId, table) -> {
-				wipTables.add(
-						combinedId + 
-						OraCdcPersistentState.TABLE_VERSION_SEPARATOR +
-						table.getVersion());
-				if (LOGGER.isDebugEnabled()) {
-					final int tableId = (int) ((long) combinedId);
-					final int conId = (int) (combinedId >> 32);
-					LOGGER.debug("Added to state file in process table OBJECT_ID {} from CON_ID {}", tableId, conId);
-				}
-			});
-			ops.setProcessedTablesIdsWithVersion(wipTables);
-		}
-		if (!tablesOutOfScope.isEmpty()) {
-			final List<Long> oosTables = new ArrayList<>();
-			tablesOutOfScope.forEach(combinedId -> {
-				oosTables.add(combinedId);
-				metrics.addTableOutOfScope();
-				if (LOGGER.isDebugEnabled()) {
-					final int tableId = (int) ((long) combinedId);
-					final int conId = (int) (combinedId >> 32);
-					LOGGER.debug("Added to state file in out of scope table OBJECT_ID {} from CON_ID {}", tableId, conId);
-				}
-			});
-			ops.setOutOfScopeTablesIds(oosTables);
-		}
-		try {
-			ops.toFile(fileName);
-		} catch (Exception e) {
-			LOGGER.error("Unable to save state file with contents:\n{}", ops.toString());
-			throw new IOException(e);
-		}
-		LOGGER.info("oracdc state saved to {} file, elapsed {} ms",
-				fileName, (System.currentTimeMillis() - saveStarted));
-		LOGGER.debug("State file contents:\n{}", ops.toString());
-	}
-
 
 }

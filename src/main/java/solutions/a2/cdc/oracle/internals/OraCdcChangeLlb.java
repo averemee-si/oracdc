@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,15 +59,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 		super(num, redoRecord, operation, record, offset, headerLength);
 		if (encrypted && !redoLog.tsEncKeyAvailable())
 			return;
-		if (coords.length < 3) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to parse mandatory elements for 11.17 (LLB) #{} at RBA {} in '{}'.\n" +
-					"Change contents:\n{}\n" +
-					"=====================\n",
-					num, rba, redoLog.fileName(), binaryDump());
-			throw new IllegalArgumentException();
-		}
+		elementNumberCheck(3);
 		type = record[coords[1][0]];
 		switch (type) {
 		case TYPE_1:
@@ -85,10 +79,18 @@ public class OraCdcChangeLlb extends OraCdcChange {
 				break;
 			default:
 				LOGGER.warn(
-						"Unknown LOB operation code '{} {}' at RBA {} for change 11.17\nChange vector binary dump{}",
-						String.format("%02x", record[coords[2][0]]),
-						String.format("%02x", record[coords[2][0] + 1]),
-						rba, binaryDump());
+						"""
+						
+						=====================
+						Unknown LOB operation code '{} {}' at RBA {} for change 11.17
+						Change contents:
+						{}
+						Redo record contents:
+						{}
+						=====================
+						
+						""", String.format("%02x", record[coords[2][0]]), String.format("%02x", record[coords[2][0] + 1]),
+						rba, binaryDump(), rawToHex(record));
 			}
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0] + 0x04),
@@ -118,11 +120,17 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			// Base table supplemental data
 			if (coords.length < 4) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to parse mandatory elements for 11.17 (LLB) Type 4 #{} at RBA {} in '{}'.\n" +
-						"Change contents:\n{}\n" +
-						"=====================\n",
-						num, rba, redoLog.fileName(), binaryDump());
+						"""
+						
+						=====================
+						Unable to parse mandatory elements for 11.17 (LLB) Type 4 #{} at RBA {} in '{}'.
+						Change contents:
+						{}
+						Redo record contents:
+						{}
+						=====================
+						
+						""", num, rba, redoLog.fileName(), binaryDump(), rawToHex(record));
 				throw new IllegalArgumentException();
 			}
 			//TODO 0x10 or 0x28?
@@ -133,7 +141,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 					redoLog.bu().getU16(record, coords[2][0] + 0x08),
 					redoLog.bu().getU16(record, coords[2][0] + 0x0A),
 					redoLog.bu().getU32(record, coords[2][0] + 0x0C));
-			if (coords.length > 8 && coords[8][1] > 0) {
+			if (coords.length > 8 && coords[8][1] > 0 && coords[3][1] > 0) {
 				hasXmlType = true;
 				//TODO - binary XML, [8] - array of internal column IDs, [7] - offset/shift?
 			}
@@ -189,11 +197,17 @@ public class OraCdcChangeLlb extends OraCdcChange {
 			final int offset = colIds.length - intColIds.length;
 			if (offset < 0) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to map internal COLUMN_ID's for 11.17 (LLB) Type 4 #{} at RBA {} in '{}'.\n" +
-						"Change contents:\n{}\n" +
-						"=====================\n",
-						num, rba, redoLog.fileName(), binaryDump());
+						"""
+						
+						=====================
+						Unable to map internal COLUMN_ID's for 11.17 (LLB) Type 4 #{} at RBA {} in '{}'.
+						Change contents:
+						{}
+						Redo record contents:
+						{}
+						=====================
+						
+						""", num, rba, redoLog.fileName(), binaryDump(), rawToHex(record));
 				throw new IllegalArgumentException("Unable to map internal COLUMN_ID's for 11.17 (LLB) Type 4!");
 			}
 			final short[][] mapping = new short[intColIds.length][2];

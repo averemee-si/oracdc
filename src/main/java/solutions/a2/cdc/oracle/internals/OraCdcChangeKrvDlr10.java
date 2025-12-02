@@ -37,6 +37,8 @@ public class OraCdcChangeKrvDlr10 extends OraCdcChange {
 
 	OraCdcChangeKrvDlr10(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _24_6_DLR10, record, offset, headerLength);
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return;
 		elementNumberCheck(1);
 		if (coords[0][1] < 0x10) {
 			LOGGER.error(
@@ -55,6 +57,8 @@ public class OraCdcChangeKrvDlr10 extends OraCdcChange {
 	@Override
 	StringBuilder toDumpFormat() {
 		final StringBuilder sb = super.toDumpFormat();
+		if (encrypted && !redoLog.tsEncKeyAvailable())
+			return sb;
 		sb
 			.append("\nDirect load redo 10g:  xid: ")
 			.append(xid);

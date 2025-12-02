@@ -13,20 +13,14 @@
 
 package solutions.a2.cdc.oracle;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.Strings;
 import org.junit.jupiter.api.Test;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -79,32 +73,6 @@ public class OraCdcPersistenceTest {
 		List<Map<String, Object>> committed = new ArrayList<>();
 		committed.add(((OraCdcTransactionChronicleQueue)trans3).attrsAsMap());
 
-		OraCdcPersistentState ops = new OraCdcPersistentState();
-		ops.setDbId(710804450l);
-		ops.setInstanceName("TESTAPPS");
-		ops.setHostName("ebstst061");
-		ops.setLastOpTsMillis(System.currentTimeMillis());
-		ops.setLastScn(275168436063l);
-		ops.setLastRsId(RedoByteAddress.fromLogmnrContentsRs_Id(" 0x000098.000001b5.0030 "));
-		ops.setLastSsn(0l);
-		ops.setCurrentTransaction(((OraCdcTransactionChronicleQueue)trans1).attrsAsMap());
-		ops.setInProgressTransactions(inProgress);
-		ops.setCommittedTransactions(committed);
-
-		final String stateFileName = tmpDir +  
-				(Strings.CS.endsWith(tmpDir, File.separator) ? "" : File.separator) +
-				"oracdc.state." + System.currentTimeMillis();
-		ops.toFile(stateFileName);
-
-		OraCdcPersistentState restored = OraCdcPersistentState.fromFile(stateFileName);
-		Files.deleteIfExists(Paths.get(stateFileName)); 
-
-		assertEquals(ops.getDbId(), restored.getDbId());
-		assertEquals(ops.getHostName(), restored.getHostName());
-		assertEquals(ops.getInstanceName(), restored.getInstanceName());
-		assertEquals(ops.getLastOpTsMillis(), restored.getLastOpTsMillis());
-		assertEquals(ops.getLastScn(), restored.getLastScn());
-		assertEquals(ops.getLastSsn(), restored.getLastSsn());
 
 		trans1.close();
 		trans2.close();

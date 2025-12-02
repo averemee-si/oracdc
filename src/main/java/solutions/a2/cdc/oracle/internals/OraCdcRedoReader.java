@@ -13,14 +13,14 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.io.Closeable;
-import java.io.IOException;
+import java.sql.SQLException;
 
-public interface OraCdcRedoReader extends Closeable {
+public interface OraCdcRedoReader {
 
-	int read(byte b[], int off, int len) throws IOException;
-	long skip(long n) throws IOException;
-	void reset() throws IOException;
+	int read(byte b[], int off, int len) throws SQLException;
+	long skip(long n) throws SQLException;
+	void reset() throws SQLException;
+	void close() throws SQLException;
 	int blockSize();
 	String redoLog();
 

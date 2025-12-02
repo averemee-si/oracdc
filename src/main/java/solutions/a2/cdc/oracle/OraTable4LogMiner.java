@@ -45,15 +45,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-@JsonInclude(Include.NON_EMPTY)
 public class OraTable4LogMiner extends OraTable {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4LogMiner.class);
@@ -80,59 +76,24 @@ public class OraTable4LogMiner extends OraTable {
 	 * @param conId
 	 * @param tableOwner
 	 * @param tableName
-	 * @param rowLevelScnDependency
+	 * @param rowLevelScn
 	 * @param config
 	 * @param rdbmsInfo
 	 * @param connection
 	 */
 	public OraTable4LogMiner(
 			final String pdbName, final short conId, final String tableOwner,
-			final String tableName, final boolean rowLevelScnDependency,
+			final String tableName, final boolean rowLevelScn,
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection, final int version) {
-		super(pdbName, tableOwner, tableName, config.schemaType(),
-				config.processLobs(), config.transformLobsImpl(), config, rdbmsInfo);
-		this.conId = conId;
-		this.rowLevelScn = rowLevelScnDependency;
-		this.version = version;
-		final boolean isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
+		super(pdbName, tableOwner, tableName, rowLevelScn, conId, config, rdbmsInfo, connection, version);
 		try {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);
 			}
-			if (rdbmsInfo.isCheckSupplementalLogData4Table()) {
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Need to check supplemental logging settings for table {}.", tableFqn);
-				}
-				if (!OraRdbmsInfo.supplementalLoggingSet(connection,
-						isCdb ? conId : -1, this.tableOwner, this.tableName)) {
-					LOGGER.error(
-							"""
-							
-							=====================
-							Supplemental logging for table '{}' is not configured correctly!
-							Please set it according to the oracdc documentation
-							=====================
-							
-							""",
-								tableFqn);
-					flags &= (~FLG_CHECK_SUPPLEMENTAL);
-				}
-			}
-
-			readAndParseOraColumns(connection, isCdb);
+			readAndParseOraColumns(connection);
 		} catch (SQLException sqle) {
-			LOGGER.error(
-					"""
-					
-					=====================
-					Unable to get information about table {}.{}
-					'{}', errorCode = {}, SQLState = '{}'
-					=====================
-					
-					""",
-					tableOwner, tableName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
-			throw new ConnectException(sqle);
+			throw sqlExceptionOnInit(sqle);
 		}
 	}
 
@@ -383,11 +344,11 @@ public class OraTable4LogMiner extends OraTable {
 							structWriter.update(oraColumn, new byte[0], true);
 						} else {
 							if (oraColumn.mandatory()) {
-								if (oraColumn.isDefaultValuePresent()) {
-									structWriter.update(oraColumn, oraColumn.getTypedDefaultValue(), true);
+								if (oraColumn.defaultValuePresent()) {
+									structWriter.update(oraColumn, oraColumn.typedDefaultValue(), true);
 									if (LOGGER.isDebugEnabled()) {
 										LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
-												oraColumn.getColumnName(), tableFqn, oraColumn.getDefaultValue());
+												oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
 									}
 								} else {
 									// throw error only if we don't expect to get value from WHERE clause
@@ -455,8 +416,8 @@ public class OraTable4LogMiner extends OraTable {
 									// Check again for column default value...
 									// This is due "SUPPLEMENTAL LOG DATA (ALL) COLUMNS"
 									boolean throwDataException = true;
-									if (oraColumn.isDefaultValuePresent()) {
-										final Object columnDefaultValue = oraColumn.getTypedDefaultValue();
+									if (oraColumn.defaultValuePresent()) {
+										final Object columnDefaultValue = oraColumn.typedDefaultValue();
 										if (columnDefaultValue != null) {
 											printSubstDefaultValueWarning(oraColumn, stmt);
 											structWriter.update(oraColumn, columnDefaultValue, true);

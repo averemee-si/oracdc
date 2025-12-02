@@ -55,14 +55,19 @@ public class OraRdbmsInfo {
 	public static final int ORA_1013 = 1013;
 	public static final int ORA_1017 = 1017;
 	public static final int ORA_1089 = 1089;
+	public static final int ORA_1170 = 1170;
 	public static final int ORA_1284 = 1284;
 	public static final int ORA_1291 = 1291;
 	public static final int ORA_2396 = 2396;
 	public static final int ORA_12514 = 12514;
+	public static final int ORA_15173 = 15173;
 	public static final int ORA_17002 = 17002;
 	public static final int ORA_17008 = 17008;
 	public static final int ORA_17410 = 17410;
+	public static final int ORA_22288 = 22288;
 	public static final int UCP_44 = 44;
+
+	public static final String SQL_STATE_FILE_NOT_FOUND = "FILE_NOT_FOUND";
 
 	public static final String CDB_ROOT = "CDB$ROOT";
 	public static final String MOUNTED = "NOUNTED";

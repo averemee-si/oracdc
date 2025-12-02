@@ -266,7 +266,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 										final int changedColumnCount = 
 												oraTable.processDdl(connection, stmt, transaction.getXid(), transaction.getCommitScn());
 										connection.close();
-										putTableVersion(stmt.getTableId(), oraTable.getVersion());
+										putTableVersion(stmt.getTableId(), oraTable.version());
 										metrics.addDdlMetrics(changedColumnCount, (System.currentTimeMillis() - ddlStartTs));
 									} else {
 										final long startParseTs = System.currentTimeMillis();

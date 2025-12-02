@@ -13,11 +13,14 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 public interface OraCdcRedoLogFactory {
 
-	OraCdcRedoLog get(final String redoLog) throws IOException;
-	OraCdcRedoLog get(final String redoLog, final boolean online, final int blockSize, final long blockCount) throws IOException;
+	OraCdcRedoLog get(final String redoLog) throws SQLException;
+	OraCdcRedoLog get(final String redoLog, final boolean online, final int blockSize, final long blockCount) throws SQLException;
+	void reset(Connection connection) throws SQLException;
+	void reset() throws SQLException;
 
 }

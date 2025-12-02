@@ -1,1 +1,2 @@
 solutions.a2.kafka.sink.JdbcSinkConnector
+solutions.a2.kafka.sink.WrappedDataJdbcSinkConnector
