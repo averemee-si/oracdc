@@ -694,7 +694,7 @@ public abstract class OraCdcTransaction {
 	public void processRowChangeLmn(final OraCdcRedoRecord rr, final long lwnUnixMillis) throws IOException {
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("processRowChangeLmn() in XID {} at SCN/RBA {}/{} for OP:11.16",
-					partialRollback, rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba());
+					rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba());
 			final var key = rr.halfDoneKey();
 			final var deque =  halfDone.get(key);
 			if (deque != null) {
