@@ -406,9 +406,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String SSH_PROVIDER_MAVERICK = "maverick";
 	private static final String SSH_PROVIDER_SSHJ = "sshj";
 	private static final String SSH_PROVIDER_PARAM = "a2.ssh.provider";
+	private static final String SSH_PROVIDER_DEFAULT = SSH_PROVIDER_SSHJ;
 	private static final String SSH_PROVIDER_DOC = 
 			"Library that provides SSH connection: maverick for Maverick Synergy (https://jadaptive.com/) or sshj for Hierynomus sshj (https://github.com/hierynomus/sshj)\n" +
-			"Default - " + SSH_PROVIDER_MAVERICK;
+			"Default - " + SSH_PROVIDER_DEFAULT;
 	private static final int SSH_UNCONFIRMED_READS_DEFAULT = 0x100;
 	private static final String SSH_UNCONFIRMED_READS_PARAM = "a2.ssh.max.unconfirmed.reads";
 	private static final String SSH_UNCONFIRMED_READS_DOC = "Maximum number of unconfirmed reads from SFTP server when using Hierynomus sshj. Default - " + SSH_UNCONFIRMED_READS_DEFAULT;
@@ -618,7 +619,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(SSH_PASSWORD_PARAM, PASSWORD, "", LOW, SSH_PASSWORD_DOC)
 				.define(SSH_RECONNECT_INTERVAL_MS_PARAM, LONG, SSH_RECONNECT_INTERVAL_MS_DEFAULT, LOW, SSH_RECONNECT_INTERVAL_MS_DOC)
 				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, BOOLEAN, false, MEDIUM, SSH_STRICT_HOST_KEY_CHECKING_DOC)
-				.define(SSH_PROVIDER_PARAM, STRING, SSH_PROVIDER_MAVERICK,
+				.define(SSH_PROVIDER_PARAM, STRING, SSH_PROVIDER_DEFAULT,
 						ConfigDef.ValidString.in(
 								SSH_PROVIDER_MAVERICK,
 								SSH_PROVIDER_SSHJ),
