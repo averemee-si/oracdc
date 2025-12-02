@@ -22,6 +22,9 @@ import java.io.IOException;
 import org.apache.log4j.BasicConfigurator;
 import org.junit.jupiter.api.Test;
 
+import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.RowId;
+
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -38,6 +41,7 @@ public class OraCdcRollbackALTest {
 
 		final OraCdcRollbackData testData = new OraCdcRollbackData();
 		OraCdcTransaction transaction = testData.get(true);
+		assertFalse(transaction.suspicious());
 
 		boolean AAAqvfABcAAEXtqAAN_At_008fdb97_0010 = false;
 		boolean AAAqvfABcAAEXtqAAO_At_008fdc24_010c = false;
@@ -99,6 +103,7 @@ public class OraCdcRollbackALTest {
 
 		final OraCdcRollbackZeroRows zeroRows = new  OraCdcRollbackZeroRows(true);
 		transaction = zeroRows.get();
+		assertFalse(transaction.suspicious());
 		
 		assertEquals(transaction.length(), 46);
 		count = 0;
@@ -111,7 +116,30 @@ public class OraCdcRollbackALTest {
 		assertEquals(count, 0);
 
 		zeroRows.close();
+
+		// QMI/QMD test
+		OraCdcTransaction transQmiQmd = testData.getQmdQmi(true);
+		assertFalse(transQmiQmd.suspicious());
 		
+		count = 0;
+		do {
+			processTransaction = transQmiQmd.getStatement(stmt);
+			if (processTransaction) {
+				count++;
+			}
+			if (count == 1) {
+				assertEquals(stmt.rowId, new RowId("AAAqUAABbAAJXgnAAJ"));
+				assertEquals(stmt.getRba(), RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6a506.01c4 "));
+			}
+			if (count == 2) {
+				assertEquals(stmt.rowId, new RowId("AAAqUAABbAAJXgnAAK"));
+				assertEquals(stmt.getRba(), RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6a525.0184 "));
+			}
+		} while (processTransaction);
+		assertEquals(count, 2);
+
+		transQmiQmd.close();
+
 	}
 
 }

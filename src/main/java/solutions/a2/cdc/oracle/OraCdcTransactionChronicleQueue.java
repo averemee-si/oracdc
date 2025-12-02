@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
@@ -53,6 +54,9 @@ import solutions.a2.oracle.internals.LobLocator;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeColb.LONG_DUMP_SIZE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_END;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_ERASE;
@@ -252,15 +256,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 					readResult = reverse.readDocument(lmStmt);
 					if (readResult &&
 							!lmStmt.isRollback() &&
-							lmStmt.getTableId() == pre.tableId &&
-							((pre.operation == OraCdcV$LogmnrContents.DELETE &&
-								lmStmt.getOperation() == OraCdcV$LogmnrContents.INSERT) ||
-							(pre.operation == OraCdcV$LogmnrContents.INSERT &&
-							lmStmt.getOperation() == OraCdcV$LogmnrContents.DELETE) ||
-							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
-							lmStmt.getOperation() == OraCdcV$LogmnrContents.UPDATE)) &&
+							((pre.operation == DELETE && lmStmt.getOperation() == INSERT) ||
+							(pre.operation == INSERT && lmStmt.getOperation() == DELETE) ||
+							(pre.operation == UPDATE && lmStmt.getOperation() == UPDATE)) &&
 							pre.rowId.equals(lmStmt.getRowId())) {
-						final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(lmStmt.getRba(), lmStmt.getSsn());
+						final var rba = lmStmt.getRba();
+						final var rowid = lmStmt.getRowId();
+						final var uniqueAddr = Objects.hash(rba.sqn(), rba.blk(), rba.offset(),rowid.dataBlk(),rowid.rowNum());
 						if (!rollbackPairs.contains(uniqueAddr)) {
 							rollbackPairs.add(uniqueAddr);
 							pairFound = true;
@@ -281,12 +283,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 				if (readResult && !lmStmt.isRollback()) {
 					final PartialRollbackEntry pre = new PartialRollbackEntry();
 					pre.index = reverse.index();
-					pre.tableId = lmStmt.getTableId();
 					pre.operation = lmStmt.getOperation();
 					pre.rowId = lmStmt.getRowId();
-					pre.scn = lmStmt.getScn();
-					pre.rsId = lmStmt.getRba();
-					pre.ssn = lmStmt.getSsn();
+					pre.rba = lmStmt.getRba();
 					nonRollback[i++] = pre;
 				}
 			} while (readResult);
@@ -295,15 +294,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 				printPartialRollbackEntryDebug(pre);
 				boolean pairFound = false;
 				for (i = nonRollback.length - 1; i >= 0; i--) {
-					if (nonRollback[i].tableId == pre.tableId &&
-							((pre.operation == OraCdcV$LogmnrContents.DELETE &&
-								nonRollback[i].operation == OraCdcV$LogmnrContents.INSERT) ||
-							(pre.operation == OraCdcV$LogmnrContents.INSERT &&
-									nonRollback[i].operation == OraCdcV$LogmnrContents.DELETE) ||
-							(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
-									nonRollback[i].operation == OraCdcV$LogmnrContents.UPDATE)) &&
+					if (((pre.operation == DELETE && nonRollback[i].operation == INSERT) ||
+							(pre.operation == INSERT && nonRollback[i].operation == DELETE) ||
+							(pre.operation == UPDATE && nonRollback[i].operation == UPDATE)) &&
 							pre.rowId.equals(nonRollback[i].rowId)) {
-						final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(nonRollback[i].rsId, nonRollback[i].ssn);
+						final var rba = nonRollback[i].rba;
+						final var rowid = nonRollback[i].rowId;
+						final var uniqueAddr = Objects.hash(rba.sqn(), rba.blk(), rba.offset(),rowid.dataBlk(),rowid.rowNum());
 						if (!rollbackPairs.contains(uniqueAddr)) {
 							rollbackPairs.add(uniqueAddr);
 							pairFound = true;
@@ -320,10 +317,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Spent {} nanos to pair {} partial rollback entries in transaction XID='{}' with size={}.",
 					(System.nanoTime() - nanos), rollbackEntriesList.size(), getXid(), queueSize);
-			LOGGER.debug("List of rollback pairs:");
-			rollbackPairs.forEach(entry -> {
-				LOGGER.debug("\tRBA={}, SSN={}", entry.getKey(), entry.getValue());
-			});
 		}
 		reverse.close();
 	}

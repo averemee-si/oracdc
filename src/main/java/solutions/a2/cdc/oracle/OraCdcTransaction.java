@@ -61,6 +61,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -106,7 +107,7 @@ public abstract class OraCdcTransaction {
 
 	boolean partialRollback = false;
 	List<PartialRollbackEntry> rollbackEntriesList;
-	Set<Map.Entry<RedoByteAddress, Long>> rollbackPairs;
+	Set<Integer> rollbackPairs;
 	private boolean suspicious = false;
 
 	private String username;
@@ -163,12 +164,9 @@ public abstract class OraCdcTransaction {
 				}
 				final PartialRollbackEntry pre = new PartialRollbackEntry();
 				pre.index = index;
-				pre.tableId = oraSql.getTableId();
 				pre.operation = oraSql.getOperation();
 				pre.rowId = oraSql.getRowId();
-				pre.scn = oraSql.getScn();
-				pre.rsId = oraSql.getRba();
-				pre.ssn = oraSql.getSsn();
+				pre.rba = oraSql.getRba();
 
 				rollbackEntriesList.add(pre);
 				if (LOGGER.isDebugEnabled()) {
@@ -186,8 +184,9 @@ public abstract class OraCdcTransaction {
 			if (oraSql.isRollback()) {
 				return true;
 			} else {
-				final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(oraSql.getRba(), oraSql.getSsn());
-				return rollbackPairs.contains(uniqueAddr);
+				final var rba = oraSql.getRba();
+				final var rowid = oraSql.getRowId();
+				return rollbackPairs.contains(Objects.hash(rba.sqn(), rba.blk(), rba.offset(),rowid.dataBlk(),rowid.rowNum()));
 			}
 		} else {
 			return false;
@@ -208,8 +207,7 @@ public abstract class OraCdcTransaction {
 			.append("\n=====================\n")
 			.append("Information about suspicious transaction with XID=")
 			.append(getXid())
-			.append("\n")
-			.append("COMMIT_SCN=")
+			.append(", COMMIT_SCN=")
 			.append(commitScn)
 			.append("\n")
 			.append(OraCdcStatementBase.delimitedRowHeader());
@@ -337,6 +335,10 @@ public abstract class OraCdcTransaction {
 		suspicious = true;
 	}
 
+	boolean suspicious() {
+		return suspicious;
+	}
+
 	public String getUsername() {
 		return username;
 	}
@@ -363,8 +365,7 @@ public abstract class OraCdcTransaction {
 
 	void printPartialRollbackEntryDebug(final PartialRollbackEntry pre) {
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Working with partial rollback statement for ROWID={} at SCN={}, RBA(RS_ID)='{}', SSN={}",
-					pre.rowId, pre.scn, pre.rsId, pre.ssn);
+			LOGGER.debug("Working with partial rollback statement for ROWID={} at RBA='{}'", pre.rowId, pre.rba);
 		}
 	}
 
@@ -374,10 +375,10 @@ public abstract class OraCdcTransaction {
 				"""
 				
 				=====================
-				No pair for partial rollback statement with ROWID={} at SCN={}, RBA(RS_ID)='{}' in transaction XID='{}'!
+				No pair for partial rollback statement with ROWID={} RBA='{}' in transaction XID='{}'!
 				=====================
 				
-				""", pre.rowId, pre.scn, pre.rsId, getXid());
+				""", pre.rowId, pre.rba, getXid());
 	}
 
 	abstract void addStatement(final OraCdcStatementBase oraSql);
@@ -389,12 +390,9 @@ public abstract class OraCdcTransaction {
 
 	static class PartialRollbackEntry {
 		long index;
-		long tableId;
 		short operation;
 		RowId rowId;
-		long scn;
-		RedoByteAddress rsId;
-		long ssn;
+		RedoByteAddress rba;
 	}
 
 	private static final byte FLG_NEED_HEAD_FLAG   = 0x01;

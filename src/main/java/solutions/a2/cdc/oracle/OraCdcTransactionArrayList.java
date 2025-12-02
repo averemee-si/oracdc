@@ -13,14 +13,16 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import solutions.a2.oracle.internals.RedoByteAddress;
 
 /**
  * 
@@ -72,15 +74,13 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 			for (int i = (int) pre.index; i > -1; i--) {
 				final OraCdcStatementBase lmStmt = statements.get(i);
 				if (!lmStmt.isRollback() &&
-					lmStmt.getTableId() == pre.tableId &&
-					((pre.operation == OraCdcV$LogmnrContents.DELETE &&
-					lmStmt.getOperation() == OraCdcV$LogmnrContents.INSERT) ||
-					(pre.operation == OraCdcV$LogmnrContents.INSERT &&
-					lmStmt.getOperation() == OraCdcV$LogmnrContents.DELETE) ||
-					(pre.operation == OraCdcV$LogmnrContents.UPDATE &&
-					lmStmt.getOperation() == OraCdcV$LogmnrContents.UPDATE)) &&
+					((pre.operation == DELETE && lmStmt.getOperation() == INSERT) ||
+					(pre.operation == INSERT && lmStmt.getOperation() == DELETE) ||
+					(pre.operation == UPDATE && lmStmt.getOperation() == UPDATE)) &&
 					pre.rowId.equals(lmStmt.getRowId())) {
-					final Map.Entry<RedoByteAddress, Long> uniqueAddr = Map.entry(lmStmt.getRba(), lmStmt.getSsn());
+					final var rba = lmStmt.getRba();
+					final var rowid = lmStmt.getRowId();
+					final var uniqueAddr = Objects.hash(rba.sqn(), rba.blk(), rba.offset(),rowid.dataBlk(),rowid.rowNum());
 					if (!rollbackPairs.contains(uniqueAddr)) {
 						rollbackPairs.add(uniqueAddr);
 						pairFound = true;
@@ -96,10 +96,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 			LOGGER.debug("Spent {} nanos to pair {} partial rollback entries in transaction XID='{}' with size={}.",
 					(System.nanoTime() - nanos), rollbackEntriesList.size(), getXid(), queueSize);
 		}
-		LOGGER.debug("List of rollback pairs:");
-		rollbackPairs.forEach(entry -> {
-			LOGGER.debug("\tRBA={}, SSN={}", entry.getKey(), entry.getValue());
-		});
 	}
 
 	void addToPrintOutput(final StringBuilder sb) {

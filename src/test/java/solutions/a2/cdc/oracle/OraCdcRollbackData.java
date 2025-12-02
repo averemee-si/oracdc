@@ -1290,7 +1290,18 @@ SCN     TIMESTAMP       RBA     SSN     OBJECT_ID       ROWID   OPERATION_CODE  
 				1764437342000L, 6106846712108l, 
 				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6830f.00c8 "), 115,
 				new RowId("AAAqupABaAAOiRjAAC"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(173312, (short)1,
+				"insert into \"INV\".\"MTL_MATERIAL_TRANSACTIONS\"(".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846715268l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6a506.01c4 "), 4,
+				new RowId("AAAqUAABbAAJXgnAAJ"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(173312, (short)1,
+				"insert into \"INV\".\"MTL_MATERIAL_TRANSACTIONS\"(".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846715293l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6a525.0184 "), 2,
+				new RowId("AAAqUAABbAAJXgnAAK"), false));
 
+		transaction.setCommitScn(6106846718158L);
 		return transaction;
 	}
 }
