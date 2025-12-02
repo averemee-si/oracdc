@@ -19,11 +19,11 @@ Oracle Free Use Terms and Conditions
 LGPL-3.0 or later
 
 
-- maverick-base-3.1.2, see: licenses/lgpl-3.0
-- maverick-logging-3.1.2, see: licenses/lgpl-3.0
-- maverick-synergy-client-3.1.2, see: licenses/lgpl-3.0
-- maverick-synergy-common-3.1.2, see: licenses/lgpl-3.0
-- maverick-utils-3.1.2, see: licenses/lgpl-3.0
+- maverick-base-3.1.4, see: licenses/lgpl-3.0
+- maverick-logging-3.1.4, see: licenses/lgpl-3.0
+- maverick-synergy-client-3.1.4, see: licenses/lgpl-3.0
+- maverick-synergy-common-3.1.4, see: licenses/lgpl-3.0
+- maverick-utils-3.1.4, see: licenses/lgpl-3.0
 
 ----------------------------------------
 Dual License LGPL-2.1 or later, or Apache-2.0

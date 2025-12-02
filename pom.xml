@@ -76,7 +76,7 @@
 		<HikariCP.version>7.0.2</HikariCP.version>
 		<slf4j.version>2.0.17</slf4j.version>
 		<ojdbc.types.version>0.9.8</ojdbc.types.version>
-		<maverick.version>3.1.2</maverick.version>
+		<maverick.version>3.1.4</maverick.version>
 		<sshj.version>0.40.0</sshj.version>
 		<smbj.version>0.14.0</smbj.version>
 		<bouncycastle.version>1.82</bouncycastle.version>
