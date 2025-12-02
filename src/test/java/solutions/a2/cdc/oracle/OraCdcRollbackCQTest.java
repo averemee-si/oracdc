@@ -28,13 +28,16 @@ import org.junit.jupiter.api.Test;
  * 
  */
 public class OraCdcRollbackCQTest {
+	
+	OraCdcRollbackCQTest() {
+		BasicConfigurator.configure();
+	}
 
 	@Test
 	public void test() throws IOException {
-		BasicConfigurator.configure();
 
-		final OraCdcRollbackData testData = new OraCdcRollbackData(false);
-		OraCdcTransaction transaction = testData.get();
+		final OraCdcRollbackData testData = new OraCdcRollbackData();
+		OraCdcTransaction transaction = testData.get(false);
 
 		boolean AAAqvfABcAAEXtqAAN_At_008fdb97_0010 = false;
 		boolean AAAqvfABcAAEXtqAAO_At_008fdc24_010c = false;
@@ -92,7 +95,7 @@ public class OraCdcRollbackCQTest {
 
 		assertEquals(count, 83);
 
-		testData.close();
+		transaction.close();
 
 		final OraCdcRollbackZeroRows zeroRows = new  OraCdcRollbackZeroRows(false);
 		transaction = zeroRows.get();

@@ -624,7 +624,8 @@ public class OraRedoLogFile  {
 					}
 					if (printRecord) {
 						if (((xidFilter && !limits) || generateTestData) &&
-								record.xid() != null && xid.equals(record.xid())) {
+								record.xid() != null && (xid.equals(record.xid()) || 
+										(record.hasPrb() && record.xid() != null && xid.partial() == record.xid().partial()))) {
 							transEndRba = record.rba();
 							transEndScn = record.scn();
 							if (first) {

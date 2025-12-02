@@ -13,7 +13,6 @@
 
 package solutions.a2.cdc.oracle;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
@@ -27,9 +26,7 @@ import solutions.a2.oracle.internals.RowId;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcRollbackData implements Closeable {
-
-	private final OraCdcTransaction transaction;
+public class OraCdcRollbackData {
 
 	/*
 	 * Test data contains following sequence of operations for ROWID's 
@@ -50,7 +47,8 @@ public class OraCdcRollbackData implements Closeable {
 	 * Only data from RBA's 0x0031f7.008fe16a.0188/0x0031f7.008fe23d.0158 
 	 * must be returned!
 	 */
-	public OraCdcRollbackData(final boolean arrayList) throws IOException {
+	OraCdcTransaction get(final boolean arrayList) throws IOException {
+		final OraCdcTransaction transaction;
 		final String xid = "31001100981F2000";
 		final OraCdcLogMinerStatement firstStmt  = new OraCdcLogMinerStatement(173304, (short)3,
 				"update \"INV\".\"MTL_MATERIAL_transaction_TEMP\" set".getBytes(StandardCharsets.US_ASCII),
@@ -1043,15 +1041,256 @@ public class OraCdcRollbackData implements Closeable {
 				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0031f7.008fe2df.0180 "), 0,
 				new RowId("ABVkkAAAFAAFkkBAAT"), false));
 		transaction.setCommitScn(6084035200867L);
-	}
-
-	public OraCdcTransaction get() {
 		return transaction;
 	}
 
-	@Override
-	public void close() throws IOException {
-		transaction.close();
-	}
 
+	/*
+	 * Test data contains following sequence of operations
+SCN     TIMESTAMP       RBA     SSN     OBJECT_ID       ROWID   OPERATION_CODE  ROLLBACK
+6106846712091   2025-12-01T10:57:08Z[Etc/UTC]   0x0042db.00f6825d.00fc  16      175017  AAAqupABaAAOiRjAAC      3       0
+6106846712091   2025-12-01T10:57:08Z[Etc/UTC]   0x0042db.00f68260.0098  18      175017  AAAqupABaAAOiRjAAC      3       0
+6106846712093   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68263.0010  1       175017  AAAqupABaAAOiRjAAC      3       0
+6106846712093   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68265.0180  3       175009  AAAquhABcAAE8aIAAa      1       0
+6106846712093   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68265.0180  3       175009  AAAquhABcAAE8aIAAb      1       0
+6106846712094   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68271.0180  1       175017  AAAqupABaAAOiRjAAC      3       0
+6106846712095   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68275.0010  1       175002  AAAquaABXAAK44YAAg      3       0
+6106846712095   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f6827a.0068  7       175002  AAAquaABXAAK44YAAh      3       0
+6106846712095   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f6827f.0068  13      175002  AAAquaABXAAK44oAAK      3       0
+6106846712095   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68284.0078  19      175002  AAAquaABXAAK44oAAL      3       0
+6106846712095   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68289.0120  26      175002  AAAquaABXAAK45IAAA      3       0
+6106846712095   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f6828e.0164  32      175002  AAAquaABXAAK45IAAK      3       0
+6106846712095   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68293.0178  38      175002  AAAquaABXAAK45IAAN      3       0
+6106846712095   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68298.01a4  44      175002  AAAquaABXAAK454AAJ      3       0
+6106846712096   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f6829e.0040  1       194941  AAAvl9ABaAAJzeLAAM      3       0
+6106846712098   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682a5.00bc  1       194941  AAAvl9ABaAAJzeLAAM      3       0
+6106846712106   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682bc.00d0  1       173312  AAAqUAABbAAJXgnAAJ      1       0
+6106846712106   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682c4.01b4  16      173312  AAAqUAABbAAJXgnAAJ      2       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682e0.0018  38      194941  AAAvl9ABaAAJzeLAAM      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682e2.01a0  41      194941  AAAvl9ABaAAJzeLAAM      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682e6.016c  47      175002  AAAquaABXAAK454AAJ      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682ea.0090  53      175002  AAAquaABXAAK45IAAN      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682ed.0190  59      175002  AAAquaABXAAK45IAAK      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682f1.00a4  65      175002  AAAquaABXAAK45IAAA      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682f4.01ac  71      175002  AAAquaABXAAK44oAAL      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682f8.00c4  77      175002  AAAquaABXAAK44oAAK      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682fb.01e4  83      175002  AAAquaABXAAK44YAAh      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f682ff.00f0  89      175002  AAAquaABXAAK44YAAg      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f68301.01d8  92      175017  AAAqupABaAAOiRjAAC      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f6830a.00d0  109     175009  AAAquhABcAAE8aIAAa      2       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f6830a.00d0  109     175009  AAAquhABcAAE8aIAAb      2       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f6830b.0080  111     175017  AAAqupABaAAOiRjAAC      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f6830d.009c  113     175017  AAAqupABaAAOiRjAAC      3       1
+6106846712108   2025-12-01T10:57:09Z[Etc/UTC]   0x0042db.00f6830f.00c8  115     175017  AAAqupABaAAOiRjAAC      3       1
+6106846715268   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a506.01c4  4       173312  AAAqUAABbAAJXgnAAJ      1       0
+6106846715293   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a525.0184  2       173312  AAAqUAABbAAJXgnAAK      1       0
+6106846715296   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a543.003c  10      178735  AAArovAAoAAHRPaAAs      3       0
+6106846715323   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a569.016c  1       175002  AAAquaABXAAK44YAAg      3       0
+6106846715328   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a56e.0064  1       173312  AAAqUAABbAAJXgnAAL      1       0
+6106846715429   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a613.019c  1       173312  AAAqUAABbAAJXgnAAM      1       0
+6106846715430   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a623.007c  26      173312  AAAqUAABbAAJXgnAAN      1       0
+6106846715431   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a63b.00f4  8       178735  AAArovAAoAAHRPaAAs      3       0
+6106846715434   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a650.0114  1       175002  AAAquaABXAAK44YAAg      3       0
+6106846715434   2025-12-01T10:57:25Z[Etc/UTC]   0x0042db.00f6a654.0068  5       173312  AAAqUAABbAAJXgnAAO      1       0
+6106846715663   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a720.00b8  1       173312  AAAqUAABbAAJXgnAAP      1       0
+6106846715671   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a738.0094  4       173312  AAAqUAABbAAJXgnAAQ      1       0
+6106846715680   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a758.0074  9       178735  AAArovAAlAAHKRDAAJ      3       0
+6106846715699   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a766.0010  1       175002  AAAquaABXAAK45IAAK      3       0
+6106846715704   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a76e.0090  1       173312  AAAqUAABbAAJXgnAAR      1       0
+6106846715900   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a838.0020  6       173312  AAAqUAABbAAJXgnAAS      1       0
+6106846715902   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a84f.0114  2       173312  AAAqUAABbAAJXhnAAA      1       0
+6106846715902   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a867.01c0  43      178735  AAArovAAlAAHKRDAAJ      3       0
+6106846715910   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a876.01b4  3       175002  AAAquaABXAAK45IAAK      3       0
+6106846715912   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a87a.01ac  1       173312  AAAqUAABbAAJXhnAAB      1       0
+6106846715937   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a89b.01bc  2       178735  AAArovAAnAAHP04AAM      3       0
+6106846715959   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a8cc.00b8  1       175002  AAAquaABXAAK454AAJ      3       0
+6106846715961   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a8d0.00bc  1       173312  AAAqUAABbAAJXhnAAC      1       0
+6106846715992   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a8ef.0120  1       178735  AAArovAAnAAHP04AAM      3       0
+6106846715999   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a8f8.0150  1       175002  AAAquaABXAAK454AAJ      3       0
+6106846716002   2025-12-01T10:57:26Z[Etc/UTC]   0x0042db.00f6a8fc.0180  1       173312  AAAqUAABbAAJXhnAAD      1       0
+	 *  
+	 */
+	OraCdcTransaction getQmdQmi(final boolean arrayList) throws IOException {
+		final OraCdcTransaction transaction;
+		final String xid = "11000200E1D23400";
+		final OraCdcLogMinerStatement firstStmt  = new OraCdcLogMinerStatement(175017, (short)3,
+				"update \"WIP\".\"WIP_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712091l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6825d.00fc "), 16,
+				new RowId("AAAqupABaAAOiRjAAC"), false); 
+		if (arrayList) {
+			transaction = new OraCdcTransactionArrayList(xid, firstStmt, false);
+		} else {
+			final String tmpDir = System.getProperty("java.io.tmpdir");
+			final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
+			transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, firstStmt, false);
+		}
+		transaction.addStatement(new OraCdcLogMinerStatement(175017, (short)3,
+				"update \"WIP\".\"WIP_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712091l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68260.0098 "), 18,
+				new RowId("AAAqupABaAAOiRjAAC"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175017, (short)3,
+				"update \"WIP\".\"WIP_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712093l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68263.0010 "), 1,
+				new RowId("AAAqupABaAAOiRjAAC"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175009, (short)1,
+				"insert into \"WIP\".\"WIP_MOVE_TRANSACTIONS\"(".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712093l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68265.0180 "), 3,
+				new RowId("AAAquhABcAAE8aIAAa"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175009, (short)1,
+				"insert into \"WIP\".\"WIP_MOVE_TRANSACTIONS\"(".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712093l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68265.0180 "), 3,
+				new RowId("AAAquhABcAAE8aIAAb"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175017, (short)3,
+				"update \"WIP\".\"WIP_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712094l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68271.0180 "), 1,
+				new RowId("AAAqupABaAAOiRjAAC"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68275.0010 "), 1,
+				new RowId("AAAquaABXAAK44YAAg"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6827a.0068 "), 7,
+				new RowId("AAAquaABXAAK44YAAh"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6827f.0068 "), 13,
+				new RowId("AAAquaABXAAK44oAAK"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68284.0078 "), 19,
+				new RowId("AAAquaABXAAK44oAAL"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68289.0120 "), 26,
+				new RowId("AAAquaABXAAK45IAAA"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6828e.0164 "), 32,
+				new RowId("AAAquaABXAAK45IAAK"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68293.0178 "), 38,
+				new RowId("AAAquaABXAAK45IAAN"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68298.01a4 "), 44,
+				new RowId("AAAquaABXAAK454AAJ"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(194941, (short)3,
+				"update \"WIP\".\"WIP_DISCRETE_JOBS\" set ".getBytes(StandardCharsets.US_ASCII),
+				6106846712096l, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6829e.0040 "), 1,
+				new RowId("AAAvl9ABaAAJzeLAAM"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(194941, (short)3,
+				"update \"WIP\".\"WIP_DISCRETE_JOBS\" set ".getBytes(StandardCharsets.US_ASCII),
+				6106846712098l, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682a5.00bc "), 1,
+				new RowId("AAAvl9ABaAAJzeLAAM"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(173312, (short)1,
+				"insert into \"INV\".\"MTL_MATERIAL_TRANSACTIONS\"(".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712106l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682bc.00d0 "), 1,
+				new RowId("AAAqUAABbAAJXgnAAJ"), false));
+		transaction.addStatement(new OraCdcLogMinerStatement(173312, (short)2,
+				"delete from \"INV\".\"MTL_MATERIAL_TRANSACTIONS\" where ROWID = 'AAAqUAABbAAJXgnAAJ'".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712106l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682c4.01b4 "), 16,
+				new RowId("AAAqUAABbAAJXgnAAJ"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(194941, (short)3,
+				"update \"WIP\".\"WIP_DISCRETE_JOBS\" set ".getBytes(StandardCharsets.US_ASCII),
+				6106846712108l, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682e0.0018 "), 38,
+				new RowId("AAAvl9ABaAAJzeLAAM"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(194941, (short)3,
+				"update \"WIP\".\"WIP_DISCRETE_JOBS\" set ".getBytes(StandardCharsets.US_ASCII),
+				6106846712108l, 6106846712095l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682e2.01a0 "), 41,
+				new RowId("AAAvl9ABaAAJzeLAAM"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682e6.016c "), 47,
+				new RowId("AAAquaABXAAK454AAJ"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682ea.0090 "), 53,
+				new RowId("AAAquaABXAAK45IAAN"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682ed.0190 "), 59,
+				new RowId("AAAquaABXAAK45IAAK"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682f1.00a4 "), 65,
+				new RowId("AAAquaABXAAK45IAAA"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682f4.01ac "), 71,
+				new RowId("AAAquaABXAAK44oAAL"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682f8.00c4 "), 77,
+				new RowId("AAAquaABXAAK44oAAK"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682fb.01e4 "), 83,
+				new RowId("AAAquaABXAAK44YAAh"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175002, (short)3,
+				"update \"WIP\".\"WIP_REQUIREMENT_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f682ff.00f0 "), 89,
+				new RowId("AAAquaABXAAK44YAAg"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175017, (short)3,
+				"update \"WIP\".\"WIP_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f68301.01d8 "), 92,
+				new RowId("AAAqupABaAAOiRjAAC"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175009, (short)2,
+				"delete from \"WIP\".\"WIP_MOVE_TRANSACTIONS\" where ROWID = 'AAAquhABcAAE8aIAAa'".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6830a.00d0 "), 109,
+				new RowId("AAAquhABcAAE8aIAAa"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175009, (short)2,
+				"delete from \"WIP\".\"WIP_MOVE_TRANSACTIONS\" where ROWID = 'AAAquhABcAAE8aIAAb'".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6830a.00d0 "), 109,
+				new RowId("AAAquhABcAAE8aIAAb"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175017, (short)3,
+				"update \"WIP\".\"WIP_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6830b.0080 "), 111,
+				new RowId("AAAqupABaAAOiRjAAC"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175017, (short)3,
+				"update \"WIP\".\"WIP_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6830d.009c "), 113,
+				new RowId("AAAqupABaAAOiRjAAC"), true));
+		transaction.addStatement(new OraCdcLogMinerStatement(175017, (short)3,
+				"update \"WIP\".\"WIP_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),
+				1764437342000L, 6106846712108l, 
+				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6830f.00c8 "), 115,
+				new RowId("AAAqupABaAAOiRjAAC"), true));
+
+		return transaction;
+	}
 }
