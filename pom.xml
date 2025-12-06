@@ -23,7 +23,7 @@
 	<name>oracdc-kafka</name>
 	<url>https://a2-solutions.eu/#oracdc</url>
 	<description>
-		Oracle CDC Source Connectors (LogMiner and Snapshot Logs as source) for Kafka Connect
+		Oracle CDC Source Connectors (Direct reading of redo logs, LogMiner and Snapshot Logs as source) for Kafka Connect
 	</description>
 	<organization>
 		<name>A2 Rešitve, d.o.o.</name>
