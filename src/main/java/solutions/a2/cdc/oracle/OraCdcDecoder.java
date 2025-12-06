@@ -17,9 +17,6 @@ import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Set;
-
-import solutions.a2.oracle.internals.LobId;
 
 /**
  *
@@ -42,7 +39,7 @@ public interface OraCdcDecoder {
 	}
 
 	default Object decode(final byte[] raw, final int off, final int len,
-			final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+			final OraCdcTransaction transaction) throws SQLException {
 		return Arrays.copyOfRange(raw, off, off + len);
 	}
 

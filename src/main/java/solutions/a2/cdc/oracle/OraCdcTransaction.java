@@ -77,8 +77,10 @@ import solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.oracle.internals.LobId;
+import solutions.a2.oracle.internals.LobLocator;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
+import solutions.a2.oracle.internals.Xid;
 
 
 /**
@@ -140,7 +142,7 @@ public abstract class OraCdcTransaction {
 						"""
 						
 						=====================
-						"The partial rollback redo record in transaction {} is the first statement in that transaction.
+						The partial rollback redo record in transaction {} is the first statement in that transaction.
 						Detailed information about redo record:
 						{}
 						=====================
@@ -388,7 +390,8 @@ public abstract class OraCdcTransaction {
 	abstract int length();
 	abstract int offset();
 	abstract void close();
-	abstract Set<LobId> lobIds(final boolean all);
+	abstract byte[] getLob(final LobLocator ll) throws SQLException;
+	abstract void delLobTransLink(final Map<LobId, Xid> transFromLobId);
 
 	static class PartialRollbackEntry {
 		long index;

@@ -64,9 +64,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.slf4j.Logger;
@@ -85,7 +83,6 @@ import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
-import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
 import solutions.a2.oracle.jdbc.types.IntervalDayToSecond;
 import solutions.a2.oracle.jdbc.types.IntervalYearToMonth;
@@ -133,16 +130,13 @@ public class OraCdcDecoderFactory {
 			}
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "extended size RAW");
-				if (lobIds.contains(ll.lid()))
-					return cqTrans.getLob(ll);
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len);
 				else
-					return throwLobNotFound(ll, "extended size RAW");
+					return transaction.getLob(ll);
 			}
 		};
 	}
@@ -173,17 +167,14 @@ public class OraCdcDecoderFactory {
 			}
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+					final OraCdcTransaction transaction) throws SQLException {
 				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 				final var ll = new LobLocator(plaintext, 0, plaintext.length);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size RAW");
-				if (lobIds.contains(ll.lid()))
-					return decrypter.decrypt(cqTrans.getLob(ll), salted);
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length);
 				else
-					return throwLobNotFound(ll, "enc extended size RAW");
+					return decrypter.decrypt(transaction.getLob(ll), salted);
 			}
 		};
 	}
@@ -348,17 +339,14 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var struct = new Struct(schema);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(raw, off, len);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size NVARCHAR2/VARCHAR2");
-						if (lobIds.contains(ll.lid()))
-							struct.put("V", new String(cqTrans.getLob(ll), UTF_16));
-						else if (ll.dataInRow()) 
+						if (ll.dataInRow()) 
 							struct.put("V", new String(raw, off + len - ll.dataLength(), off + len, UTF_16));
 						else
-							throwLobNotFound(ll, "enc extended size NVARCHAR2/VARCHAR2");
+							struct.put("V", new String(transaction.getLob(ll), UTF_16));
 						return struct;
 					}
 				};
@@ -367,17 +355,14 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var struct = new Struct(schema);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(raw, off, len);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size RAW");
-						if (lobIds.contains(ll.lid()))
-							struct.put("V", cqTrans.getLob(ll));
-						else if (ll.dataInRow())
+						if (ll.dataInRow())
 							struct.put("V", Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len));
 						else
-							throwLobNotFound(ll, "enc extended size RAW");
+							struct.put("V", transaction.getLob(ll));
 						return struct;
 					}
 				};
@@ -566,17 +551,14 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc BLOB");
-						if (lobIds.contains(ll.lid()))
-							return oraBlob(decrypter.decrypt(cqTrans.getLob(ll), salted));
-						else if (ll.dataInRow())
+						if (ll.dataInRow())
 							return oraBlob(Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length));
 						else
-							return throwLobNotFound(ll, "enc BLOB");
+							return oraBlob(decrypter.decrypt(transaction.getLob(ll), salted));
 					}
 				};
 			}
@@ -584,17 +566,14 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc CLOB");
-						if (lobIds.contains(ll.lid()))
-							return oraClob(decrypter.decrypt(cqTrans.getLob(ll), salted));
-						else if (ll.dataInRow())
+						if (ll.dataInRow())
 							return oraClob(Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length));
 						else
-							return throwLobNotFound(ll, "enc CLOB");
+							return oraClob(decrypter.decrypt(transaction.getLob(ll), salted));
 					}
 				};
 			}
@@ -602,17 +581,14 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc NCLOB");
-						if (lobIds.contains(ll.lid()))
-							return oraNClob(decrypter.decrypt(cqTrans.getLob(ll), salted));
-						else if (ll.dataInRow())
+						if (ll.dataInRow())
 							return oraNClob(Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length));
 						else
-							return throwLobNotFound(ll, "enc NCLOB");
+							return oraNClob(decrypter.decrypt(transaction.getLob(ll), salted));
 					}
 				};
 			}
@@ -620,19 +596,16 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc SQLXML");
-						if (lobIds.contains(ll.lid()))
-							return oraXml(decrypter.decrypt(cqTrans.getLob(ll), salted), ll.type() == CLOB);
-						else if (ll.dataInRow())
+						if (ll.dataInRow())
 							return oraXml(
 									Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length),
 									ll.type() == CLOB);
 						else
-							return throwLobNotFound(ll, "enc SQLXML");
+							return oraXml(decrypter.decrypt(transaction.getLob(ll), salted), ll.type() == CLOB);
 					}
 				};
 			}
@@ -640,17 +613,14 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc VECTOR");
-						if (lobIds.contains(ll.lid()))
-							return oraVector(decrypter.decrypt(cqTrans.getLob(ll), salted));
-						else if (ll.dataInRow())
+						if (ll.dataInRow())
 							return oraVector(Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length));
 						else
-							return throwLobNotFound(ll, "enc VECTOR");
+							return oraVector(decrypter.decrypt(transaction.getLob(ll), salted));
 					}
 				};
 			}
@@ -659,17 +629,14 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size NVARCHAR2");
-						if (lobIds.contains(ll.lid()))
-							return new String(decrypter.decrypt(cqTrans.getLob(ll), salted), UTF_16);
-						else if (ll.dataInRow()) 
+						if (ll.dataInRow()) 
 							return new String(plaintext, plaintext.length - ll.dataLength(), plaintext.length, UTF_16);
 						else
-							return throwLobNotFound(ll, "enc extended size NVARCHAR2");
+							return new String(decrypter.decrypt(transaction.getLob(ll), salted), UTF_16);
 					}
 				};
 			}
@@ -677,17 +644,14 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size VARCHAR2");
-						if (lobIds.contains(ll.lid()))
-							return new String(decrypter.decrypt(cqTrans.getLob(ll), salted), UTF_16);
-						else if (ll.dataInRow())
+						if (ll.dataInRow())
 							return new String(plaintext, plaintext.length - ll.dataLength(), plaintext.length, UTF_16);
 						else
-							return throwLobNotFound(ll, "enc extended size VARCHAR2");
+							return new String(decrypter.decrypt(transaction.getLob(ll), salted), UTF_16);
 					}
 				};
 			}
@@ -695,17 +659,14 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size RAW");
-						if (lobIds.contains(ll.lid()))
-							return decrypter.decrypt(cqTrans.getLob(ll), salted);
-						else if (ll.dataInRow())
+						if (ll.dataInRow())
 							return Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length);
 						else
-							return throwLobNotFound(ll, "enc extended size RAW");
+							return decrypter.decrypt(transaction.getLob(ll), salted);
 					}
 				};
 			}
@@ -840,18 +801,15 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var struct = new Struct(schema);
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size NVARCHAR2/VARCHAR2");
-						if (lobIds.contains(ll.lid()))
-							struct.put("V", new String(decrypter.decrypt(cqTrans.getLob(ll), salted), UTF_16));
-						else if (ll.dataInRow()) 
+						if (ll.dataInRow()) 
 							struct.put("V", new String(plaintext, plaintext.length - ll.dataLength(), plaintext.length, UTF_16));
 						else
-							throwLobNotFound(ll, "enc extended size NVARCHAR2/VARCHAR2");
+							struct.put("V", new String(decrypter.decrypt(transaction.getLob(ll), salted), UTF_16));
 						return struct;
 					}
 				};
@@ -860,18 +818,15 @@ public class OraCdcDecoderFactory {
 				return new OraCdcDecoder() {
 					@Override
 					public Object decode(final byte[] raw, final int off, final int len,
-							final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+							final OraCdcTransaction transaction) throws SQLException {
 						final var struct = new Struct(schema);
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-						final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc extended size RAW");
-						if (lobIds.contains(ll.lid()))
-							struct.put("V", decrypter.decrypt(cqTrans.getLob(ll), salted));
-						else if (ll.dataInRow())
+						if (ll.dataInRow())
 							struct.put("V", Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length));
 						else
-							throwLobNotFound(ll, "enc extended size RAW");
+							struct.put("V", decrypter.decrypt(transaction.getLob(ll), salted));
 						return struct;
 					}
 				};
@@ -954,16 +909,13 @@ public class OraCdcDecoderFactory {
 		return new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "JSON");
-				if (lobIds.contains(ll.lid()))
-					return oraJson(cqTrans.getLob(ll), jsonFactory);
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return oraJson(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len), jsonFactory);
 				else
-					return throwLobNotFound(ll, "JSON");
+					return oraJson(transaction.getLob(ll), jsonFactory);
 			}
 		};
 	}
@@ -972,17 +924,14 @@ public class OraCdcDecoderFactory {
 		return new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+					final OraCdcTransaction transaction) throws SQLException {
 				final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
 				final var ll = new LobLocator(plaintext, 0, plaintext.length);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc JSON");
-				if (lobIds.contains(ll.lid()))
-					return oraJson(decrypter.decrypt(cqTrans.getLob(ll), salted), jsonFactory);
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return oraJson(Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length), jsonFactory);
 				else
-					return throwLobNotFound(ll, "enc JSON");
+					return oraJson(decrypter.decrypt(transaction.getLob(ll), salted), jsonFactory);
 			}
 		};
 	}
@@ -1129,21 +1078,6 @@ public class OraCdcDecoderFactory {
 	private static void traceLobInfo(final LobLocator ll, final byte[] ba, final String entity) {
 		LOGGER.trace("Processing {} LID={}, DATALENGTH={}, DATA IN ROW?={}, LOB LOCATOR CONTENT=>{}",
 				entity, ll.lid(), ll.dataLength(), ll.dataInRow(), rawToHex(ba));
-	}
-
-	private static Object throwLobNotFound(final LobLocator ll, final String entity) throws SQLException {
-		LOGGER.error(
-				"""
-				
-				=====================
-				Unable to find large object for {} with LID={}
-				locator length={}, locator data in row={}, locator type={}
-				{}
-				=====================
-				
-				""", entity, ll.lid(), ll.dataLength(), ll.dataInRow(), ll.type(),
-				Strings.CI.replace(Arrays.toString(Thread.currentThread().getStackTrace()), ",", "\n"));
-		throw new SQLException("Lob with LID=" + ll.lid().toString() + " not found!");
 	}
 
 	private static Charset charset(final String oraCharset) {
@@ -1348,122 +1282,98 @@ public class OraCdcDecoderFactory {
 		decoders.put(BLOB, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "BLOB");
-				if (lobIds.contains(ll.lid()))
-					return oraBlob(cqTrans.getLob(ll));
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return oraBlob(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len));
 				else
-					return throwLobNotFound(ll, "BLOB");
+					return oraBlob(transaction.getLob(ll));
 			}
 		});
 		decoders.put(CLOB, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "CLOB");
-				if (lobIds.contains(ll.lid()))
-					return oraClob(cqTrans.getLob(ll));
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return oraClob(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len));
 				else
-					return throwLobNotFound(ll, "CLOB");
+					return oraClob(transaction.getLob(ll));
 			}
 		});
 		decoders.put(NCLOB, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "NCLOB");
-				if (lobIds.contains(ll.lid()))
-					return oraNClob(cqTrans.getLob(ll));
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return oraNClob(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len));
 				else
-					return throwLobNotFound(ll, "NCLOB");
+					return oraNClob(transaction.getLob(ll));
 			}
 		});
 		decoders.put(SQLXML, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "SQLXML");
-				if (lobIds.contains(ll.lid()))
-					return oraXml(cqTrans.getLob(ll), ll.type() == LobLocator.CLOB);
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return oraXml(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len), ll.type() == LobLocator.CLOB);
 				else
-					return throwLobNotFound(ll, "SQLXML");
+					return oraXml(transaction.getLob(ll), ll.type() == LobLocator.CLOB);
 			}
 		});
 		decoders.put(VECTOR, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "VECTOR");
-				if (lobIds.contains(ll.lid()))
-					return oraVector(cqTrans.getLob(ll));
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return oraVector(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len));
 				else
-					return throwLobNotFound(ll, "VECTOR");
+					return oraVector(transaction.getLob(ll));
 			}
 		});
 		// Special cases for extended size VARCHAR2/NVARCHAR2/RAW
 		decoders.put(LONGNVARCHAR, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "extended size NVARCHAR2");
-				if (lobIds.contains(ll.lid()))
-					return new String(cqTrans.getLob(ll), UTF_16);
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return new String(raw, off + len - ll.dataLength(), off + len, UTF_16);
 				else
-					return throwLobNotFound(ll, "extended size NVARCHAR2");
+					return new String(transaction.getLob(ll), UTF_16);
 			}
 		});
 		decoders.put(LONGVARCHAR, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "extended size VARCHAR2");
-				if (lobIds.contains(ll.lid()))
-					return new String(cqTrans.getLob(ll), UTF_16);
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return new String(raw, off + len - ll.dataLength(), off + len, UTF_16);
 				else
-					return throwLobNotFound(ll, "extended size VARCHAR2");
+					return new String(transaction.getLob(ll), UTF_16);
 			}
 		});
 		decoders.put(LONGVARBINARY, new OraCdcDecoder() {
 			@Override
 			public Object decode(final byte[] raw, final int off, final int len,
-					final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
-				final var cqTrans = (OraCdcTransactionChronicleQueue) transaction;
+					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "extended size RAW");
-				if (lobIds.contains(ll.lid()))
-					return cqTrans.getLob(ll);
-				else if (ll.dataInRow())
+				if (ll.dataInRow())
 					return Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len);
 				else
-					return throwLobNotFound(ll, "extended size RAW");
+					return transaction.getLob(ll);
 			}
 		});
 

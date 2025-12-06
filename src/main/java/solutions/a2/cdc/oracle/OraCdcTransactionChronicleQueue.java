@@ -27,12 +27,10 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -52,6 +50,7 @@ import solutions.a2.oracle.internals.CMapInflater;
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
 import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.Xid;
 import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
@@ -621,26 +620,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	}
 
 	@Override
-	public Set<LobId> lobIds(final boolean all) {
-		if (processLobs == LobProcessingStatus.REDOMINER) {
-			if (all)
-				return transLobs.keySet();
-			else {
-				if (transLobs.keySet().size() > 0) {
-					final Set<LobId> result = new HashSet<>();
-					for (final LobId lid : transLobs.keySet()) {
-						final LobHolder lh = transLobs.get(lid);
-						if (lh.chunks.size() > 0)
-//							&& lh.chunks.stream().mapToInt(c -> c.size).sum() > 0)
-							result.add(lid);
-					}
-					return result;
-				} else
-					return transLobs.keySet();
-			}
-		}
-		else
-			return null;
+	public void delLobTransLink(final Map<LobId, Xid> transFromLobId) {
+		for (var lid : transLobs.keySet())
+			transFromLobId.remove(lid);
 	}
 
 	public void writeLobChunk(final OraCdcChangeKrvXml xml, final short col, final RedoByteAddress rba) throws SQLException {
@@ -758,6 +740,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			}
 	}
 
+	@Override
 	public byte[] getLob(final LobLocator ll) throws SQLException {
 		LobHolder holder = transLobs.get(ll.lid());
 		if (holder == null) {
@@ -765,12 +748,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 					"""
 					
 					=====================
-					Attempt to read from unknown LOB {}!
+					Unable to find large object with LID={} in transaction {}, FIRST_CHANGE#={}, COMMIT_SCN={}!
+					locator length={}, locator data in row={}, locator type={}
 					=====================
 					
-					""",
-					ll.lid());
-			throw new SQLException("Attempt to read from unknown LOB " + ll.lid() + " !");
+					""", ll.lid(), getXid(), Long.toUnsignedString(getFirstChange()), Long.toUnsignedString(getCommitScn()),
+					ll.dataLength(), ll.dataInRow(), ll.type());
+			throw new SQLException("Unable to find large object with LID=" + ll.lid() + " !");
 		} else {
 			if (holder.chunks.size() > 0) {
 				final boolean clob = ll.type() != BLOB;

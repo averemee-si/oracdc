@@ -508,7 +508,7 @@ public class OraTable4RedoMiner extends OraTable {
 						tableOwner, tableName, oraColumn, data, keyStruct,
 						lobColumnSchemas.get(oraColumn.getColumnName()));
 			} else
-				return oraColumn.decoder().decode(data, offset, length, transaction, transaction.lobIds(false));
+				return oraColumn.decoder().decode(data, offset, length, transaction);
 		}
 	}
 

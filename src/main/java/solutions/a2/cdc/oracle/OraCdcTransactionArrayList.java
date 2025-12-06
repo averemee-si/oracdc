@@ -17,15 +17,18 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.oracle.internals.LobId;
+import solutions.a2.oracle.internals.LobLocator;
+import solutions.a2.oracle.internals.Xid;
 
 /**
  * 
@@ -184,8 +187,13 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	}
 
 	@Override
-	public Set<LobId> lobIds(final boolean all) {
+	public byte[] getLob(final LobLocator ll) throws SQLException {
 		return null;
+	}
+
+	@Override
+	public void delLobTransLink(Map<LobId, Xid> transFromLobId) {
+		return;
 	}
 
 }

@@ -631,8 +631,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				//TODO What if same LOB participate in concurrent transactions?
 				//TODO
 				//TODO
-				for (final LobId lobId : ((OraCdcTransactionChronicleQueue)transaction).lobIds(true))
-					transFromLobId.remove(lobId);
+				transaction.delLobTransLink(transFromLobId);
 			}
 			if (rollback) {
 				if (LOGGER.isDebugEnabled()) {

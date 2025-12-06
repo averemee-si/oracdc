@@ -19,14 +19,11 @@ import static solutions.a2.oracle.internals.LobLocator.BLOB;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.sql.SQLException;
-import java.util.HashSet;
-import java.util.Set;
 
 import org.apache.kafka.connect.data.Struct;
 import org.junit.jupiter.api.Test;
 
 import oracle.sql.json.OracleJsonFactory;
-import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
 
 /**
@@ -53,10 +50,9 @@ public class OsonTest {
 
 		OracleJsonFactory factory = new OracleJsonFactory();
 		OraCdcDecoder decoder = OraCdcDecoderFactory.get(factory);
-		final Set<LobId> lobIds = new HashSet<>();
 		final OraCdcTransaction transaction = null;
 		try {
-			Struct osonData = (Struct) decoder.decode(oson, 0, oson.length, transaction, lobIds);
+			Struct osonData = (Struct) decoder.decode(oson, 0, oson.length, transaction);
 			assertEquals(osonData.get("V"), "{\"fruit\":\"pineapple\",\"quantity\":20}");
 		} catch (SQLException sqle) {
 			sqle.printStackTrace();

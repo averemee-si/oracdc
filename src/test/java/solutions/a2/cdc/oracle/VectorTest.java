@@ -22,13 +22,10 @@ import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
 
 import org.apache.kafka.connect.data.Struct;
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
 
 /**
@@ -43,7 +40,6 @@ public class VectorTest {
 	public void test() {
 
 		OraCdcDecoder decoder = OraCdcDecoderFactory.get(VECTOR);
-		final Set<LobId> lobIds = new HashSet<>();
 		final OraCdcTransaction transaction = null;
 		
 		LobLocator ll;
@@ -61,7 +57,7 @@ public class VectorTest {
 			assertEquals(0x2d, ll.dataLength());
 			assertTrue(ll.dataInRow());
 
-			vector = (Struct) decoder.decode(raw, 0, raw.length, transaction, lobIds);
+			vector = (Struct) decoder.decode(raw, 0, raw.length, transaction);
 			assertEquals(0x7, ((ArrayList<Float>) vector.get("F")).size());
 			assertNull(vector.get("D"));
 			assertNull(vector.get("I"));
@@ -78,7 +74,7 @@ public class VectorTest {
 			assertEquals(0x51, ll.dataLength());
 			assertTrue(ll.dataInRow());
 
-			vector = (Struct) decoder.decode(raw, 0, raw.length, transaction, lobIds);
+			vector = (Struct) decoder.decode(raw, 0, raw.length, transaction);
 			assertNull(vector.get("F"));
 			assertEquals(0x8, ((ArrayList<Double>) vector.get("D")).size());
 			assertNull(vector.get("I"));
@@ -95,7 +91,7 @@ public class VectorTest {
 			assertEquals(0x16, ll.dataLength());
 			assertTrue(ll.dataInRow());
 
-			vector = (Struct) decoder.decode(raw, 0, raw.length, transaction, lobIds);
+			vector = (Struct) decoder.decode(raw, 0, raw.length, transaction);
 			assertNull(vector.get("F"));
 			assertNull(vector.get("D"));
 			assertEquals(0x5, ((ArrayList<Byte>) vector.get("I")).size());
@@ -112,7 +108,7 @@ public class VectorTest {
 			assertEquals(0x18, ll.dataLength());
 			assertTrue(ll.dataInRow());
 
-			vector = (Struct) decoder.decode(raw, 0, raw.length, transaction, lobIds);
+			vector = (Struct) decoder.decode(raw, 0, raw.length, transaction);
 			assertNull(vector.get("F"));
 			assertNull(vector.get("D"));
 			assertNull(vector.get("I"));
