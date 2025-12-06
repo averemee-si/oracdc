@@ -244,39 +244,32 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return sequence;
 	}
 
+	private static final int CHKSUM_BLK = 0x10;
+	private final static byte[] block1 = new byte[CHKSUM_BLK];
+	private final static byte[] block2 = new byte[CHKSUM_BLK];
+	private final static byte[] block3 = new byte[CHKSUM_BLK];
+	private final static byte[] block4 = new byte[CHKSUM_BLK];
+	private final static byte[] out = new byte[CHKSUM_BLK];
+	private final static byte[] res = new byte[CHKSUM_BLK];
+	private final static byte[] nul = new byte[CHKSUM_BLK];
 	private static int checksum(final byte[] buffer) {
-		final byte[] block1 = new byte[16];
-		final byte[] block2 = new byte[16];
-		final byte[] block3 = new byte[16];
-		final byte[] block4 = new byte[16];
-		final byte[] out1 = new byte[16];
-		final byte[] out2 = new byte[16];
-		final byte[] res = new byte[16];
-		final byte[] nul = new byte[16];
-
-		int index = 0;
+		for (int i = 0; i < CHKSUM_BLK; i++)
+			nul[i] = 0;
 		int r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0;
-
-		while (index < buffer.length) {
-			System.arraycopy(buffer, index,
-					block1, 0, block1.length);
-			System.arraycopy(buffer, index + block1.length,
-					block2, 0, block2.length);
-			System.arraycopy(buffer, index + block1.length + block2.length,
-					block3, 0, block3.length);
-			System.arraycopy(buffer, index + block1.length + block2.length + block3.length,
-					block4, 0, block4.length);
-
-			do16ByteXor(block1, block2, out1);
-			do16ByteXor(block3, block4, out2);
-			do16ByteXor(nul, out1, res);
-			System.arraycopy(res, 0, nul, 0, 16);
-			do16ByteXor(nul, out2, res);
-			System.arraycopy(res, 0, nul, 0, 16);
-
-			index += 64;
+		for (int index = 0; index < buffer.length; index += 0x40) {
+			System.arraycopy(buffer, index, block1, 0, CHKSUM_BLK);
+			System.arraycopy(buffer, index + CHKSUM_BLK, block2, 0, CHKSUM_BLK);
+			System.arraycopy(buffer, index + 2 * CHKSUM_BLK, block3, 0, CHKSUM_BLK);
+			System.arraycopy(buffer, index + 3 * CHKSUM_BLK, block4, 0, CHKSUM_BLK);
+			for (int i = 0; i < CHKSUM_BLK; i++) {
+				out[i] = (byte) (block3[i] ^ block4[i]);
+				res[i] = (byte) (nul[i] ^ ((byte) (block1[i] ^ block2[i])));
+			}
+			System.arraycopy(res, 0, nul, 0, CHKSUM_BLK);
+			for (int i = 0; i < CHKSUM_BLK; i++)
+				res[i] = (byte) (nul[i] ^ out[i]);
+			System.arraycopy(res, 0, nul, 0, CHKSUM_BLK);
 		}
-
 		r1 = ((res[3] & 0xFF) << 24) | ((res[2] & 0xFF) << 16) | ((res[1] & 0xFF) << 8) | (res[0] & 0xFF);
 		r2 = ((res[7] & 0xFF) << 24) | ((res[6] & 0xFF) << 16) | ((res[5] & 0xFF) << 8) | (res[4] & 0xFF);
 		r3 = ((res[11] & 0xFF) << 24) | ((res[10] & 0xFF) << 16) | ((res[9] & 0xFF) << 8) | (res[8] & 0xFF);
@@ -289,12 +282,6 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		r0 = r0 & 0xFFFF;
 
 		return r0;
-	}
-
-	private static void do16ByteXor(byte[] block1, byte[] block2, byte[] out) {
-		for (int i = 0; i < 16; i++) {
-			out[i] = (byte) (block1[i] ^ block2[i]);
-		}
 	}
 
 	@Override
