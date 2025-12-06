@@ -76,6 +76,7 @@ import solutions.a2.cdc.oracle.internals.OraCdcChangeUndo;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
+import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
 
@@ -387,6 +388,7 @@ public abstract class OraCdcTransaction {
 	abstract int length();
 	abstract int offset();
 	abstract void close();
+	abstract Set<LobId> lobIds(final boolean all);
 
 	static class PartialRollbackEntry {
 		long index;

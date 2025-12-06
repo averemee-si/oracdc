@@ -37,8 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
-import solutions.a2.oracle.internals.LobId;
-
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -132,7 +130,6 @@ public class OraTable4RedoMiner extends OraTable {
 	SourceRecord parseRedoRecord(
 			final OraCdcRedoMinerStatement stmt,
 			final OraCdcTransaction transaction,
-			final Set<LobId> lobIds,
 			final Map<String, Object> offset,
 			final Connection connection) throws SQLException {
 		if (stmt.rollback) {
@@ -199,7 +196,7 @@ public class OraTable4RedoMiner extends OraTable {
 						try {
 							structWriter.insert(oraColumn,
 								parseRedoRecordValues(oraColumn, redoData,
-									colDefs[i][2], colSize, transaction, lobIds));
+									colDefs[i][2], colSize, transaction));
 						} catch (DataException de) {
 							LOGGER.error("Invalid value {} for column {} in table {}",
 									rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
@@ -272,7 +269,7 @@ public class OraTable4RedoMiner extends OraTable {
 								try {
 									structWriter.delete(oraColumn, 
 										parseRedoRecordValues(oraColumn, redoData,
-											colDefs[i][2], colSize, transaction, lobIds));
+											colDefs[i][2], colSize, transaction));
 								} catch (DataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
@@ -340,7 +337,7 @@ public class OraTable4RedoMiner extends OraTable {
 						try {
 							structWriter.update(oraColumn,
 								parseRedoRecordValues(oraColumn, redoData,
-									setColDefs[i][2], colSize, transaction, lobIds),
+									setColDefs[i][2], colSize, transaction),
 								true);
 						} catch (SQLException sqle ) {
 							if (oraColumn.isNullable()) {
@@ -402,7 +399,7 @@ public class OraTable4RedoMiner extends OraTable {
 								try {
 									structWriter.update(oraColumn,
 										parseRedoRecordValues(oraColumn, redoData,
-											whereColDefs[i][2], colSize, transaction, lobIds),
+											whereColDefs[i][2], colSize, transaction),
 										true);
 								} catch (DataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
@@ -466,7 +463,7 @@ public class OraTable4RedoMiner extends OraTable {
 							try {
 								structWriter.update(oraColumn,
 									parseRedoRecordValues(oraColumn, redoData,
-										setColDefs[i][2], colSize, transaction, lobIds),
+										setColDefs[i][2], colSize, transaction),
 									false);
 							} catch (SQLException sqle ) {
 								if (oraColumn.isNullable()) {
@@ -502,7 +499,7 @@ public class OraTable4RedoMiner extends OraTable {
 	
 	private Object parseRedoRecordValues(
 			final OraColumn oraColumn, final byte[] data, final int offset, final int length,
-			final OraCdcTransaction transaction, final Set<LobId> lobIds) throws SQLException {
+			final OraCdcTransaction transaction) throws SQLException {
 		if (oraColumn.decodeWithoutTrans())
 			return oraColumn.decoder().decode(data, offset, length);
 		else {
@@ -511,7 +508,7 @@ public class OraTable4RedoMiner extends OraTable {
 						tableOwner, tableName, oraColumn, data, keyStruct,
 						lobColumnSchemas.get(oraColumn.getColumnName()));
 			} else
-				return oraColumn.decoder().decode(data, offset, length, transaction, lobIds);
+				return oraColumn.decoder().decode(data, offset, length, transaction, transaction.lobIds(false));
 		}
 	}
 

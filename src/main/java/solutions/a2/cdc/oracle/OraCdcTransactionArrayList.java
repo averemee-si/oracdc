@@ -20,9 +20,12 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import solutions.a2.oracle.internals.LobId;
 
 /**
  * 
@@ -178,6 +181,11 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	@Override
 	public long size() {
 		return transSize;
+	}
+
+	@Override
+	public Set<LobId> lobIds(final boolean all) {
+		return null;
 	}
 
 }

@@ -620,6 +620,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		return (Integer.toUnsignedLong((col & 0xFF00) << 8) << 40) | (Integer.toUnsignedLong(obj) << 8 ) | (byte)col;
 	}
 
+	@Override
 	public Set<LobId> lobIds(final boolean all) {
 		if (processLobs == LobProcessingStatus.REDOMINER) {
 			if (all)
