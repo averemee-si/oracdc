@@ -1068,7 +1068,7 @@ public class JdbcSinkColumn extends Column {
 
 	private int scale(final Field field) {
 		try {
-			return Integer.valueOf(field.schema().parameters().get(Decimal.SCALE_FIELD));
+			return Integer.parseInt(field.schema().parameters().get(Decimal.SCALE_FIELD));
 		} catch (Exception e) {
 			LOGGER.error(
 					"""
