@@ -279,34 +279,60 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						if (record.has5_4()) {
 							addToHalfDoneRcm(record);
 							continue;
-						} else if (record.has5_1() && record.has11_x()) {
-							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
-								continue;
-							final short operation = record.change11_x().operation();
-							switch (operation) {
-								case _11_2_IRP, _11_3_DRP, _11_5_URP,_11_6_ORP -> {
-									iotObjRemap(true, record);
-									getTransaction(record).processRowChange(record, false, lwnUnixMillis);
-								}
-								case _11_16_LMN, _11_8_CFA ->
-									getTransaction(record).processRowChangeLmn(record, lwnUnixMillis);
-								case _11_4_LKR, _11_10_SKL -> {
-									if (LOGGER.isDebugEnabled())
-										LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
-								}
-								case _11_11_QMI, _11_12_QMD ->
-									getTransaction(record).emitMultiRowChange(record, false, lwnUnixMillis);
-								default -> {
-									if (LOGGER.isDebugEnabled())
-										LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
-								}
-							}
+						} else if (record.has5_1()) {
 							if (record.hasAudit()) {
 								//TODO
 								//TODO Add audit data to trans...
 								//TODO
 							}
-							continue;
+							if (record.has11_x()) {
+								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+									continue;
+								final short operation = record.change11_x().operation();
+								switch (operation) {
+									case _11_2_IRP, _11_3_DRP, _11_5_URP,_11_6_ORP -> {
+										iotObjRemap(true, record);
+										getTransaction(record).processRowChange(record, false, lwnUnixMillis);
+									}
+									case _11_16_LMN, _11_8_CFA ->
+										getTransaction(record).processRowChangeLmn(record, lwnUnixMillis);
+									case _11_4_LKR, _11_10_SKL -> {
+										if (LOGGER.isDebugEnabled())
+											LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
+									}
+									case _11_11_QMI, _11_12_QMD ->
+										getTransaction(record).emitMultiRowChange(record, false, lwnUnixMillis);
+									default -> {
+										if (LOGGER.isDebugEnabled())
+											LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
+									}
+								}
+								continue;
+							} else if (record.has10_x()) {
+								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+									continue;
+								iotObjRemap(false, record);
+								if (record.change5_1().fb() == 0 &&
+										record.change10_x().fb() == 0 &&
+										record.change5_1().supplementalFb() == 0)
+									continue;
+								getTransaction(record).processRowChange(record, false, lwnUnixMillis);
+								continue;
+							} else if (processLobs && record.has26_x()) {
+								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
+									continue;
+								final var change = record.change26_x();
+								final var transaction = 
+										(OraCdcTransactionChronicleQueue) activeTransactions.get(record.xid());
+								if (transaction != null)
+									if (change.kdliFillLen() > -1)
+										transaction.writeLobChunk(record.change5_1(), change);
+									else if (LOGGER.isDebugEnabled()) skippingDebugMsg("change.kdliFillLen() < 0", change.operation(), record.rba());
+								else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
+								continue;
+							} else {
+								continue;
+							}
 						} else if (record.hasPrb() && record.has11_x()) {
 							if (checker.notNeeded(record.changePrb().obj(), record.changePrb().conId()))
 								continue;
@@ -360,16 +386,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 							continue;
-						} else if (record.has5_1() && record.has10_x()) {
-							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
-								continue;
-							iotObjRemap(false, record);
-							if (record.change5_1().fb() == 0 &&
-									record.change10_x().fb() == 0 &&
-									record.change5_1().supplementalFb() == 0)
-								continue;
-							getTransaction(record).processRowChange(record, false, lwnUnixMillis);
-							continue;
 						} else if (record.hasColb()) {
 							final var colb = record.changeColb();
 							if (processLobs && colb.longDump()) {
@@ -419,18 +435,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 										(OraCdcTransactionChronicleQueue) getTransaction(record);
 								transaction.writeLobChunk(xml, lobExtras.intColumnId(xml.obj(), xml.internalColId(), false), record.rba());
 							} else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(TYP!=1)", xml.operation(), record.rba());
-							continue;
-						} else if (processLobs && record.has5_1() && record.has26_x()) {
-							if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
-								continue;
-							final var change = record.change26_x();
-							final var transaction = 
-									(OraCdcTransactionChronicleQueue) activeTransactions.get(record.xid());
-							if (transaction != null)
-								if (change.kdliFillLen() > -1)
-									transaction.writeLobChunk(record.change5_1(), change);
-								else if (LOGGER.isDebugEnabled()) skippingDebugMsg("change.kdliFillLen() < 0", change.operation(), record.rba());
-							else if (LOGGER.isDebugEnabled()) skippingDebugMsg("(transaction=null)", change.operation(), record.rba());
 							continue;
 						} else if (processLobs && record.has26_x()) {
 							var checkDataObj = true;
