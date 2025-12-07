@@ -40,7 +40,8 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
 
-	private final List<OraCdcStatementBase> statements;
+	private List<OraCdcStatementBase> statements;
+	private final int capacity;
 	private int queueSize;
 	private int tailerOffset;
 
@@ -55,9 +56,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	public OraCdcTransactionArrayList(
 			final String xid, final long firstChange, final int capacity, final boolean isCdb) {
 		super(xid, firstChange, isCdb);
-		statements = new ArrayList<>(capacity);
-		queueSize = 0;
-		tailerOffset = 0;
+		this.capacity = capacity;
 	}
 
 	/**
@@ -110,6 +109,11 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 
 	@Override
 	public void addStatement(final OraCdcStatementBase oraSql) {
+		if (firstRecord) {
+			statements = new ArrayList<>(capacity);
+			queueSize = 0;
+			tailerOffset = 0;
+		}
 		checkForRollback(oraSql, statements.size() - 1);
 
 		statements.add(oraSql);

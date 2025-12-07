@@ -96,12 +96,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	private static final int LOCK_RETRY = 5;
 	private static final int PARTIAL_ROLLBACK_HEAP_THRESHOLD = 10;
 
-	private final Path queueDirectory;
-	private final Path lobsQueueDirectory;
-	private final String lobDirectory;
+	private Path queueDirectory;
+	private Path lobsQueueDirectory;
+	private String lobDirectory;
 	private final LobProcessingStatus processLobs;
-	private final Map<LobId, LobHolder> transLobs;
-	private final Map<Long, LobId> lobCols;
+	private final Path rootDir;
+	private Map<LobId, LobHolder> transLobs;
+	private Map<Long, LobId> lobCols;
 	private ChronicleQueue statements;
 	private ExcerptAppender appender;
 	private ExcerptTailer tailer;
@@ -126,96 +127,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	public OraCdcTransactionChronicleQueue(final LobProcessingStatus processLobs,
 			final Path rootDir, final String xid, final long firstChange, final boolean isCdb) throws IOException {
 		super(xid, firstChange, isCdb);
-		LOGGER.debug("BEGIN: create OraCdcTransactionChronicleQueue for new transaction");
+		this.rootDir = rootDir;
 		this.processLobs = processLobs;
-		queueDirectory = Files.createTempDirectory(rootDir, xid + ".");
-		if (processLobs == LobProcessingStatus.NOT_AT_ALL) {
-			lobDirectory = null;
-			lobsQueueDirectory = null;
-			transLobs = null;
-			lobCols = null;
-		} else {
-			lobDirectory = queueDirectory.toString() + ".LOBDATA";
-			lobsQueueDirectory = Files.createDirectory(Paths.get(lobDirectory));
-			if (processLobs == LobProcessingStatus.REDOMINER) {
-				transLobs = new HashMap<>();
-				lobCols = new HashMap<>();
-			} else {
-				// processLobs == LobProcessingStatus.LOGMINER
-				transLobs = null;
-				lobCols = null;
-			}
-		}
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Created row data queue directory {} for transaction XID {}.",
-					queueDirectory.toString(), xid);
-			if (processLobs != LobProcessingStatus.NOT_AT_ALL) {
-				LOGGER.debug("Created LOB data queue directory {} for transaction XID {}.",
-						lobDirectory, xid);
-			}
-		}
-		try {
-			boolean cqDone = false;
-			Exception lastException = null;
-			for (int i = 0; i < LOCK_RETRY; i++) {
-				try {
-					statements = ChronicleQueue
-							.singleBuilder(queueDirectory)
-							.build();
-					cqDone = true;
-				} catch (IllegalStateException ise) {
-					LOGGER.error(CQ_ISSUE_1446_RETRY_MSG);
-					deleteDir(queueDirectory);
-					if (i == LOCK_RETRY - 1) {
-						lastException = ise;
-					}
-				}
-				if (cqDone) {
-					break;
-				}
-			}
-			if (!cqDone) {
-				LOGGER.error(CQ_ISSUE_1446_MSG, lastException.getMessage());
-				throw lastException;
-			}
-			appender = statements.createAppender();
-			queueSize = 0;
-			tailerOffset = 0;
-			if (processLobs == LobProcessingStatus.REDOMINER) {
-				
-			} else if (processLobs == LobProcessingStatus.LOGMINER) {
-				cqDone = false;
-				for (int i = 0; i < LOCK_RETRY; i++) {
-					try {
-						lobs = ChronicleQueue
-								.singleBuilder(lobsQueueDirectory)
-								.build();
-						cqDone = true;
-					} catch (IllegalStateException ise) {
-						LOGGER.error(CQ_ISSUE_1446_RETRY_MSG);
-						deleteDir(lobsQueueDirectory);
-						if (i == LOCK_RETRY - 1) {
-							lastException = ise;
-						}
-					}
-					if (cqDone) {
-						break;
-					}
-				}
-				if (!cqDone) {
-					LOGGER.error(CQ_ISSUE_1446_MSG, lastException.getMessage());
-					throw lastException;
-				}
-				lobsTailer = lobs.createTailer();
-				lobsAppender = lobs.createAppender();
-			}
-		} catch (Exception e) {
-			LOGGER.error("Unable to create Chronicle Queue!");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-			throw new IOException(e);
-		}
 		transSize = 0;
-		LOGGER.debug("END: create OraCdcTransactionChronicleQueue for new transaction");
 	}
 
 	/**
@@ -334,6 +248,101 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	}
 
 	private void addStatementInt(final OraCdcStatementBase oraSql) {
+		if (firstRecord) {
+			LOGGER.debug("BEGIN: create OraCdcTransactionChronicleQueue for new transaction");
+			try {
+				queueDirectory = Files.createTempDirectory(rootDir, getXid() + ".");
+				if (processLobs == LobProcessingStatus.NOT_AT_ALL) {
+					lobDirectory = null;
+					lobsQueueDirectory = null;
+					transLobs = null;
+					lobCols = null;
+				} else {
+					lobDirectory = queueDirectory.toString() + ".LOBDATA";
+					lobsQueueDirectory = Files.createDirectory(Paths.get(lobDirectory));
+					if (processLobs == LobProcessingStatus.REDOMINER) {
+						transLobs = new HashMap<>();
+						lobCols = new HashMap<>();
+					} else {
+						// processLobs == LobProcessingStatus.LOGMINER
+						transLobs = null;
+						lobCols = null;
+					}
+				}
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Created row data queue directory {} for transaction XID {}.",
+							queueDirectory.toString(), getXid());
+					if (processLobs != LobProcessingStatus.NOT_AT_ALL) {
+						LOGGER.debug("Created LOB data queue directory {} for transaction XID {}.",
+								lobDirectory, getXid());
+					}
+				}
+				boolean cqDone = false;
+				Exception lastException = null;
+				for (int i = 0; i < LOCK_RETRY; i++) {
+					try {
+						statements = ChronicleQueue
+								.singleBuilder(queueDirectory)
+								.build();
+						cqDone = true;
+					} catch (IllegalStateException ise) {
+						LOGGER.error(CQ_ISSUE_1446_RETRY_MSG);
+						deleteDir(queueDirectory);
+						if (i == LOCK_RETRY - 1) {
+							lastException = ise;
+						}
+					}
+					if (cqDone) {
+						break;
+					}
+				}
+				if (!cqDone) {
+					LOGGER.error(CQ_ISSUE_1446_MSG, lastException.getMessage());
+					throw lastException;
+				}
+				appender = statements.createAppender();
+				queueSize = 0;
+				tailerOffset = 0;
+				if (processLobs == LobProcessingStatus.LOGMINER) {
+					cqDone = false;
+					for (int i = 0; i < LOCK_RETRY; i++) {
+						try {
+							lobs = ChronicleQueue
+									.singleBuilder(lobsQueueDirectory)
+									.build();
+							cqDone = true;
+						} catch (IllegalStateException ise) {
+							LOGGER.error(CQ_ISSUE_1446_RETRY_MSG);
+							deleteDir(lobsQueueDirectory);
+							if (i == LOCK_RETRY - 1) {
+								lastException = ise;
+							}
+						}
+						if (cqDone) {
+							break;
+						}
+					}
+					if (!cqDone) {
+						LOGGER.error(CQ_ISSUE_1446_MSG, lastException.getMessage());
+						throw lastException;
+					}
+					lobsTailer = lobs.createTailer();
+					lobsAppender = lobs.createAppender();
+				}
+			} catch (Exception e) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						'{}' while creating Chronicle Queue for transaction {}
+						{}
+						=====================
+						
+						""", e.getMessage(), getXid(), ExceptionUtils.getExceptionStackTrace(e));
+				throw new RuntimeException(e);
+			}
+			LOGGER.debug("END: create OraCdcTransactionChronicleQueue for new transaction");
+		}
 		checkForRollback(oraSql, firstRecord ? - 1 : appender.lastIndexAppended());
 		appender.writeDocument(oraSql);
 		queueSize++;
@@ -412,6 +421,9 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 	@Override
 	public void close() {
+		if (firstRecord) {
+			return;
+		}
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Closing Cronicle Queue and deleting memory-mapped files for transaction {}.", getXid());
 		}

@@ -92,12 +92,12 @@ public abstract class OraCdcTransaction {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransaction.class);
 
-	protected static final String TRANS_XID = "xid";
-	protected static final String TRANS_FIRST_CHANGE = "firstChange";
-	protected static final String TRANS_NEXT_CHANGE = "nextChange";
-	protected static final String QUEUE_SIZE = "queueSize";
-	protected static final String QUEUE_OFFSET = "tailerOffset";
-	protected static final String TRANS_COMMIT_SCN = "commitScn";
+	static final String TRANS_XID = "xid";
+	static final String TRANS_FIRST_CHANGE = "firstChange";
+	static final String TRANS_NEXT_CHANGE = "nextChange";
+	static final String QUEUE_SIZE = "queueSize";
+	static final String QUEUE_OFFSET = "tailerOffset";
+	static final String TRANS_COMMIT_SCN = "commitScn";
 
 	boolean firstRecord = true;
 	private final long firstChange;
@@ -120,7 +120,7 @@ public abstract class OraCdcTransaction {
 	private String sessionInfo;
 	private String clientId;
 
-	private final Map<Integer, Deque<RowChangeHolder>> halfDone = new HashMap<>();
+	private final Map<Integer, Deque<RowChangeHolder>> halfDone = new HashMap<>(0x20, .7f);
 	private final Map<Integer, List<RowChangeHolder>> finishedQueue = new HashMap<>();
 	private boolean isCdb = false;
 
