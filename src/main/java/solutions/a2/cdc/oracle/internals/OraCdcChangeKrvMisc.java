@@ -13,9 +13,6 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.FormattingUtils;
 
@@ -34,21 +31,13 @@ import solutions.a2.oracle.utils.FormattingUtils;
 
 public class OraCdcChangeKrvMisc extends OraCdcChange {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeKrvMisc.class);
 	private final long startScn;
 	private final byte outcome;
 
 	OraCdcChangeKrvMisc(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _24_4_MISC, record, offset, headerLength);
 		elementNumberCheck(1);
-		if (coords[0][1] < 0x10) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Not enough data to create OP:24.4 at RBA {}.\nChange binary dump:\n{}" +
-					"\n=====================\n",
-					rba, binaryDump());
-			throw new IllegalArgumentException("Unable to create OP:24.4");
-		}
+		elementLengthCheck("OP:24.4", "", 0, 0x10, "");
 		xid = new Xid(
 				redoLog.bu().getU16(record, coords[0][0] + 0x04),
 				redoLog.bu().getU16(record, coords[0][0] + 0x06),
@@ -68,6 +57,10 @@ public class OraCdcChangeKrvMisc extends OraCdcChange {
 
 	public long startScn() {
 		return startScn;
+	}
+
+	boolean beginTrans() {
+		return outcome == -1 && xid.sqn() != 0;
 	}
 
 	@Override

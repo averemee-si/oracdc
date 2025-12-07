@@ -404,6 +404,12 @@ public class OraCdcRedoRecord implements Comparator<OraCdcRedoRecord> {
 			return null;
 	}
 
+	public boolean hasBeginTrans() {
+		return indKTURCM == -1 &&
+				indKRVMISC > -1 &&
+				((OraCdcChangeKrvMisc) changeVectors.get(indKRVMISC)).beginTrans();
+	}
+
 	public Xid xid() {
 		if (indKTURDB > -1) {
 			return ((OraCdcChangeUndoBlock) changeVectors.get(indKTURDB)).xid;
