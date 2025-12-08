@@ -309,3 +309,8 @@ Default - ALL
 
 `a2.stop.on.missed.log.file` - When the parameter value is set to true, the connector stops if it cannot open a redo log file whose description is present in the data dictionary.  When the parameter value is set to false, the connector attempts to continue using the next redo log file (with a SEQUENCE# value greater than that of the missing redo log file).
 Default - true
+
+`a2.tables.in.process.size` - Specifies the initial size of the memory structure storing information about the tables being processed. Default - 256
+
+`a2.tables.out.of.scope.size` - Specifies the initial size of the memory structure that stores information about ID of tables that do not need to be processed. Default - 1024
+

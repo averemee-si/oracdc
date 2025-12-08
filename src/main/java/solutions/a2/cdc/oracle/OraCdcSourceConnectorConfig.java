@@ -492,6 +492,20 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			When the parameter value is set to true, the connector stops if it cannot open a redo log file whose description is present in the data dictionary.
 			When the parameter value is set to false, the connector attempts to continue using the next redo log file (with a SEQUENCE# value greater than that of the missing redo log file).
 			Default - """ + STOP_ON_MISSED_LOG_FILE_DEFAULT;
+	
+	private static final int TABLES_IN_PROCESS_SIZE_DEFAULT = 0x100;
+	private static final String TABLES_IN_PROCESS_SIZE_PARAM = "a2.tables.in.process.size";
+	private static final String TABLES_IN_PROCESS_SIZE_DOC =
+			"""
+			Specifies the initial size of the memory structure storing information about the tables being processed.
+			Default - """ + TABLES_IN_PROCESS_SIZE_DEFAULT;
+
+	private static final int TABLES_OUT_OF_SCOPE_SIZE_DEFAULT = 0x400;
+	private static final String TABLES_OUT_OF_SCOPE_SIZE_PARAM = "a2.tables.out.of.scope.size";
+	private static final String TABLES_OUT_OF_SCOPE_SIZE_DOC =
+			"""
+			Specifies the initial size of the memory structure that stores information about ID of tables that do not need to be processed.
+			Default - """ + TABLES_OUT_OF_SCOPE_SIZE_DEFAULT;
 
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
@@ -649,7 +663,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 								SUPPLEMENTAL_LOGGING_ALL,
 								SUPPLEMENTAL_LOGGING_NONE),
 						HIGH, SUPPLEMENTAL_LOGGING_DOC)
-				.define(STOP_ON_MISSED_LOG_FILE_PARAM, BOOLEAN, STOP_ON_MISSED_LOG_FILE_DEFAULT, HIGH, STOP_ON_MISSED_LOG_FILE_DOC);
+				.define(STOP_ON_MISSED_LOG_FILE_PARAM, BOOLEAN, STOP_ON_MISSED_LOG_FILE_DEFAULT, HIGH, STOP_ON_MISSED_LOG_FILE_DOC)
+				.define(TABLES_IN_PROCESS_SIZE_PARAM, INT, TABLES_IN_PROCESS_SIZE_DEFAULT, LOW, TABLES_IN_PROCESS_SIZE_DOC)
+				.define(TABLES_OUT_OF_SCOPE_SIZE_PARAM, INT, TABLES_OUT_OF_SCOPE_SIZE_DEFAULT, LOW, TABLES_OUT_OF_SCOPE_SIZE_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<String, String> originals) {
@@ -1647,6 +1663,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public boolean stopOnMissedLogFile() {
 		return getBoolean(STOP_ON_MISSED_LOG_FILE_PARAM);
+	}
+
+	public int tablesInProcessSize() {
+		return getInt(TABLES_IN_PROCESS_SIZE_PARAM);
+	}
+
+	public int tablesOutOfScopeSize() {
+		return getInt(TABLES_OUT_OF_SCOPE_SIZE_PARAM);
 	}
 
 }
