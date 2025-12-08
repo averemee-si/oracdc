@@ -306,3 +306,6 @@ The default is ALL, and you must set SUPPLEMENTAL LOG DATA(ALL) COLUMND for all 
 If this parameter is set to NONE, there are no or minimal requirements for supplemental logging.
 Use this parameter only after consulting with us via email at oracle@a2.solutions or by scheduling a meeting on our website at https://a2.solutions.
 Default - ALL
+
+`a2.stop.on.missed.log.file` - When the parameter value is set to true, the connector stops if it cannot open a redo log file whose description is present in the data dictionary.  When the parameter value is set to false, the connector attempts to continue using the next redo log file (with a SEQUENCE# value greater than that of the missing redo log file).
+Default - true
