@@ -480,6 +480,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							} else {
 								continue;
 							}
+						} else if (record.hasBeginTrans()) {
+							getTransaction(record);
+							continue;
 						} else {
 							if (LOGGER.isDebugEnabled()) {
 								LOGGER.debug("Skipping redo record at RBA {}", record.rba());
@@ -619,8 +622,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private void emitRcm(final OraCdcRedoRecord record, final Xid xid) {
-		OraCdcTransaction transaction = activeTransactions.get(xid);
-		final boolean rollback = record.change5_4().rollback();
+		var transaction = activeTransactions.get(xid);
+		final var rollback = record.change5_4().rollback();
 		if (transaction == null) {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug(
@@ -638,6 +641,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				transaction.delLobTransLink(transFromLobId);
 			}
 			if (rollback) {
+				if (transaction.hasRows()) {
+					LOGGER.info(
+							"Rolling back transaction {} at SCN/RBA={}/{}, LWN SCN/RBA={}/{}",
+							transaction.getXid(), record.scn(), record.rba(), lastScn, lastRba);
+				}
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug(
 							"Rolling back transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
@@ -645,14 +653,20 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				}
 				transaction.close();
 			} else {
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug(
-							"Committing transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
-							transaction.getXid(), record.scn(), record.rba(), transaction.getFirstChange(), transaction.length(), transaction.size());
+				final var commitScn = record.scn();
+				if (transaction.hasRows()) {
+					transaction.setCommitScn(commitScn);
+					committedTransactions.add(transaction);
+					if (LOGGER.isDebugEnabled())
+						LOGGER.debug(
+								"Committing transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
+								transaction.getXid(), record.scn(), record.rba(), transaction.getFirstChange(), transaction.length(), transaction.size());
+				} else {
+					if (LOGGER.isDebugEnabled())
+						LOGGER.debug(
+								"Skipping empty transaction {} at COMMIT_SCN={}",
+								transaction.getXid(), commitScn);
 				}
-				final long commitScn = record.scn();
-				transaction.setCommitScn(commitScn);
-				committedTransactions.add(transaction);
 				if (Long.compareUnsigned(commitScn, lastCommitScn) < 0) {
 					LOGGER.warn(
 							"Committing transaction {} with a commit SCN {} lower than the previous one {}!",
@@ -675,13 +689,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				transaction = null;
 			}
 			else {
-				metrics.addCommittedRecords(transaction.length(), transaction.size(),
+				if (transaction.hasRows())
+					metrics.addCommittedRecords(transaction.length(), transaction.size(),
 						committedTransactions.size(), activeTransactions.size());
-			}
-			if (LOGGER.isDebugEnabled()) {
-				LOGGER.debug("Performing {} at SCN={}, RBA={} for transaction XID {}",
-						rollback ? "ROLLBACK" : "COMMIT",
-						lastScn, lastRba, xid);
+				else
+					transaction = null;
 			}
 		}
 	}

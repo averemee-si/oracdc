@@ -138,16 +138,18 @@ public abstract class OraCdcTransaction {
 			nextChange = oraSql.getScn();
 			if (oraSql.isRollback()) {
 				suspicious = true;
-				LOGGER.error(
-						"""
-						
-						=====================
-						The partial rollback redo record in transaction {} is the first statement in that transaction.
-						Detailed information about redo record:
-						{}
-						=====================
-						
-						""", oraSql.toStringBuilder().toString(), xid);
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug(
+							"""
+							
+							=====================
+							The partial rollback redo record in transaction {} is the first statement in that transaction.
+							Detailed information about redo record:
+							{}
+							=====================
+							
+							""", oraSql.toStringBuilder().toString(), xid);
+				}
 			}
 		} else {
 			if (startsWithBeginTrans &&
@@ -364,6 +366,11 @@ public abstract class OraCdcTransaction {
 
 	public String getClientId() {
 		return clientId;
+	}
+
+	public boolean hasRows() {
+		return !firstRecord;
+		
 	}
 
 	void printPartialRollbackEntryDebug(final PartialRollbackEntry pre) {
