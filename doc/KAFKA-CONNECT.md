@@ -314,3 +314,4 @@ Default - true
 
 `a2.tables.out.of.scope.size` - Specifies the initial size of the memory structure that stores information about ID of tables that do not need to be processed. Default - 1024
 
+`a2.transactions.in.process.size` - Specifies the initial size of the memory structure that stores information about currently processed transactions. Default - 1024

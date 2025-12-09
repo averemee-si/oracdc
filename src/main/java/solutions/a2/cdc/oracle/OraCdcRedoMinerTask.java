@@ -143,7 +143,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			}
 			MutableTriple<Long, RedoByteAddress, Long> coords = new MutableTriple<>();
 			boolean rewind = startPosition(coords);
-			activeTransactions = new HashMap<>();
+			activeTransactions = new HashMap<>(config.transactionsInProcessSize(), .7f);
 			checker = new OraCdcDictionaryChecker(this, config.staticObjIds(),
 					tablesInProcessing, tablesOutOfScope, checkTableSql,
 					includeObjIds, excludeObjIds, metrics);

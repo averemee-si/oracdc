@@ -507,6 +507,13 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			Specifies the initial size of the memory structure that stores information about ID of tables that do not need to be processed.
 			Default - """ + TABLES_OUT_OF_SCOPE_SIZE_DEFAULT;
 
+	private static final int TRANS_IN_PROCESS_SIZE_DEFAULT = 0x400;
+	private static final String TRANS_IN_PROCESS_SIZE_PARAM = "a2.transactions.in.process.size";
+	private static final String TRANS_IN_PROCESS_SIZE_DOC =
+			"""
+			Specifies the initial size of the memory structure that stores information about currently processed transactions.
+			Default - """ + TRANS_IN_PROCESS_SIZE_DEFAULT;
+
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
@@ -665,7 +672,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 						HIGH, SUPPLEMENTAL_LOGGING_DOC)
 				.define(STOP_ON_MISSED_LOG_FILE_PARAM, BOOLEAN, STOP_ON_MISSED_LOG_FILE_DEFAULT, HIGH, STOP_ON_MISSED_LOG_FILE_DOC)
 				.define(TABLES_IN_PROCESS_SIZE_PARAM, INT, TABLES_IN_PROCESS_SIZE_DEFAULT, LOW, TABLES_IN_PROCESS_SIZE_DOC)
-				.define(TABLES_OUT_OF_SCOPE_SIZE_PARAM, INT, TABLES_OUT_OF_SCOPE_SIZE_DEFAULT, LOW, TABLES_OUT_OF_SCOPE_SIZE_DOC);
+				.define(TABLES_OUT_OF_SCOPE_SIZE_PARAM, INT, TABLES_OUT_OF_SCOPE_SIZE_DEFAULT, LOW, TABLES_OUT_OF_SCOPE_SIZE_DOC)
+				.define(TRANS_IN_PROCESS_SIZE_PARAM, INT, TRANS_IN_PROCESS_SIZE_DEFAULT, LOW, TRANS_IN_PROCESS_SIZE_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<String, String> originals) {
@@ -1671,6 +1679,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public int tablesOutOfScopeSize() {
 		return getInt(TABLES_OUT_OF_SCOPE_SIZE_PARAM);
+	}
+
+	public int transactionsInProcessSize() {
+		return getInt(TRANS_IN_PROCESS_SIZE_PARAM);
 	}
 
 }
