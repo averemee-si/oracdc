@@ -242,7 +242,7 @@ RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka
 ENV    JAVA_HOME=/opt/java/openjdk 
 ARG    BASEDIR=/opt
 
-ARG    KAFKA_VERSION=4.1.0
+ARG    KAFKA_VERSION=4.1.1
 ARG    SCALA_VERSION=2.13
 ARG    KAFKA_FILENAME=kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz
 ENV    KAFKA_HOME=${BASEDIR}/kafka
