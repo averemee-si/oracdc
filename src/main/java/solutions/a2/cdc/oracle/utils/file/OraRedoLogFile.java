@@ -661,7 +661,7 @@ public class OraRedoLogFile  {
 								if (!records) {
 									out.println("RBA: " + record.rba());
 								}
-								out.println("Content: ");
+								out.print("Content: ");
 								out.print(rawToHex(record.content()));
 								for (final OraCdcChange change : record.changeVectors()) {
 									out.println("\nChange # " + change.num() + change.binaryDump());

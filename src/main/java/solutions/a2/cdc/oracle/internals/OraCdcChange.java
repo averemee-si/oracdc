@@ -1475,11 +1475,11 @@ public class OraCdcChange {
 		final StringBuilder sb = new StringBuilder(record.length * Integer.BYTES);
 		for (int i = 0; i < coords.length; i++) {
 			sb
-				.append("\nElement # ")
-				.append(i)
-				.append(", length=")
-				.append(coords[i][1])
-				.append("\n");
+				.append("\nPART ")
+				.append(String.format("% 3d", i))
+				.append("[")
+				.append(String.format("% 5d",coords[i][1]))
+				.append("]: ");
 			for (int j = 0; j < coords[i][1]; j++) {
 				sb
 					.append(' ')
