@@ -1007,11 +1007,27 @@ Fix CVE-2020-36843 from dependencies
 
 ######2.12.2 (OCT-2025)
 
-1) New parameter `a2.ignore.stored.offset`
+1) Optimized code for converting from raw bytes to Java/Kafka data types
 
-2) Optimized code for converting from raw bytes to Java/Kafka data types
+2) Bug fixes and enhancements
 
-3) Bug fixes and enhancements
+#####2.13.0 (DEC-2025)
+
+1) New parameter `a2.supplemental.logging` - the connector currently supports different levels of supplemental logging. If you need more information, please contact us at oracle@a2.solutions.
+
+2) New parameter `a2.stop.on.missed.log.file` - for more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md).
+
+3) `a2.tables.in.process.size`, `a2.tables.out.of.scope.size`, and `a2.transactions.in.process.size` to manage initial size of internal memory structures. For more information please read [KAFKA-CONNECT.md](doc/KAFKA-CONNECT.md).
+
+4) **solutions.a2.cdc.oracle.utils.file.OraRedoLogFile** utility enhancements and **solutions.a2.cdc.oracle.utils.file.OraCdcIncidentReader** utility
+
+5) Default ssh provider changed from MAVERICK to SSHJ
+
+6) Techstack upgrade (new versions of BounceCastle JCE, the Maverick Synergy Java SSH Library and others)
+
+7) Bug fixes and enhancements
+
+
 
 ## Authors
 
