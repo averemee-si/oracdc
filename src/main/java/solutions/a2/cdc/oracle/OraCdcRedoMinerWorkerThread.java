@@ -277,7 +277,31 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						}
 						//BEGIN: Main decision tree
 						if (record.has5_4()) {
-							addToHalfDoneRcm(record);
+							if (LOGGER.isDebugEnabled()) {
+								final int size = halfDoneRcm.size();
+								LOGGER.debug("Adding XID {}, SCN {}, RBA {}  to delayed list with size {}, last delayed commit SCN {}",
+										record.xid(), record.scn(), record.rba(), size, size > 0 ? halfDoneRcm.lastKey() : 0);
+							}
+							List<OraCdcRedoRecord> rcm = halfDoneRcm.get(record.scn());
+							if (rcm == null) {
+								rcm = new ArrayList<>(0x8);
+								halfDoneRcm.put(record.scn(), rcm);
+							}
+							rcm.add(record);
+							if (LOGGER.isDebugEnabled() && rcm.size() > 1) {
+								final StringBuilder sb = new StringBuilder(0x400);
+								sb
+									.append("\nDuplicate commit SCN ")
+									.append(record.scn())
+									.append(".\nList of transactions at this commit SCN (XID, RBA):");
+								rcm.forEach(rr ->
+									sb
+										.append("\n\t")
+										.append(rr.xid().toString())
+										.append('\t')
+										.append(rr.rba().toString()));
+								LOGGER.debug(sb.toString());
+							}
 							continue;
 						} else if (record.has5_1()) {
 							if (record.hasAudit()) {
@@ -743,36 +767,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			}
 		}
 		return sb;
-	}
-
-	private void addToHalfDoneRcm(final OraCdcRedoRecord record) {
-		if (LOGGER.isDebugEnabled()) {
-			final int size = halfDoneRcm.size();
-			LOGGER.debug("Adding XID {}, SCN {}, RBA {}  to delayed list with size {}, last delayed commit SCN {}",
-					record.xid(), record.scn(), record.rba(), size, size > 0 ? halfDoneRcm.lastKey() : 0);
-		}
-		List<OraCdcRedoRecord> rcm = halfDoneRcm.get(record.scn());
-		if (rcm == null) {
-			rcm = new ArrayList<>(0x8);
-			halfDoneRcm.put(record.scn(), rcm);
-		}
-		rcm.add(record);
-		if (LOGGER.isDebugEnabled()) {
-			if (rcm.size() > 1) {
-				final StringBuilder sb = new StringBuilder(0x400);
-				sb
-					.append("\nDuplicate commit SCN ")
-					.append(record.scn())
-					.append(".\nList of transactions at this commit SCN (XID, RBA):");
-				rcm.forEach(rr ->
-					sb
-						.append("\n\t")
-						.append(rr.xid().toString())
-						.append('\t')
-						.append(rr.rba().toString()));
-				
-			}
-		}
 	}
 
 	private OraCdcTransaction getTransaction(final OraCdcRedoRecord record) {
