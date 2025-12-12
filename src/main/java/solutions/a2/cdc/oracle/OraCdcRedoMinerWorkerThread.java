@@ -665,16 +665,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				transaction.delLobTransLink(transFromLobId);
 			}
 			if (rollback) {
-				if (transaction.hasRows()) {
-					LOGGER.info(
-							"Rolling back transaction {} at SCN/RBA={}/{}, LWN SCN/RBA={}/{}",
-							transaction.getXid(), record.scn(), record.rba(), lastScn, lastRba);
-				}
-				if (LOGGER.isDebugEnabled()) {
+				if (LOGGER.isDebugEnabled())
 					LOGGER.debug(
-							"Rolling back transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
-							transaction.getXid(), record.scn(), record.rba(), transaction.getFirstChange(), transaction.length(), transaction.size());
-				}
+							"Rolling back transaction {} at SCN/RBA {}/{}, LWN SCN/RBA={}/{}, FIRST_CHANGE#={} with {} changes and size {} bytes",
+							transaction.getXid(), record.scn(), record.rba(), lastScn, lastRba, transaction.getFirstChange(), transaction.length(), transaction.size());
 				transaction.close();
 			} else {
 				final var commitScn = record.scn();
