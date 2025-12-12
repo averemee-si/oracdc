@@ -757,7 +757,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			halfDoneRcm.put(record.scn(), rcm);
 		}
 		rcm.add(record);
-		prefixedTransactions.remove(record.xid().partial());
 		if (LOGGER.isDebugEnabled()) {
 			if (rcm.size() > 1) {
 				final StringBuilder sb = new StringBuilder(0x400);
