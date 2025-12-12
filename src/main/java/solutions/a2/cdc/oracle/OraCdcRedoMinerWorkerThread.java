@@ -121,7 +121,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.iotMapping = iotMapping;
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
-		prefixedTransactions = new HashMap<>();
+		prefixedTransactions = new HashMap<>(task.config().transactionsInProcessSize(), .7f);
 		this.bu = BinaryUtils.get(rdbmsInfo.littleEndian());
 		this.halfDoneRcm  = new TreeMap<>(new Comparator<Long>() {
 			@Override
