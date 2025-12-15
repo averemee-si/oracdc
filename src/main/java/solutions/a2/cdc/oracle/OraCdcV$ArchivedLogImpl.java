@@ -27,7 +27,7 @@ import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf;
+import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmtIntf;
 
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.PROCESS_ONLINE_REDO_LOGS_PARAM;
 
@@ -52,7 +52,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private final boolean callDbmsLogmnrAddLogFile;
 	private final boolean processOnlineRedoLogs;
 	private final int onlineRedoQueryMsMin;
-	private final OraCdcLogMinerMgmtIntf metrics;
+	private final OraCdcSourceConnMgmtIntf metrics;
 	private PreparedStatement psGetArchivedLogs;
 	private CallableStatement csAddArchivedLogs;
 	private CallableStatement csStartLogMiner;
@@ -72,7 +72,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
-			final OraCdcLogMinerMgmtIntf metrics, final long firstChange,
+			final OraCdcSourceConnMgmtIntf metrics, final long firstChange,
 			final OraCdcSourceConnectorConfig config,
 			final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo,

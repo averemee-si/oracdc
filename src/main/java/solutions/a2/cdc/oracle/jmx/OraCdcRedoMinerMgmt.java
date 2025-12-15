@@ -27,7 +27,7 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcRedoMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
+public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcSourceConnMgmtIntf {
 
 	private long totalRecordsCount = 0;
 	private long recordsRolledBackCount = 0;
@@ -93,7 +93,7 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcRedoMin
 	}
 	@Override
 	public String getCurrentlyProcessedRedoLog() {
-		return super.getNowProcessedArchiveLogsList().get(0);
+		return super.getNowProcessedRedoLogsList().get(0);
 	}
 	@Override
 	public long getCurrentFirstScn() {
@@ -130,7 +130,7 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcRedoMin
 		return super.getLastScn();
 	}
 	@Override
-	public String getLastProcessedArchivelogTime() {
+	public String getLastProcessedRedoLogTime() {
 		if (super.getLastRedoLogTime() != null) {
 			return super.getLastRedoLogTime().format(DateTimeFormatter.ISO_DATE_TIME);
 		} else {
@@ -284,11 +284,11 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcRedoMin
 	}
 
 	@Override
-	public long getNumBytesWrittenUsingChronicleQueue() {
+	public long getNumBytesWrittenUsingOffHeapMem() {
 		return bytesWrittenCQ;
 	}
 	@Override
-	public float getGiBWrittenUsingChronicleQueue() {
+	public float getGiBWrittenUsingOffHeapMem() {
 		if (bytesWrittenCQ == 0) {
 			return 0;
 		} else {

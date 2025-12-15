@@ -20,7 +20,7 @@ import java.util.List;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public interface OraCdcLogMinerMgmtIntf {
+public interface OraCdcSourceConnMgmtIntf {
 
 	public void start(long startScn);
 	public void setNowProcessed(

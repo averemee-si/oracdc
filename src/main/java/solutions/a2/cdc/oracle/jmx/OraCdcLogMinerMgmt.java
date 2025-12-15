@@ -27,7 +27,7 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMinerMgmtMBean, OraCdcLogMinerMgmtIntf {
+public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcSourceConnMgmtIntf {
 
 	private long totalRecordsCount = 0;
 	private long recordsRolledBackCount = 0;
@@ -92,8 +92,8 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 		super.setNowProcessed(nowProcessedArchiveLogs, currentFirstScn, currentNextScn, lagSeconds);
 	}
 	@Override
-	public String[] getNowProcessedArchivelogs() {
-		return super.getNowProcessedArchiveLogsList().toArray(new String[0]);
+	public String getCurrentlyProcessedRedoLog() {
+		return super.getNowProcessedRedoLogsList().get(0);
 	}
 	@Override
 	public long getCurrentFirstScn() {
@@ -110,19 +110,19 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 		super.addAlreadyProcessed(lastProcessed, count, size, redoReadMillis);
 	}
 	@Override
-	public String[] getLast100ProcessedArchivelogs() {
+	public String[] getLast100ProcessedRedoLogs() {
 		return super.getLastHundredProcessed().toArray(new String[0]);
 	}
 	@Override
-	public int getProcessedArchivelogsCount() {
+	public int getProcessedRedoLogsCount() {
 		return super.getProcessedArchivedRedoCount();
 	}
 	@Override
-	public float getProcessedArchivelogsSizeGb() {
+	public float getProcessedRedoLogsSizeGb() {
 		return Precision.round((float)((float)super.getProcessedArchivedRedoSize() / (float)(1024*1024*1024)), 3);
 	}
 	@Override
-	public String getLastProcessedArchivelog() {
+	public String getLastProcessedRedoLog() {
 		return super.getLastRedoLog();
 	}
 	@Override
@@ -130,7 +130,7 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 		return super.getLastScn();
 	}
 	@Override
-	public String getLastProcessedArchivelogTime() {
+	public String getLastProcessedRedoLogTime() {
 		if (super.getLastRedoLogTime() != null) {
 			return super.getLastRedoLogTime().format(DateTimeFormatter.ISO_DATE_TIME);
 		} else {
@@ -285,11 +285,11 @@ public class OraCdcLogMinerMgmt extends OraCdcMgmtBase implements OraCdcLogMiner
 	}
 
 	@Override
-	public long getNumBytesWrittenUsingChronicleQueue() {
+	public long getNumBytesWrittenUsingOffHeapMem() {
 		return bytesWrittenCQ;
 	}
 	@Override
-	public float getGiBWrittenUsingChronicleQueue() {
+	public float getGiBWrittenUsingOffHeapMem() {
 		if (bytesWrittenCQ == 0) {
 			return 0;
 		} else {

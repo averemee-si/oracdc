@@ -40,12 +40,12 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcMgmtBase {
+public abstract class OraCdcMgmtBase implements OraCdcSourceConnMgmtMBean {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcMgmtBase.class);
 
 	private List<String> tablesInProcessing = new ArrayList<>();
-	private List<String> nowProcessedArchivelogs;
+	private List<String> nowProcessedRedologs;
 	private LimitedSizeQueue<String> lastHundredProcessed = new LimitedSizeQueue<>(100);
 	private long currentFirstScn;
 	private long currentNextScn;
@@ -103,9 +103,9 @@ public class OraCdcMgmtBase {
 
 
 	public void setNowProcessed(
-			final List<String> nowProcessedArchiveLogs, final long currentFirstScn, final long currentNextScn,
+			final List<String> nowProcessedRedoLogs, final long currentFirstScn, final long currentNextScn,
 			final int lagSeconds) {
-		this.nowProcessedArchivelogs = nowProcessedArchiveLogs;
+		this.nowProcessedRedologs = nowProcessedRedoLogs;
 		this.currentFirstScn = currentFirstScn;
 		this.currentNextScn = currentNextScn;
 		this.lagSeconds = lagSeconds;
@@ -131,8 +131,8 @@ public class OraCdcMgmtBase {
 		}
 	}
 
-	public List<String> getNowProcessedArchiveLogsList() {
-		return nowProcessedArchivelogs;
+	public List<String> getNowProcessedRedoLogsList() {
+		return nowProcessedRedologs;
 	}
 
 	public LimitedSizeQueue<String> getLastHundredProcessed() {

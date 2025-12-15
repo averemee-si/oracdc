@@ -18,7 +18,7 @@ package solutions.a2.cdc.oracle.jmx;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public interface OraCdcRedoMinerMgmtMBean {
+public interface OraCdcSourceConnMgmtMBean {
 	public int getTablesInProcessingCount();
 	public int getPartitionsInProcessingCount();
 	public String[] getTablesInProcessing();
@@ -26,7 +26,7 @@ public interface OraCdcRedoMinerMgmtMBean {
 	public String getLastProcessedRedoLog();
 	public long getLastProcessedScn();
 	public long getLastProcessedSequence();
-	public String getLastProcessedArchivelogTime();
+	public String getLastProcessedRedoLogTime();
 	public int getTableOutOfScopeCount();
 	public String getCurrentlyProcessedRedoLog();
 	public long getCurrentFirstScn();
@@ -58,8 +58,8 @@ public interface OraCdcRedoMinerMgmtMBean {
 	public long getDdlElapsedMillis();
 	public String getDdlElapsed();
 
-	public long getNumBytesWrittenUsingChronicleQueue();
-	public float getGiBWrittenUsingChronicleQueue();
+	public long getNumBytesWrittenUsingOffHeapMem();
+	public float getGiBWrittenUsingOffHeapMem();
 	public long getMaxTransactionSizeBytes();
 	public float getMaxTransactionSizeMiB();
 	public int getMaxNumberOfTransInSendQueue();
