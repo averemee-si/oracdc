@@ -598,7 +598,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				.append("\n=====================\nTransaction prefix ")
 				.append(String.format("0x%04x", partial >> 16))
 				.append('.')
-				.append(String.format("0x%03x", Short.toUnsignedInt((short)partial)))
+				.append(String.format("%03x", Short.toUnsignedInt((short)partial)))
 				.append(" binding changed from ")
 				.append(prevXid.toString())
 				.append(" to ")
