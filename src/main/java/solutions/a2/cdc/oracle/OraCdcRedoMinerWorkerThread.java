@@ -35,7 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
-import solutions.a2.cdc.oracle.jmx.OraCdcRedoMinerMgmt;
+import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
@@ -71,7 +71,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private static final int SMALL_MAGIC_WAIT = 21;
 
 	private final OraCdcRedoMinerTask task;
-	private final OraCdcRedoMinerMgmt metrics;
+	private final OraCdcSourceConnMgmt metrics;
 	private boolean redoMinerReady = false;
 	private final OraRedoMiner redoMiner;
 	private Connection connDictionary;
@@ -102,7 +102,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final Map<Xid, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final Map<Integer, Integer> iotMapping,
-			final OraCdcRedoMinerMgmt metrics,
+			final OraCdcSourceConnMgmt metrics,
 			final boolean rewind) throws SQLException {
 		super(task.runLatch(), task.rdbmsInfo(), task.config(),
 				task.oraConnections(), committedTransactions);

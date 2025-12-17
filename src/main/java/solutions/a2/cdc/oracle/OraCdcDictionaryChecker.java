@@ -27,7 +27,7 @@ import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.jmx.OraCdcMgmtBase;
+import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_2396;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17002;
@@ -62,7 +62,7 @@ public class OraCdcDictionaryChecker {
 	private final boolean includeFilter;
 	private final Set<Integer> excludeObjIds;
 	private final boolean excludeFilter;
-	private final OraCdcMgmtBase metrics;
+	private final OraCdcSourceConnMgmt metrics;
 	private Connection connection;
 	private PreparedStatement psCheckTable;
 	private boolean logMiner;
@@ -72,7 +72,7 @@ public class OraCdcDictionaryChecker {
 			final Map<Long, OraTable> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final String checkTableSql,
-			final OraCdcMgmtBase metrics) throws SQLException {
+			final OraCdcSourceConnMgmt metrics) throws SQLException {
 		this(task, false, tablesInProcessing, tablesOutOfScope, checkTableSql, null, null, metrics);
 	}
 
@@ -84,7 +84,7 @@ public class OraCdcDictionaryChecker {
 			final String checkTableSql,
 			Set<Integer> includeObjIds,
 			Set<Integer> excludeObjIds,
-			final OraCdcMgmtBase metrics) throws SQLException {
+			final OraCdcSourceConnMgmt metrics) throws SQLException {
 		this.task = task;
 		this.staticObjIds = staticObjIds;
 		this.includeObjIds = includeObjIds;

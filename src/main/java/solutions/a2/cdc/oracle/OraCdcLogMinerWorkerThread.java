@@ -43,8 +43,7 @@ import org.slf4j.LoggerFactory;
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.CHAR;
-import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
-import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmtIntf;
+import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
@@ -68,7 +67,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private static final byte[] SQUEEZE_PATTERN = "HEXTORAW(".getBytes(US_ASCII);
 
 	private final OraCdcLogMinerTask task;
-	private final OraCdcLogMinerMgmt metrics;
+	private final OraCdcSourceConnMgmt metrics;
 	private boolean logMinerReady = false;
 	private final OraLogMiner logMiner;
 	private Connection connLogMiner;
@@ -104,7 +103,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final String mineDataSql,
 			final Map<String, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
-			final OraCdcLogMinerMgmt metrics) throws SQLException {
+			final OraCdcSourceConnMgmt metrics) throws SQLException {
 		super(task.runLatch(), task.rdbmsInfo(), task.config(), 
 				task.oraConnections(), committedTransactions);
 		LOGGER.info("Initializing oracdc LogMiner archivelog worker thread");
@@ -151,7 +150,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 				final Class<?> classLogMiner = Class.forName(archivedLogCatalogImplClass);
 				final Constructor<?> constructor = classLogMiner.getConstructor(
 						Connection.class,
-						OraCdcSourceConnMgmtIntf.class,
+						OraCdcSourceConnMgmt.class,
 						long.class,
 						OraCdcSourceConnectorConfig.class,
 						CountDownLatch.class,

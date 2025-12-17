@@ -31,7 +31,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.jmx.OraCdcRedoMinerMgmt;
+import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
@@ -53,7 +53,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerTask.class);
 
-	private OraCdcRedoMinerMgmt metrics;
+	private OraCdcSourceConnMgmt metrics;
 	private Map<Xid, OraCdcTransaction> activeTransactions;
 	private String checkTableSql;
 	private final OraCdcRedoMinerStatement stmt = new OraCdcRedoMinerStatement();
@@ -65,7 +65,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		config.logMiner(false);
 
 		try (Connection connDictionary = oraConnections.getConnection()) {
-			metrics = new OraCdcRedoMinerMgmt(rdbmsInfo, connectorName);
+			metrics = new OraCdcSourceConnMgmt(rdbmsInfo, connectorName, "RedoMiner-metrics");
 
 			List<String> excludeList = config.excludeObj();
 			List<String> includeList = config.includeObj();

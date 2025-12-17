@@ -39,7 +39,7 @@ import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSmbjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshtoolsMaverickFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
-import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmtIntf;
+import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.utils.BinaryUtils;
 
@@ -72,7 +72,7 @@ public class OraRedoMiner {
 	private long lastSequence = 0;
 	private final String connectorName;
 	private final int onlineRedoQueryMsMin;
-	private final OraCdcSourceConnMgmtIntf metrics;
+	private final OraCdcSourceConnMgmt metrics;
 	private PreparedStatement psGetArchivedLogs;
 	private PreparedStatement psUpToCurrentScn;
 	private long redoLogSize;
@@ -108,7 +108,7 @@ public class OraRedoMiner {
 
 	public OraRedoMiner(
 			final Connection connection,
-			final OraCdcSourceConnMgmtIntf metrics,
+			final OraCdcSourceConnMgmt metrics,
 			final Triple<Long, RedoByteAddress, Long> startFrom,
 			final OraCdcSourceConnectorConfig config,
 			final CountDownLatch runLatch,

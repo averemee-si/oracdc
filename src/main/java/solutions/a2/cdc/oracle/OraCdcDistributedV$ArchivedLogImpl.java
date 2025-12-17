@@ -40,8 +40,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
-import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmtIntf;
 import solutions.a2.cdc.oracle.jmx.OraCdcRedoShipment;
+import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -63,7 +63,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 	private long firstChange;
 	private long nextChange;	
 	private final String dbUniqueName;
-	private final OraCdcSourceConnMgmtIntf metrics;
+	private final OraCdcSourceConnMgmt metrics;
 	private CallableStatement csAddArchivedLogs;
 	private CallableStatement csStartLogMiner;
 	private CallableStatement csStopLogMiner;
@@ -77,7 +77,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 
 	public OraCdcDistributedV$ArchivedLogImpl(
 			final Connection connLogMiner,
-			final OraCdcSourceConnMgmtIntf metrics, final long firstChange,
+			final OraCdcSourceConnMgmt metrics, final long firstChange,
 			final OraCdcSourceConnectorConfig config,
 			final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo,

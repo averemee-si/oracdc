@@ -13,13 +13,29 @@
 
 package solutions.a2.cdc.oracle.jmx;
 
+import java.lang.management.ManagementFactory;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanRegistrationException;
+import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
+import javax.management.ObjectName;
+
 import org.apache.commons.math3.util.Precision;
+import org.apache.kafka.connect.errors.ConnectException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
+import solutions.a2.utils.ExceptionUtils;
 import solutions.a2.utils.OraCdcMBeanUtils;
 
 /**
@@ -27,7 +43,28 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcSourceConnMgmtIntf {
+public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
+
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnMgmt.class);
+
+	private List<String> tablesInProcessing = new ArrayList<>();
+	private List<String> nowProcessedRedologs;
+	private LimitedSizeQueue<String> lastHundredProcessed = new LimitedSizeQueue<>(100);
+	private long currentFirstScn;
+	private long currentNextScn;
+	private int processedArchivedRedoCount;
+	private long processedArchivedRedoSize;
+	private long startTimeMillis;
+	private LocalDateTime startTime;
+	private long startScn;
+	private String lastRedoLog;
+	private LocalDateTime lastRedoLogTime;
+	private long lastScn = 0;
+	private long redoReadTimeElapsed = 0;
+	private float redoReadMbPerSec = 0;
+	private int lagSeconds = -1;
+	private int partitionsCount = 0;
+	private int tableOutOfScopeCount = 0;
 
 	private long totalRecordsCount = 0;
 	private long recordsRolledBackCount = 0;
@@ -48,96 +85,124 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcSourceC
 	private int maxTransProcessingCount = 0;
 	private long lastProcessedSequence = 0;
 
-	public OraCdcRedoMinerMgmt(
-			final OraRdbmsInfo rdbmsInfo, final String connectorName) {
-		super(rdbmsInfo, connectorName, "RedoMiner-metrics");
+	public OraCdcSourceConnMgmt(
+			final OraRdbmsInfo rdbmsInfo, final String connectorName, final String jmxTypeName) {
+		final StringBuilder sb = new StringBuilder(96);
+		sb.append("solutions.a2.oracdc:type=");
+		sb.append(jmxTypeName);
+		sb.append(",name=");
+		sb.append(connectorName);
+		sb.append(",database=");
+		sb.append(rdbmsInfo.getInstanceName());
+		sb.append("_");
+		sb.append(rdbmsInfo.getHostName());
+		try {
+			final ObjectName name = new ObjectName(sb.toString());
+			final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+			if (mbs.isRegistered(name)) {
+				LOGGER.warn("JMX MBean {} already registered, trying to remove it.", name.getCanonicalName());
+				try {
+					mbs.unregisterMBean(name);
+				} catch (InstanceNotFoundException nfe) {
+					LOGGER.error("Unable to unregister MBean {}", name.getCanonicalName());
+					LOGGER.error(ExceptionUtils.getExceptionStackTrace(nfe));
+					throw new ConnectException(nfe);
+				}
+			}
+			mbs.registerMBean(this, name);
+		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
+			LOGGER.error("Unable to register MBean {} !!! ", sb.toString());
+			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
+			throw new ConnectException(e);
+		}
 	}
 
-	@Override
 	public void start(long startScn) {
-		super.start(startScn);
-	}
-	@Override
-	public String getStartTime() {
-		return super.getStartTimeLdt().format(DateTimeFormatter.ISO_DATE_TIME);
+		this.startTimeMillis = System.currentTimeMillis();
+		this.startTime = LocalDateTime.now();
+		this.startScn = startScn;
 	}
 	@Override
 	public long getStartScn() {
-		return super.getStartScn();
+		return startScn;
+	}
+	@Override
+	public String getStartTime() {
+		return startTime.format(DateTimeFormatter.ISO_DATE_TIME);
 	}
 
-	@Override
-	public int getTablesInProcessingCount() {
-		return tablesInProcessing().size();
-	}
-	@Override
-	public String[] getTablesInProcessing() {
-		return tablesInProcessing().toArray(new String[0]);
-	}
-
-	@Override
-	public int getTableOutOfScopeCount() {
-		return tableOutOfScopeCount();
-	}
-
-	@Override
-	public int getPartitionsInProcessingCount() {
-		return partitionsCount();
-	}
-
-	@Override
 	public void setNowProcessed(
-			final List<String> nowProcessedArchiveLogs, final long currentFirstScn, final long currentNextScn,
+			final List<String> nowProcessedRedoLogs, final long currentFirstScn, final long currentNextScn,
 			final int lagSeconds) {
-		super.setNowProcessed(nowProcessedArchiveLogs, currentFirstScn, currentNextScn, lagSeconds);
+		this.nowProcessedRedologs = nowProcessedRedoLogs;
+		this.currentFirstScn = currentFirstScn;
+		this.currentNextScn = currentNextScn;
+		this.lagSeconds = lagSeconds;
 	}
 	@Override
 	public String getCurrentlyProcessedRedoLog() {
-		return super.getNowProcessedRedoLogsList().get(0);
+		return nowProcessedRedologs.get(0);
 	}
 	@Override
 	public long getCurrentFirstScn() {
-		return super.getCurrentFirstScn();
+		return currentFirstScn;
 	}
 	@Override
 	public long getCurrentNextScn() {
-		return super.getCurrentNextScn();
+		return currentNextScn;
 	}
 
-	@Override
 	public void addAlreadyProcessed(final List<String> lastProcessed, final int count, final long size,
 			final long redoReadMillis) {
-		super.addAlreadyProcessed(lastProcessed, count, size, redoReadMillis);
+		final int listSize = lastProcessed.size();
+		for (int i = 0; i < listSize; i++) {
+			lastHundredProcessed.add(lastProcessed.get(i));
+		}
+		processedArchivedRedoCount += count;
+		processedArchivedRedoSize += size;
+		lastRedoLog = lastProcessed.get(listSize - 1);
+		lastRedoLogTime = LocalDateTime.now();
+		lastScn = currentNextScn;
+		currentFirstScn = 0;
+		currentNextScn = 0;
+		redoReadTimeElapsed += redoReadMillis;
+		if (redoReadTimeElapsed != 0) {
+			float seconds = redoReadTimeElapsed / 1000;
+			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
+		}
 	}
 	@Override
 	public String[] getLast100ProcessedRedoLogs() {
-		return super.getLastHundredProcessed().toArray(new String[0]);
+		return lastHundredProcessed.toArray(new String[0]);
 	}
 	@Override
 	public int getProcessedRedoLogsCount() {
-		return super.getProcessedArchivedRedoCount();
+		return processedArchivedRedoCount;
 	}
 	@Override
 	public float getProcessedRedoLogsSizeGb() {
-		return Precision.round((float)((float)super.getProcessedArchivedRedoSize() / (float)(1024*1024*1024)), 3);
+		return Precision.round((float)((float)processedArchivedRedoSize / (float)(1024*1024*1024)), 3);
 	}
 	@Override
 	public String getLastProcessedRedoLog() {
-		return super.getLastRedoLog();
+		return lastRedoLog;
 	}
 	@Override
 	public long getLastProcessedScn() {
-		return super.getLastScn();
+		return lastScn;
 	}
 	@Override
 	public String getLastProcessedRedoLogTime() {
-		if (super.getLastRedoLogTime() != null) {
-			return super.getLastRedoLogTime().format(DateTimeFormatter.ISO_DATE_TIME);
+		if (lastRedoLog != null) {
+			return lastRedoLogTime.format(DateTimeFormatter.ISO_DATE_TIME);
 		} else {
 			return null;
 		}
 	}
 
+	public void addRecord() {
+		totalRecordsCount++;
+	}
 	@Override
 	public long getTotalRecordsCount() {
 		return totalRecordsCount;
@@ -226,37 +291,73 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcSourceC
 		return parsePerSecond;
 	}
 
+	public void setCurrentFirstScn(long currentFirstScn) {
+		this.currentFirstScn = currentFirstScn;
+	}
+
+	public long getStartTimeMillis() {
+		return startTimeMillis;
+	}
+
 	@Override
 	public long getRedoReadElapsedMillis() {
-		return super.getRedoReadTimeElapsed();
+		return redoReadTimeElapsed;
 	}
 	@Override
 	public String getRedoReadElapsed() {
-		final Duration duration = Duration.ofMillis(super.getRedoReadTimeElapsed());
+		final Duration duration = Duration.ofMillis(redoReadTimeElapsed);
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 	@Override
 	public float getRedoReadMbPerSecond() {
-		return super.getRedoReadMbPerSec();
+		return redoReadMbPerSec;
 	}
+
+	public void addPartitionInProcessing() {
+		partitionsCount++;
+	}
+	@Override
+	public int getPartitionsInProcessingCount() {
+		return partitionsCount;
+	}
+
+	public void addTableInProcessing(final String tableName) {
+		tablesInProcessing.add(tableName);
+	}
+	@Override
+	public int getTablesInProcessingCount() {
+		return tablesInProcessing.size();
+	}
+	@Override
+	public String[] getTablesInProcessing() {
+		return tablesInProcessing.toArray(new String[0]);
+	}
+
+	public void addTableOutOfScope() {
+		tableOutOfScopeCount++;
+	}
+	@Override
+	public int getTableOutOfScopeCount() {
+		return tableOutOfScopeCount;
+	}
+
 
 	@Override
 	public long getElapsedTimeMillis() {
-		return System.currentTimeMillis() - super.getStartTimeMillis();
+		return System.currentTimeMillis() - startTimeMillis;
 	}
 	@Override
 	public String getElapsedTime() {
-		final Duration duration = Duration.ofMillis(System.currentTimeMillis() - super.getStartTimeMillis());
+		final Duration duration = Duration.ofMillis(System.currentTimeMillis() - startTimeMillis);
 		return OraCdcMBeanUtils.formatDuration(duration);
 	}
 
 	@Override
 	public int getActualLagSeconds() {
-		return super.getLagSeconds();
+		return lagSeconds;
 	}
 	@Override
 	public String getActualLagText() {
-		int lagSeconds = super.getLagSeconds();
 		if (lagSeconds > -1) {
 			final Duration duration = Duration.ofSeconds(lagSeconds); 
 			return OraCdcMBeanUtils.formatDuration(duration);
@@ -264,6 +365,7 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcSourceC
 			return "";
 		}
 	}
+
 
 	public void addDdlMetrics(final int ddlCount, final long ddlElapsed) {
 		ddlColumnsCount += ddlCount;
@@ -295,7 +397,6 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcSourceC
 			return Precision.round((bytesWrittenCQ / (1024 * 1024 * 1024)), 3);
 		}
 	}
-
 	@Override
 	public long getMaxTransactionSizeBytes() {
 		return maxTransSizeBytes;
@@ -329,9 +430,7 @@ public class OraCdcRedoMinerMgmt extends OraCdcMgmtBase implements OraCdcSourceC
 	public long getLastProcessedSequence() {
 		return lastProcessedSequence;
 	}
-	@Override
 	public void setLastProcessedSequence(final long lastProcessedSequence) {
 		this.lastProcessedSequence = lastProcessedSequence;
 	}
-
 }

@@ -29,7 +29,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmt;
+import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
@@ -43,7 +43,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerTask.class);
 
-	private OraCdcLogMinerMgmt metrics;
+	private OraCdcSourceConnMgmt metrics;
 	private Map<String, OraCdcTransaction> activeTransactions;
 	private final OraCdcLogMinerStatement stmt = new OraCdcLogMinerStatement();
 	private final List<OraCdcLargeObjectHolder> lobs = new ArrayList<>();
@@ -56,7 +56,6 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 
 		try (Connection connDictionary = oraConnections.getConnection()) {
 
-			metrics = new OraCdcLogMinerMgmt(rdbmsInfo, connectorName);
 			OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
 
 			List<String> excludeList = config.excludeObj();
@@ -227,6 +226,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 			boolean rewind = startPosition(coords);
 			activeTransactions = new HashMap<>();
 
+			metrics = new OraCdcSourceConnMgmt(rdbmsInfo, connectorName, "LogMiner-metrics");
 			checker = new OraCdcDictionaryChecker(this,
 					tablesInProcessing, tablesOutOfScope, checkTableSql, metrics);
 
