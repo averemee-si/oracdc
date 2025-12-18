@@ -58,7 +58,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
-import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.oracle.utils.FormattingUtils;
@@ -461,30 +460,6 @@ public class OraCdcRedoRecord implements Comparator<OraCdcRedoRecord> {
 				return 0;
 		} else
 			return 0;
-	}
-
-	public RowId rowid() {
-		if (has5_1() && has11_x()) {
-			final OraCdcChangeUndoBlock change = (OraCdcChangeUndoBlock) changeVectors.get(indKTURDB);
-			if (change.supplementalSlot > -1)
-				return new RowId(
-					change.dataObj,
-					change.supplementalBdba,
-					change.supplementalSlot);
-			else
-				return new RowId(
-					change.dataObj,
-					change.bdba,
-					change.slot);
-		} else if (hasPrb() && has11_x()) {
-			final OraCdcChange rowChange = changeVectors.get(indKCOCODRW);
-			return new RowId(
-					changeVectors.get(indKTUIRB).dataObj,
-					rowChange.bdba,
-					rowChange.slot);
-		} else {
-			return RowId.ZERO;
-		}
 	}
 
 	public long scn() {

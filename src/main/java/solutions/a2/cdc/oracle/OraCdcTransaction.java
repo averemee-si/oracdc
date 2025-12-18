@@ -711,6 +711,7 @@ public abstract class OraCdcTransaction {
 				final var halfDoneRow =  deque.peekFirst();
 				if (halfDoneRow != null && halfDoneRow.lmOp == UPDATE && flgCompleted(rr.change5_1().supplementalFb())) {
 					halfDoneRow.complete = true;
+					halfDoneRow.flags &= ~FLG_OPPOSITE_ORDER;
 					halfDoneRow.add(rr);
 					emitRowChange(halfDoneRow, lwnUnixMillis);
 					deque.removeFirst();
@@ -919,7 +920,7 @@ public abstract class OraCdcTransaction {
 					row.lmOp = UPDATE;
 					if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 						row.complete = true;
-					else if (!flgHeadPart(undoChange.fb()))
+					else if (flgLastPart(undoChange.fb()))
 						row.flags |= FLG_OPPOSITE_ORDER;
 					setlmOp = false;
 				} else if (undoChange.supplementalDataFor() == SUPPL_LOG_DELETE) {
@@ -1624,39 +1625,43 @@ public abstract class OraCdcTransaction {
 			redoBytes = baos.toByteArray();
 		}
 
-		final OraCdcRedoRecord last = row.last();
 		final OraCdcChangeUndo change;
+		final OraCdcRedoMinerStatement orm;
+		final boolean prb;
+		final RowId rowId;
 		if ((row.flags & FLG_OPPOSITE_ORDER) > 0) {
+			final OraCdcRedoRecord last = row.last();
 			if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
 				change = last.changePrb();
+				rowId = change.rowId(last.rowChange());
+				prb = true;
 			} else {
 				change = last.change5_1();
+				rowId = change.rowId();
+				prb = false;
 			}
-		} else {
-			if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
-				change = first.changePrb();
-			} else {
-				change = first.change5_1();
-			}
-		}
-
-		final OraCdcRedoMinerStatement orm;
-		if ((row.flags & FLG_OPPOSITE_ORDER) > 0)
 			orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					row.lmOp, redoBytes,
 					lwnUnixMillis, last.scn(), row.rba,
-					(long) last.subScn(),
-					last.rowid(),
-					(row.flags & FLG_PARTIAL_ROLLBACK) > 0);
-		else
+					(long) last.subScn(), rowId, prb);
+		} else {
+			if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
+				change = first.changePrb();
+				rowId = change.rowId(first.rowChange());
+				prb = true;
+			} else {
+				change = first.change5_1();
+				rowId = ((OraCdcChangeUndoBlock) change).supplementalRowId();
+				prb = false;
+			}
 			orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					row.lmOp, redoBytes,
 					lwnUnixMillis, first.scn(), row.rba,
-					(long) first.subScn(),
-					first.rowid(),
-					(row.flags & FLG_PARTIAL_ROLLBACK) > 0);
+					(long) first.subScn(), rowId, prb);
+		}
+
 		this.addStatement(orm);
 		if (LOGGER.isTraceEnabled())
 			LOGGER.trace("Statement created:\n\t{}" + orm.getSqlRedo());

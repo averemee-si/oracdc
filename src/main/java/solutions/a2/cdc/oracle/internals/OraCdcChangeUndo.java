@@ -16,6 +16,7 @@ package solutions.a2.cdc.oracle.internals;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.UndoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.FormattingUtils;
@@ -134,6 +135,14 @@ public class OraCdcChangeUndo extends OraCdcChange {
 			break;
 		}
 		return sb;
+	}
+
+	public RowId rowId() {
+		return new RowId(dataObj, bdba, slot);
+	}
+
+	public RowId rowId(OraCdcChange rowChange) {
+		return new RowId(dataObj, rowChange.bdba, rowChange.slot);
 	}
 
 	void ktub(final int index, boolean partialRollback) {

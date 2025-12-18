@@ -19,6 +19,7 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.Xid;
 
 import static solutions.a2.oracle.utils.BinaryUtils.putOraColSize;
@@ -511,6 +512,13 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 	public boolean supplementalLogData() {
 		return supplementalLogData;
+	}
+
+	public RowId supplementalRowId() {
+		if (supplementalSlot > -1)
+			return new RowId(dataObj, supplementalBdba, supplementalSlot);
+		else
+			return new RowId(dataObj, bdba, slot);
 	}
 
 }
