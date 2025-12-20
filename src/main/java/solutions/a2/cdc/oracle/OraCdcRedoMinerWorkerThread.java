@@ -40,6 +40,7 @@ import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.BinaryUtils;
+import solutions.a2.oracle.utils.FormattingUtils;
 import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
@@ -605,39 +606,27 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				.append(xid.toString())
 				.append(" at RBA ")
 				.append(rba.toString());
-			if (committedTransactions.size() > 0) {
-				sb.append("\n\nList of transactions ready to be sent to Kafka (XID, FIRST_CHANGE#, COMMIT_SCN#, NUMBBER_OF_CHANGES, SIZE_IN_BYTES)");
-				Iterator<OraCdcTransaction> iterator = committedTransactions.iterator();
-				while (iterator.hasNext()) {
-					final OraCdcTransaction t = iterator.next();
-					sb
-						.append("\n\t")
-						.append(t.getXid().toString())
-						.append('\t')
-						.append(t.getFirstChange())
-						.append('\t')
-						.append(t.getCommitScn())
-						.append('\t')
-						.append(t.length())
-						.append('\t')
-						.append(t.size());
-				}
-			}
 			sb.append(printHalfDoneRcmContents());
 			if (activeTransactions.size() > 0) {
 				sb.append("\n\nList of transactions in progress (XID, FIRST_CHANGE#, NEXT_CHANGE#, NUMBBER_OF_CHANGES, SIZE_IN_BYTES)");
+				final var sbPrefix = new StringBuilder();
+				sbPrefix.append("0x");
+				FormattingUtils.leftPad(sbPrefix, prevXid.usn(), 4);
+				sbPrefix.append('.');
+				FormattingUtils.leftPad(sbPrefix, prevXid.slt(), 3);
 				for (final OraCdcTransaction t : activeTransactions.values()) {
-					sb
-						.append("\n\t")
-						.append(t.getXid().toString())
-						.append('\t')
-						.append(t.getFirstChange())
-						.append('\t')
-						.append(t.getNextChange())
-						.append('\t')
-						.append(t.length())
-						.append('\t')
-						.append(t.size());
+					if (Strings.CI.startsWith(t.getXid(), sbPrefix.toString()))
+						sb
+							.append("\n\t")
+							.append(t.getXid().toString())
+							.append('\t')
+							.append(t.getFirstChange())
+							.append('\t')
+							.append(t.getNextChange())
+							.append('\t')
+							.append(t.length())
+							.append('\t')
+							.append(t.size());
 				}
 			}
 			sb.append("\n=====================\n");
