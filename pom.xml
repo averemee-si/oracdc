@@ -16,7 +16,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>solutions.a2.oracle</groupId>
 	<artifactId>oracdc-kafka</artifactId>
-	<version>2.13.0</version>
+	<version>2.13.1</version>
 	<packaging>jar</packaging>
 	<inceptionYear>2018</inceptionYear>
 
@@ -247,7 +247,7 @@
 			<artifactId>maverick-synergy-client</artifactId>
 			<version>${maverick.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/com.hierynomus/sshj -->
+		<!-- https://mvnrepository.com/artifact/com.hierynomus/sshj --> 
 		<dependency>
 			<groupId>com.hierynomus</groupId>
 			<artifactId>sshj</artifactId>
@@ -258,6 +258,12 @@
 			<groupId>com.hierynomus</groupId>
 			<artifactId>smbj</artifactId>
 			<version>${smbj.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.bouncycastle</groupId>
+					<artifactId>bcprov-jdk18on</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.bouncycastle/bcprov-jdk18on -->
 		<dependency>
@@ -287,16 +293,18 @@
 
 	<dependencyManagement>
 		<dependencies>
+			<!-- https://mvnrepository.com/artifact/com.hierynomus/sshj
 			<dependency>
 				<groupId>com.hierynomus</groupId>
 				<artifactId>sshj</artifactId>
+				<version>${sshj.version}</version>
 				<exclusions>
 					<exclusion>
 						<groupId>org.bouncycastle</groupId>
 						<artifactId>bcprov-jdk18on</artifactId>
 					</exclusion>
 				</exclusions>
-			</dependency>
+			</dependency> -->
 		</dependencies>
 	</dependencyManagement>
 
