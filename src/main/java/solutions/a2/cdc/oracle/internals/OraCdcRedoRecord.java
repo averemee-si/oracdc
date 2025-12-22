@@ -50,7 +50,6 @@ import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -74,7 +73,7 @@ import solutions.a2.oracle.utils.FormattingUtils;
  *
  */
 
-public class OraCdcRedoRecord implements Comparator<OraCdcRedoRecord> {
+public class OraCdcRedoRecord implements Comparable<OraCdcRedoRecord> {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoRecord.class);
 
@@ -597,12 +596,13 @@ public class OraCdcRedoRecord implements Comparator<OraCdcRedoRecord> {
 	}
 
 	@Override
-	public int compare(OraCdcRedoRecord first, OraCdcRedoRecord second) {
-		var scnCompare = Long.compareUnsigned(first.scn, second.scn);
+	public int compareTo(OraCdcRedoRecord other) {
+		var scnCompare = Long.compareUnsigned(this.scn, other.scn);
 		if (scnCompare == 0)
-			return ((int)first.subScn & 0xFFFF) - ((int)second.subScn & 0xFFFF);
+			return ((int)this.subScn & 0xFFFF) - ((int)other.subScn & 0xFFFF);
 		else
 			return scnCompare;
+		
 	}
 
 }
