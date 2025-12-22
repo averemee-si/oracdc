@@ -1,0 +1,492 @@
+=== solutions.a2.cdc.oracle.OraCdcLogMinerConnector
+
+This Source Connector uses https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html[Oracle LogMiner] as source for data changes.
+Connector is designed to minimize the side effects of using Oracle LogMiner, even for Oracle RDBMS versions with *DBMS_LOGMNR.CONTINUOUS_MINE* feature support
+*solutions.a2.cdc.oracle.OraCdcLogMinerConnector* does not use it. Instead, *solutions.a2.cdc.oracle.OraCdcLogMinerConnector* reads *V$LOGMNR_CONTENTS* and saves information when *V$LOGMNR_CONTENTS.OPERATION in ('`INSERT`', '`DELETE`', '`UPDATE`')* in Java off-heap memory structures provided by https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue]. This approach minimizes the load on the Oracle database server, but requires additional disk space on the server with *oracdc* installed. Since version *2.0*, the connector supports online redo log processing when `a2.process.online.redo.logs` is set to *true*. Starting from version *1.5* in addition to https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue], the use of Java Heap Structures is also supported. Large object operations are not supported in this mode, but you do not need any disk space to store the https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] in memory-mapped files. To enable this mode you need to set `a2.transaction.implementation=ArrayList` and also you need to set Java heap size to the appropriate value using JVM https://docs.oracle.com/en/java/javase/17/docs/specs/man/java.html[-Xmx]
+option.
+
+*solutions.a2.cdc.oracle.OraCdcLogMinerConnector* connects to the following configurations of Oracle RDBMS:
+1. Standalone instance, or Primary Database of Oracle DataGuard Cluster/Oracle Active DataGuard Cluster, i.e. *V$DATABASE.OPEN_MODE = READ WRITE*
+2. Physical Standby Database of Oracle **Active DataGuard** cluster, i.e. *V$DATABASE.OPEN_MODE = READ ONLY*
+3. Physical Standby Database of Oracle *DataGuard* cluster, i.e. *V$DATABASE.OPEN_MODE = MOUNTED*. In this mode, a physical standby database is used to retrieve data using LogMiner and connection to primary database is used to perform strictly limited number of queries to data dictionary. When running against single instance physical standby for Oracle RAC connector automatically detects opened redo threads and starts required number of connector tasks (max.tasks parameter must be equal to or greater than the number of redo threads). This option allows you to promote a physical standby database to source of replication, eliminates LogMiner overhead from primary database, and decreases TCO of Oracle Database.
+4. Running in distributed configuration when the source database generates redo log files and also contains a dictionary and target database is a compatible mining database (see Figure 25-1 in https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html[Using LogMiner to Analyze Redo Log Files]). *N.B.* Currently only non-CDB distributed database configuration has been tested, tests for CDB distributed database configuration are in progress now.
+5. https://www.oracle.com/database/real-application-clusters/[Oracle RAC] Database. For a detailed description of how to configure *solutions.a2.cdc.oracle.OraCdcLogMinerConnector* to work with https://www.oracle.com/database/real-application-clusters/[Oracle RAC] please see https://github.com/averemee-si/oracdc/wiki/What-about-Oracle-RAC%3F[What about Oracle RAC?].
+
+==== Oracle Database SecureFiles and Large Objects including SYS.XMLTYPE
+
+Oracle Database SecureFiles and Large Objects i.e. LOB’s are supported from v0.9.7 when parameter `a2.process.lobs` set to true. CLOB type supported only for columns with *DBA_LOBS.FORMAT='`ENDIAN NEUTRAL`'*. If you need support for CLOB columns with *DBA_LOBS.FORMAT='`ENDIAN SPECIFIC`'* please send us an email at oracle@a2.solutions.
+SYS.XMLTYPE data are supported from v0.9.8.2 when parameter `a2.process.lobs` set to true. For processing LOB’s and SYS.XMLTYPE please do not forget to set Apache Kafka parameters according to size of LOB’s:
+1. For Source connector:
+_producer.max.request.size_
+2. For broker: _replica.fetch.max.bytes_ and _message.max.bytes_
+
+===== Large objects (BLOB/CLOB/NCLOB/XMLTYPE) operations LOB++_++TRIM and LOB++_++ERASE
+
+https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html[Oracle LogMiner] generate unparseable (at moment) output when operates without connection to dictionary. Currently *oracdc* ignores these operations. Starting from *oracdc* v1.2.2 additional debug information about these operations is printed to log. If you need support for these operations please send us an email at oracle@a2.solutions
+
+===== Large objects (BLOB/CLOB/NCLOB/XMLTYPE) transformation feature (oracdc 0.9.8.3{plus})
+
+Apache Kafka is not meant to handle large messages with size over 1MB. But Oracle RDBMS often is used as storage for unstructured information too. For breaking this barrier we designed LOB transformation features.
+Imagine that you have a table with following structure
+
+----
+describe APPLSYS.FND_LOBS
+Name                                      Null?    Type
+ ----------------------------------------- -------- ----------------
+ FILE_ID                                   NOT NULL NUMBER
+ FILE_NAME                                          VARCHAR2(256)
+ FILE_CONTENT_TYPE                         NOT NULL VARCHAR2(256)
+ FILE_DATA                                          BLOB
+ UPLOAD_DATE                                        DATE
+ EXPIRATION_DATE                                    DATE
+ PROGRAM_NAME                                       VARCHAR2(32)
+ PROGRAM_TAG                                        VARCHAR2(32)
+ LANGUAGE                                           VARCHAR2(4)
+ ORACLE_CHARSET                                     VARCHAR2(30)
+ FILE_FORMAT                               NOT NULL VARCHAR2(10)
+----
+
+and you need the data in this table including BLOB column `FILE_DATA` in the reporting subsystem, which is implemented in different database management system with limited large object support like https://docs.snowflake.com/en/sql-reference/data-types-unsupported.html[Snowflake] and you have very strict constraints for traffic through Apache Kafka brokers. The best way to solve the problem is in https://en.wikipedia.org/wiki/Render_unto_Caesar[Reddite quae sunt Caesaris Caesari et quae sunt Dei Deo] where RDBMS will perform all data manipulation and https://en.wikipedia.org/wiki/Object_storage[object storage] will be used for storing large objects instead of storing it in BLOB column `FILE_DATA`. To achieve this:
+
+1. Create transformation implementation class
+
+----
+package com.example.oracdc;
+
+import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
+// more imports required
+
+public class TransformScannedDataInBlobs implements OraCdcLobTransformationsIntf {
+
+    @Override
+    public Schema transformSchema(String pdbName, String tableOwner, String tableName, OraColumn lobColumn,
+            SchemaBuilder valueSchema) {
+        if ("FND_LOBS".equals(tableName) &&
+                "FILE_DATA".equals(lobColumn.getColumnName())) {
+            final SchemaBuilder transformedSchemaBuilder = SchemaBuilder
+                    .struct()
+                    .optional()
+                    .name(lobColumn.getColumnName())
+                    .version(1);
+            transformedSchemaBuilder.field("S3_URL", Schema.OPTIONAL_STRING_SCHEMA);
+            valueSchema.field(lobColumn.getColumnName(), transformedSchemaBuilder.build());
+            return transformedSchemaBuilder.build();
+        } else {
+            return OraCdcLobTransformationsIntf.super.transformSchema(
+                    pdbName, tableOwner, tableName, lobColumn,valueSchema);
+        }
+    }
+
+    @Override
+    public Struct transformData(String pdbName, String tableOwner, String tableName, OraColumn lobColumn, byte[] content, Struct keyStruct, Schema valueSchema) {
+        if ("FND_LOBS".equals(tableName) &&
+                "FILE_DATA".equals(lobColumn.getColumnName())) {
+                final Struct valueStruct = new Struct(valueSchema);
+                // ...
+                final String s3ObjectKey = <SOME_INIQUE_S3_OBJECT_KEY_USING_KEY_STRUCT>
+                // ...
+                final S3Client s3Client = S3Client
+                                        .builder()
+                                        .region(<VALID_AWS_REGION>)
+                                        .build();
+                final PutObjectRequest por = PutObjectRequest
+                                        .builder()
+                                        .bucket(<VALID_S3_BUCKET>)
+                                        .key(s3ObjectKey)
+                                        .build();
+                s3Client.putObject(por, RequestBody.fromBytes(content));
+                // ...
+                
+                valueStruct.put("S3_URL", s3ObjectKey);
+                return valueStruct;
+        }
+        return null;
+    }
+}
+----
+
+2. Set required connector parameters
+
+----
+a2.process.lobs=true
+a2.lob.transformation.class=com.example.oracdc.TransformScannedDataInBlobs
+----
+
+==== DDL Support and schema evolution
+
+The following https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88[Data Definition Language (DDL)] clauses of https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-TABLE.html#GUID-552E7373-BF93-477D-9DA3-B2C9386F2877[ALTER TABLE] command are currently supported:
+
+----
+1. add column(s)
+2. modify column(s)
+3. drop column(s)
+4. rename column
+5. set unused column(s)
+----
+
+To ensure compatibility with https://docs.confluent.io/current/schema-registry/avro.html#schema-evolution[Schema Evolution] the following algorithm is used:
+
+1. When *oracdc* first encounters an operation on a table in the redo logs, information about the table is read from the https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-dictionary-and-dynamic-performance-views.html#GUID-9B9ABE1C-A1E3-464F-8936-978250DC3E1F[data dictionary]. Two schemas are created: immutable key schema with unique
+identifier *[PDB_NAME:]OWNER.TABLE_NAME.Key, version=1* and mutable value schema with unique identifier *[PDB_NAME:]OWNER.TABLE_NAME.Value, version=1*.
+2. After successful parsing of https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Types-of-SQL-Statements.html#GUID-FD9A8CB4-6B9A-44E5-B114-EFB8DA76FC88[DDL] and comparison of columns definition before and after, value schema gets an incremented version number.
+
+==== RDBMS errors resiliency and connection retry back-off
+
+*oracdc* is resilient to Oracle database shutdown and/or restart while performing https://docs.oracle.com/en/database/oracle/oracle-database/23/arpls/DBMS_LOGMNR.html#GUID-30C5D959-C0A0-4591-9FBA-F57BC72BBE2F[DBMS_LOGMNR.ADD_LOGFILE] call or waiting for a new archived redo log. ORA-17410 ("`No more data read from socket`") is intercepted and an attempt to reconnect is made after fixed backoff time specified by parameter `a2.connection.backoff`
+
+==== Known issues
+
+1. Zillions of messages (for every Oracle database transaction)
+
+----
+[2023-12-15 12:00:41,214] INFO [oracdc-test|task-0] Took 0.371 ms to pollDiskSpace for /tmp/7F00180051B30100.9949840719368541210 (net.openhft.chronicle.threads.DiskSpaceMonitor:56)
+----
+
+in connect.log. These messages are generated by https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue’s] https://github.com/OpenHFT/Chronicle-Threads/blob/develop/src/main/java/net/openhft/chronicle/threads/DiskSpaceMonitor.java[DiskSpaceMonitor]. To completely disable this diagnostic output, set
+
+----
+export KAFKA_OPTS="-Dchronicle.disk.monitor.disable=true ${KAFKA_OPTS}"
+----
+
+for the JVM running Kafka Connect. If you are interested in the statistics of waits related to memory mapped files but want to set a different threshold (default is 250 milliseconds), then set (example below is for threshold of 500 milliseconds)
+
+----
+export KAFKA_OPTS="-Dchronicle.disk.monitor.warn.threshold.us=500 ${KAFKA_OPTS}"
+----
+
+
+2. The default *oracdc* option https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] for processing Oracle transaction information https://github.com/OpenHFT Chronicle-Queue/blob/ea/DISCLAIMER.adoc[collects statistics]. If you do not consent you can do either of the following:
+
+
+2.1. Switch from using https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] to use Java Heap Structures by setting `a2.transaction.implementation=ArrayList` together with proper sizing of Java Heap Size using JVM https://docs.oracle.com/en/java/javase/17/docs/specs/man/java.html[-Xmx] option.
+
+*OR*
+
+2.2. Follow https://github.com/OpenHFT/Chronicle-Queue/blob/ea/DISCLAIMER.adoc[instructions from Chronicle]
+
+3. Excessive LogMiner output in alert.log - please see Oracle Support Services Notes
+https://support.oracle.com/rs?type=doc&id=1632209.1[LOGMINER: SummaryFor Session# = nnn in 11g (Doc ID 1632209.1)] and https://support.oracle.com/rs?type=doc&id=1485217.1[Alert.log Messages'`LOGMINER: krvxpsr summary`' (Doc ID 1485217.1)]
+
+==== Performance tips
+
+1. If you do not use archivelogs as a source of database user activity audit information, consider setting Oracle RDBMS hidden parameter **_transaction_auditing** to *false* after consulting a https://www.oracle.com/support/[Oracle Support Services]
+2. Always try to set up *supplemental logging* at the table level, and not for all database objects
+3. Proper file system parameters and sizing for path where https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] objects reside.
+4. Proper open files hard and soft limits for OS user running *oracdc*
+5. To determine source of bottleneck set parameter `a2.logminer.trace` to true and analyze waits at Oracle RDBMS side using data from trace file (*tracefile_identifier='`oracdc`'*)
+6. For optimizing network transfer consider increasing SDU (Ref.: https://docs.oracle.com/en/database/oracle/oracle-database/23/netag/optimizing-performance.html[Database Net Services Administrator’s Guide&#44; Chapter 14 "`Optimizing Performance`"]). Also review Oracle Support Services Note
+2652240.1 https://support.oracle.com/epmos/faces/DocumentDisplay?id=2652240.1[SDU Ignored By The JDBC Thin Client Connection]. Example listener.ora with SDU set:
+
+----
+LISTENER =
+(DESCRIPTION_LIST =
+  (DESCRIPTION =
+    (SDU = 2097152)
+    (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 0.0.0.0)(PORT = 1521))
+  )
+)
+----
+
+Example sqlnet.ora with SDU set:
+
+----
+DEFAULT_SDU_SIZE = 2097152
+----
+
+Example jdbc connect string with SDU set:
+
+----
+jdbc:oracle:thin:@(description=(sdu=2097152)(address=(protocol=tcp)(host=oratest01)(port=1521))(connect_data=(server=dedicated)(service_name=KAFKA)))
+----
+
+While setting SDU always check live settings using listener trace set to
+*admin* level. For example:
+
+----
+cd <LISTENER_TRACE_DIR>
+lsnrctl set trc_level admin
+grep nsconneg `lsnrctl show trc_file | grep "set to" | awk {'print $6'}`
+----
+
+7. Refer to link:JMX-METRICS.adoc[JMX-METRICS.adoc]. Depending on structure of your data try increasing value of `a2.fetch.size` parameter (default fetch size - 32 rows). Although some documents recommend changing the setting of
+`_log_read_buffers` & `_log_read_buffer_size` hidden parameters we didn’t see serious improvement or degradation using different combinations of these parameters. For more information please read https://github.com/averemee-si/oracdc/wiki/LogMiner-Tuning:-_log_read_buffers-&-_log_read_buffer_size[LogMiner Tuning: _log_read_buffers & _log_read_buffer_size]
+8. *oracdc* uses off-heap storage https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] developed by the https://chronicle.software/[Chronicle Software]. To determine required disk space, or size of https://www.docker.com/[Docker’s] https://docs.docker.com/storage/tmpfs/[tmpfs mounts], or size of k8s’s https://kubernetes.io/docs/concepts/storage/volumes/[emptyDir] needed to store memory allocated files use values of following link:JMX-METRICS.adoc[JMX-METRICS.adoc]
+
+----
+MaxTransactionSizeMiB
+MaxNumberOfTransInProcessingQueue
+GiBWrittenUsingChronicleQueue
+----
+
+9. When setting the JVM parameters , pay attention to the Linux kernel parameter `vm.max_map_count` and to JVM parameter `-XX:MaxDirectMemorySize`. (Ref.: https://github.com/averemee-si/oracdc/issues/8#issuecomment-725227858[I have issue with memory])
+10. Run oracdc using https://www.oracle.com/java/technologies/java-se-support-roadmap.html[Java 17 LTS], which provides numerous improvements over older versions of Java, such as improved https://chronicle.software/which-is-the-fastest-jvm/[performance], stability, and security. For this you need to pass additional command line arguments to java command using (Ref.: https://chronicle.software/chronicle-support-java-17/[How to run Chronicle Libraries Under Java 17])
+
+----
+export KAFKA_OPTS="\
+--add-exports java.base/jdk.internal.ref=ALL-UNNAMED \
+--add-exports java.base/sun.nio.ch=ALL-UNNAMED \
+--add-exports jdk.unsupported/sun.misc=ALL-UNNAMED \
+--add-exports jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+--add-opens jdk.compiler/com.sun.tools.javac=ALL-UNNAMED \
+--add-opens java.base/java.lang=ALL-UNNAMED \
+--add-opens java.base/java.lang.reflect=ALL-UNNAMED \
+--add-opens java.base/java.io=ALL-UNNAMED \
+--add-opens java.base/java.util=ALL-UNNAMED"
+----
+
+11. Please review https://support.oracle.com/rs?type=doc&id=2193391.1[Latest GoldenGate/Database (OGG/RDBMS) Patch recommendations (Doc ID 2193391.1)] (for 11.2.0.3/11/2/0.4 - https://support.oracle.com/rs?type=doc&id=1557031.1[Oracle GoldenGate – Oracle RDBMS Server Recommended Patches]) and, if necessary, install the fixes listed in the *Oracle RDBMS software* section. If you are using Oracle Database 19c, be sure to install the patch https://support.oracle.com/epmos/faces PatchDetail?patchId=35034699[Patch 35034699: RTI 25675772 (TKLSDDN01V.DIFF) DIVERGENCE MAY OCCUR IN DISTRIBUTED TXN WITH PARTIAL ROLLBACK]
+
+== Running
+
+=== Oracle LogMiner as CDC source (solutions.a2.cdc.oracle.OraCdcLogMinerConnector)
+
+The following steps need to be performed in order to prepare the Oracle database so the *oracdc* Connector can be used.
+
+==== Enabling Oracle RDBMS ARCHIVELOG mode
+
+Log in to SQL++*++Plus as SYSDBA and check results of query
+
+----
+select LOG_MODE from V$DATABASE
+----
+
+If the query returns *ARCHIVELOG*, it is enabled. Skip ahead to *Enabling supplemental log data*. If the query returns *NOARCHIVELOG* :
+
+----
+shutdown immediate
+startup mount
+alter database archivelog;
+alter database open;
+----
+
+To verify that *ARCHIVELOG* has been enabled run again
+
+----
+select LOG_MODE from V$DATABASE
+----
+
+This time it should return *ARCHIVELOG*
+
+==== Enabling supplemental logging
+
+Log in to SQL++*++Plus as SYSDBA, if you like to enable supplemental logging for whole database:
+
+----
+alter database add supplemental log data (ALL) columns;
+----
+
+Alternatively, to enable only for selected tables and minimal
+supplemental logging, a database-level option (recommended):
+
+----
+alter database add supplemental log data;
+alter table <OWNER>.<TABLE_NAME> add supplemental log data (ALL) columns; 
+----
+
+If using Amazon RDS for Oracle please see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Appendix.Oracle.CommonDBATasks.Log.html#Appendix.Oracle.CommonDBATasks.AddingSupplementalLogging[AWS
+Amazon Relational Database Service User Guide] about
+*rdsadmin.rdsadmin++_++util.alter++_++supplemental++_++logging*
+procedure.
+
+To verify *supplemental logging* settings at database level:
+
+----
+select SUPPLEMENTAL_LOG_DATA_MIN, SUPPLEMENTAL_LOG_DATA_PK, SUPPLEMENTAL_LOG_DATA_UI, SUPPLEMENTAL_LOG_DATA_FK, SUPPLEMENTAL_LOG_DATA_ALL
+from V$DATABASE;
+----
+
+To verify *supplemental logging* settings at table level:
+
+----
+select LOG_GROUP_NAME, TABLE_NAME, DECODE(ALWAYS, 'ALWAYS', 'Unconditional', NULL, 'Conditional') ALWAYS
+from DBA_LOG_GROUPS;
+----
+
+==== Creating non-privileged Oracle user for running LogMiner
+
+Instructions below are for CDB, for non-CDB (https://support.oracle.com/epmos/faces/DocumentDisplay?id=2808317.1[deprecated in 12c], desupported in 21c) you can use role and user names without *c##* prefix. Log in as sysdba and enter the following commands to create a user with the privileges required for running *oracdc* with LogMiner as CDC source. For CDB:
+
+----
+create user C##ORACDC identified by ORACDC
+  default tablespace SYSAUX
+  temporary tablespace TEMP
+  quota unlimited on SYSAUX
+CONTAINER=ALL;
+alter user C##ORACDC SET CONTAINER_DATA=ALL CONTAINER=CURRENT;
+grant
+  CREATE SESSION,
+  SET CONTAINER,
+  SELECT ANY TRANSACTION,
+  SELECT ANY DICTIONARY,
+  EXECUTE_CATALOG_ROLE,
+  LOGMINING
+to C##ORACDC
+CONTAINER=ALL;
+----
+
+For non-CDB or for connection to PDB in RDBMS 19.10{plus}:
+
+----
+create user ORACDC identified by ORACDC
+  default tablespace SYSAUX
+  temporary tablespace TEMP
+  quota unlimited on SYSAUX;
+grant
+  CREATE SESSION,
+  SELECT ANY TRANSACTION,
+  SELECT ANY DICTIONARY,
+  EXECUTE_CATALOG_ROLE,
+  LOGMINING
+to ORACDC;
+----
+
+==== Oracle Database settings check utility
+
+To check the required Oracle Database settings, you can use the setup check utility (v2.2.+), which will check all the settings and, if there are problems, advise on how to fix them
+
+----
+java -cp oracdc-kafka-2.2.0-standalone.jar solutions.a2.cdc.oracle.utils.OracleSetupCheck \
+     --jdbc-url <ORA-JDBC-URL> --user <ACCOUNT-TO-RUN-CONNECTOR> --password <ACCOUNT-PASSWORD>
+----
+
+To run in container environment
+
+----
+docker run --rm -it averemee/oracdc oraCheck.sh \
+     --jdbc-url <ORA-JDBC-URL> --user <ACCOUNT-TO-RUN-CONNECTOR> --password <ACCOUNT-PASSWORD>
+----
+
+If there are no problems with the settings, the utility prints the following output
+
+----
+=====================
+
+The oracdc's setup check was completed successfully, everything is ready to start oracdc connector
+
+=====================
+----
+
+==== Options for connecting to Oracle Database
+
+In CDB Architecture *oracdc* must connected to
+https://docs.oracle.com/en/database/oracle/oracle-database/23/multi/introduction-to-the-multitenant-architecture.html[CDBlatexmath:[ROOT](https://docs.oracle.com/en/database/oracle/oracle-database/23/multi/introduction-to-the-multitenant-architecture.html), but starting from Oracle Database [19c RU 10](https://updates.oracle.com/download/32218454.html) and Oracle Database 21c you can chose to connect either to the [CDB]ROOT], or to an individual PDB.
+
+==== Additional configuration for physical standby database (V$DATABASE.OPEN_MODE = MOUNTED)
+
+Connection to physical standby database when database is opened in *MOUNTED* mode is possible only for users for SYSDBA privilege. To check for correct user settings log in to SQL*Plus as SYSDBA and connect to physical standby database. To verify that you connected to physical standby database enter
+
+----
+select OPEN_MODE, DATABASE_ROLE, DB_UNIQUE_NAME from V$DATABASE;
+----
+
+it should return *MOUNTED* *PHYSICAL STANDBY* Then enter:
+
+----
+select USERNAME from V$PWFILE_USERS where SYSDBA = 'TRUE';
+----
+
+For the user who will be used to connect to physical standby database create a Oracle Wallet. Please refer to section *Oracle Wallet* above. To run *oracdc* in this mode parameter `a2.standby.activate` must set to `true`.
+
+==== Additional configuration for distributed database
+
+1. Copy _oracdc-kafka--standalone.jar_ or _a2solutions-oracdc-kafka-.zip_ to source and target (mining) database servers.
+2. On source database server start _solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_ with _–bind-address_ (IP address or hostname to listen for incoming requests from mining database server agent, default *0.0.0.0*) and _–port_ (TCP port to listen for incoming requests from mining database server agent, default *21521*) parameters, for instance
+
+----
+java -cp oracdc-kafka-0.9.8-standalone.jar \
+    solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent \
+        --port 21521 \
+        --bind-address 192.168.7.101
+----
+
+3. On target (mining) database server start _solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ with _–bind-address_ (IP address or hostname to listen for incoming requests from *oracdc* connector, default *0.0.0.0*), _–port_ (TCP port to listen for incoming requests from *oracdc* connector, default *21521*)
+parameters, _–source-host_ (IP address or hostname of _solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_), _–source-port_ (TCP port of _solutions.a2.cdc.oracle.utils.file.SourceDatabaseShipmentAgent_), and _–file-destination_ (existing directory to store redo log files) for instance
+
+----
+java -cp oracdc-kafka-0.9.8-standalone.jar \
+    solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent
+        --port 21521
+        --bind-address 192.168.7.102
+        --source-host 192.168.7.101
+        --source-port 21521
+        --file-destination /d00/oradata/archive
+----
+
+
+4. Configure *oracdc* connector with parameter `a2.distributed.activate` set to true. Set `a2.jdbc.url`/`a2.wallet.location` or `a2.jdbc.url`/`a2.jdbc.username` `a2.jdbc.password` parameters to valid values for connecting to source database. Set `a2.distributed.jdbc.url`/`a2.distributed.wallet.location` to valid values for connecting to target (mining) database. Set `a2.distributed.target.host` and `a2.distributed.target.port` to IP address/hostname and port where
+_solutions.a2.cdc.oracle.utils.file.TargetDatabaseShipmentAgent_ runs.
+Example parameter settings is in
+link:config/logminer-source-distributed-db.properties[logminer-source-distributed-db.properties] file
+
+==== Oracle RDBMS Type mapping
+
+By default (when `a2.oracdc.schemas` set to false) *oracdc* Source
+connector’s is compatible with
+https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/index.html[Confluent
+JDBC Sink connector] and uses datatype mapping below
+
+[width="100%",cols="<20%,<20%,<60%",options="header",]
+|===
+|Oracle type |Kafka Connect Schema | Additional information
+
+|DATE | int32 | `org.apache.kafka.connect.data.Date `
+
+|TIMESTAMP% | int64 | `org.apache.kafka.connect.data.Timestamp`
+
+|INTERVALYM | bytes | `solutions.a2.cdc.oracle.data.OraIntervalYM`
+
+|INTERVALDS | bytes | `solutions.a2.cdc.oracle.data.OraIntervalDS`
+
+|NUMBER | int8 | *NUMBER(1,0)* & *NUMBER(2,0)*
+
+|NUMBER |  int16 | *NUMBER(3,0)* & *NUMBER(4,0)*
+
+|NUMBER |  int32 | *NUMBER(5,0)*, *NUMBER(6,0)*, *NUMBER(7,0)* & *NUMBER(8,0)* 
+
+|NUMBER | int64 | other integers between *1,000,000,000* and *1,000,000,000,000,000,000*
+
+|NUMBER |  float64 | Oracle NUMBER without specified SCALE and PRECISION
+
+|NUMBER | bytes | `org.apache.kafka.connect.data.Decimal`
+
+|BINARY_FLOAT | float32 |
+
+|BINARY_DOUBLE | float64 |
+
+|RAW | bytes |
+
+|BLOB | bytes | `solutions.a2.OraBlob`
+
+|CHAR | string |
+
+|NCHAR | string |
+
+|VARCHAR2 | string |
+
+|NVARCHAR2 | string |
+
+|CLOB | string | `solutions.a2.OraClob`
+
+|NCLOB | string | `solutions.a2.OraNClob`
+
+|XMLTYPE | string | `solutions.a2.OraXml`
+
+|===
+
+
+
+When `a2.oracdc.schemas` set to true *oracdc* uses its own extensions
+for Oracle *NUMBER* (*solutions.a2.cdc.oracle.data.OraNumber*),
+*TIMESTAMP WITH ++[++LOCAL++]++ TIMEZONE*
+(*solutions.a2.cdc.oracle.data.OraTimestamp*), *INTERVALYM(INTERVAL YEAR
+TO MONTH)* (*solutions.a2.cdc.oracle.data.OraIntervalYM*), and
+*INTERVALDS(INTERVAL DAY TO SECOND)*
+(*solutions.a2.cdc.oracle.data.OraIntervalDS*) datatypes.
+
+When `a2.process.lobs` set to true *oracdc* uses its own extensions for
+Oracle *BLOB* (*solutions.a2.cdc.oracle.data.OraBlob*), *CLOB*
+(*solutions.a2.cdc.oracle.data.OraClob*), *NCLOB*
+(*solutions.a2.cdc.oracle.data.OraNClob*), and *SYS.XMLTYPE*
+(*solutions.a2.cdc.oracle.data.OraXmlBinary*) datatypes.
+

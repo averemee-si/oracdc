@@ -1,0 +1,517 @@
+*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* reads changes from redo log files directly without using any additional software installed on the database server or in the Oracle database itself.
+
+= Oracle Database connections
+The connector requires a connection to an Oracle database. This connection is used for two purposes:
+
+1. Reading information about table column data types and table key fields. We are exploring the possibility of eliminating these queries and using only the pre-entered description of table columns and keys in the Schema Registry. If you need this functionality urgently, please contact us at oracle@a2.solutions.
+2. Reading the current database SCN and the topology of archived and online redo files.
+
+To define this connection you need to set the following parameters
+
+[width="100%",cols="<27%,<6%,<67%",options="header",]
+|===
+|Parameter Name |Type |Description
+
+|a2.jdbc.url |String|Oracle Database JDBC URL. For more information please refer to https://docs.oracle.com/en/database/oracle/oracle-database/26/jajdb/[Connect using the Oracle JDBC driver]
+
+|a2.jdbc.username |String |JDBC connection username.
+
+|a2.jdbc.password |String |JDBC connection password.
+|===
+
+
+= Selecting the operating mode
+
+== Online redo log processing
+With default settings, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* processes only archived redo log files.
+To process online redo log files and achieve minimal lag between the time a transaction is committed to the database and its processing, you need to set the following parameters:
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.process.online.redo.logs | true | Mandatory setting
+
+|a2.scn.query.interval.ms | Integer | Optional, Minimum time in milliseconds to determine the current SCN during online redo log processing. Default - 60,000 (one minute).
+|===
+
+
+== Memory management
+*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* supports both https://docs.oracle.com/en/java/javase/21/core/heap-and-heap-memory.html[On-Heap and Off-Heap memory] (the latter is the default mode). To specify the type of memory used, you need to set *a2.transaction.implementation* parameter to the appropriate value:
+
+* *ChronicleQueue* - default value, this mode uses https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] to store Oracle Database transactions in Off-Heap memory. We are preparing for the transition to Java 25 and are considering replacing https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] with the new memory management features such as https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/foreign/MemorySegment.html[MemorySegment] introduced in Java 25.
+* *ArrayList* - this mode uses https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/ArrayList.html[ArrayList] to store Oracle Database transactions in Heap memory.
+
+If you are using heap memory, you set the initial capacity of the https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/ArrayList.html[ArrayList] using
+|===
+|Parameter Name |Value |Description
+
+|a2.array.list.default.capacity | Integer | Optional, initial capacity of https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/ArrayList.html[ArrayList] storing Oracle Database transaction data. Default - 32.
+
+|===
+
+
+
+
+== Large objects processing
+In the default configuration, large objects
+
+* BLOB
+* CLOB
+* NCLOB
+* https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/Data-Types.html#GUID-8EFA29E9-E8D8-40A6-A43E-954908C954A4[extended RAW, VARCHAR2, NVARCHAR2]
+* XMLTYPE
+* JSON
+* VECTOR
+
+are not processed. To process them, you must set the following parameters:
+|===
+|Parameter Name |Value |Description
+
+|a2.transaction.implementation | ChronicleQueue | Mandatory setting
+
+|a2.process.lobs | true | Mandatory setting
+
+|===
+
+Please remember to set Apache Kafka parameters according to the required large objects size:
+
+* For Source connector - `producer.max.request.size`
+* For Kafka broker/controller - `replica.fetch.max.bytes` and `message.max.bytes`
+
+We plan to provide large object support for Oracle Database transactions stored in https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/ArrayList.html[ArrayList] in CY2026.
+
+== Oracle RAC
+With default settings, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* works with single Oracle Database instance.
+To change this and work with https://www.oracle.com/database/real-application-clusters/[Oracle RAC], you need to set the following parameters:
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.use.rac | true | Mandatory setting
+
+|===
+When *a2.use.rac* is set to true *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* first attempts to determine whether this is an https://www.oracle.com/database/real-application-clusters/[Oracle RAC] connection by querying the fixed table https://docs.oracle.com/en/database/oracle/oracle-database/26/refrn/V-ACTIVE_INSTANCES.html[V$ACTIVE_INSTANCES]. If database is not https://www.oracle.com/database/real-application-clusters/[Oracle RAC], only the warning message is printed. Otherwise, additional checks are performed, and *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* starts a separate Kafka Connect task for each redo thread/RAC instance. Changes for the same table from different redo threads/RAC instances are delivered to the same topic but to different partition where
+
+----
+ <KAFKA_PARTITION_NUMBER> = <THREAD#> - 1
+----
+
+
+= Methods for reading redo log files
+
+*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* can read files located both on the file system and on the Oracle ASM.
+The reading method is managed by the *a2.storage.media* parameter. The table below shows its possible values
+
+[width="100%",cols="<30%,<70%",options="header",]
+|===
+|Parameter Value |Description
+
+|FS |Default value, redo files will be read from the local file system.
+
+|ASM |Redo files will be read from the Oracle ASM.
+
+|SSH |Redo files will be read from the remote file system using ssh.
+
+|SMB |Redo files will be read from the remote file system using smb.
+
+|BFILE |Redo files will be read from the remote file system as Oracle database BFILEs using the Oracle Net protocol.
+
+|TRANSFER | Redo logs will be read from the Oracle ASM using https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/DBMS_FILE_TRANSFER.html[DBMS_FILE_TRANSFER] package. This feature will be available in the first quarter of CY2026. If you need this functionality urgently, please contact us at oracle@a2.solutions.
+
+|===
+
+== Redo logs in the filesystem
+
+=== Reading using SSH
+To stream redo log files from a database server using the SSH protocol, you need to set the following parameters:
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.storage.media | SSH | Mandatory setting
+
+|a2.ssh.provider | sshj or maverick | Optional, library that provides SSH connection: maverick for https://jadaptive.com/[Maverick Synergy] or sshj for https://github.com/hierynomus/sshj[Hierynomus sshj]. Default - sshj
+
+|a2.ssh.hostname | String | Mandatory, FQDN or IP address of the remote server with redo log files
+
+|a2.ssh.port | String | Optional, SSH port of the remote server with redo log files. Default - 22
+
+|a2.ssh.user | String | Mandatory, username for the authentication to the remote server with redo log files
+
+|a2.ssh.private.key | String | Path to a file containing private key for the authentication to the remote server with redo log files
+
+|a2.ssh.password | String | Password for the authentication to the remote server with redo log files
+
+|a2.ssh.reconnect.ms | Integer | Optional, the time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SSH connection.
+Default - 86,400,000 (24 hours)
+
+| a2.ssh.strict.host.key.checking | Boolean | Optional, enable SSH strict host key checking? Default -  false
+
+|a2.ssh.max.unconfirmed.reads | Integer | Optional, maximum number of unconfirmed reads from SFTP server when using https://github.com/hierynomus/sshj[Hierynomus sshj]. Default - 256
+
+|a2.ssh.buffer.size | Integer | Optional, read-ahead buffer size in bytes for data from SFTP server when using https://github.com/hierynomus/sshj[Hierynomus sshj]. Default - 32768
+|===
+
+*IMPORTANT* You must specify a value for one of the parameters a2.ssh.private.key or a2.ssh.password
+
+=== Reading using BFILENAME() function
+
+With this reading method, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* reads files using https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects]. To transfer changes, the connection described by parameters *a2.jdbc.url*,  *a2.jdbc.username*, and *a2.jdbc.password* is used.
+To use https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects] correctly, you must disable the use of https://docs.oracle.com/en/database/oracle/oracle-database/26/admin/using-oracle-managed-files.html[Oracle Managed Files]. Consult the Oracle Database documentation or simply run the command
+----
+alter system set "_omf" = disabled scope=spfile;
+----
+and restart the database.
+Next, you need to create two https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects]: one that points to the directory where the online redo logs are located, and one that points to the directory where the archived redo logs are stored.
+For example
+
+----
+create or replace directory CDC_ONLINE as '/oradata/online';
+create or replace directory CDC_ONLINE as '/oradata/archive';
+----
+
+For https://aws.amazon.com/rds/oracle/[Amazon RDS for Oracle]
+
+----
+begin
+  RDSADMIN.RDSADMIN_MASTER_UTIL.CREATE_ONLINELOG_DIR; 
+  RDSADMIN.RDSADMIN_MASTER_UTIL.CREATE_ARCHIVELOG_DIR;
+end;
+/
+----
+This will create ONLINELOG_DIR and ARCHIVELOG_DIR directories used to reference physical redo and archive log files.
+After this, you must grant read permissions to the created https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects] to the user specified by the parameter *a2.jdbc.username*
+----
+grant read on directory CDC_ONLINE to <a2.jdbc.username>;
+grant read on directory CDC_ONLINE to <a2.jdbc.username>;
+----
+After this you must set the value for the following parameters
+|===
+|Parameter Name |Value |Description
+
+|a2.storage.media | BFILE | Mandatory setting
+
+|a2.bfile.directory.online | String | Mandatory, the name of the Oracle database directory that contains the online redo logs
+
+|a2.bfile.directory.archive | String | Mandatory, the name of the Oracle database directory that contains the archived redo logs
+
+|a2.bfile.reconnect.ms | Integer | Optional, The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the Oracle Net connection. Default -  3,600,000 (1 hour)
+
+|a2.bfile.buffer.size | Integer | Optional, Oracle BFILE read-ahead buffer size in bytes. Default - 4,194,304
+
+|===
+
+=== Reading using SMB
+To stream redo log files from a database server running a Windows family OS using the SMB protocol, you need to set the following parameters:
+|===
+|Parameter Name |Value |Description
+
+|a2.storage.media | SMB | Mandatory setting
+
+|a2.smb.server | String | Mandatory, FQDN or IP address of the remote SMB (Windows) server with redo log files
+
+|a2.smb.share.online | String | Mandatory, name of the SMB (Windows) share with online redo logs
+
+|a2.smb.share.archive | String | Mandatory, name of the SMB (Windows) share with archived redo logs
+
+|a2.smb.user | String | Mandatory, username for the authentication to the remote SMB (Windows) server with redo log files
+
+|a2.smb.password | String | Mandatory, password for the authentication to the remote SMB (Windows) server with redo log files
+
+|a2.smb.domain | String | Mandatory, SMB (Windows) authentication domain name
+
+|a2.smb.timeout | Integer | Optional, SMB read timeout in ms. Default - 180,000
+
+|a2.smb.socket.timeout | Integer | Optional, SMB socket read timeout in ms. Default - 180,000
+
+|a2.smb.reconnect.ms | Integer | Optional, the time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SMB (Windows) connection. Default - 86,400,000 (24 hours)
+
+|a2.smb.buffer.size | Integer | Optional, read-ahead buffer size in bytes for data from SMB (Windows) server. Default - 1,048,576
+
+|===
+
+
+=== Direct file access
+Although this redo log file access method is the default and seemingly requires no additional configuration, it assumes that:
+* or *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* is installed on the database server
+* or the file system containing the redo log files is mounted on the server where *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* is running.
+Both cases, in our opinion, represent significant changes to the system landscape and are not recommended for production work.
+To work in this mode you need to set the following parameters
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.storage.media | FS | Mandatory setting
+
+|a2.redo.filename.convert||Optional, it converts the filename of a redo log to another path. It is specified as a string in the <ORIGINAL_PATH>=<NEW_PATH> format. If not specified (default), no conversion occurs. You need to set the parameter value if the path in V$LOGFILE and V$ARCHIVED_LOG differs from the path on the file system.
+
+|===
+
+== Redo logs in the Oracle ASM
+
+*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* calls DBMS_DISKGROUP internal https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] API to read redo logs in https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM]. *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* does not create, update, or delete any objects during the https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] access.
+
+To work in this mode you need to set the following parameters
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.storage.media | ASM | Mandatory setting
+
+|a2.asm.jdbc.url| Oracle JDBC URL| Mandatory, JDBC URL pointing to the Oracle ASM instance. For information about URL format please refer to https://docs.oracle.com/en/database/oracle/oracle-database/26/jajdb/[Connect using the Oracle JDBC driver]
+
+|a2.asm.username|String| Mandatory, username for connecting to Oracle ASM instance, must have SYSASM or SYSDBA role
+
+|a2.asm.password|String| Mandatory, user password for connecting to Oracle ASM instance
+
+|a2.asm.read.ahead|Boolean| Optional, when set to true (the default), the connector reads data from the redo logs in advance, with chunks larger than the redo log file block size.
+
+|a2.asm.reconnect.ms|Integer| Optional, the time interval in milleseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection. Default - 604,800,000 ms (one week)
+
+|a2.asm.privilege|sysasm OR sysdba| Optional, The privilege used to connect to the ASM instance. Can be 'sysasm' or 'sysdba'. Defaults to -  'sysasm'
+
+|===
+
+
+*IMPORTANT* The user defined by *a2.asm.username* parameter must have sufficient privileges on the Oracle ASM instance - sysdba or sysasm.
+
+
+= Selecting objects to track changes
+
+The list of tables whose changes are tracked is controlled by the following parameters:
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+|a2.include |String |Comma separated list of table names to include in processing
+
+|a2.exclude |String |Comma separated list of tables to exclude from processing
+
+|a2.table.list.style |`static` or `dynamic` |When set to `static` (default) *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* reads tables and partition list to process only at startup according to values of `a2.include` and `a2.exclude` parameters. When set to `dynamic` *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* builds list of objects to process on the fly
+|===
+
+The *%* wildcard character can be used for *a2.include* and *a2.exclude*.
+
+== Selecting table keys
+
+The selection of a key for a table is controlled using the parameters listed below.
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+|a2.pk.type |String |When set to `well_defined` the key fields are the table's https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] columns or, if the table does not have a https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key], the table's https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key] columns in which all columns are https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-CF2E06A6-6A35-46CE-808E-305A459457CC[NOT NULL].  If there are no appropriate keys in the table, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* uses the `a2.use.rowid.as.key` parameter and generates a pseudo key based on the row's https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/ROWID-Pseudocolumn.html[ROWID], or generates a schema without any key fields.
+When set to `_any_unique_` and the table does not have a https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] or a https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key] with all https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-CF2E06A6-6A35-46CE-808E-305A459457CC[NOT NULL] columns, then the key fields will be the https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key] columns which may have https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/glossary.html#GUID-8854502F-2B8F-4ABC-98FA-BBFC3695A964l[NULL] columns. If there are no appropriate keys in the table, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* uses the `a2.use.rowid.as.key` parameter and generates a pseudo key based on the row's https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/ROWID-Pseudocolumn.html[ROWID], or generates a schema without any key fields.
+
+|a2.use.rowid.as.key |Boolean |When set to `true` and the table does not have a appropriate https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] or https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key], *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* adds surrogate key using the https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/ROWID-Pseudocolumn.html[ROWID]. When set to `false` and the table does not have a appropriate https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] or https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key], *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* generates schema for the table without any key fields and key schema. Default - `true`.
+
+|===
+
+These settings can be overridden for specific tables using
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+|a2.key.override |String |A comma separated list of elements in the format `TABLE_OWNER.TABLE_NAME=NOKEY\|ROWID\|INDEX(INDEX_NAME)`. If there is a table in this list, then the value of the `a2.pk.type` and `a2.use.rowid.as.key` parameters for it are ignored and the value of the key columns are set in accordance with this parameter:
+ `NONE` - do not create key fields in the Kafka topic for this table
+ `ROWID` - use ROWID as a key field in the Kafka topic with the name ORA_ROW_ID and type STRING
+ `INDEX(INDEX_NAME)` use the index columns of index named INDEX_NAME as key fields of the Kafka topic
+|===
+
+
+= Supplemental logging requirements
+
+By default, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* operates with a minimum supplemental logging level at the database and supplemental log data(all columns) in the tables being processed. These settings are checked when the connector starts and are controlled by the parameter below
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+|a2.supplemental.logging | `ALL` or `NONE` | The default is ALL, and you must set SUPPLEMENTAL LOG DATA(ALL) COLUMNS for all tables participating in replication, as well as SUPPLEMENTAL LOG DATA at the database level.
+If this parameter is set to NONE, there are no or minimal requirements for supplemental logging.
+Before setting `a2.supplemental.logging`=`NONE`, we recommend that you consult with us by email at oracle@a2.solutions or schedule an appointment on our website at https://a2.solutions.
+|===
+
+
+= Data type mapping
+
+If `a2.supplemental.logging` is set to `ALL`, the following data types mapping is used
+[width="100%",cols="<20%,<20%,<60%",options="header",]
+|===
+|Oracle type |Kafka Connect Schema | Additional information
+
+|DATE | int32 | `org.apache.kafka.connect.data.Date `
+
+|TIMESTAMP% | int64 | `org.apache.kafka.connect.data.Timestamp`
+
+|INTERVALYM | bytes | `solutions.a2.cdc.oracle.data.OraIntervalYM`
+
+|INTERVALDS | bytes | `solutions.a2.cdc.oracle.data.OraIntervalDS`
+
+|NUMBER | int8 | *NUMBER(1,0)* & *NUMBER(2,0)*
+
+|NUMBER |  int16 | *NUMBER(3,0)* & *NUMBER(4,0)*
+
+|NUMBER |  int32 | *NUMBER(5,0)*, *NUMBER(6,0)*, *NUMBER(7,0)* & *NUMBER(8,0)* 
+
+|NUMBER | int64 | other integers between *1,000,000,000* and *1,000,000,000,000,000,000*
+
+|NUMBER |  float64 | Oracle NUMBER without specified SCALE and PRECISION
+
+|NUMBER | bytes | `org.apache.kafka.connect.data.Decimal`
+
+|BINARY_FLOAT | float32 |
+
+|BINARY_DOUBLE | float64 |
+
+|RAW | bytes |
+
+|BLOB | bytes | `solutions.a2.OraBlob`
+
+|CHAR | string |
+
+|NCHAR | string |
+
+|VARCHAR2 | string |
+
+|NVARCHAR2 | string |
+
+|CLOB | string | `solutions.a2.OraClob`
+
+|NCLOB | string | `solutions.a2.OraNClob`
+
+|XMLTYPE | string | `solutions.a2.OraXml`
+
+|JSON | string | `solutions.a2.OraJson`
+
+|VECTOR | struct | `solutions.a2.OraVector`, contains 4 optional *array*s: *B*[bool], *I*[int8], *F*[float32], *D*[float64]
+
+|BOOLEAN | bool |
+
+|===
+
+
+If `a2.supplemental.logging` is set to `NONE`, the following data types mapping is used
+[width="100%",cols="<20%,<20%,<60%",options="header",]
+|===
+|Oracle type |Kafka Connect Schema | Additional information
+
+|DATE | bytes | `solutions.a2.w.TIMESTAMP[.opt]`
+
+|TIMESTAMP | bytes | `solutions.a2.w.TIMESTAMP[.opt]`
+
+|TIMESTAMPTZ | bytes | `solutions.a2.w.TIMESTAMPTZ[.opt]`
+
+|TIMESTAMPLTZ | bytes | `solutions.a2.w.TIMESTAMPLTZ[.opt]`
+
+|INTERVALYM | bytes | `solutions.a2.w.INTERVALYM[.opt]`
+
+|INTERVALDS | bytes | `solutions.a2.w.INTERVALDS[.opt]`
+
+|NUMBER | int8 | `solutions.a2.w.int8[.opt]`, *NUMBER(1,0)* & *NUMBER(2,0)*
+
+|NUMBER |  int16 | `solutions.a2.w.int16[.opt]`, *NUMBER(3,0)* & *NUMBER(4,0)*
+
+|NUMBER |  int32 | `solutions.a2.w.int32`[.opt], *NUMBER(5,0)*, *NUMBER(6,0)*, *NUMBER(7,0)* & *NUMBER(8,0)* 
+
+|NUMBER | int64 | `solutions.a2.w.int32`[.opt], other integers between *1,000,000,000* and *1,000,000,000,000,000,000*
+
+|NUMBER |  float64 | `solutions.a2.w.float64[.opt]`, Oracle NUMBER without specified SCALE and PRECISION
+
+|NUMBER | bytes | `solutions.a2.w.DECIMAL[.opt]`
+
+|BINARY_FLOAT | float32 | `solutions.a2.w.float32[.opt]`
+
+|BINARY_DOUBLE | float64 | `solutions.a2.w.float64[.opt]`
+
+|RAW | bytes | `solutions.a2.w.bytes[.opt]`
+
+|BLOB | bytes | `solutions.a2.OraBlob`
+
+|CHAR | string | `solutions.a2.w.string[.opt]`
+
+|NCHAR | string | `solutions.a2.w.string[.opt]`
+
+|VARCHAR2 | string | `solutions.a2.w.string[.opt]`
+
+|NVARCHAR2 | string | `solutions.a2.w.string[.opt]`
+
+|CLOB | string | `solutions.a2.OraClob`
+
+|NCLOB | string | `solutions.a2.OraNClob`
+
+|XMLTYPE | string | `solutions.a2.OraXml`
+
+|JSON | string | `solutions.a2.OraJson`
+
+|VECTOR | struct | `solutions.a2.OraVector`, contains 4 optional *array*s: *B*[bool], *I*[int8], *F*[float32], *D*[float64]
+
+|BOOLEAN | bool | `solutions.a2.w.bool[.opt]`
+
+|===
+
+
+
+
+== Overriding data type mappings
+
+You can override Oracle NUMBER data type definition using parameter
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+|a2.number.map.[PDB_NAME.]SCHEMA_NAME.TABLE_NAME.COL_NAME_OR_PATTERN| String| Overrides the Kafka data type for an Oracle column with data type NUMBER. The `%` symbol can be used as a control sign in the column name, its use is supported as a start symbol (i.e. the column name ends with) and as a terminal symbol (i.e. the column name begins with). Possible values of data types:
+
+- BOOL, BOOLEAN 
+- BYTE, TINYINT
+- SHORT, SMALLINT
+- INT, INTEGER
+- LONG, BIGINT
+- FLOAT
+- DOUBLE
+- DECIMAL([P],S), NUMERIC([P],S)
+|===
+
+
+= Before and after values
+
+By default, the topic is sent data that contains only the data
+
+* for INSERT and UPDATE, after the operation
+* for DELETE, before the operation.
+
+To receive both before and after data in the topic, you need to set the parameter
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+|a2.schema.type | `debezium` | 
+|===
+
+You can also filter and not process UPDATE statements that do not actually change the data, for example,
+
+----
+update DEPT set DNAME=DNAME where DEPTNO=10
+----
+
+To do this, you must set the parameter
+|===
+|Parameter Name |Value |Description
+
+|a2.process.all.update.statements | `false` |
+
+|===
+
+
+= TDE Data in rest encryption support
+
+To support https://docs.oracle.com/en/database/oracle/oracle-database/26/dbtde/introduction-to-transparent-data-encryption.html[Oracle Transparent Data Encryption] you need to set the following parameters
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+| a2.tde.wallet.path | String| Full absolute path to Oracle Wallet file (ewallet.p12)
+
+| a2.tde.wallet.password | String | Password Oracle Wallet
+|===
+
+Currently, only https://docs.oracle.com/en/database/oracle/oracle-database/26/dbtde/encrypting-columns-tables2.html[columnar encryption] is supported; support for https://docs.oracle.com/en/database/oracle/oracle-database/26/dbtde/introduction-to-transparent-data-encryption.html#GUID-688B2CA5-EB00-4BEE-9486-9046670CCA70[tablespace encryption] is planned for CY2026.

@@ -1,0 +1,523 @@
+image:https://img.shields.io/:license-apache-blue.svg[License,link=https://raw.githubusercontent.com/averemee-si/ora2iceberg/refs/heads/main/LICENSE]
+image:https://img.shields.io/maven-central/v/solutions.a2.oracle/oracdc-kafka.svg[link=https://central.sonatype.com/artifact/solutions.a2.oracle/oracdc-kafka]
+image:https://img.shields.io/docker/pulls/a2solutions/oracdc[link=https://hub.docker.com/r/a2solutions/oracdc/]
+
+= oracdc
+
+*oracdc* is a set of software solutions for the Apache Kafka Connect ecosystem designed  to transfer information about changes in the source Oracle database (versions 9i, 10g, 11c, 12c, 18c, 19c, 21c, 23ai, and 26ai ) for further processing. This processing usually involves reacting to changes in the source system using event-driven architecture principles or performing data integration and replication to heterogeneous systems.
+
+*oracdc* supports the following Oracle Database Editions
+
+* Enterprise
+* Standard
+* Express
+* Free
+* Personal
+
+*oracdc* includes
+
+*  three connectors for Apache Kafka Connect ecosystem that implement CDC
+. *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* which directly reads changes from Oracle Database redo log files
+. *solutions.a2.cdc.oracle.OraCdcLogMinerConnector* which reads changes from Oracle Database using Oracle LogMiner
+. *solutions.a2.cdc.oracle.OraCdcSourceConnector* which reads changes from Oracle Database materialized view logs
+
+*Important:* Although the source connectors listed above were designed for Apache Kafka Connect, they can easily be adapted to work in other ecosystems or independently. For more information on this please email us at oracle@a2.solutions
+
+* Two Apache Kafka sink connectors *solutions.a2.kafka.sink.JdbcSinkConnector* and *solutions.a2.kafka.sink.WrappedDataJdbcSinkConnector* optimized for delivery of data from Kafka topic to PostgreSQL or Oracle Database
+* some transformations between native Oracle data types like NUMBER and INTERVAL%
+. *solutions.a2.* *kafka.transforms.OraNumberConverte* *r* to convert native Oracle NUMBER bytes to Kafka types
+. *solutions.a2.* *kafka.transforms.OraIntervalConverte* *r* to convert native Oracle INTERVAL bytes to Kafka types
+
+Additional converters
+
+*solutions.a2.kafka.transforms.* *HeaderToFieldConverter*
+
+*solutions.a2.* *kafka.transforms.KeyToValueConverter*
+
+*solutions.a2.kafka.transforms.ToLowerCaseNameConverter*
+
+== Support
+
+*oracdc* is open-source software that is developed by a commercial organization. Whilst we strive to provide support to the open-source edition whenever we can; for immediate help, please consider purchasing a support subscription from A2 Rešitve d.o.o./A2 Solutions LLC. Subscribers receive priority support, security hotfixes, and new features in advance of the open-source release. Community developers should raise issues or PR directly in github. Please ensure you have read our Contribution Agreement(CONTRIBUTING.md) before submitting any PR requests.
+
+== Which source connector should I choose?
+
+We recommend using *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* because:
+
+* It uses the database only to read table column information (one table = one read operation from data dictionary) and to determine the current database SCN, which eliminates additional CPU and IO load on the database instance.
+* It does not create any objects in the database.
+* It does not require any additional software to be installed or running on the database server.
+* It works with various database configurations, including Oracle RAC.
+* It uses streaming data transfer using the SSH, SMB protocols (for a database server on a Windows platform), or using the BFILENAME Oracle database function.
+* It streams redo files directly from the Oracle ASM (requiring SYSASM/SYSDBA permissions).
+* It processes and transforms data without involving the database server (including XMLTYPE, JSON, VECTOR).
+* It works with minimal SUPPLEMENTAL LOGGING at the database level and without any SUPPLEMENTAL LOGGING settings at the schema and table levels.
+
+
+
+We recommend using *solutions.a2.cdc.oracle.OraCdcLogMinerConnector* only if you cannot use type *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* , for example, if your organization's security policy prohibits remote connection to the Oracle ASM with SYSASM/SYSDBA rights.
+
+To get started we recommend
+
+* For *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector*, please refer to the https://averemee.substack.com/p/bye-logminer-welcome-ssh[Bye LogMiner, welcome ssh!]. Full connector documentation is available at link:doc/RedoMinerConnector.adoc[RedoMinerConnector.adoc].
+* For *solutions.a2.cdc.oracle.OraCdcLogMinerConnector*, please refer to the https://averemee.substack.com/p/how-to-set-up-oracle-database-tables[How to set up Oracle Database tables replication in minutes]. Full connector documentation is available at - link:doc/LogMinerConnector.adoc[LogMinerConnector.adoc].
+
+*solutions.a2.cdc.oracle.OraCdcSourceConnector* reads changes from Oracle Database materialized view logs. While it demonstrates Oracle capabilities, it is not recommended for production use due to the very large load it creates on the database. *solutions.a2.cdc.oracle.OraCdcSourceConnector* documentation is available at - link:doc/SnapshotLogConnector.adoc[SnapshotLogConnector.adoc].
+
+== Data in transit encryption
+
+All connectors use Oracle JDBC driver version 26ai to connect to the database and Oracle ASM. To configure the JDBC connection string using TLS please refer to https://docs.oracle.com/en/database/oracle/oracle-database/26/jajdb/[Connect using the Oracle JDBC driver]
+
+== Distribution
+1. https://github.com/averemee-si/oracdc/[GitHub]
+2. https://www.confluent.io/hub/a2solutions/oracdc-kafka[Confluent Hub]
+3. https://hub.docker.com/r/a2solutions/oracdc[DockerHub]
+4. https://aws.amazon.com/marketplace/seller-profile?id=07173d1d-0e5c-4e97-8db7-5c701176865c[AWS Marketplace] - optimized for https://aws.amazon.com/msk/[Amazon MSK] and https://docs.aws.amazon.com/glue/latest/dg/schema-registry.html[AWS Glue Schema Registry]
+4.1. https://aws.amazon.com/marketplace/pp/prodview-cqki33xso6s6a[x86_64 CloudFormation Stack]
+4.2. https://aws.amazon.com/marketplace/pp/prodview-fn6bpplwp4m6y[AWS Graviton CloudFormation Stack]
+4.3. https://aws.amazon.com/marketplace/pp/prodview-me6ugntrriqeg[amd64 Container]
+5. https://mvnrepository.com/artifact/solutions.a2.oracle/oracdc-kafka[Maven Central]
+
+=== Installation from source code
+==== Clone the repository
+----
+git clone https://github.com/averemee-si/oracdc.git
+----
+==== Navigate to the project directory
+----
+cd oracdc
+----
+==== Build the project:
+----
+./mvnw clean install -Dgpg.skip
+----
+
+== Monitoring
+All connectors publish a number of metrics about the their activity that can be monitored through JMX. For complete list of metrics please refer to link:doc/JMX-METRICS.adoc[JMX-METRICS.adoc]
+
+== Authors
+**Aleksei Veremeev** - *Initial work* - http://a2-solutions.eu/[A2 Rešitve d.o.o.]
+
+== License
+
+This project is licensed under the Apache-2.0 License.
+
+== Future plans
+* better schema management including ideas from https://github.com/confluentinc/schema-registry/issues/1899[timestamp of creation of a schema version]
+* transition to Java 25 and replacement of https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] with the new memory management features
+
+
+== Release history
+
+=== 2.13.1 (DEC-2025)
+
+Bug fixes and enhancements
+
+=== 2.13.0 (DEC-2025)
+
+1. New parameter `a2.supplemental.logging` - the connector currently supports different levels of supplemental logging. If you need more information, please contact us at oracle@a2.solutions.
+
+2. New parameter `a2.stop.on.missed.log.file` - for more information please read link:doc/parameters.adoc[parameters.adoc].
+
+3. `a2.tables.in.process.size`, `a2.tables.out.of.scope.size`, and `a2.transactions.in.process.size` to manage initial size of internal memory structures. For more information please read link:doc/parameters.adoc[parameters.adoc].
+
+4. **solutions.a2.cdc.oracle.utils.file.OraRedoLogFile** utility enhancements and **solutions.a2.cdc.oracle.utils.file.OraCdcIncidentReader** utility
+
+5. Default ssh provider changed from `maverick` to `sshj`
+
+6. Techstack upgrade (new versions of BounceCastle JCE, the Maverick Synergy Java SSH Library and others)
+
+7. Bug fixes and enhancements
+
+
+=== 2.12.2 (OCT-2025)
+
+1. Optimized code for converting from raw bytes to Java/Kafka data types
+
+2. Bug fixes and enhancements
+
+=== 2.12.1 (OCT-2025)
+
+1. New parameter `a2.ignore.stored.offset`
+
+2. Techstack upgrade (new version of BounceCastle JCE and others)
+
+3. Bug fixes and enhancements
+
+=== 2.12.0 (SEP-2025)
+
+1. New parameter `a2.process.all.update.statements` for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector
+
+2. New parameter `a2.unable.to.map.col.id.warning` for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector
+
+3. OP:10.30 & OP:10.35 parsing for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector
+
+4. Initial load backported to the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector
+
+5. Schema evolution support for Sink connector
+
+=== 2.11.0 (AUG-2025)
+
+1.  This version supports https://docs.oracle.com/en/database/oracle/oracle-database/21/asoag/encrypting-columns-tables2.html[Oracle TDE column encryption] for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. To decrypt encrypted columns, you need to set the `a2.tde.wallet.path` and `a2.tde.wallet.password` parameters
+
+2. Java17 is used for compilation
+
+3. Big fixes and enhancements
+
+==== 2.10.1 (JUL-2025)
+
+Fix https://nvd.nist.gov/vuln/detail/CVE-2020-36843[CVE-2020-36843] from dependencies
+
+
+=== 2.10.0 (JUL-2025)
+
+1. This version supports index-organized tables including overflow processing for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner.
+
+2. XMLTYPE enhancements for the **solutions.a2.cdc.oracle.OraCdcLogMinerConnector** connector
+
+3. Big fixes and enhancements
+
+=== 2.9.0 (JUN-2025)
+
+1. This version supports large objects processing for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. Supported data types
+- BLOB
+- CLOB
+- NCLOB
+- XMLTYPE
+- JSON (RDBMS 21c+)
+- VECTOR (RDBMS 23ai+)
+
+2. This version supports BOOLEAN data type for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner.
+
+3. Big fixes and enhancements
+
+
+==== 2.8.2 (MAR-2025)
+
+1. This version supports redo files located in any remote filesystem via https://docs.oracle.com/en/database/oracle/oracle-database/23/adlob/BFILEs.html[BFILE] for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
+
+2. Oracle JDBC v23
+
+3. Big fixes and enhancements
+
+==== 2.8.1 (MAR-2025)
+
+1. Additional https://en.wikipedia.org/wiki/Secure_Shell[SSH] provider  for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
+
+2. This version supports redo files located in https://en.wikipedia.org/wiki/Server_Message_Block[SMB] file shares for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
+
+3. Big fixes and enhancements
+
+=== 2.8.0 (FEB-2025)
+
+1. This version supports redo files located in remote database servers via https://en.wikipedia.org/wiki/Secure_Shell[SSH] for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
+
+2. Oracle NUMBER datatype mapping enhancements
+
+
+=== 2.7.0 (FEB-2025)
+
+1. This version supports redo files located in https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
+2. Throttling control, especially for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector which uses heap memory checks and the Linux parameter https://docs.kernel.org/admin-guide/sysctl/vm.html[vm.max_map_count(/proc/sys/vm/max_map_count)]
+3. Fully compatible with JDK 21 LTS
+
+=== 2.6.0 (JAN-2025)
+
+1. This version includes a **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector (in addition to LogMiner based connector **solutions.a2.cdc.oracle.OraCdcLogMinerConnector** and materialized view based **solutions.a2.cdc.oracle.OraCdcSourceConnector**) that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
+2. improved **solutions.a2.cdc.oracle.utils.file.OraRedoLogFile** CLI utility which produces output similar to the http://www.juliandyke.com/Diagnostics/Dumps/RedoLogs.php[ALTER SYSTEM DUMP LOGFILE] command (currently only for changes Layer 5 and http://www.juliandyke.com/Internals/Redo/Redo11.php[11]) and includes additional supplemental logging  information
+3. Checking for the presence of columns in the table that have not been dropped completely and printing recommendations to the log
+
+
+
+==== 2.5.2 (SEP-2024)
+
+1. SMT converters for
+    solutions.a2.cdc.oracle.data.OraNumber/solutions.a2.cdc.oracle.data.OraIntervalYM/solutions.a2.cdc.oracle.data.OraIntervalDS (oracle.sql.NUMBER/oracle.sql.INTERVALYM/oracle.sql.INTERVALDS)
+2. Dockerfile enhancements (Schema registry client updated to Confluent 7.7.1), Dockerfile.snowflake to quickly create a data delivery pipeline between transactional Oracle and analytical Snowflake
+
+==== 2.5.1 (AUG-2024)
+
+====== LogMiner Connector
+
+1. Handling/binding suspicious transactions (XID always ends with FFFFFFFF, i.e. wrong transaction ID sequence number) and the transaction always starts with a partial rollback operation
+2. New parameter and additional pseudocolumn `a2.pseudocolumn.ora_xid`
+
+=== 2.5.0 (AUG-2024)
+
+====== LogMiner Connector
+
+1) Improved processing of transactions containing https://blog.ora-600.pl/2017/09/20/rollback-internals/[partial rollback] (with ROLLBACK=1) statements
+2. JMX: LastProcessedSequence metric. For more information please refer to https://github.com/averemee-si/oracdc/blob/master/doc/JMX-METRICS.adoc[JMX-METRICS.adoc]
+3. Obsoleted and removed parameters: `a2.resiliency.type`, `a2.persistent.state.file`, `a2.redo.count`, `a2.redo.size`
+4. New parameter to control the selection of database table columns to create key fields of a Kafka Connect record `a2.key.override`. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+5. New parameter to add notifications about last processed redo sequence `a2.last.sequence.notifier`.  For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+
+====== Sink Connector
+
+New parameter to set a SQL statement(s) that will be executed for all new connections when they are created - `a2.connection.init.sql`
+
+=== 2.4.0 (MAY-2024)
+
+====== LogMiner Connector
+
+1. https://www.oracle.com/database/data-guard/[Oracle Active DataGuard] support for Oracle Database settings check utility
+2. Fix for https://www.oracle.com/database/data-guard/[Oracle DataGuard] when V$STANDBY_LOG does not contain rows
+3. Fix ORA-310/ORA-334 under heavy RDBMS load
+4. New parameters to support pseudo columns - `a2.pseudocolumn.ora_rowscn`, `a2.pseudocolumn.ora_commitscn`, `a2.pseudocolumn.ora_rowts`, & `a2.pseudocolumn.ora_operation`. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+5. New parameters to support audit pseudo columns: `a2.pseudocolumn.ora_username`, `a2.pseudocolumn.ora_osusername`, `a2.pseudocolumn.ora_hostname`, `a2.pseudocolumn.ora_audit_session_id`, `a2.pseudocolumn.ora_session_info`, & `a2.pseudocolumn.ora_client_id`. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+
+
+====== Sink Connector
+
+New parameters: `a2.table.mapper`, `a2.table.name.prefix`, and `a2.table.name.suffix`
+
+==== 2.3.1 (APR-2024)
+
+Simplification of configuration for https://www.oracle.com/database/data-guard/[Oracle Active DataGuard] - now the same configuration is used for https://www.oracle.com/database/data-guard/[Oracle Active DataGuard] as for a primary database
+
+=== 2.3.0 (APR-2024)
+
+====== LogMiner Connector
+
+1. New parameter - `a2.stop.on.ora.1284` to manage the connector behavior on ORA-1284. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+2. Checking the number of non-zero columns returned from a redo record for greater reliability.
+3. Handling of partial rollback records in RDBMS 19.13 i.e. when redo record with ROLLBACK=1 is before redo record with ROLLBACK=0
+4. Processing of DELETE operation for tables ROWID pseudo key
+5. New parameter - `a2.print.unable.to.delete.warning` to manage the connector output in log for DELETE operations over table's without PK. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+6. New parameter - `a2.schema.name.mapper` to manage schema names generation. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+
+====== Docker image
+Rehost Confluent schema registry clients (Avro/Protobuf/JSON Schema) and bump version to 7.5.3
+
+
+=== 2.2.0 (MAR-2024)
+
+====== LogMiner Connector
+1. Enhanced handling of partial rollback redo records (ROLLBACK=1). For additional information about these redo records please read https://blog.ora-600.pl/2017/09/20/rollback-internals/[ROLLBACK INTERNALS] starting with the sentence _"The interesting thing is with partial rollback."_
+2. New parameter `a2.topic.mapper` to manage the name of the Kafka topic to which data will be sent. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+3. Oracle Database settings check utility
+
+====== Sink Connector
+1. Connector classes are re-factored and the Sink Connector itself renamed from **solutions.a2.cdc.oracle.OraCdcJdbcSinkConnector** to **solutions.a2.kafka.sink.JdbcSinkConnector**
+2. New parameter - `a2.table.mapper` to manage the table in which to sink the data.
+
+=== 2.1.0 (FEB-2024)
+
+ServiceLoader manifest files, for more information please read https://cwiki.apache.org/confluence/display/KAFKA/KIP-898%3A+Modernize+Connect+plugin+discovery[KIP-898: Modernize Connect plugin discovery]
+
+====== LogMiner Connector
+1. Now **oracdc** now also checks for first available SCN in V$LOG
+2. Reducing the output about scale differences between redo and dictionary
+3. Separate first available SCN detection for primary and standby
+
+====== New parameters
+`a2.incomplete.redo.tolerance` - to manage connector behavior when processing an incomplete redo record. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+`a2.print.all.online.scn.ranges` - to control output when processing online redo logs. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+`a2.log.miner.reconnect.ms` - to manage reconnect interval for LogMiner for Unix/Linux. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+`a2.pk.type` - to manage behavior when choosing key fields in schema for table.  For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+`a2.use.rowid.as.key` - to manage behavior when the table does not have appropriate PK/unique columns for key fields.  For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+`a2.use.all.columns.on.delete` - to manage behavior when reading and processing a redo record for DELETE. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+
+====== Sink Connector
+1. fix for SQL statements creation when first statement in topic is "incomplete" (delete operation for instance)
+2. add exponential back-off for sink getConnection()
+3. support for key-less schemas
+4. PostgreSQL: support for implicitly defined primary keys
+
+=== 2.0.0 (DEC-2023)
+
+====== Online redo logs processing
+Online redo logs are processed when parameter `a2.process.online.redo.logs` is set to **true** (Default - **false**). To control the lag between data processing in Oracle, the parameter `a2.scn.query.interval.ms` is used, which sets the lag in milliseconds for processing data in online logs.
+This expands the range of connector tasks and makes its use possible where minimal and managed latency is required.
+
+====== default values:
+Column default values are now part of table schema
+
+====== 19c enhancements:
+1. HEX('59') (and some other **single** byte values) for DATE/TIMESTAMP/TIMESTAMPTZ are treated as NULL
+2. HEX('787b0b06113b0d')/HEX('787b0b0612013a')/HEX('787b0b0612090c')/etc (2.109041558E-115,2.1090416E-115,2.109041608E-115) for NUMBER(N)/NUMBER(P,S) are treated as NULL. Information about such values is not printed by default in the log; to print messages you need to set the parameter `a2.print.invalid.hex.value.warning` value to **true**
+
+====== solution for incomplete redo information:
+Solution for problem described in https://asktom.oracle.com/pls/apex/f?p=100:11:::::P11_QUESTION_ID:9544753100346374249[LogMiner REDO_SQL missing WHERE clause] and https://groups.google.com/g/debezium/c/0cTC-dQrxW8[LogMiner Redo SQL w/o WHERE-clause]
+
+=== 1.6.0 (OCT-2023)
+
+1. Support for INTERVALYM/INTERVALDS
+2. TIMESTAMP enhancements
+3. SDU hint in log
+
+=== 1.5.0 (AUG-2023)
+1. New `a2.pk.string.length` parameter for Sink Connector and other Sink Connector enhancement
+2. New `a2.transaction.implementation` parameter for LogMiner Source Connector: when set to `ChronicleQueue` (default) **oracdc** uses https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] to store information about SQL statements in Oracle transaction and uses off-heap memory and needs disk space to store memory mapped files; when set to `ArrayList` **oracdc** uses ArrayList to store information about SQL statements in Oracle transaction and uses JVM heap (no disk space needed).
+3. Fix for ORA-17002 while querying data dictionary
+4. Better handling for SQLRecoverableException while querying data dictionary
+
+==== 1.4.2 (JUN-2023)
+fix unhandled ORA-17410 running 12c on Windows and more strict checks for supplemental logging settings
+
+==== 1.4.1 (MAY-2023)
+New `a2.schema.type=single` - schema type to store all columns from database row in one message with just value schema
+
+=== 1.4.0 (MAY-2023)
+Oracle 23c readiness, supplemental logging checks, fixes for Oracle RDBMS on Microsoft Windows
+
+===== 1.3.3.2 (MAR-2023)
+parameter `a2.protobuf.schema.naming` for fixing issue with prtobuf identifiers
+
+===== 1.3.3.1 (MAR-2023)
+fix temporary dir check error when `a2.tmpdir` is not specified
+
+==== 1.3.3 (MAR-2023)
+techstack/dependent libraries (JUnit/commons-cli/OJDBC/SL4J) version updates
+
+==== 1.3.2 (FEB-2023)
+fix for https://github.com/averemee-si/oracdc/issues/40 & jackson library update
+
+==== 1.3.1 (JAN-2023)
+fix for OCI DBCS product name like "Oracle Database 19c EE Extreme Perf"
+
+=== 1.3.0 (DEC-2022)
+Single instance physical standby for Oracle RAC support
+
+==== 1.2.2 (OCT-2022)
+LOB_TRIM/LOB_ERASE output to log & Jackson Databind version change (fix for https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-42004[CVE-2022-42004])
+
+==== 1.2.1 (SEP-2022)
+replace log4j with reload4j (CVE-2022-23305, CVE-2019-17571, CVE-2022-23302, CVE-2022-23307, CVE-2020-9488)
+
+=== 1.2.0 (SEP-2022)
+Oracle RAC support, for more information please see https://github.com/averemee-si/oracdc/wiki/What-about-Oracle-RAC%3F[What about Oracle RAC?]
+
+=== 1.1.0 (AUG-2022)
+Deprecation of parameters `a2.tns.admin`, `a2.tns.alias`, `a2.standby.tns.admin`, `a2.standby.tns.alias`, `a2.distributed.tns.admin`, and `a2.distributed.tns.alias`. Please use `a2.jdbc.url`, `a2.standby.jdbc.url`, and `a2.distributed.jdbc.url` respectively. Please refer to link:doc/parameters.adoc[parameters.adoc] for parameter description and https://docs.oracle.com/en/database/oracle/oracle-database/23/jajdb/[Oracle® Database JDBC Java API Reference, Release 23c] for more information about JDBC URL format.
+
+=== 1.0.0 (JUN-2022)
+Min Java version -> Java11, Java 17 LTS - recommended
+Package name change: eu.solutions.a2 -> solutions.a2
+
+===== 0.9.9.2 (FEB-2022)
+
+`a2.resiliency.type` = ``fault-tolerant`` to ensure 100% compatibility with Kafka Connect distributed mode
+
+===== 0.9.9.1 (JAN-2022)
+
+ORA-1291 fixes and new non-static connection pool for LogMiner connector
+
+==== 0.9.9 (JAN-2022)
+
+DDL operations support for LogMiner source
+
+===== 0.9.8.4 (NOV-2021)
+
+CDB: support connection to CDB$ROOT or to an individual PDB
+
+===== 0.9.8.3 (NOV-2021)
+
+Large objects (BLOB/CLOB/NCLOB/XMLTYPE) transformation in source connector
+
+===== 0.9.8.2 (OCT-2021)
+
+SYS.XMLTYPE support and fixes for partitioned tables with BLOB/CLOB/NCLOB columns
+
+===== 0.9.8.1 (AUG-2021)
+
+RDBMS 21c compatibility
+
+==== 0.9.8 (JUL-2021)
+
+Distributed database configuration
+
+===== 0.9.7.8 (MAY-2021)
+
+MAY-21 features/fixes (fix ORA-2396, add lag to JMX metrics, add feth size parameter)
+
+===== 0.9.7.7 (APR-2021)
+
+Add more information about source record (XID, ROWID, and COMMIT_SCN)
+
+===== 0.9.7.6 (FEB-2021)
+
+Protobuf Schema compatibility
+
+===== 0.9.7.5 (JAN-2021)
+
+fix Confluent Control Center 6.0+ sync issue with UCP PoolDataSource
+
+===== 0.9.7.4 (NOV-2020)
+
+Important fixes for CDB
+
+===== 0.9.7.3 (NOV-2020)
+
+fix CDB column type detection issue
+
+===== 0.9.7.2 (NOV-2020)
+
+VIP (Verified Integration Program) compliance
+
+===== 0.9.7.1 (OCT-2020)
+
+Support for NCLOB
+
+==== 0.9.7 (OCT-2020)
+
+LOB support. See also `a2.process.lobs` parameter
+
+===== 0.9.6.4 (SEP-2020)
+
+Dynamic list of tables to mine using `a2.table.list.style` parameter
+
+===== 0.9.6.3 (AUG-2020)
+
+Kafka topic name configuration using `a2.topic.name.style` & `a2.topic.name.delimiter` parameters
+
+===== 0.9.6.2 (AUG-2020)
+
+Oracle NUMBER datatype mapping fixes
+
+===== 0.9.6.1 (MAY-2020)
+
+Partitioned tables support
+
+==== 0.9.6 (MAY-2020)
+
+Initial data load support. See also `a2.initial.load` parameter
+
+==== 0.9.5 (APR-2020)
+
+Schema Editor GUI preview (java -cp <> solutions.a2.cdc.oracle.schema.TableSchemaEditor). This GUI required for more precise mapping between Oracle and Kafka Connect datatypes. See also `a2.dictionary.file` parameter
+
+===== 0.9.4.1 (MAR-2020)
+
+Persistence across restarts
+CDB fixes/20c readiness
+
+==== 0.9.4 (MAR-2020)
+
+Ability to run https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html[Oracle Log Miner] on the physical database when V$DATABASE.OPEN_MODE = MOUNTED to reduce TCO
+
+===== 0.9.3.1 (FEB-2020)
+
+Removing dynamic invocation of Oracle JDBC. Ref.: https://blogs.oracle.com/developers/oracle-database-client-libraries-for-java-now-on-maven-central[Oracle Database client libraries for Java now on Maven Central]
+
+==== 0.9.3 (FEB-2020)
+
+1. https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html[Oracle Log Miner] as CDC source
+2. Removed AWS Kinesis support
+3. New class hierarchy
+
+==== 0.9.2 (DEC-2019)
+
+"with ROWID" materialized view log support
+
+==== 0.9.1 (NOV-2019)
+
+Oracle Wallet support for storing database credentials
+
+=== 0.9.0 (OCT-2019)
+
+Initial release
+
+
+
+

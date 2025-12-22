@@ -1,0 +1,51 @@
+*solutions.a2.cdc.oracle.OraCdcSourceConnector* reads changes from Oracle RDBMS https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html[materialized view log's] as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by *solutions.a2.cdc.oracle.OraCdcSourceConnector*.
+In addition to read privileges on the underlying base tables and materialized view logs, the user running connector must have access to
+
+----
+grant select on V_$INSTANCE to <CONNECTOR-USER>;
+grant select on V_$LICENSE to <CONNECTOR-USER>;
+grant select on V_$DATABASE to <CONNECTOR-USER>;
+----
+
+Create materialized view log’s over replicated tables. These materialized view logs must be created with following options -
+*with primary key*, and/or *with rowid*, *sequence*, *excluding new values* and without *commit scn* option.
+You do not need to specify
+_column list_ while creating materialized view log for using with
+*oracdc*. *oracdc* reads from materialized view log only primary key
+value and/or rowid of row in master table. Table below describes how
+*oracdc* operates depending on the materialized view log settings
+
+[width="100%",cols="<29%,<25%,<46%",options="header",]
+|===
+|SNAPSHOT LOG WITH |Master table access |Key for External system
+|Primary key |Primary key |Primary key
+|Primary key and ROWID |ROWID |Primary key
+|ROWID |ROWID |ROWID (String, key name ORA++_++ROW++_++ID)
+|===
+
+----
+connect scott/tiger
+CREATE TABLE DEPT
+       (DEPTNO NUMBER(2) CONSTRAINT PK_DEPT PRIMARY KEY,
+        DNAME VARCHAR2(14) ,
+        LOC VARCHAR2(13) );
+
+CREATE TABLE EMP
+       (EMPNO NUMBER(4) CONSTRAINT PK_EMP PRIMARY KEY,
+        ENAME VARCHAR2(10),
+        JOB VARCHAR2(9),
+        MGR NUMBER(4),
+        HIREDATE DATE,
+        SAL NUMBER(7,2),
+        COMM NUMBER(7,2),
+        DEPTNO NUMBER(2) CONSTRAINT FK_DEPTNO REFERENCES DEPT);
+
+create materialized view log on DEPT
+  with primary key, sequence
+  excluding new values;
+
+create materialized view log on EMP
+  with primary key, sequence
+  excluding new values;
+----
+

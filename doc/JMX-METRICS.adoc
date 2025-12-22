@@ -1,0 +1,105 @@
+
+== JMX Metrics for source connectors
+
+
+[width="100%",cols="<50%,<50%",options="header",]
+|===
+|Connector |MBean
+|solutions.a2.cdc.oracle.OraCdcRedoMinerConnector | solutions.a2.oracdc:type=RedoMiner-metrics,name=<connectorName>,database=$ORACLE_SID_hostname
+
+|solutions.a2.cdc.oracle.OraCdcLogMinerConnector | solutions.a2.oracdc:type=LogMiner-metrics,name=<connectorName>,database=$ORACLE_SID_hostname
+|===
+
+
+
+[width="100%",cols="<27%,<6%,<67%",options="header",]
+|===
+|Attribute Name |Type |Description
+|TablesInProcessingCount |int |Number of tables in processing
+
+|TablesInProcessing |String[] |Names of tables in processing
+
+|PartitionsInProcessingCount |int |Number of partitions and subpartitions in processing
+
+|Last100ProcessedRedoLogs |String[] |Last 100 processed redo logs
+
+|LastProcessedRedoLog |String |Last processed redo log
+
+|LastProcessedScn |long |Last processed SCN
+
+|LastProcessedSequence |long |Last processed log sequence
+
+|LastProcessedRedoLogTime |String |Time when the last redo log was processed
+
+|TableOutOfScopeCount |int |The number of tables from the journal that do not meet the a2.include criteria
+
+|CurrentlyProcessedRedoLog |String |Redo log currently being processed
+
+|CurrentFirstScn |long |min(FIRST_CHANGE#) for redo logs currently being processed
+
+|CurrentNextScn |long |max(NEXT_CHANGE#) for redo logs currently being processed
+
+|ProcessedRedoLogsCount |int |The number of processed redo logs
+
+|ProcessedRedoLogsSizeGb |float |Size (gigabyte) of processed redo logs
+
+|StartTime |String |Connector start date and time (ISO format)
+
+|StartScn |long |Connector start SCN
+
+|ElapsedTimeMillis |long |Elapsed time, milliseconds
+
+|ElapsedTime |String |Elapsed time, Days/Hours/Minutes/Seconds
+
+|TotalRecordsCount |long |Total number of records processed
+
+|RolledBackRecordsCount |long |The number of rolled back records processed
+
+|RolledBackTransactionsCount |int |The number of rolled back transactions processed
+
+|CommittedRecordsCount |long |The number of committed records processed
+
+|CommittedTransactionsCount |int |The number of committed transactions processed
+
+|SentRecordsCount |long |The number of records already sent to Kafka broker
+
+|SentBatchesCount |int |The number of Connector poll() call
+
+|ParseElapsedMillis |long |Time spent for parsing raw bytes (V$LOGMNR_CONTENTS.SQL_REDO column for if LogMiner connector), milliseconds
+
+|ParseElapsed |String   |Time spent for parsing raw bytes (V$LOGMNR_CONTENTS.SQL_REDO column for if LogMiner connector), Days/Hours/Minutes/Seconds
+
+|ParsePerSecond |int |Average number of records parsed per second
+
+|RedoReadElapsedMillis |long |Time spent for reading redo logs (querying V$LOGMNR_CONTENTS if LogMiner connector), milliseconds
+
+|RedoReadElapsed |String   |Time spent for reading redo logs (querying V$LOGMNR_CONTENTS if LogMiner connector), Days/Hours/Minutes/Seconds
+
+|RedoReadMbPerSecond |float |Average MB per second of redo log reading
+
+|ActualLagSeconds |int |Actual lag in seconds (SYSDATE-V$ARCHIVED_LOG.FIRST_TIME) for currently processing archived log
+
+|ActualLagText |String |Actual lag in for currently processing archived log, Days/Hours/Minutes/Seconds
+
+|DdlColumnsCount |int |Number of successfully changed by DDL commands columns
+
+|DdlElapsedMillis |long |Time spent for processing DDL commands, milliseconds
+
+|DdlElapsed |String |Time spent for processing DDL commands, Days/Hours/Minutes/Seconds
+
+|MaxTransactionSizeBytes |long |Maximum transaction size i.e. number of bytes allocated for off-heap storage, bytes
+
+|MaxTransactionSizeMiB |float |Maximum transaction size i.e. number of bytes allocated for off-heap storage, MiB
+
+|MaxNumberOfTransInSendQueue |int |Maximum number of committed transactions in the send queue
+
+|CurrentNumberOfTransInSendQueue |int |Current number of committed transactions in the send queue
+
+|MaxNumberOfTransInProcessingQueue |int |Maximum number of committed transactions in the processing queue
+
+|CurrentNumberOfTransInProcessingQueue |int |Current number of committed transactions in the processing queue
+
+|NumBytesWrittenUsingOffHeapMem |long |Total number of bytes written to Chronicle Queue memory mapped files (off-heap storage)
+
+|GiBWrittenUsingOffHeapMem |float |Total number of GiB written to Chronicle Queue memory mapped files (off-heap storage)
+|===
