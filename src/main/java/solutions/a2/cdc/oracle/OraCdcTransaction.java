@@ -1184,8 +1184,8 @@ public abstract class OraCdcTransaction {
 						.append(formatOpCode(record.rowChange().operation()))
 						.append(" fb:")
 						.append(printFbFlags(record.rowChange().fb()));
-				LOGGER.debug(sb.toString());
 			}
+			LOGGER.debug(sb.toString());
 		}
 	}
 
