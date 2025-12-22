@@ -1249,8 +1249,7 @@ public abstract class OraCdcTransaction {
 						}
 						case _11_6_ORP -> {
 							whereColCount += change.columnCount();
-							whereColCount += change.supplementalCc();
-							whereColCount += rowChange.columnCount();
+							setOrValColCount += rowChange.columnCount();
 						}
 						case _11_5_URP -> {
 							setOrValColCount += rowChange.columnCount();
@@ -1565,7 +1564,7 @@ public abstract class OraCdcTransaction {
 										KDO_ORP_IRP_NULL_POS);
 							}
 							case _11_6_ORP -> {
-								change.writeSupplementalCols(baosW);
+								change.writeSupplementalCols(baosB);
 								change.writeColsWithNulls(
 										baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
 										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
@@ -1576,7 +1575,7 @@ public abstract class OraCdcTransaction {
 										KDO_ORP_IRP_NULL_POS);
 								colNumOffsetSet += change.columnCount();
 								rowChange.writeColsWithNulls(
-										baosW, OraCdcChangeRowOp.KDO_POS, 0,
+										baos, OraCdcChangeRowOp.KDO_POS, 0,
 										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
 										KDO_ORP_IRP_NULL_POS);
 								colNumOffsetSet += rowChange.columnCount();
