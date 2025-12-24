@@ -481,6 +481,10 @@ public class OraCdcRedoRecord implements Comparable<OraCdcRedoRecord> {
 		return conUid;
 	}
 
+	public void ts(int ts) {
+		this.ts = ts;
+	}
+
 	public int ts() {
 		return ts;
 	}
