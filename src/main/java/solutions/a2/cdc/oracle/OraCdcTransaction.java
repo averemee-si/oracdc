@@ -104,8 +104,6 @@ public abstract class OraCdcTransaction {
 	private long nextChange = 0;
 	private final String xid;
 	private long commitScn;
-	private boolean startsWithBeginTrans = true;
-	private boolean needsSorting = false;
 	long transSize;
 
 	boolean partialRollback = false;
@@ -152,15 +150,6 @@ public abstract class OraCdcTransaction {
 				}
 			}
 		} else {
-			if (startsWithBeginTrans &&
-					Long.compareUnsigned(firstChange, oraSql.getScn()) > 0) {
-				startsWithBeginTrans = false;
-				needsSorting = true;
-			}
-			if (!needsSorting &&
-					Long.compareUnsigned(nextChange, oraSql.getScn()) > 0) {
-				needsSorting = true;
-			}
 			nextChange = oraSql.getScn();
 			if (oraSql.isRollback()) {
 				if (!partialRollback) {
@@ -324,10 +313,6 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public boolean startsWithBeginTrans() {
-		return startsWithBeginTrans;
-	}
-
 	public long getFirstChange() {
 		return firstChange;
 	}
@@ -395,7 +380,6 @@ public abstract class OraCdcTransaction {
 	public abstract boolean getStatement(OraCdcStatementBase oraSql);
 	abstract long size();
 	abstract int length();
-	abstract int offset();
 	abstract void close();
 	abstract byte[] getLob(final LobLocator ll) throws SQLException;
 	abstract void delLobTransLink(final Map<LobId, Xid> transFromLobId);

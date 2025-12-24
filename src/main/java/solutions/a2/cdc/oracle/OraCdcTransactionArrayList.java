@@ -145,11 +145,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	}
 
 	@Override
-	public int offset() {
-		return tailerOffset;
-	}
-
-	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder(128);
 		sb.append("oracdc Transaction: ");

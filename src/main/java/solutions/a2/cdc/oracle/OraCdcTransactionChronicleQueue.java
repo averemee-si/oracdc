@@ -27,7 +27,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -77,9 +76,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionChronicleQueue.class);
-	private static final String QUEUE_DIR = "queueDirectory";
-	private static final String QUEUE_OFFSET = "tailerOffset";
-	private static final String PROCESS_LOBS = "processLobs";
 	private static final String CQ_ISSUE_1446_RETRY_MSG = "Received https://github.com/OpenHFT/Chronicle-Queue/issues/1446, will try again";
 	private static final String CQ_ISSUE_1446_MSG =
 			"""
@@ -488,26 +484,6 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	}
 
 	@Override
-	public int offset() {
-		return tailerOffset;
-	}
-
-	public Map<String, Object> attrsAsMap() {
-		final Map<String, Object> transAsMap = new LinkedHashMap<>();
-		transAsMap.put(QUEUE_DIR, queueDirectory.toString());
-		transAsMap.put(TRANS_XID, getXid());
-		transAsMap.put(PROCESS_LOBS, processLobs);
-		transAsMap.put(TRANS_FIRST_CHANGE, getFirstChange());
-		transAsMap.put(TRANS_NEXT_CHANGE, getNextChange());
-		transAsMap.put(QUEUE_SIZE, queueSize);
-		transAsMap.put(QUEUE_OFFSET, tailerOffset);
-		if (getCommitScn() != 0) {
-			transAsMap.put(TRANS_COMMIT_SCN, getCommitScn());
-		}
-		return transAsMap;
-	}
-
-	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder(128);
 		sb.append("oracdc Transaction: ");
@@ -516,9 +492,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		sb.append(getXid());
 		sb.append(" located in the '");
 		sb.append(queueDirectory.toString());
-		sb.append("', ");
-		sb.append(PROCESS_LOBS);
-		sb.append(" = ");
+		sb.append("', processLobs = ");
 		sb.append(processLobs);
 		sb.append(", ");
 		sb.append(QUEUE_SIZE);
@@ -539,9 +513,7 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			sb.append(getCommitScn());
 		}
 		if (tailerOffset > 0) {
-			sb.append(", ");
-			sb.append(QUEUE_OFFSET);
-			sb.append(" = ");
+			sb.append(", tailerOffset = ");
 			sb.append(tailerOffset);
 		}
 		sb.append(".");
