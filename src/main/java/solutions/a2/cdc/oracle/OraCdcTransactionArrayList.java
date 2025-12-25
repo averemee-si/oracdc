@@ -17,18 +17,12 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import solutions.a2.oracle.internals.LobId;
-import solutions.a2.oracle.internals.LobLocator;
-import solutions.a2.oracle.internals.Xid;
 
 /**
  * 
@@ -41,7 +35,6 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
 
 	private List<OraCdcStatementBase> statements;
-	private final int capacity;
 	private int queueSize;
 	private int tailerOffset;
 
@@ -55,20 +48,8 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	 */
 	public OraCdcTransactionArrayList(
 			final String xid, final long firstChange, final int capacity, final boolean isCdb) {
-		super(xid, firstChange, isCdb);
+		super(xid, firstChange, isCdb, LobProcessingStatus.NOT_AT_ALL, null);
 		this.capacity = capacity;
-	}
-
-	/**
-	 * 
-	 * Creates OraCdcTransaction for new transaction
-	 * 
-	 * @param xid
-	 * @param firstStatement
-	 */
-	public OraCdcTransactionArrayList(final String xid, final OraCdcStatementBase firstStatement, final boolean isCdb) {
-		this(xid, firstStatement.getScn(), 0x20, isCdb);
-		this.addStatement(firstStatement);
 	}
 
 	void processRollbackEntries() {
@@ -109,10 +90,8 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 
 	@Override
 	public void addStatement(final OraCdcStatementBase oraSql) {
-		if (firstRecord) {
-			statements = new ArrayList<>(capacity);
-			queueSize = 0;
-			tailerOffset = 0;
+		if (needInit) {
+			init();
 		}
 		checkForRollback(oraSql, statements.size() - 1);
 
@@ -147,32 +126,20 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder(128);
-		sb.append("oracdc Transaction: ");
-		sb.append(TRANS_XID);
-		sb.append(" = ");
+		sb.append("oracdc Transaction: xid = ");
 		sb.append(getXid());
-		sb.append("', ");
-		sb.append(QUEUE_SIZE);
-		sb.append(" = ");
+		sb.append("', queueSize = ");
 		sb.append(queueSize);
-		sb.append(", ");
-		sb.append(TRANS_FIRST_CHANGE);
-		sb.append(" = ");
+		sb.append(", firstChange = ");
 		sb.append(getFirstChange());
-		sb.append(", ");
-		sb.append(TRANS_NEXT_CHANGE);
-		sb.append(" = ");
+		sb.append(", nextChange = ");
 		sb.append(getNextChange());
 		if (getCommitScn() != 0) {
-			sb.append(", ");
-			sb.append(TRANS_COMMIT_SCN);
-			sb.append(" = ");
+			sb.append(", commitScn = ");
 			sb.append(getCommitScn());
 		}
 		if (tailerOffset > 0) {
-			sb.append(", ");
-			sb.append(QUEUE_OFFSET);
-			sb.append(" = ");
+			sb.append(", tailerOffset = ");
 			sb.append(tailerOffset);
 		}
 		sb.append(".");
@@ -185,14 +152,11 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 		return transSize;
 	}
 
-	@Override
-	public byte[] getLob(final LobLocator ll) throws SQLException {
-		return null;
-	}
-
-	@Override
-	public void delLobTransLink(Map<LobId, Xid> transFromLobId) {
-		return;
+	void init() {
+		statements = new ArrayList<>(capacity);
+		queueSize = 0;
+		tailerOffset = 0;
+		needInit = false;
 	}
 
 }

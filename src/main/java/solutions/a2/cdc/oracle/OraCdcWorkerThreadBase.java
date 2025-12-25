@@ -28,9 +28,9 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
-import static solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue.LobProcessingStatus.NOT_AT_ALL;
-import static solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue.LobProcessingStatus.LOGMINER;
-import static solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue.LobProcessingStatus.REDOMINER;
+import static solutions.a2.cdc.oracle.OraCdcTransaction.LobProcessingStatus.NOT_AT_ALL;
+import static solutions.a2.cdc.oracle.OraCdcTransaction.LobProcessingStatus.LOGMINER;
+import static solutions.a2.cdc.oracle.OraCdcTransaction.LobProcessingStatus.REDOMINER;
 
 /**
  * 
