@@ -881,4 +881,10 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		} catch(IOException ioe) {throw new IllegalArgumentException();}
 	}
 
+	public static OraCdcRedoLog getAix19c() {
+		try {
+			return new OraCdcRedoLog(false, VSN_19_0_0_0);
+		} catch(IOException ioe) {throw new IllegalArgumentException();}
+	}
+
 }
