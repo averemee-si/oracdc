@@ -59,7 +59,7 @@ public class OraCdcChangeColb extends OraCdcChange {
 			longDump = false;
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, BLOCK_DUMP_MIN_SIZE, "");
 			obj = redoLog.bu().getU32(record, coords[0][0] + 0x4);
-			itc = record[coords[0][0] + 0x10];
+			itc = (byte) (redoLog.bu().getU16(record, coords[0][0] + 0x10) & 0xFF);
 			bdba = redoLog.bu().getU32(record, coords[0][0] + 0x14);
 			if ((record[coords[0][0] + 0x12] & 0x20) > 0)
 				lobDataOffset = (BLOCK_DUMP_MIN_SIZE + Byte.toUnsignedInt(itc) * 0x1A + 7) & 0xFFFFFFF8;
