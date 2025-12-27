@@ -65,20 +65,12 @@ public class OraCdcChangeLlb extends OraCdcChange {
 		case TYPE_1:
 			//TODO 0x28 or 0x50 ?
 			elementLengthCheck("11.17 (LLB)", "Type 1", 2, 0x28, "");
-			switch (redoLog.bu().getU16(record, coords[2][0])) {
-			case (short) 0x01:
-			case (short) 0x02:
-				lobOp = LOB_OP_WRITE;
-				break;
-			case (short) 0x66:
-			case (short) 0x67:
-				lobOp = LOB_OP_TRIM;
-				break;
-			case (short) 0x68:
-				lobOp = LOB_OP_ERASE;
-				break;
-			default:
-				LOGGER.warn(
+			switch (record[coords[2][0]]) {
+				case (byte) 0x01, (byte) 0x02 -> lobOp = LOB_OP_WRITE;
+				case (byte) 0x66, (byte) 0x67 -> lobOp = LOB_OP_TRIM;
+				case (byte) 0x68              -> lobOp = LOB_OP_ERASE;
+				default                       -> {
+					LOGGER.warn(
 						"""
 						
 						=====================
@@ -91,6 +83,7 @@ public class OraCdcChangeLlb extends OraCdcChange {
 						
 						""", String.format("%02x", record[coords[2][0]]), String.format("%02x", record[coords[2][0] + 1]),
 						rba, binaryDump(), rawToHex(record));
+				}
 			}
 			xid = new Xid(
 					redoLog.bu().getU16(record, coords[2][0] + 0x04),
