@@ -25,7 +25,6 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_ORP_IRP_NULL_PO
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KDO_URP_NULL_POS;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_2_LIN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_4_LDE;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_18_LUP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_30_LNU;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_35_LCU;
@@ -34,6 +33,8 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_6_ORP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_8_CFA;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgCompleted;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.flgFirstPart;
@@ -50,12 +51,15 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_PREPARE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_TRIM;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_UNKNOWN;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_WRITE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
+import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLobs.LOB_BIMG_INDEX;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_UPDATE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_INSERT;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_DELETE;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.oracle.internals.LobLocator.BLOB;
+import static solutions.a2.oracle.utils.BinaryUtils.parseTimestamp;
 import static solutions.a2.oracle.utils.BinaryUtils.putU16;
 import static solutions.a2.oracle.utils.BinaryUtils.putU24;
 
@@ -153,6 +157,94 @@ public abstract class OraCdcTransaction {
 		this.rootDir = rootDir;
 	}
 
+	OraCdcTransaction(final OraCdcRawTransaction raw, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
+		xid = raw.xid().toString();
+		firstChange = raw.firstChange();
+		transSize = 0;
+		this.isCdb = isCdb;
+		this.rootDir = rootDir;
+		this.processLobs = processLobs;
+		init(raw);
+	}
+
+	private void init(final OraCdcRawTransaction raw) throws SQLException, IOException {
+		var records = raw.records();
+		capacity = records.size();
+		for (var i = 0; i  < records.size(); i++) {
+			var rr = records.get(i);
+			var lwnUnixMillis = parseTimestamp(rr.ts()).atZone(raw.dbZoneId()).toInstant().toEpochMilli();
+			if (LOGGER.isTraceEnabled())
+				LOGGER.trace(rr.toString());
+			if (rr.has5_1()) {
+				if (rr.hasAudit()) {
+					//TODO
+					//TODO Add audit data to trans...
+					//TODO
+				}
+				if (rr.has11_x()) {
+					switch (rr.change11_x().operation()) {
+						case _11_2_IRP, _11_3_DRP, _11_5_URP,_11_6_ORP ->
+							processRowChange(rr, false, lwnUnixMillis);
+						case _11_16_LMN, _11_8_CFA ->
+							processRowChangeLmn(rr, lwnUnixMillis);
+						case _11_11_QMI, _11_12_QMD ->
+							emitMultiRowChange(rr, false, lwnUnixMillis);
+					}
+					continue;
+				} else if (rr.has10_x()) {
+					processRowChange(rr, false, lwnUnixMillis);
+					continue;
+				} else if (rr.has26_x()) {
+					writeLobChunk(rr.change5_1(), rr.change26_x());
+					continue;
+				}
+				continue;
+			} else if (rr.hasPrb() && rr.has11_x()) {
+				switch (rr.change11_x().operation()) {
+					case _11_2_IRP, _11_3_DRP, _11_5_URP,_11_6_ORP ->
+						processRowChange(rr, true, lwnUnixMillis);
+					case _11_11_QMI, _11_12_QMD ->
+						emitMultiRowChange(rr, true, lwnUnixMillis);
+				}
+				continue;
+			} else if (rr.hasColb()) {
+				//TODO
+				var colb = rr.changeColb();
+				if (colb.longDump()) {
+					var lid = colb.lid();
+					writeLobChunk(lid, colb);
+				} else {
+					emitDirectBlockChange(rr, colb, lwnUnixMillis);
+				}
+			} else if (rr.hasLlb()) {
+				var llb = rr.changeLlb();
+				if (llb.type() == TYPE_1) {
+					openLob(llb, rr.rba(),
+							raw.lobExtras().intColumnId(llb.obj(), llb.lobCol(), true) == -1 ? true : false);
+				} else if (llb.type() == TYPE_3) {
+					if (raw.lobExtras().intColumnId(llb.obj(), llb.lobCol(), true) == -1)
+						closeLob(llb, rr.rba());
+				}
+			} else if (rr.hasKrvXml()) {
+				var xml = rr.changeKrvXml();
+				writeLobChunk(xml, raw.lobExtras().intColumnId(xml.obj(), xml.internalColId(), false), rr.rba());
+			} else if (rr.has26_x()) {
+				var change = rr.change26_x();
+				var lid = change.lid();
+				//TODO
+				writeLobChunk(lid, change);
+			} else if (rr.hasDdl()) {
+				emitDdlChange(rr, lwnUnixMillis);
+			}
+		}
+		setCommitScn(raw.commitScn());
+		try {
+			raw.close();
+		} catch (Exception e) {
+			throw new IOException(e);
+		}
+	}
+
 	void checkForRollback(final OraCdcStatementBase oraSql, final long index) {
 		if (firstRecord) {
 			firstRecord = false;
@@ -203,7 +295,7 @@ public abstract class OraCdcTransaction {
 			transLobs = null;
 			lobCols = null;
 		} else {
-			lobsQueueDirectory = Files.createTempDirectory(rootDir, xid + ".LOBDATA");
+			lobsQueueDirectory = Files.createTempDirectory(rootDir, xid + ".LOBDATA.");
 			if (processLobs == LobProcessingStatus.REDOMINER) {
 				transLobs = new HashMap<>();
 				lobCols = new HashMap<>();

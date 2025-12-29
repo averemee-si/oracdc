@@ -105,6 +105,21 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 		this.addStatement(firstStatement);
 	}
 
+	/**
+	 * 
+	 * Creates OraCdcTransaction from list of OraCdcRedoRecords
+	 * 
+	 * @param raw
+	 * @param isCdb
+	 * @param processLobs
+	 * @param rootDir
+	 */
+	public OraCdcTransactionChronicleQueue(
+			final OraCdcRawTransaction raw, final boolean isCdb,
+			final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
+		super(raw, isCdb, processLobs, rootDir);
+	}
+
 	void processRollbackEntries() {
 		long nanos = System.nanoTime();
 		final ExcerptTailer reverse = statements.createTailer();

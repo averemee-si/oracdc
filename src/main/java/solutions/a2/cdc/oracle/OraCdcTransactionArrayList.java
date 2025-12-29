@@ -17,6 +17,9 @@ import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 
+import java.io.IOException;
+import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -50,6 +53,21 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 			final String xid, final long firstChange, final int capacity, final boolean isCdb) {
 		super(xid, firstChange, isCdb, LobProcessingStatus.NOT_AT_ALL, null);
 		this.capacity = capacity;
+	}
+
+	/**
+	 * 
+	 * Creates OraCdcTransaction from list of OraCdcRedoRecords
+	 * 
+	 * @param raw
+	 * @param isCdb
+	 * @param processLobs
+	 * @param rootDir
+	 */
+	public OraCdcTransactionArrayList(
+			final OraCdcRawTransaction raw, final boolean isCdb,
+			final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
+		super(raw, isCdb, processLobs, rootDir);
 	}
 
 	void processRollbackEntries() {
