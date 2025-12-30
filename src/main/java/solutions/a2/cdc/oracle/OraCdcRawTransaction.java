@@ -28,13 +28,14 @@ import solutions.a2.oracle.internals.Xid;
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
-public class OraCdcRawTransaction implements AutoCloseable {
+public class OraCdcRawTransaction {
 
 	private final Xid xid;
 	private final ZoneId dbZoneId;
 	private List<OraCdcRedoRecord> records;
 	private final OraCdcLobExtras lobExtras;
 	private long commitScn;
+	private long size = 0;
 
 	public OraCdcRawTransaction(Xid xid, ZoneId dbZoneId, int initialCapacity, OraCdcLobExtras lobExtras) {
 		this.xid = xid;
@@ -54,6 +55,7 @@ public class OraCdcRawTransaction implements AutoCloseable {
 	public void add(final OraCdcRedoRecord rr, int ts) {
 		rr.ts(ts);
 		records.add(rr);
+		size += rr.len();
 	}
 
 	List<OraCdcRedoRecord> records() {
@@ -77,8 +79,23 @@ public class OraCdcRawTransaction implements AutoCloseable {
 		return  (records.size() > 0) ? records.get(0).scn() : 0; 
 	}
 
-	@Override
-	public void close() throws Exception {
+	long nextChange() {
+		return  (records.size() > 0) ? records.get(records.size() - 1).scn() : 0; 
+	}
+
+	long size() {
+		return size;
+	}
+	
+	int length() {
+		return records.size();
+	}
+
+	boolean hasRows() {
+		return records.size() > 0;
+	}
+
+	public void close() {
 		records.clear();
 		records = null;
 	}

@@ -88,7 +88,6 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 		var lobExtras = new OraCdcLobExtras();
 		long commitScn = -1;
 
-		@SuppressWarnings("resource")
 		var raw = new OraCdcRawTransaction(xid, ZoneId.systemDefault(), 0x10, lobExtras);
 		while (true) {
 			RedoByteAddress rba = null;
