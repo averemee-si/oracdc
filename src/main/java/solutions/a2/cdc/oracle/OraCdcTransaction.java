@@ -104,7 +104,6 @@ import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.LobLocator;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
-import solutions.a2.oracle.internals.Xid;
 
 
 /**
@@ -208,13 +207,10 @@ public abstract class OraCdcTransaction {
 				}
 				continue;
 			} else if (rr.hasColb()) {
-				//TODO
-				var colb = rr.changeColb();
-				if (colb.longDump()) {
-					var lid = colb.lid();
-					writeLobChunk(lid, colb);
+				if (rr.changeColb().longDump()) {
+					writeLobChunk(rr.changeColb());
 				} else {
-					emitDirectBlockChange(rr, colb, lwnUnixMillis);
+					emitDirectBlockChange(rr, lwnUnixMillis);
 				}
 			} else if (rr.hasLlb()) {
 				var llb = rr.changeLlb();
@@ -229,10 +225,7 @@ public abstract class OraCdcTransaction {
 				var xml = rr.changeKrvXml();
 				writeLobChunk(xml, raw.lobExtras().intColumnId(xml.obj(), xml.internalColId(), false), rr.rba());
 			} else if (rr.has26_x()) {
-				var change = rr.change26_x();
-				var lid = change.lid();
-				//TODO
-				writeLobChunk(lid, change);
+				writeLobChunk(rr.change26_x());
 			} else if (rr.hasDdl()) {
 				emitDdlChange(rr, lwnUnixMillis);
 			}
@@ -738,7 +731,7 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public void processRowChange(final OraCdcRedoRecord rr, final boolean partialRollback,
+	private void processRowChange(final OraCdcRedoRecord rr, final boolean partialRollback,
 			final long lwnUnixMillis) throws IOException {
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("processRowChange(partialRollback={}) in XID {} at SCN/RBA {}/{} for OP:{}",
@@ -819,7 +812,7 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public void processRowChangeLmn(final OraCdcRedoRecord rr, final long lwnUnixMillis) throws IOException {
+	private void processRowChangeLmn(final OraCdcRedoRecord rr, final long lwnUnixMillis) throws IOException {
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("processRowChangeLmn() in XID {} at SCN/RBA {}/{} for OP:11.16",
 					rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba());
@@ -844,7 +837,7 @@ public abstract class OraCdcTransaction {
 	}
 
 	private static final byte[] ZERO_COL_COUNT = {0, 0};
-	public void emitMultiRowChange(final OraCdcRedoRecord rr,
+	private void emitMultiRowChange(final OraCdcRedoRecord rr,
 			final boolean partialRollback,
 			final long lwnUnixMillis) throws IOException {
 		if (LOGGER.isDebugEnabled())
@@ -931,9 +924,9 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public void emitDirectBlockChange(final OraCdcRedoRecord rr,
-			final OraCdcChangeColb colb,
-			final long lwnUnixMillis) throws IOException {
+	private void emitDirectBlockChange(final OraCdcRedoRecord rr,
+				final long lwnUnixMillis) throws IOException {
+		final var colb = rr.changeColb();
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("emitDirectBlockChange() in XID {} at SCN/RBA {}/{} for OP:{}",
 					xid, Long.toUnsignedString(rr.scn()), rr.rba(),
@@ -1788,7 +1781,7 @@ public abstract class OraCdcTransaction {
 		return halfDone.isEmpty();
 	}
 
-	public void emitDdlChange(OraCdcRedoRecord rr, final long lwnUnixMillis) {
+	private void emitDdlChange(OraCdcRedoRecord rr, final long lwnUnixMillis) {
 		final OraCdcChangeDdl ddl = rr.changeDdl();
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("emitDdlChange() in XID {} at SCN/RBA {}/{} for OP:{}",
@@ -1807,7 +1800,7 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public void openLob(final OraCdcChangeLlb llb, final RedoByteAddress rba, final boolean open) {
+	private void openLob(final OraCdcChangeLlb llb, final RedoByteAddress rba, final boolean open) {
 		if (needInit) init();
 		final var lid = llb.lid();
 		final var obj = llb.obj();
@@ -1836,7 +1829,7 @@ public abstract class OraCdcTransaction {
 			holder.open(llb.lobOp());
 	}
 
-	public void closeLob(final OraCdcChangeLlb llb, final RedoByteAddress rba) throws IOException {
+	private void closeLob(final OraCdcChangeLlb llb, final RedoByteAddress rba) throws IOException {
 		closeLob(llb.obj(), llb.lobCol(), llb.fsiz(), rba);
 	}
 
@@ -1869,13 +1862,7 @@ public abstract class OraCdcTransaction {
 		return (Integer.toUnsignedLong((col & 0xFF00) << 8) << 40) | (Integer.toUnsignedLong(obj) << 8 ) | (byte)col;
 	}
 
-	public void delLobTransLink(final Map<LobId, Xid> transFromLobId) {
-		if (transLobs != null)
-			for (var lid : transLobs.keySet())
-				transFromLobId.remove(lid);
-	}
-
-	public void writeLobChunk(final OraCdcChangeKrvXml xml, final short col, final RedoByteAddress rba) throws SQLException {
+	private void writeLobChunk(final OraCdcChangeKrvXml xml, final short col, final RedoByteAddress rba) throws SQLException {
 		if (needInit) init();
 		final var lid = lobCols.get(objCol(xml.obj(), col));
 		if (lid == null) {
@@ -1915,9 +1902,10 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public void writeLobChunk(final LobId lid, final OraCdcChangeColb colb) throws SQLException {
+	private void writeLobChunk(final OraCdcChangeColb colb) throws SQLException {
 		if (needInit) init();
-		LobHolder holder = transLobs.get(lid);
+		var lid =  colb.lid();
+		var holder = transLobs.get(lid);
 		if (holder == null) {
 			holder = new LobHolder(lid, -1, (short)0, lobsQueueDirectory);
 			transLobs.put(lid, holder);
@@ -1930,8 +1918,9 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public void writeLobChunk(final LobId lid, final OraCdcChangeLobs change) throws SQLException {
+	private void writeLobChunk(final OraCdcChangeLobs change) throws SQLException {
 		if (needInit) init();
+		var lid =  change.lid();
 		LobHolder holder = transLobs.get(lid);
 		if (holder == null) {
 			holder = new LobHolder(lid, change.dataObj(), (short)0, lobsQueueDirectory);
@@ -1946,7 +1935,7 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	public void writeLobChunk(final OraCdcChangeUndoBlock undoChange, final OraCdcChangeLobs change) throws SQLException {
+	private void writeLobChunk(final OraCdcChangeUndoBlock undoChange, final OraCdcChangeLobs change) throws SQLException {
 		if (needInit) init();
 		final var lid = change.lid();
 		var holder = transLobs.get(lid);
@@ -2101,7 +2090,7 @@ public abstract class OraCdcTransaction {
 			}
 		}
 
-		void write(final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws IOException {
+		private void write(final byte[] data, final int off, final int len, final boolean colb, final boolean cmap) throws IOException {
 			switch (status) {
 				case LOB_OP_WRITE -> {
 					if (lastChunk == null) {

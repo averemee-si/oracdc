@@ -17,6 +17,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -52,6 +53,8 @@ import solutions.a2.utils.ExceptionUtils;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static solutions.a2.cdc.oracle.OraCdcStatementBase.APPROXIMATE_SIZE;
+import static solutions.a2.cdc.oracle.OraCdcTransaction.LobProcessingStatus.LOGMINER;
+import static solutions.a2.cdc.oracle.OraCdcTransaction.LobProcessingStatus.NOT_AT_ALL;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 /**
  * 
@@ -89,6 +92,13 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final Set<Long> lobObjects;
 	private final Set<Long> nonLobObjects;
 	private final OraCdcDictionaryChecker checker;
+	private final BlockingQueue<OraCdcTransaction> committedTransactions;
+	private final OraCdcTransactionChronicleQueue.LobProcessingStatus lobProcessingStatus;
+	private final Path queuesRoot;
+	private final boolean useChronicleQueue;
+	private final int concTransThreshold;
+	private final int reduceLoadMs;
+	private final Runtime runtime;
 
 	private boolean fetchRsLogMinerNext;
 	private boolean isRsLogMinerRowAvailable;
@@ -104,8 +114,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final Map<String, OraCdcTransaction> activeTransactions,
 			final BlockingQueue<OraCdcTransaction> committedTransactions,
 			final OraCdcSourceConnMgmt metrics) throws SQLException {
-		super(task.runLatch(), task.rdbmsInfo(), task.config(), 
-				task.oraConnections(), committedTransactions);
+		super(task);
 		LOGGER.info("Initializing oracdc LogMiner archivelog worker thread");
 		this.setName("OraCdcLogMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
@@ -116,14 +125,25 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.connectionRetryBackoff = config.connectionRetryBackoff();
 		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
 		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
+		this.committedTransactions = committedTransactions;
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
 		this.logMinerReconnectIntervalMs = config.logMinerReconnectIntervalMs();
+		useChronicleQueue = Strings.CI.equals(
+				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
+				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
+		queuesRoot = config.queuesRoot();
+		concTransThreshold = config.transactionsThreshold();
+		reduceLoadMs = config.reduceLoadMs();
+		runtime = Runtime.getRuntime();
+		LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 		if (processLobs) {
+			lobProcessingStatus = LOGMINER;
 			lobObjects = new HashSet<>();
 			nonLobObjects = new HashSet<>();
 		} else {
+			lobProcessingStatus = NOT_AT_ALL;
 			lobObjects = null;
 			nonLobObjects = null;
 		}
@@ -1204,6 +1224,83 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 					"=====================\n",
 					prefix, prevXid, xid);
 		}
+	}
+
+	private OraCdcTransaction createTransaction(final String xidAsString, final long firstScn, int inProgress) {
+		int attempt = 0;
+		while (true) {
+			if (attempt > Byte.MAX_VALUE) {
+				break;
+			} else
+				attempt++;
+			int readyToSend = committedTransactions.size();
+			boolean waitCondition = (readyToSend + inProgress) > concTransThreshold && readyToSend > 0;
+			if (!useChronicleQueue &&
+					(float)(runtime.freeMemory()/runtime.totalMemory()) > 0.24f) {
+				waitCondition = false;
+			}
+			if (waitCondition) {
+				try {
+					LOGGER.info(
+							"Currently {} transactions are ready to send and {} are in the process of reading from RDBMS. Wait {}ms to reduce the load on the system",
+							readyToSend, inProgress, reduceLoadMs);
+					Thread.sleep(reduceLoadMs);
+				} catch (InterruptedException ie) {}
+			} else {
+				break;
+			}
+		}
+		if (useChronicleQueue)
+			return getChronicleQueue(xidAsString, firstScn);
+		else
+			return new OraCdcTransactionArrayList(xidAsString, firstScn, initialCapacity, isCdb);
+	}
+
+	private OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString, final long firstScn) {
+		long start = System.currentTimeMillis();
+		int attempt = 0;
+		Exception lastException = null;
+		while (true) {
+			if (attempt > Byte.MAX_VALUE)
+				break;
+			else
+				attempt++;
+			try {
+				return new OraCdcTransactionChronicleQueue(lobProcessingStatus, queuesRoot, xidAsString, firstScn, isCdb);
+			} catch (Exception cqe) {
+				lastException = cqe;
+				if (cqe.getCause() != null &&
+						cqe.getCause() instanceof IOException &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "Too") &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "many") &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "open") &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "files")) {
+					try {
+						LOGGER.info("Wait {}ms until OS resources become available to create a Chronicle Queue", backoffMs);
+						Thread.sleep(backoffMs);
+					} catch (InterruptedException ie) {}
+				} else {
+					LOGGER.error(
+							"\n=====================\n" +
+							"'{}' while initializing Chronicle Queue.\n" +
+							"\tThis might be issue https://github.com/OpenHFT/Chronicle-Queue/issues/1446 or you don't have enough open files limit.\n" +
+							"Please send errorstack below to oracle@a2.solutions\n{}\n" +
+							"=====================\n",
+							cqe.getMessage(), ExceptionUtils.getExceptionStackTrace(cqe));
+					throw new ConnectException(cqe);
+				}
+			}
+		}
+		LOGGER.error(
+					"\n=====================\n" +
+					"Failed to reconnect to create Chronicle Queue after {} attempts in {} ms.\n{}" +
+					"\n=====================\n",
+					attempt, (System.currentTimeMillis() - start),
+					lastException != null ? ExceptionUtils.getExceptionStackTrace(lastException) : "");
+		if (lastException != null)
+			throw new ConnectException(lastException);
+		else
+			throw new ConnectException("Unable to create Chronicle Queue!");
 	}
 
 }

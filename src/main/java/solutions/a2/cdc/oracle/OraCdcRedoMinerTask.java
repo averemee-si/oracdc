@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
@@ -54,9 +56,11 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerTask.class);
 
 	private OraCdcSourceConnMgmt metrics;
-	private Map<Xid, OraCdcTransaction> activeTransactions;
+	private Map<Xid, OraCdcRawTransaction> activeTransactions;
 	private String checkTableSql;
 	private final OraCdcRedoMinerStatement stmt = new OraCdcRedoMinerStatement();
+	private final BlockingQueue<OraCdcRawTransaction> rawTransactions = new LinkedBlockingQueue<>();
+	private OraCdcRedoMinerEmitterThread emitter;
 
 	@Override
 	public void start(Map<String, String> props) {
@@ -131,11 +135,15 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			if (config.staticObjIds() &&
 					(includeObjIds == null || includeObjIds.size() == 0)) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"Parameter {} is set to '{}' (default value) and parameter {} is not set.\n" + 
-						"Set the desired value for parameter {} and, if desired, set parameter {},\n" +
-						"or set parameter {} to '{}'" +
-						"\n=====================\n",
+						"""
+						
+						=====================
+						Parameter {} is set to '{}' (default value) and parameter {} is not set. 
+						Set the desired value for parameter {} and, if desired, set parameter {},
+						or set parameter {} to '{}'
+						=====================
+						
+						""",
 						TABLE_LIST_STYLE_PARAM, TABLE_LIST_STYLE_STATIC, TABLE_INCLUDE_PARAM,
 						TABLE_INCLUDE_PARAM, TABLE_EXCLUDE_PARAM,
 						TABLE_LIST_STYLE_PARAM, TABLE_LIST_STYLE_DYNAMIC);
@@ -153,10 +161,12 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 					conUids,
 					checker,
 					activeTransactions,
-					committedTransactions,
+					rawTransactions,
 					iotMapping,
 					metrics,
 					rewind);
+			emitter = new OraCdcRedoMinerEmitterThread(
+					this, rawTransactions, committedTransactions);
 			if (execInitialLoad) {
 				prepareInitialLoadWorker(initialLoadSql.toString(), coords.getLeft());
 			}
@@ -171,6 +181,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			initialLoadWorker.start();
 		}
 		worker.start();
+		emitter.start();
 		taskThreadId.set(Thread.currentThread().getId());
 		return;
 	}
@@ -341,14 +352,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 							worker.lastRba(),
 							worker.lastSubScn()));
 				}
-			}
-			if (activeTransactions != null && !activeTransactions.isEmpty()) {
-				// Clean it!
-				activeTransactions.forEach((name, transaction) -> {
-					LOGGER.warn("Removing uncompleted transaction {} with size {}, first SCN {}",
-							name, transaction.size(), transaction.getFirstChange());
-					transaction.close();
-				});
 			}
 			super.stopEpilogue();
 		}
