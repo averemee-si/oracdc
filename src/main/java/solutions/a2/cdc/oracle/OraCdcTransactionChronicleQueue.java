@@ -477,13 +477,13 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 
 	@Override
 	public void setCommitScn(long commitScn) {
-		if (queueSize > 0)
+		if (queueSize > 0) {
 			lastIndexAppended = appender.lastIndexAppended();
-		else
+			appender.close();
+			appender = null;
+			tailer = statements.createTailer();
+		} else
 			lastIndexAppended = 0;
-		appender.close();
-		appender = null;
-		tailer = statements.createTailer();
 		if (processLobs == LobProcessingStatus.REDOMINER)
 			closeLobFiles();
 		super.setCommitScn(commitScn);
