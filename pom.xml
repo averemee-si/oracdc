@@ -437,6 +437,7 @@
 								<requirement>Oracle Real Application Clusters</requirement>
 								<requirement>Single Instance Physical Standby for Oracle RAC</requirement>
 								<requirement>Oracle ASM</requirement>
+								<requirement>Amazon RDS for Oracle</requirement>
 							</requirements>
 
 							<deliveryGuarantee>
