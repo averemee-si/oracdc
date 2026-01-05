@@ -97,9 +97,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final Map<Xid, List<LobId>> lobIdFromTrans;
 	private final Map<Integer, Integer> iotMapping;
 	private final OraCdcLobExtras lobExtras;
+	private final OraCdcRedoMinerEmitterThread emitter;
 
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcRedoMinerTask task,
+			final OraCdcRedoMinerEmitterThread emitter,
 			final Triple<Long, RedoByteAddress, Long> startFrom,
 			final int[] conUids,
 			final OraCdcDictionaryChecker checker,
@@ -113,6 +115,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.setDaemon(true);
 		this.setName("OraCdcRedoMinerWorkerThread-" + System.nanoTime());
 		this.task = task;
+		this.emitter = emitter;
 		this.activeTransactions = activeTransactions;
 		this.rawTransactions = rawTransactions;
 		this.metrics = metrics;
@@ -628,13 +631,13 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				}
 			}
 			sb.append("\n=====================\n");
-			LOGGER.error(sb.toString());
+			LOGGER.warn(sb.toString());
 		}
 	}
 
 	private void emitRcm(final OraCdcRedoRecord record, final Xid xid) {
 		var raw = activeTransactions.get(xid);
-		final var rollback = record.change5_4().rollback();
+		var rollback = record.change5_4().rollback();
 		if (raw == null) {
 			if (LOGGER.isDebugEnabled())
 				LOGGER.debug("Skipping {} at SCN={}, RBA={} for transaction XID {}",
@@ -672,6 +675,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								"Committing transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
 								xid, record.scn(), record.rba(), raw.firstChange(), raw.length(), raw.size());
 				} else {
+					rollback = true;
 					if (LOGGER.isDebugEnabled())
 						LOGGER.debug("Skipping empty transaction {} at COMMIT_SCN={}",
 								xid, commitScn);
@@ -691,7 +695,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			} else {
 				firstTransaction = true;
 			}
-			if (rollback || !raw.hasRows()) {
+			if (rollback) {
 				raw.close();
 				raw = null;
 			}
@@ -752,6 +756,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("New transaction {} created. Transaction start timestamp {}, first SCN {}.",
 						xid, Instant.ofEpochMilli(parseTimestamp(lwnTs).atZone(dbZoneId).toInstant().toEpochMilli()), lastScn);
+			}
+			while (emitter.coolDown()) {
+				try {
+					Thread.sleep(reduceLoadMs);
+				} catch(InterruptedException ie) {}
 			}
 			raw = new OraCdcRawTransaction(xid, dbZoneId, initialCapacity, lobExtras);
 			if (LOGGER.isDebugEnabled()) {

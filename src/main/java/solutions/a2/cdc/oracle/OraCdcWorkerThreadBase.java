@@ -44,6 +44,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	long lastScn;
 	RedoByteAddress lastRba;
 	long lastSubScn;
+	final int reduceLoadMs;
 
 	public OraCdcWorkerThreadBase(final OraCdcTaskBase task) throws SQLException {
 		runLatch = task.runLatch();
@@ -56,6 +57,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		pollInterval = config.pollIntervalMs();
 		initialCapacity = config.arrayListCapacity();
+		reduceLoadMs = config.reduceLoadMs();
 	}
 
 	public boolean isRunning() {

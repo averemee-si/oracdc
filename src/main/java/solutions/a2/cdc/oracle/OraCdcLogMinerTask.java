@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
@@ -53,6 +54,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc logminer source task for connector {}.", connectorName);
 		super.start(props);
+		if (committedTransactions == null) committedTransactions = new LinkedBlockingQueue<>();
 
 		try (Connection connDictionary = oraConnections.getConnection()) {
 

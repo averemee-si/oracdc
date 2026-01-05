@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.Set;
@@ -151,12 +152,19 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 			}
 			MutableTriple<Long, RedoByteAddress, Long> coords = new MutableTriple<>();
 			boolean rewind = startPosition(coords);
+			var concTransThreshold = config.transactionsThreshold();
+			LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
+			committedTransactions = new ArrayBlockingQueue<>(concTransThreshold);
 			activeTransactions = new HashMap<>(config.transactionsInProcessSize(), .7f);
+
 			checker = new OraCdcDictionaryChecker(this, config.staticObjIds(),
 					tablesInProcessing, tablesOutOfScope, checkTableSql,
 					includeObjIds, excludeObjIds, metrics);
+			emitter = new OraCdcRedoMinerEmitterThread(
+					this, rawTransactions, committedTransactions);
 			worker = new OraCdcRedoMinerWorkerThread(
 					this,
+					emitter,
 					rewind ? coords : new ImmutableTriple<>(coords.getLeft(), null, -1l),
 					conUids,
 					checker,
@@ -165,8 +173,6 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 					iotMapping,
 					metrics,
 					rewind);
-			emitter = new OraCdcRedoMinerEmitterThread(
-					this, rawTransactions, committedTransactions);
 			if (execInitialLoad) {
 				prepareInitialLoadWorker(initialLoadSql.toString(), coords.getLeft());
 			}

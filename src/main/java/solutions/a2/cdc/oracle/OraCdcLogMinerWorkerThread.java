@@ -97,7 +97,6 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final Path queuesRoot;
 	private final boolean useChronicleQueue;
 	private final int concTransThreshold;
-	private final int reduceLoadMs;
 	private final Runtime runtime;
 
 	private boolean fetchRsLogMinerNext;
@@ -135,7 +134,6 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
 		queuesRoot = config.queuesRoot();
 		concTransThreshold = config.transactionsThreshold();
-		reduceLoadMs = config.reduceLoadMs();
 		runtime = Runtime.getRuntime();
 		LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 		if (processLobs) {

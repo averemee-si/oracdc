@@ -49,6 +49,8 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 	private final boolean isCdb;
 	private final Path queuesRoot;
 	private final int backoffMs;
+	private final int reduceLoadMs;
+	private boolean coolDown = false;
 
 	public OraCdcRedoMinerEmitterThread(final OraCdcRedoMinerTask task, final BlockingQueue<OraCdcRawTransaction> rawTransactions, final BlockingQueue<OraCdcTransaction> committedTransactions) throws SQLException {
 		LOGGER.info("Initializing oracdc Redo Miner emitter thread");
@@ -65,6 +67,7 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 		isCdb = task.rdbmsInfo().isCdb() && !task.rdbmsInfo().isPdbConnectionAllowed();
 		queuesRoot = task.config().queuesRoot();
 		backoffMs = task.config().connectionRetryBackoff();
+		reduceLoadMs = task.config().reduceLoadMs();
 		this.setDaemon(true);
 		this.setName("OraCdcRedoMinerEmitterThread-" + System.nanoTime());
 	}
@@ -76,63 +79,18 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 			var raw = rawTransactions.poll();
 			if (raw != null) {
 				try {
+					while (coolDown = committedTransactions.remainingCapacity() == 0) {
+						LOGGER.info(
+								"Currently {} transactions are ready to send and {} are in the process of reading from RDBMS. Wait {} ms to reduce the load on the system",
+								committedTransactions.size(), rawTransactions.size(), reduceLoadMs);
+						try {
+							Thread.sleep(reduceLoadMs);
+						} catch (InterruptedException ie) {}
+					}
 					OraCdcTransaction transaction = null;
-					if (useChronicleQueue) {
-						var start = System.currentTimeMillis();
-						var attempt = 0;
-						var ready = false;
-						Exception lastException = null;
-						while (!ready) {
-							if (attempt > Byte.MAX_VALUE)
-								break;
-							else
-								attempt++;
-							try {
-								transaction = new OraCdcTransactionChronicleQueue(raw, isCdb, lobStatus, queuesRoot);
-								ready = true;
-								break;
-							} catch (Exception cqe) {
-								lastException = cqe;
-								if (cqe.getCause() != null &&
-										cqe.getCause() instanceof IOException &&
-										Strings.CI.contains(cqe.getCause().getMessage(), "Too") &&
-										Strings.CI.contains(cqe.getCause().getMessage(), "many") &&
-										Strings.CI.contains(cqe.getCause().getMessage(), "open") &&
-										Strings.CI.contains(cqe.getCause().getMessage(), "files")) {
-									try {
-										LOGGER.info("Wait {} ms until OS resources become available to create a Chronicle Queue", backoffMs);
-										Thread.sleep(backoffMs);
-									} catch (InterruptedException ie) {}
-								} else {
-									LOGGER.error(
-											"""
-											
-											=====================
-											'{}' while initializing Chronicle Queue.
-												This might be issue https://github.com/OpenHFT/Chronicle-Queue/issues/1446 or you don't have enough open files limit.
-											Please send errorstack below to oracle@a2.solutions
-											{}
-											=====================
-											
-											""", cqe.getMessage(), ExceptionUtils.getExceptionStackTrace(cqe));
-									throw new ConnectException(cqe);
-								}
-							}
-							if (!ready) {
-								LOGGER.error(
-										"""
-										
-										=====================
-										Failed to reconnect to create Chronicle Queue after {} attempts in {} ms.
-										{}
-										=====================
-										
-										""", attempt, (System.currentTimeMillis() - start),
-										ExceptionUtils.getExceptionStackTrace(lastException));
-								throw new ConnectException(lastException);
-							}
-						}
-					} else
+					if (useChronicleQueue)
+						transaction = getOffHeap(raw);
+					else
 						transaction = new OraCdcTransactionArrayList(raw, isCdb, lobStatus, queuesRoot);
 					if (transaction.hasRows())
 						committedTransactions.add(transaction);
@@ -150,6 +108,68 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 
 		}
 		LOGGER.info("END: OraCdcRedoMinerEmitterThread.run()");
+	}
+
+	private OraCdcTransactionChronicleQueue getOffHeap(final OraCdcRawTransaction raw) {
+		var start = System.currentTimeMillis();
+		var attempt = 0;
+		Exception lastException = null;
+		while (true) {
+			if (attempt > Byte.MAX_VALUE)
+				break;
+			else
+				attempt++;
+			try {
+				return new OraCdcTransactionChronicleQueue(raw, isCdb, lobStatus, queuesRoot);
+			} catch (Exception cqe) {
+				lastException = cqe;
+				if (cqe.getCause() != null &&
+						cqe.getCause() instanceof IOException &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "Too") &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "many") &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "open") &&
+						Strings.CI.contains(cqe.getCause().getMessage(), "files")) {
+					try {
+						LOGGER.info("Wait {} ms until OS resources become available to create a Chronicle Queue", backoffMs);
+						Thread.sleep(backoffMs);
+					} catch (InterruptedException ie) {}
+				} else {
+					LOGGER.error(
+							"""
+							
+							=====================
+							'{}' while initializing Chronicle Queue.
+								This might be issue https://github.com/OpenHFT/Chronicle-Queue/issues/1446 or you don't have enough open files limit.
+							Please send errorstack below to oracle@a2.solutions
+							{}
+							=====================
+							
+							""", cqe.getMessage(),
+							ExceptionUtils.getExceptionStackTrace(cqe));
+					task.stop();
+					throw new ConnectException(cqe);
+				}
+			}
+		}
+		LOGGER.error(
+				"""
+				
+				=====================
+				Failed to reconnect to create Chronicle Queue after {} attempts in {} ms.
+				{}
+				=====================
+				
+				""", attempt, (System.currentTimeMillis() - start),
+				lastException != null ? ExceptionUtils.getExceptionStackTrace(lastException) : "");
+		task.stop();
+		if (lastException != null)
+			throw new ConnectException(lastException);
+		else
+			throw new ConnectException("Unable to create Chronicle Queue!");
+	}
+
+	boolean coolDown() {
+		return coolDown;
 	}
 
 }
