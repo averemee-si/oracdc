@@ -71,6 +71,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	private ExcerptAppender lobsAppender;
 	private ExcerptTailer lobsTailer;
 	private long lastIndexAppended;
+	private final int blockSize;
+	private final int bufferCapacity;
 
 	/**
 	 * 
@@ -81,12 +83,15 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	 * @param xid
 	 * @param firstChange
 	 * @param isCdb
+	 * @param sizeArray
 	 * @throws IOException
 	 */
 	public OraCdcTransactionChronicleQueue(final LobProcessingStatus processLobs,
-			final Path rootDir, final String xid, final long firstChange, final boolean isCdb) throws IOException {
+			final Path rootDir, final String xid, final long firstChange, final boolean isCdb, final int[] sizeArray) throws IOException {
 		super(xid, firstChange, isCdb, processLobs, rootDir);
 		transSize = 0;
+		blockSize = sizeArray[0];
+		bufferCapacity = sizeArray[1];
 	}
 
 	/**
@@ -101,8 +106,12 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	 */
 	public OraCdcTransactionChronicleQueue(
 			final Path rootDir, final String xid, final OraCdcStatementBase firstStatement, final boolean isCdb) throws IOException {
-		this(LobProcessingStatus.NOT_AT_ALL, rootDir, xid, firstStatement.getScn(), isCdb);
-		this.addStatement(firstStatement);
+		super(xid, firstStatement.getScn(), isCdb, LobProcessingStatus.NOT_AT_ALL, rootDir);
+		transSize = 0;
+		addStatement(firstStatement);
+		//TODO - temporary, constructor used only in test!
+		blockSize = 0x4000000;
+		bufferCapacity = 0x1000000;
 	}
 
 	/**
@@ -113,11 +122,15 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 	 * @param isCdb
 	 * @param processLobs
 	 * @param rootDir
+	 * @param sizeArray
 	 */
 	public OraCdcTransactionChronicleQueue(
 			final OraCdcRawTransaction raw, final boolean isCdb,
-			final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
+			final LobProcessingStatus processLobs, final Path rootDir,
+			final int[] sizeArray) throws SQLException, IOException {
 		super(raw, isCdb, processLobs, rootDir);
+		blockSize = sizeArray[0];
+		bufferCapacity = sizeArray[1];
 	}
 
 	void processRollbackEntries() {
@@ -235,6 +248,8 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 				try {
 					statements = ChronicleQueue
 							.singleBuilder(queueDirectory)
+							.blockSize(blockSize)
+							.bufferCapacity(bufferCapacity)
 							.build();
 					cqDone = true;
 				} catch (IllegalStateException ise) {

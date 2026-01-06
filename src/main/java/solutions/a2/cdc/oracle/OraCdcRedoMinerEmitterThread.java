@@ -50,6 +50,7 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 	private final Path queuesRoot;
 	private final int backoffMs;
 	private final int reduceLoadMs;
+	private final int[] offHeapSize;
 	private boolean coolDown = false;
 
 	public OraCdcRedoMinerEmitterThread(final OraCdcRedoMinerTask task, final BlockingQueue<OraCdcRawTransaction> rawTransactions, final BlockingQueue<OraCdcTransaction> committedTransactions) throws SQLException {
@@ -68,6 +69,7 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 		queuesRoot = task.config().queuesRoot();
 		backoffMs = task.config().connectionRetryBackoff();
 		reduceLoadMs = task.config().reduceLoadMs();
+		offHeapSize = task.config().offHeapSize();
 		this.setDaemon(true);
 		this.setName("OraCdcRedoMinerEmitterThread-" + System.nanoTime());
 	}
@@ -120,7 +122,7 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 			else
 				attempt++;
 			try {
-				return new OraCdcTransactionChronicleQueue(raw, isCdb, lobStatus, queuesRoot);
+				return new OraCdcTransactionChronicleQueue(raw, isCdb, lobStatus, queuesRoot, offHeapSize);
 			} catch (Exception cqe) {
 				lastException = cqe;
 				if (cqe.getCause() != null &&

@@ -98,6 +98,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final boolean useChronicleQueue;
 	private final int concTransThreshold;
 	private final Runtime runtime;
+	private final int[] offHeapSize;
 
 	private boolean fetchRsLogMinerNext;
 	private boolean isRsLogMinerRowAvailable;
@@ -135,6 +136,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		queuesRoot = config.queuesRoot();
 		concTransThreshold = config.transactionsThreshold();
 		runtime = Runtime.getRuntime();
+		offHeapSize = config.offHeapSize();
 		LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 		if (processLobs) {
 			lobProcessingStatus = LOGMINER;
@@ -1264,7 +1266,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			else
 				attempt++;
 			try {
-				return new OraCdcTransactionChronicleQueue(lobProcessingStatus, queuesRoot, xidAsString, firstScn, isCdb);
+				return new OraCdcTransactionChronicleQueue(lobProcessingStatus, queuesRoot, xidAsString, firstScn, isCdb, offHeapSize);
 			} catch (Exception cqe) {
 				lastException = cqe;
 				if (cqe.getCause() != null &&
