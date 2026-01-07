@@ -315,3 +315,7 @@ Default - true
 
 `a2.transactions.in.process.size` - Specifies the initial size of the memory structure that stores information about currently processed transactions. Default - 1024
 
+`a2.emitter.timeout.ms` - Sets the time interval in milliseconds after which the emitter thread checks for a new, unprocessed set of redo records. Default - 21
+
+`a2.offheap.size` - Defines the initial size of the off-heap memory structure. Default - `HALF-QUARTER`
+

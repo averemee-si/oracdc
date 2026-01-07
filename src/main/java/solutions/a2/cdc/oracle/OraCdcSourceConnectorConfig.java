@@ -514,6 +514,29 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			Specifies the initial size of the memory structure that stores information about currently processed transactions.
 			Default - """ + TRANS_IN_PROCESS_SIZE_DEFAULT;
 
+	private static final int EMITTER_TIMEOUT_MS_DEFAULT = 0x15;
+	private static final String EMITTER_TIMEOUT_MS_PARAM = "a2.emitter.timeout.ms";
+	private static final String EMITTER_TIMEOUT_MS_DOC =
+			"""
+			Sets the time interval in milliseconds after which the emitter thread checks for a new, unprocessed set of redo records.
+			Default - """ + EMITTER_TIMEOUT_MS_DEFAULT;
+
+	private static final int[] OFFHEAP_SIZE_FULL_INT = {0x4000000, 0x1000000};
+	private static final String OFFHEAP_SIZE_FULL = "FULL";
+	private static final int[] OFFHEAP_SIZE_HALF_INT = {0x2000000, 0x800000};
+	private static final String OFFHEAP_SIZE_HALF = "HALF";
+	private static final int[] OFFHEAP_SIZE_QUARTER_INT = {0x1000000, 0x400000};
+	private static final String OFFHEAP_SIZE_QUARTER = "QUARTER";
+	private static final int[] OFFHEAP_SIZE_HALFQUARTER_INT = {0x800000, 0x200000};
+	private static final String OFFHEAP_SIZE_HALFQUARTER = "HALF-QUARTER";
+	private static final String OFFHEAP_SIZE_DEFAULT = OFFHEAP_SIZE_HALFQUARTER;
+	private static final String OFFHEAP_SIZE_PARAM = "a2.offheap.size";
+	private static final String OFFHEAP_SIZE_DOC =
+			"""
+			Defines the initial size of the off-heap memory structure.
+			Default - """ + OFFHEAP_SIZE_DEFAULT;
+
+
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
 	private Map<String, String> fileNameConversionMap;
@@ -673,7 +696,12 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(STOP_ON_MISSED_LOG_FILE_PARAM, BOOLEAN, STOP_ON_MISSED_LOG_FILE_DEFAULT, HIGH, STOP_ON_MISSED_LOG_FILE_DOC)
 				.define(TABLES_IN_PROCESS_SIZE_PARAM, INT, TABLES_IN_PROCESS_SIZE_DEFAULT, LOW, TABLES_IN_PROCESS_SIZE_DOC)
 				.define(TABLES_OUT_OF_SCOPE_SIZE_PARAM, INT, TABLES_OUT_OF_SCOPE_SIZE_DEFAULT, LOW, TABLES_OUT_OF_SCOPE_SIZE_DOC)
-				.define(TRANS_IN_PROCESS_SIZE_PARAM, INT, TRANS_IN_PROCESS_SIZE_DEFAULT, LOW, TRANS_IN_PROCESS_SIZE_DOC);
+				.define(TRANS_IN_PROCESS_SIZE_PARAM, INT, TRANS_IN_PROCESS_SIZE_DEFAULT, LOW, TRANS_IN_PROCESS_SIZE_DOC)
+				.define(EMITTER_TIMEOUT_MS_PARAM, INT, EMITTER_TIMEOUT_MS_DEFAULT, LOW, EMITTER_TIMEOUT_MS_DOC)
+				.define(OFFHEAP_SIZE_PARAM, STRING, OFFHEAP_SIZE_DEFAULT,
+						ConfigDef.ValidString.in(
+								OFFHEAP_SIZE_FULL, OFFHEAP_SIZE_HALF, OFFHEAP_SIZE_QUARTER, OFFHEAP_SIZE_HALFQUARTER),
+						LOW, OFFHEAP_SIZE_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<String, String> originals) {
@@ -1683,6 +1711,22 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 
 	public int transactionsInProcessSize() {
 		return getInt(TRANS_IN_PROCESS_SIZE_PARAM);
+	}
+
+	public int emitterTimeoutMs() {
+		return getInt(EMITTER_TIMEOUT_MS_PARAM);
+	}
+
+	public int[] offHeapSize() {
+		if (logMiner)
+			return OFFHEAP_SIZE_FULL_INT;
+		else
+			switch (getString(OFFHEAP_SIZE_PARAM)) {
+				case OFFHEAP_SIZE_FULL: return OFFHEAP_SIZE_FULL_INT;
+				case OFFHEAP_SIZE_HALF: return OFFHEAP_SIZE_HALF_INT;
+				case OFFHEAP_SIZE_QUARTER: return OFFHEAP_SIZE_QUARTER_INT;
+				default: return OFFHEAP_SIZE_HALFQUARTER_INT;
+			}
 	}
 
 }

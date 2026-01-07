@@ -58,15 +58,15 @@ public class OraCdcStatementBase implements ReadMarshallable, WriteMarshallable 
 	/** is this partial rollback? */
 	protected boolean rollback;
 
+	// tableId(Long) + operation(Short) + ts(Long) + scn(Long) + ssn(Long) + lobCount(Byte) + RBA + ROWID + <Content length>
+	private static final int HOLDER_SIZE = Long.BYTES + Short.BYTES + Long.BYTES + Long.BYTES + Long.BYTES + Byte.BYTES +
+			RedoByteAddress.BYTES + RowId.BYTES + Integer.BYTES;
 	/**
 	 * 
 	 * Default constructor
 	 * 
 	 */
 	public OraCdcStatementBase() {
-		// tableId(Long) + operation(Short) + ts(Long) + scn(Long) + ssn(Long) + lobCount(Byte) + RBA + ROWID
-		holderSize = Long.BYTES + Short.BYTES + Long.BYTES + Long.BYTES + Long.BYTES + Byte.BYTES +
-				RedoByteAddress.BYTES + RowId.BYTES;
 	}
 
 	/**
@@ -83,7 +83,6 @@ public class OraCdcStatementBase implements ReadMarshallable, WriteMarshallable 
 	 */
 	public OraCdcStatementBase(long tableId, short operation,
 			byte[] redoData, long ts, long scn, RedoByteAddress rba, long ssn, RowId rowId, boolean rollback) {
-		this();
 		this.tableId = tableId;
 		this.operation = operation;
 		this.redoData = redoData;
@@ -95,7 +94,7 @@ public class OraCdcStatementBase implements ReadMarshallable, WriteMarshallable 
 		// No BLOB/CLOB initially
 		this.lobCount = 0;
 		// All strings are US7ASCII
-		holderSize +=  (Integer.BYTES +  redoData.length);
+		holderSize =  HOLDER_SIZE + redoData.length;
 		this.rollback = rollback;
 	}
 

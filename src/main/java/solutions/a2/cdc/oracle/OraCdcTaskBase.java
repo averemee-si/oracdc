@@ -238,7 +238,6 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			tablesInProcessing = new HashMap<>(config.tablesInProcessSize(), .7f);
 		if (tablesOutOfScope == null)
 			tablesOutOfScope = new HashSet<>(config.tablesOutOfScopeSize(), .7f);
-		if (committedTransactions == null) committedTransactions = new LinkedBlockingQueue<>();
 
 		try (Connection connDictionary = oraConnections.getConnection()) {
 			rdbmsInfo = new OraRdbmsInfo(connDictionary);

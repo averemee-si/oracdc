@@ -13,26 +13,13 @@
 
 package solutions.a2.cdc.oracle.utils.file;
 
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_10_SKL;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_11_QMI;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_12_QMD;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_16_LMN;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_4_LKR;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_6_ORP;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_8_CFA;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange.formatOpCode;
-import static solutions.a2.cdc.oracle.internals.OraCdcChangeKrvXml.TYPE_XML_DOC;
-import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
-import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
-import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_4;
+import static solutions.a2.cdc.oracle.OraCdcTransaction.LobProcessingStatus.REDOMINER;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.sql.SQLException;
+import java.time.ZoneId;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -46,9 +33,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.OraCdcLobExtras;
+import solutions.a2.cdc.oracle.OraCdcRawTransaction;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue;
-import solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue.LobProcessingStatus;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -99,10 +86,9 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 		var queuesRoot = FileSystems.getDefault().getPath(System.getProperty("java.io.tmpdir"));
 		transFromLobId.clear();
 		var lobExtras = new OraCdcLobExtras();
-
-		OraCdcTransactionChronicleQueue transaction = null;
-		boolean first = true;
 		long commitScn = -1;
+
+		var raw = new OraCdcRawTransaction(xid, ZoneId.systemDefault(), 0x10, lobExtras);
 		while (true) {
 			RedoByteAddress rba = null;
 			try {
@@ -111,11 +97,6 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 				break;
 			}
 			var scn = raf.readLong();
-			if (first) {
-				first = false;
-				transaction = new OraCdcTransactionChronicleQueue(
-						LobProcessingStatus.REDOMINER, queuesRoot, xid.toString(), scn, orl.cdb());
-			}
 			var len = raf.readInt();
 			var content = new byte[len];
 			var actual = raf.read(content);
@@ -131,7 +112,6 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 				throw new IOException("File " + incFileName + " read error!");
 			}
 			var rr = new OraCdcRedoRecord(orl, scn, rba, content);
-			var lwnUnixMillis = System.currentTimeMillis();
 			if (rr.has5_4()) {
 				if (rr.change5_4().rollback()) {
 					LOGGER.error(
@@ -147,91 +127,15 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 					LOGGER.debug("Commit at SCN/RBA {}/{}", Long.toUnsignedString(rr.scn()), rr.rba());
 					commitScn = rr.scn();
 				}
-			} else if (rr.has5_1() && rr.has11_x()) {
-				var operation = rr.change11_x().operation();
-				switch (operation) {
-					case _11_2_IRP, _11_3_DRP, _11_5_URP, _11_6_ORP ->
-						transaction.processRowChange(rr, false, lwnUnixMillis);
-					case _11_16_LMN, _11_8_CFA ->
-						transaction.processRowChangeLmn(rr, lwnUnixMillis);
-					case _11_11_QMI, _11_12_QMD ->
-						transaction.emitMultiRowChange(rr, false, lwnUnixMillis);
-					case _11_4_LKR, _11_10_SKL ->
-						LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), rr.rba());
-				}
-			} else if (rr.hasPrb() && rr.has11_x()) {
-				final var operation = rr.change11_x().operation();
-				switch (operation) {
-					case _11_2_IRP, _11_3_DRP, _11_5_URP, _11_6_ORP ->
-						transaction.processRowChange(rr, true, lwnUnixMillis);
-					case _11_11_QMI, _11_12_QMD ->
-						transaction.emitMultiRowChange(rr, true, lwnUnixMillis);
-				}
-			} else if (rr.has5_1() && rr.has10_x()) {
-				if (rr.change5_1().fb() != 0 ||
-						rr.change10_x().fb() != 0 ||
-						rr.change5_1().supplementalFb() != 0) {
-					//TODO
-					//TODO - IOT remap without dictionary
-					//TODO
-					//transaction.processRowChange(rr, false, lwnUnixMillis);
-				}
-			} else if (rr.hasColb()) {
-				var colb = rr.changeColb();
-				if (colb.longDump()) {
-					var lid = colb.lid();
-					if (lid != null && transFromLobId.contains(lid)) {
-						transaction.writeLobChunk(lid, colb);
-					}
-				} else if (rr.hasKrvDlr10())
-					transaction.emitDirectBlockChange(rr, colb, lwnUnixMillis);
+			} else {
+				if (rr.has10_x() && !rr.change5_1().supplementalLogData())
+					continue;
 				else
-					LOGGER.warn(
-							"""
-							
-							=====================
-							Support for OP:19.1 at RBA {} with content
-							{}
-							is not yet supported. Please send this message to oracle@a2.solutions
-							=====================
-							
-							""", rr.rba(), rr.content());
-			} else if (rr.hasLlb()) {
-				var llb = rr.changeLlb();
-				if (llb.type() == TYPE_1) {
-					transFromLobId.add(llb.lid());
-					transaction.openLob(llb, rr.rba(),
-							lobExtras.intColumnId(llb.obj(), llb.lobCol(), true) == -1 ? true : false);
-				} else if (llb.type() == TYPE_3) {
-					if (lobExtras.intColumnId(llb.obj(), llb.lobCol(), true) == -1)
-						transaction.closeLob(llb, rr.rba());
-				} else if (llb.type() == TYPE_4) {
-					if (llb.hasXmlType())
-						lobExtras.buildColMap(llb);
-				}
-			} else if (rr.hasKrvXml()) {
-				var xml = rr.changeKrvXml();
-				if (xml.type() == TYPE_XML_DOC) {
-					var colId = lobExtras.intColumnId(xml.obj(), xml.internalColId(), false);
-					transaction.writeLobChunk(xml, colId, rr.rba());
-				}
-			} else if (rr.has5_1() && rr.has26_x()) {
-				var change = rr.change26_x();
-				if (change.kdliFillLen() > -1)
-					transaction.writeLobChunk(rr.change5_1(), change);
-			} else if (rr.has26_x()) {
-				var change = rr.change26_x();
-				var lid = change.lid();
-				if (change.lobBimg())
-					transaction.writeLobChunk(lid, change);
-			} else if (rr.hasDdl()) {
-				transaction.emitDdlChange(rr, lwnUnixMillis);
+					raw.add(new OraCdcRedoRecord(orl, scn, rba, content), (int)(System.currentTimeMillis() / 1000));
 			}
 		}
-
-		raf.seek(HEADER_SIZE);
 		if (commitScn > 0)
-			transaction.setCommitScn(commitScn);
+			raw.commitScn(commitScn);
 		else {
 			LOGGER.error(
 					"""
@@ -243,6 +147,9 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 					""");
 			throw new IllegalArgumentException("Transactions without the COMMIT statement are not supported.");
 		}
+
+		var transaction = new OraCdcTransactionChronicleQueue(raw, orl.cdb(), REDOMINER, queuesRoot);
+		raf.seek(HEADER_SIZE);
 		return transaction;
 	}
 

@@ -62,9 +62,9 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.source>17</maven.compiler.source>
-		<maven.compiler.target>17</maven.compiler.target>
+		<maven.compiler.release>17</maven.compiler.release>
 		<junit.version>5.14.0</junit.version>
+		<guava.version>33.5.0-jre</guava.version>
 		<kafka.version>3.9.1</kafka.version>
 		<commons.lang3.version>3.20.0</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
@@ -123,6 +123,13 @@
 			<groupId>org.junit.jupiter</groupId>
 			<artifactId>junit-jupiter-engine</artifactId>
 			<version>${junit.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.google.guava/guava -->
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>${guava.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
@@ -430,6 +437,7 @@
 								<requirement>Oracle Real Application Clusters</requirement>
 								<requirement>Single Instance Physical Standby for Oracle RAC</requirement>
 								<requirement>Oracle ASM</requirement>
+								<requirement>Amazon RDS for Oracle</requirement>
 							</requirements>
 
 							<deliveryGuarantee>

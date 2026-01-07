@@ -56,7 +56,8 @@ public class OraCdcRollbackData {
 				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0031f7.008fcf21.0010 "), 0,
 				new RowId("AAAqT4AAmAAHL6bAAO"), false); 
 		if (arrayList) {
-			transaction = new OraCdcTransactionArrayList(xid, firstStmt, false);
+			transaction = new OraCdcTransactionArrayList(xid, firstStmt.getScn(), 0x20, false);
+			transaction.addStatement(firstStmt);
 		} else {
 			final String tmpDir = System.getProperty("java.io.tmpdir");
 			final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
@@ -1119,7 +1120,8 @@ SCN     TIMESTAMP       RBA     SSN     OBJECT_ID       ROWID   OPERATION_CODE  
 				RedoByteAddress.fromLogmnrContentsRs_Id(" 0x0042db.00f6825d.00fc "), 16,
 				new RowId("AAAqupABaAAOiRjAAC"), false); 
 		if (arrayList) {
-			transaction = new OraCdcTransactionArrayList(xid, firstStmt, false);
+			transaction = new OraCdcTransactionArrayList(xid, firstStmt.getScn(), 0x20, false);
+			transaction.addStatement(firstStmt);
 		} else {
 			final String tmpDir = System.getProperty("java.io.tmpdir");
 			final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
