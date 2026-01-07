@@ -13,6 +13,11 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.UndoByteAddress;
 import solutions.a2.oracle.internals.Xid;
@@ -34,7 +39,8 @@ import solutions.a2.oracle.utils.FormattingUtils;
 public class OraCdcChangeColb extends OraCdcChange {
 
 	public static final int LONG_DUMP_SIZE = 0x24;
-
+	
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeColb.class);
 	private static final int BLOCK_DUMP_MIN_SIZE = 0x18;
 
 	private boolean longDump;
@@ -53,9 +59,28 @@ public class OraCdcChangeColb extends OraCdcChange {
 			longDump = false;
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, BLOCK_DUMP_MIN_SIZE, "");
 			obj = redoLog.bu().getU32(record, coords[0][0] + 0x4);
-			itc = record[coords[0][0] + 0x10];
+			itc = (byte) (redoLog.bu().getU16(record, coords[0][0] + 0x10) & 0xFF);
 			bdba = redoLog.bu().getU32(record, coords[0][0] + 0x14);
-			lobDataOffset = (BLOCK_DUMP_MIN_SIZE + Byte.toUnsignedInt(itc) * 0x1A + 7) & 0xFFFFFFF8;
+			if ((record[coords[0][0] + 0x12] & 0x20) > 0)
+				lobDataOffset = (BLOCK_DUMP_MIN_SIZE + Byte.toUnsignedInt(itc) * 0x1A + 7) & 0xFFFFFFF8;
+			else if ((record[coords[0][0] + 0x12] & 0x2) > 0)
+				lobDataOffset = (BLOCK_DUMP_MIN_SIZE + Byte.toUnsignedInt(itc) * 0x1A + 7) & 0xFFFFFFF0;
+			else {
+				lobDataOffset = (BLOCK_DUMP_MIN_SIZE + Byte.toUnsignedInt(itc) * 0x1A + 7) & 0xFFFFFFF8;
+				LOGGER.warn(
+						"""
+						
+						=====================
+						Unknown lobDataOffset flag {} at RBA {}. lobDataOffset is set to {}.
+						Change contents:
+						{}
+						Redo record contents:
+						{}
+						=====================
+						
+						""", String.format("%02x", record[coords[0][0] + 0x12]), rba, lobDataOffset,
+						binaryDump(), rawToHex(record));
+			}
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, lobDataOffset + 8, "");
 			headerSize = redoLog.bu().getU16(record, coords[0][0] + lobDataOffset + 0x6);
 			elementLengthCheck("19.1 (KCBLCOLB)", "", 0, lobDataOffset + headerSize, "");
