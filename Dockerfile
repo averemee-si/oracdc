@@ -14,8 +14,8 @@
 ARG    CONFLUENT_VERSION=7.7.1
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
 
-FROM   eclipse-temurin:21-jdk AS build-sr-client
-RUN    set -eux && apt-get --yes install wget 
+FROM   eclipse-temurin:25-jdk AS build-sr-client
+RUN    set -eux && apt-get update && apt-get --yes install wget 
 
 # Add schema registry dependencies
 ARG    CONFLUENT_VERSION
@@ -226,7 +226,7 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && cd / && rm -rf WORKDIR
 
 
-FROM   eclipse-temurin:21-jre
+FROM   eclipse-temurin:25-jre
 LABEL  maintainer="oracle@a2.solutions"
 LABEL  vendor="A2 Rešitve d.o.o."
 LABEL  version="2.13.1"
@@ -248,7 +248,7 @@ ARG    KAFKA_FILENAME=kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz
 ENV    KAFKA_HOME=${BASEDIR}/kafka
 ENV    PATH=${PATH}:${KAFKA_HOME}/bin:${KAFKA_HOME}/connect/bin
 ENV    PROPS_FILE=${KAFKA_HOME}/config/oracdc-distributed.properties
-ENV    KAFKA_OPTS="-Dchronicle.analytics.disable=true -Dchronicle.disk.monitor.disable=true -Dchronicle.queue.warnSlowAppenderMs=500 -Dmaverick.log.nothread=true -Dmaverick.log.console=true -Dmaverick.log.console.level=ERROR --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-exports java.base/sun.nio.ch=ALL-UNNAMED --add-exports jdk.unsupported/sun.misc=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED"
+ENV    KAFKA_OPTS="-Dchronicle.analytics.disable=true -Dchronicle.disk.monitor.disable=true -Dchronicle.queue.warnSlowAppenderMs=500 -Dmaverick.log.nothread=true -Dmaverick.log.console=true -Dmaverick.log.console.level=ERROR --enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-exports java.base/sun.nio.ch=ALL-UNNAMED --add-exports jdk.unsupported/sun.misc=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED"
 RUN    wget -q "https://dlcdn.apache.org/kafka/${KAFKA_VERSION}/${KAFKA_FILENAME}" -O "/tmp/${KAFKA_FILENAME}" \
        && tar xvfz /tmp/${KAFKA_FILENAME} -C ${BASEDIR} \
        && rm /tmp/${KAFKA_FILENAME} \
