@@ -148,7 +148,8 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 			throw new IllegalArgumentException("Transactions without the COMMIT statement are not supported.");
 		}
 
-		var transaction = new OraCdcTransactionChronicleQueue(raw, orl.cdb(), REDOMINER, queuesRoot);
+		final int[] halfQuarter = {0x800000, 0x200000};
+		var transaction = new OraCdcTransactionChronicleQueue(raw, orl.cdb(), REDOMINER, queuesRoot, halfQuarter);
 		raf.seek(HEADER_SIZE);
 		return transaction;
 	}
