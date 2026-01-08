@@ -109,6 +109,14 @@ This project is licensed under the Apache-2.0 License.
 
 == Release history
 
+=== 2.14.0 (JAN-2026)
+
+1. Big-endian platforms fixes for processing OP:19.1 and OP:11.17
+
+2. **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector performance improvements.
+
+3. Java 25 LTS for container image
+
 === 2.13.1 (DEC-2025)
 
 Bug fixes and enhancements
