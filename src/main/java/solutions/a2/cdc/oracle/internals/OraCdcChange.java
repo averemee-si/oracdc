@@ -515,86 +515,86 @@ public class OraCdcChange {
 			"DCU",
 			"MRK" };
 
-	void kdo(final int index) {
+	boolean kdo(final int index) {
 		kdoOpElemLengthCheck(index, KDO_OPCODE_MIN_LENGTH, "");
 		bdba = redoLog.bu().getU32(record, coords[index][0]);
 		op = record[coords[index][0] + 0x0A];
 		flags = record[coords[index][0] + 0x0B];
-		final int selector = (op & 0x1F) | (KCOCODRW << 0x08);
-		switch (selector) {
-		case _11_2_IRP:
-		case _11_6_ORP:
-			kdoOpElemLengthCheck(index, KDO_OPCODE_ORP_IRP_MIN_LENGTH);
-			fb = record[coords[index][0] + 0x10];
-			columnCount = Byte.toUnsignedInt(record[coords[index][0] + 0x12]);
-			slot = redoLog.bu().getU16(record, coords[index][0] + 0x2A);
-			kdoNullElemLengthCheck(index, KDO_ORP_IRP_NULL_POS + (columnCount + 7) / 8);
-			break;
-		case _11_3_DRP:
-			kdoOpElemLengthCheck(index, KDO_OPCODE_DRP_MIN_LENGTH);
-			slot = redoLog.bu().getU16(record, coords[index][0] + 0x10);
-			break;
-		case _11_4_LKR:
-			kdoOpElemLengthCheck(index, KDO_OPCODE_LKR_MIN_LENGTH);
-			slot = redoLog.bu().getU16(record, coords[index][0] + 0x10);
-			break;
-		case _11_5_URP:
-			kdoOpElemLengthCheck(index, KDO_OPCODE_URP_MIN_LENGTH);
-			fb = record[coords[index][0] + 0x10];
-			slot = redoLog.bu().getU16(record, coords[index][0] + 0x14);
-			columnCount = Byte.toUnsignedInt(record[coords[index][0] + 0x17]);
-			int ccFromArray = Integer.MIN_VALUE;
-			if (index + 1 < coords.length && 
+		switch ((op & 0x1F) | (KCOCODRW << 0x08)) {
+			case _11_2_IRP, _11_6_ORP -> {
+				kdoOpElemLengthCheck(index, KDO_OPCODE_ORP_IRP_MIN_LENGTH);
+				fb = record[coords[index][0] + 0x10];
+				columnCount = Byte.toUnsignedInt(record[coords[index][0] + 0x12]);
+				slot = redoLog.bu().getU16(record, coords[index][0] + 0x2A);
+				kdoNullElemLengthCheck(index, KDO_ORP_IRP_NULL_POS + (columnCount + 7) / 8);
+				if (coords[index + 1][1] == Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x28)) && columnCount != 1)
+					return true;
+			}
+			case _11_3_DRP -> {
+				kdoOpElemLengthCheck(index, KDO_OPCODE_DRP_MIN_LENGTH);
+				slot = redoLog.bu().getU16(record, coords[index][0] + 0x10);
+			}
+			case _11_4_LKR -> {
+				kdoOpElemLengthCheck(index, KDO_OPCODE_LKR_MIN_LENGTH);
+				slot = redoLog.bu().getU16(record, coords[index][0] + 0x10);
+			}
+			case _11_5_URP -> {
+				kdoOpElemLengthCheck(index, KDO_OPCODE_URP_MIN_LENGTH);
+				fb = record[coords[index][0] + 0x10];
+				slot = redoLog.bu().getU16(record, coords[index][0] + 0x14);
+				columnCount = Byte.toUnsignedInt(record[coords[index][0] + 0x17]);
+				int ccFromArray = Integer.MIN_VALUE;
+				if (index + 1 < coords.length && 
 					(ccFromArray = coords[index + 1][1] / Short.BYTES) > columnCount &&
 					index + 1 + ccFromArray < coords.length) {
-				columnCountNn = columnCount;
-				columnCount = ccFromArray;
-				if (LOGGER.isTraceEnabled()) {
-					LOGGER.trace("Trailing NULL's cc adjustment at RBA {} in '{}'", rba, redoLog.fileName());
-				}
-			} else if ((flags & KDO_KDOM2) != 0) {
-				columnCountNn = columnCount;
-			} else {
-				kdoNullElemLengthCheck(index, KDO_URP_NULL_POS + (columnCount + 7) / 8);
-				columnCountNn = 0;
-				byte mask = 1;
-				int diff = KDO_URP_NULL_POS;
-				for (int i = 0; i < columnCount; i++) {
-					if ((record[coords[index][0] + diff] & mask) != 0 &&
+					columnCountNn = columnCount;
+					columnCount = ccFromArray;
+					if (LOGGER.isTraceEnabled()) {
+						LOGGER.trace("Trailing NULL's cc adjustment at RBA {} in '{}'", rba, redoLog.fileName());
+					}
+				} else if ((flags & KDO_KDOM2) != 0) {
+					columnCountNn = columnCount;
+				} else {
+					kdoNullElemLengthCheck(index, KDO_URP_NULL_POS + (columnCount + 7) / 8);
+					columnCountNn = 0;
+					byte mask = 1;
+					int diff = KDO_URP_NULL_POS;
+					for (int i = 0; i < columnCount; i++) {
+						if ((record[coords[index][0] + diff] & mask) != 0 &&
 							(index + i + 0x2) < coords.length &&
 							coords[index + i + 0x2][1] > 0) {
-						break;
-					} else {
-						columnCountNn++;
-					}
-					mask <<= 1;
-					if (mask == 0) {
-						mask = 1;
-						diff++;
+							break;
+						} else {
+							columnCountNn++;
+						}
+						mask <<= 1;
+						if (mask == 0) {
+							mask = 1;
+							diff++;
+						}
 					}
 				}
 			}
-			break;
-		case _11_16_LMN:
-			kdoOpElemLengthCheck(index, KDO_OPCODE_LMN_MIN_LENGTH);
-			fb = record[coords[index][0] + 0x7];
-			columnCount = 0;
-			columnCountNn = 0;
-			break;
-		case _11_8_CFA:
-			kdoOpElemLengthCheck(index, KDO_OPCODE_CFA_MIN_LENGTH);
-			slot = redoLog.bu().getU16(record, coords[index][0] + 0x18);
-			break;
-		case _11_10_SKL:
-			kdoOpElemLengthCheck(index, KDO_OPCODE_SKL_MIN_LENGTH);
-			slot = record[coords[index][0] + 0x1B];
-			break;
-		case _11_11_QMI:
-		case _11_12_QMD:
-			kdoOpElemLengthCheck(index, KDO_OPCODE_QM_MIN_LENGTH);
-			qmRowCount = (short) Byte.toUnsignedInt(record[coords[index][0] + 0x12]);
-			break;
+			case _11_16_LMN -> {
+				kdoOpElemLengthCheck(index, KDO_OPCODE_LMN_MIN_LENGTH);
+				fb = record[coords[index][0] + 0x7];
+				columnCount = 0;
+				columnCountNn = 0;
+			}
+			case _11_8_CFA -> {
+				kdoOpElemLengthCheck(index, KDO_OPCODE_CFA_MIN_LENGTH);
+				slot = redoLog.bu().getU16(record, coords[index][0] + 0x18);
+			}
+			case _11_10_SKL -> {
+				kdoOpElemLengthCheck(index, KDO_OPCODE_SKL_MIN_LENGTH);
+				slot = record[coords[index][0] + 0x1B];
+			}
+			case _11_11_QMI, _11_12_QMD -> {
+				kdoOpElemLengthCheck(index, KDO_OPCODE_QM_MIN_LENGTH);
+				qmRowCount = (short) Byte.toUnsignedInt(record[coords[index][0] + 0x12]);
+			}
 		}
+		return false;
 	}
 
 	private void kdoOpElemLengthCheck(final int index, final int minLength) {
@@ -613,7 +613,7 @@ public class OraCdcChange {
 		kdoOpElemLengthCheck(index, minLength, getKdoOpCodeAbbreviation(op & 0x1F), " for NULL values");
 	}
 
-	void kdo(final StringBuilder sb, final int index) {
+	void kdo(final StringBuilder sb, final int index, final boolean compressed) {
 		sb
 			.append("\nKDO Op code: ")
 			.append(getKdoOpCodeAbbreviation(op & 0x1F))
@@ -710,11 +710,15 @@ public class OraCdcChange {
 				}
 			}
 			if (index + 1 < coords.length) {
-				short sizeDelt = redoLog.bu().getU16(record, coords[index][0] + 0x28);
-				if (coords[index + 1][1] == sizeDelt && (columnCount >= 0) && columnCount != 1) {
-					//TODO
-					//TODO compression
-					//TODO
+				if (compressed) {
+					sb
+						.append("\nkdrhccnt=")
+						.append(columnCount)
+						.append(",full row:");
+					for (var i = 0; i < coords[index + 0x1][1]; i++)
+						sb
+							.append(' ')
+							.append(String.format("%02X", record[coords[index + 0x1][0] + i]));
 				} else {
 					for (int col = 0; col < columnCount; col++) {
 						final int colIndex = index + 0x1 + col;
