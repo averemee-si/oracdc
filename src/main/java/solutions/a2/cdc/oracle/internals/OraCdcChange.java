@@ -527,7 +527,9 @@ public class OraCdcChange {
 				columnCount = Byte.toUnsignedInt(record[coords[index][0] + 0x12]);
 				slot = redoLog.bu().getU16(record, coords[index][0] + 0x2A);
 				kdoNullElemLengthCheck(index, KDO_ORP_IRP_NULL_POS + (columnCount + 7) / 8);
-				if (coords[index + 1][1] == Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x28)) && columnCount != 1)
+				if (index + 1 < coords.length  &&
+						coords[index + 1][1] == Short.toUnsignedInt(redoLog.bu().getU16(record, coords[index][0] + 0x28)) &&
+						columnCount != 1)
 					return true;
 			}
 			case _11_3_DRP -> {
