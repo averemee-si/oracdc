@@ -40,11 +40,11 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 			
 			""";
 
-	private final String dirOnline;
-	private final String dirArchive;
-	private final byte[] buffer;
+	final String dirOnline;
+	final String dirArchive;
+	final byte[] buffer;
 	Connection connection;
-	private OracleCallableStatement read;
+	OracleCallableStatement read;
 
 	public OraCdcRedoLogBfileFactory(final Connection connection,
 			final OraCdcSourceConnectorConfig config,
@@ -142,7 +142,7 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 		throw new SQLException("Not implemented!");
 	}
 
-	private void printCloseWarningMessage(final String blockName, final SQLException sqle) {
+	void printCloseWarningMessage(final String blockName, final SQLException sqle) {
 		LOGGER.warn(
 				"""
 				
