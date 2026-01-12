@@ -358,6 +358,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String REDO_FILE_MEDIUM_SSH = "SSH";
 	private static final String REDO_FILE_MEDIUM_SMB = "SMB";
 	private static final String REDO_FILE_MEDIUM_BFILE = "BFILE";
+	private static final String REDO_FILE_MEDIUM_TRANSFER = "TRANSFER";
 	private static final String REDO_FILE_MEDIUM_PARAM = "a2.storage.media";
 	private static final String REDO_FILE_MEDIUM_DOC = "Parameter defining the storage medium for redo log files: FS - redo files will be read from the local file system, ASM - redo files will be read from the Oracle ASM, SSH - redo files will be read from the remote file system using ssh, SMB  - redo files will be read from the remote file system using smb, BFILE - access remode files via Oracle Net as Oracle BFILE's. Default - FS"; 
 
@@ -536,6 +537,9 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			Defines the initial size of the off-heap memory structure.
 			Default - """ + OFFHEAP_SIZE_DEFAULT;
 
+	private static final String TRANSFER_DIR_STAGE_PARAM = "a2.transfer.directory.stage";
+	private static final String TRANSFER_DIR_STAGE_DOC = "The name of the Oracle database directory used as stage storage, which must be located on the file system.";
+
 
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
@@ -644,7 +648,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 								REDO_FILE_MEDIUM_ASM,
 								REDO_FILE_MEDIUM_SSH,
 								REDO_FILE_MEDIUM_SMB,
-								REDO_FILE_MEDIUM_BFILE),
+								REDO_FILE_MEDIUM_BFILE,
+								REDO_FILE_MEDIUM_TRANSFER),
 						HIGH, REDO_FILE_MEDIUM_DOC)
 				.define(ASM_JDBC_URL_PARAM, STRING, "", LOW, ASM_JDBC_URL_DOC)
 				.define(ASM_USER_PARAM, STRING, "", LOW, ASM_USER_DOC)
@@ -701,7 +706,8 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(OFFHEAP_SIZE_PARAM, STRING, OFFHEAP_SIZE_DEFAULT,
 						ConfigDef.ValidString.in(
 								OFFHEAP_SIZE_FULL, OFFHEAP_SIZE_HALF, OFFHEAP_SIZE_QUARTER, OFFHEAP_SIZE_HALFQUARTER),
-						LOW, OFFHEAP_SIZE_DOC);
+						LOW, OFFHEAP_SIZE_DOC)
+				.define(TRANSFER_DIR_STAGE_PARAM, STRING, "", LOW, TRANSFER_DIR_STAGE_DOC);
 	}
 
 	public OraCdcSourceConnectorConfig(Map<String, String> originals) {
@@ -1727,6 +1733,14 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				case OFFHEAP_SIZE_QUARTER: return OFFHEAP_SIZE_QUARTER_INT;
 				default: return OFFHEAP_SIZE_HALFQUARTER_INT;
 			}
+	}
+
+	public boolean useFileTransfer() {
+		return Strings.CS.equals(getString(REDO_FILE_MEDIUM_PARAM), REDO_FILE_MEDIUM_TRANSFER);
+	}
+
+	public String fileTransferStageDir() {
+		return getString(TRANSFER_DIR_STAGE_PARAM);
 	}
 
 }

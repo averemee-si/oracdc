@@ -319,3 +319,5 @@ Default - true
 
 `a2.offheap.size` - Defines the initial size of the off-heap memory structure. Default - `HALF-QUARTER`
 
+`a2.transfer.directory.stage` - The name of the Oracle database directory used as stage storage, which must be located on the file system.
+
