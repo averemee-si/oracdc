@@ -148,8 +148,7 @@ public class OraRedoMiner {
 			flags1 |= FLG1_NEED_NAME_CHANGE;
 			reconnectIntervalMs = config.bfileReconnectIntervalMs();
 			rlf = new OraCdcRedoLogBfileFactory(oraConnections.getConnection(),
-					config.bfileDirOnline(), config.bfileDirArchive(), config.bfileBufferSize(),
-					bu, true);
+					config, bu, true);
 		} else if (smb) {
 			flags1 |= FLG1_NEED_NAME_CHANGE;
 			reconnectIntervalMs = config.smbReconnectIntervalMs();
