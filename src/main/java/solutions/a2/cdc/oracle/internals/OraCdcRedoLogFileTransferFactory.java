@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_19504;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -101,11 +103,18 @@ public class OraCdcRedoLogFileTransferFactory extends OraCdcRedoLogBfileFactory 
 		} else
 			execDelete = true;
 		file2Delete = redoLog;
-		copy.setString(1, online ? dirOnline : dirArchive);
-		copy.setString(2, redoLog);
-		copy.setString(3, dirStage);
-		copy.setString(4, redoLog);
-		copy.execute();
+		try {
+			copy.setString(1, online ? dirOnline : dirArchive);
+			copy.setString(2, redoLog);
+			copy.setString(3, dirStage);
+			copy.setString(4, redoLog);
+			copy.execute();
+		} catch (SQLException sqle) {
+			if (sqle.getErrorCode() == ORA_19504)
+				get(redoLog, online, blockSize, blockCount);
+			else
+				throw sqle;
+		}
 		try {
 			return new OraCdcRedoLog(
 					new OraCdcRedoBfileReader(
