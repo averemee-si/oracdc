@@ -35,6 +35,7 @@ import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogBfileFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileTransferFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSmbjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshtoolsMaverickFactory;
@@ -90,6 +91,7 @@ public class OraRedoMiner {
 	private final boolean ssh;
 	private final boolean smb;
 	private final boolean bfile;
+	private final boolean transfer;
 	private final boolean reconnect;
 	private final OraCdcRedoLogFactory rlf;
 	private final long reconnectIntervalMs;
@@ -123,7 +125,8 @@ public class OraRedoMiner {
 		this.ssh = config.useSsh();
 		this.smb = config.useSmb();
 		this.bfile = config.useBfile();
-		this.reconnect = asm || ssh || bfile || smb;
+		this.transfer = config.useFileTransfer();
+		this.reconnect = asm || ssh || bfile || smb || transfer;
 		this.notifier = config.getLastProcessedSeqNotifier();
 		this.backofMs = config.connectionRetryBackoff();
 		this.runLatch = runLatch;
@@ -144,11 +147,13 @@ public class OraRedoMiner {
 				rlf = new OraCdcRedoLogSshtoolsMaverickFactory(config, bu, true);
 			else
 				rlf = new OraCdcRedoLogSshjFactory(config, bu, true);
-		} else if (bfile) {
+		} else if (bfile || transfer) {
 			flags1 |= FLG1_NEED_NAME_CHANGE;
 			reconnectIntervalMs = config.bfileReconnectIntervalMs();
-			rlf = new OraCdcRedoLogBfileFactory(oraConnections.getConnection(),
-					config, bu, true);
+			if (bfile)
+				rlf = new OraCdcRedoLogBfileFactory(oraConnections.getConnection(), config, bu, true);
+			else
+				rlf = new OraCdcRedoLogFileTransferFactory(oraConnections.getConnection(), config, bu, true);
 		} else if (smb) {
 			flags1 |= FLG1_NEED_NAME_CHANGE;
 			reconnectIntervalMs = config.smbReconnectIntervalMs();
@@ -194,7 +199,7 @@ public class OraRedoMiner {
 		// It's time to init JMS metrics...
 		metrics.start(firstChange);
 
-		if (asm || ssh || smb || bfile) {
+		if (asm || ssh || smb || bfile || transfer) {
 			sessionStartMs = System.currentTimeMillis();
 		}
 	}
@@ -426,7 +431,7 @@ public class OraRedoMiner {
 							try {
 								if (asm)
 									rlf.reset(oraConnections.getAsmConnection(config));
-								else if (bfile)
+								else if (bfile || transfer)
 									rlf.reset(oraConnections.getConnection());
 								else
 									rlf.reset();
@@ -434,7 +439,7 @@ public class OraRedoMiner {
 								sessionStartMs = System.currentTimeMillis();
 							} catch (SQLException sqle) {
 								lastException = sqle;
-								if (asm || bfile)
+								if (asm || bfile || transfer)
 									LOGGER.error(
 										"""
 										
@@ -481,7 +486,7 @@ public class OraRedoMiner {
 				}
 				try {
 					redoLog = rlf.get(
-						(flags1 & FLG1_NEED_NAME_CHANGE) > 0 ? config.convertRedoFileName(currentRedoLog, bfile) : currentRedoLog,
+						(flags1 & FLG1_NEED_NAME_CHANGE) > 0 ? config.convertRedoFileName(currentRedoLog, bfile || transfer) : currentRedoLog,
 						processOnlineRedo, blockSize, blocks);
 				} catch (SQLException sqle) {
 					if ((sqle.getErrorCode() == ORA_1170 &&
@@ -498,7 +503,7 @@ public class OraRedoMiner {
 									oracdc terminated.
 									=====================
 									
-									""", (flags1 & FLG1_NEED_NAME_CHANGE) > 0 ? config.convertRedoFileName(currentRedoLog, bfile) : currentRedoLog);
+									""", (flags1 & FLG1_NEED_NAME_CHANGE) > 0 ? config.convertRedoFileName(currentRedoLog, bfile || transfer) : currentRedoLog);
 							throw new ConnectException("Missed redo log file " + currentRedoLog + " !");
 						} else {
 							firstChange = nextChange;
@@ -600,13 +605,14 @@ public class OraRedoMiner {
 				asm ? "Oracle ASM" :
 					ssh ? "SSH" :
 						bfile ? "Oracle BFILE store" :
-							smb ? "SMB" : "FS reader";
+							transfer ? "DBMS_FILE_TRANSFER" :
+								smb ? "SMB" : "FS reader";
 	}
 
 	void resetRedoLogFactory(final long startScn, final RedoByteAddress startRba) throws SQLException {
 		if (asm)
 			rlf.reset(oraConnections.getAsmConnection(config));
-		else if (bfile)
+		else if (bfile || transfer)
 			rlf.reset(oraConnections.getConnection());
 		else
 			rlf.reset();
