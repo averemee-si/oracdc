@@ -54,13 +54,14 @@ public class OraCdcRedoLogFileTransferFactory extends OraCdcRedoLogBfileFactory 
 		super(connection, config, bu, valCheckSum);
 		dirStage = config.fileTransferStageDir();
 		try {
-			reset(connection);
+			copy = (OracleCallableStatement) connection.prepareCall(COPY);
+			delete = (OracleCallableStatement) connection.prepareCall(DELETE);
 		} catch (SQLException sqle) {
 			LOGGER.error(
 					"""
 					
 					=====================
-					Unable to create OraCdcRedoLogBfileFactory for directories
+					Unable to create OraCdcRedoLogFileTransferFactory for directories
 					ONLINE='{}', ARCHIVE='{}', STAGE='{}'  and buffer size={}
 					'{}', SQL Error Code={}, SQL State='{}'!
 					=====================
