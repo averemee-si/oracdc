@@ -1463,21 +1463,25 @@ public abstract class OraCdcTransaction {
 					if (row.lmOp != DELETE) {
 						if (rr.has11_x()) {
 							final OraCdcChangeRowOp rowChange = rr.change11_x();
-							if (OraCdcChangeRowOp.KDO_POS + rowChange.columnCount() < rowChange.coords().length) {
-								if (change != null) {
-									rowChange.writeColsWithNulls(
-											baos, OraCdcChangeRowOp.KDO_POS, 0,
-											change.suppOffsetRedo() == 0 ? colNumOffset : change.suppOffsetRedo(),
-											KDO_ORP_IRP_NULL_POS);
-								} else if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
-									rowChange.writeColsWithNulls(
-											baos, OraCdcChangeRowOp.KDO_POS, 0,
-											colNumOffset, KDO_ORP_IRP_NULL_POS);
-								} else {
-									LOGGER.warn("Unable to read column data for INSERT at RBA {}",
-											rr.rba());
+							if (rowChange.compressed()) {
+								change.writeSupplementalCols(baos);
+							} else {
+								if (OraCdcChangeRowOp.KDO_POS + rowChange.columnCount() < rowChange.coords().length) {
+									if (change != null) {
+										rowChange.writeColsWithNulls(
+												baos, OraCdcChangeRowOp.KDO_POS, 0,
+												change.suppOffsetRedo() == 0 ? colNumOffset : change.suppOffsetRedo(),
+												KDO_ORP_IRP_NULL_POS);
+									} else if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
+										rowChange.writeColsWithNulls(
+												baos, OraCdcChangeRowOp.KDO_POS, 0,
+												colNumOffset, KDO_ORP_IRP_NULL_POS);
+									} else {
+										LOGGER.warn("Unable to read column data for INSERT at RBA {}",
+												rr.rba());
+									}
+									colNumOffset += rowChange.columnCount();
 								}
-								colNumOffset += rowChange.columnCount();
 							}
 						} else if (rr.has10_x()) {
 							colNumOffset += rr.change10_x().writeIndexColumns(baos, colNumOffset);

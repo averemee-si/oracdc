@@ -497,10 +497,10 @@ public class OraCdcTransactionChronicleQueue extends OraCdcTransaction {
 			appender.close();
 			appender = null;
 			tailer = statements.createTailer();
+			if (processLobs == LobProcessingStatus.REDOMINER)
+				closeLobFiles();
 		} else
 			lastIndexAppended = 0;
-		if (processLobs == LobProcessingStatus.REDOMINER)
-			closeLobFiles();
 		super.setCommitScn(commitScn);
 	}
 

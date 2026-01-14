@@ -261,7 +261,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			ktbRedo(sb, 2);
 		}
 		if (kdoOpCode) {
-			kdo(sb, 3);
+			kdo(sb, 3, false);
 		}
 		if ((kdilk & KDLIK) != 0) {
 			sb
