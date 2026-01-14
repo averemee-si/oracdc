@@ -114,9 +114,9 @@ The reading method is managed by the *a2.storage.media* parameter. The table bel
 
 |SMB |Redo files will be read from the remote file system using smb.
 
-|BFILE |Redo files will be read from the remote file system as Oracle database BFILEs using the Oracle Net protocol.
+|BFILE |Redo files will be read from the remote file system as Oracle database BFILEs using https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/BFILENAME.html[BFILENAME()] function over the Oracle Net protocol.
 
-|TRANSFER | Redo logs will be read from the Oracle ASM using https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/DBMS_FILE_TRANSFER.html[DBMS_FILE_TRANSFER] package. This feature will be available in the first quarter of CY2026. If you need this functionality urgently, please contact us at oracle@a2.solutions.
+|TRANSFER | Redo files will be copied from Oracle ASM using the package https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/DBMS_FILE_TRANSFER.html[DBMS_FILE_TRANSFER] to the database server file system and then processed as Oracle BFILEs using https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/BFILENAME.html[BFILENAME()] function over the Oracle Net protocol.
 
 |===
 
@@ -167,7 +167,7 @@ For example
 
 ----
 create or replace directory CDC_ONLINE as '/oradata/online';
-create or replace directory CDC_ONLINE as '/oradata/archive';
+create or replace directory CDC_ARCHIVE as '/oradata/archive';
 ----
 
 For https://aws.amazon.com/rds/oracle/[Amazon RDS for Oracle]
@@ -183,7 +183,7 @@ This will create ONLINELOG_DIR and ARCHIVELOG_DIR directories used to reference 
 After this, you must grant read permissions to the created https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects] to the user specified by the parameter *a2.jdbc.username*
 ----
 grant read on directory CDC_ONLINE to <a2.jdbc.username>;
-grant read on directory CDC_ONLINE to <a2.jdbc.username>;
+grant read on directory CDC_ARCHIVE to <a2.jdbc.username>;
 ----
 After this you must set the value for the following parameters
 |===
@@ -250,6 +250,8 @@ To work in this mode you need to set the following parameters
 
 == Redo logs in the Oracle ASM
 
+=== Direct ASM access
+
 *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* calls DBMS_DISKGROUP internal https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] API to read redo logs in https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM]. *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* does not create, update, or delete any objects during the https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] access.
 
 To work in this mode you need to set the following parameters
@@ -276,6 +278,59 @@ To work in this mode you need to set the following parameters
 
 
 *IMPORTANT* The user defined by *a2.asm.username* parameter must have sufficient privileges on the Oracle ASM instance - sysdba or sysasm.
+
+=== Reading using DBMS_FILE_TRANSFER and BFILENAME
+
+This reading method extends the reading method described above using the BFILENAME() function and at first you need to perform the same actions as for it, that is
+
+To use https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects] correctly, you must disable the use of https://docs.oracle.com/en/database/oracle/oracle-database/26/admin/using-oracle-managed-files.html[Oracle Managed Files]. Consult the Oracle Database documentation or simply run the command
+----
+alter system set "_omf" = disabled scope=spfile;
+----
+
+With some configuration you also need to run
+
+----
+alter system reset db_recovery_file_dest scope=spfile;
+----
+
+and restart the database.
+
+Next, you need to create three https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects]: one that points to the directory where the online redo logs are located, one that points to the directory where the archived redo logs are stored, that points to the database server file system that will be used as a staging area for the redo log files that are currently being processedю
+For example
+
+----
+create or replace directory CDC_ONLINE as '+DATA/ASMTST/ONLINELOG';
+create or replace directory CDC_ARCHIVE as '+DATA/ASMTST/ARCHIVE';
+create or replace directory CDC_STAGE as '/var/tmp/stage';
+----
+
+After this, you must grant required permissions to the created https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects] to the user specified by the parameter *a2.jdbc.username*
+----
+grant read on directory CDC_ONLINE to <a2.jdbc.username>;
+grant read on directory CDC_ARCHIVE to <a2.jdbc.username>;
+grant read,write on directory CDC_STAGE to <a2.jdbc.username>;
+----
+After this you must set the value for the following parameters
+|===
+|Parameter Name |Value |Description
+
+|a2.storage.media | TRANSFER | Mandatory setting
+
+|a2.bfile.directory.online | String | Mandatory, the name of the Oracle database directory that contains the online redo logs
+
+|a2.bfile.directory.archive | String | Mandatory, the name of the Oracle database directory that contains the archived redo logs
+
+|a2.transfer.directory.stage | String | Mandatory, the name of the Oracle database directory used as stage storage, which must be located on the file system
+
+|a2.bfile.reconnect.ms | Integer | Optional, The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the Oracle Net connection. Default -  3,600,000 (1 hour)
+
+|a2.bfile.buffer.size | Integer | Optional, Oracle BFILE read-ahead buffer size in bytes. Default - 4,194,304
+
+|===
+
+
+
 
 
 = Selecting objects to track changes
