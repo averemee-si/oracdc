@@ -600,12 +600,15 @@ public class OraCdcDecoderFactory {
 						final var plaintext = decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted);
 						final var ll = new LobLocator(plaintext, 0, plaintext.length);
 						if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "enc SQLXML");
-						if (ll.dataInRow())
-							return oraXml(
+						if (ll.type() == LobLocator.CLOB)
+							if (ll.dataInRow())
+								return oraXml(
 									Arrays.copyOfRange(plaintext, plaintext.length - ll.dataLength(), plaintext.length),
-									ll.type() == CLOB);
+									true);
+							else
+								return oraXml(decrypter.decrypt(transaction.getLob(ll), salted), true);
 						else
-							return oraXml(decrypter.decrypt(transaction.getLob(ll), salted), ll.type() == CLOB);
+							return oraXml(decrypter.decrypt(transaction.getLob(ll), salted), false);
 					}
 				};
 			}
@@ -1321,10 +1324,13 @@ public class OraCdcDecoderFactory {
 					final OraCdcTransaction transaction) throws SQLException {
 				final var ll = new LobLocator(raw, off, len);
 				if (LOGGER.isTraceEnabled()) traceLobInfo(ll, Arrays.copyOfRange(raw, off, off + len), "SQLXML");
-				if (ll.dataInRow())
-					return oraXml(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len), ll.type() == LobLocator.CLOB);
+				if (ll.type() == LobLocator.CLOB)
+					if (ll.dataInRow())
+						return oraXml(Arrays.copyOfRange(raw, off + len - ll.dataLength(), off + len), true);
+					else
+						return oraXml(transaction.getLob(ll), true);
 				else
-					return oraXml(transaction.getLob(ll), ll.type() == LobLocator.CLOB);
+					return oraXml(transaction.getLob(ll), false);
 			}
 		});
 		decoders.put(VECTOR, new OraCdcDecoder() {
