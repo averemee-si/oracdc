@@ -21,14 +21,12 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Base64.Decoder;
 
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -70,13 +68,13 @@ public class OraCdcTdeWallet {
 		wallet = new OracleWallet();
 		try {
 			secrets = new HashMap<>();
-			final Decoder decoder = Base64.getDecoder();
+			final var decoder = Base64.getDecoder();
 			wallet.open(path, password);
-			Enumeration<?> aliases = wallet.getSecretStore().aliases();
+			var aliases = wallet.getSecretStore().aliases();
 			while (aliases.hasMoreElements()) {
-				Object element = aliases.nextElement();
+				var element = aliases.nextElement();
 				if (element instanceof String) {
-					final String fullKeyName = (String) element;
+					final var fullKeyName = (String) element;
 					if (Strings.CS.startsWith(fullKeyName, KEY_PREFIX)) {
 						final String key = StringUtils.substringAfter(fullKeyName, KEY_PREFIX);
 						final String keyValue = new String(wallet.getSecretStore().getSecret(fullKeyName));
@@ -187,8 +185,7 @@ public class OraCdcTdeWallet {
 			final IvParameterSpec iv = new IvParameterSpec(kek.iv);
 			cipher.init(UNWRAP_MODE, masterKey, iv);
 			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Decrypting DEK {} using KEK id '{}'.\n\tSecret key='{}', iv='{}'",
-						rawToHex(encDataKey), masterKeyId, rawToHex(kek.key), rawToHex(kek.iv));
+				LOGGER.debug("Decrypting DEK {} using KEK id '{}'.", rawToHex(encDataKey), masterKeyId);
 			return cipher.unwrap(tbsKey
 					? encDataKey
 					: Arrays.copyOfRange(encDataKey, 1, encDataKey.length),

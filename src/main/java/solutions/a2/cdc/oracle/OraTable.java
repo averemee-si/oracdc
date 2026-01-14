@@ -59,7 +59,6 @@ import org.slf4j.event.Level;
 
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
-import solutions.a2.cdc.oracle.internals.OraCdcTdeWallet;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.oracle.internals.RowId;
@@ -275,7 +274,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 		boolean undroppedPresent = false;
 		List<Pair<Integer, String>> undroppedColumns = null;
 		int minUndroppedId = Integer.MAX_VALUE;
-		boolean hasEncryptedColumns = false;
+		var hasEncryptedColumns = false;
 		while (rsColumns.next()) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace(
@@ -287,10 +286,28 @@ public abstract class OraTable extends OraTable4SourceConnector {
 								rsColumns.getInt("DATA_SCALE"), rsColumns.getString("NULLABLE"),
 						rsColumns.getInt("COLUMN_ID"), rsColumns.getString("HIDDEN_COLUMN"), rsColumns.getInt("INTERNAL_COLUMN_ID"));
 			}
-			boolean columnAdded = false;
+			var columnAdded = false;
 			OraColumn column = null;
 			if (Strings.CI.equals(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
 				try {
+					if (!hasEncryptedColumns && Strings.CI.equals("YES", rsColumns.getString("ENCRYPTED"))) {
+						hasEncryptedColumns = true;
+						final var tw = rdbmsInfo.tdeWallet();
+						if (tw == null) {
+							LOGGER.error(
+									"""
+									
+									=====================
+									Table {} contains encrypted columns!
+									To continue, You must set the parameters a2.tde.wallet.path and a2.tde.wallet.password.
+									=====================
+									
+									""", tableFqn);
+							throw new ConnectException("Unable to process encrypted columns without configured Oracle Wallet!");
+						} else {
+							decrypter = OraCdcTdeColumnDecrypter.get(connection, tw, tableOwner, tableName);
+						}
+					}
 					column = new OraColumn(
 							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
 							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
@@ -358,9 +375,6 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			}
 
 			if (columnAdded) {
-				if (!hasEncryptedColumns && column.isEncrypted()) {
-					hasEncryptedColumns = true;
-				}
 				allColumns.add(column);
 				addToIdMap(column);
 
@@ -394,25 +408,6 @@ public abstract class OraTable extends OraTable4SourceConnector {
 		if (undroppedPresent) {
 			printUndroppedColumnsMessage(undroppedColumns, minUndroppedId);
 			undroppedColumns = null;
-		}
-
-		if (hasEncryptedColumns) {
-			final OraCdcTdeWallet tw = rdbmsInfo.tdeWallet();
-			if (tw == null) {
-				LOGGER.error(
-						"""
-						
-						=====================
-						Table {} contains encrypted columns!
-						To continue, You must set the parameters a2.tde.wallet.path and a2.tde.wallet.password.
-						=====================
-						
-						""",
-							tableFqn);
-				throw new ConnectException("Unable to process encrypted columns without configured Oracle Wallet!");
-			} else {
-				decrypter = OraCdcTdeColumnDecrypter.get(connection, tw, tableOwner, tableName);
-			}
 		}
 
 		// Handle empty WHERE for update
