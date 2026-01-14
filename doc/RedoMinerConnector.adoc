@@ -556,12 +556,58 @@ update DEPT set DNAME=DNAME where DEPTNO=10
 ----
 
 To do this, you must set the parameter
+[width="100%",cols="<20%,<10%,<70%",options="header",]
 |===
 |Parameter Name |Value |Description
 
 |a2.process.all.update.statements | `false` |
 
 |===
+
+= Selecting a Kafka topic for publishing changes
+
+To select a Kafka topic to publish changes to, you must set the parameter
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.topic.mapper | String | The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent. The class must implement the https://github.com/averemee-si/oracdc/blob/feature/advanced-compression/src/main/java/solutions/a2/cdc/oracle/TopicNameMapper.java[solutions.a2.cdc.oracle.TopicNameMapper] interface.
+
+|===
+
+The connector comes with two predefined classes: `solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper` and `solutions.a2.cdc.oracle.OraCdcSingleTopicNameMapper`.
+
+== a2.topic.mapper=solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper
+
+This is the default value for the `a2.topic.mapper` parameter. In this mode, a unique name is generated for each processed table based on the table's PDB name, table's owner(schema name), and the table name itself. Additional parameters listed below are used to customize the topic name
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.topic.prefix | String | prefix to prepend to the unique name of the Kafka topic
+
+|a2.topic.name.style | `TABLE`, `SCHEMA_TABLE`, `PDB_SCHEMA_TABLE` | `TABLE` is default
+
+|a2.topic.name.delimiter | `_` or `-` or `.` | `_` is default
+
+
+|===
+
+
+== a2.topic.mapper=solutions.a2.cdc.oracle.OraCdcSingleTopicNameMapper
+
+In this mode, all change events for all tables are written to a single Kafka topic specified by the parameter
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.kafka.topic | String | Valid Apache Kafka topic name
+
+|===
+
 
 
 = TDE Data in rest encryption support
@@ -574,7 +620,7 @@ To support https://docs.oracle.com/en/database/oracle/oracle-database/26/dbtde/i
 
 | a2.tde.wallet.path | String| Full absolute path to Oracle Wallet file (ewallet.p12)
 
-| a2.tde.wallet.password | String | Password Oracle Wallet
+| a2.tde.wallet.password | String | Password for Oracle Wallet
 |===
 
 Currently, only https://docs.oracle.com/en/database/oracle/oracle-database/26/dbtde/encrypting-columns-tables2.html[columnar encryption] is supported; support for https://docs.oracle.com/en/database/oracle/oracle-database/26/dbtde/introduction-to-transparent-data-encryption.html#GUID-688B2CA5-EB00-4BEE-9486-9046670CCA70[tablespace encryption] is planned for CY2026.
