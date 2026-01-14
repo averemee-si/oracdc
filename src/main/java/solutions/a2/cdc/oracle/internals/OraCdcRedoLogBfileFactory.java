@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleBfile;
 import oracle.jdbc.OracleCallableStatement;
+import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.oracle.utils.BinaryUtils;
 
 import static oracle.jdbc.LargeObjectAccessMode.MODE_READONLY;
@@ -39,19 +40,19 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 			
 			""";
 
-	private final String dirOnline;
-	private final String dirArchive;
-	private final byte[] buffer;
-	private Connection connection;
-	private OracleCallableStatement read;
+	final String dirOnline;
+	final String dirArchive;
+	final byte[] buffer;
+	Connection connection;
+	OracleCallableStatement read;
 
 	public OraCdcRedoLogBfileFactory(final Connection connection,
-			final String dirOnline, final String dirArchive, final int bufferSize,
+			final OraCdcSourceConnectorConfig config,
 			final BinaryUtils bu, final boolean valCheckSum) throws SQLException {
 		super(bu, valCheckSum);
-		this.dirOnline = dirOnline;
-		this.dirArchive = dirArchive;
-		this.buffer = new byte[bufferSize];
+		this.dirOnline = config.bfileDirOnline();
+		this.dirArchive = config.bfileDirArchive();
+		this.buffer = new byte[config.bfileBufferSize()];
 		try {
 			reset(connection);
 		} catch (SQLException sqle) {
@@ -64,7 +65,7 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 					'{}', SQL Error Code={}, SQL State='{}'!
 					=====================
 					
-					""", dirOnline, dirArchive, bufferSize,
+					""", dirOnline, dirArchive, config.bfileBufferSize(),
 					sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 			throw sqle;
 		}
@@ -133,7 +134,7 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 		}
 		this.connection = connection;
 		read = (OracleCallableStatement) connection.prepareCall(GET_BFILE);
-		read.setLobPrefetchSize(0);
+		read.setLobPrefetchSize(-1);
 	}
 
 	@Override
@@ -141,7 +142,7 @@ public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implemen
 		throw new SQLException("Not implemented!");
 	}
 
-	private void printCloseWarningMessage(final String blockName, final SQLException sqle) {
+	void printCloseWarningMessage(final String blockName, final SQLException sqle) {
 		LOGGER.warn(
 				"""
 				
