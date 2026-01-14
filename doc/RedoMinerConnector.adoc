@@ -311,6 +311,14 @@ grant read on directory CDC_ONLINE to <a2.jdbc.username>;
 grant read on directory CDC_ARCHIVE to <a2.jdbc.username>;
 grant read,write on directory CDC_STAGE to <a2.jdbc.username>;
 ----
+
+You also need to add permissions to execute packages https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/DBMS_FILE_TRANSFER.html[DBMS_FILE_TRANSFER] (only procesure https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/DBMS_FILE_TRANSFER.html#GUID-ECC02A66-FAFD-4085-841C-E0B0A988E957[COPY_FILE] is used) and https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/UTL_FILE.html[UTL_FILE] (only procedure https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/UTL_FILE.html#GUID-09B09C2A-2C21-4F70-BF04-D0EEA7B59CAF[FREMOVE] is used), for example
+
+----
+grant execute on DBMS_FILE_TRANSFER to <a2.jdbc.username>;
+grant execute on UTL_FILE to <a2.jdbc.username>;
+----
+
 After this you must set the value for the following parameters
 |===
 |Parameter Name |Value |Description
