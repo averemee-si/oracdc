@@ -256,17 +256,21 @@ public abstract class OraTable extends OraTable4SourceConnector {
 
 
 		final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberRemap;
+		var noLongInDict = rdbmsInfo.noLongInDict();
 		if (isCdb) {
-			alterSessionSetContainer(connection, pdbName);
+			if (!noLongInDict)
+				alterSessionSetContainer(connection, pdbName);
 			numberRemap = config.tableNumberMapping(pdbName, tableOwner, tableName);
 		} else {
 			numberRemap = config.tableNumberMapping(tableOwner, tableName);
 		}
 		PreparedStatement statement = connection.prepareStatement(
-				OraDictSqlTexts.COLUMN_LIST_PLAIN,
+				noLongInDict ? OraDictSqlTexts.COLUMN_LIST_PLAIN_CDB : OraDictSqlTexts.COLUMN_LIST_PLAIN,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		statement.setString(1, this.tableOwner);
 		statement.setString(2, this.tableName);
+		if (noLongInDict)
+			statement.setInt(3, conId);
 
 		ResultSet rsColumns = statement.executeQuery();
 
@@ -310,7 +314,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 					}
 					column = new OraColumn(
 							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
-							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
+							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0, noLongInDict);
 					if (column.isNumber() && numberRemap != null) {
 						final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
 						if (newDefinition != null) {
@@ -458,8 +462,8 @@ public abstract class OraTable extends OraTable4SourceConnector {
 			}
 		}
 		if (isCdb) {
-		// Restore container in session
-			alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
+			if (!noLongInDict)
+				alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
 		}
 	}
 

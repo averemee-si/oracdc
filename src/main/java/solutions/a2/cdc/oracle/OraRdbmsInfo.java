@@ -63,6 +63,7 @@ public class OraRdbmsInfo {
 	public static final int ORA_15173 = 15173;
 	public static final int ORA_17002 = 17002;
 	public static final int ORA_17008 = 17008;
+	public static final int ORA_17027 = 17027;
 	public static final int ORA_17410 = 17410;
 	public static final int ORA_19504 = 19504;
 	public static final int ORA_22288 = 22288;
@@ -74,6 +75,7 @@ public class OraRdbmsInfo {
 	public static final String MOUNTED = "NOUNTED";
 
 	public static final int CDB_INTRODUCED = 12;
+	private static final int AI_INTRODUCED = 23;
 
 	private String versionString;
 	private final String rdbmsEdition;
@@ -1196,6 +1198,10 @@ public class OraRdbmsInfo {
 
 	public String nCharset() {
 		return dbNCharCharset;
+	}
+
+	public boolean noLongInDict() {
+		return versionMajor >= AI_INTRODUCED;
 	}
 
 	@Override

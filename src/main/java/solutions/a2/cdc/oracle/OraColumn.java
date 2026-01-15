@@ -81,6 +81,7 @@ import static oracle.jdbc.OracleTypes.JSON;
 import static oracle.jdbc.OracleTypes.TIMESTAMPLTZ;
 import static oracle.jdbc.OracleTypes.VECTOR;
 import static org.apache.commons.lang3.StringUtils.trim;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17027;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_BOOLEAN_SCHEMA;
 import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_INT8_SCHEMA;
@@ -176,6 +177,7 @@ public class OraColumn extends Column {
 	 * @param decrypter
 	 * @param rdbmsInfo
 	 * @param suppLogAll
+	 * @param noLongInDict
 	 * @throws SQLException
 	 * @throws UnsupportedColumnDataTypeException 
 	 */
@@ -187,17 +189,20 @@ public class OraColumn extends Column {
 			final Set<String> pkColsSet,
 			final OraCdcTdeColumnDecrypter decrypter,
 			final OraRdbmsInfo rdbmsInfo,
-			final boolean suppLogAll) throws SQLException, UnsupportedColumnDataTypeException {
+			final boolean suppLogAll,
+			final boolean noLongInDict) throws SQLException, UnsupportedColumnDataTypeException {
 		oracleName = resultSet.getString("COLUMN_NAME");
 		if (!KafkaUtils.validAvroFieldName(oracleName)) {
 			columnName = KafkaUtils.fixAvroFieldName(oracleName, "_");
 			LOGGER.warn(
-					"\n" +
-					"=====================\n" +
-					"Column name '{}' is incompatible with Avro/Protobuf naming standard.\n" +
-					"This column name is changed to '{}'.\n" + 
-					"=====================",
-					oracleName, columnName);
+					"""
+					
+					=====================
+					Column name '{}' is incompatible with Avro/Protobuf naming standard.
+					This column name is changed to '{}'.
+					=====================
+					
+					""", oracleName, columnName);
 		} else {
 			columnName = oracleName;
 		}
@@ -206,8 +211,24 @@ public class OraColumn extends Column {
 		else
 			flags |= FLG_MANDATORY;
 		this.setColumnId(resultSet.getInt("COLUMN_ID"));
+		try {
+			defaultValue = trim(resultSet.getString(noLongInDict ? "DATA_DEFAULT_VC" : "DATA_DEFAULT"));
+		} catch (SQLException sqle) {
+			if (sqle.getErrorCode() == ORA_17027) {
+				LOGGER.warn(
+						"""
+						
+						=====================
+						ORA-17027 on reading default value from LONG column on pre-26ai database!
+						DATA_DEFAULT for column {} is set to NULL!
+						=====================
+						
+						""", oracleName);
 
-		defaultValue = trim(resultSet.getString("DATA_DEFAULT"));
+				defaultValue = null;
+			} else
+				throw sqle;
+		}
 		if (StringUtils.isEmpty(defaultValue) || Strings.CI.equals(defaultValue, "NULL"))
 			defaultValue = null;
 		else
