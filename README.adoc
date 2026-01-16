@@ -109,6 +109,15 @@ This project is licensed under the Apache-2.0 License.
 
 == Release history
 
+=== 2.14.1 (JAN-2026)
+
+1. Reading changes from the redo log files located in https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] using https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/DBMS_FILE_TRANSFER.html[DBMS_FILE_TRANSFER] package. For more information, see section "Reading using DBMS_FILE_TRANSFER and BFILENAME" in link:doc/RedoMinerConnector.adoc[RedoMinerConnector.adoc].
+
+2. OP:11.2(IRP) and OP:11.6(ORP) from tables with https://www.oracle.com/database/advanced-compression/[advanced compression] enabled are now processed
+
+3. Bug fixes
+
+
 === 2.14.0 (JAN-2026)
 
 1. Big-endian platforms fixes for processing OP:19.1 and OP:11.17
