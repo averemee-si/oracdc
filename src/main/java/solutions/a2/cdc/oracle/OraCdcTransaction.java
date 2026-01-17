@@ -528,7 +528,6 @@ public abstract class OraCdcTransaction {
 		private final short operation;
 		private boolean complete;
 		private short lmOp;
-		private RedoByteAddress rba = RedoByteAddress.MAX_VALUE;
 		private boolean onlyLmn;
 		private byte flags = FLG_NEED_HEAD_FLAG | FLG_HOMOGENEOUS;
 
@@ -545,8 +544,6 @@ public abstract class OraCdcTransaction {
 		}
 		void add(final OraCdcRedoRecord record) {
 			records.add(record);
-			if (record.rba().compareTo(rba) < 0)
-				rba = record.rba();
 			if ((flags & FLG_PARTIAL_ROLLBACK) == 0) {
 				if (record.has11_x())
 					onlyLmn = onlyLmn && (record.change11_x().operation() == _11_16_LMN);
@@ -762,7 +759,8 @@ public abstract class OraCdcTransaction {
 						push = false;
 					else
 						push = lastHalfDoneRowFb == rr.rowChange().fb() && 
-								lastHalfDone.change5_1().fb() == rr.change5_1().fb();
+								lastHalfDone.change5_1().fb() == rr.change5_1().fb() &&
+								lastHalfDone.change5_1().supplementalFb() == rr.change5_1().supplementalFb();
 				}
 				if (push) {
 					row.add(rr);
@@ -1241,7 +1239,9 @@ public abstract class OraCdcTransaction {
 						head > 0 && first > 0 && last > 0)
 					row.complete = true;
 				else if (row.lmOp == UPDATE) {
-					if ((row.flags & FLG_NEED_HEAD_FLAG) > 0 && head > 1 && first > 1 && last > 1)
+					if ((row.flags & FLG_HOMOGENEOUS) > 0 && first > 0 && last > 0)
+						row.complete = true;
+					else if ((row.flags & FLG_NEED_HEAD_FLAG) > 0 && head > 1 && first > 1 && last > 1)
 						row.complete = true;
 					else if ((row.flags & FLG_NEED_HEAD_FLAG) == 0 && first > 1 && last > 1)
 						row.complete = true;
@@ -1757,8 +1757,8 @@ public abstract class OraCdcTransaction {
 			orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					row.lmOp, redoBytes,
-					lwnUnixMillis, last.scn(), row.rba,
-					(long) last.subScn(), rowId, prb);
+					lwnUnixMillis, first.scn(), first.rba(),
+					(long) first.subScn(), rowId, prb);
 		} else {
 			if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
 				change = first.changePrb();
@@ -1772,7 +1772,7 @@ public abstract class OraCdcTransaction {
 			orm = new OraCdcRedoMinerStatement(
 					isCdb ? (((long)change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
 					row.lmOp, redoBytes,
-					lwnUnixMillis, first.scn(), row.rba,
+					lwnUnixMillis, first.scn(), first.rba(),
 					(long) first.subScn(), rowId, prb);
 		}
 
