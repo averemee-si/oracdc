@@ -75,7 +75,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final OraCdcSourceConnMgmt metrics;
 	private boolean redoMinerReady = false;
 	private final OraRedoMiner redoMiner;
-	private Connection connDictionary;
 	private final Map<Xid, OraCdcRawTransaction> activeTransactions;
 	private final BlockingQueue<OraCdcRawTransaction> rawTransactions;
 	private final Map<Integer, Xid> prefixedTransactions;
@@ -146,11 +145,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			lobIdFromTrans = null;
 			lobExtras = null;
 		}
-		try {
-			connDictionary = oraConnections.getConnection();
+		try (Connection connDictionary = oraConnections.getConnection()) {
 			rdbmsInfo.initTde(connDictionary, config, bu);
-			redoMiner = new OraRedoMiner(
-					connDictionary, metrics, startFrom, config, runLatch, rdbmsInfo, oraConnections, bu);
+			redoMiner = new OraRedoMiner(metrics, startFrom, config, runLatch, rdbmsInfo, oraConnections, bu);
 		} catch (SQLException sqle) {
 			LOGGER.error(
 					"\n\nUnable to start OraCdcRedoMinerWorkerThread !\n" +

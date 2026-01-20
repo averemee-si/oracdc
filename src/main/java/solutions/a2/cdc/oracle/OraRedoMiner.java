@@ -109,7 +109,6 @@ public class OraRedoMiner {
 	private byte flags1 = FLG1_WAIT_ON_ERROR | FLG1_INITED;
 
 	public OraRedoMiner(
-			final Connection connection,
 			final OraCdcSourceConnMgmt metrics,
 			final Triple<Long, RedoByteAddress, Long> startFrom,
 			final OraCdcSourceConnectorConfig config,
@@ -177,18 +176,22 @@ public class OraRedoMiner {
 			flags1 &= (~FLG1_INITED);
 			firstRba = startFrom.getMiddle();
 		}
-		createStatements(connection);
+		try (Connection connection = oraConnections.getConnection()){
+			createStatements(connection);
+		} catch (SQLException sqle) {
+			throw sqle;
+		}
 
 		final StringBuilder sb = new StringBuilder(512);
 		sb.append("\n=====================\n");
 		if (rdbmsInfo.isStandby()) {
 			if (Strings.CS.equals(OraRdbmsInfo.MOUNTED, rdbmsInfo.getOpenMode())) {
-				sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state.\n");
+				sb.append("OraRedoMiner will use connection to Oracle DataGuard with a unique name {} in {} state.\n");
 			} else {
-				sb.append("oracdc will use connection to Oracle Active DataGuard Database with a unique name {} in {} state.\n");
+				sb.append("OraRedoMiner will use connection to Oracle Active DataGuard Database with a unique name {} in {} state.\n");
 			}
 		} else {
-			sb.append("oracdc will use connection to Oracle Database with a unique name {} in {} state to query the dictionary.\n");
+			sb.append("OraRedoMiner will use connection to Oracle Database with a unique name {} in {} state to query dynamic views.\n");
 		}
 		sb
 			.append("Oracle Database DBID is {}, RedoMiner will start from SCN {}.")
@@ -249,7 +252,7 @@ public class OraRedoMiner {
 							
 							=====================
 							Encontered an 'ORA-{}: {}', SQLState = '{}'
-							Attempting to reconnect to dictionary...
+							Attempting to reconnect to dynamic views...
 							=====================
 							
 							""", sqle.getErrorCode(), sqle.getMessage(), sqle.getSQLState());
@@ -266,7 +269,7 @@ public class OraRedoMiner {
 											"""
 											
 											=====================
-											Unable to restore dictionary connection after {} retries!
+											Unable to restore connection to dynamic views after {} retries!
 											=====================
 											
 											""", retries);
@@ -276,7 +279,7 @@ public class OraRedoMiner {
 							ready = true;
 							if (!ready) {
 								long waitTime = (long) Math.pow(2, retries++) + config.connectionRetryBackoff();
-								LOGGER.warn("Waiting {} ms for dictionary connection to restore...", waitTime);
+								LOGGER.warn("Waiting {} ms for connection to dynamic views to restore...", waitTime);
 								try {
 									this.wait(waitTime);
 								} catch (InterruptedException ie) {}
@@ -287,7 +290,7 @@ public class OraRedoMiner {
 								"""
 								
 								=====================
-								SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables
+								SQL errorCode = {}, SQL state = '{}' while restarting connection to dynamic views
 								SQL error message = {}
 								=====================
 								
@@ -299,7 +302,7 @@ public class OraRedoMiner {
 							"""
 							
 							=====================
-							SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dictionary tables
+							SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dynamic views
 							SQL error message = {}
 							=====================
 							
