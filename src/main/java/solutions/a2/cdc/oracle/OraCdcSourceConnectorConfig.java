@@ -557,7 +557,6 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(ParamConstants.STANDBY_WALLET_PARAM, STRING, "", LOW, ParamConstants.STANDBY_WALLET_DOC)
 				.define(ParamConstants.STANDBY_URL_PARAM, STRING, "", LOW, ParamConstants.STANDBY_URL_DOC)
 				.define(ORACDC_SCHEMAS_PARAM, BOOLEAN, false, LOW, ORACDC_SCHEMAS_DOC)
-				.define(ParamConstants.DICTIONARY_FILE_PARAM, STRING, "", LOW, ParamConstants.DICTIONARY_FILE_DOC)
 				.define(INITIAL_LOAD_PARAM, STRING, INITIAL_LOAD_IGNORE,
 						ConfigDef.ValidString.in(
 								INITIAL_LOAD_IGNORE,
