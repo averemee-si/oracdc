@@ -1158,8 +1158,10 @@ public abstract class OraCdcTransaction {
 			}
 		} else {
 			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Entered complete for row.lmOp={} with size={}", row.lmOp, row.records.size());
+				LOGGER.debug("Entered complete for row.lmOp={}, homegeneous={} with size={}",
+						row.lmOp, (row.flags & FLG_HOMOGENEOUS) > 0,row.records.size());
 			var iotUpdate = false;
+			var supplementalLogging = row.records.get(0).change5_1().supplementalLogData();
 			for (int i = 0; i < row.records.size(); i++) {
 				final OraCdcRedoRecord rr = row.records.get(i);
 				if (rr.has11_x() && rr.has5_1()) {
@@ -1189,14 +1191,20 @@ public abstract class OraCdcTransaction {
 							row.complete = true;
 							break;
 						}
-						final byte fb5_1 = rr.change5_1().fb();
-						if (flgHeadPart(fb5_1)) head++;
-						if (flgFirstPart(fb5_1)) first++;
-						if (flgLastPart(fb5_1)) last++;
-						final byte fb11_x = rr.change11_x().fb();
-						if (flgHeadPart(fb11_x)) head++;
-						if (flgFirstPart(fb11_x)) first++;
-						if (flgLastPart(fb11_x)) last++;
+						if (supplementalLogging) {
+							final byte fb = rr.change5_1().supplementalFb();
+							if (flgFirstPart(fb)) first++;
+							if (flgLastPart(fb)) last++;
+						} else {
+							final byte fb5_1 = rr.change5_1().fb();
+							if (flgHeadPart(fb5_1)) head++;
+							if (flgFirstPart(fb5_1)) first++;
+							if (flgLastPart(fb5_1)) last++;
+							final byte fb11_x = rr.change11_x().fb();
+							if (flgHeadPart(fb11_x)) head++;
+							if (flgFirstPart(fb11_x)) first++;
+							if (flgLastPart(fb11_x)) last++;
+						}
 					}
 				} else if (rr.has10_x() && rr.has5_1()) {
 					if (row.lmOp == DELETE) {
@@ -1240,6 +1248,8 @@ public abstract class OraCdcTransaction {
 					row.complete = true;
 				else if (row.lmOp == UPDATE) {
 					if ((row.flags & FLG_HOMOGENEOUS) > 0 && first > 0 && last > 0)
+						row.complete = true;
+					else if (supplementalLogging && first > 0 && last > 0)
 						row.complete = true;
 					else if ((row.flags & FLG_NEED_HEAD_FLAG) > 0 && head > 1 && first > 1 && last > 1)
 						row.complete = true;
