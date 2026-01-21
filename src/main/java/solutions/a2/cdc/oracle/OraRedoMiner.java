@@ -98,7 +98,7 @@ public class OraRedoMiner {
 	private final OraConnectionObjects oraConnections;
 	private long sessionStartMs = 0;
 	private final int backofMs;
-	final CountDownLatch runLatch;
+	private final CountDownLatch runLatch;
 	private static final byte FLG1_WAIT_ON_ERROR           = (byte)0x01;
 	private static final byte FLG1_PRINT_ALL_ONLINE_RANGES = (byte)0x02;
 	private static final byte FLG1_INITED                  = (byte)0x04;
