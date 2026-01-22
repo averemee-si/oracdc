@@ -153,8 +153,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		isPollRunning = new AtomicBoolean(false);
 
 		final boolean useRac = config.useRac();
-		final boolean useStandby = config.activateStandby();
-		final boolean dg4RacSingleInst = useStandby &&
+		final boolean dg4RacSingleInst = config.activateStandby() &&
 				config.dg4RacThreads() != null && config.dg4RacThreads().size() > 1;
 		int threadNo = 1;
 		if (dg4RacSingleInst) {
@@ -298,19 +297,6 @@ public abstract class OraCdcTaskBase extends SourceTask {
 							rdbmsInfo.getPdbName());
 			}
 
-			if (useStandby) {
-				oraConnections.addStandbyConnection(
-						config.standbyJdbcUrl(),
-						config.standbyWallet());
-				LOGGER.info(
-						"""
-						
-						=====================
-						Connector {} will use connection to PHYSICAL STANDBY for LogMiner calls
-						=====================
-						""",
-							connectorName);
-			}
 			if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
 				oraConnections.addDistributedConnection(
 						config.getString(ParamConstants.DISTRIBUTED_URL_PARAM),
