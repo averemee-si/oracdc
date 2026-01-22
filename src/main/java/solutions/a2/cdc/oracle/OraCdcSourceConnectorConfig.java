@@ -1330,6 +1330,10 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 		return STANDBY_WALLET_PARAM;
 	}
 
+	public String standbyPrivilege() {
+		return getString(STANDBY_PRIVILEGE_PARAM);
+	}
+
 	public List<String> racUrls() {
 		return getList(INTERNAL_RAC_URLS_PARAM);
 	}
