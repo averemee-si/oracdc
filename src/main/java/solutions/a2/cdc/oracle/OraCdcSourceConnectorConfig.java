@@ -282,13 +282,23 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
 	
 	private static final String MAKE_STANDBY_ACTIVE_PARAM = "a2.standby.activate";
-	private static final String MAKE_STANDBY_ACTIVE_DOC = "Use standby database with V$DATABASE.OPEN_MODE = MOUNTED for LogMiner calls. Default - false"; 
+	private static final String MAKE_STANDBY_ACTIVE_DOC = "Enable redo log files processing on the physical standby database. Default - false"; 
 
 	private static final String STANDBY_URL_PARAM = "a2.standby.jdbc.url";
 	private static final String STANDBY_URL_DOC = "JDBC connection URL for connecting to the physical standby database with V$DATABASE.OPEN_MODE = MOUNTED";
 
-	public static final String STANDBY_WALLET_PARAM = "a2.standby.wallet.location";
-	public static final String STANDBY_WALLET_DOC = "Location of Oracle Wallet for connecting to the physical standby database with V$DATABASE.OPEN_MODE = MOUNTED";
+	private static final String STANDBY_WALLET_PARAM = "a2.standby.wallet.location";
+	private static final String STANDBY_WALLET_DOC = "Location of Oracle Wallet for connecting to the physical standby database with V$DATABASE.OPEN_MODE = MOUNTED";
+
+	private static final String STANDBY_PRIVILEGE_SYSDG = "sysdg";
+	private static final String STANDBY_PRIVILEGE_SYSBACKUP = "sysbackup";
+	private static final String STANDBY_PRIVILEGE_SYSDBA = "sysdba";
+	private static final String STANDBY_PRIVILEGE_DEFAULT = STANDBY_PRIVILEGE_SYSBACKUP;
+	private static final String STANDBY_PRIVILEGE_PARAM = "a2.standby.privilege";
+	private static final String STANDBY_PRIVILEGE_DOC = 
+			"""
+			The privilege used to connect to the physical standby database with V$DATABASE.OPEN_MODE = MOUNTED. Can be 'sysbackup' or 'sysdg' or 'sysdba'.
+			Defaults to - """ + STANDBY_PRIVILEGE_SYSDG;
 
 	private static final String TOPIC_PARTITION_PARAM = "a2.topic.partition";
 	private static final String TOPIC_PARTITION_DOC = "Kafka topic partition to write data. Default - 0";
@@ -562,6 +572,12 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 				.define(MAKE_STANDBY_ACTIVE_PARAM, BOOLEAN, false, LOW, MAKE_STANDBY_ACTIVE_DOC)
 				.define(STANDBY_WALLET_PARAM, STRING, "", LOW, STANDBY_WALLET_DOC)
 				.define(STANDBY_URL_PARAM, STRING, "", LOW, STANDBY_URL_DOC)
+				.define(STANDBY_PRIVILEGE_PARAM, STRING, STANDBY_PRIVILEGE_DEFAULT,
+						ConfigDef.ValidString.in(
+								STANDBY_PRIVILEGE_SYSDG,
+								STANDBY_PRIVILEGE_SYSBACKUP,
+								STANDBY_PRIVILEGE_SYSDBA),
+						HIGH, STANDBY_PRIVILEGE_DOC)
 				.define(ORACDC_SCHEMAS_PARAM, BOOLEAN, false, LOW, ORACDC_SCHEMAS_DOC)
 				.define(INITIAL_LOAD_PARAM, STRING, INITIAL_LOAD_IGNORE,
 						ConfigDef.ValidString.in(

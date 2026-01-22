@@ -20,12 +20,6 @@ package solutions.a2.cdc.oracle;
  */
 public class ParamConstants {
 
-	public static final String STANDBY_WALLET_PARAM = "a2.standby.wallet.location";
-	public static final String STANDBY_WALLET_DOC = "Location of Oracle Wallet for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
-
-	public static final String STANDBY_URL_PARAM = "a2.standby.jdbc.url";
-	public static final String STANDBY_URL_DOC = "JDBC connection URL for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
-
 	public static final String ARCHIVED_LOG_CAT_PARAM = "a2.archived.log.catalog";
 	public static final String ARCHIVED_LOG_CAT_DOC = "name of class which implements solutions.a2.cdc.oracle.OraLogMiner interface. Default - solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl which reads archived log information from V$ARCHIVED_LOG fixed view";
 	public static final String ARCHIVED_LOG_CAT_DEFAULT = "solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl";
