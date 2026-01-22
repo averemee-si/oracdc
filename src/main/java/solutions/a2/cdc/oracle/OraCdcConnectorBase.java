@@ -121,18 +121,12 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 		}
 
 		// V1.1.0 - a2.jdbc.url is mandatory parameter! No more separate a2.tns.admin and a2.tns.alias!!!
-		checkDeprecatedTnsParameters(props,
-				ParamConstants.CONNECTION_TNS_ADMIN_PARAM,
-				ParamConstants.CONNECTION_TNS_ALIAS_PARAM,
-				ConnectorParams.CONNECTION_URL_PARAM);
-		checkDeprecatedTnsParameters(props,
-				ParamConstants.STANDBY_TNS_ADMIN_PARAM,
-				ParamConstants.STANDBY_TNS_ALIAS_PARAM,
-				ParamConstants.STANDBY_URL_PARAM);
-		checkDeprecatedTnsParameters(props,
-				ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM,
-				ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM,
-				ParamConstants.DISTRIBUTED_URL_PARAM);
+		checkDeprecatedTnsParameters(
+				props, "a2.tns.admin", "a2.tns.alias", ConnectorParams.CONNECTION_URL_PARAM);
+		checkDeprecatedTnsParameters(
+				props, "a2.standby.tns.admin", "a2.standby.tns.alias", ParamConstants.STANDBY_URL_PARAM);
+		checkDeprecatedTnsParameters(
+				props, "a2.distributed.tns.admin", "a2.distributed.tns.alias", ParamConstants.DISTRIBUTED_URL_PARAM);
 
 		if (StringUtils.isBlank(config.walletLocation())) {
 			if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM))) {
