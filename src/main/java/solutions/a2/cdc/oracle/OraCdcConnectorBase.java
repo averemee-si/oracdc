@@ -124,8 +124,6 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 		checkDeprecatedTnsParameters(
 				props, "a2.tns.admin", "a2.tns.alias", ConnectorParams.CONNECTION_URL_PARAM);
 		checkDeprecatedTnsParameters(
-				props, "a2.standby.tns.admin", "a2.standby.tns.alias", ParamConstants.STANDBY_URL_PARAM);
-		checkDeprecatedTnsParameters(
 				props, "a2.distributed.tns.admin", "a2.distributed.tns.alias", ParamConstants.DISTRIBUTED_URL_PARAM);
 
 		if (StringUtils.isBlank(config.walletLocation())) {
@@ -150,15 +148,15 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 		}
 
 		if (config.activateStandby()) {
-			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_URL_PARAM))) {
+			if (StringUtils.isBlank(config.standbyJdbcUrl())) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						ParamConstants.STANDBY_URL_PARAM,
+						config.standbyJdbcUrlParamName(),
 						config.activateStandbyParamName());
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {
+			if (StringUtils.isBlank(config.standbyWallet())) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						ParamConstants.STANDBY_WALLET_PARAM,
+						config.standbyWalletParamName(),
 						config.activateStandbyParamName());
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
@@ -290,8 +288,8 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 			}
 		} else if (config.activateStandby()) {
 			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getStandbyConnection(
-					config.getString(ParamConstants.STANDBY_URL_PARAM),
-					config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {
+					config.standbyJdbcUrl(),
+					config.standbyWallet())) {
 				threads = OraRdbmsInfo.getStandbyThreads(connection);
 				isSingleInstDg4Rac = threads.size() > 1; 
 				if (isSingleInstDg4Rac) {
@@ -306,7 +304,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 								=====================
 								
 								""",
-								config.getString(ParamConstants.STANDBY_URL_PARAM), threads.size(), maxTasks, threads.size());
+								config.standbyJdbcUrl(), threads.size(), maxTasks, threads.size());
 						throw new ConnectException("Please increase value of 'tasks.max' parameter!");
 					}
 					LOGGER.info(
@@ -334,7 +332,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							
 							""",
 							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
-							config.getString(ParamConstants.STANDBY_URL_PARAM));
+							config.standbyJdbcUrl());
 				} else if (sqle.getErrorCode() == OraRdbmsInfo.ORA_1017) {
 					//ORA-01017: invalid username/password; logon denied
 					LOGGER.error(
@@ -352,8 +350,8 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							
 							""",
 							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
-							config.getString(ParamConstants.STANDBY_URL_PARAM),
-							config.getString(ParamConstants.STANDBY_WALLET_PARAM));
+							config.standbyJdbcUrl(),
+							config.standbyWallet());
 				} else {
 					LOGGER.error(
 							"""

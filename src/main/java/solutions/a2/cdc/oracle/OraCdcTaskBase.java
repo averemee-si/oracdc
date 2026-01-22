@@ -300,8 +300,8 @@ public abstract class OraCdcTaskBase extends SourceTask {
 
 			if (useStandby) {
 				oraConnections.addStandbyConnection(
-						config.getString(ParamConstants.STANDBY_URL_PARAM),
-						config.getString(ParamConstants.STANDBY_WALLET_PARAM));
+						config.standbyJdbcUrl(),
+						config.standbyWallet());
 				LOGGER.info(
 						"""
 						
