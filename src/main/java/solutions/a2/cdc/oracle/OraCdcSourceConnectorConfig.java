@@ -293,7 +293,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private static final String STANDBY_PRIVILEGE_SYSDG = "sysdg";
 	private static final String STANDBY_PRIVILEGE_SYSBACKUP = "sysbackup";
 	private static final String STANDBY_PRIVILEGE_SYSDBA = "sysdba";
-	private static final String STANDBY_PRIVILEGE_DEFAULT = STANDBY_PRIVILEGE_SYSBACKUP;
+	private static final String STANDBY_PRIVILEGE_DEFAULT = STANDBY_PRIVILEGE_SYSDG;
 	private static final String STANDBY_PRIVILEGE_PARAM = "a2.standby.privilege";
 	private static final String STANDBY_PRIVILEGE_DOC = 
 			"""
