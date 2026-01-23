@@ -287,9 +287,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 				throw new ConnectException(sqle);
 			}
 		} else if (config.activateStandby()) {
-			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getStandbyConnection(
-					config.standbyJdbcUrl(),
-					config.standbyWallet())) {
+			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getStandbyConnection(config)) {
 				threads = OraRdbmsInfo.getStandbyThreads(connection);
 				isSingleInstDg4Rac = threads.size() > 1; 
 				if (isSingleInstDg4Rac) {
@@ -326,13 +324,13 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							'{}'
 							errorCode={}, SQLState = '{}'
 							Unable to connect to:
-								{}!
+								{} as '{}'!
 							Please check Oracle DataGuard connection parameters!
 							=====================
 							
 							""",
 							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
-							config.standbyJdbcUrl());
+							config.standbyJdbcUrl(), config.standbyPrivilege());
 				} else if (sqle.getErrorCode() == OraRdbmsInfo.ORA_1017) {
 					//ORA-01017: invalid username/password; logon denied
 					LOGGER.error(
@@ -342,7 +340,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							'{}'
 							errorCode={}, SQLState = '{}'
 							Unable to connect to:
-								'{}' using wallet at '{}'!
+								'{}' as '{}' using wallet at '{}'!
 							Please review Oracle Support Services Note 
 								"java.sql.SQLException: ORA-01017: invalid username/password; logon denied" While Trying To Run The Program With Stored Credentials In The Wallet (Doc ID 2438265.1)!
 							on https://support.oracle.com/rs?type=doc&id=2438265.1
@@ -350,8 +348,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							
 							""",
 							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
-							config.standbyJdbcUrl(),
-							config.standbyWallet());
+							config.standbyJdbcUrl(), config.standbyPrivilege(), config.standbyWallet());
 				} else {
 					LOGGER.error(
 							"""
@@ -359,9 +356,13 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							=====================
 							'{}'
 							errorCode={}, SQLState = '{}'
+							Unable to connect to:
+								{} as '{}'!
+							Please check Oracle DataGuard connection parameters!
 							=====================
 							
-							""", sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+							""", sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
+							config.standbyJdbcUrl(), config.standbyPrivilege());
 				}
 				throw new ConnectException(sqle);
 			}

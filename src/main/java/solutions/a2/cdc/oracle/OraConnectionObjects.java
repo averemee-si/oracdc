@@ -160,15 +160,14 @@ public class OraConnectionObjects {
 		initConnection4LogMiner(true, dbUrl, wallet);
 	}
 
-	public static Connection getStandbyConnection(final String dbUrl, final String wallet)
-			throws SQLException {
+	public static Connection getStandbyConnection(final OraCdcSourceConnectorConfig config) throws SQLException {
 		final Properties props = new Properties();
-		props.setProperty(CONNECTION_PROPERTY_INTERNAL_LOGON, "sysdba");
+		props.setProperty(CONNECTION_PROPERTY_INTERNAL_LOGON, config.standbyPrivilege());
 		props.setProperty(CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
-		props.setProperty(CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
+		props.setProperty(CONNECTION_PROPERTY_WALLET_LOCATION, config.standbyWallet());
 		final OracleDataSource ods = new OracleDataSource();
 		ods.setConnectionProperties(props);
-		ods.setURL(dbUrl);
+		ods.setURL(config.standbyJdbcUrl());
 		return ods.getConnection();
 	}
 
