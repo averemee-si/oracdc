@@ -757,20 +757,19 @@ where  L.STATUS = 'CURRENT'
 	        "  and  L.THREAD#=?\n" +
 	        "  and  F.STATUS is null\n" +
 			"  and  rownum = 1";
-	/*
 
-UP_TO_CURRENT_SCN_STBY - impossible due to exclusive lock from MRPn
-
-select L.LAST_CHANGE#, (SYSDATE - L.LAST_TIME) * 86400,
-       L.SEQUENCE#, F.MEMBER
-from   V$STANDBY_LOG L, V$LOGFILE F
+	public static final String UP_TO_CURRENT_SCN_STBY =
+"""
+select CURRENT_SCN, CURRENT_SCN - ?,
+       L.SEQUENCE#, F.MEMBER, L.BLOCKSIZE, L.BYTES
+from   V$DATABASE D, V$STANDBY_LOG L, V$LOGFILE F
 where  L.STATUS = 'ACTIVE'
   and  L.SEQUENCE# = (select max(SEQUENCE#) from V$STANDBY_LOG where STATUS='ACTIVE')
   and  L.GROUP# = F.GROUP#
   and  L.THREAD#=?
   and  F.STATUS is null
-  and  rownum = 1
-	*/
+  and  rownum = 1			
+""";
 
 	/*
 select   I.OWNER, I.INDEX_NAME, IC.COLUMN_NAME
