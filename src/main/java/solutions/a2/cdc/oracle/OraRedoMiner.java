@@ -571,11 +571,13 @@ public class OraRedoMiner {
 	private void printRedoLogInfo(final boolean archived, final boolean printNextChange,
 			final String fileName, final int thread, final long sequence, final long logFileFirstChange) {
 		final var sb = new StringBuilder(0x200);
-		if (archived) {
+		if (archived)
 			sb.append("Adding archived log ");
-		} else {
-			sb.append("Processing online log ");
-		}
+		else
+			sb
+				.append("Processing ")
+				.append((flags1 & FLG1_PHYSICAL_STANDBY) > 0 ? "standby" : "online")
+				.append(" log ");
 		sb
 			.append(fileName)
 			.append(" thread# ")
@@ -583,11 +585,11 @@ public class OraRedoMiner {
 			.append(" sequence# ")
 			.append(sequence)
 			.append(" first change number ")
-			.append(logFileFirstChange);
+			.append(Long.toUnsignedString(logFileFirstChange));
 		if (printNextChange) {
 			sb
 				.append(" next log first change ")
-				.append(nextChange);
+				.append(Long.toUnsignedString(nextChange));
 		}
 		LOGGER.info(sb.toString());
 	}
