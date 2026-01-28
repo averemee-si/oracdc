@@ -22,7 +22,6 @@ import java.sql.SQLException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import oracle.jdbc.OracleCallableStatement;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.oracle.utils.BinaryUtils;
 
@@ -45,8 +44,6 @@ public class OraCdcRedoLogFileTransferFactory extends OraCdcRedoLogBfileFactory 
 			""";
 
 	private final String dirStage;
-	private OracleCallableStatement copy;
-	private OracleCallableStatement delete;
 	private boolean execDelete = false;
 	private String file2Delete = null;
 
@@ -55,24 +52,6 @@ public class OraCdcRedoLogFileTransferFactory extends OraCdcRedoLogBfileFactory 
 			final BinaryUtils bu, final boolean valCheckSum) throws SQLException {
 		super(connection, config, bu, valCheckSum);
 		dirStage = config.fileTransferStageDir();
-		try {
-			copy = (OracleCallableStatement) connection.prepareCall(COPY);
-			delete = (OracleCallableStatement) connection.prepareCall(DELETE);
-		} catch (SQLException sqle) {
-			LOGGER.error(
-					"""
-					
-					=====================
-					Unable to create OraCdcRedoLogFileTransferFactory for directories
-					ONLINE='{}', ARCHIVE='{}', STAGE='{}'  and buffer size={}
-					'{}', SQL Error Code={}, SQL State='{}'!
-					=====================
-					
-					""", config.bfileDirOnline(), config.bfileDirArchive(), dirStage,
-					config.bfileBufferSize(), sqle.getMessage(), sqle.getErrorCode(),
-					sqle.getSQLState());
-			throw sqle;
-		}
 	}
 
 	@Override
@@ -84,9 +63,12 @@ public class OraCdcRedoLogFileTransferFactory extends OraCdcRedoLogBfileFactory 
 	public OraCdcRedoLog get(String redoLog, boolean online, int blockSize, long blockCount) throws SQLException {
 		if (execDelete) {
 			try {
+				var delete = connection.prepareCall(DELETE);
 				delete.setString(1, dirStage);
 				delete.setString(2, file2Delete);
 				delete.execute();
+				delete.close();
+				delete = null;
 			} catch (SQLException sqle) {
 				LOGGER.warn(
 						"""
@@ -104,11 +86,14 @@ public class OraCdcRedoLogFileTransferFactory extends OraCdcRedoLogBfileFactory 
 			execDelete = true;
 		file2Delete = redoLog;
 		try {
+			var copy = connection.prepareCall(COPY);
 			copy.setString(1, online ? dirOnline : dirArchive);
 			copy.setString(2, redoLog);
 			copy.setString(3, dirStage);
 			copy.setString(4, redoLog);
 			copy.execute();
+			copy.close();
+			copy = null;
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == ORA_19504)
 				get(redoLog, online, blockSize, blockCount);
@@ -128,23 +113,6 @@ public class OraCdcRedoLogFileTransferFactory extends OraCdcRedoLogBfileFactory 
 		} catch (IOException ioe) {
 			throw new SQLException(ioe);
 		}
-	}
-
-	@Override
-	public void reset(final Connection connection) throws SQLException {
-		if (copy != null) {
-			try {copy.close();} catch (SQLException sqle) {
-									printCloseWarningMessage("copy FILE anonymous PL/SQL block", sqle);}
-			copy = null;
-		}
-		if (delete != null) {
-			try {delete.close();} catch (SQLException sqle) {
-									printCloseWarningMessage("delete FILE anonymous PL/SQL block", sqle);}
-			delete = null;
-		}
-		super.reset(connection);
-		copy = (OracleCallableStatement) connection.prepareCall(COPY);
-		delete = (OracleCallableStatement) connection.prepareCall(DELETE);
 	}
 
 	@Override
