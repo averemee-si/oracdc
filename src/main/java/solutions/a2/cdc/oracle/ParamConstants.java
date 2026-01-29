@@ -20,27 +20,6 @@ package solutions.a2.cdc.oracle;
  */
 public class ParamConstants {
 
-	public static final String CONNECTION_TNS_ADMIN_PARAM = "a2.tns.admin";
-	public static final String CONNECTION_TNS_ADMIN_DOC = "Location of tnsnames.ora file. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
-
-	public static final String CONNECTION_TNS_ALIAS_PARAM = "a2.tns.alias";
-	public static final String CONNECTION_TNS_ALIAS_DOC = "Connection TNS alias. Not required when a2.jdbc.url & a2.jdbc.username & a2.jdbc.password are set";
-
-	public static final String STANDBY_WALLET_PARAM = "a2.standby.wallet.location";
-	public static final String STANDBY_WALLET_DOC = "Location of Oracle Wallet for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
-
-	public static final String STANDBY_URL_PARAM = "a2.standby.jdbc.url";
-	public static final String STANDBY_URL_DOC = "JDBC connection URL for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
-
-	public static final String STANDBY_TNS_ADMIN_PARAM = "a2.standby.tns.admin";
-	public static final String STANDBY_TNS_ADMIN_DOC = "Location of tnsnames.ora file for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
-
-	public static final String STANDBY_TNS_ALIAS_PARAM = "a2.standby.tns.alias";
-	public static final String STANDBY_TNS_ALIAS_DOC = "Connection TNS alias for connecting to standby database with V$DATABASE.OPEN_MODE = MOUNTED";
-
-	public static final String DICTIONARY_FILE_PARAM = "a2.dictionary.file";
-	public static final String DICTIONARY_FILE_DOC = "File with stored columns data type mapping. For more details contact us at oracle@a2.solutions";
-
 	public static final String ARCHIVED_LOG_CAT_PARAM = "a2.archived.log.catalog";
 	public static final String ARCHIVED_LOG_CAT_DOC = "name of class which implements solutions.a2.cdc.oracle.OraLogMiner interface. Default - solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl which reads archived log information from V$ARCHIVED_LOG fixed view";
 	public static final String ARCHIVED_LOG_CAT_DEFAULT = "solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl";
@@ -60,12 +39,6 @@ public class ParamConstants {
 
 	public static final String DISTRIBUTED_URL_PARAM = "a2.distributed.jdbc.url";
 	public static final String DISTRIBUTED_URL_DOC = "JDBC connection URL for connecting to target database in distributed mode";
-
-	public static final String DISTRIBUTED_TNS_ADMIN_PARAM = "a2.distributed.tns.admin";
-	public static final String DISTRIBUTED_TNS_ADMIN_DOC = "Location of tnsnames.ora file for connecting to target database in distributed mode";
-
-	public static final String DISTRIBUTED_TNS_ALIAS_PARAM = "a2.distributed.tns.alias";
-	public static final String DISTRIBUTED_TNS_ALIAS_DOC = "Connection TNS alias for connecting to target database in distributed mode";
 
 	public static final String DISTRIBUTED_TARGET_HOST = "a2.distributed.target.host";
 	public static final String DISTRIBUTED_TARGET_HOST_DOC = "hostname of the target (where dbms_logmnr runs) database on which the shipment agent is running";

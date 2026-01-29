@@ -96,6 +96,26 @@ When *a2.use.rac* is set to true *solutions.a2.cdc.oracle.OraCdcRedoMinerConnect
  <KAFKA_PARTITION_NUMBER> = <THREAD#> - 1
 ----
 
+== Using a physical standby database as a source of change information.
+
+With default settings, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* works with primary Oracle Database instance in the *READ WRITE* state (https://docs.oracle.com/en/database/oracle/oracle-database/26/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE='READ WRITE']). If you are using https://www.oracle.com/database/data-guard/[Oracle Data Guard] and need to avoid any additional load on the primary database, you can use a standby database in the https://docs.oracle.com/en/database/oracle/oracle-database/26/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE in ('MOUNTED', 'READ ONLY', 'READ ONLY WITH APPLY')] state to capture change information. In this case, the connection to the primary database is used only to read information about table column data types, and an additional connection to the standby database is used to query the current database SCN. It's important to understand that eliminating the additional load on the primary database when reading changes from the standby database increases the latency during change processing, as the system receives these changes indirectly, only after they are transferred from the primary server to the standby.  Using asynchronous redo transport https://docs.oracle.com/en/database/oracle/oracle-database/26/dgbkr/logxptmode.html[LogXptMode=ASYNC](https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/oracle-data-guard-protection-modes.html[Maximum Performance protection mode]) makes this latency unpredictable, while using https://docs.oracle.com/en/database/oracle/oracle-database/26/dgbkr/logxptmode.html[LogXptMode=FASTSYNC](https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/oracle-data-guard-protection-modes.html[Maximum Availability protection mode]) or https://docs.oracle.com/en/database/oracle/oracle-database/26/dgbkr/logxptmode.html[LogXptMode=SYNC] redo transport (https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/oracle-data-guard-protection-modes.html[Maximum Protection protection mode]) minimizes processing latency.
+
+To use reading changes from a standby database, you need to set the following parameters
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.standby.activate | true | Mandatory setting.
+
+|a2.standby.jdbc.url| String| Mandatory setting. JDBC URL to connect to the https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/introduction-to-oracle-data-guard-concepts.html#GUID-C49AC6F4-C89B-4487-BC18-428D65865B9A[Physical Standby Database]. For information on JDBC URL syntax, please see description of the `a2.jdbc.url` parameter above
+
+|a2.standby.wallet.location| String| Mandatory setting. Location of Oracle Wallet/https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053[External Password Store] for connecting to physical standby database with https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE = MOUNTED]
+
+|a2.standby.privilege| Default - https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-5798F976-85B2-4973-92F7-DB3F6BC9D497[sysdg]| The privilege used to connect to the physical standby database with https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE = MOUNTED]. Can be https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-5798F976-85B2-4973-92F7-DB3F6BC9D497[sysdg] or https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-BF12E37F-4606-42BB-B8B6-4CDC5A870EE7[sysbackup] or https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-BD5D39D1-DBFF-400A-8645-355F8FB9CD31[sysdba].
+
+|===
+
 
 = Methods for reading redo log files
 
@@ -336,8 +356,6 @@ After this you must set the value for the following parameters
 |a2.bfile.buffer.size | Integer | Optional, Oracle BFILE read-ahead buffer size in bytes. Default - 4,194,304
 
 |===
-
-
 
 
 

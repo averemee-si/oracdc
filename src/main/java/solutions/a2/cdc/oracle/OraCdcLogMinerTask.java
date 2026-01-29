@@ -55,8 +55,22 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 		LOGGER.info("Starting oracdc logminer source task for connector {}.", connectorName);
 		super.start(props);
 		if (committedTransactions == null) committedTransactions = new LinkedBlockingQueue<>();
+		
 
 		try (Connection connDictionary = oraConnections.getConnection()) {
+
+			if (config.activateStandby()) {
+				oraConnections.addStandbyConnection(
+						config.standbyJdbcUrl(),
+						config.standbyWallet());
+				LOGGER.info(
+						"""
+						
+						=====================
+						Connector {} will use connection to PHYSICAL STANDBY for LogMiner calls
+						=====================
+						""", connectorName);
+			}
 
 			OraCdcPseudoColumnsProcessor pseudoColumns = config.pseudoColumnsProcessor();
 

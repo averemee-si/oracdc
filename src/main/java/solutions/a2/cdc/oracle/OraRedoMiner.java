@@ -44,6 +44,9 @@ import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.utils.BinaryUtils;
 
+import static solutions.a2.cdc.oracle.OraDictSqlTexts.ARCHIVED_LOGS;
+import static solutions.a2.cdc.oracle.OraDictSqlTexts.UP_TO_CURRENT_SCN;
+import static solutions.a2.cdc.oracle.OraDictSqlTexts.UP_TO_CURRENT_SCN_STBY;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1170;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_2396;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_15173;
@@ -98,18 +101,18 @@ public class OraRedoMiner {
 	private final OraConnectionObjects oraConnections;
 	private long sessionStartMs = 0;
 	private final int backofMs;
-	final CountDownLatch runLatch;
-	private static final byte FLG1_WAIT_ON_ERROR           = (byte)0x01;
-	private static final byte FLG1_PRINT_ALL_ONLINE_RANGES = (byte)0x02;
-	private static final byte FLG1_INITED                  = (byte)0x04;
-	private static final byte FLG1_USE_NOTIFIER            = (byte)0x08;
-	private static final byte FLG1_NEED_NAME_CHANGE        = (byte)0x10;
-	private static final byte FLG1_PROCESS_ONLINE_REDO     = (byte)0x20;
-	private static final byte FLG1_STOP_ON_MISSED_FILE     = (byte)0x40;
-	private byte flags1 = FLG1_WAIT_ON_ERROR | FLG1_INITED;
+	private final CountDownLatch runLatch;
+	private static final short FLG1_WAIT_ON_ERROR           = (short)0x0001;
+	private static final short FLG1_PRINT_ALL_ONLINE_RANGES = (short)0x0002;
+	private static final short FLG1_INITED                  = (short)0x0004;
+	private static final short FLG1_USE_NOTIFIER            = (short)0x0008;
+	private static final short FLG1_NEED_NAME_CHANGE        = (short)0x0010;
+	private static final short FLG1_PROCESS_ONLINE_REDO     = (short)0x0020;
+	private static final short FLG1_STOP_ON_MISSED_FILE     = (short)0x0040;
+	private static final short FLG1_PHYSICAL_STANDBY        = (short)0x0080;
+	private short flags1 = FLG1_WAIT_ON_ERROR | FLG1_INITED;
 
 	public OraRedoMiner(
-			final Connection connection,
 			final OraCdcSourceConnMgmt metrics,
 			final Triple<Long, RedoByteAddress, Long> startFrom,
 			final OraCdcSourceConnectorConfig config,
@@ -119,7 +122,6 @@ public class OraRedoMiner {
 			final BinaryUtils bu) throws SQLException {
 		this.config = config;
 		this.metrics = metrics;
-		this.rdbmsInfo = rdbmsInfo;
 		this.connectorName = config.getConnectorName();
 		this.asm = config.useAsm();
 		this.ssh = config.useSsh();
@@ -135,7 +137,12 @@ public class OraRedoMiner {
 			flags1 |= FLG1_USE_NOTIFIER;
 			notifier.configure(config);
 		}
-		this.oraConnections = oraConnections;
+		this.rdbmsInfo = rdbmsInfo;
+		if (config.activateStandby()) {
+			flags1 |= FLG1_PHYSICAL_STANDBY;
+			this.oraConnections = OraConnectionObjects.get4Standby(config);
+		} else
+			this.oraConnections = oraConnections;
 		if (asm) {
 			reconnectIntervalMs = config.asmReconnectIntervalMs();
 			rlf = new OraCdcRedoLogAsmFactory(oraConnections.getAsmConnection(config),
@@ -177,26 +184,9 @@ public class OraRedoMiner {
 			flags1 &= (~FLG1_INITED);
 			firstRba = startFrom.getMiddle();
 		}
+		var connection = this.oraConnections.getConnection();
 		createStatements(connection);
 
-		final StringBuilder sb = new StringBuilder(512);
-		sb.append("\n=====================\n");
-		if (rdbmsInfo.isStandby()) {
-			if (Strings.CS.equals(OraRdbmsInfo.MOUNTED, rdbmsInfo.getOpenMode())) {
-				sb.append("oracdc will use connection to Oracle DataGuard with a unique name {} in {} state.\n");
-			} else {
-				sb.append("oracdc will use connection to Oracle Active DataGuard Database with a unique name {} in {} state.\n");
-			}
-		} else {
-			sb.append("oracdc will use connection to Oracle Database with a unique name {} in {} state to query the dictionary.\n");
-		}
-		sb
-			.append("Oracle Database DBID is {}, RedoMiner will start from SCN {}.")
-			.append("\n=====================\n");
-		LOGGER.info(
-				sb.toString(),
-				rdbmsInfo.getDbUniqueName(), rdbmsInfo.getOpenMode(), rdbmsInfo.getDbId(), firstChange);
-		// It's time to init JMS metrics...
 		metrics.start(firstChange);
 
 		if (asm || ssh || smb || bfile || transfer) {
@@ -205,10 +195,11 @@ public class OraRedoMiner {
 	}
 
 	public void createStatements(final Connection connection) throws SQLException {
-		psGetArchivedLogs = connection.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
+		psGetArchivedLogs = connection.prepareStatement(ARCHIVED_LOGS,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		if ((flags1 & FLG1_PROCESS_ONLINE_REDO) > 0) {
-			psUpToCurrentScn = connection.prepareStatement(OraDictSqlTexts.UP_TO_CURRENT_SCN,
+			psUpToCurrentScn = connection.prepareStatement(
+					(flags1 & FLG1_PHYSICAL_STANDBY) > 0 ? UP_TO_CURRENT_SCN_STBY : UP_TO_CURRENT_SCN,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		}
 	}
@@ -249,7 +240,7 @@ public class OraRedoMiner {
 							
 							=====================
 							Encontered an 'ORA-{}: {}', SQLState = '{}'
-							Attempting to reconnect to dictionary...
+							Attempting to reconnect to dynamic views...
 							=====================
 							
 							""", sqle.getErrorCode(), sqle.getMessage(), sqle.getSQLState());
@@ -266,7 +257,7 @@ public class OraRedoMiner {
 											"""
 											
 											=====================
-											Unable to restore dictionary connection after {} retries!
+											Unable to restore connection to dynamic views after {} retries!
 											=====================
 											
 											""", retries);
@@ -276,7 +267,7 @@ public class OraRedoMiner {
 							ready = true;
 							if (!ready) {
 								long waitTime = (long) Math.pow(2, retries++) + config.connectionRetryBackoff();
-								LOGGER.warn("Waiting {} ms for dictionary connection to restore...", waitTime);
+								LOGGER.warn("Waiting {} ms for connection to dynamic views to restore...", waitTime);
 								try {
 									this.wait(waitTime);
 								} catch (InterruptedException ie) {}
@@ -287,7 +278,7 @@ public class OraRedoMiner {
 								"""
 								
 								=====================
-								SQL errorCode = {}, SQL state = '{}' while restarting connection to dictionary tables
+								SQL errorCode = {}, SQL state = '{}' while restarting connection to dynamic views
 								SQL error message = {}
 								=====================
 								
@@ -299,7 +290,7 @@ public class OraRedoMiner {
 							"""
 							
 							=====================
-							SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dictionary tables
+							SQL errorCode = {}, SQL state = '{}' while trying to SELECT from dynamic views
 							SQL error message = {}
 							=====================
 							
@@ -377,7 +368,8 @@ public class OraRedoMiner {
 					blockSize = rsUpToCurrentScn.getShort(5);
 					blocks = rsUpToCurrentScn.getLong(6)/blockSize;
 				} else {
-					throw new SQLException("Unable to execute\n" + OraDictSqlTexts.UP_TO_CURRENT_SCN + "\n!!!");
+					throw new SQLException("Unable to execute\n" +
+							((flags1 & FLG1_PHYSICAL_STANDBY) > 0 ? UP_TO_CURRENT_SCN_STBY : UP_TO_CURRENT_SCN) + "\n!!!");
 				}
 				rsUpToCurrentScn.close();
 				rsUpToCurrentScn = null;
@@ -579,11 +571,13 @@ public class OraRedoMiner {
 	private void printRedoLogInfo(final boolean archived, final boolean printNextChange,
 			final String fileName, final int thread, final long sequence, final long logFileFirstChange) {
 		final var sb = new StringBuilder(0x200);
-		if (archived) {
+		if (archived)
 			sb.append("Adding archived log ");
-		} else {
-			sb.append("Processing online log ");
-		}
+		else
+			sb
+				.append("Processing ")
+				.append((flags1 & FLG1_PHYSICAL_STANDBY) > 0 ? "standby" : "online")
+				.append(" log ");
 		sb
 			.append(fileName)
 			.append(" thread# ")
@@ -591,11 +585,11 @@ public class OraRedoMiner {
 			.append(" sequence# ")
 			.append(sequence)
 			.append(" first change number ")
-			.append(logFileFirstChange);
+			.append(Long.toUnsignedString(logFileFirstChange));
 		if (printNextChange) {
 			sb
 				.append(" next log first change ")
-				.append(nextChange);
+				.append(Long.toUnsignedString(nextChange));
 		}
 		LOGGER.info(sb.toString());
 	}

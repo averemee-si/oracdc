@@ -182,6 +182,16 @@ Default - *${connectorName}.seq*
 `a2.ignore.stored.offset` - When this parameter is set to true, the connector does not read the values ​​stored in the Kafka Connect offset for the last processed SCN/SUBSCN/RBA and instead, if the 'a2.first.change' parameter is set, it uses its value, otherwise it determines the minimum available SCN in the Oracle database.
 Default - false.
 
+== Physical standby connection parameters
+
+`a2.standby.activate` - enable redo log files processing on the physical standby database. Default - *false*.
+
+`a2.standby.wallet.location` - Location of Oracle Wallet/https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053[External Password Store] for connecting to physical standby database with https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE = MOUNTED]
+
+`a2.standby.jdbc.url` - JDBC URL to connect to the https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/introduction-to-oracle-data-guard-concepts.html#GUID-C49AC6F4-C89B-4487-BC18-428D65865B9A[Physical Standby Database]. For information on JDBC URL syntax, please see description of the `a2.jdbc.url` parameter above
+
+`a2.standby.privilege` - The privilege used to connect to the physical standby database with https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE = MOUNTED]. Can be https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-5798F976-85B2-4973-92F7-DB3F6BC9D497[sysdg] or https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-BF12E37F-4606-42BB-B8B6-4CDC5A870EE7[sysbackup] or https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-BD5D39D1-DBFF-400A-8645-355F8FB9CD31[sysdba]. Default - https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-5798F976-85B2-4973-92F7-DB3F6BC9D497[sysdg].
+
 
 == solutions.a2.cdc.oracle.OraCdcLogMinerConnector specific parameters
 
@@ -199,16 +209,6 @@ alter session set events '10046 trace name context forever, level 8';
 -----
 
 `a2.log.miner.reconnect.ms` - The time interval in milliseconds after which a reconnection to LogMiner occurs, including the re-creation of the Oracle connection. Unix/Linux only, on Windows **oracdc** creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called. Default - https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Long.html#MAX_VALUE[Long.MAX_VALUE]
-
-
-=== solutions.a2.cdc.oracle.OraCdcLogMinerConnector physical standby connection parameters
-
-`a2.standby.activate` - activate running LogMiner at physical standby database. Default - *false*.
-
-`a2.standby.wallet.location` - Location of Oracle Wallet/[External Password Store](https://docs.oracle.com/en/database/oracle/oracle-database/21/dbseg/configuring-authentication.html#GUID-2419D309-5874-4FDC-ADB7-65D5983B2053) for connecting to physical standby database with [V$DATABASE.OPEN_MODE = MOUNTED](https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-DATABASE.html)
-
-`a2.standby.jdbc.url` - JDBC connection URL to connect to [Physical Standby Database](https://docs.oracle.com/en/database/oracle/oracle-database/21/sbydb/introduction-to-oracle-data-guard-concepts.html#GUID-C49AC6F4-C89B-4487-BC18-428D65865B9A). For information about syntax please see description of parameter `a2.jdbc.url` above
-
 
 === solutions.a2.cdc.oracle.OraCdcLogMinerConnector distributed mode parameters
 

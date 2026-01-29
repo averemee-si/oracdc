@@ -121,18 +121,10 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 		}
 
 		// V1.1.0 - a2.jdbc.url is mandatory parameter! No more separate a2.tns.admin and a2.tns.alias!!!
-		checkDeprecatedTnsParameters(props,
-				ParamConstants.CONNECTION_TNS_ADMIN_PARAM,
-				ParamConstants.CONNECTION_TNS_ALIAS_PARAM,
-				ConnectorParams.CONNECTION_URL_PARAM);
-		checkDeprecatedTnsParameters(props,
-				ParamConstants.STANDBY_TNS_ADMIN_PARAM,
-				ParamConstants.STANDBY_TNS_ALIAS_PARAM,
-				ParamConstants.STANDBY_URL_PARAM);
-		checkDeprecatedTnsParameters(props,
-				ParamConstants.DISTRIBUTED_TNS_ADMIN_PARAM,
-				ParamConstants.DISTRIBUTED_TNS_ALIAS_PARAM,
-				ParamConstants.DISTRIBUTED_URL_PARAM);
+		checkDeprecatedTnsParameters(
+				props, "a2.tns.admin", "a2.tns.alias", ConnectorParams.CONNECTION_URL_PARAM);
+		checkDeprecatedTnsParameters(
+				props, "a2.distributed.tns.admin", "a2.distributed.tns.alias", ParamConstants.DISTRIBUTED_URL_PARAM);
 
 		if (StringUtils.isBlank(config.walletLocation())) {
 			if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM))) {
@@ -156,15 +148,15 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 		}
 
 		if (config.activateStandby()) {
-			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_URL_PARAM))) {
+			if (StringUtils.isBlank(config.standbyJdbcUrl())) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						ParamConstants.STANDBY_URL_PARAM,
+						config.standbyJdbcUrlParamName(),
 						config.activateStandbyParamName());
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (StringUtils.isBlank(config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {
+			if (StringUtils.isBlank(config.standbyWallet())) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						ParamConstants.STANDBY_WALLET_PARAM,
+						config.standbyWalletParamName(),
 						config.activateStandbyParamName());
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
@@ -295,9 +287,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 				throw new ConnectException(sqle);
 			}
 		} else if (config.activateStandby()) {
-			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getStandbyConnection(
-					config.getString(ParamConstants.STANDBY_URL_PARAM),
-					config.getString(ParamConstants.STANDBY_WALLET_PARAM))) {
+			try (OracleConnection connection = (OracleConnection) OraConnectionObjects.getStandbyConnection(config)) {
 				threads = OraRdbmsInfo.getStandbyThreads(connection);
 				isSingleInstDg4Rac = threads.size() > 1; 
 				if (isSingleInstDg4Rac) {
@@ -312,7 +302,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 								=====================
 								
 								""",
-								config.getString(ParamConstants.STANDBY_URL_PARAM), threads.size(), maxTasks, threads.size());
+								config.standbyJdbcUrl(), threads.size(), maxTasks, threads.size());
 						throw new ConnectException("Please increase value of 'tasks.max' parameter!");
 					}
 					LOGGER.info(
@@ -334,13 +324,13 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							'{}'
 							errorCode={}, SQLState = '{}'
 							Unable to connect to:
-								{}!
+								{} as '{}'!
 							Please check Oracle DataGuard connection parameters!
 							=====================
 							
 							""",
 							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
-							config.getString(ParamConstants.STANDBY_URL_PARAM));
+							config.standbyJdbcUrl(), config.standbyPrivilege());
 				} else if (sqle.getErrorCode() == OraRdbmsInfo.ORA_1017) {
 					//ORA-01017: invalid username/password; logon denied
 					LOGGER.error(
@@ -350,7 +340,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							'{}'
 							errorCode={}, SQLState = '{}'
 							Unable to connect to:
-								'{}' using wallet at '{}'!
+								'{}' as '{}' using wallet at '{}'!
 							Please review Oracle Support Services Note 
 								"java.sql.SQLException: ORA-01017: invalid username/password; logon denied" While Trying To Run The Program With Stored Credentials In The Wallet (Doc ID 2438265.1)!
 							on https://support.oracle.com/rs?type=doc&id=2438265.1
@@ -358,8 +348,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							
 							""",
 							sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
-							config.getString(ParamConstants.STANDBY_URL_PARAM),
-							config.getString(ParamConstants.STANDBY_WALLET_PARAM));
+							config.standbyJdbcUrl(), config.standbyPrivilege(), config.standbyWallet());
 				} else {
 					LOGGER.error(
 							"""
@@ -367,9 +356,13 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							=====================
 							'{}'
 							errorCode={}, SQLState = '{}'
+							Unable to connect to:
+								{} as '{}'!
+							Please check Oracle DataGuard connection parameters!
 							=====================
 							
-							""", sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
+							""", sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
+							config.standbyJdbcUrl(), config.standbyPrivilege());
 				}
 				throw new ConnectException(sqle);
 			}

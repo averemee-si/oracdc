@@ -13,6 +13,12 @@
 
 package solutions.a2.cdc.oracle;
 
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_PASSWORD;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_USER_NAME;
+import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -86,7 +92,7 @@ public class OraConnectionObjects {
 	public static OraConnectionObjects get4OraWallet(final String poolName,
 			final String dbUrl, final String wallet)
 					throws SQLException {
-		System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
+		System.setProperty(CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
 		OraConnectionObjects oco = new OraConnectionObjects(poolName, dbUrl);
 		return oco;
 	}
@@ -134,7 +140,7 @@ public class OraConnectionObjects {
 		LOGGER.debug("Processing URL array element {} with value {}.",
 				index, dbUrls.get(index));
 		if (wallet != null) {
-			System.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
+			System.setProperty(CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
 		}
 		OraConnectionObjects oco = new OraConnectionObjects(poolName + "-" + index, dbUrls.get(index));
 		if (wallet == null) {
@@ -154,15 +160,14 @@ public class OraConnectionObjects {
 		initConnection4LogMiner(true, dbUrl, wallet);
 	}
 
-	public static Connection getStandbyConnection(final String dbUrl, final String wallet)
-			throws SQLException {
+	public static Connection getStandbyConnection(final OraCdcSourceConnectorConfig config) throws SQLException {
 		final Properties props = new Properties();
-		props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysdba");
-		props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
-		props.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
+		props.setProperty(CONNECTION_PROPERTY_INTERNAL_LOGON, config.standbyPrivilege());
+		props.setProperty(CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
+		props.setProperty(CONNECTION_PROPERTY_WALLET_LOCATION, config.standbyWallet());
 		final OracleDataSource ods = new OracleDataSource();
 		ods.setConnectionProperties(props);
-		ods.setURL(dbUrl);
+		ods.setURL(config.standbyJdbcUrl());
 		return ods.getConnection();
 	}
 
@@ -177,10 +182,10 @@ public class OraConnectionObjects {
 		final String dbType = init4Standby ? "standby" : "target mining";
 		final Properties props = new Properties();
 		if (init4Standby) {
-			props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, "sysdba");
+			props.setProperty(CONNECTION_PROPERTY_INTERNAL_LOGON, "sysdba");
 		}
-		props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
-		props.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
+		props.setProperty(CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
+		props.setProperty(CONNECTION_PROPERTY_WALLET_LOCATION, wallet);
 		if (auxDbUrl == null || auxWallet == null) {
 			auxDbUrl = dbUrl;
 			auxWallet = wallet;
@@ -360,12 +365,12 @@ public class OraConnectionObjects {
 	public static Connection getConnection(OraCdcSourceBaseConfig config) throws SQLException {
 		final Properties props = new Properties();
 		if (StringUtils.isNotBlank(config.walletLocation())) {
-			props.setProperty(OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION,
-					config.getString(config.walletLocation()));
+			props.setProperty(CONNECTION_PROPERTY_WALLET_LOCATION,
+					config.walletLocation());
 		} else {
-			props.put(OracleConnection.CONNECTION_PROPERTY_USER_NAME,
+			props.put(CONNECTION_PROPERTY_USER_NAME,
 					config.getString(ConnectorParams.CONNECTION_USER_PARAM));
-			props.put(OracleConnection.CONNECTION_PROPERTY_PASSWORD,
+			props.put(CONNECTION_PROPERTY_PASSWORD,
 					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
 		}
 		final Connection connection = DriverManager.getConnection(config.getString(ConnectorParams.CONNECTION_URL_PARAM), props);
@@ -390,8 +395,8 @@ public class OraConnectionObjects {
 
 	public Connection getAsmConnection(final OraCdcSourceConnectorConfig config) throws SQLException {
 		final Properties props = new Properties();
-		props.setProperty(OracleConnection.CONNECTION_PROPERTY_INTERNAL_LOGON, config.asmPrivilege());
-		props.setProperty(OracleConnection.CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
+		props.setProperty(CONNECTION_PROPERTY_INTERNAL_LOGON, config.asmPrivilege());
+		props.setProperty(CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc");
 		final OracleDataSource ods = new OracleDataSource();
 		ods.setConnectionProperties(props);
 		ods.setURL(config.asmJdbcUrl());
@@ -413,6 +418,16 @@ public class OraConnectionObjects {
 						config.asmPrivilege(), config.asmPassword().length());
 			throw sqle;
 		}
+	}
+
+	public static OraConnectionObjects get4Standby(final OraCdcSourceConnectorConfig config) throws SQLException {
+		var oco = new OraConnectionObjects("oracdc-physical-standby", config.standbyJdbcUrl());
+		var props = new Properties();
+		props.setProperty(CONNECTION_PROPERTY_INTERNAL_LOGON, config.standbyPrivilege());
+		props.setProperty(CONNECTION_PROPERTY_THIN_VSESSION_PROGRAM, "oracdc standby connection");
+		props.setProperty(CONNECTION_PROPERTY_WALLET_LOCATION, config.standbyWallet());
+		oco.pds.setConnectionProperties(props);
+		return oco;
 	}
 
 }
