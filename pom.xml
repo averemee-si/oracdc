@@ -72,7 +72,7 @@
 		<chronicle.queue.version>5.25ea17</chronicle.queue.version>
 		<chronicle.affinity.version>3.23.3</chronicle.affinity.version>
 		<ora.jdbc.version>23.26.0.0.0</ora.jdbc.version>
-		<pg.jdbc.version>42.7.8</pg.jdbc.version>
+		<pg.jdbc.version>42.7.9</pg.jdbc.version>
 		<HikariCP.version>7.0.2</HikariCP.version>
 		<slf4j.version>2.0.17</slf4j.version>
 		<ojdbc.types.version>0.9.8</ojdbc.types.version>
