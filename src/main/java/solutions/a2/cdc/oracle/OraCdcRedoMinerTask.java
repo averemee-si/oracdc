@@ -188,7 +188,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 		}
 		worker.start();
 		emitter.start();
-		taskThreadId.set(Thread.currentThread().getId());
+		taskThreadId.set(Thread.currentThread().threadId());
 		return;
 	}
 
@@ -349,7 +349,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 	@Override
 	public void stop() {
 		LOGGER.info("Stopping oracdc Redo Miner source task.");
-		if (taskThreadId.longValue() == Thread.currentThread().getId()) {
+		if (taskThreadId.longValue() == Thread.currentThread().threadId()) {
 			super.stop(true);
 			if (activeTransactions != null && activeTransactions.isEmpty()) {
 				if (worker != null && worker.lastRba() != null && worker.lastScn() > 0) {
