@@ -62,7 +62,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.release>17</maven.compiler.release>
+		<maven.compiler.release>21</maven.compiler.release>
 		<junit.version>5.14.0</junit.version>
 		<guava.version>33.5.0-jre</guava.version>
 		<kafka.version>4.1.1</kafka.version>
