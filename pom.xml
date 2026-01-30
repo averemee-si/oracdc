@@ -65,7 +65,7 @@
 		<maven.compiler.release>17</maven.compiler.release>
 		<junit.version>5.14.0</junit.version>
 		<guava.version>33.5.0-jre</guava.version>
-		<kafka.version>3.9.1</kafka.version>
+		<kafka.version>4.1.1</kafka.version>
 		<commons.lang3.version>3.20.0</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<commons.cli.version>1.11.0</commons.cli.version>
