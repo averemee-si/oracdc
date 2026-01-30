@@ -109,6 +109,13 @@ This project is licensed under the Apache-2.0 License.
 
 == Release history
 
+=== 2.14.2 (JAN-2026)
+
+1. Using a physical standby database as a source of change information. For more information, see section "Using a physical standby database as a source of change information." in link:doc/RedoMinerConnector.adoc[RedoMinerConnector.adoc]. For a sample configuration and architecture diagram, see https://averemee.substack.com/p/make-physical-standby-active-great[Make physical standby Active (Great?!) Again]
+
+2. Bug fixes
+
+
 === 2.14.1 (JAN-2026)
 
 1. Reading changes from the redo log files located in https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] using https://docs.oracle.com/en/database/oracle/oracle-database/26/arpls/DBMS_FILE_TRANSFER.html[DBMS_FILE_TRANSFER] package. For more information, see section "Reading using DBMS_FILE_TRANSFER and BFILENAME" in link:doc/RedoMinerConnector.adoc[RedoMinerConnector.adoc].
