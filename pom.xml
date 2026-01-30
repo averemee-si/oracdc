@@ -88,7 +88,7 @@
 		<source.plugin.version>3.4.0</source.plugin.version>
 		<javadoc.plugin.version>3.12.0</javadoc.plugin.version>
 		<gpg.plugin.version>3.2.8</gpg.plugin.version>
-		<central.plugin.version>0.7.0</central.plugin.version>
+		<central.plugin.version>0.10.0</central.plugin.version>
 	</properties>
 
 	<distributionManagement>
