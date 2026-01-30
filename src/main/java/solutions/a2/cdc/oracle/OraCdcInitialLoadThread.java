@@ -109,6 +109,8 @@ public class OraCdcInitialLoadThread extends Thread {
 			} catch (InterruptedException ie) {
 				LOGGER.error(ExceptionUtils.getExceptionStackTrace(ie));
 				throw new ConnectException(ie);
+			} finally {
+				threadPool.close();
 			}
 		} else {
 			LOGGER.warn("No tables for initial load!!!");
