@@ -85,7 +85,7 @@
 		<jar.plugin.version>3.4.2</jar.plugin.version>
 		<assembly.plugin.version>3.7.1</assembly.plugin.version>
 		<surefire.plugin.version>3.5.3</surefire.plugin.version>
-		<source.plugin.version>3.3.1</source.plugin.version>
+		<source.plugin.version>3.4.0</source.plugin.version>
 		<javadoc.plugin.version>3.12.0</javadoc.plugin.version>
 		<gpg.plugin.version>3.2.8</gpg.plugin.version>
 		<central.plugin.version>0.7.0</central.plugin.version>
