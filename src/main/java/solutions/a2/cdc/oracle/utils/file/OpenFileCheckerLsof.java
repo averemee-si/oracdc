@@ -27,7 +27,7 @@ public class OpenFileCheckerLsof implements OpenFileChecker {
 	@Override
 	public boolean isLocked(final String fileName) throws IOException {
 		boolean isLocked = false;
-		Process child = Runtime.getRuntime().exec("lsof " + fileName);
+		Process child = Runtime.getRuntime().exec(new String[] {"lsof " + fileName});
 		BufferedReader input = new BufferedReader(new InputStreamReader(child.getInputStream()));
 		while (input.readLine() != null) {
 			isLocked = true;
