@@ -142,7 +142,16 @@ public class OraCdcChangeUndo extends OraCdcChange {
 	}
 
 	public RowId rowId(OraCdcChange rowChange) {
-		return new RowId(dataObj, rowChange.bdba, rowChange.slot);
+		if (rowChange.operation == _11_5_URP &&
+				rowChange.coords.length > (rowChange.columnCount + 2) &&
+				rowChange.record[rowChange.coords[rowChange.columnCount + 3][0]] == OraCdcChangeUndoBlock.SUPPL_LOG_UPDATE &&
+				OraCdcChangeUndoBlock.SUPPL_LOG_ROW_MIN_LENGTH <= rowChange.coords[rowChange.columnCount + 3][1]) {
+			var suppDataStartIndex = rowChange.columnCount + 3;
+			return new RowId(dataObj, 
+					redoLog.bu().getU32(rowChange.record, rowChange.coords[suppDataStartIndex][0] + 0x14),
+					redoLog.bu().getU16(rowChange.record, rowChange.coords[suppDataStartIndex][0] + 0x18));
+		} else
+			return new RowId(dataObj, rowChange.bdba, rowChange.slot);
 	}
 
 	void ktub(final int index, boolean partialRollback) {
