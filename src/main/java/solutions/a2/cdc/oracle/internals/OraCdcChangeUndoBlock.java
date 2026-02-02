@@ -50,7 +50,9 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	private static final int SUPPL_LOG_MIN_LENGTH = 0x14;
 	private static final int KTUDB_MIN_LENGTH = 0x14;
 	private static final int KDILK_MIN_LENGTH = 0x14;
-	private static final int SUPPL_LOG_ROW_MIN_LENGTH = 0x1A;
+
+	static final int SUPPL_LOG_ROW_MIN_LENGTH = 0x1A;
+
 	private static final byte KDLIK = 1;
 	private static final byte KDLIK_KEY = 2;
 	private static final byte KDLIK_NONKEY = 4;
@@ -63,13 +65,11 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 	private boolean supplementalLogData = false;
 	private byte supplementalFb = 0;
-	short supplementalSlot = -1;
-	int supplementalBdba;
-	int supplementalCc = 0;
-	int supplementalCcNn = 0;
-	int suppDataStartIndex = -1;
-	int suppOffsetUndo = 0;
-	int suppOffsetRedo = 0;
+	private int supplementalCc = 0;
+	private int supplementalCcNn = 0;
+	private int suppDataStartIndex = -1;
+	private int suppOffsetUndo = 0;
+	private int suppOffsetRedo = 0;
 	private boolean ktub = false;
 	private boolean ktbRedo = false;
 	private boolean kdoOpCode = false;
@@ -191,10 +191,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 							supplementalCc = coords[suppDataStartIndex + 1][1] / Short.BYTES;
 						} else {
 							supplementalCc = supplementalCcNn;
-						}
-						if (SUPPL_LOG_ROW_MIN_LENGTH <= coords[suppDataStartIndex][1]) {
-							supplementalBdba = redoLog.bu().getU32(record, coords[suppDataStartIndex][0] + 0x14);
-							supplementalSlot = redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x18);
 						}
 					}
 					break;
@@ -515,9 +511,12 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	}
 
 	public RowId supplementalRowId() {
-		if (supplementalSlot > -1)
-			return new RowId(dataObj, supplementalBdba, supplementalSlot);
-		else
+		if (supplementalLogData && SUPPL_LOG_ROW_MIN_LENGTH <= coords[suppDataStartIndex][1]) {
+			return new RowId(
+					dataObj,
+					redoLog.bu().getU32(record, coords[suppDataStartIndex][0] + 0x14),
+					redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x18));
+		} else
 			return new RowId(dataObj, bdba, slot);
 	}
 
