@@ -144,8 +144,8 @@ public class OraCdcChangeUndo extends OraCdcChange {
 	public RowId rowId(OraCdcChange rowChange) {
 		if (rowChange.operation == _11_5_URP &&
 				rowChange.coords.length > (rowChange.columnCount + 2) &&
-				rowChange.record[rowChange.coords[rowChange.columnCount + 3][0]] == OraCdcChangeUndoBlock.SUPPL_LOG_UPDATE &&
-				OraCdcChangeUndoBlock.SUPPL_LOG_ROW_MIN_LENGTH <= rowChange.coords[rowChange.columnCount + 3][1]) {
+				SUPPL_LOG_ROW_MIN_LENGTH <= rowChange.coords[rowChange.columnCount + 3][1] &&
+				rowChange.record[rowChange.coords[rowChange.columnCount + 3][0]] == SUPPL_LOG_UPDATE) {
 			var suppDataStartIndex = rowChange.columnCount + 3;
 			return new RowId(dataObj, 
 					redoLog.bu().getU32(rowChange.record, rowChange.coords[suppDataStartIndex][0] + 0x14),

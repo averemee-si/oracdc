@@ -195,6 +195,11 @@ public class OraCdcChange {
 
 	private static final byte FLG_TDE_ENCRYPTION = (byte) 0x80;
 
+	static final int SUPPL_LOG_ROW_MIN_LENGTH = 0x1A;
+	public static final byte SUPPL_LOG_UPDATE = 0x1;
+	public static final byte SUPPL_LOG_INSERT = 0x2;
+	public static final byte SUPPL_LOG_DELETE = 0x4;
+
 	int length;
 	final short operation;
 	final OraCdcRedoLog redoLog;
@@ -1751,6 +1756,23 @@ public class OraCdcChange {
 			}
 		}
 		return columnCount;
+	}
+
+	public byte prbSupplementalFb() {
+		if (operation == _11_2_IRP && coords.length > (columnCount + 2) &&
+				0x14 <= coords[columnCount + 2][1] &&
+				record[coords[columnCount + 2][0]] == SUPPL_LOG_DELETE)
+			return record[coords[columnCount + 2][0] + 0x1];
+		else if (operation == _11_3_DRP && columnCount == 0 && coords.length > 2 &&
+				SUPPL_LOG_ROW_MIN_LENGTH <= coords[2][1] &&
+				record[coords[2][0]] == SUPPL_LOG_INSERT)
+			return record[coords[2][0] + 0x1];
+		else if (operation == _11_5_URP && coords.length > (columnCount + 3) &&
+				SUPPL_LOG_ROW_MIN_LENGTH <= coords[columnCount + 3][1] &&
+				record[coords[columnCount + 3][0]] == SUPPL_LOG_UPDATE)
+			return record[coords[columnCount + 3][0] + 0x1];
+		else
+			return 0;
 	}
 
 }

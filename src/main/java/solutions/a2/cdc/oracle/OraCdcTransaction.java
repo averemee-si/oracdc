@@ -54,9 +54,9 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.LOB_OP_WRITE;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_1;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLlb.TYPE_3;
 import static solutions.a2.cdc.oracle.internals.OraCdcChangeLobs.LOB_BIMG_INDEX;
-import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_UPDATE;
-import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_INSERT;
-import static solutions.a2.cdc.oracle.internals.OraCdcChangeUndoBlock.SUPPL_LOG_DELETE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.SUPPL_LOG_UPDATE;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.SUPPL_LOG_INSERT;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.SUPPL_LOG_DELETE;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 import static solutions.a2.oracle.internals.LobLocator.BLOB;
 import static solutions.a2.oracle.utils.BinaryUtils.parseTimestamp;
@@ -560,12 +560,13 @@ public abstract class OraCdcTransaction {
 			}
 			if (LOGGER.isDebugEnabled()) {
 				if ((flags & FLG_PARTIAL_ROLLBACK) > 0) {
-					LOGGER.debug("Adding XID {}, SCN {}, RBA {}, OP:{} fb:{}, OP:{} fb:{}",
+					LOGGER.debug("Adding XID {}, SCN {}, RBA {}, OP:{} fb:{}, supp fb:{}, OP:{} fb:{}",
 							record.xid(),
 							record.scn(),
 							record.rba(),
 							formatOpCode(record.changePrb().operation()),
 							printFbFlags(record.changePrb().fb()),
+							printFbFlags(record.rowChange().prbSupplementalFb()),
 							formatOpCode(record.rowChange().operation()),
 							printFbFlags(record.rowChange().fb()));
 				} else {
@@ -751,7 +752,9 @@ public abstract class OraCdcTransaction {
 				final boolean push;
 				final var lastHalfDoneRowFb = lastHalfDone.rowChange().fb();
 				if (partialRollback) {
-					push = lastHalfDoneRowFb == rr.rowChange().fb();
+					push =
+						lastHalfDoneRowFb == rr.rowChange().fb() &&
+						lastHalfDone.rowChange().prbSupplementalFb() == rr.rowChange().prbSupplementalFb();
 				} else {
 					if (flgFirstPart(rr.change5_1().supplementalFb()) && flgFirstPart(lastHalfDone.change5_1().supplementalFb()))
 						push = true;
@@ -975,48 +978,61 @@ public abstract class OraCdcTransaction {
 		final RowChangeHolder row = new RowChangeHolder(partialRollback, rowChange.operation());
 		if (partialRollback) {
 			switch (row.operation) {
-			case _11_5_URP:
-			case _11_6_ORP:
-			case _11_16_LMN:
-				row.lmOp = UPDATE;
-				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
-					row.complete = true;
-				else if (!flgHeadPart(rowChange.fb()))
-					row.flags |= FLG_OPPOSITE_ORDER;
-				if (row.operation == _11_16_LMN) {
-					row.flags &= (~FLG_NEED_HEAD_FLAG);
-					if (flgFirstPart(rowChange.fb()))
-						row.flags |= FLG_OPPOSITE_ORDER;
+				case _11_5_URP, _11_6_ORP, _11_16_LMN -> {
+					row.lmOp = UPDATE;
+					var prbFb = (byte) 0;
+					if ((prbFb = rowChange.prbSupplementalFb()) != 0) {
+						if (flgFirstPart(prbFb) && flgLastPart(prbFb))
+							row.complete = true;
+					} else {
+						if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+							row.complete = true;
+						else if (!flgHeadPart(rowChange.fb()))
+							row.flags |= FLG_OPPOSITE_ORDER;
+						if (row.operation == _11_16_LMN) {
+							row.flags &= (~FLG_NEED_HEAD_FLAG);
+							if (flgFirstPart(rowChange.fb()))
+								row.flags |= FLG_OPPOSITE_ORDER;
+						}
+					}
 				}
-				break;
-			case _11_2_IRP:
-				row.lmOp = INSERT;
-				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
-					row.complete = true;
-				else if (!flgHeadPart(rowChange.fb()))
-					row.flags |= FLG_OPPOSITE_ORDER;
-				break;
-			case _11_3_DRP:
-				row.lmOp = DELETE;
-				row.complete = true;
-				break;
-			case _10_2_LIN:
-				row.lmOp = INSERT;
-				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
-					row.complete = true;
-				break;
-			case _10_4_LDE:
-				row.lmOp = DELETE;
-				if (flgFirstPart(record.changePrb().fb()) && flgLastPart(record.changePrb().fb()))
-					row.complete = true;
-				break;
-			case _10_18_LUP:
-			case _10_30_LNU:
-			case _10_35_LCU:
-				row.lmOp = UPDATE;
-				if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
-					row.complete = true;
-				break;
+				case _11_2_IRP -> {
+					row.lmOp = INSERT;
+					var prbFb = (byte) 0;
+					if ((prbFb = rowChange.prbSupplementalFb()) != 0) {
+						if (flgFirstPart(prbFb) && flgLastPart(prbFb))
+							row.complete = true;
+					} else {
+						if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+							row.complete = true;
+						else if (!flgHeadPart(rowChange.fb()))
+							row.flags |= FLG_OPPOSITE_ORDER;
+					}
+				}
+				case _11_3_DRP -> {
+					row.lmOp = DELETE;
+					var prbFb = (byte) 0;
+					if ((prbFb = rowChange.prbSupplementalFb()) != 0) {
+						if (flgFirstPart(prbFb) && flgLastPart(prbFb))
+							row.complete = true;
+					} else
+						row.complete = true;
+				}
+				case _10_2_LIN -> {
+					row.lmOp = INSERT;
+					if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+						row.complete = true;
+				}
+				case _10_4_LDE -> {
+					row.lmOp = DELETE;
+					if (flgFirstPart(record.changePrb().fb()) && flgLastPart(record.changePrb().fb()))
+						row.complete = true;
+				}
+				case _10_18_LUP, _10_30_LNU, _10_35_LCU -> {
+					row.lmOp = UPDATE;
+					if (flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+						row.complete = true;
+				}
 			}
 		} else {
 			final var undoChange = record.change5_1();
@@ -1129,15 +1145,15 @@ public abstract class OraCdcTransaction {
 		var last = 0;
 		if ((row.flags & FLG_PARTIAL_ROLLBACK) > 0) {
 			for (int i = 0; i < row.records.size(); i++) {
-				final OraCdcRedoRecord rr = row.records.get(i);
+				var rr = row.records.get(i);
 				if (rr.has11_x() && rr.hasPrb()) {
-					final byte fb = rr.change11_x().fb();
-					if (flgHeadPart(fb)) head++;
+					var fb = rr.change11_x().prbSupplementalFb();
+					if (fb == 0)
+						fb = rr.change11_x().fb();
 					if (flgFirstPart(fb)) first++;
 					if (flgLastPart(fb)) last++;
 				} else if (rr.has10_x() && rr.hasPrb()) {
-					final byte fb = rr.change10_x().fb();
-					if (flgHeadPart(fb)) head++;
+					var fb = rr.change10_x().fb();
 					if (flgFirstPart(fb)) first++;
 					if (flgLastPart(fb)) last++;
 				} else {
@@ -1153,7 +1169,7 @@ public abstract class OraCdcTransaction {
 							""", rr.rba(), rr.redoLog().fileName(), rr.toString());
 				}
 			}
-			if (head > 0 && first > 0 && last > 0) {
+			if (first > 0 && last > 0) {
 				row.complete = true;
 			}
 		} else {
@@ -1291,6 +1307,8 @@ public abstract class OraCdcTransaction {
 						.append(formatOpCode(record.changePrb().operation()))
 						.append(" fb:")
 						.append(printFbFlags(record.changePrb().fb()))
+						.append(", supp fb:")
+						.append(printFbFlags(record.rowChange().prbSupplementalFb()))
 						.append(", OP:")
 						.append(formatOpCode(record.rowChange().operation()))
 						.append(" fb:")

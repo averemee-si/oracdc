@@ -42,16 +42,11 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	public static final int NON_KEY_10_30_POS = 5;
 	public static final int KEY_10_30_POS = 4;
 	public static final int COL_NUM_10_35_POS = 5;
-	public static final byte SUPPL_LOG_UPDATE = 0x1;
-	public static final byte SUPPL_LOG_INSERT = 0x2;
-	public static final byte SUPPL_LOG_DELETE = 0x4;
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndoBlock.class);
 	private static final int SUPPL_LOG_MIN_LENGTH = 0x14;
 	private static final int KTUDB_MIN_LENGTH = 0x14;
 	private static final int KDILK_MIN_LENGTH = 0x14;
-
-	static final int SUPPL_LOG_ROW_MIN_LENGTH = 0x1A;
 
 	private static final byte KDLIK = 1;
 	private static final byte KDLIK_KEY = 2;
