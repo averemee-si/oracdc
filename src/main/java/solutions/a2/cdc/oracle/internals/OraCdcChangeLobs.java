@@ -36,7 +36,7 @@ public class OraCdcChangeLobs extends OraCdcChange {
 		if (operation == _26_2_REDO) {
 			ktbRedo(0);
 			kdliCommon(1);
-			if (coords.length > 3)
+			if (coords.length > 2)
 				for (int i = 2; i < coords.length; i++)
 					kdli(i);
 		} else {
