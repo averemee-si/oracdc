@@ -153,19 +153,16 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					kdo(KDO_POS);
 					kdoOpCode = true;
 					final var selector = (op & 0x1F) | (KCOCODRW << 0x08);
-					if (selector == _11_5_URP && coords.length > (5 + columnCount)) {
-						
-					}
-					if ((selector == _11_5_URP) &&
-							columnCountNn == columnCount &&
+					if (selector == _11_5_URP) {
+						if (columnCountNn == columnCount &&
 							coords.length > (5 + columnCount)) {
-						supplementalLogData = true;
-						suppDataStartIndex = 0x5 + columnCount; 
-					} else if ((selector == _11_5_URP) &&
-							columnCountNn < columnCount &&
-							coords.length > (5 + columnCountNn)) {
-						supplementalLogData = true;
-						suppDataStartIndex = 0x5 + columnCountNn; 
+							supplementalLogData = true;
+							suppDataStartIndex = 0x5 + columnCount; 
+						} else if (columnCountNn < columnCount &&
+								coords.length > (5 + columnCountNn)) {
+							supplementalLogData = true;
+							suppDataStartIndex = 0x5 + columnCountNn; 
+						}
 					} else if ((selector == _11_2_IRP ||
 							selector == _11_3_DRP ||
 							selector == _11_4_LKR ||
