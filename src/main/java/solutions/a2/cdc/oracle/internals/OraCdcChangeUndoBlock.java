@@ -65,12 +65,9 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	private int suppDataStartIndex = -1;
 	private int suppOffsetUndo = 0;
 	private int suppOffsetRedo = 0;
-	private boolean ktub = false;
-	private boolean ktbRedo = false;
-	private boolean kdoOpCode = false;
-	private boolean kdliCommon = false;
 	private byte kdilk = 0;
 	private byte kdilkType;
+	private boolean compressed = false;
 
 	OraCdcChangeUndoBlock(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _5_1_RDB, record, offset, headerLength);
@@ -86,7 +83,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 		// Element 2 - ktub
 		if (coords.length > 1) {
-			ktub = true;
 			ktub(1, false);
 		} else {
 			LOGGER.warn("ktubl is missed (OP:5.1) for change #{} at RBA {}", num, rba);
@@ -105,7 +101,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				case _10_22_ULK:
 					// Element 3: KTB Redo
 					ktbRedo(2);
-					ktbRedo = true;
 					// Element 4: kdilk
 					elementLengthCheck("kdilk", "(OP:5.1)", 0, KDILK_MIN_LENGTH, "");
 					kdilk |= KDLIK;
@@ -149,9 +144,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 					// Element 4:KDO
 					// Element 5+: Column data
 					ktbRedo(2);
-					ktbRedo = true;
-					kdo(KDO_POS);
-					kdoOpCode = true;
+					compressed = kdo(KDO_POS);
 					final var selector = (op & 0x1F) | (KCOCODRW << 0x08);
 					if (selector == _11_5_URP) {
 						if (columnCountNn == columnCount &&
@@ -168,9 +161,18 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 							selector == _11_4_LKR ||
 							selector == _11_6_ORP ||
 							selector == _11_8_CFA ||
-							selector == _11_16_LMN) && coords.length > (4 + columnCount)) {
-						supplementalLogData = true;
-						suppDataStartIndex = 0x4 + columnCount;
+							selector == _11_16_LMN)) {
+						if (compressed) {
+							if (coords.length > 4) {
+								supplementalLogData = true;
+								suppDataStartIndex = 0x5;
+							}
+						} else {
+							if (coords.length > (4 + columnCount)) {
+								supplementalLogData = true;
+								suppDataStartIndex = 0x4 + columnCount;
+							}
+						}
 					}
 
 					if (supplementalLogData) {
@@ -189,9 +191,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				case _26_1_UINDO:
 					// Element 3: KTB Redo
 					ktbRedo(2);
-					ktbRedo = true;
 					if (coords.length > 3) {
-						kdliCommon = true;
 						kdliCommon(3);
 						for (int index = 0x4; index < coords.length; index++) {
 							kdli(index);
@@ -237,10 +237,10 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			.append(String.format("0x%02x", Byte.toUnsignedInt(record[coords[0][0] + 0x12])))
 			.append("\n            xid:  ")
 			.append(xid);
-		if (ktub) {
+		if (coords.length > 1) {
 			ktub(sb, 1, true);
 		}
-		if (ktbRedo) {
+		if (opc == _10_22_ULK || opc == _11_1_IUR || opc == _26_1_UINDO) {
 			if (opc == _11_1_IUR) {
 				sb.append("\nKDO undo record:");
 			} else if (opc == _10_22_ULK) {
@@ -248,8 +248,8 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			}
 			ktbRedo(sb, 2);
 		}
-		if (kdoOpCode) {
-			kdo(sb, 3, false);
+		if (opc == _11_1_IUR) {
+			kdo(sb, 3, compressed);
 		}
 		if ((kdilk & KDLIK) != 0) {
 			sb
@@ -374,7 +374,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				}
 			}
 		}
-		if (kdliCommon) {
+		if (opc == _26_1_UINDO) {
 			kdliCommon(sb, 3);
 			for (int index = 0x4; index < coords.length; index++) {
 				kdli(sb, index);
@@ -512,4 +512,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			return new RowId(dataObj, bdba, slot);
 	}
 
+	public boolean compressed() {
+		return compressed;
+	}
 }
