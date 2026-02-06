@@ -1776,4 +1776,21 @@ public class OraCdcChange {
 			return 0;
 	}
 
+	public byte prbSupplementalFor() {
+		if (operation == _11_2_IRP && coords.length > (columnCount + 2) &&
+				0x14 <= coords[columnCount + 2][1] &&
+				record[coords[columnCount + 2][0]] == SUPPL_LOG_DELETE)
+			return record[coords[columnCount + 2][0]];
+		else if (operation == _11_3_DRP && columnCount == 0 && coords.length > 2 &&
+				SUPPL_LOG_ROW_MIN_LENGTH <= coords[2][1] &&
+				record[coords[2][0]] == SUPPL_LOG_INSERT)
+			return record[coords[2][0]];
+		else if (operation == _11_5_URP && coords.length > (columnCount + 3) &&
+				SUPPL_LOG_ROW_MIN_LENGTH <= coords[columnCount + 3][1] &&
+				record[coords[columnCount + 3][0]] == SUPPL_LOG_UPDATE)
+			return record[coords[columnCount + 3][0]];
+		else
+			return 0;
+	}
+
 }

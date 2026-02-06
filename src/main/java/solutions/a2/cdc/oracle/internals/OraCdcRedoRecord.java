@@ -454,9 +454,12 @@ public class OraCdcRedoRecord implements Comparable<OraCdcRedoRecord> {
 			}
 		} else if (indKTUIRB > -1) {
 			if (indKCOCODRW > -1) {
-				return Objects.hash(true, changeVectors.get(indKTUIRB).dataObj);
+				return Objects.hash(
+						true,
+						changeVectors.get(indKCOCODRW).prbSupplementalFor(),
+						changeVectors.get(indKTUIRB).dataObj);
 			} else
-				return 0;
+				return Objects.hash(true, 0, changeVectors.get(indKTUIRB).dataObj);
 		} else
 			return 0;
 	}
