@@ -199,6 +199,7 @@ public class OraCdcChange {
 	public static final byte SUPPL_LOG_UPDATE = 0x1;
 	public static final byte SUPPL_LOG_INSERT = 0x2;
 	public static final byte SUPPL_LOG_DELETE = 0x4;
+	public static final byte SUPPL_LOG_LOCK = 0x10;
 
 	int length;
 	final short operation;

@@ -420,12 +420,13 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	}
 
 	private static String printLmOpCode(final byte opCode) {
-		switch (opCode) {
-			case SUPPL_LOG_UPDATE: return "UPDATE";
-			case SUPPL_LOG_INSERT: return "INSERT";
-			case SUPPL_LOG_DELETE: return "DELETE";
-			default:               return "??????";
-		}
+		return switch (opCode) {
+			case SUPPL_LOG_UPDATE -> "UPDATE";
+			case SUPPL_LOG_INSERT -> "INSERT";
+			case SUPPL_LOG_DELETE -> "DELETE";
+			case SUPPL_LOG_LOCK   -> "LOCK";
+			default               -> "??????";
+		};
 	}
 
 	public byte supplementalDataFor() {
