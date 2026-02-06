@@ -161,9 +161,18 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 							selector == _11_4_LKR ||
 							selector == _11_6_ORP ||
 							selector == _11_8_CFA ||
-							selector == _11_16_LMN) && coords.length > (4 + columnCount)) {
-						supplementalLogData = true;
-						suppDataStartIndex = 0x4 + columnCount;
+							selector == _11_16_LMN)) {
+						if (compressed) {
+							if (coords.length > 4) {
+								supplementalLogData = true;
+								suppDataStartIndex = 0x5;
+							}
+						} else {
+							if (coords.length > (4 + columnCount)) {
+								supplementalLogData = true;
+								suppDataStartIndex = 0x4 + columnCount;
+							}
+						}
 					}
 
 					if (supplementalLogData) {
@@ -503,4 +512,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			return new RowId(dataObj, bdba, slot);
 	}
 
+	public boolean compressed() {
+		return compressed;
+	}
 }

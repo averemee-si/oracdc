@@ -1381,13 +1381,13 @@ public abstract class OraCdcTransaction {
 					switch (rowChange.operation()) {
 						case _11_2_IRP -> {
 							setOrValColCount += rowChange.columnCount();
-							setOrValColCount += change.supplementalCc();
 						}
 						case _11_3_DRP -> {
 							whereColCount += change.columnCount();
 						}
 						case _11_6_ORP -> {
-							whereColCount += change.columnCount();
+							if (!change.compressed())
+								whereColCount += change.columnCount();
 							setOrValColCount += rowChange.columnCount();
 						}
 						case _11_5_URP -> {
@@ -1694,7 +1694,6 @@ public abstract class OraCdcTransaction {
 								}
 							}
 							case _11_2_IRP -> {
-								change.writeSupplementalCols(baos);
 								rowChange.writeColsWithNulls(
 										baos, OraCdcChangeRowOp.KDO_POS, 0,
 										change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
@@ -1708,15 +1707,17 @@ public abstract class OraCdcTransaction {
 							}
 							case _11_6_ORP -> {
 								change.writeSupplementalCols(baosB);
-								change.writeColsWithNulls(
+								if (!change.compressed()) {
+									change.writeColsWithNulls(
 										baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
 										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
 										KDO_ORP_IRP_NULL_POS);
-								change.writeColsWithNulls(
+									change.writeColsWithNulls(
 										baosW, OraCdcChangeUndoBlock.KDO_POS, 0,
 										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo(),
 										KDO_ORP_IRP_NULL_POS);
-								colNumOffsetSet += change.columnCount();
+									colNumOffsetSet += change.columnCount();
+								}
 								rowChange.writeColsWithNulls(
 										baos, OraCdcChangeRowOp.KDO_POS, 0,
 										change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
