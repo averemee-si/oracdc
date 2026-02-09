@@ -230,6 +230,76 @@ public abstract class OraCdcTransaction {
 				emitDdlChange(rr, lwnUnixMillis);
 			}
 		}
+
+		if (!halfDone.isEmpty()) {
+			// Emit inprocessed partial rollback records here - LogMiner marks these records as "UNSUPPORTED"
+			var hdIterator = halfDone.keySet().iterator();
+			while (hdIterator.hasNext()) {
+				Set<RedoByteAddress> toRemove = null;
+				var key = hdIterator.next();
+				var waitingList = finishedQueue.get(key);
+				for (var holder : waitingList) {
+					if (holder.complete) {
+						if (LOGGER.isDebugEnabled())
+							LOGGER.debug("Emitting the completed row change, first RBA={}, last RBA={}", holder.first().rba(), holder.last().rba());
+						emitRowChange(holder, holder.lwnUnixMillis);
+					} else {
+						if (holder.last().hasPrb() && (holder.last().has11_x() || holder.last().has10_x())) {
+							var complete = false;
+							for (var rr : holder.records) {
+								if (flgCompleted(rr.rowChange().prbSupplementalFb())) {
+									if (LOGGER.isDebugEnabled())
+										LOGGER.debug("Changing the row change status to 'completed', first RBA={}, last RBA={}", holder.first().rba(), holder.last().rba());
+									complete = true;
+									break;
+								}
+							}
+							if (complete) {
+								holder.complete = true;
+								if (toRemove == null)
+									toRemove = new HashSet<RedoByteAddress>();
+								toRemove.add(holder.last().rba());
+								emitRowChange(holder, holder.lwnUnixMillis);
+							}
+						}
+					}
+				}
+				if (toRemove != null) {
+					var deque = halfDone.get(key);
+					var first = deque.peek();
+					var holder = deque.poll();
+					while (true) {
+						if (holder != null) {
+							var rr = holder.last();
+							if (toRemove.contains(rr.rba())) {
+								if (LOGGER.isDebugEnabled())
+									LOGGER.debug("Removing from halfDone, first RBA={}, last RBA={}", holder.first().rba(), holder.last().rba());
+							} else {
+								deque.offer(holder);
+							}
+							holder = deque.poll();
+							var check = deque.peek();
+							if (check == null)
+								break;
+							if (check.last().rba().equals(first.last().rba())) {
+								if (holder != null) {
+									deque.offer(holder);
+								}
+								break;
+							}
+						} else {
+							break;
+						}
+					}
+					toRemove.clear();
+					toRemove = null;
+					if (deque.size() == 0) {
+						hdIterator.remove();
+					}
+				}
+			}
+		}
+
 		setCommitScn(raw.commitScn());
 		try {
 			raw.close();
@@ -530,6 +600,7 @@ public abstract class OraCdcTransaction {
 		private short lmOp;
 		private boolean onlyLmn;
 		private byte flags = FLG_NEED_HEAD_FLAG | FLG_HOMOGENEOUS;
+		private long lwnUnixMillis;
 
 		RowChangeHolder(final boolean partialRollback, final short operation) {
 			this.operation = operation;
@@ -767,10 +838,12 @@ public abstract class OraCdcTransaction {
 				}
 				if (push) {
 					row.add(rr);
+					row.lwnUnixMillis = lwnUnixMillis;
 					deque.addFirst(row);
 					var waitingList = finishedQueue.get(key);
 					if (waitingList == null) {
 						waitingList = new ArrayList<>();
+						halfDoneRow.lwnUnixMillis = lwnUnixMillis;
 						waitingList.add(halfDoneRow);
 						finishedQueue.put(key, waitingList);
 					}
@@ -790,7 +863,7 @@ public abstract class OraCdcTransaction {
 								emitRowChange(halfDoneRow, lwnUnixMillis);
 							else {
 								for (final var waitingRow : waitingList) {
-									emitRowChange(waitingRow, lwnUnixMillis);
+									emitRowChange(waitingRow, waitingRow.lwnUnixMillis);
 								}
 								waitingList.clear();
 								finishedQueue.remove(key);
@@ -1367,8 +1440,6 @@ public abstract class OraCdcTransaction {
 				if ((row.flags & FLG_HOMOGENEOUS) > 0) {
 					// URP, IRP
 					setOrValColCount += rowChange.columnCount();
-					//TODO Layer 11 operations where the partial rollback also contains
-					//TODO supplemental log data but we don't need the contents for partial rollback
 					if ((row.flags & FLG_PARTIAL_ROLLBACK) == 0) {
 						final OraCdcChangeUndoBlock change = rr.change5_1();
 						// URP, IRP, DRP
