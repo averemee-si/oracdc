@@ -306,7 +306,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 								LOGGER.debug(sb.toString());
 							}
 							continue;
-						} else if (record.has5_1()) {
+						}
+						if (record.has5_1()) {
 							if (record.has11_x()) {
 								if (checker.notNeeded(record.change5_1().obj(), record.change5_1().conId()))
 									continue;
