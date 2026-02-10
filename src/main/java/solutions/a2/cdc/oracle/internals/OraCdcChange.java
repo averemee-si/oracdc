@@ -1760,13 +1760,11 @@ public class OraCdcChange {
 	}
 
 	public byte prbSupplementalFb() {
-		if (operation == _11_2_IRP && coords.length > (columnCount + 2) &&
-				0x14 <= coords[columnCount + 2][1] &&
-				record[coords[columnCount + 2][0]] == SUPPL_LOG_DELETE)
+		if ((operation == _11_2_IRP || operation == _11_6_ORP) && coords.length > (columnCount + 2) &&
+				0x14 <= coords[columnCount + 2][1])
 			return record[coords[columnCount + 2][0] + 0x1];
-		else if (operation == _11_3_DRP && columnCount == 0 && coords.length > 2 &&
-				SUPPL_LOG_ROW_MIN_LENGTH <= coords[2][1] &&
-				record[coords[2][0]] == SUPPL_LOG_INSERT)
+		else if (operation == _11_3_DRP && columnCount == 0 && coords.length > 1 &&
+				SUPPL_LOG_ROW_MIN_LENGTH <= coords[2][1])
 			return record[coords[2][0] + 0x1];
 		else if (operation == _11_5_URP && coords.length > (columnCount + 3) &&
 				SUPPL_LOG_ROW_MIN_LENGTH <= coords[columnCount + 3][1] &&
@@ -1777,13 +1775,11 @@ public class OraCdcChange {
 	}
 
 	public byte prbSupplementalFor() {
-		if (operation == _11_2_IRP && coords.length > (columnCount + 2) &&
-				0x14 <= coords[columnCount + 2][1] &&
-				record[coords[columnCount + 2][0]] == SUPPL_LOG_DELETE)
+		if ((operation == _11_2_IRP || operation == _11_6_ORP) && coords.length > (columnCount + 2) &&
+				0x14 <= coords[columnCount + 2][1])
 			return record[coords[columnCount + 2][0]];
-		else if (operation == _11_3_DRP && columnCount == 0 && coords.length > 2 &&
-				SUPPL_LOG_ROW_MIN_LENGTH <= coords[2][1] &&
-				record[coords[2][0]] == SUPPL_LOG_INSERT)
+		else if (operation == _11_3_DRP && columnCount == 0 && coords.length > 1 &&
+				SUPPL_LOG_ROW_MIN_LENGTH <= coords[2][1])
 			return record[coords[2][0]];
 		else if (operation == _11_5_URP && coords.length > (columnCount + 3) &&
 				SUPPL_LOG_ROW_MIN_LENGTH <= coords[columnCount + 3][1] &&
