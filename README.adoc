@@ -109,6 +109,14 @@ This project is licensed under the Apache-2.0 License.
 
 == Release history
 
+=== 2.14.3 (FEB-2026)
+
+1. Important changes to ensure proper handling of supplemental log data in partial rollback operations.
+
+2. Transition to JDK21
+
+3. Bug fixes
+
 === 2.14.2 (JAN-2026)
 
 1. Using a physical standby database as a source of change information. For more information, see section "Using a physical standby database as a source of change information." in link:doc/RedoMinerConnector.adoc[RedoMinerConnector.adoc]. For a sample configuration and architecture diagram, see https://averemee.substack.com/p/make-physical-standby-active-great[Make physical standby Active (Great?!) Again]
