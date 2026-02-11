@@ -18,6 +18,20 @@ import static solutions.a2.kafka.ConnectorParams.BATCH_SIZE_DOC;
 import static solutions.a2.kafka.ConnectorParams.BATCH_SIZE_PARAM;
 import static solutions.a2.kafka.ConnectorParams.TOPIC_PREFIX_DOC;
 import static solutions.a2.kafka.ConnectorParams.TOPIC_PREFIX_PARAM;
+import static solutions.a2.kafka.ConnectorParams.CONNECTION_URL_DOC;
+import static solutions.a2.kafka.ConnectorParams.CONNECTION_URL_PARAM;
+import static solutions.a2.kafka.ConnectorParams.CONNECTION_USER_DOC;
+import static solutions.a2.kafka.ConnectorParams.CONNECTION_USER_PARAM;
+import static solutions.a2.kafka.ConnectorParams.CONNECTION_PASSWORD_DOC;
+import static solutions.a2.kafka.ConnectorParams.CONNECTION_PASSWORD_PARAM;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_DOC;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_PARAM;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_KAFKA;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_SINGLE;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_DEBEZIUM;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
 
 import java.util.List;
 import java.util.Map;
@@ -40,21 +54,15 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 
 	public static ConfigDef config() {
 		return new ConfigDef()
-				.define(ConnectorParams.CONNECTION_URL_PARAM, Type.STRING, "",
-						Importance.HIGH, ConnectorParams.CONNECTION_URL_DOC)
-				.define(ConnectorParams.CONNECTION_USER_PARAM, Type.STRING, "",
-						Importance.HIGH, ConnectorParams.CONNECTION_USER_DOC)
-				.define(ConnectorParams.CONNECTION_PASSWORD_PARAM, Type.PASSWORD, "",
-						Importance.HIGH, ConnectorParams.CONNECTION_PASSWORD_DOC)
-				.define(CONNECTION_WALLET_PARAM, Type.STRING, "",
-						Importance.HIGH, CONNECTION_WALLET_DOC)
-				.define(ConnectorParams.SCHEMA_TYPE_PARAM, Type.STRING,
-						ConnectorParams.SCHEMA_TYPE_KAFKA,
+				.define(CONNECTION_URL_PARAM, Type.STRING, "", Importance.HIGH, CONNECTION_URL_DOC)
+				.define(CONNECTION_USER_PARAM, Type.STRING, "", Importance.HIGH, CONNECTION_USER_DOC)
+				.define(CONNECTION_PASSWORD_PARAM, Type.PASSWORD, "", Importance.HIGH, CONNECTION_PASSWORD_DOC)
+				.define(CONNECTION_WALLET_PARAM, Type.STRING, "", Importance.HIGH, CONNECTION_WALLET_DOC)
+				.define(
+						SCHEMA_TYPE_PARAM, Type.STRING, SCHEMA_TYPE_KAFKA,
 						ConfigDef.ValidString.in(
-								ConnectorParams.SCHEMA_TYPE_KAFKA,
-								ConnectorParams.SCHEMA_TYPE_SINGLE,
-								ConnectorParams.SCHEMA_TYPE_DEBEZIUM),
-						Importance.LOW, ConnectorParams.SCHEMA_TYPE_DOC)
+								SCHEMA_TYPE_KAFKA, SCHEMA_TYPE_SINGLE, SCHEMA_TYPE_DEBEZIUM),
+						Importance.LOW, SCHEMA_TYPE_DOC)
 				.define(KAFKA_TOPIC_PARAM, Type.STRING, KAFKA_TOPIC_PARAM_DEFAULT, Importance.HIGH, KAFKA_TOPIC_PARAM_DOC)
 				.define(TOPIC_PREFIX_PARAM, Type.STRING, "", Importance.MEDIUM, TOPIC_PREFIX_DOC)
 				.define(TABLE_EXCLUDE_PARAM, Type.LIST, "", Importance.MEDIUM, TABLE_EXCLUDE_DOC)
@@ -73,17 +81,17 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 
 	@Override
 	public String rdbmsUrl() {
-		return getString(ConnectorParams.CONNECTION_URL_PARAM);
+		return getString(CONNECTION_URL_PARAM);
 	}
 
 	@Override
 	public String rdbmsUser() {
-		return getString(ConnectorParams.CONNECTION_USER_PARAM);
+		return getString(CONNECTION_USER_PARAM);
 	}
 
 	@Override
 	public String rdbmsPassword() {
-		return getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value();
+		return getPassword(CONNECTION_PASSWORD_PARAM).value();
 	}
 
 	@Override
@@ -103,30 +111,23 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 
 	@Override
 	public int schemaType() {
-		if (schemaType == -1) {
-			switch (getString(ConnectorParams.SCHEMA_TYPE_PARAM)) {
-			case ConnectorParams.SCHEMA_TYPE_KAFKA:
-				schemaType = ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
-				break;
-			case ConnectorParams.SCHEMA_TYPE_SINGLE:
-				schemaType = ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
-				break;
-			case ConnectorParams.SCHEMA_TYPE_DEBEZIUM:
-				schemaType = ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
-				break;
+		if (schemaType == -1)
+			switch (getString(SCHEMA_TYPE_PARAM)) {
+				case SCHEMA_TYPE_KAFKA -> schemaType = SCHEMA_TYPE_INT_KAFKA_STD;
+				case SCHEMA_TYPE_SINGLE -> schemaType = SCHEMA_TYPE_INT_SINGLE;
+				case SCHEMA_TYPE_DEBEZIUM -> schemaType = SCHEMA_TYPE_INT_DEBEZIUM;
 			}
-		}
 		return schemaType;
 	}
 
 	@Override
 	public void schemaType(final Map<String, String> taskParam) {
-		taskParam.put(ConnectorParams.SCHEMA_TYPE_PARAM, getString(ConnectorParams.SCHEMA_TYPE_PARAM));
+		taskParam.put(SCHEMA_TYPE_PARAM, getString(SCHEMA_TYPE_PARAM));
 	}
 
 	@Override
 	public String topicOrPrefix() {
-		return getString(ConnectorParams.TOPIC_PREFIX_PARAM);
+		return getString(TOPIC_PREFIX_PARAM);
 	}
 
 	@Override

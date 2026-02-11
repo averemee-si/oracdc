@@ -45,9 +45,11 @@ public class ConnectorParams {
 
 	public static final String USE_ALL_COLUMNS_ON_DELETE_PARAM = "a2.use.all.columns.on.delete";
 	public static final String USE_ALL_COLUMNS_ON_DELETE_DOC =
-			"Default - false.\n" +
-			"When set to false (default) oracdc reads and processes only the PK columns from the redo record and sends only the key fields to the Kafka topic.\n" +
-			"When set to true oracdc reads and processes all table columns from the redo record.\n";
+			"""
+			Default - false.
+			When set to false (default) oracdc reads and processes only the PK columns from the redo record and sends only the key fields to the Kafka topic.
+			When set to true oracdc reads and processes all table columns from the redo record.
+			""";
 	public static final boolean USE_ALL_COLUMNS_ON_DELETE_DEFAULT = false; 
 
 	public static final String TOPIC_PREFIX_PARAM = "a2.topic.prefix";
