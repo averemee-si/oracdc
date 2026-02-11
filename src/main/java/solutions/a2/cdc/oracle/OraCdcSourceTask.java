@@ -33,13 +33,13 @@ import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.kafka.KafkaSourceBaseConfig;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MASTER;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_LOG;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_OWNER;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_ROWID;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_PK;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_SEQUENCE;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
 
 /**
  * 

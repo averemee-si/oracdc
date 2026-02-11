@@ -13,9 +13,9 @@
 
 package solutions.a2.cdc.oracle;
 
-import org.apache.commons.lang3.StringUtils;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_SINGLE;
 
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  *

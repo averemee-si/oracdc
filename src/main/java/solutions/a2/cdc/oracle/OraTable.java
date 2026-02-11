@@ -14,6 +14,9 @@
 package solutions.a2.cdc.oracle;
 
 import static java.sql.Types.VARCHAR;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_SINGLE;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_ERROR;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
@@ -24,9 +27,6 @@ import static solutions.a2.cdc.oracle.OraColumn.ROWID_KEY;
 import static solutions.a2.cdc.oracle.OraColumn.UNUSED_COLUMN;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -60,7 +60,6 @@ import org.slf4j.event.Level;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
-import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.oracle.internals.RowId;
 
 /**
@@ -530,7 +529,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 		} else {
 			keySchema = keySchemaBuilder.build();
 		}
-		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (this.schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 			valueSchema = valueSchemaBuilder.build();
 			schema = SchemaBuilder
 					.struct()

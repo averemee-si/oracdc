@@ -22,8 +22,6 @@ import java.util.Map;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 
-import solutions.a2.kafka.ConnectorParams;
-
 
 /**
  * 
@@ -62,7 +60,7 @@ public abstract class OraTable4SourceConnector {
 			keySchema = keySchemaBuilder.build();
 		}
 		valueSchema = valueSchemaBuilder.build();
-		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (this.schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 			final SchemaBuilder schemaBuilder = SchemaBuilder
 					.struct()
 					.name(tableFqn + ".Envelope");

@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
-import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.kafka.KafkaSourceBaseConfig;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -637,7 +636,7 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 								PK_TYPE_ANY_UNIQUE),
 						MEDIUM, PK_TYPE_DOC)
 				.define(USE_ROWID_AS_KEY_PARAM, BOOLEAN, true, MEDIUM, USE_ROWID_AS_KEY_DOC)
-				.define(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM, BOOLEAN, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DEFAULT, MEDIUM, ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_DOC)
+				.define(OraCdcParameters.USE_ALL_COLUMNS_ON_DELETE_PARAM, BOOLEAN, OraCdcParameters.USE_ALL_COLUMNS_ON_DELETE_DEFAULT, MEDIUM, OraCdcParameters.USE_ALL_COLUMNS_ON_DELETE_DOC)
 				.define(INTERNAL_RAC_URLS_PARAM, LIST, "", LOW, INTERNAL_PARAMETER_DOC)
 				.define(INTERNAL_DG4RAC_THREAD_PARAM, LIST, "", LOW, INTERNAL_PARAMETER_DOC)
 				.define(TOPIC_MAPPER_PARAM, STRING, TOPIC_MAPPER_DEFAULT, LOW, TOPIC_MAPPER_DOC)
@@ -975,7 +974,7 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 	}
 
 	public boolean useAllColsOnDelete() {
-		return getBoolean(ConnectorParams.USE_ALL_COLUMNS_ON_DELETE_PARAM);
+		return getBoolean(OraCdcParameters.USE_ALL_COLUMNS_ON_DELETE_PARAM);
 	}
 
 	public boolean stopOnOra1284() {

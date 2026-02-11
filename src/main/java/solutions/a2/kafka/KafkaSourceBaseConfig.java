@@ -13,25 +13,25 @@
 
 package solutions.a2.kafka;
 
-import static solutions.a2.kafka.ConnectorParams.BATCH_SIZE_DEFAULT;
-import static solutions.a2.kafka.ConnectorParams.BATCH_SIZE_DOC;
-import static solutions.a2.kafka.ConnectorParams.BATCH_SIZE_PARAM;
-import static solutions.a2.kafka.ConnectorParams.TOPIC_PREFIX_DOC;
-import static solutions.a2.kafka.ConnectorParams.TOPIC_PREFIX_PARAM;
-import static solutions.a2.kafka.ConnectorParams.CONNECTION_URL_DOC;
-import static solutions.a2.kafka.ConnectorParams.CONNECTION_URL_PARAM;
-import static solutions.a2.kafka.ConnectorParams.CONNECTION_USER_DOC;
-import static solutions.a2.kafka.ConnectorParams.CONNECTION_USER_PARAM;
-import static solutions.a2.kafka.ConnectorParams.CONNECTION_PASSWORD_DOC;
-import static solutions.a2.kafka.ConnectorParams.CONNECTION_PASSWORD_PARAM;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_DOC;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_PARAM;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_KAFKA;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_SINGLE;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_SINGLE;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_DEBEZIUM;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BATCH_SIZE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BATCH_SIZE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BATCH_SIZE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_PASSWORD_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_URL_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_URL_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_USER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_USER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_DEBEZIUM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_SINGLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_KAFKA;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_SINGLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_PREFIX_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_PREFIX_PARAM;
 
 import java.util.List;
 import java.util.Map;

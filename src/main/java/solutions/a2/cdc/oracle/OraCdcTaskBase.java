@@ -44,7 +44,6 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.utils.Version;
-import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -125,7 +124,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 		config.setConnectorName(connectorName);
-		batchSize = config.getInt(ConnectorParams.BATCH_SIZE_PARAM);
+		batchSize = config.getInt(OraCdcParameters.BATCH_SIZE_PARAM);
 		pollInterval = config.pollIntervalMs();
 		schemaType = config.schemaType();
 		restoreIncompleteRecord = config.getIncompleteDataTolerance() == INCOMPLETE_REDO_INT_RESTORE;
@@ -199,23 +198,23 @@ public abstract class OraCdcTaskBase extends SourceTask {
 				} else {
 					oraConnections = OraConnectionObjects.get4OraWallet(
 							connectorName,
-							config.getString(ConnectorParams.CONNECTION_URL_PARAM), 
+							config.getString(OraCdcParameters.CONNECTION_URL_PARAM), 
 							config.walletLocation());
 				}
-			} else if (StringUtils.isNotBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM)) &&
-					StringUtils.isNotBlank(config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
+			} else if (StringUtils.isNotBlank(config.getString(OraCdcParameters.CONNECTION_USER_PARAM)) &&
+					StringUtils.isNotBlank(config.getPassword(OraCdcParameters.CONNECTION_PASSWORD_PARAM).value())) {
 				if (useRac) {
 					oraConnections = OraConnectionObjects.get4UserPassword(
 							connectorName,
 							config.racUrls(),
-							config.getString(ConnectorParams.CONNECTION_USER_PARAM),
-							config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());					
+							config.getString(OraCdcParameters.CONNECTION_USER_PARAM),
+							config.getPassword(OraCdcParameters.CONNECTION_PASSWORD_PARAM).value());					
 				} else {
 					oraConnections = OraConnectionObjects.get4UserPassword(
 							connectorName,
-							config.getString(ConnectorParams.CONNECTION_URL_PARAM),
-							config.getString(ConnectorParams.CONNECTION_USER_PARAM),
-							config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
+							config.getString(OraCdcParameters.CONNECTION_URL_PARAM),
+							config.getString(OraCdcParameters.CONNECTION_USER_PARAM),
+							config.getPassword(OraCdcParameters.CONNECTION_PASSWORD_PARAM).value());
 				}
 			} else {
 				throw new SQLException("Wrong connection parameters!");

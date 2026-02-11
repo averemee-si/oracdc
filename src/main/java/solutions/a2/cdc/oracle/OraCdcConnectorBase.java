@@ -31,7 +31,6 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
 import solutions.a2.cdc.oracle.utils.Version;
-import solutions.a2.kafka.ConnectorParams;
 
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INTERNAL_DG4RAC_THREAD_PARAM;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INTERNAL_RAC_URLS_PARAM;
@@ -114,34 +113,34 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
-		if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_URL_PARAM))) {
+		if (StringUtils.isBlank(config.getString(OraCdcParameters.CONNECTION_URL_PARAM))) {
 			LOGGER.error("Parameter '{}' must be set for running connector!",
-					ConnectorParams.CONNECTION_URL_PARAM);
+					OraCdcParameters.CONNECTION_URL_PARAM);
 					throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 		}
 
 		// V1.1.0 - a2.jdbc.url is mandatory parameter! No more separate a2.tns.admin and a2.tns.alias!!!
 		checkDeprecatedTnsParameters(
-				props, "a2.tns.admin", "a2.tns.alias", ConnectorParams.CONNECTION_URL_PARAM);
+				props, "a2.tns.admin", "a2.tns.alias", OraCdcParameters.CONNECTION_URL_PARAM);
 		checkDeprecatedTnsParameters(
 				props, "a2.distributed.tns.admin", "a2.distributed.tns.alias", ParamConstants.DISTRIBUTED_URL_PARAM);
 
 		if (StringUtils.isBlank(config.walletLocation())) {
-			if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM))) {
+			if (StringUtils.isBlank(config.getString(OraCdcParameters.CONNECTION_USER_PARAM))) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
-						ConnectorParams.CONNECTION_USER_PARAM,
-						ConnectorParams.CONNECTION_URL_PARAM);
+						OraCdcParameters.CONNECTION_USER_PARAM,
+						OraCdcParameters.CONNECTION_URL_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			if (StringUtils.isBlank(
-					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
+					config.getPassword(OraCdcParameters.CONNECTION_PASSWORD_PARAM).value())) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
-						ConnectorParams.CONNECTION_PASSWORD_PARAM,
-						ConnectorParams.CONNECTION_URL_PARAM);
+						OraCdcParameters.CONNECTION_PASSWORD_PARAM,
+						OraCdcParameters.CONNECTION_URL_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			LOGGER.info("Connection to RDBMS will be performed using Oracle username '{}'",
-					config.getString(ConnectorParams.CONNECTION_USER_PARAM));
+					config.getString(OraCdcParameters.CONNECTION_USER_PARAM));
 		} else {
 			LOGGER.info("Connection to RDBMS will be performed using Oracle Wallet '{}'",
 					config.walletLocation());
@@ -243,7 +242,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 								=====================
 								
 								""",
-								config.getString(ConnectorParams.CONNECTION_URL_PARAM),
+								config.getString(OraCdcParameters.CONNECTION_URL_PARAM),
 								instances.size(), maxTasks, instances.size());
 						throw new ConnectException("Please increase value of 'tasks.max' parameter!");
 					}

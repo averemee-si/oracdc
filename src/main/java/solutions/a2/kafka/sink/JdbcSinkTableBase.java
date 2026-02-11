@@ -21,8 +21,8 @@ import static java.sql.Types.NUMERIC;
 import static java.sql.Types.SQLXML;
 import static oracle.jdbc.OracleTypes.JSON;
 import static oracle.jdbc.OracleTypes.VECTOR;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_PREFIX;
 import static solutions.a2.kafka.sink.JdbcSinkConnectorConfig.CONNECTOR_REPLICATE;
@@ -52,6 +52,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcParameters;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraJson;
@@ -59,7 +60,6 @@ import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.postgres.PgRdbmsInfo;
-import solutions.a2.kafka.ConnectorParams;
 import solutions.a2.utils.ExceptionUtils;
 
 
@@ -333,7 +333,7 @@ public abstract class JdbcSinkTableBase {
 	Entry<List<Field>, List<Field>> getFieldsFromSinkRecord(final SinkRecord record) {
 		final List<Field> keyFields;
 		final List<Field> valueFields;
-		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (this.schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 			LOGGER.debug("Schema type set to Debezium style.");
 			keyFields = record.valueSchema().field("before").schema().fields();
 			valueFields = record.valueSchema().field("after").schema().fields();
