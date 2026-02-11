@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.kafka.KafkaSourceBaseConfig;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -67,9 +68,9 @@ public class OraCdcSourceConnector extends SourceConnector {
 	@Override
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc materialized view log source connector");
-		config = new OraCdcSourceBaseConfig(props);
+		config = new KafkaSourceBaseConfig(props);
 
-		if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_URL_PARAM))) {
+		if (StringUtils.isBlank(config.rdbmsUrl())) {
 			LOGGER.error("Database connection parameters are not properly set!\n'{}' must be set for running connector!",
 					ConnectorParams.CONNECTION_URL_PARAM);
 			throw new ConnectException("Database connection parameters are not properly set!");
@@ -80,15 +81,13 @@ public class OraCdcSourceConnector extends SourceConnector {
 			if (StringUtils.isNotBlank(config.walletLocation())) {
 				LOGGER.info("Connecting to Oracle RDBMS using Oracle Wallet");
 				OraPoolConnectionFactory.init(
-						config.getString(ConnectorParams.CONNECTION_URL_PARAM),
+						config.rdbmsUrl(),
 						config.walletLocation());
-			} else if (StringUtils.isNotBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM)) &&
-					StringUtils.isNotBlank(config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
+			} else if (StringUtils.isNotBlank(config.rdbmsUser()) &&
+					StringUtils.isNotBlank(config.rdbmsPassword())) {
 				LOGGER.info("Connecting to Oracle RDBMS using JDBC URL, username, and password.");
 				OraPoolConnectionFactory.init(
-					config.getString(ConnectorParams.CONNECTION_URL_PARAM),
-					config.getString(ConnectorParams.CONNECTION_USER_PARAM),
-					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value());
+					config.rdbmsUrl(), config.rdbmsUser(), config.rdbmsPassword());
 			} else {
 				validConfig = false;
 				LOGGER.error("Database connection parameters are not properly set\n. Or wallet.location, or pair of {}/{} are not set",
@@ -199,11 +198,11 @@ public class OraCdcSourceConnector extends SourceConnector {
 					"To run " + OraCdcSourceConnector.class.getName() +
 					" against " + (
 					StringUtils.isBlank(config.walletLocation()) ?
-								config.getString(ConnectorParams.CONNECTION_URL_PARAM) +
+								config.rdbmsUrl() +
 								" with username " +
-								config.getString(ConnectorParams.CONNECTION_USER_PARAM)
+								config.rdbmsUser()
 							:
-								config.getString(ConnectorParams.CONNECTION_URL_PARAM) +
+								config.rdbmsUrl() +
 								" using wallet " +
 								config.walletLocation()) +
 					" parameter tasks.max must set to " + tableCount;
@@ -237,7 +236,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 				final Map<String, String> taskParam = new HashMap<>();
 
 				taskParam.put(ConnectorParams.BATCH_SIZE_PARAM,
-					config.getInt(ConnectorParams.BATCH_SIZE_PARAM).toString());
+					((Integer)config.batchSize()).toString());
 				config.pollIntervalMs(taskParam);
 				taskParam.put(TASK_PARAM_MASTER,
 					resultSet.getString("MASTER"));
@@ -253,7 +252,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 					resultSet.getString("SEQUENCE"));
 				config.schemaType(taskParam);
 				taskParam.put(ConnectorParams.TOPIC_PREFIX_PARAM,
-							config.getString(ConnectorParams.TOPIC_PREFIX_PARAM));
+							config.topicOrPrefix());
 
 				configs.add(taskParam);
 			}
@@ -270,7 +269,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 	@Override
 	public ConfigDef config() {
-		return OraCdcSourceBaseConfig.config();
+		return KafkaSourceBaseConfig.config();
 	}
 
 }

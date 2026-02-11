@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.kafka.KafkaSourceBaseConfig;
 import solutions.a2.utils.ExceptionUtils;
 
 import static org.apache.kafka.common.config.ConfigDef.Importance.HIGH;
@@ -62,7 +63,7 @@ import static org.apache.kafka.common.config.ConfigDef.Type.STRING;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
+public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnectorConfig.class);
 
@@ -565,7 +566,7 @@ public class OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	private String fileSeparator = File.separator;
 
 	public static ConfigDef config() {
-		return OraCdcSourceBaseConfig.config()
+		return KafkaSourceBaseConfig.config()
 				.define(TOPIC_PARTITION_PARAM, INT, 0, MEDIUM, TOPIC_PARTITION_DOC)
 				.define(LGMNR_START_SCN_PARAM, STRING, "0", MEDIUM, LGMNR_START_SCN_DOC)
 				.define(TEMP_DIR_PARAM, STRING, System.getProperty("java.io.tmpdir"), HIGH, TEMP_DIR_DOC)

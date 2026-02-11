@@ -30,10 +30,8 @@ import org.slf4j.LoggerFactory;
 
 import oracle.ucp.UniversalConnectionPoolException;
 import solutions.a2.cdc.oracle.utils.Version;
+import solutions.a2.kafka.KafkaSourceBaseConfig;
 import solutions.a2.utils.ExceptionUtils;
-
-import static solutions.a2.kafka.ConnectorParams.BATCH_SIZE_PARAM;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
 
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MASTER;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_LOG;
@@ -41,6 +39,7 @@ import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_OWNER;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_ROWID;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_PK;
 import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_SEQUENCE;
+import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
 
 /**
  * 
@@ -70,12 +69,12 @@ public class OraCdcSourceTask extends SourceTask {
 		LOGGER.info("Starting oracdc Source Task for {}", props.get(TASK_PARAM_MASTER));
 
 		try {
-			config = new OraCdcSourceBaseConfig(props);
+			config = new KafkaSourceBaseConfig(props);
 		} catch (ConfigException ce) {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
-		batchSize = config.getInt(BATCH_SIZE_PARAM);
+		batchSize = config.batchSize();
 		LOGGER.debug("batchSize = {} records.", batchSize);
 		pollInterval = config.pollIntervalMs();
 		LOGGER.debug("pollInterval = {} ms.", pollInterval);
