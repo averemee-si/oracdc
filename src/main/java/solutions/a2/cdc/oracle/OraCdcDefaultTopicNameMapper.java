@@ -13,6 +13,9 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_INT_TABLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE;
+
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,9 +53,9 @@ public class OraCdcDefaultTopicNameMapper implements TopicNameMapper {
 				.append(topicParam)
 				.append(delimiter);
 
-		if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_TABLE)
+		if (topicNameStyle == TOPIC_NAME_STYLE_INT_TABLE)
 			sb.append(tableName);
-		else if (topicNameStyle == OraCdcSourceConnectorConfig.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE)
+		else if (topicNameStyle == TOPIC_NAME_STYLE_INT_SCHEMA_TABLE)
 			sb
 				.append(tableOwner)
 				.append(delimiter)

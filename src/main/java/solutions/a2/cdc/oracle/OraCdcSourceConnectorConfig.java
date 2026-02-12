@@ -13,6 +13,306 @@
 
 package solutions.a2.cdc.oracle;
 
+import static org.apache.kafka.common.config.ConfigDef.Importance.HIGH;
+import static org.apache.kafka.common.config.ConfigDef.Importance.LOW;
+import static org.apache.kafka.common.config.ConfigDef.Importance.MEDIUM;
+import static org.apache.kafka.common.config.ConfigDef.Type.BOOLEAN;
+import static org.apache.kafka.common.config.ConfigDef.Type.INT;
+import static org.apache.kafka.common.config.ConfigDef.Type.LONG;
+import static org.apache.kafka.common.config.ConfigDef.Type.LIST;
+import static org.apache.kafka.common.config.ConfigDef.Type.PASSWORD;
+import static org.apache.kafka.common.config.ConfigDef.Type.STRING;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_ERROR;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_SKIP;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_RESTORE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_INT_TABLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PK_TYPE_INT_WELL_DEFINED;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PK_TYPE_INT_ANY_UNIQUE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORACDC_SCHEMAS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORACDC_SCHEMAS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_TOLERANCE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_TOLERANCE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_TOLERANCE_ERROR;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_TOLERANCE_SKIP;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_TOLERANCE_RESTORE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_INVALID_HEX_WARNING_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_INVALID_HEX_WARNING_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PROCESS_ONLINE_REDO_LOGS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PROCESS_ONLINE_REDO_LOGS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CURRENT_SCN_QUERY_INTERVAL_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CURRENT_SCN_QUERY_INTERVAL_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CURRENT_SCN_QUERY_INTERVAL_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_ALL_ONLINE_REDO_RANGES_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_ALL_ONLINE_REDO_RANGES_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PROTOBUF_SCHEMA_NAMING_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PROTOBUF_SCHEMA_NAMING_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_IGNORE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_EXECUTE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_DELIMITER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_DELIMITER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_DELIMITER_UNDERSCORE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_DELIMITER_DASH;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_DELIMITER_DOT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_TABLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_SCHEMA_TABLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PK_TYPE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PK_TYPE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PK_TYPE_WELL_DEFINED;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PK_TYPE_ANY_UNIQUE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.USE_ROWID_AS_KEY_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.USE_ROWID_AS_KEY_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_MAPPER_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_MAPPER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_MAPPER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STOP_ON_ORA_1284_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STOP_ON_ORA_1284_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STOP_ON_ORA_1284_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_UNABLE_TO_DELETE_WARNING_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_UNABLE_TO_DELETE_WARNING_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMANAME_MAPPER_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMANAME_MAPPER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMANAME_MAPPER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_ROWSCN_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_ROWSCN_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_COMMITSCN_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_COMMITSCN_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_ROWTS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_ROWTS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_OPERATION_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_OPERATION_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_XID_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_XID_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_USERNAME_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_USERNAME_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_OSUSERNAME_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_OSUSERNAME_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_HOSTNAME_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_HOSTNAME_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_AUDIT_SESSIONID_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_AUDIT_SESSIONID_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_SESSION_INFO_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_SESSION_INFO_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_CLIENT_ID_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_CLIENT_ID_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.LAST_SEQ_NOTIFIER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.LAST_SEQ_NOTIFIER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.LAST_SEQ_NOTIFIER_FILE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.LAST_SEQ_NOTIFIER_FILE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.KEY_OVERRIDE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.KEY_OVERRIDE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ARCHIVED_LOG_CAT_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ARCHIVED_LOG_CAT_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ARCHIVED_LOG_CAT_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.FETCH_SIZE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.FETCH_SIZE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.FETCH_SIZE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TRACE_LOGMINER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TRACE_LOGMINER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.MAKE_DISTRIBUTED_ACTIVE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.MAKE_DISTRIBUTED_ACTIVE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_WALLET_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_WALLET_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_URL_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_URL_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_TARGET_HOST;
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_TARGET_HOST_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_TARGET_PORT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_TARGET_PORT_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_TARGET_PORT_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_TRANSACTION_IMPL_CHRONICLE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_TRANSACTION_IMPL_JVM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_TRANSACTION_IMPL_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_TRANSACTION_IMPL_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ORA_TRANSACTION_IMPL_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PROCESS_LOBS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PROCESS_LOBS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.LOB_TRANSFORM_CLASS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.LOB_TRANSFORM_CLASS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.LOB_TRANSFORM_CLASS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_BACKOFF_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_BACKOFF_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_BACKOFF_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.USE_RAC_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.USE_RAC_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.MAKE_STANDBY_ACTIVE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.MAKE_STANDBY_ACTIVE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_URL_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_URL_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_WALLET_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_WALLET_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_PRIVILEGE_SYSDG;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_PRIVILEGE_SYSBACKUP;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_PRIVILEGE_SYSDBA;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_PRIVILEGE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_PRIVILEGE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_PRIVILEGE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_PARTITION_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_PARTITION_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TEMP_DIR_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TEMP_DIR_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.FIRST_CHANGE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.FIRST_CHANGE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INTERNAL_PARAMETER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INTERNAL_RAC_URLS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INTERNAL_DG4RAC_THREAD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_LIST_STYLE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_LIST_STYLE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_LIST_STYLE_STATIC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_LIST_STYLE_DYNAMIC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.LM_RECONNECT_INTERVAL_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.LM_RECONNECT_INTERVAL_MS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONC_TRANSACTIONS_THRESHOLD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONC_TRANSACTIONS_THRESHOLD_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDUCE_LOAD_MS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDUCE_LOAD_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDUCE_LOAD_MS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.AL_CAPACITY_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.AL_CAPACITY_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.AL_CAPACITY_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.IGNORE_STORED_OFFSET_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.IGNORE_STORED_OFFSET_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.IGNORE_STORED_OFFSET_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.NUMBER_MAP_PREFIX;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_NAME_CONVERT_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_NAME_CONVERT_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_MEDIUM_FS;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_MEDIUM_ASM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_MEDIUM_SSH;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_MEDIUM_SMB;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_MEDIUM_BFILE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_MEDIUM_TRANSFER;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_MEDIUM_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.REDO_FILE_MEDIUM_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_JDBC_URL_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_JDBC_URL_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_USER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_USER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_PASSWORD_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_READ_AHEAD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_READ_AHEAD_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_READ_AHEAD_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_RECONNECT_INTERVAL_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_RECONNECT_INTERVAL_MS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_RECONNECT_INTERVAL_MS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_PRIVILEGE_SYSASM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_PRIVILEGE_SYSDBA;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_PRIVILEGE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_PRIVILEGE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ASM_PRIVILEGE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_HOST_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_HOST_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PORT_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PORT_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PORT_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_USER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_USER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_KEY_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_KEY_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PASSWORD_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_RECONNECT_INTERVAL_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_RECONNECT_INTERVAL_MS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_RECONNECT_INTERVAL_MS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_STRICT_HOST_KEY_CHECKING_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_STRICT_HOST_KEY_CHECKING_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PROVIDER_MAVERICK;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PROVIDER_SSHJ;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PROVIDER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PROVIDER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_PROVIDER_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_UNCONFIRMED_READS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_UNCONFIRMED_READS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_UNCONFIRMED_READS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_BUFFER_SIZE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_BUFFER_SIZE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SSH_BUFFER_SIZE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SERVER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SERVER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ONLINE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ONLINE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ARCHIVE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ARCHIVE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_USER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_USER_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_PASSWORD_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_DOMAIN_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_DOMAIN_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_TIMEOUT_MS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_TIMEOUT_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_TIMEOUT_MS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SOCKET_TIMEOUT_MS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SOCKET_TIMEOUT_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SOCKET_TIMEOUT_MS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_RECONNECT_INTERVAL_MS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_RECONNECT_INTERVAL_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_RECONNECT_INTERVAL_MS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_BUFFER_SIZE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_BUFFER_SIZE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_BUFFER_SIZE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_DIR_ONLINE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_DIR_ONLINE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_DIR_ARCHIVE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_DIR_ARCHIVE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_RECONNECT_INTERVAL_MS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_RECONNECT_INTERVAL_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_RECONNECT_INTERVAL_MS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_BUFFER_SIZE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_BUFFER_SIZE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.BFILE_BUFFER_SIZE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TDE_WALLET_PATH_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TDE_WALLET_PATH_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TDE_WALLET_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TDE_WALLET_PASSWORD_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ALL_UPDATES_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ALL_UPDATES_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.ALL_UPDATES_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_UNABLE2MAP_COL_ID_WARNING_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_UNABLE2MAP_COL_ID_WARNING_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PRINT_UNABLE2MAP_COL_ID_WARNING_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SUPPLEMENTAL_LOGGING_ALL;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SUPPLEMENTAL_LOGGING_NONE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SUPPLEMENTAL_LOGGING_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SUPPLEMENTAL_LOGGING_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SUPPLEMENTAL_LOGGING_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STOP_ON_MISSED_LOG_FILE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STOP_ON_MISSED_LOG_FILE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.STOP_ON_MISSED_LOG_FILE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLES_IN_PROCESS_SIZE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLES_IN_PROCESS_SIZE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLES_IN_PROCESS_SIZE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLES_OUT_OF_SCOPE_SIZE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLES_OUT_OF_SCOPE_SIZE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLES_OUT_OF_SCOPE_SIZE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TRANS_IN_PROCESS_SIZE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TRANS_IN_PROCESS_SIZE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TRANS_IN_PROCESS_SIZE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.EMITTER_TIMEOUT_MS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.EMITTER_TIMEOUT_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.EMITTER_TIMEOUT_MS_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_FULL_INT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_FULL;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_HALF_INT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_HALF;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_QUARTER_INT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_QUARTER;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_HALFQUARTER_INT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_HALFQUARTER;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.OFFHEAP_SIZE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TRANSFER_DIR_STAGE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TRANSFER_DIR_STAGE_DOC;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,16 +347,6 @@ import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.kafka.KafkaSourceBaseConfig;
 import solutions.a2.utils.ExceptionUtils;
 
-import static org.apache.kafka.common.config.ConfigDef.Importance.HIGH;
-import static org.apache.kafka.common.config.ConfigDef.Importance.LOW;
-import static org.apache.kafka.common.config.ConfigDef.Importance.MEDIUM;
-import static org.apache.kafka.common.config.ConfigDef.Type.BOOLEAN;
-import static org.apache.kafka.common.config.ConfigDef.Type.INT;
-import static org.apache.kafka.common.config.ConfigDef.Type.LONG;
-import static org.apache.kafka.common.config.ConfigDef.Type.LIST;
-import static org.apache.kafka.common.config.ConfigDef.Type.PASSWORD;
-import static org.apache.kafka.common.config.ConfigDef.Type.STRING;
-
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -66,294 +356,9 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnectorConfig.class);
 
-	public static final int INCOMPLETE_REDO_INT_ERROR = 1;
-	public static final int INCOMPLETE_REDO_INT_SKIP = 2;
-	public static final int INCOMPLETE_REDO_INT_RESTORE = 3;
 
-	public static final int TOPIC_NAME_STYLE_INT_TABLE = 1;
-	public static final int TOPIC_NAME_STYLE_INT_SCHEMA_TABLE = 2;
-	public static final int TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE = 3;
-
-	public static final int PK_TYPE_INT_WELL_DEFINED = 1;
-	public static final int PK_TYPE_INT_ANY_UNIQUE = 2;
-
-	private static final String ORACDC_SCHEMAS_PARAM = "a2.oracdc.schemas";
-	private static final String ORACDC_SCHEMAS_DOC = "Use oracdc extensions for Oracle datatypes. Default false";
-
-	private static final String INCOMPLETE_REDO_TOLERANCE_PARAM = "a2.incomplete.redo.tolerance";
-	private static final String INCOMPLETE_REDO_TOLERANCE_DOC =
-			"Connector behavior when processing an incomplete redo record.\n" +
-			"Allowed values: error, skip, and restore.\n" +
-			"Default - error.\nWhen set to:\n" +
-			"- 'error' oracdc prints information about incomplete redo record and stops connector.\n" +
-			"- 'skip' oracdc prints information about incomplete redo record and continue processing\n" + 
-			"- 'restore' oracdc tries to restore missed information from actual row incarnation from the table using ROWID from redo the record.";
-	private static final String INCOMPLETE_REDO_TOLERANCE_ERROR = "error";
-	private static final String INCOMPLETE_REDO_TOLERANCE_SKIP = "skip";
-	private static final String INCOMPLETE_REDO_TOLERANCE_RESTORE = "restore";
-
-	private static final String PRINT_INVALID_HEX_WARNING_PARAM = "a2.print.invalid.hex.value.warning";
-	private static final String PRINT_INVALID_HEX_WARNING_DOC = 
-			"Default - false.\n" +
-			"When set to true oracdc prints information about invalid hex values (like single byte value for DATE/TIMESTAMP/TIMESTAMPTZ) in log.";
-
-	protected static final String PROCESS_ONLINE_REDO_LOGS_PARAM = "a2.process.online.redo.logs";
-	private static final String PROCESS_ONLINE_REDO_LOGS_DOC = 
-			"Default - false.\n" +
-			"When set to true oracdc process online redo logs.";
-	
-	private static final String CURRENT_SCN_QUERY_INTERVAL_PARAM = "a2.scn.query.interval.ms";
-	private static final String CURRENT_SCN_QUERY_INTERVAL_DOC = 
-			"Default - 60_000.\n" +
-			"Minimum time in milliseconds to determine the current SCN during online redo log processing.";
-	private static final int CURRENT_SCN_QUERY_INTERVAL_DEFAULT = 60_000;
-
-	private static final String PRINT_ALL_ONLINE_REDO_RANGES_PARAM = "a2.print.all.online.scn.ranges";
-	private static final String PRINT_ALL_ONLINE_REDO_RANGES_DOC =
-			"Default - true.\n" +
-			"If set to true oracdc prints detailed information about SCN ranges when working with the online log every time interval specified by the a2.scn.query.interval.ms parameter.\n" +
-			"If set to false oracdc prints information about current online redo only when SEQUENCE# is changed.";
-
-	private static final String PROTOBUF_SCHEMA_NAMING_PARAM = "a2.protobuf.schema.naming";
-	private static final String PROTOBUF_SCHEMA_NAMING_DOC = 
-			"Default - false.\n" +
-			"When set to true oracdc generates schema names as valid Protocol Buffers identifiers using underscore as separator.\n" + 
-			"When set to false (default) oracdc generates schema names using dot as separator.\n";
-	
-	private static final String INITIAL_LOAD_PARAM = "a2.initial.load";
-	private static final String INITIAL_LOAD_DOC = "A mode for performing initial load of data from tables when set to EXECUTE. Default - IGNORE";
-	protected static final String INITIAL_LOAD_IGNORE = "IGNORE";
-	protected static final String INITIAL_LOAD_EXECUTE = "EXECUTE";
-	protected static final String INITIAL_LOAD_COMPLETED = "COMPLETED";
-
-	private static final String TOPIC_NAME_DELIMITER_PARAM = "a2.topic.name.delimiter";
-	private static final String TOPIC_NAME_DELIMITER_DOC = "Kafka topic name delimiter when a2.schema.type=kafka and a2.topic.name.style set to SCHEMA_TABLE or PDB_SCHEMA_TABLE. Valid values - '_' (Default), '-', '.'";
-	private static final String TOPIC_NAME_DELIMITER_UNDERSCORE = "_";
-	private static final String TOPIC_NAME_DELIMITER_DASH = "-";
-	private static final String TOPIC_NAME_DELIMITER_DOT = ".";
-
-	private static final String TOPIC_NAME_STYLE_PARAM = "a2.topic.name.style";
-	private static final String TOPIC_NAME_STYLE_DOC = "Kafka topic naming convention when a2.schema.type=kafka. Valid values - TABLE (default), SCHEMA_TABLE, PDB_SCHEMA_TABLE";
-	private static final String TOPIC_NAME_STYLE_TABLE = "TABLE";
-	private static final String TOPIC_NAME_STYLE_SCHEMA_TABLE = "SCHEMA_TABLE";
-	private static final String TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE = "PDB_SCHEMA_TABLE";
-
-	private static final String PK_TYPE_PARAM = "a2.pk.type";
-	private static final String PK_TYPE_DOC =
-			"Default - well_defined.\n" +
-			"When set to well_defined the key fields are the table's primary key columns or, if the table does not have a primary key, the table's unique key columns in which all columns are NOT NULL. " +
-			"If there are no appropriate keys in the table, oracdc uses the a2.use.rowid.as.key parameter and generates a pseudo key based on the row's ROWID, or generates a schema without any key fields.\n" +
-			"When set to any_unique and the table does not have a primary key or a unique key with all NOT NULL columns, then the key fields will be the unique key columns which may have NULL columns. " +
-			"If there are no appropriate keys in the table, oracdc uses the a2.use.rowid.as.key parameter and generates a pseudo key based on the row's ROWID, or generates a schema without any key fields.";
-	private static final String PK_TYPE_WELL_DEFINED = "well_defined";
-	private static final String PK_TYPE_ANY_UNIQUE = "any_unique";
-
-	private static final String USE_ROWID_AS_KEY_PARAM = "a2.use.rowid.as.key";
-	private static final String USE_ROWID_AS_KEY_DOC =
-			"Default - true.\n" +
-			"When set to true and the table does not have a appropriate primary or unique key, oracdc adds surrogate key using the ROWID.\n" +
-			"When set to false and the table does not have a appropriate primary or unique key, oracdc generates schema for the table without any key fields.\n";
-
-	private static final String TOPIC_MAPPER_DEFAULT = "solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper";
-	private static final String TOPIC_MAPPER_PARAM = "a2.topic.mapper";
-	private static final String TOPIC_MAPPER_DOC =
-			"""
-			The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent.
-			The class must implement the `solutions.a2.cdc.oracle.TopicNameMapper` interface.
-			The connector comes with two predefined classes:
-			1) `solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper`, which generates a unique name for each table based on the PDB name, schema name, and table name using the values ​​of the `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter` parameters.
-			2) Another predefined class, `solutions.a2.cdc.oracle.OraCdcSingleTopicNameMapper`, uses the value of the `a2.kafka.topic` parameter as the Kafka topic name, and all change events for all tables are written to a single Kafka topic.
-			"""
-				+ TOPIC_MAPPER_DEFAULT;
-
-	private static final boolean STOP_ON_ORA_1284_DEFAULT = true;
-	private static final String STOP_ON_ORA_1284_PARAM = "a2.stop.on.ora.1284";
-	private static final String STOP_ON_ORA_1284_DOC =
-			"If set to true, the connector stops on an Oracle database error 'ORA-01284: file <Absolute-Path-To-Log-File> cannot be opened'.\n" +
-			"If set to false, the connector prints an error message and continues processing.\n" +
-			"Default - " + STOP_ON_ORA_1284_DEFAULT;
-
-	private static final boolean PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT = false;
-	private static final String PRINT_UNABLE_TO_DELETE_WARNING_PARAM = "a2.print.unable.to.delete.warning";
-	private static final String PRINT_UNABLE_TO_DELETE_WARNING_DOC =
-			"If set to true, the connector prints a warning message including all redo record details about ignoring the DELETE operation for tables without a primary key or it surrogate or a schema that does not contain key information.\n" +
-			"If set to false, the connector does not print a warning message about ignoring the DELETE operation.\n" +
-			"Default - " + PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT;
-
-	private static final String SCHEMANAME_MAPPER_DEFAULT = "solutions.a2.cdc.oracle.OraCdcDefaultSchemaNameMapper";
-	private static final String SCHEMANAME_MAPPER_PARAM = "a2.schema.name.mapper";
-	private static final String SCHEMANAME_MAPPER_DOC =
-			"The fully-qualified class name of the class that constructs schema name from the Oracle PDB name (if present), the table owner, and the table name.\n" +
-			"Default - " + SCHEMANAME_MAPPER_DEFAULT;
-
-	private static final String ORA_ROWSCN_PARAM = "a2.pseudocolumn.ora_rowscn";
-	private static final String ORA_ROWSCN_DOC =
-			"The name of the field in the Kafka Connect record that contains the SCN where the row change was made. If the value is empty, the SCN field is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include SCN field in Kafka Connect record";
-
-	private static final String ORA_COMMITSCN_PARAM = "a2.pseudocolumn.ora_commitscn";
-	private static final String ORA_COMMITSCN_DOC =
-			"The name of the field in the Kafka Connect record that contains the commit SCN of the transaction in which the row change was made. If the value is empty, the commit SCN field is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include commit SCN field in Kafka Connect record";
-
-	private static final String ORA_ROWTS_PARAM = "a2.pseudocolumn.ora_rowts";
-	private static final String ORA_ROWTS_DOC =
-			"The name of the field in the Kafka Connect record that contains the database server timestamp where the row change was made. If the value is empty, the timestamp field is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include row change timestamp field in Kafka Connect record";
-
-	private static final String ORA_OPERATION_PARAM = "a2.pseudocolumn.ora_operation";
-	private static final String ORA_OPERATION_DOC =
-			"The name of the field in the Kafka Connect record that contains the name of the operation (UPDATE/INSERT/DELETE) that changed the database row. If the value is empty, the operation field is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include operation field in Kafka Connect record";
-
-	private static final String ORA_XID_PARAM = "a2.pseudocolumn.ora_xid";
-	private static final String ORA_XID_DOC =
-			"The name of the field in the Kafka Connect record that contains the XID (transaction Id) of the transaction that changed the database row. If the value is empty, the XID field is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include XID field in Kafka Connect record";
-
-	private static final String ORA_USERNAME_PARAM = "a2.pseudocolumn.ora_username";
-	private static final String ORA_USERNAME_DOC =
-			"The name of the field in the Kafka Connect record that contains the name of the the user who executed the transaction. If the value is empty, the username is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include username field in Kafka Connect record";
-
-	private static final String ORA_OSUSERNAME_PARAM = "a2.pseudocolumn.ora_osusername";
-	private static final String ORA_OSUSERNAME_DOC =
-			"The name of the field in the Kafka Connect record that contains the name of the the OS user who executed the transaction. If the value is empty, the OS username is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include OS username field in Kafka Connect record";
-
-	private static final String ORA_HOSTNAME_PARAM = "a2.pseudocolumn.ora_hostname";
-	private static final String ORA_HOSTNAME_DOC =
-			"The name of the field in the Kafka Connect record that contains the hostname of the machine from which the user connected to the database. If the value is empty, the hostname is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include hostname field in Kafka Connect record";
-
-	private static final String ORA_AUDIT_SESSIONID_PARAM = "a2.pseudocolumn.ora_audit_session_id";
-	private static final String ORA_AUDIT_SESSIONID_DOC =
-			"The name of the field in the Kafka Connect record that contains the audit session ID associated with the user session making the change. If the value is empty, the audit session id field is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include audit session id field in Kafka Connect record";
-
-	private static final String ORA_SESSION_INFO_PARAM = "a2.pseudocolumn.ora_session_info";
-	private static final String ORA_SESSION_INFO_DOC =
-			"The name of the field in the Kafka Connect record that contains the information about the database session that executed the transaction. If the value is empty, the session info field is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include session info field in Kafka Connect record";
-
-	private static final String ORA_CLIENT_ID_PARAM = "a2.pseudocolumn.ora_client_id";
-	private static final String ORA_CLIENT_ID_DOC =
-			"The name of the field in the Kafka Connect record that contains the client identifier in the session that executed the transaction (if available). If the value is empty, the client identifier field is not included in the Kafka Connect records.\n" +
-			"Default - \"\", i.e. do not include client identifier field in Kafka Connect record";
-
-	private static final String LAST_SEQ_NOTIFIER_PARAM = "a2.last.sequence.notifier";
-	private static final String LAST_SEQ_NOTIFIER_DOC =
-			"The fully-qualified class name of the class that implements LastProcessedSeqNotifier interface to send notifications about the last processed log sequence.\n" +
-			"Currently there is only a notifier that writes a last processed sequence number to a file. To configure it, you need to set the value of the parameter 'a2.last.sequence.notifier' to 'solutions.a2.cdc.oracle.OraCdcLastProcessedSeqFileNotifier' and the value of the parameter 'a2.last.sequence.notifier.file' to the name of the file in which the last processed number will be written.\n" +
-			"Default - \"\", i.e. no notification";
-
-	private static final String LAST_SEQ_NOTIFIER_FILE_PARAM = "a2.last.sequence.notifier.file";
-	private static final String LAST_SEQ_NOTIFIER_FILE_DOC = "The name of the file in which the last processed number will be written. Default - ${connectorName}.seq";
-
-	private static final String KEY_OVERRIDE_PARAM = "a2.key.override";
-	private static final String KEY_OVERRIDE_DOC =
-			"A comma separated list of elements in the format TABLE_OWNER.TABLE_NAME=NOKEY|ROWID|INDEX(INDEX_NAME).\n" + 
-			"If there is a table in this list, then the values ​​of the `a2.pk.type` and `a2.use.rowid.as.key` parameters for it are ignored and the values ​​of the key columns are set in accordance with this parameter:\n" +
-			"NONE - do not create key fields in the Kafka topic for this table,\n" +
-			"ROWID - use ROWID as a key field in the Kafka topic with the name ORA_ROW_ID and type STRING,\n" + 
-			"INDEX(INDEX_NAME) use the index columns of index named INDEX_NAME as key fields of the Kafka topic\n" +
-			"Default - empty value.";
 	private Map<String, OraCdcKeyOverrideTypes> keyOverrideMap = null;
 	private Map<String, String> keyOverrideIndexMap = null;
-
-	private static final String PROCESS_LOBS_PARAM = "a2.process.lobs";
-	private static final String PROCESS_LOBS_DOC = "process Oracle LOB columns? Default - false";
-
-	private static final String LOB_TRANSFORM_CLASS_PARAM = "a2.lob.transformation.class";
-	private static final String LOB_TRANSFORM_CLASS_DOC = "name of class which implements solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf interface. Default - solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation";
-	private static final String LOB_TRANSFORM_CLASS_DEFAULT = "solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl";
-
-	private static final String CONNECTION_BACKOFF_PARAM = "a2.connection.backoff";
-	private static final int CONNECTION_BACKOFF_DEFAULT = 30000;
-	private static final String CONNECTION_BACKOFF_DOC = "backoff time in milliseconds between reconnectoion attempts. Default - " +
-														CONNECTION_BACKOFF_DEFAULT;
-
-	private static final String USE_RAC_PARAM = "a2.use.rac";
-	private static final String USE_RAC_DOC = 
-			"Default - false.\n" +
-			"When set to true oracdc first tried to detect is this connection to Oracle RAC.\n" + 
-			"If database is not RAC, only the warning message is printed.\n" + 
-			"If oracdc is connected to Oracle RAC additional checks are performed and oracdc starts a separate task for each redo thread/RAC instance. " +
-			"Changes for the same table from different redo threads (RAC instances) are delivered to the same topic but to different partition where <PARTITION_NUMBER> = <THREAD#> - 1";
-	
-	private static final String MAKE_STANDBY_ACTIVE_PARAM = "a2.standby.activate";
-	private static final String MAKE_STANDBY_ACTIVE_DOC = "Enable redo log files processing on the physical standby database. Default - false"; 
-
-	private static final String STANDBY_URL_PARAM = "a2.standby.jdbc.url";
-	private static final String STANDBY_URL_DOC = "JDBC connection URL for connecting to the physical standby database with V$DATABASE.OPEN_MODE = MOUNTED";
-
-	private static final String STANDBY_WALLET_PARAM = "a2.standby.wallet.location";
-	private static final String STANDBY_WALLET_DOC = "Location of Oracle Wallet for connecting to the physical standby database with V$DATABASE.OPEN_MODE = MOUNTED";
-
-	private static final String STANDBY_PRIVILEGE_SYSDG = "sysdg";
-	private static final String STANDBY_PRIVILEGE_SYSBACKUP = "sysbackup";
-	private static final String STANDBY_PRIVILEGE_SYSDBA = "sysdba";
-	private static final String STANDBY_PRIVILEGE_DEFAULT = STANDBY_PRIVILEGE_SYSDG;
-	private static final String STANDBY_PRIVILEGE_PARAM = "a2.standby.privilege";
-	private static final String STANDBY_PRIVILEGE_DOC = 
-			"""
-			The privilege used to connect to the physical standby database with V$DATABASE.OPEN_MODE = MOUNTED. Can be 'sysbackup' or 'sysdg' or 'sysdba'.
-			Defaults to - """ + STANDBY_PRIVILEGE_SYSDG;
-
-	private static final String TOPIC_PARTITION_PARAM = "a2.topic.partition";
-	private static final String TOPIC_PARTITION_DOC = "Kafka topic partition to write data. Default - 0";
-
-	private static final String TEMP_DIR_PARAM = "a2.tmpdir";
-	private static final String TEMP_DIR_DOC = "Temporary directory for non-heap storage. When not set, OS temp directory used"; 
-
-	private static final String LGMNR_START_SCN_PARAM = "a2.first.change";
-	private static final String LGMNR_START_SCN_DOC = "When set DBMS_LOGMNR.START_LOGMNR will start mining from this SCN. When not set min(FIRST_CHANGE#) from V$ARCHIVED_LOG will used. Overrides SCN value  stored in offset file";
-
-	private static final String INTERNAL_PARAMETER_DOC = "Internal. Do not set!"; 
-	static final String INTERNAL_RAC_URLS_PARAM = "__a2.internal.rac.urls"; 
-	static final String INTERNAL_DG4RAC_THREAD_PARAM = "__a2.internal.dg4rac.thread";
-
-	static final String TABLE_LIST_STYLE_PARAM = "a2.table.list.style";
-	private static final String TABLE_LIST_STYLE_DOC = "When set to 'static' (default) oracdc reads tables and partition list to process only at startup according to values of a2.include and a2.exclude parameters. When set to 'dynamic' oracdc builds list of objects to process on the fly";
-	static final String TABLE_LIST_STYLE_STATIC = "static";
-	static final String TABLE_LIST_STYLE_DYNAMIC = "dynamic";
-
-	private static final String LM_RECONNECT_INTERVAL_MS_PARAM = "a2.log.miner.reconnect.ms";
-	private static final String LM_RECONNECT_INTERVAL_MS_DOC =
-			"The time interval in milleseconds after which a reconnection to LogMiner occurs, including the re-creation of the Oracle connection.\n" +
-			"Unix/Linux only, on Windows oracdc creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called.\n" +
-			"Default - Long.MAX_VALUE";
-	private static final String CONC_TRANSACTIONS_THRESHOLD_PARAM = "a2.transactions.threshold";
-	private static final String CONC_TRANSACTIONS_THRESHOLD_DOC = 
-			"""
-			Maximum threshold of simultaneously processed (both in the process of reading from the database and in the process of sending) transactions in the connector on Linux systems.
-			When not specified (0, default) value is calculated as (vm.max_map_count/16) *7"
-			""";
-
-	private static final int REDUCE_LOAD_MS_DEFAULT = 60_000;
-	private static final String REDUCE_LOAD_MS_PARAM = "a2.reduce.load.ms";
-	private static final String REDUCE_LOAD_MS_DOC =
-			"""
-			Wait time in ms to reduce the number of simultaneously processed transactions 
-			Sending of processed messages continues, pause occurs only for the process of reading from the database.
-			Default - """ + REDUCE_LOAD_MS_DEFAULT;
-
-	private static final int AL_CAPACITY_DEFAULT = 0x20;
-	private static final String AL_CAPACITY_PARAM = "a2.array.list.default.capacity";
-	private static final String AL_CAPACITY_DOC =
-			"""
-			Initial capacity of ArrayList storing Oracle Database transaction data 
-			Default - """ + AL_CAPACITY_DEFAULT;
-
-	private static final boolean IGNORE_STORED_OFFSET_DEFAULT = false;
-	private static final String IGNORE_STORED_OFFSET_PARAM = "a2.ignore.stored.offset";
-	private static final String IGNORE_STORED_OFFSET_DOC = 
-			"""
-			When this parameter is set to true, the connector does not read the values ​​stored in the Kafka Connect offset for the last processed SCN/SUBSCN/RBA and instead, if the 'a2.first.change' parameter is set, it uses its value, otherwise it determines the minimum available SCN in the Oracle database.
-			Default - """ + IGNORE_STORED_OFFSET_DEFAULT;
-
-	private static final String NUMBER_MAP_PREFIX = "a2.map.number.";
-
 	private int incompleteDataTolerance = -1;
 	private int topicNameStyle = -1;
 	private int pkType = -1;
@@ -365,197 +370,6 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 	private Map<String, Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberColumnsMap = new LinkedHashMap<>();
 
 	// Redo Miner only!
-	private static final String REDO_FILE_NAME_CONVERT_PARAM = "a2.redo.filename.convert";
-	private static final String REDO_FILE_NAME_CONVERT_DOC =
-			"It converts the filename of a redo log to another path.\n" +
-			"It is specified as a comma separated list of a strins in the <ORIGINAL_PATH>=<NEW_PATH> format. If not specified (default), no conversion occurs.";
-	private static final String REDO_FILE_MEDIUM_FS = "FS";
-	private static final String REDO_FILE_MEDIUM_ASM = "ASM";
-	private static final String REDO_FILE_MEDIUM_SSH = "SSH";
-	private static final String REDO_FILE_MEDIUM_SMB = "SMB";
-	private static final String REDO_FILE_MEDIUM_BFILE = "BFILE";
-	private static final String REDO_FILE_MEDIUM_TRANSFER = "TRANSFER";
-	private static final String REDO_FILE_MEDIUM_PARAM = "a2.storage.media";
-	private static final String REDO_FILE_MEDIUM_DOC = "Parameter defining the storage medium for redo log files: FS - redo files will be read from the local file system, ASM - redo files will be read from the Oracle ASM, SSH - redo files will be read from the remote file system using ssh, SMB  - redo files will be read from the remote file system using smb, BFILE - access remode files via Oracle Net as Oracle BFILE's. Default - FS"; 
-
-	private static final String ASM_JDBC_URL_PARAM = "a2.asm.jdbc.url";
-	private static final String ASM_JDBC_URL_DOC = "JDBC URL pointing to the Oracle ASM instance. For information about syntax please see description of parameter 'a2.jdbc.url' above";
-	private static final String ASM_USER_PARAM = "a2.asm.username";
-	private static final String ASM_USER_DOC = "Username for connecting to Oracle ASM instance, must have SYSASM role";
-	private static final String ASM_PASSWORD_PARAM = "a2.asm.password";
-	private static final String ASM_PASSWORD_DOC = "User password for connecting to Oracle ASM instance";
-	private static final String ASM_READ_AHEAD_PARAM = "a2.asm.read.ahead";
-	private static final String ASM_READ_AHEAD_DOC = "When set to true (the default), the connector reads data from the redo logs in advance, with chunks larger than the redo log file block size.";
-	private static final boolean ASM_READ_AHEAD_DEFAULT = true;
-	private static final String ASM_RECONNECT_INTERVAL_MS_PARAM = "a2.asm.reconnect.ms";
-	private static final long ASM_RECONNECT_INTERVAL_MS_DEFAULT = 604_800_000;
-	private static final String ASM_RECONNECT_INTERVAL_MS_DOC =
-			"""
-			The time interval in milliseconds after which a reconnection to Oracle ASM occurs, including the re-creation of the Oracle connection.
-			Default - """ + ASM_RECONNECT_INTERVAL_MS_DEFAULT + " (one week)";
-	private static final String ASM_PRIVILEGE_SYSASM = "sysasm";
-	private static final String ASM_PRIVILEGE_SYSDBA = "sysdba";
-	private static final String ASM_PRIVILEGE_DEFAULT = ASM_PRIVILEGE_SYSASM;
-	private static final String ASM_PRIVILEGE_PARAM = "a2.asm.privilege";
-	private static final String ASM_PRIVILEGE_DOC = 
-			"""
-			The privilege used to connect to the ASM instance. Can be 'sysasm' or 'sysdba'.
-			Defaults to - """ + ASM_PRIVILEGE_SYSASM;
-
-	private static final String SSH_HOST_PARAM = "a2.ssh.hostname";
-	private static final String SSH_HOST_DOC = "FQDN or IP address of the remote server with redo log files";
-	private static final String SSH_PORT_PARAM = "a2.ssh.port";
-	private static final String SSH_PORT_DOC = "SSH port of the remote server with redo log files";
-	private static final int SSH_PORT_DEFAULT = 22;
-	private static final String SSH_USER_PARAM = "a2.ssh.user";
-	private static final String SSH_USER_DOC = "Username for the authentication to the remote server with redo log files";
-	private static final String SSH_KEY_PARAM = "a2.ssh.private.key";
-	private static final String SSH_KEY_DOC = "Private key for the authentication to the remote server with redo log files";
-	private static final String SSH_PASSWORD_PARAM = "a2.ssh.password";
-	private static final String SSH_PASSWORD_DOC = "Password for the authentication to the remote server with redo log files";
-	private static final String SSH_RECONNECT_INTERVAL_MS_PARAM = "a2.ssh.reconnect.ms";
-	private static final long SSH_RECONNECT_INTERVAL_MS_DEFAULT = 86_400_000;
-	private static final String SSH_RECONNECT_INTERVAL_MS_DOC =
-			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SSH connection.\n" +
-			"Default - " + SSH_RECONNECT_INTERVAL_MS_DEFAULT + " (24 hours)";
-	private static final String SSH_STRICT_HOST_KEY_CHECKING_PARAM = "a2.ssh.strict.host.key.checking";
-	private static final String SSH_STRICT_HOST_KEY_CHECKING_DOC = "SSH strict host key checking. Default - false.";
-	private static final String SSH_PROVIDER_MAVERICK = "maverick";
-	private static final String SSH_PROVIDER_SSHJ = "sshj";
-	private static final String SSH_PROVIDER_PARAM = "a2.ssh.provider";
-	private static final String SSH_PROVIDER_DEFAULT = SSH_PROVIDER_SSHJ;
-	private static final String SSH_PROVIDER_DOC = 
-			"Library that provides SSH connection: maverick for Maverick Synergy (https://jadaptive.com/) or sshj for Hierynomus sshj (https://github.com/hierynomus/sshj)\n" +
-			"Default - " + SSH_PROVIDER_DEFAULT;
-	private static final int SSH_UNCONFIRMED_READS_DEFAULT = 0x100;
-	private static final String SSH_UNCONFIRMED_READS_PARAM = "a2.ssh.max.unconfirmed.reads";
-	private static final String SSH_UNCONFIRMED_READS_DOC = "Maximum number of unconfirmed reads from SFTP server when using Hierynomus sshj. Default - " + SSH_UNCONFIRMED_READS_DEFAULT;
-	private static final int SSH_BUFFER_SIZE_DEFAULT = 0x8000;
-	private static final String SSH_BUFFER_SIZE_PARAM = "a2.ssh.buffer.size";
-	private static final String SSH_BUFFER_SIZE_DOC = "Read-ahead buffer size in bytes for fata from SFTP server when using Hierynomus sshj. Default - " + SSH_BUFFER_SIZE_DEFAULT;
-
-	private static final String SMB_SERVER_PARAM = "a2.smb.server";
-	private static final String SMB_SERVER_DOC = "FQDN or IP address of the remote SMB (Windows) server with redo log files";
-	private static final String SMB_SHARE_ONLINE_PARAM = "a2.smb.share.online";
-	private static final String SMB_SHARE_ONLINE_DOC = "Name of the SMB (Windows) share with online redo logs";
-	private static final String SMB_SHARE_ARCHIVE_PARAM = "a2.smb.share.archive";
-	private static final String SMB_SHARE_ARCHIVE_DOC = "Name of the SMB (Windows) share with archived redo logs";
-	private static final String SMB_USER_PARAM = "a2.smb.user";
-	private static final String SMB_USER_DOC = "Username for the authentication to the remote SMB (Windows) server with redo log files";
-	private static final String SMB_PASSWORD_PARAM = "a2.smb.password";
-	private static final String SMB_PASSWORD_DOC = "Password for the authentication to the remote SMB (Windows) server with redo log files";
-	private static final String SMB_DOMAIN_PARAM = "a2.smb.domain";
-	private static final String SMB_DOMAIN_DOC = "SMB (Windows) authentication domain name";
-	private static final int SMB_TIMEOUT_MS_DEFAULT = 180_000;
-	private static final String SMB_TIMEOUT_MS_PARAM = "a2.smb.timeout";
-	private static final String SMB_TIMEOUT_MS_DOC = "SMB read timeout in ms. Default - " + SMB_TIMEOUT_MS_DEFAULT;
-	private static final int SMB_SOCKET_TIMEOUT_MS_DEFAULT = 180_000;
-	private static final String SMB_SOCKET_TIMEOUT_MS_PARAM = "a2.smb.socket.timeout";
-	private static final String SMB_SOCKET_TIMEOUT_MS_DOC = "SMB read timeout in ms. Default - " + SMB_SOCKET_TIMEOUT_MS_DEFAULT;
-	private static final long SMB_RECONNECT_INTERVAL_MS_DEFAULT = 86_400_000;
-	private static final String SMB_RECONNECT_INTERVAL_MS_PARAM = "a2.smb.reconnect.ms";
-	private static final String SMB_RECONNECT_INTERVAL_MS_DOC =
-			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the SMB (Windows) connection.\n" +
-			"Default - " + SMB_RECONNECT_INTERVAL_MS_DEFAULT + " (24 hours)";
-	private static final int SMB_BUFFER_SIZE_DEFAULT = 0x100000;
-	private static final String SMB_BUFFER_SIZE_PARAM = "a2.smb.buffer.size";
-	private static final String SMB_BUFFER_SIZE_DOC = "Read-ahead buffer size in bytes for data from SMB (Windows) server. Default - " + SMB_BUFFER_SIZE_DEFAULT;
-	private static final String BFILE_DIR_ONLINE_PARAM = "a2.bfile.directory.online";
-	private static final String BFILE_DIR_ONLINE_DOC = "The name of the Oracle database directory that contains the online redo logs";
-	private static final String BFILE_DIR_ARCHIVE_PARAM = "a2.bfile.directory.archive";
-	private static final String BFILE_DIR_ARCHIVE_DOC = "The name of the Oracle database directory that contains the archived redo logs";
-	private static final long BFILE_RECONNECT_INTERVAL_MS_DEFAULT = 3_600_000;
-	private static final String BFILE_RECONNECT_INTERVAL_MS_PARAM = "a2.bfile.reconnect.ms";
-	private static final String BFILE_RECONNECT_INTERVAL_MS_DOC =
-			"The time interval in milliseconds after which a reconnection to remote server with redo files, including the re-creation of the Oracle Net connection.\n" +
-			"Default - " + BFILE_RECONNECT_INTERVAL_MS_DEFAULT + " (1 hour)";
-	private static final int BFILE_BUFFER_SIZE_DEFAULT = 0x400000;
-	private static final String BFILE_BUFFER_SIZE_PARAM = "a2.bfile.buffer.size";
-	private static final String BFILE_BUFFER_SIZE_DOC = "Oracle BFILE read-ahead buffer size in bytes. Default - " + BFILE_BUFFER_SIZE_DEFAULT;
-
-	private static final String TDE_WALLET_PATH_PARAM = "a2.tde.wallet.path";
-	private static final String TDE_WALLET_PATH_DOC = "Full absolute path to Oracle Wallet file (ewallet.p12)";
-	private static final String TDE_WALLET_PASSWORD_PARAM = "a2.tde.wallet.password";
-	private static final String TDE_WALLET_PASSWORD_DOC = "Password Oracle Wallet";
-
-	private static final String ALL_UPDATES_PARAM = "a2.process.all.update.statements";
-	private static final boolean ALL_UPDATES_DEFAULT = true;
-	private static final String ALL_UPDATES_DOC = 
-			"When set to TRUE connector processes all UPDATE statements.\n" +
-			"When set to FALSE connector ignores UPDATE statements that do not actually change the data, i.e. 'update DEPT set DNAME=DNAME where DEPTNO=10'.\n" +
-			"Default - " + ALL_UPDATES_DEFAULT;
-
-	private static final String PRINT_UNABLE2MAP_COL_ID_WARNING_PARAM = "a2.unable.to.map.col.id.warning";
-	private static final boolean PRINT_UNABLE2MAP_COL_ID_WARNING_DEFAULT = true;
-	private static final String PRINT_UNABLE2MAP_COL_ID_WARNING_DOC = "When the value is set to 'true' and a redo record contains a column identifier that is not in the data dictionary, a message about that column and information about the redo record is printed. Default - 'true'.";
-
-	private static final String SUPPLEMENTAL_LOGGING_ALL = "ALL";
-	private static final String SUPPLEMENTAL_LOGGING_NONE = "NONE";
-	private static final String SUPPLEMENTAL_LOGGING_DEFAULT = SUPPLEMENTAL_LOGGING_ALL;
-	private static final String SUPPLEMENTAL_LOGGING_PARAM = "a2.supplemental.logging";
-	private static final String SUPPLEMENTAL_LOGGING_DOC =
-			"""
-			The supplemental logging level required for the oracdc to function.
-			The parameter can take the values ​​ALL or NONE.
-			The default is ALL, and you must set SUPPLEMENTAL LOG DATA(ALL) COLUMND for all tables participating in replication, as well as SUPPLEMENTAL LOG DATA at the database level.
-			If this parameter is set to NONE, there are no or minimal requirements for supplemental logging.
-			Use this parameter only after consulting with us via email at oracle@a2.solutions or by scheduling a meeting on our website at https://a2.solutions.
-			Default - """ + SUPPLEMENTAL_LOGGING_DEFAULT;
-
-	private static final boolean STOP_ON_MISSED_LOG_FILE_DEFAULT = true; 
-	private static final String STOP_ON_MISSED_LOG_FILE_PARAM = "a2.stop.on.missed_log.file";
-	private static final String STOP_ON_MISSED_LOG_FILE_DOC = 
-			"""
-			When the parameter value is set to true, the connector stops if it cannot open a redo log file whose description is present in the data dictionary.
-			When the parameter value is set to false, the connector attempts to continue using the next redo log file (with a SEQUENCE# value greater than that of the missing redo log file).
-			Default - """ + STOP_ON_MISSED_LOG_FILE_DEFAULT;
-	
-	private static final int TABLES_IN_PROCESS_SIZE_DEFAULT = 0x100;
-	private static final String TABLES_IN_PROCESS_SIZE_PARAM = "a2.tables.in.process.size";
-	private static final String TABLES_IN_PROCESS_SIZE_DOC =
-			"""
-			Specifies the initial size of the memory structure storing information about the tables being processed.
-			Default - """ + TABLES_IN_PROCESS_SIZE_DEFAULT;
-
-	private static final int TABLES_OUT_OF_SCOPE_SIZE_DEFAULT = 0x400;
-	private static final String TABLES_OUT_OF_SCOPE_SIZE_PARAM = "a2.tables.out.of.scope.size";
-	private static final String TABLES_OUT_OF_SCOPE_SIZE_DOC =
-			"""
-			Specifies the initial size of the memory structure that stores information about ID of tables that do not need to be processed.
-			Default - """ + TABLES_OUT_OF_SCOPE_SIZE_DEFAULT;
-
-	private static final int TRANS_IN_PROCESS_SIZE_DEFAULT = 0x400;
-	private static final String TRANS_IN_PROCESS_SIZE_PARAM = "a2.transactions.in.process.size";
-	private static final String TRANS_IN_PROCESS_SIZE_DOC =
-			"""
-			Specifies the initial size of the memory structure that stores information about currently processed transactions.
-			Default - """ + TRANS_IN_PROCESS_SIZE_DEFAULT;
-
-	private static final int EMITTER_TIMEOUT_MS_DEFAULT = 0x15;
-	private static final String EMITTER_TIMEOUT_MS_PARAM = "a2.emitter.timeout.ms";
-	private static final String EMITTER_TIMEOUT_MS_DOC =
-			"""
-			Sets the time interval in milliseconds after which the emitter thread checks for a new, unprocessed set of redo records.
-			Default - """ + EMITTER_TIMEOUT_MS_DEFAULT;
-
-	private static final int[] OFFHEAP_SIZE_FULL_INT = {0x4000000, 0x1000000};
-	private static final String OFFHEAP_SIZE_FULL = "FULL";
-	private static final int[] OFFHEAP_SIZE_HALF_INT = {0x2000000, 0x800000};
-	private static final String OFFHEAP_SIZE_HALF = "HALF";
-	private static final int[] OFFHEAP_SIZE_QUARTER_INT = {0x1000000, 0x400000};
-	private static final String OFFHEAP_SIZE_QUARTER = "QUARTER";
-	private static final int[] OFFHEAP_SIZE_HALFQUARTER_INT = {0x800000, 0x200000};
-	private static final String OFFHEAP_SIZE_HALFQUARTER = "HALF-QUARTER";
-	private static final String OFFHEAP_SIZE_DEFAULT = OFFHEAP_SIZE_HALFQUARTER;
-	private static final String OFFHEAP_SIZE_PARAM = "a2.offheap.size";
-	private static final String OFFHEAP_SIZE_DOC =
-			"""
-			Defines the initial size of the off-heap memory structure.
-			Default - """ + OFFHEAP_SIZE_DEFAULT;
-
-	private static final String TRANSFER_DIR_STAGE_PARAM = "a2.transfer.directory.stage";
-	private static final String TRANSFER_DIR_STAGE_DOC = "The name of the Oracle database directory used as stage storage, which must be located on the file system.";
-
 
 	private boolean fileNameConversionInited = false;
 	private boolean fileNameConversion = false;
@@ -567,7 +381,7 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 	public static ConfigDef config() {
 		return KafkaSourceBaseConfig.config()
 				.define(TOPIC_PARTITION_PARAM, INT, 0, MEDIUM, TOPIC_PARTITION_DOC)
-				.define(LGMNR_START_SCN_PARAM, STRING, "0", MEDIUM, LGMNR_START_SCN_DOC)
+				.define(FIRST_CHANGE_PARAM, STRING, "0", MEDIUM, FIRST_CHANGE_DOC)
 				.define(TEMP_DIR_PARAM, STRING, System.getProperty("java.io.tmpdir"), HIGH, TEMP_DIR_DOC)
 				.define(MAKE_STANDBY_ACTIVE_PARAM, BOOLEAN, false, LOW, MAKE_STANDBY_ACTIVE_DOC)
 				.define(STANDBY_WALLET_PARAM, STRING, "", LOW, STANDBY_WALLET_DOC)
@@ -603,22 +417,20 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 						LOW, TABLE_LIST_STYLE_DOC)
 				.define(PROCESS_LOBS_PARAM, BOOLEAN, false, LOW, PROCESS_LOBS_DOC)
 				.define(CONNECTION_BACKOFF_PARAM, INT, CONNECTION_BACKOFF_DEFAULT, LOW, CONNECTION_BACKOFF_DOC)
-				.define(ParamConstants.ARCHIVED_LOG_CAT_PARAM, STRING, ParamConstants.ARCHIVED_LOG_CAT_DEFAULT, LOW, ParamConstants.ARCHIVED_LOG_CAT_DOC)
-				.define(ParamConstants.FETCH_SIZE_PARAM, INT, ParamConstants.FETCH_SIZE_DEFAULT, LOW, ParamConstants.FETCH_SIZE_DOC)
-				.define(ParamConstants.TRACE_LOGMINER_PARAM, BOOLEAN, false, LOW, ParamConstants.TRACE_LOGMINER_DOC)
-				.define(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM, BOOLEAN, false, LOW, ParamConstants.MAKE_DISTRIBUTED_ACTIVE_DOC)
-				.define(ParamConstants.DISTRIBUTED_WALLET_PARAM, STRING, "", LOW, ParamConstants.DISTRIBUTED_WALLET_DOC)
-				.define(ParamConstants.DISTRIBUTED_URL_PARAM, STRING, "", LOW, ParamConstants.DISTRIBUTED_URL_DOC)
-				.define(ParamConstants.DISTRIBUTED_TARGET_HOST, STRING, "", LOW, ParamConstants.DISTRIBUTED_TARGET_HOST_DOC)
-				.define(ParamConstants.DISTRIBUTED_TARGET_PORT, INT, ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT, LOW, ParamConstants.DISTRIBUTED_TARGET_PORT_DOC)
+				.define(ARCHIVED_LOG_CAT_PARAM, STRING, ARCHIVED_LOG_CAT_DEFAULT, LOW, ARCHIVED_LOG_CAT_DOC)
+				.define(FETCH_SIZE_PARAM, INT, FETCH_SIZE_DEFAULT, LOW, FETCH_SIZE_DOC)
+				.define(TRACE_LOGMINER_PARAM, BOOLEAN, false, LOW, TRACE_LOGMINER_DOC)
+				.define(MAKE_DISTRIBUTED_ACTIVE_PARAM, BOOLEAN, false, LOW, MAKE_DISTRIBUTED_ACTIVE_DOC)
+				.define(DISTRIBUTED_WALLET_PARAM, STRING, "", LOW, DISTRIBUTED_WALLET_DOC)
+				.define(DISTRIBUTED_URL_PARAM, STRING, "", LOW, DISTRIBUTED_URL_DOC)
+				.define(DISTRIBUTED_TARGET_HOST, STRING, "", LOW, DISTRIBUTED_TARGET_HOST_DOC)
+				.define(DISTRIBUTED_TARGET_PORT, INT, DISTRIBUTED_TARGET_PORT_DEFAULT, LOW, DISTRIBUTED_TARGET_PORT_DOC)
 				.define(LOB_TRANSFORM_CLASS_PARAM, STRING, LOB_TRANSFORM_CLASS_DEFAULT, LOW, LOB_TRANSFORM_CLASS_DOC)
 				.define(USE_RAC_PARAM, BOOLEAN, false, LOW, USE_RAC_DOC)
 				.define(PROTOBUF_SCHEMA_NAMING_PARAM, BOOLEAN, false, LOW, PROTOBUF_SCHEMA_NAMING_DOC)
-				.define(ParamConstants.ORA_TRANSACTION_IMPL_PARAM, STRING, ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
-						ConfigDef.ValidString.in(
-								ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE,
-								ParamConstants.ORA_TRANSACTION_IMPL_JVM),
-						LOW, ParamConstants.ORA_TRANSACTION_IMPL_DOC)
+				.define(ORA_TRANSACTION_IMPL_PARAM, STRING, ORA_TRANSACTION_IMPL_DEFAULT,
+						ConfigDef.ValidString.in(ORA_TRANSACTION_IMPL_CHRONICLE, ORA_TRANSACTION_IMPL_JVM),
+						LOW, ORA_TRANSACTION_IMPL_DOC)
 				.define(PRINT_INVALID_HEX_WARNING_PARAM, BOOLEAN, false, LOW, PRINT_INVALID_HEX_WARNING_DOC)
 				.define(PROCESS_ONLINE_REDO_LOGS_PARAM, BOOLEAN, false, LOW, PROCESS_ONLINE_REDO_LOGS_DOC)
 				.define(CURRENT_SCN_QUERY_INTERVAL_PARAM, INT, CURRENT_SCN_QUERY_INTERVAL_DEFAULT, LOW, CURRENT_SCN_QUERY_INTERVAL_DOC)
@@ -1302,32 +1114,16 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 		return getBoolean(USE_RAC_PARAM);
 	}
 
-	public String useRacParamName() {
-		return USE_RAC_PARAM;
-	}
-
 	public boolean activateStandby() {
 		return getBoolean(MAKE_STANDBY_ACTIVE_PARAM);
-	}
-
-	public String activateStandbyParamName() {
-		return MAKE_STANDBY_ACTIVE_PARAM;
 	}
 
 	public String standbyJdbcUrl() {
 		return getString(STANDBY_URL_PARAM);
 	}
 
-	public String standbyJdbcUrlParamName() {
-		return STANDBY_URL_PARAM;
-	}
-
 	public String standbyWallet() {
 		return getString(STANDBY_WALLET_PARAM);
-	}
-
-	public String standbyWalletParamName() {
-		return STANDBY_WALLET_PARAM;
 	}
 
 	public String standbyPrivilege() {
@@ -1408,7 +1204,7 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 	}
 
 	public long startScn() throws SQLException {
-		final String scnAsString = getString(LGMNR_START_SCN_PARAM);
+		final String scnAsString = getString(FIRST_CHANGE_PARAM);
 		try {
 			return Long.parseUnsignedLong(scnAsString);
 		} catch (NumberFormatException nfe) {
@@ -1420,13 +1216,13 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 					=====================
 					
 					""",
-					scnAsString, LGMNR_START_SCN_PARAM);
+					scnAsString, FIRST_CHANGE_PARAM);
 			throw new SQLException(nfe);
 		}
 	}
 
 	public String startScnParam() {
-		return LGMNR_START_SCN_PARAM;
+		return FIRST_CHANGE_PARAM;
 	}
 
 	public boolean staticObjIds() {
@@ -1474,6 +1270,47 @@ public class OraCdcSourceConnectorConfig extends KafkaSourceBaseConfig {
 
 	public int arrayListCapacity() {
 		return getInt(AL_CAPACITY_PARAM);
+	}
+
+	public boolean useOffHeapMemory() {
+		return Strings.CI.equals(
+				getString(ORA_TRANSACTION_IMPL_PARAM), ORA_TRANSACTION_IMPL_CHRONICLE);
+	}
+
+	public int fetchSize() {
+		return getInt(FETCH_SIZE_PARAM);
+	}
+
+	public boolean logMinerTrace() {
+		return getBoolean(TRACE_LOGMINER_PARAM);
+	}
+
+	public Class<?> classLogMiner() throws ClassNotFoundException {
+		return Class.forName(getString(ARCHIVED_LOG_CAT_PARAM));
+	}
+
+	public String classLogMinerName() {
+		return getString(ARCHIVED_LOG_CAT_PARAM);
+	}
+
+	public boolean activateDistributed() {
+		return getBoolean(MAKE_DISTRIBUTED_ACTIVE_PARAM);
+	}
+
+	public String distributedUrl() {
+		return getString(DISTRIBUTED_URL_PARAM);
+	}
+
+	public String distributedWallet() {
+		return getString(DISTRIBUTED_WALLET_PARAM);
+	}
+
+	public String distributedTargetHost() {
+		return getString(DISTRIBUTED_TARGET_HOST);
+	}
+
+	public int distributedTargetPort() {
+		return getInt(DISTRIBUTED_TARGET_PORT);
 	}
 
 	public boolean logMiner() {

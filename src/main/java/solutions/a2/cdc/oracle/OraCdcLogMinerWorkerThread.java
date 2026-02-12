@@ -123,16 +123,14 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.activeTransactions = activeTransactions;
 		this.metrics = metrics;
 		this.connectionRetryBackoff = config.connectionRetryBackoff();
-		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
-		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
+		this.fetchSize = config.fetchSize();
+		this.traceSession = config.logMinerTrace();
 		this.committedTransactions = committedTransactions;
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
 		this.logMinerReconnectIntervalMs = config.logMinerReconnectIntervalMs();
-		useChronicleQueue = Strings.CI.equals(
-				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
-				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
+		useChronicleQueue = config.useOffHeapMemory();
 		queuesRoot = config.queuesRoot();
 		concTransThreshold = config.transactionsThreshold();
 		runtime = Runtime.getRuntime();
@@ -165,9 +163,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						negotiatedSDU);
 			}
 
-			final String archivedLogCatalogImplClass = config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM);
 			try {
-				final Class<?> classLogMiner = Class.forName(archivedLogCatalogImplClass);
+				final Class<?> classLogMiner = config.classLogMiner();
 				final Constructor<?> constructor = classLogMiner.getConstructor(
 						Connection.class,
 						OraCdcSourceConnMgmt.class,
@@ -179,44 +176,44 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 				logMiner = (OraLogMiner) constructor.newInstance(
 						connLogMiner, metrics, firstScn, config, runLatch, rdbmsInfo, oraConnections);
 			} catch (ClassNotFoundException nfe) {
-				LOGGER.error("ClassNotFoundException while instantiating {}", archivedLogCatalogImplClass);
-				throw new ConnectException("ClassNotFoundException while instantiating " + archivedLogCatalogImplClass, nfe);
+				LOGGER.error("ClassNotFoundException while instantiating {}", config.classLogMinerName());
+				throw new ConnectException("ClassNotFoundException while instantiating " + config.classLogMinerName(), nfe);
 			} catch (NoSuchMethodException nme) {
 				LOGGER.error(
 						"NoSuchMethodException while obtaining " +
 						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("NoSuchMethodException while obtaining required constructor for " + archivedLogCatalogImplClass, nme);
+						" constructor", config.classLogMinerName());
+				throw new ConnectException("NoSuchMethodException while obtaining required constructor for " + config.classLogMinerName(), nme);
 			} catch (SecurityException se) {
 				LOGGER.error(
 						"SecurityException while obtaining " +
 						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("SecurityException while obtaining required constructor for " + archivedLogCatalogImplClass, se);
+						" constructor", config.classLogMinerName());
+				throw new ConnectException("SecurityException while obtaining required constructor for " + config.classLogMinerName(), se);
 			} catch (InvocationTargetException ite) {
 				LOGGER.error(
 						"InvocationTargetException while calling " +
 						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("InvocationTargetException while calling required constructor for " + archivedLogCatalogImplClass, ite);
+						" constructor", config.classLogMinerName());
+				throw new ConnectException("InvocationTargetException while calling required constructor for " + config.classLogMinerName(), ite);
 			} catch (IllegalAccessException iae) {
 				LOGGER.error(
 						"IllegalAccessException while calling " +
 						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("IllegalAccessException while calling required constructor for " + archivedLogCatalogImplClass, iae);
+						" constructor", config.classLogMinerName());
+				throw new ConnectException("IllegalAccessException while calling required constructor for " + config.classLogMinerName(), iae);
 			} catch (InstantiationException ie) {
 				LOGGER.error(
 						"InstantiationException while calling " +
 						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("InstantiationException while calling required constructor for " + archivedLogCatalogImplClass, ie);
+						" constructor", config.classLogMinerName());
+				throw new ConnectException("InstantiationException while calling required constructor for " + config.classLogMinerName(), ie);
 			} catch (IllegalArgumentException iae2) {
 				LOGGER.error(
 						"IllegalArgumentException while calling " +
 						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("IllegalArgumentException while calling required constructor for " + archivedLogCatalogImplClass, iae2);
+						" constructor", config.classLogMinerName());
+				throw new ConnectException("IllegalArgumentException while calling required constructor for " + config.classLogMinerName(), iae2);
 			}
 
 			if (logMiner.isOracleConnectionRequired()) {

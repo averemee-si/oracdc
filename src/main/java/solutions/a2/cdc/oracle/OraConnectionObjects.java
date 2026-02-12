@@ -170,9 +170,9 @@ public class OraConnectionObjects {
 		return ods.getConnection();
 	}
 
-	public void addDistributedConnection(final String dbUrl, final String wallet)
+	public void addDistributedConnection(final OraCdcSourceConnectorConfig config)
 					throws SQLException {
-		initConnection4LogMiner(false, dbUrl, wallet);
+		initConnection4LogMiner(false, config.distributedUrl(), config.distributedWallet());
 	}
 
 	private void initConnection4LogMiner(

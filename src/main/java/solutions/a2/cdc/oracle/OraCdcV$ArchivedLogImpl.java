@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 
-import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.PROCESS_ONLINE_REDO_LOGS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.PROCESS_ONLINE_REDO_LOGS_PARAM;
 
 /**
  * 
@@ -97,7 +97,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			callDbmsLogmnrAddLogFile = false;
 			processOnlineRedoLogs = false;
 			onlineRedoQueryMsMin = Integer.MIN_VALUE;
-			if (config.getBoolean(PROCESS_ONLINE_REDO_LOGS_PARAM)) {
+			if (config.processOnlineRedoLogs()) {
 				LOGGER.warn(
 						"\n" +
 						"=====================\n" +

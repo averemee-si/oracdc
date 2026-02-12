@@ -47,10 +47,10 @@ import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
-import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE;
-import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INITIAL_LOAD_COMPLETED;
-import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INITIAL_LOAD_EXECUTE;
-import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INITIAL_LOAD_IGNORE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_RESTORE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_COMPLETED;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_EXECUTE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_IGNORE;
 
 /**
  * 
@@ -129,9 +129,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 		schemaType = config.schemaType();
 		restoreIncompleteRecord = config.getIncompleteDataTolerance() == INCOMPLETE_REDO_INT_RESTORE;
 
-		useChronicleQueue = Strings.CI.equals(
-				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
-				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
+		useChronicleQueue = config.useOffHeapMemory();
 		processLobs = config.processLobs();
 		if (processLobs) {
 			if (!useChronicleQueue) {
@@ -296,10 +294,8 @@ public abstract class OraCdcTaskBase extends SourceTask {
 							rdbmsInfo.getPdbName());
 			}
 
-			if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
-				oraConnections.addDistributedConnection(
-						config.getString(ParamConstants.DISTRIBUTED_URL_PARAM),
-						config.getString(ParamConstants.DISTRIBUTED_WALLET_PARAM));
+			if (config.activateDistributed()) {
+				oraConnections.addDistributedConnection(config);
 				LOGGER.info(
 						"""
 						

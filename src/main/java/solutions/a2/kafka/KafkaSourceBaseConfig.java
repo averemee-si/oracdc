@@ -32,6 +32,19 @@ import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_PARAM;
 import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_SINGLE;
 import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_PREFIX_DOC;
 import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_PREFIX_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_WALLET_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_WALLET_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.KAFKA_TOPIC_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.KAFKA_TOPIC_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.KAFKA_TOPIC_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_EXCLUDE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_EXCLUDE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_INCLUDE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_INCLUDE_DOC;
+import static solutions.a2.cdc.oracle.OraCdcParameters.POLL_INTERVAL_MS_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.POLL_INTERVAL_MS_DEFAULT;
+import static solutions.a2.cdc.oracle.OraCdcParameters.POLL_INTERVAL_MS_DOC;
+
 
 import java.util.List;
 import java.util.Map;
@@ -63,7 +76,7 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 						ConfigDef.ValidString.in(
 								SCHEMA_TYPE_KAFKA, SCHEMA_TYPE_SINGLE, SCHEMA_TYPE_DEBEZIUM),
 						Importance.LOW, SCHEMA_TYPE_DOC)
-				.define(KAFKA_TOPIC_PARAM, Type.STRING, KAFKA_TOPIC_PARAM_DEFAULT, Importance.HIGH, KAFKA_TOPIC_PARAM_DOC)
+				.define(KAFKA_TOPIC_PARAM, Type.STRING, KAFKA_TOPIC_DEFAULT, Importance.HIGH, KAFKA_TOPIC_DOC)
 				.define(TOPIC_PREFIX_PARAM, Type.STRING, "", Importance.MEDIUM, TOPIC_PREFIX_DOC)
 				.define(TABLE_EXCLUDE_PARAM, Type.LIST, "", Importance.MEDIUM, TABLE_EXCLUDE_DOC)
 				.define(TABLE_INCLUDE_PARAM, Type.LIST, "", Importance.MEDIUM, TABLE_INCLUDE_DOC)

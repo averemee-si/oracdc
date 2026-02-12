@@ -1,5 +1,7 @@
 package solutions.a2.cdc.oracle.utils.file;
 
+import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_TARGET_PORT_DEFAULT;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,7 +29,6 @@ import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.ParamConstants;
 import solutions.a2.utils.ExceptionUtils;
 
 public class TargetDatabaseShipmentAgent {
@@ -174,7 +175,7 @@ public class TargetDatabaseShipmentAgent {
 		bindAddress.setRequired(false);
 		options.addOption(bindAddress);
 		final Option port = new Option("p", "port", true,
-				"port to listen on, if not specified " +  ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT + " used");
+				"port to listen on, if not specified " +  DISTRIBUTED_TARGET_PORT_DEFAULT + " used");
 		port.setRequired(false);
 		options.addOption(port);
 		final Option sourceAgentHost = new Option("h", "source-host", true,
@@ -204,13 +205,13 @@ public class TargetDatabaseShipmentAgent {
 
 		final String bindAddressArg = cmd.getOptionValue("bind-address", "0.0.0.0");
 		final String portNumberArg = cmd.getOptionValue("port",
-				Integer.toString(ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT));
-		int portNumberArgInt = ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT;
+				Integer.toString(DISTRIBUTED_TARGET_PORT_DEFAULT));
+		int portNumberArgInt = DISTRIBUTED_TARGET_PORT_DEFAULT;
 		try {
 			portNumberArgInt = Integer.parseInt(portNumberArg);
 		} catch (Exception e) {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-			LOGGER.error("{} will be used as port number!", ParamConstants.DISTRIBUTED_TARGET_PORT_DEFAULT);
+			LOGGER.error("{} will be used as port number!", DISTRIBUTED_TARGET_PORT_DEFAULT);
 		}
 		final String sourceAgentHostArg = cmd.getOptionValue("source-host");
 		int sourceAgentPortArg = -1;

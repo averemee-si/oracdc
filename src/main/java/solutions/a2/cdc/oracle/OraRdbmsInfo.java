@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.OraCdcParameters.PK_TYPE_INT_ANY_UNIQUE;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -485,7 +487,7 @@ public class OraRdbmsInfo {
 			ps = null;
 			if (result != null) {
 				printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName, false);
-			} else if (pkType == OraCdcSourceConnectorConfig.PK_TYPE_INT_ANY_UNIQUE) {
+			} else if (pkType == PK_TYPE_INT_ANY_UNIQUE) {
 				ps = connection.prepareStatement(
 						(isCdb) ?
 								OraDictSqlTexts.WELL_DEFINED_UNIQUE_COLUMNS_CDB :
