@@ -13,20 +13,15 @@
 
 package solutions.a2.cdc.oracle.runtime.config;
 
-import static org.apache.kafka.common.config.ConfigDef.Importance.HIGH;
-import static org.apache.kafka.common.config.ConfigDef.Importance.LOW;
-import static org.apache.kafka.common.config.ConfigDef.Importance.MEDIUM;
-import static org.apache.kafka.common.config.ConfigDef.Type.BOOLEAN;
-import static org.apache.kafka.common.config.ConfigDef.Type.INT;
-import static org.apache.kafka.common.config.ConfigDef.Type.LIST;
-import static org.apache.kafka.common.config.ConfigDef.Type.LONG;
-import static org.apache.kafka.common.config.ConfigDef.Type.PASSWORD;
-import static org.apache.kafka.common.config.ConfigDef.Type.STRING;
+import static solutions.a2.cdc.ParameterType.BOOLEAN;
+import static solutions.a2.cdc.ParameterType.INT;
+import static solutions.a2.cdc.ParameterType.LONG;
+import static solutions.a2.cdc.ParameterType.LIST;
+import static solutions.a2.cdc.ParameterType.PASSWORD;
+import static solutions.a2.cdc.ParameterType.STRING;
 import static solutions.a2.cdc.oracle.OraCdcParameters.*;
 
 import java.io.File;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -37,11 +32,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.Configuration;
 import solutions.a2.cdc.oracle.LastProcessedSeqNotifier;
 import solutions.a2.cdc.oracle.OraCdcKeyOverrideTypes;
 import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
@@ -51,188 +45,130 @@ import solutions.a2.cdc.oracle.SchemaNameMapper;
 import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
-import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements OraCdcSourceConnectorConfig {
+public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implements OraCdcSourceConnectorConfig {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceConnectorConfig.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(GenericSourceConnectorConfig.class);
 
 	private final SourceConnectorConfig holder;
 	private String connectorName;
 	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
 	private int topicPartition = 0;
 
-	public static ConfigDef config() {
-		return KafkaSourceBaseConfig.config()
-				.define(TOPIC_PARTITION_PARAM, INT, 0, MEDIUM, TOPIC_PARTITION_DOC)
-				.define(FIRST_CHANGE_PARAM, STRING, "0", MEDIUM, FIRST_CHANGE_DOC)
-				.define(TEMP_DIR_PARAM, STRING, System.getProperty("java.io.tmpdir"), HIGH, TEMP_DIR_DOC)
-				.define(MAKE_STANDBY_ACTIVE_PARAM, BOOLEAN, false, LOW, MAKE_STANDBY_ACTIVE_DOC)
-				.define(STANDBY_WALLET_PARAM, STRING, "", LOW, STANDBY_WALLET_DOC)
-				.define(STANDBY_URL_PARAM, STRING, "", LOW, STANDBY_URL_DOC)
-				.define(STANDBY_PRIVILEGE_PARAM, STRING, STANDBY_PRIVILEGE_DEFAULT,
-						ConfigDef.ValidString.in(
-								STANDBY_PRIVILEGE_SYSDG,
-								STANDBY_PRIVILEGE_SYSBACKUP,
-								STANDBY_PRIVILEGE_SYSDBA),
-						HIGH, STANDBY_PRIVILEGE_DOC)
-				.define(ORACDC_SCHEMAS_PARAM, BOOLEAN, false, LOW, ORACDC_SCHEMAS_DOC)
-				.define(INITIAL_LOAD_PARAM, STRING, INITIAL_LOAD_IGNORE,
-						ConfigDef.ValidString.in(
-								INITIAL_LOAD_IGNORE,
-								INITIAL_LOAD_EXECUTE),
-						LOW, INITIAL_LOAD_DOC)
-				.define(TOPIC_NAME_STYLE_PARAM, STRING, TOPIC_NAME_STYLE_TABLE,
-						ConfigDef.ValidString.in(
-								TOPIC_NAME_STYLE_TABLE,
-								TOPIC_NAME_STYLE_SCHEMA_TABLE,
-								TOPIC_NAME_STYLE_PDB_SCHEMA_TABLE),
-						LOW, TOPIC_NAME_STYLE_DOC)
-				.define(TOPIC_NAME_DELIMITER_PARAM, STRING, TOPIC_NAME_DELIMITER_UNDERSCORE,
-						ConfigDef.ValidString.in(
-								TOPIC_NAME_DELIMITER_UNDERSCORE,
-								TOPIC_NAME_DELIMITER_DASH,
-								TOPIC_NAME_DELIMITER_DOT),
-						LOW, TOPIC_NAME_DELIMITER_DOC)
-				.define(TABLE_LIST_STYLE_PARAM, STRING, TABLE_LIST_STYLE_STATIC,
-						ConfigDef.ValidString.in(
-								TABLE_LIST_STYLE_STATIC,
-								TABLE_LIST_STYLE_DYNAMIC),
-						LOW, TABLE_LIST_STYLE_DOC)
-				.define(PROCESS_LOBS_PARAM, BOOLEAN, false, LOW, PROCESS_LOBS_DOC)
-				.define(CONNECTION_BACKOFF_PARAM, INT, CONNECTION_BACKOFF_DEFAULT, LOW, CONNECTION_BACKOFF_DOC)
-				.define(ARCHIVED_LOG_CAT_PARAM, STRING, ARCHIVED_LOG_CAT_DEFAULT, LOW, ARCHIVED_LOG_CAT_DOC)
-				.define(FETCH_SIZE_PARAM, INT, FETCH_SIZE_DEFAULT, LOW, FETCH_SIZE_DOC)
-				.define(TRACE_LOGMINER_PARAM, BOOLEAN, false, LOW, TRACE_LOGMINER_DOC)
-				.define(MAKE_DISTRIBUTED_ACTIVE_PARAM, BOOLEAN, false, LOW, MAKE_DISTRIBUTED_ACTIVE_DOC)
-				.define(DISTRIBUTED_WALLET_PARAM, STRING, "", LOW, DISTRIBUTED_WALLET_DOC)
-				.define(DISTRIBUTED_URL_PARAM, STRING, "", LOW, DISTRIBUTED_URL_DOC)
-				.define(DISTRIBUTED_TARGET_HOST, STRING, "", LOW, DISTRIBUTED_TARGET_HOST_DOC)
-				.define(DISTRIBUTED_TARGET_PORT, INT, DISTRIBUTED_TARGET_PORT_DEFAULT, LOW, DISTRIBUTED_TARGET_PORT_DOC)
-				.define(LOB_TRANSFORM_CLASS_PARAM, STRING, LOB_TRANSFORM_CLASS_DEFAULT, LOW, LOB_TRANSFORM_CLASS_DOC)
-				.define(USE_RAC_PARAM, BOOLEAN, false, LOW, USE_RAC_DOC)
-				.define(PROTOBUF_SCHEMA_NAMING_PARAM, BOOLEAN, false, LOW, PROTOBUF_SCHEMA_NAMING_DOC)
-				.define(ORA_TRANSACTION_IMPL_PARAM, STRING, ORA_TRANSACTION_IMPL_DEFAULT,
-						ConfigDef.ValidString.in(ORA_TRANSACTION_IMPL_CHRONICLE, ORA_TRANSACTION_IMPL_JVM),
-						LOW, ORA_TRANSACTION_IMPL_DOC)
-				.define(PRINT_INVALID_HEX_WARNING_PARAM, BOOLEAN, false, LOW, PRINT_INVALID_HEX_WARNING_DOC)
-				.define(PROCESS_ONLINE_REDO_LOGS_PARAM, BOOLEAN, false, LOW, PROCESS_ONLINE_REDO_LOGS_DOC)
-				.define(CURRENT_SCN_QUERY_INTERVAL_PARAM, INT, CURRENT_SCN_QUERY_INTERVAL_DEFAULT, LOW, CURRENT_SCN_QUERY_INTERVAL_DOC)
-				.define(INCOMPLETE_REDO_TOLERANCE_PARAM, STRING, INCOMPLETE_REDO_TOLERANCE_ERROR,
-						ConfigDef.ValidString.in(
-								INCOMPLETE_REDO_TOLERANCE_ERROR,
-								INCOMPLETE_REDO_TOLERANCE_SKIP,
-								INCOMPLETE_REDO_TOLERANCE_RESTORE),
-						LOW, INCOMPLETE_REDO_TOLERANCE_DOC)
-				.define(PRINT_ALL_ONLINE_REDO_RANGES_PARAM, BOOLEAN, true, LOW, PRINT_ALL_ONLINE_REDO_RANGES_DOC)
-				.define(LM_RECONNECT_INTERVAL_MS_PARAM, LONG, Long.MAX_VALUE, LOW, LM_RECONNECT_INTERVAL_MS_DOC)
-				.define(PK_TYPE_PARAM, STRING, PK_TYPE_WELL_DEFINED,
-						ConfigDef.ValidString.in(
-								PK_TYPE_WELL_DEFINED,
-								PK_TYPE_ANY_UNIQUE),
-						MEDIUM, PK_TYPE_DOC)
-				.define(USE_ROWID_AS_KEY_PARAM, BOOLEAN, true, MEDIUM, USE_ROWID_AS_KEY_DOC)
-				.define(USE_ALL_COLUMNS_ON_DELETE_PARAM, BOOLEAN, USE_ALL_COLUMNS_ON_DELETE_DEFAULT, MEDIUM, USE_ALL_COLUMNS_ON_DELETE_DOC)
-				.define(INTERNAL_RAC_URLS_PARAM, LIST, "", LOW, INTERNAL_PARAMETER_DOC)
-				.define(INTERNAL_DG4RAC_THREAD_PARAM, LIST, "", LOW, INTERNAL_PARAMETER_DOC)
-				.define(TOPIC_MAPPER_PARAM, STRING, TOPIC_MAPPER_DEFAULT, LOW, TOPIC_MAPPER_DOC)
-				.define(STOP_ON_ORA_1284_PARAM, BOOLEAN, STOP_ON_ORA_1284_DEFAULT, LOW, STOP_ON_ORA_1284_DOC)
-				.define(PRINT_UNABLE_TO_DELETE_WARNING_PARAM, BOOLEAN, PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT, LOW, PRINT_UNABLE_TO_DELETE_WARNING_DOC)
-				.define(SCHEMANAME_MAPPER_PARAM, STRING, SCHEMANAME_MAPPER_DEFAULT, LOW, SCHEMANAME_MAPPER_DOC)
-				.define(ORA_ROWSCN_PARAM, STRING, "", LOW, ORA_ROWSCN_DOC)
-				.define(ORA_COMMITSCN_PARAM, STRING, "", LOW, ORA_COMMITSCN_DOC)
-				.define(ORA_ROWTS_PARAM, STRING, "", LOW, ORA_ROWTS_DOC)
-				.define(ORA_OPERATION_PARAM, STRING, "", LOW, ORA_OPERATION_DOC)
-				.define(ORA_XID_PARAM, STRING, "", LOW, ORA_XID_DOC)
-				.define(ORA_USERNAME_PARAM, STRING, "", LOW, ORA_USERNAME_DOC)
-				.define(ORA_OSUSERNAME_PARAM, STRING, "", LOW, ORA_OSUSERNAME_DOC)
-				.define(ORA_HOSTNAME_PARAM, STRING, "", LOW, ORA_HOSTNAME_DOC)
-				.define(ORA_AUDIT_SESSIONID_PARAM, STRING, "", LOW, ORA_AUDIT_SESSIONID_DOC)
-				.define(ORA_SESSION_INFO_PARAM, STRING, "", LOW, ORA_SESSION_INFO_DOC)
-				.define(ORA_CLIENT_ID_PARAM, STRING, "", LOW, ORA_CLIENT_ID_DOC)
-				.define(LAST_SEQ_NOTIFIER_PARAM, STRING, "", LOW, LAST_SEQ_NOTIFIER_DOC)
-				.define(LAST_SEQ_NOTIFIER_FILE_PARAM, STRING, "", LOW, LAST_SEQ_NOTIFIER_FILE_DOC)
-				.define(KEY_OVERRIDE_PARAM, LIST, "", MEDIUM, KEY_OVERRIDE_DOC)
-				.define(CONC_TRANSACTIONS_THRESHOLD_PARAM, INT, 0, LOW, CONC_TRANSACTIONS_THRESHOLD_DOC)
-				.define(REDUCE_LOAD_MS_PARAM, INT, REDUCE_LOAD_MS_DEFAULT, LOW, REDUCE_LOAD_MS_DOC)
-				.define(AL_CAPACITY_PARAM, INT, AL_CAPACITY_DEFAULT, LOW, AL_CAPACITY_DOC)
-				.define(IGNORE_STORED_OFFSET_PARAM, BOOLEAN, IGNORE_STORED_OFFSET_DEFAULT, LOW, IGNORE_STORED_OFFSET_DOC)
+	public static Configuration config() {
+		return GenericSourceBaseConfig.config()
+				.define(TOPIC_PARTITION_PARAM, INT, 0)
+				.define(FIRST_CHANGE_PARAM, STRING, "0")
+				.define(TEMP_DIR_PARAM, STRING, System.getProperty("java.io.tmpdir"))
+				.define(MAKE_STANDBY_ACTIVE_PARAM, BOOLEAN, false)
+				.define(STANDBY_WALLET_PARAM, STRING, "")
+				.define(STANDBY_URL_PARAM, STRING, "")
+				.define(STANDBY_PRIVILEGE_PARAM, STRING, STANDBY_PRIVILEGE_DEFAULT)
+				.define(ORACDC_SCHEMAS_PARAM, BOOLEAN, false)
+				.define(INITIAL_LOAD_PARAM, STRING, INITIAL_LOAD_IGNORE)
+				.define(TOPIC_NAME_STYLE_PARAM, STRING, TOPIC_NAME_STYLE_TABLE)
+				.define(TOPIC_NAME_DELIMITER_PARAM, STRING, TOPIC_NAME_DELIMITER_UNDERSCORE)
+				.define(TABLE_LIST_STYLE_PARAM, STRING, TABLE_LIST_STYLE_STATIC)
+				.define(PROCESS_LOBS_PARAM, BOOLEAN, false)
+				.define(CONNECTION_BACKOFF_PARAM, INT, CONNECTION_BACKOFF_DEFAULT)
+				.define(ARCHIVED_LOG_CAT_PARAM, STRING, ARCHIVED_LOG_CAT_DEFAULT)
+				.define(FETCH_SIZE_PARAM, INT, FETCH_SIZE_DEFAULT)
+				.define(TRACE_LOGMINER_PARAM, BOOLEAN, false)
+				.define(MAKE_DISTRIBUTED_ACTIVE_PARAM, BOOLEAN, false)
+				.define(DISTRIBUTED_WALLET_PARAM, STRING, "")
+				.define(DISTRIBUTED_URL_PARAM, STRING, "")
+				.define(DISTRIBUTED_TARGET_HOST, STRING, "")
+				.define(DISTRIBUTED_TARGET_PORT, INT, DISTRIBUTED_TARGET_PORT_DEFAULT)
+				.define(LOB_TRANSFORM_CLASS_PARAM, STRING, LOB_TRANSFORM_CLASS_DEFAULT)
+				.define(USE_RAC_PARAM, BOOLEAN, false)
+				.define(PROTOBUF_SCHEMA_NAMING_PARAM, BOOLEAN, false)
+				.define(ORA_TRANSACTION_IMPL_PARAM, STRING, ORA_TRANSACTION_IMPL_DEFAULT)
+				.define(PRINT_INVALID_HEX_WARNING_PARAM, BOOLEAN, false)
+				.define(PROCESS_ONLINE_REDO_LOGS_PARAM, BOOLEAN, false)
+				.define(CURRENT_SCN_QUERY_INTERVAL_PARAM, INT, CURRENT_SCN_QUERY_INTERVAL_DEFAULT)
+				.define(INCOMPLETE_REDO_TOLERANCE_PARAM, STRING, INCOMPLETE_REDO_TOLERANCE_ERROR)
+				.define(PRINT_ALL_ONLINE_REDO_RANGES_PARAM, BOOLEAN, true)
+				.define(LM_RECONNECT_INTERVAL_MS_PARAM, LONG, Long.MAX_VALUE)
+				.define(PK_TYPE_PARAM, STRING, PK_TYPE_WELL_DEFINED)
+				.define(USE_ROWID_AS_KEY_PARAM, BOOLEAN, true)
+				.define(USE_ALL_COLUMNS_ON_DELETE_PARAM, BOOLEAN, USE_ALL_COLUMNS_ON_DELETE_DEFAULT)
+				.define(INTERNAL_RAC_URLS_PARAM, LIST, "")
+				.define(INTERNAL_DG4RAC_THREAD_PARAM, LIST, "")
+				.define(TOPIC_MAPPER_PARAM, STRING, TOPIC_MAPPER_DEFAULT)
+				.define(STOP_ON_ORA_1284_PARAM, BOOLEAN, STOP_ON_ORA_1284_DEFAULT)
+				.define(PRINT_UNABLE_TO_DELETE_WARNING_PARAM, BOOLEAN, PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT)
+				.define(SCHEMANAME_MAPPER_PARAM, STRING, SCHEMANAME_MAPPER_DEFAULT)
+				.define(ORA_ROWSCN_PARAM, STRING, "")
+				.define(ORA_COMMITSCN_PARAM, STRING, "")
+				.define(ORA_ROWTS_PARAM, STRING, "")
+				.define(ORA_OPERATION_PARAM, STRING, "")
+				.define(ORA_XID_PARAM, STRING, "")
+				.define(ORA_USERNAME_PARAM, STRING, "")
+				.define(ORA_OSUSERNAME_PARAM, STRING, "")
+				.define(ORA_HOSTNAME_PARAM, STRING, "")
+				.define(ORA_AUDIT_SESSIONID_PARAM, STRING, "")
+				.define(ORA_SESSION_INFO_PARAM, STRING, "")
+				.define(ORA_CLIENT_ID_PARAM, STRING, "")
+				.define(LAST_SEQ_NOTIFIER_PARAM, STRING, "")
+				.define(LAST_SEQ_NOTIFIER_FILE_PARAM, STRING, "")
+				.define(KEY_OVERRIDE_PARAM, LIST, "")
+				.define(CONC_TRANSACTIONS_THRESHOLD_PARAM, INT, 0)
+				.define(REDUCE_LOAD_MS_PARAM, INT, REDUCE_LOAD_MS_DEFAULT)
+				.define(AL_CAPACITY_PARAM, INT, AL_CAPACITY_DEFAULT)
+				.define(IGNORE_STORED_OFFSET_PARAM, BOOLEAN, IGNORE_STORED_OFFSET_DEFAULT)
 				// Redo Miner only!
-				.define(REDO_FILE_NAME_CONVERT_PARAM, STRING, "", HIGH, REDO_FILE_NAME_CONVERT_DOC)
-				.define(REDO_FILE_MEDIUM_PARAM, STRING, REDO_FILE_MEDIUM_FS,
-						ConfigDef.ValidString.in(
-								REDO_FILE_MEDIUM_FS,
-								REDO_FILE_MEDIUM_ASM,
-								REDO_FILE_MEDIUM_SSH,
-								REDO_FILE_MEDIUM_SMB,
-								REDO_FILE_MEDIUM_BFILE,
-								REDO_FILE_MEDIUM_TRANSFER),
-						HIGH, REDO_FILE_MEDIUM_DOC)
-				.define(ASM_JDBC_URL_PARAM, STRING, "", LOW, ASM_JDBC_URL_DOC)
-				.define(ASM_USER_PARAM, STRING, "", LOW, ASM_USER_DOC)
-				.define(ASM_PASSWORD_PARAM, PASSWORD, "", LOW, ASM_PASSWORD_DOC)
-				.define(ASM_READ_AHEAD_PARAM, BOOLEAN, ASM_READ_AHEAD_DEFAULT, LOW, ASM_READ_AHEAD_DOC)
-				.define(ASM_RECONNECT_INTERVAL_MS_PARAM, LONG, ASM_RECONNECT_INTERVAL_MS_DEFAULT, LOW, ASM_RECONNECT_INTERVAL_MS_DOC)
-				.define(ASM_PRIVILEGE_PARAM, STRING, ASM_PRIVILEGE_DEFAULT,
-						ConfigDef.ValidString.in(
-								ASM_PRIVILEGE_SYSASM,
-								ASM_PRIVILEGE_SYSDBA),
-						HIGH, ASM_PRIVILEGE_DOC)
-				.define(SSH_HOST_PARAM, STRING, "", LOW, SSH_HOST_DOC)
-				.define(SSH_PORT_PARAM, INT, SSH_PORT_DEFAULT, LOW, SSH_PORT_DOC)
-				.define(SSH_USER_PARAM, STRING, "", LOW, SSH_USER_DOC)
-				.define(SSH_KEY_PARAM, PASSWORD, "", LOW, SSH_KEY_DOC)
-				.define(SSH_PASSWORD_PARAM, PASSWORD, "", LOW, SSH_PASSWORD_DOC)
-				.define(SSH_RECONNECT_INTERVAL_MS_PARAM, LONG, SSH_RECONNECT_INTERVAL_MS_DEFAULT, LOW, SSH_RECONNECT_INTERVAL_MS_DOC)
-				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, BOOLEAN, false, MEDIUM, SSH_STRICT_HOST_KEY_CHECKING_DOC)
-				.define(SSH_PROVIDER_PARAM, STRING, SSH_PROVIDER_DEFAULT,
-						ConfigDef.ValidString.in(
-								SSH_PROVIDER_MAVERICK,
-								SSH_PROVIDER_SSHJ),
-						LOW, SSH_PROVIDER_DOC)
-				.define(SSH_UNCONFIRMED_READS_PARAM, INT, SSH_UNCONFIRMED_READS_DEFAULT, LOW, SSH_UNCONFIRMED_READS_DOC)
-				.define(SSH_BUFFER_SIZE_PARAM, INT, SSH_BUFFER_SIZE_DEFAULT, LOW, SSH_BUFFER_SIZE_DOC)
-				.define(SMB_SERVER_PARAM, STRING, "", LOW, SMB_SERVER_DOC)
-				.define(SMB_SHARE_ONLINE_PARAM, STRING, "", LOW, SMB_SHARE_ONLINE_DOC)
-				.define(SMB_SHARE_ARCHIVE_PARAM, STRING, "", LOW, SMB_SHARE_ARCHIVE_DOC)
-				.define(SMB_USER_PARAM, STRING, "", LOW, SMB_USER_DOC)
-				.define(SMB_PASSWORD_PARAM, PASSWORD, "", LOW, SMB_PASSWORD_DOC)
-				.define(SMB_DOMAIN_PARAM, STRING, "", LOW, SMB_DOMAIN_DOC)
-				.define(SMB_TIMEOUT_MS_PARAM, INT, SMB_TIMEOUT_MS_DEFAULT, LOW, SMB_TIMEOUT_MS_DOC)
-				.define(SMB_SOCKET_TIMEOUT_MS_PARAM, INT, SMB_SOCKET_TIMEOUT_MS_DEFAULT, LOW, SMB_SOCKET_TIMEOUT_MS_DOC)
-				.define(SMB_RECONNECT_INTERVAL_MS_PARAM, LONG, SMB_RECONNECT_INTERVAL_MS_DEFAULT, LOW, SMB_RECONNECT_INTERVAL_MS_DOC)
-				.define(SMB_BUFFER_SIZE_PARAM, INT, SMB_BUFFER_SIZE_DEFAULT, LOW, SMB_BUFFER_SIZE_DOC)
-				.define(BFILE_DIR_ONLINE_PARAM, STRING, "", LOW, BFILE_DIR_ONLINE_DOC)
-				.define(BFILE_DIR_ARCHIVE_PARAM, STRING, "", LOW, BFILE_DIR_ARCHIVE_DOC)
-				.define(BFILE_RECONNECT_INTERVAL_MS_PARAM, LONG, BFILE_RECONNECT_INTERVAL_MS_DEFAULT, LOW, BFILE_RECONNECT_INTERVAL_MS_DOC)
-				.define(BFILE_BUFFER_SIZE_PARAM, INT, BFILE_BUFFER_SIZE_DEFAULT, LOW, BFILE_BUFFER_SIZE_DOC)
-				.define(TDE_WALLET_PATH_PARAM, STRING, "", LOW, TDE_WALLET_PATH_DOC)
-				.define(TDE_WALLET_PASSWORD_PARAM, PASSWORD, "", LOW, TDE_WALLET_PASSWORD_DOC)
-				.define(ALL_UPDATES_PARAM, BOOLEAN, ALL_UPDATES_DEFAULT, LOW, ALL_UPDATES_DOC)
-				.define(PRINT_UNABLE2MAP_COL_ID_WARNING_PARAM, BOOLEAN, PRINT_UNABLE2MAP_COL_ID_WARNING_DEFAULT, LOW, PRINT_UNABLE2MAP_COL_ID_WARNING_DOC)
-				.define(SUPPLEMENTAL_LOGGING_PARAM, STRING, SUPPLEMENTAL_LOGGING_DEFAULT,
-						ConfigDef.ValidString.in(
-								SUPPLEMENTAL_LOGGING_ALL,
-								SUPPLEMENTAL_LOGGING_NONE),
-						HIGH, SUPPLEMENTAL_LOGGING_DOC)
-				.define(STOP_ON_MISSED_LOG_FILE_PARAM, BOOLEAN, STOP_ON_MISSED_LOG_FILE_DEFAULT, HIGH, STOP_ON_MISSED_LOG_FILE_DOC)
-				.define(TABLES_IN_PROCESS_SIZE_PARAM, INT, TABLES_IN_PROCESS_SIZE_DEFAULT, LOW, TABLES_IN_PROCESS_SIZE_DOC)
-				.define(TABLES_OUT_OF_SCOPE_SIZE_PARAM, INT, TABLES_OUT_OF_SCOPE_SIZE_DEFAULT, LOW, TABLES_OUT_OF_SCOPE_SIZE_DOC)
-				.define(TRANS_IN_PROCESS_SIZE_PARAM, INT, TRANS_IN_PROCESS_SIZE_DEFAULT, LOW, TRANS_IN_PROCESS_SIZE_DOC)
-				.define(EMITTER_TIMEOUT_MS_PARAM, INT, EMITTER_TIMEOUT_MS_DEFAULT, LOW, EMITTER_TIMEOUT_MS_DOC)
-				.define(OFFHEAP_SIZE_PARAM, STRING, OFFHEAP_SIZE_DEFAULT,
-						ConfigDef.ValidString.in(
-								OFFHEAP_SIZE_FULL, OFFHEAP_SIZE_HALF, OFFHEAP_SIZE_QUARTER, OFFHEAP_SIZE_HALFQUARTER),
-						LOW, OFFHEAP_SIZE_DOC)
-				.define(TRANSFER_DIR_STAGE_PARAM, STRING, "", LOW, TRANSFER_DIR_STAGE_DOC);
+				.define(REDO_FILE_NAME_CONVERT_PARAM, STRING, "")
+				.define(REDO_FILE_MEDIUM_PARAM, STRING, REDO_FILE_MEDIUM_FS)
+				.define(ASM_JDBC_URL_PARAM, STRING, "")
+				.define(ASM_USER_PARAM, STRING, "")
+				.define(ASM_PASSWORD_PARAM, PASSWORD, "")
+				.define(ASM_READ_AHEAD_PARAM, BOOLEAN, ASM_READ_AHEAD_DEFAULT)
+				.define(ASM_RECONNECT_INTERVAL_MS_PARAM, LONG, ASM_RECONNECT_INTERVAL_MS_DEFAULT)
+				.define(ASM_PRIVILEGE_PARAM, STRING, ASM_PRIVILEGE_DEFAULT)
+				.define(SSH_HOST_PARAM, STRING, "")
+				.define(SSH_PORT_PARAM, INT, SSH_PORT_DEFAULT)
+				.define(SSH_USER_PARAM, STRING, "")
+				.define(SSH_KEY_PARAM, PASSWORD, "")
+				.define(SSH_PASSWORD_PARAM, PASSWORD, "")
+				.define(SSH_RECONNECT_INTERVAL_MS_PARAM, LONG, SSH_RECONNECT_INTERVAL_MS_DEFAULT)
+				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, BOOLEAN, false)
+				.define(SSH_PROVIDER_PARAM, STRING, SSH_PROVIDER_DEFAULT)
+				.define(SSH_UNCONFIRMED_READS_PARAM, INT, SSH_UNCONFIRMED_READS_DEFAULT)
+				.define(SSH_BUFFER_SIZE_PARAM, INT, SSH_BUFFER_SIZE_DEFAULT)
+				.define(SMB_SERVER_PARAM, STRING, "")
+				.define(SMB_SHARE_ONLINE_PARAM, STRING, "")
+				.define(SMB_SHARE_ARCHIVE_PARAM, STRING, "")
+				.define(SMB_USER_PARAM, STRING, "")
+				.define(SMB_PASSWORD_PARAM, PASSWORD, "")
+				.define(SMB_DOMAIN_PARAM, STRING, "")
+				.define(SMB_TIMEOUT_MS_PARAM, INT, SMB_TIMEOUT_MS_DEFAULT)
+				.define(SMB_SOCKET_TIMEOUT_MS_PARAM, INT, SMB_SOCKET_TIMEOUT_MS_DEFAULT)
+				.define(SMB_RECONNECT_INTERVAL_MS_PARAM, LONG, SMB_RECONNECT_INTERVAL_MS_DEFAULT)
+				.define(SMB_BUFFER_SIZE_PARAM, INT, SMB_BUFFER_SIZE_DEFAULT)
+				.define(BFILE_DIR_ONLINE_PARAM, STRING, "")
+				.define(BFILE_DIR_ARCHIVE_PARAM, STRING, "")
+				.define(BFILE_RECONNECT_INTERVAL_MS_PARAM, LONG, BFILE_RECONNECT_INTERVAL_MS_DEFAULT)
+				.define(BFILE_BUFFER_SIZE_PARAM, INT, BFILE_BUFFER_SIZE_DEFAULT)
+				.define(TDE_WALLET_PATH_PARAM, STRING, "")
+				.define(TDE_WALLET_PASSWORD_PARAM, PASSWORD, "")
+				.define(ALL_UPDATES_PARAM, BOOLEAN, ALL_UPDATES_DEFAULT)
+				.define(PRINT_UNABLE2MAP_COL_ID_WARNING_PARAM, BOOLEAN, PRINT_UNABLE2MAP_COL_ID_WARNING_DEFAULT)
+				.define(SUPPLEMENTAL_LOGGING_PARAM, STRING, SUPPLEMENTAL_LOGGING_DEFAULT)
+				.define(STOP_ON_MISSED_LOG_FILE_PARAM, BOOLEAN, STOP_ON_MISSED_LOG_FILE_DEFAULT)
+				.define(TABLES_IN_PROCESS_SIZE_PARAM, INT, TABLES_IN_PROCESS_SIZE_DEFAULT)
+				.define(TABLES_OUT_OF_SCOPE_SIZE_PARAM, INT, TABLES_OUT_OF_SCOPE_SIZE_DEFAULT)
+				.define(TRANS_IN_PROCESS_SIZE_PARAM, INT, TRANS_IN_PROCESS_SIZE_DEFAULT)
+				.define(EMITTER_TIMEOUT_MS_PARAM, INT, EMITTER_TIMEOUT_MS_DEFAULT)
+				.define(OFFHEAP_SIZE_PARAM, STRING, OFFHEAP_SIZE_DEFAULT)
+				.define(TRANSFER_DIR_STAGE_PARAM, STRING, "");
 	}
 
-	public KafkaSourceConnectorConfig(Map<String, String> originals) {
+	public GenericSourceConnectorConfig(Map<String, String> originals) {
 		super(config(), originals);
 		// parse numberColumnsMap
 		Map<String, String> numberMapParams = originals.entrySet().stream()
@@ -336,98 +272,18 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 
 	@Override
 	public TopicNameMapper getTopicNameMapper() {
-		final TopicNameMapper tnm;
-		final Class<?> clazz;
-		final Constructor<?> constructor;
-		try {
-			clazz = Class.forName(getString(TOPIC_MAPPER_PARAM));
-		} catch (ClassNotFoundException nfe) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Class '{}' specified as the parameter '{}' value was not found.\n" +
-					ExceptionUtils.getExceptionStackTrace(nfe) +
-					"\n" +
-					"=====================\n",
-					getString(TOPIC_MAPPER_PARAM), TOPIC_MAPPER_PARAM);
-			throw new ConnectException(nfe);
-		}
-		try {
-			constructor = clazz.getConstructor();
-		} catch (NoSuchMethodException nsme) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to get default constructor for the class '{}'.\n" +
-					ExceptionUtils.getExceptionStackTrace(nsme) +
-					"\n" +
-					"=====================\n",
-					getString(TOPIC_MAPPER_PARAM));
-			throw new ConnectException(nsme);
-		} 
-		
-		try {
-			tnm = (TopicNameMapper) constructor.newInstance();
-		} catch (SecurityException | 
-				InvocationTargetException | 
-				IllegalAccessException | 
-				InstantiationException e) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"'{}' while instantinating the class '{}'.\n" +
-					ExceptionUtils.getExceptionStackTrace(e) +
-					"\n" +
-					"=====================\n",
-					e.getMessage(),getString(TOPIC_MAPPER_PARAM));
-			throw new ConnectException(e);
-		}
-		return tnm;
+		//TODO
+		//TOPO Kafka specific, will be removed after changes in OraTable
+		//TODO
+		return null;
 	}
 
 	@Override
 	public SchemaNameMapper getSchemaNameMapper() {
-		final SchemaNameMapper snm;
-		final Class<?> clazz;
-		final Constructor<?> constructor;
-		try {
-			clazz = Class.forName(getString(SCHEMANAME_MAPPER_PARAM));
-		} catch (ClassNotFoundException nfe) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Class '{}' specified as the parameter '{}' value was not found.\n" +
-					ExceptionUtils.getExceptionStackTrace(nfe) +
-					"\n" +
-					"=====================\n",
-					getString(SCHEMANAME_MAPPER_PARAM), SCHEMANAME_MAPPER_PARAM);
-			throw new ConnectException(nfe);
-		}
-		try {
-			constructor = clazz.getConstructor();
-		} catch (NoSuchMethodException nsme) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to get default constructor for the class '{}'.\n" +
-					ExceptionUtils.getExceptionStackTrace(nsme) +
-					"\n" +
-					"=====================\n",
-					getString(SCHEMANAME_MAPPER_PARAM));
-			throw new ConnectException(nsme);
-		} 
-		
-		try {
-			snm = (SchemaNameMapper) constructor.newInstance();
-		} catch (SecurityException | 
-				InvocationTargetException | 
-				IllegalAccessException | 
-				InstantiationException e) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"'{}' while instantinating the class '{}'.\n" +
-					ExceptionUtils.getExceptionStackTrace(e) +
-					"\n" +
-					"=====================\n",
-					e.getMessage(),getString(SCHEMANAME_MAPPER_PARAM));
-			throw new ConnectException(e);
-		}
-		return snm;
+		//TODO
+		//TOPO Kafka specific, will be removed after changes in OraTable
+		//TODO
+		return null;
 	}
 
 	@Override
@@ -763,7 +619,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 
 	@Override
 	public String asmPassword() {	
-		return getPassword(ASM_PASSWORD_PARAM).value();
+		return getPassword(ASM_PASSWORD_PARAM);
 	}
 
 	@Override
@@ -798,12 +654,12 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 
 	@Override
 	public String sshKey() {
-		return getPassword(SSH_KEY_PARAM).value();
+		return getPassword(SSH_KEY_PARAM);
 	}
 
 	@Override
 	public String sshPassword() {
-		return getPassword(SSH_PASSWORD_PARAM).value();
+		return getPassword(SSH_PASSWORD_PARAM);
 	}
 
 	@Override
@@ -858,7 +714,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 
 	@Override
 	public String smbPassword() {
-		return getPassword(SMB_PASSWORD_PARAM).value();
+		return getPassword(SMB_PASSWORD_PARAM);
 	}
 
 	@Override
@@ -913,7 +769,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 
 	@Override
 	public String tdePassword() {
-		return getPassword(TDE_WALLET_PASSWORD_PARAM).value();
+		return getPassword(TDE_WALLET_PASSWORD_PARAM);
 	}
 
 	@Override

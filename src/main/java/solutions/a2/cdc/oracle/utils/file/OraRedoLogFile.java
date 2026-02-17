@@ -13,6 +13,24 @@
 
 package solutions.a2.cdc.oracle.utils.file;
 
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_DOMAIN_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SERVER_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ARCHIVE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ONLINE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_USER_PARAM;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOHLB;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTBF;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTBK;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTSG;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_1_CUSH;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_2_CRLK;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_4_OPEMREDO;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_10_URU;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_3_FRMT;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_12_RST;
+import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -39,7 +57,6 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.pool.OracleDataSource;
-import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.internals.OraCdcChange;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeUndo;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
@@ -49,22 +66,11 @@ import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFileFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSmbjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogSshjFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
+import solutions.a2.cdc.oracle.runtime.config.GenericSourceConnectorConfig;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
-
-import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTBK;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTSG;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOHLB;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTBF;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_12_RST;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_1_CUSH;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_2_CRLK;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_4_OPEMREDO;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_10_URU;
-import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_3_FRMT;
-import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 /**
  * 
@@ -182,16 +188,16 @@ public class OraRedoLogFile  {
 				System.exit(1);
 			}
 			final Map<String, String> smbProps = new HashMap<>();
-			smbProps.put("a2.smb.server", smbServer);
-			smbProps.put("a2.smb.share.online", shareName);
-			smbProps.put("a2.smb.share.archive", shareName);
-			smbProps.put("a2.smb.user", smbUser);
-			smbProps.put("a2.smb.password", smbPassword);
-			smbProps.put("a2.smb.domain", smbDomain);
+			smbProps.put(SMB_SERVER_PARAM, smbServer);
+			smbProps.put(SMB_SHARE_ONLINE_PARAM, shareName);
+			smbProps.put(SMB_SHARE_ARCHIVE_PARAM, shareName);
+			smbProps.put(SMB_USER_PARAM, smbUser);
+			smbProps.put(SMB_PASSWORD_PARAM, smbPassword);
+			smbProps.put(SMB_DOMAIN_PARAM, smbDomain);
 			redoFile = fileName;
 			try {
 				rlf = new OraCdcRedoLogSmbjFactory(
-						new OraCdcSourceConnectorConfig(smbProps),
+						new GenericSourceConnectorConfig(smbProps),
 						bu, true);
 			} catch (SQLException sqle) {
 				LOGGER.error(

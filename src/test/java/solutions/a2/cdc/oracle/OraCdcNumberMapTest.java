@@ -24,6 +24,9 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.Test;
 
+import solutions.a2.cdc.oracle.runtime.config.GenericSourceConnectorConfig;
+import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
+
 /**
  *  
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -45,18 +48,21 @@ public class OraCdcNumberMapTest {
 		// a2.number.map.[PDB_NAME.]SCHEMA_NAME.TABLE_NAME.COL_NAME_OR_PATTERN
 		// BOOL | BOOLEAN | BYTE | TINYINT | SHORT | SMALLINT | INT | INTEGER | LONG | BIGINT | FLOAT | DOUBLE | DECIMAL([P],S) | NUMERIC([P],S) 
 
-		final OraCdcSourceConnectorConfig config = new OraCdcSourceConnectorConfig(props);
+		final OraCdcSourceConnectorConfig configKafka = new KafkaSourceConnectorConfig(props);
+		final OraCdcSourceConnectorConfig configGeneric = new GenericSourceConnectorConfig(props);
 
 		final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
-			redefScottDept = config.tableNumberMapping("SCOTT", "DEPT");
+			redefScottDept = configKafka.tableNumberMapping("SCOTT", "DEPT");
 		final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
-			redefApInvAll = config.tableNumberMapping("EBS122", "AP", "AP_INVOICES_ALL");
+			redefApInvAll = configKafka.tableNumberMapping("EBS122", "AP", "AP_INVOICES_ALL");
 
+		assertEquals(redefScottDept, configGeneric.tableNumberMapping("SCOTT", "DEPT"));
+		assertEquals(redefApInvAll, configGeneric.tableNumberMapping("EBS122", "AP", "AP_INVOICES_ALL"));
 
-		assertEquals(config.columnNumberMapping(redefScottDept, "DEPTNO").getJdbcType(), Types.SMALLINT);
-		assertEquals(config.columnNumberMapping(redefApInvAll, "INVOICE_ID").getJdbcType(), Types.BIGINT);
+		assertEquals(configKafka.columnNumberMapping(redefScottDept, "DEPTNO").getJdbcType(), Types.SMALLINT);
+		assertEquals(configKafka.columnNumberMapping(redefApInvAll, "INVOICE_ID").getJdbcType(), Types.BIGINT);
 
-		assertEquals(config.columnNumberMapping(redefApInvAll, "LEGAL_ENTITY_ID").getJdbcType(), Types.INTEGER);
+		assertEquals(configKafka.columnNumberMapping(redefApInvAll, "LEGAL_ENTITY_ID").getJdbcType(), Types.INTEGER);
 
 	}
 }
