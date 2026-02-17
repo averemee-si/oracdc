@@ -13,6 +13,12 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.OraCdcParameters.FIRST_CHANGE_PARAM;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_RESTORE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_COMPLETED;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_EXECUTE;
+import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_IGNORE;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -43,14 +49,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
+import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
-
-import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_RESTORE;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_COMPLETED;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_EXECUTE;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_IGNORE;
 
 /**
  * 
@@ -119,12 +121,12 @@ public abstract class OraCdcTaskBase extends SourceTask {
 	public void start(Map<String, String> props) {
 		connectorName = props.get("name");
 		try {
-			config = new OraCdcSourceConnectorConfig(props);
+			config = new KafkaSourceConnectorConfig(props);
 		} catch (ConfigException ce) {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 		config.setConnectorName(connectorName);
-		batchSize = config.getInt(OraCdcParameters.BATCH_SIZE_PARAM);
+		batchSize = config.batchSize();
 		pollInterval = config.pollIntervalMs();
 		schemaType = config.schemaType();
 		restoreIncompleteRecord = config.getIncompleteDataTolerance() == INCOMPLETE_REDO_INT_RESTORE;
@@ -196,23 +198,23 @@ public abstract class OraCdcTaskBase extends SourceTask {
 				} else {
 					oraConnections = OraConnectionObjects.get4OraWallet(
 							connectorName,
-							config.getString(OraCdcParameters.CONNECTION_URL_PARAM), 
+							config.rdbmsUrl(), 
 							config.walletLocation());
 				}
-			} else if (StringUtils.isNotBlank(config.getString(OraCdcParameters.CONNECTION_USER_PARAM)) &&
-					StringUtils.isNotBlank(config.getPassword(OraCdcParameters.CONNECTION_PASSWORD_PARAM).value())) {
+			} else if (StringUtils.isNotBlank(config.rdbmsUser()) &&
+					StringUtils.isNotBlank(config.rdbmsPassword())) {
 				if (useRac) {
 					oraConnections = OraConnectionObjects.get4UserPassword(
 							connectorName,
 							config.racUrls(),
-							config.getString(OraCdcParameters.CONNECTION_USER_PARAM),
-							config.getPassword(OraCdcParameters.CONNECTION_PASSWORD_PARAM).value());					
+							config.rdbmsUser(),
+							config.rdbmsPassword());
 				} else {
 					oraConnections = OraConnectionObjects.get4UserPassword(
 							connectorName,
-							config.getString(OraCdcParameters.CONNECTION_URL_PARAM),
-							config.getString(OraCdcParameters.CONNECTION_USER_PARAM),
-							config.getPassword(OraCdcParameters.CONNECTION_PASSWORD_PARAM).value());
+							config.rdbmsUrl(),
+							config.rdbmsUser(),
+							config.rdbmsPassword());
 				}
 			} else {
 				throw new SQLException("Wrong connection parameters!");
@@ -481,7 +483,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 				// a2.first.change set in connector properties, restart data are not present
 				firstScn = config.startScn();
 				LOGGER.info("{}={} is set in connector properties, previous offset data is not available.",
-						config.startScnParam(), firstScn);
+						FIRST_CHANGE_PARAM, firstScn);
 				if ((Long.compareUnsigned(firstScn, firstAvailableScn) < 0)) {
 					LOGGER.warn(
 							"""
@@ -490,7 +492,7 @@ public abstract class OraCdcTaskBase extends SourceTask {
 							"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.
 							=====================
 							""",
-								config.startScnParam(), firstScn, config.startScnParam(), firstAvailableScn);
+								FIRST_CHANGE_PARAM, firstScn, FIRST_CHANGE_PARAM, firstAvailableScn);
 					firstScn = firstAvailableScn;
 				} else {
 					// We need to rewind, potentially

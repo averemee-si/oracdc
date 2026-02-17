@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.kafka;
+package solutions.a2.cdc.oracle.runtime.config;
 
 import static solutions.a2.cdc.oracle.OraCdcParameters.BATCH_SIZE_DEFAULT;
 import static solutions.a2.cdc.oracle.OraCdcParameters.BATCH_SIZE_DOC;
@@ -24,9 +24,6 @@ import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_USER_DOC;
 import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_USER_PARAM;
 import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_DEBEZIUM;
 import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_DOC;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_SINGLE;
 import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_KAFKA;
 import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_PARAM;
 import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_SINGLE;
@@ -63,7 +60,7 @@ import solutions.a2.cdc.oracle.OraCdcSourceBaseConfig;
  */
 public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourceBaseConfig {
 
-	private int schemaType = -1;
+	private final BaseConfig holder;
 
 	public static ConfigDef config() {
 		return new ConfigDef()
@@ -86,10 +83,12 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 
 	public KafkaSourceBaseConfig(Map<?, ?> originals) {
 		super(config(), originals);
+		holder = new BaseConfig(getString(SCHEMA_TYPE_PARAM));
 	}
 
 	public KafkaSourceBaseConfig(ConfigDef config, Map<?, ?> originals) {
 		super(config, originals);
+		holder = new BaseConfig(getString(SCHEMA_TYPE_PARAM));
 	}
 
 	@Override
@@ -124,13 +123,7 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 
 	@Override
 	public int schemaType() {
-		if (schemaType == -1)
-			switch (getString(SCHEMA_TYPE_PARAM)) {
-				case SCHEMA_TYPE_KAFKA -> schemaType = SCHEMA_TYPE_INT_KAFKA_STD;
-				case SCHEMA_TYPE_SINGLE -> schemaType = SCHEMA_TYPE_INT_SINGLE;
-				case SCHEMA_TYPE_DEBEZIUM -> schemaType = SCHEMA_TYPE_INT_DEBEZIUM;
-			}
-		return schemaType;
+		return holder.schemaType();
 	}
 
 	@Override

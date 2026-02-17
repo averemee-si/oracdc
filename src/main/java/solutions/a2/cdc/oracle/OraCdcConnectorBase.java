@@ -44,6 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
+import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
 import solutions.a2.cdc.oracle.utils.Version;
 
 /**
@@ -86,7 +87,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 		""";
 
 	private Map<String, String> connectorProperties;
-	private OraCdcSourceConnectorConfig config;
+	private KafkaSourceConnectorConfig config;
 
 	@Override
 	public String version() {
@@ -97,7 +98,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 	public void start(Map<String, String> props) {
 		LOGGER.info(LOGO);
 		try {
-			config = new OraCdcSourceConnectorConfig(props);
+			config = new KafkaSourceConnectorConfig(props);
 			connectorProperties = new HashMap<>();
 			connectorProperties.putAll(config.originalsStrings());
 			// Copy rest of params...
@@ -185,7 +186,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 		if (config.activateDistributed()) {
 			// When this set we need explicitly value of  a2.archived.log.catalog parameter
 			if (!OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName()
-					.equals(config.getString(ARCHIVED_LOG_CAT_PARAM))) {
+					.equals(config.classLogMinerName())) {
 				LOGGER.warn(
 						"""
 						
@@ -391,7 +392,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 
 	@Override
 	public ConfigDef config() {
-		return OraCdcSourceConnectorConfig.config();
+		return KafkaSourceConnectorConfig.config();
 	}
 
 	private void checkDeprecatedTnsParameters(final Map<String, String> props,

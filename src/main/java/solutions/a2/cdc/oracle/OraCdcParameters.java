@@ -648,6 +648,7 @@ public class OraCdcParameters {
 	public static final String SSH_STRICT_HOST_KEY_CHECKING_DOC = "SSH strict host key checking. Default - false.";
 	public static final String SSH_PROVIDER_MAVERICK = "maverick";
 	public static final String SSH_PROVIDER_SSHJ = "sshj";
+	public static final String SSH_PROVIDER_MINA = "mina";
 	public static final String SSH_PROVIDER_PARAM = "a2.ssh.provider";
 	public static final String SSH_PROVIDER_DEFAULT = SSH_PROVIDER_SSHJ;
 	public static final String SSH_PROVIDER_DOC =

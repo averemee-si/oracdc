@@ -743,7 +743,7 @@ public class OraColumn extends Column {
 	 * @param jdbcType
 	 * @param scale
 	 */
-	OraColumn(
+	public OraColumn(
 			final String columnName,
 			final int jdbcType,
 			final int scale) {

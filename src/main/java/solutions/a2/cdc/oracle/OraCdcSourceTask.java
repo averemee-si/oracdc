@@ -29,8 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.ucp.UniversalConnectionPoolException;
+import solutions.a2.cdc.oracle.runtime.config.KafkaSourceBaseConfig;
 import solutions.a2.cdc.oracle.utils.Version;
-import solutions.a2.kafka.KafkaSourceBaseConfig;
 import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD;
