@@ -18,12 +18,12 @@ import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.SQLXML;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_ERROR;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_SKIP;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.XML_DOC_BEGIN;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_ERROR;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_SKIP;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.sql.Connection;

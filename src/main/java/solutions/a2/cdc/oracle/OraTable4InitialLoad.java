@@ -51,6 +51,7 @@ import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
+import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
@@ -531,9 +532,9 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 					}
 				}
 				// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
-				if ((schemaType == OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
-						schemaType == OraCdcParameters.SCHEMA_TYPE_INT_SINGLE ||
-						schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+				if ((schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
+						schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE ||
+						schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 					valueStruct.put(columnName, columnValue);
 				}
 			}
@@ -642,7 +643,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 
 	public SourceRecord getSourceRecord() {
 		final long startNanos = System.nanoTime();
-		if (schemaType != OraCdcParameters.SCHEMA_TYPE_INT_SINGLE) {
+		if (schemaType != Parameters.SCHEMA_TYPE_INT_SINGLE) {
 			keyStruct = new Struct(keySchema);
 		}
 		valueStruct = new Struct(valueSchema);
@@ -652,7 +653,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			final Map<String, Object> offset = new HashMap<>();
 			offset.put("ROWNUM", tailerOffset);
 			SourceRecord sourceRecord = null;
-			if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+			if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 				final long ts = System.currentTimeMillis();
 				final Struct struct = new Struct(schema);
 				//TODO
@@ -675,7 +676,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						schema,
 						struct);
 			} else {
-				if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD) {
+				if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD) {
 					sourceRecord = new SourceRecord(
 							sourcePartition,
 							offset,
@@ -684,7 +685,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 							keyStruct,
 							valueSchema,
 							valueStruct);
-				} else if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_SINGLE) {
+				} else if (schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE) {
 					sourceRecord = new SourceRecord(
 							sourcePartition,
 							offset,

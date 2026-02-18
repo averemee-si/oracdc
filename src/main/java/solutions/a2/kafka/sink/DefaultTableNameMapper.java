@@ -20,7 +20,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.OraCdcParameters;
+import solutions.a2.cdc.oracle.runtime.config.Parameters;
 
 /**
  *
@@ -38,7 +38,7 @@ public class DefaultTableNameMapper implements TableNameMapper {
 
 	@Override
 	public void configure(final JdbcSinkConnectorConfig config) {
-		topicPrefix = config.getString(OraCdcParameters.TOPIC_PREFIX_PARAM);
+		topicPrefix = config.getString(Parameters.TOPIC_PREFIX_PARAM);
 		prefix = StringUtils.trim(config.getTableNamePrefix());
 		suffix = StringUtils.trim(config.getTableNameSuffix());
 		schemaType = config.getSchemaType();
@@ -47,8 +47,8 @@ public class DefaultTableNameMapper implements TableNameMapper {
 	@Override
 	public String getTableName(final SinkRecord record) {
 		final String tableName;
-		if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD ||
-				schemaType == OraCdcParameters.SCHEMA_TYPE_INT_SINGLE) {
+		if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD ||
+				schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE) {
 			if (StringUtils.isNotBlank(topicPrefix) &&
 					Strings.CS.startsWith(record.topic(), topicPrefix)) {
 				tableName = prefix + StringUtils.substring(record.topic(), topicPrefix.length()) + suffix;

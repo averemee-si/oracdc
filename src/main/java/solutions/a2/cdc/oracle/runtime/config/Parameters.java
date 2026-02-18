@@ -11,14 +11,14 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.config;
 
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcParameters {
+public class Parameters {
 
 	public static final int SCHEMA_TYPE_INT_DEBEZIUM = 1;
 	public static final int SCHEMA_TYPE_INT_KAFKA_STD = 2;

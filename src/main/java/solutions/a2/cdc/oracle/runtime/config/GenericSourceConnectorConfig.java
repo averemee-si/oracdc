@@ -19,7 +19,7 @@ import static solutions.a2.cdc.ParameterType.LONG;
 import static solutions.a2.cdc.ParameterType.LIST;
 import static solutions.a2.cdc.ParameterType.PASSWORD;
 import static solutions.a2.cdc.ParameterType.STRING;
-import static solutions.a2.cdc.oracle.OraCdcParameters.*;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.*;
 
 import java.io.File;
 import java.nio.file.Path;

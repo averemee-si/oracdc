@@ -13,7 +13,7 @@
 
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.OraCdcParameters.PK_TYPE_INT_ANY_UNIQUE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.PK_TYPE_INT_ANY_UNIQUE;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

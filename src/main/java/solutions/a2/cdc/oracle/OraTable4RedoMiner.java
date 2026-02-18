@@ -13,12 +13,12 @@
 
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_ERROR;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_SKIP;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_ERROR;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_SKIP;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.oracle.utils.BinaryUtils.getU24BE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 

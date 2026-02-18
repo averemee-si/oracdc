@@ -13,11 +13,11 @@
 
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.OraCdcParameters.FIRST_CHANGE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INCOMPLETE_REDO_INT_RESTORE;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_COMPLETED;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_EXECUTE;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INITIAL_LOAD_IGNORE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.FIRST_CHANGE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_RESTORE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INITIAL_LOAD_COMPLETED;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INITIAL_LOAD_EXECUTE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INITIAL_LOAD_IGNORE;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

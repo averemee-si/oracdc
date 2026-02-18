@@ -37,13 +37,13 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.OraCdcParameters;
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraXml;
+import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.kafka.sink.jmx.SinkTableInfo;
 
 import static java.sql.Types.BLOB;
@@ -98,7 +98,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		pkStringLength = config.getPkStringLength();
 		connectorMode = config.getConnectorMode();
 
-		if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 			LOGGER.debug("Schema type set to Debezium style.");
 			Struct source = (Struct)((Struct) record.value()).get("source");
 			this.tableOwner = source.getString("owner");
@@ -135,7 +135,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 						(!config.useAllColsOnDelete()) &&
 						connectorMode == JdbcSinkConnectorConfig.CONNECTOR_REPLICATE) {
 					final List<Field> keyFields;
-					if (this.schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+					if (this.schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 						keyFields = record.valueSchema().field("before").schema().fields();
 					} else {
 						//ParamConstants.SCHEMA_TYPE_INT_KAFKA_STD
@@ -639,8 +639,8 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		}
 		for (int i = 0; i < allColumns.size(); i++) {
 			final var oraColumn = allColumns.get(i);
-			if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD ||
-					(schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
+			if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD ||
+					(schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
 				try {
 					oraColumn.binder().bind(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;
@@ -777,9 +777,9 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		int columnNo = 1;
 		for (int i = 0; i < allColumns.size(); i++) {
 			final var oraColumn = allColumns.get(i);
-			if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD ||
-					schemaType == OraCdcParameters.SCHEMA_TYPE_INT_SINGLE ||
-					(schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
+			if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD ||
+					schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE ||
+					(schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
 				try {
 					oraColumn.binder().bind(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;

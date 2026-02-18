@@ -1,6 +1,6 @@
 package solutions.a2.cdc.oracle.utils.file;
 
-import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_TARGET_PORT_DEFAULT;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.DISTRIBUTED_TARGET_PORT_DEFAULT;
 
 import java.io.File;
 import java.io.FileOutputStream;

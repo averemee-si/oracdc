@@ -41,11 +41,11 @@ import solutions.a2.oracle.internals.Xid;
 import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1013;
-import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_EXCLUDE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_INCLUDE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_LIST_STYLE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_LIST_STYLE_STATIC;
-import static solutions.a2.cdc.oracle.OraCdcParameters.TABLE_LIST_STYLE_DYNAMIC;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.TABLE_EXCLUDE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.TABLE_INCLUDE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.TABLE_LIST_STYLE_DYNAMIC;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.TABLE_LIST_STYLE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.TABLE_LIST_STYLE_STATIC;
 
 /**
  * 

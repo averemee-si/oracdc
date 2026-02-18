@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.PROCESS_ONLINE_REDO_LOGS_PARAM;
+
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -28,8 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
-
-import static solutions.a2.cdc.oracle.OraCdcParameters.PROCESS_ONLINE_REDO_LOGS_PARAM;
 
 /**
  * 

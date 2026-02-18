@@ -13,12 +13,12 @@
 
 package solutions.a2.cdc.oracle.runtime.config;
 
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_DEBEZIUM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_INT_SINGLE;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_KAFKA;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SCHEMA_TYPE_SINGLE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_DEBEZIUM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_KAFKA_STD;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_SINGLE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_KAFKA;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_SINGLE;
 
 /**
  * 

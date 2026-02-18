@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceBaseConfig;
+import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.utils.ExceptionUtils;
@@ -71,7 +72,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 		if (StringUtils.isBlank(config.rdbmsUrl())) {
 			LOGGER.error("Database connection parameters are not properly set!\n'{}' must be set for running connector!",
-					OraCdcParameters.CONNECTION_URL_PARAM);
+					Parameters.CONNECTION_URL_PARAM);
 			throw new ConnectException("Database connection parameters are not properly set!");
 		}
 
@@ -90,8 +91,8 @@ public class OraCdcSourceConnector extends SourceConnector {
 			} else {
 				validConfig = false;
 				LOGGER.error("Database connection parameters are not properly set\n. Or wallet.location, or pair of {}/{} are not set",
-						OraCdcParameters.CONNECTION_USER_PARAM,
-						OraCdcParameters.CONNECTION_PASSWORD_PARAM);
+						Parameters.CONNECTION_USER_PARAM,
+						Parameters.CONNECTION_PASSWORD_PARAM);
 				throw new ConnectException("Database connection parameters are not properly set!");
 			}
 			LOGGER.trace("Oracle UCP successfully created.");
@@ -234,7 +235,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 				resultSet.next();
 				final Map<String, String> taskParam = new HashMap<>();
 
-				taskParam.put(OraCdcParameters.BATCH_SIZE_PARAM,
+				taskParam.put(Parameters.BATCH_SIZE_PARAM,
 					((Integer)config.batchSize()).toString());
 				config.pollIntervalMs(taskParam);
 				taskParam.put(TASK_PARAM_MASTER,
@@ -250,7 +251,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 				taskParam.put(TASK_PARAM_MV_SEQUENCE,
 					resultSet.getString("SEQUENCE"));
 				config.schemaType(taskParam);
-				taskParam.put(OraCdcParameters.TOPIC_PREFIX_PARAM,
+				taskParam.put(Parameters.TOPIC_PREFIX_PARAM,
 							config.topicOrPrefix());
 
 				configs.add(taskParam);

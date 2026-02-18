@@ -13,8 +13,8 @@
 
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_INT_TABLE;
-import static solutions.a2.cdc.oracle.OraCdcParameters.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.TOPIC_NAME_STYLE_INT_TABLE;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;

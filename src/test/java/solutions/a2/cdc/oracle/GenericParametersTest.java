@@ -14,12 +14,12 @@
 package solutions.a2.cdc.oracle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_DOMAIN_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_PASSWORD_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SERVER_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ARCHIVE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ONLINE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_USER_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_DOMAIN_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_SERVER_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_SHARE_ARCHIVE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_SHARE_ONLINE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_USER_PARAM;
 
 import java.util.HashMap;
 import java.util.UUID;

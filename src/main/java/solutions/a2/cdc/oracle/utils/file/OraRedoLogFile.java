@@ -13,12 +13,6 @@
 
 package solutions.a2.cdc.oracle.utils.file;
 
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_DOMAIN_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_PASSWORD_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SERVER_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ARCHIVE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_SHARE_ONLINE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.SMB_USER_PARAM;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOHLB;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTBF;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange.KCOCOTBK;
@@ -29,6 +23,12 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._14_4_OPEMREDO;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._24_10_URU;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._26_3_FRMT;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._5_12_RST;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_DOMAIN_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_SERVER_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_SHARE_ARCHIVE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_SHARE_ONLINE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_USER_PARAM;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.io.FileOutputStream;

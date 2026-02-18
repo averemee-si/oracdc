@@ -22,7 +22,7 @@ import static org.apache.kafka.common.config.ConfigDef.Type.LIST;
 import static org.apache.kafka.common.config.ConfigDef.Type.LONG;
 import static org.apache.kafka.common.config.ConfigDef.Type.PASSWORD;
 import static org.apache.kafka.common.config.ConfigDef.Type.STRING;
-import static solutions.a2.cdc.oracle.OraCdcParameters.*;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.*;
 
 import java.io.File;
 import java.lang.reflect.Constructor;

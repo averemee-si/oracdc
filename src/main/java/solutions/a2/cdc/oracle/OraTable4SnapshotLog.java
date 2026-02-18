@@ -49,6 +49,7 @@ import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
+import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -249,7 +250,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 					pkColumns.put(column.getColumnName(), column);
 					// Schema addition
 					keySchemaBuilder.field(column.getColumnName(), column.getSchema());
-					if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+					if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
 					}
 					if (mViewFirstColumn) {
@@ -366,7 +367,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 					LOGGER.trace("END: Prepare Kafka Connect offset");
 				}
 
-				if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+				if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 					final Struct struct = new Struct(schema);
 					final Struct source = rdbmsInfo.getStruct(
 							null,
@@ -390,7 +391,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 							schema,
 							struct);
 					result.add(sourceRecord);
-				} else if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD) {
+				} else if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD) {
 					final SourceRecord sourceRecord = new SourceRecord(
 							(kafkaConnectTopic == null) ? null : sourcePartition,
 							(kafkaConnectTopic == null) ? null : offset,
@@ -528,7 +529,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 					stmtMaster.setString(bindNo, columnName);
 				break;
 			}
-			if (schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM)
+			if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM)
 				valueStruct.put(columnName, keyStruct.get(columnName));
 			bindNo++;
 		}
@@ -758,9 +759,9 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 				keyStruct.put(columnName, columnValue);
 			}
 			// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
-			if ((schemaType == OraCdcParameters.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
-					schemaType == OraCdcParameters.SCHEMA_TYPE_INT_SINGLE ||
-					schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+			if ((schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
+					schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE ||
+					schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 				valueStruct.put(columnName, columnValue);
 			}
 		}
@@ -773,7 +774,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 		allColumns.add(rowIdColumn);
 		pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
 		keySchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
-		if (this.schemaType == OraCdcParameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (this.schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 			valueSchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
 		}
 	}

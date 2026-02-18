@@ -13,19 +13,19 @@
 
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.OraCdcParameters.INTERNAL_DG4RAC_THREAD_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.INTERNAL_RAC_URLS_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.ARCHIVED_LOG_CAT_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.MAKE_DISTRIBUTED_ACTIVE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_WALLET_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_URL_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.MAKE_STANDBY_ACTIVE_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_WALLET_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.STANDBY_URL_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_URL_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_USER_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.CONNECTION_PASSWORD_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcParameters.USE_RAC_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.ARCHIVED_LOG_CAT_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.CONNECTION_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.CONNECTION_URL_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.CONNECTION_USER_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.DISTRIBUTED_URL_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.DISTRIBUTED_WALLET_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INTERNAL_DG4RAC_THREAD_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INTERNAL_RAC_URLS_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.MAKE_DISTRIBUTED_ACTIVE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.MAKE_STANDBY_ACTIVE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.STANDBY_URL_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.STANDBY_WALLET_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.USE_RAC_PARAM;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
+import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.cdc.oracle.utils.Version;
 
 /**
@@ -133,7 +134,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 
 		// V1.1.0 - a2.jdbc.url is mandatory parameter! No more separate a2.tns.admin and a2.tns.alias!!!
 		checkDeprecatedTnsParameters(
-				props, "a2.tns.admin", "a2.tns.alias", OraCdcParameters.CONNECTION_URL_PARAM);
+				props, "a2.tns.admin", "a2.tns.alias", Parameters.CONNECTION_URL_PARAM);
 		checkDeprecatedTnsParameters(
 				props, "a2.distributed.tns.admin", "a2.distributed.tns.alias", DISTRIBUTED_URL_PARAM);
 

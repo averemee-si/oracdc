@@ -13,7 +13,7 @@
 
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.OraCdcParameters.DISTRIBUTED_TARGET_HOST;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.DISTRIBUTED_TARGET_HOST;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
