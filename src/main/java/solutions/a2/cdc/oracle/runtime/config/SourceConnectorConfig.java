@@ -108,8 +108,8 @@ public class SourceConnectorConfig {
 	private final int transactionsThreshold;
 	private LastProcessedSeqNotifier lpsn = null;
 	private OraCdcLobTransformationsIntf transformLobsImpl = null;
+	private Class<?> classLogMiner;
 	// Redo Miner only!
-//	private boolean msWindows = false;
 	private String fileSeparator = File.separator;
 	private final String fileNameConvertParam;
 	private boolean fileNameConversion = false;
@@ -507,6 +507,27 @@ public class SourceConnectorConfig {
 			flags |= OFF_HEAP_QUARTER;
 		else if (Strings.CI.equals(paramsRecord.offHeapSize(), OFFHEAP_SIZE_HALFQUARTER))
 			flags |= OFF_HEAP_HALFQUARTER;
+		//
+		// classLogMiner
+		//
+		if (StringUtils.isBlank(paramsRecord.classLogMiner()))
+			classLogMiner = null;
+		else {
+			try {
+				classLogMiner = Class.forName(paramsRecord.classLogMiner());
+			} catch (ClassNotFoundException nfe) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						Class '{}' specified as the parameter '{}' value was not found.
+						{}
+						=====================
+						
+						""", paramsRecord.classLogMiner(),
+						LOB_TRANSFORM_CLASS_PARAM, ExceptionUtils.getExceptionStackTrace(nfe));
+			}
+		}
 	}
 
 	List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
@@ -766,6 +787,10 @@ public class SourceConnectorConfig {
 			else
 				return OFFHEAP_SIZE_HALFQUARTER_INT;
 		}
+	}
+
+	Class<?> classLogMiner() {
+		return classLogMiner;
 	}
 
 }

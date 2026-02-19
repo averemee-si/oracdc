@@ -33,5 +33,6 @@ record ParamsRecord(
 		String medium,
 		String sshProvider,
 		String supplementalAll,
-		String offHeapSize) {
+		String offHeapSize,
+		String classLogMiner) {
 }

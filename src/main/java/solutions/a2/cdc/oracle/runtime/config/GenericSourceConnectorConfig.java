@@ -193,7 +193,8 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 				getString(REDO_FILE_MEDIUM_PARAM),
 				getString(SSH_PROVIDER_PARAM),
 				getString(SUPPLEMENTAL_LOGGING_PARAM),
-				getString(OFFHEAP_SIZE_PARAM)));
+				getString(OFFHEAP_SIZE_PARAM),
+				getString(ARCHIVED_LOG_CAT_PARAM)));
 	}
 
 	@Override
@@ -528,8 +529,8 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 	}
 
 	@Override
-	public Class<?> classLogMiner() throws ClassNotFoundException {
-		return Class.forName(getString(ARCHIVED_LOG_CAT_PARAM));
+	public Class<?> classLogMiner() {
+		return holder.classLogMiner();
 	}
 
 	@Override

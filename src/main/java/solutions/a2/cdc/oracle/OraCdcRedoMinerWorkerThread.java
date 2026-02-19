@@ -30,13 +30,11 @@ import java.util.concurrent.BlockingQueue;
 
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Triple;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
-import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceRedoMinerTask;
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
@@ -72,7 +70,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private static final String SQL_STATE_REWIND = "RWND00";
 	private static final int SMALL_MAGIC_WAIT = 21;
 
-	private final KafkaSourceRedoMinerTask task;
+	private final OraCdcTaskBase task;
 	private final OraCdcSourceConnMgmt metrics;
 	private boolean redoMinerReady = false;
 	private final OraRedoMiner redoMiner;
@@ -100,7 +98,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final OraCdcRedoMinerEmitterThread emitter;
 
 	public OraCdcRedoMinerWorkerThread(
-			final KafkaSourceRedoMinerTask task,
+			final OraCdcTaskBase task,
 			final OraCdcRedoMinerEmitterThread emitter,
 			final Triple<Long, RedoByteAddress, Long> startFrom,
 			final int[] conUids,
@@ -529,32 +527,32 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			} catch (IOException sftpe) {
 				redoMinerNext(lastScn, lastRba, lastSubScn, false);
 			} catch (Exception e) {
-				final StringBuilder sb = new StringBuilder(0x400);
-				sb.append("\n=====================\n");
-				sb
-					.append("Exception: ")
-					.append(e.getMessage());
+				var sqlError = new StringBuilder();
 				if (e instanceof SQLException) {
 					SQLException sqle = (SQLException) e;
-					sb
-						.append("\nSQL errorCode = ")
+					sqlError
+						.append("\n")
+						.append("SQL errorCode = ")
 						.append(sqle.getErrorCode())
 						.append(", SQL state = '")
 						.append(sqle.getSQLState())
 						.append("'");
 				}
-				sb
-					.append("\nLast read row information: SCN=")
-					.append(lastScn)
-					.append(", RBA=")
-					.append(lastRba.toString())
-					.append(", SUBSCN=")
-					.append(lastSubScn)
-					.append("\n=====================\n");
-				LOGGER.error(sb.toString());
+				LOGGER.error(
+						"""
+						
+						=====================
+						{} {}
+						Last read row information: SCN={}, RS_ID='{}', SUBSCN={}
+						{}
+						=====================
+						
+						""", e.getMessage(), sqlError.toString(),
+						lastScn, lastRba, lastSubScn,
+						ExceptionUtils.getExceptionStackTrace(e));
 				running.set(false);
 				task.stop(false);
-				throw new ConnectException(e);
+				throw new IllegalArgumentException(e);
 			}
 		} // while (runLatch.getCount() > 0)
 		running.set(false);
@@ -779,7 +777,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 						=====================
 						
 						""", xid, duplicateXid.xid());
-				throw new ConnectException("Duplicate XID/hash function error!");
+				throw new IllegalArgumentException("Duplicate XID/hash function error!");
 			}
 			createTransactionPrefix(xid, lastRba);
 			sortedByFirstScn.put(xid,
@@ -828,7 +826,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 							=====================
 							
 							""", attempt, System.currentTimeMillis() - redoMinerReadyStart);
-					throw new ConnectException(sqle);
+					throw new IllegalArgumentException(sqle);
 				} else if (runLatch.getCount() < 1)
 					return;
 				else if (Strings.CS.equals(sqle.getSQLState(), SQL_STATE_REWIND)) {

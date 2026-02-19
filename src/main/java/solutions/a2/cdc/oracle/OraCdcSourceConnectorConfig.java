@@ -89,7 +89,7 @@ public interface OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	public boolean useOffHeapMemory();
 	public int fetchSize();
 	public boolean logMinerTrace();
-	public Class<?> classLogMiner() throws ClassNotFoundException;
+	public Class<?> classLogMiner();
 	public String classLogMinerName();
 	public boolean activateDistributed();
 	public String distributedUrl();
