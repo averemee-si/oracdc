@@ -19,6 +19,8 @@ import org.apache.kafka.connect.connector.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceRedoMinerTask;
+
 
 /**
  * 
@@ -42,7 +44,7 @@ public class OraCdcRedoMinerConnector extends OraCdcConnectorBase {
 
 	@Override
 	public Class<? extends Task> taskClass() {
-		return OraCdcRedoMinerTask.class;
+		return KafkaSourceRedoMinerTask.class;
 	}
 
 }

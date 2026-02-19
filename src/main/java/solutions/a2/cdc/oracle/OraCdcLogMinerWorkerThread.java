@@ -45,6 +45,7 @@ import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.CHAR;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
+import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceLogMinerTask;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
@@ -69,7 +70,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private static final int TRANS_PREFIX = 8;
 	private static final byte[] SQUEEZE_PATTERN = "HEXTORAW(".getBytes(US_ASCII);
 
-	private final OraCdcLogMinerTask task;
+	private final KafkaSourceLogMinerTask task;
 	private final OraCdcSourceConnMgmt metrics;
 	private boolean logMinerReady = false;
 	private final OraLogMiner logMiner;
@@ -107,7 +108,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final long logMinerReconnectIntervalMs;
 
 	public OraCdcLogMinerWorkerThread(
-			final OraCdcLogMinerTask task,
+			final KafkaSourceLogMinerTask task,
 			final OraCdcDictionaryChecker checker,
 			final long firstScn,
 			final String mineDataSql,

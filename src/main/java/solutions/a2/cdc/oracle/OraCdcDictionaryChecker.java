@@ -67,7 +67,7 @@ public class OraCdcDictionaryChecker {
 	private PreparedStatement psCheckTable;
 	private boolean logMiner;
 
-	OraCdcDictionaryChecker(
+	public OraCdcDictionaryChecker(
 			final OraCdcTaskBase task,
 			final Map<Long, OraTable> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
@@ -76,7 +76,7 @@ public class OraCdcDictionaryChecker {
 		this(task, false, tablesInProcessing, tablesOutOfScope, checkTableSql, null, null, metrics);
 	}
 
-	OraCdcDictionaryChecker(
+	public OraCdcDictionaryChecker(
 			final OraCdcTaskBase task,
 			final boolean staticObjIds,
 			final Map<Long, OraTable> tablesInProcessing,
@@ -109,11 +109,11 @@ public class OraCdcDictionaryChecker {
 		this.connection = oraConnections.getConnection();
 		this.metrics = metrics;
 		this.partitionsInProcessing = new HashMap<>();
-		logMiner = task.config.logMiner();
+		logMiner = config.logMiner();
 		initStatements();
 	}
 
-	OraTable getTable(final long combinedDataObjectId) throws SQLException {
+	public OraTable getTable(final long combinedDataObjectId) throws SQLException {
 		return getTable(
 				combinedDataObjectId,
 				(int) combinedDataObjectId,
@@ -274,7 +274,7 @@ public class OraCdcDictionaryChecker {
 				checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 	}
 
-	void printConsistencyError(final OraCdcTransaction transaction, final OraCdcStatementBase stmt) {
+	public void printConsistencyError(final OraCdcTransaction transaction, final OraCdcStatementBase stmt) {
 		final StringBuilder sb = new StringBuilder(0x800);
 		sb
 			.append("\n=====================\n")

@@ -143,7 +143,7 @@ public class OraTable4LogMiner extends OraTable {
 	void addLobColumnId(final int columnId) {
 	}
 
-	SourceRecord parseRedoRecord(
+	public SourceRecord parseRedoRecord(
 			final OraCdcLogMinerStatement stmt,
 			final List<OraCdcLargeObjectHolder> lobs,
 			final OraCdcTransaction transaction,

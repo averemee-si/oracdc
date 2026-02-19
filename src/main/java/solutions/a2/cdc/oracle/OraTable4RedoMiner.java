@@ -127,7 +127,7 @@ public class OraTable4RedoMiner extends OraTable {
 		lobColumnIds.add(columnId);
 	}
 
-	SourceRecord parseRedoRecord(
+	public SourceRecord parseRedoRecord(
 			final OraCdcRedoMinerStatement stmt,
 			final OraCdcTransaction transaction,
 			final Map<String, Object> offset,

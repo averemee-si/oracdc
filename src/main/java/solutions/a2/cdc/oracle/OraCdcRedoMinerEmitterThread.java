@@ -23,7 +23,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.Strings;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +38,7 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerEmitterThread.class);
 
-	private final OraCdcRedoMinerTask task;
+	private final OraCdcTaskBase task;
 	private final CountDownLatch runLatch;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
 	private final BlockingQueue<OraCdcRawTransaction> rawTransactions;
@@ -53,15 +52,15 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 	private final int[] offHeapSize;
 	private boolean coolDown = false;
 
-	public OraCdcRedoMinerEmitterThread(final OraCdcRedoMinerTask task, final BlockingQueue<OraCdcRawTransaction> rawTransactions, final BlockingQueue<OraCdcTransaction> committedTransactions) throws SQLException {
+	public OraCdcRedoMinerEmitterThread(final OraCdcTaskBase task, final BlockingQueue<OraCdcRawTransaction> rawTransactions, final BlockingQueue<OraCdcTransaction> committedTransactions) throws SQLException {
 		LOGGER.info("Initializing oracdc Redo Miner emitter thread");
 		this.task = task;
 		runLatch = task.runLatch();
 		this.committedTransactions = committedTransactions;
 		this.rawTransactions = rawTransactions;
 		timeout = task.config().emitterTimeoutMs();
-		useChronicleQueue = task.useChronicleQueue;
-		if (task.processLobs)
+		useChronicleQueue = task.config().useOffHeapMemory();
+		if (task.config().processLobs())
 			lobStatus = REDOMINER;
 		else
 			lobStatus = NOT_AT_ALL;
@@ -100,7 +99,7 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 						transaction = null;
 				} catch (SQLException | IOException e) {
 					task.stop();
-					throw new ConnectException(e);
+					throw new IllegalArgumentException(e);
 				}
 			} else {
 				try {
@@ -149,7 +148,7 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 							""", cqe.getMessage(),
 							ExceptionUtils.getExceptionStackTrace(cqe));
 					task.stop();
-					throw new ConnectException(cqe);
+					throw new IllegalArgumentException(cqe);
 				}
 			}
 		}
@@ -165,9 +164,9 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 				lastException != null ? ExceptionUtils.getExceptionStackTrace(lastException) : "");
 		task.stop();
 		if (lastException != null)
-			throw new ConnectException(lastException);
+			throw new IllegalArgumentException(lastException);
 		else
-			throw new ConnectException("Unable to create Chronicle Queue!");
+			throw new IllegalArgumentException("Unable to create Chronicle Queue!");
 	}
 
 	boolean coolDown() {

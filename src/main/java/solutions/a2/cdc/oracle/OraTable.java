@@ -668,7 +668,7 @@ public abstract class OraTable extends OraTable4SourceConnector {
 		}
 	}
 
-	int processDdl(final Connection connection,
+	public int processDdl(final Connection connection,
 			final OraCdcStatementBase stmt,
 			final String xid,
 			final long commitScn) throws SQLException {

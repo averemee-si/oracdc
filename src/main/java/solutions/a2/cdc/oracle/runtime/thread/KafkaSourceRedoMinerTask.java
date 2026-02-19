@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.thread;
 
 import java.nio.file.InvalidPathException;
 import java.sql.Connection;
@@ -34,12 +34,21 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcDictionaryChecker;
+import solutions.a2.cdc.oracle.OraCdcRawTransaction;
+import solutions.a2.cdc.oracle.OraCdcRedoMinerEmitterThread;
+import solutions.a2.cdc.oracle.OraCdcRedoMinerStatement;
+import solutions.a2.cdc.oracle.OraCdcRedoMinerWorkerThread;
+import solutions.a2.cdc.oracle.OraCdcTaskBase;
+import solutions.a2.cdc.oracle.OraDictSqlTexts;
+import solutions.a2.cdc.oracle.OraTable4RedoMiner;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.utils.ExceptionUtils;
 
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DDL;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_1013;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.TABLE_EXCLUDE_PARAM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.TABLE_INCLUDE_PARAM;
@@ -52,9 +61,9 @@ import static solutions.a2.cdc.oracle.runtime.config.Parameters.TABLE_LIST_STYLE
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcRedoMinerTask extends OraCdcTaskBase {
+public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements OraCdcTaskBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerTask.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceRedoMinerTask.class);
 
 	private OraCdcSourceConnMgmt metrics;
 	private Map<Xid, OraCdcRawTransaction> activeTransactions;
@@ -273,7 +282,7 @@ public class OraCdcRedoMinerTask extends OraCdcTaskBase {
 									throw new ConnectException("Strange consistency issue!!!");
 								}
 								try {
-									if (stmt.getOperation() == OraCdcV$LogmnrContents.DDL) {
+									if (stmt.getOperation() == DDL) {
 										final long ddlStartTs = System.currentTimeMillis();
 										final Connection connection = oraConnections.getConnection();
 										final int changedColumnCount = 

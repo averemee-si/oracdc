@@ -77,7 +77,7 @@ public abstract class OraTable4SourceConnector {
 		}
 	}
 
-	int version() {
+	public int version() {
 		return version;
 	}
 }

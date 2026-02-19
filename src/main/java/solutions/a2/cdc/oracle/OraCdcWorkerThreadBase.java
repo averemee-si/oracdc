@@ -86,6 +86,6 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 		return lastSubScn;
 	}
 
-	abstract void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSubScn) throws SQLException;
+	public abstract void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSubScn) throws SQLException;
 
 }

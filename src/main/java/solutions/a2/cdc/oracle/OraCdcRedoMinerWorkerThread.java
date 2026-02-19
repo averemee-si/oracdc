@@ -36,6 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
+import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceRedoMinerTask;
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
@@ -71,7 +72,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private static final String SQL_STATE_REWIND = "RWND00";
 	private static final int SMALL_MAGIC_WAIT = 21;
 
-	private final OraCdcRedoMinerTask task;
+	private final KafkaSourceRedoMinerTask task;
 	private final OraCdcSourceConnMgmt metrics;
 	private boolean redoMinerReady = false;
 	private final OraRedoMiner redoMiner;
@@ -99,7 +100,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final OraCdcRedoMinerEmitterThread emitter;
 
 	public OraCdcRedoMinerWorkerThread(
-			final OraCdcRedoMinerTask task,
+			final KafkaSourceRedoMinerTask task,
 			final OraCdcRedoMinerEmitterThread emitter,
 			final Triple<Long, RedoByteAddress, Long> startFrom,
 			final int[] conUids,
