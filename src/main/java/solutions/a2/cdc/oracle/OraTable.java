@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -68,10 +69,23 @@ import solutions.a2.oracle.internals.RowId;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public abstract class OraTable extends OraTable4SourceConnector {
+public abstract class OraTable {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable.class);
 
+	String tableOwner;
+	String tableName;
+	final int schemaType;
+	List<OraColumn> allColumns;
+	Map<String, OraColumn> pkColumns;
+	Map<String, String> sourcePartition;
+	Schema schema;
+	Schema keySchema;
+	Schema valueSchema;
+	boolean rowLevelScn;
+
+	private final OraRdbmsInfo rdbmsInfo;
+	private int version;
 	private int topicPartition;
 	final String pdbName;
 	final String tableFqn;
@@ -123,7 +137,11 @@ public abstract class OraTable extends OraTable4SourceConnector {
 	OraTable(final String pdbName, final String tableOwner, final String tableName,
 			final boolean rowLevelScn, final short conId, final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection, final int version) {
-		super(tableOwner, tableName, config.schemaType());
+		this.pkColumns = new LinkedHashMap<>();
+		this.schemaType = config.schemaType();
+		this.allColumns = new ArrayList<>();
+		this.tableOwner = tableOwner;
+		this.tableName = tableName;		
 		this.pdbName = pdbName;
 		this.conId = conId;
 		this.tableFqn = ((pdbName == null) ? "" : pdbName + ":") +
@@ -1303,6 +1321,10 @@ public abstract class OraTable extends OraTable4SourceConnector {
 				""",
 				tableOwner, tableName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
 		return new ConnectException(sqle);
+	}
+
+	public int version() {
+		return version;
 	}
 
 	public String fqn() {
