@@ -217,11 +217,6 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 				return null;
 		} else {
 			try {
-				Connection connDictionary;
-				if (restoreIncompleteRecord)
-					connDictionary = oraConnections.getConnection();
-				else
-					connDictionary = null;
 				int recordCount = 0;
 				int parseTime = 0;
 				while (recordCount < batchSize) {
@@ -293,7 +288,7 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 									} else {
 										final long startParseTs = System.currentTimeMillis();
 										putInProgressOffsets(stmt);
-										final SourceRecord record = oraTable.parseRedoRecord(stmt, transaction, offset, connDictionary);
+										final SourceRecord record = oraTable.parseRedoRecord(stmt, transaction, offset);
 										if (record != null) {
 											result.add(record);
 											recordCount++;
@@ -332,10 +327,6 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 					}
 				} else {
 					metrics.addSentRecords(result.size(), parseTime);
-				}
-				if (restoreIncompleteRecord) {
-					connDictionary.close();
-					connDictionary = null;
 				}
 			} catch (SQLException sqle) {
 				if (!isPollRunning.get() || runLatch.getCount() == 0) {

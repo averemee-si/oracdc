@@ -14,7 +14,6 @@
 package solutions.a2.cdc.oracle.runtime.thread;
 
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.FIRST_CHANGE_PARAM;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_RESTORE;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.INITIAL_LOAD_COMPLETED;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.INITIAL_LOAD_EXECUTE;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.INITIAL_LOAD_IGNORE;
@@ -108,7 +107,6 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 	long lastInProgressScn = 0;
 	RedoByteAddress lastInProgressRba = null;
 	long lastInProgressSubScn = 0;
-	boolean restoreIncompleteRecord = false;
 
 	boolean execInitialLoad = false;
 	String initialLoadStatus = INITIAL_LOAD_IGNORE;
@@ -143,7 +141,6 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 		batchSize = config.batchSize();
 		pollInterval = config.pollIntervalMs();
 		schemaType = config.schemaType();
-		restoreIncompleteRecord = config.getIncompleteDataTolerance() == INCOMPLETE_REDO_INT_RESTORE;
 
 		useChronicleQueue = config.useOffHeapMemory();
 		processLobs = config.processLobs();
