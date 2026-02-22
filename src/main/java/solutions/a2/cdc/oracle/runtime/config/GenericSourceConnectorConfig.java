@@ -91,7 +91,7 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 				.define(PRINT_INVALID_HEX_WARNING_PARAM, BOOLEAN, false)
 				.define(PROCESS_ONLINE_REDO_LOGS_PARAM, BOOLEAN, false)
 				.define(CURRENT_SCN_QUERY_INTERVAL_PARAM, INT, CURRENT_SCN_QUERY_INTERVAL_DEFAULT)
-				.define(INCOMPLETE_REDO_TOLERANCE_PARAM, STRING, INCOMPLETE_REDO_TOLERANCE_ERROR)
+				.define(TOLERATE_INCOMPLETE_ROW_PARAM, BOOLEAN, false)
 				.define(PRINT_ALL_ONLINE_REDO_RANGES_PARAM, BOOLEAN, true)
 				.define(LM_RECONNECT_INTERVAL_MS_PARAM, LONG, Long.MAX_VALUE)
 				.define(PK_TYPE_PARAM, STRING, PK_TYPE_WELL_DEFINED)
@@ -178,7 +178,6 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 						Map.Entry::getValue));
 		holder = new SourceConnectorConfig(new ParamsRecord(
 				numberMapParams,
-				getString(INCOMPLETE_REDO_TOLERANCE_PARAM),
 				getString(TOPIC_NAME_STYLE_PARAM),
 				getString(PK_TYPE_PARAM),
 				getString(LAST_SEQ_NOTIFIER_PARAM),
@@ -222,8 +221,8 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 	}
 
 	@Override
-	public int getIncompleteDataTolerance() {
-		return holder.incompleteDataTolerance();
+	public boolean tolerateIncompleteRow() {
+		return getBoolean(TOLERATE_INCOMPLETE_ROW_PARAM);
 	}
 
 	@Override

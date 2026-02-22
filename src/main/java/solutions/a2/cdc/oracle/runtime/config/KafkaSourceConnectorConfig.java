@@ -123,12 +123,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 				.define(PRINT_INVALID_HEX_WARNING_PARAM, BOOLEAN, false, LOW, PRINT_INVALID_HEX_WARNING_DOC)
 				.define(PROCESS_ONLINE_REDO_LOGS_PARAM, BOOLEAN, false, LOW, PROCESS_ONLINE_REDO_LOGS_DOC)
 				.define(CURRENT_SCN_QUERY_INTERVAL_PARAM, INT, CURRENT_SCN_QUERY_INTERVAL_DEFAULT, LOW, CURRENT_SCN_QUERY_INTERVAL_DOC)
-				.define(INCOMPLETE_REDO_TOLERANCE_PARAM, STRING, INCOMPLETE_REDO_TOLERANCE_ERROR,
-						ConfigDef.ValidString.in(
-								INCOMPLETE_REDO_TOLERANCE_ERROR,
-								INCOMPLETE_REDO_TOLERANCE_SKIP,
-								INCOMPLETE_REDO_TOLERANCE_RESTORE),
-						LOW, INCOMPLETE_REDO_TOLERANCE_DOC)
+				.define(TOLERATE_INCOMPLETE_ROW_PARAM, BOOLEAN, false, LOW, TOLERATE_INCOMPLETE_ROW_DOC)
 				.define(PRINT_ALL_ONLINE_REDO_RANGES_PARAM, BOOLEAN, true, LOW, PRINT_ALL_ONLINE_REDO_RANGES_DOC)
 				.define(LM_RECONNECT_INTERVAL_MS_PARAM, LONG, Long.MAX_VALUE, LOW, LM_RECONNECT_INTERVAL_MS_DOC)
 				.define(PK_TYPE_PARAM, STRING, PK_TYPE_WELL_DEFINED,
@@ -242,7 +237,6 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 						Map.Entry::getValue));
 		holder = new SourceConnectorConfig(new ParamsRecord(
 				numberMapParams,
-				getString(INCOMPLETE_REDO_TOLERANCE_PARAM),
 				getString(TOPIC_NAME_STYLE_PARAM),
 				getString(PK_TYPE_PARAM),
 				getString(LAST_SEQ_NOTIFIER_PARAM),
@@ -286,8 +280,8 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	}
 
 	@Override
-	public int getIncompleteDataTolerance() {
-		return holder.incompleteDataTolerance();
+	public boolean tolerateIncompleteRow() {
+		return getBoolean(TOLERATE_INCOMPLETE_ROW_PARAM);
 	}
 
 	@Override

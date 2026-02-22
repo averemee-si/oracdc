@@ -18,7 +18,6 @@ import java.util.Map;
 
 record ParamsRecord(
 		Map<String, String> numberMapParams,
-		String incompleteDataTolerance,
 		String topicNameStyle,
 		String pkType,
 		String lastProcessedSeqNotifier,

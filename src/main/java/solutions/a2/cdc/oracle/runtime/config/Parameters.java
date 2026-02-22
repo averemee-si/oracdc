@@ -72,10 +72,6 @@ public class Parameters {
 	public static final String TOPIC_PREFIX_PARAM = "a2.topic.prefix";
 	public static final String TOPIC_PREFIX_DOC = "Prefix to prepend table names to generate name of Kafka topic.";
 
-	public static final int INCOMPLETE_REDO_INT_ERROR = 1;
-	public static final int INCOMPLETE_REDO_INT_SKIP = 2;
-	public static final int INCOMPLETE_REDO_INT_RESTORE = 3;
-
 	public static final int TOPIC_NAME_STYLE_INT_TABLE = 1;
 	public static final int TOPIC_NAME_STYLE_INT_SCHEMA_TABLE = 2;
 	public static final int TOPIC_NAME_STYLE_INT_PDB_SCHEMA_TABLE = 3;
@@ -90,21 +86,16 @@ public class Parameters {
 			Default - false
 			""";
 
-	public static final String INCOMPLETE_REDO_TOLERANCE_PARAM = "a2.incomplete.redo.tolerance";
-	public static final String INCOMPLETE_REDO_TOLERANCE_DOC =
+	public static final String TOLERATE_INCOMPLETE_ROW_PARAM = "a2.tolerate.incomplete.row";
+	public static final String TOLERATE_INCOMPLETE_ROW_DOC =
 			"""
-			Connector behavior when processing an incomplete redo record.
-			Allowed values: error, skip, and restore.
-			When set to:
-			- 'error' oracdc prints information about incomplete redo record and stops connector.
-			- 'skip' oracdc prints information about incomplete redo record and continue processing
-			- 'restore' oracdc tries to restore missed information from actual row incarnation from the table using ROWID from redo the record.
+			oracdc behavior when processing an incomplete redo record.
+			If set to:
+			- 'false' oracdc prints information about the incomplete redo record and stops processing.
+			- 'true' oracdc prints information about the incomplete redo record, ignores it, and continues processing.
 			
-			Default - 'error'.
+			Default - 'false'.
 			""";
-	public static final String INCOMPLETE_REDO_TOLERANCE_ERROR = "error";
-	public static final String INCOMPLETE_REDO_TOLERANCE_SKIP = "skip";
-	public static final String INCOMPLETE_REDO_TOLERANCE_RESTORE = "restore";
 
 	public static final String PRINT_INVALID_HEX_WARNING_PARAM = "a2.print.invalid.hex.value.warning";
 	public static final String PRINT_INVALID_HEX_WARNING_DOC =

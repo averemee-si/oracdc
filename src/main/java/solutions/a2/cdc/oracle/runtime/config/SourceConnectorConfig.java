@@ -14,11 +14,6 @@
 package solutions.a2.cdc.oracle.runtime.config;
 
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.FIRST_CHANGE_PARAM;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_ERROR;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_RESTORE;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_SKIP;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_TOLERANCE_ERROR;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_TOLERANCE_SKIP;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.KEY_OVERRIDE_PARAM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.LAST_SEQ_NOTIFIER_PARAM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.LOB_TRANSFORM_CLASS_PARAM;
@@ -98,7 +93,6 @@ public class SourceConnectorConfig {
 	private static final Logger LOGGER = LoggerFactory.getLogger(SourceConnectorConfig.class);
 
 	private final Map<String, Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberColumnsMap = new LinkedHashMap<>();
-	private final int incompleteDataTolerance;
 	private final int topicNameStyle;
 	private final int pkType;
 	private final Map<String, OraCdcKeyOverrideTypes> keyOverrideMap;
@@ -209,14 +203,6 @@ public class SourceConnectorConfig {
 				}
 			}
 		});
-		//
-		// incompleteDataTolerance
-		//
-		switch (paramsRecord.incompleteDataTolerance()) {
-			case INCOMPLETE_REDO_TOLERANCE_ERROR -> incompleteDataTolerance = INCOMPLETE_REDO_INT_ERROR;
-			case INCOMPLETE_REDO_TOLERANCE_SKIP  -> incompleteDataTolerance = INCOMPLETE_REDO_INT_SKIP;
-			default                              -> incompleteDataTolerance = INCOMPLETE_REDO_INT_RESTORE;
-		}
 		//
 		// topicNameStyle
 		//
@@ -595,10 +581,6 @@ public class SourceConnectorConfig {
 					Strings.CS.endsWith(columnName, pattern.getKey()))
 				return pattern.getValue();
 		return null;
-	}
-
-	int incompleteDataTolerance() {
-		return incompleteDataTolerance;
 	}
 
 	int topicNameStyle() {

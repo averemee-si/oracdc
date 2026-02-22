@@ -38,7 +38,7 @@ public interface OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 			List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
 				numberRemap, final String columnName);
 	public boolean useOracdcSchemas();
-	public int getIncompleteDataTolerance();
+	public boolean tolerateIncompleteRow();
 	public boolean isPrintInvalidHexValueWarning();
 	public boolean useProtobufSchemaNaming();
 	public String getTopicNameDelimiter();
