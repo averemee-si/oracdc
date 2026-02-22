@@ -35,7 +35,6 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
 
 import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
@@ -56,6 +55,23 @@ import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 public abstract class KafkaStructDataBinder implements DataBinder {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaStructDataBinder.class);
+	private static final String TOLERANCE_ERR_MSG =
+			"""
+			
+			=====================
+			The number of required columns for table {} is {},
+			but only {} required columns are returned from the redo record!
+			Please check the supplemental logging settings!
+			SQL statement information:
+			SCN/RBA = {}/{}, COMMIT_SCN={}, XID={}
+			{}
+			
+			{}
+			
+			=====================
+			
+			""";
+
 
 	private final SchemaNameMapper snm;
 	private final KafkaRdbmsInfoStruct kris;
@@ -229,7 +245,6 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 
 	@Override
 	public SourceRecord changeVector(OraCdcTransaction transaction, Map<String, Object> offset, boolean skipRedoRecord) throws SQLException {
-
 		if (skipRedoRecord)
 			return null;
 		else {
@@ -241,18 +256,20 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 								"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
 								table.fqn(), table.mandatoryColumnsCount(), mandatoryColumnsProcessed);
 					}
-					final String message = 
-							"Mandatory columns count for table {} is " +
-							table.mandatoryColumnsCount() +
-							" but only " +
-							mandatoryColumnsProcessed +
-							" mandatory columns are returned from the redo record!\n" +
-							"Please check supplemental logging settings!\n";
+
 					if ((table.flags() & FLG_TOLERATE_INCOMPLETE_ROW) > 0) {
-						printErrorMessage(Level.ERROR,  message + "Skipping!\n", transaction);
+						LOGGER.error(TOLERANCE_ERR_MSG, table.fqn(), table.mandatoryColumnsCount(),
+								mandatoryColumnsProcessed,
+								Long.toUnsignedString(stmt.getScn()), stmt.getRba(),
+								Long.toUnsignedString(transaction.getCommitScn()), transaction.getXid(),
+								stmt.getSqlRedo(), "Skipping!");
 						return null;
 					} else {
-						printErrorMessage(Level.ERROR,  message + "Exiting!\n", transaction);
+						LOGGER.error(TOLERANCE_ERR_MSG, table.fqn(), table.mandatoryColumnsCount(),
+								mandatoryColumnsProcessed,
+								Long.toUnsignedString(stmt.getScn()), stmt.getRba(),
+								Long.toUnsignedString(transaction.getCommitScn()), transaction.getXid(),
+								stmt.getSqlRedo(), "Exiting!");
 						throw new ConnectException("Incomplete redo record!");
 					}
 				} else if ((table.flags() & FLG_PSEUDO_KEY) == 0) {
@@ -338,35 +355,6 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 				}
 			}
 			return sourceRecord;
-		}
-	}
-
-	private void printErrorMessage(final Level level, final String message, final OraCdcTransaction transaction) {
-		printErrorMessage(level, message, null, transaction);
-	}
-
-	private void printErrorMessage(final Level level, final String message, final String columnName, final OraCdcTransaction transaction) {
-		var sb = new StringBuilder(0x100);
-		sb
-			.append("\n=====================\n")
-			.append(message)
-			.append("\n\tCOMMIT_SCN = {}\n")
-			.append("\tXID = {}\n")
-			.append(stmt.toStringBuilder())
-			.append("=====================\n");
-		if (level == Level.ERROR) {
-			if (columnName == null) {
-				LOGGER.error(sb.toString(), table.fqn(), transaction.getCommitScn(), transaction.getXid());
-			} else {
-				LOGGER.error(sb.toString(), columnName, table.fqn(), transaction.getCommitScn(), transaction.getXid());
-				
-			}
-		} else if (level == Level.WARN) {
-			LOGGER.warn(sb.toString(), table.fqn(), transaction.getCommitScn(), transaction.getXid());
-		} else if (level == Level.INFO) {
-			LOGGER.info(sb.toString(), table.fqn(), transaction.getCommitScn(), transaction.getXid());
-		} else {
-			LOGGER.trace(sb.toString(), table.fqn(), transaction.getCommitScn(), transaction.getXid());
 		}
 	}
 
