@@ -375,7 +375,7 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 										} else {
 											final long startParseTs = System.currentTimeMillis();
 											putInProgressOffsets(stmt);
-											final SourceRecord record = oraTable.parseRedoRecord(
+											final SourceRecord record = (SourceRecord) oraTable.parseRedoRecord(
 													stmt, lobs,
 													transaction,
 													offset,

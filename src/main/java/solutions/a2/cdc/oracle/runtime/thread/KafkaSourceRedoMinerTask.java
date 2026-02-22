@@ -288,7 +288,7 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 									} else {
 										final long startParseTs = System.currentTimeMillis();
 										putInProgressOffsets(stmt);
-										final SourceRecord record = oraTable.parseRedoRecord(stmt, transaction, offset);
+										final SourceRecord record = (SourceRecord) oraTable.parseRedoRecord(stmt, transaction, offset);
 										if (record != null) {
 											result.add(record);
 											recordCount++;
