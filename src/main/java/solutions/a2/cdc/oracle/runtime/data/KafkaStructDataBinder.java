@@ -31,11 +31,11 @@ import java.util.Map;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcDataException;
 import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
@@ -117,7 +117,6 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 		keyStruct = (table.flags() & FLG_ONLY_VALUE) > 0 ? null : new Struct(keySchema);
 		valueStruct = new Struct(valueSchema);
 		mandatoryColumnsProcessed = 0;
-		table.missedColumns().clear();
 	}
 
 	public abstract void insert(OraColumn column, Object value);
@@ -270,7 +269,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 								Long.toUnsignedString(stmt.getScn()), stmt.getRba(),
 								Long.toUnsignedString(transaction.getCommitScn()), transaction.getXid(),
 								stmt.getSqlRedo(), "Exiting!");
-						throw new ConnectException("Incomplete redo record!");
+						throw new OraCdcDataException("Incomplete redo record!");
 					}
 				} else if ((table.flags() & FLG_PSEUDO_KEY) == 0) {
 					// With ROWID we does not need more checks...

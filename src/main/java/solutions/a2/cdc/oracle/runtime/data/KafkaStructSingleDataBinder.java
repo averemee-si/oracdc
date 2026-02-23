@@ -15,6 +15,9 @@ package solutions.a2.cdc.oracle.runtime.data;
 
 import static solutions.a2.cdc.oracle.OraColumn.ROWID_KEY;
 
+import org.apache.kafka.connect.errors.DataException;
+
+import solutions.a2.cdc.oracle.OraCdcDataException;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraColumn;
@@ -34,23 +37,35 @@ public class KafkaStructSingleDataBinder extends KafkaStructDataBinder {
 
 	@Override
 	public void insert(OraColumn column, Object value) {
-		valueStruct.put(column.getColumnName(), value);
-		if (column.mandatory())
-			mandatoryColumnsProcessed++;
+		try {
+			valueStruct.put(column.getColumnName(), value);
+			if (column.mandatory())
+				mandatoryColumnsProcessed++;
+		} catch (DataException de) {
+			throw new OraCdcDataException(de);
+		}
 	}
 
 	@Override
 	public void delete(OraColumn column, Object value) {
-		valueStruct.put(column.getColumnName(), value);
-		if (column.mandatory())
-			mandatoryColumnsProcessed++;
+		try {
+			valueStruct.put(column.getColumnName(), value);
+			if (column.mandatory())
+				mandatoryColumnsProcessed++;
+		} catch (DataException de) {
+			throw new OraCdcDataException(de);
+		}
 	}
 
 	@Override
 	public void update(OraColumn column, Object value, boolean after) {
-		valueStruct.put(column.getColumnName(), value);
-		if (column.mandatory())
-			mandatoryColumnsProcessed++;
+		try {
+			valueStruct.put(column.getColumnName(), value);
+			if (column.mandatory())
+				mandatoryColumnsProcessed++;
+		} catch (DataException de) {
+			throw new OraCdcDataException(de);
+		}
 	}
 
 	@Override
