@@ -230,7 +230,7 @@ public class OraCdcDictionaryChecker {
 						final String tableName = rsCheckTable.getString("TABLE_NAME");
 						final String tableOwner = rsCheckTable.getString("OWNER");
 						if (logMiner)
-							oraTable = new OraTable4LogMiner(
+							oraTable = new OraCdcLogMinerTable(
 									isCdb ? rsCheckTable.getString("PDB_NAME") : null,
 									isCdb ? (short) conId : -1,
 									tableOwner, tableName,

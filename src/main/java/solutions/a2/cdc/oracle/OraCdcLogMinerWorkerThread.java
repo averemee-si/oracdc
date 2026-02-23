@@ -431,7 +431,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								combinedDataObjectId = dataObjectId;
 							}
 							// First check for table definition...
-							OraTable4LogMiner oraTable = (OraTable4LogMiner) checker.getTable(combinedDataObjectId, dataObjectId, conId);
+							OraCdcLogMinerTable oraTable = (OraCdcLogMinerTable) checker.getTable(combinedDataObjectId, dataObjectId, conId);
 
 							if (oraTable != null) {
 								final byte[] redoBytes = readSqlRedo();
@@ -849,7 +849,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 	private List<OraCdcLargeObjectHolder> catchTheLob(
 			final short operation, final String xid,
-			final long dataObjectId, final OraTable4LogMiner oraTable,
+			final long dataObjectId, final OraCdcLogMinerTable oraTable,
 			final byte[] redoBytes) throws SQLException {
 		List<OraCdcLargeObjectHolder> lobs = null;
 		if (processLobs && oraTable.isWithLobs() &&

@@ -57,7 +57,7 @@ import solutions.a2.cdc.oracle.OraCdcWorkerThreadBase;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
-import solutions.a2.cdc.oracle.OraTable4LogMiner;
+import solutions.a2.cdc.oracle.OraCdcLogMinerTable;
 import solutions.a2.cdc.oracle.OraTable4RedoMiner;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
@@ -581,7 +581,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 						&& !Strings.CS.startsWith(tableName, "MLOG$_")) {
 					OraCdcTableBase oraTable;
 					if (config.logMiner())
-						oraTable = new OraTable4LogMiner(
+						oraTable = new OraCdcLogMinerTable(
 								isCdb ? resultSet.getString("PDB_NAME") : null,
 								isCdb ? (short) conId : -1,
 								resultSet.getString("OWNER"), tableName,

@@ -39,7 +39,7 @@ import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue;
 import solutions.a2.cdc.oracle.OraCdcV$LogmnrContents;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
-import solutions.a2.cdc.oracle.OraTable4LogMiner;
+import solutions.a2.cdc.oracle.OraCdcLogMinerTable;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -357,7 +357,7 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 							lastStatementInTransaction = !processTransaction;
 
 							if (processTransaction) {
-								final OraTable4LogMiner oraTable = (OraTable4LogMiner) checker.getTable(stmt.getTableId());
+								final OraCdcLogMinerTable oraTable = (OraCdcLogMinerTable) checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
 									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);

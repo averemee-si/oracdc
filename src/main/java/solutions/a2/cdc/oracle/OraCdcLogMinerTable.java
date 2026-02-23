@@ -46,9 +46,9 @@ import org.slf4j.event.Level;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraTable4LogMiner extends OraCdcTableBase {
+public class OraCdcLogMinerTable extends OraCdcTableBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4LogMiner.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerTable.class);
 
 	private static final String SQL_REDO_WHERE = " where ";
 	private static final String SQL_REDO_SET = " set ";
@@ -77,7 +77,7 @@ public class OraTable4LogMiner extends OraCdcTableBase {
 	 * @param rdbmsInfo
 	 * @param connection
 	 */
-	public OraTable4LogMiner(
+	public OraCdcLogMinerTable(
 			final String pdbName, final short conId, final String tableOwner,
 			final String tableName, final boolean rowLevelScn,
 			final OraCdcSourceConnectorConfig config,
