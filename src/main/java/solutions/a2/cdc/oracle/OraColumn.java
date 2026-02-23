@@ -124,9 +124,9 @@ public class OraColumn extends Column {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraColumn.class);
 
-	static final String ROWID_KEY = "ORA_ROW_ID";
-	static final String MVLOG_SEQUENCE = "SEQUENCE$$";
-	static final String ORA_ROWSCN = "ORA_ROWSCN";
+	public static final String ROWID_KEY = "ORA_ROW_ID";
+	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";
+	public static final String ORA_ROWSCN = "ORA_ROWSCN";
 
 	static final Pattern GUARD_COLUMN = Pattern.compile("^SYS_NC\\d{5}\\$$");
 	static final Pattern UNUSED_COLUMN = Pattern.compile("^SYS_C\\d{5}(?:_\\d{8}:\\d{2}:\\d{2})?\\$$");
@@ -781,7 +781,7 @@ public class OraColumn extends Column {
 		}
 	}
 
-	static OraColumn getRowIdKey() {
+	public static OraColumn getRowIdKey() {
 		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, ROWID, 0);
 		rowIdColumn.flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		rowIdColumn.schema = Schema.STRING_SCHEMA;
@@ -805,7 +805,7 @@ public class OraColumn extends Column {
 		this.nameFromId = nameFromId;
 	}
 
-	boolean isBinaryFloatDouble() {
+	public boolean isBinaryFloatDouble() {
 		return (flags & FLG_BINARY_FLOAT_DOUBLE) > 0;
 	}
 
@@ -1358,7 +1358,7 @@ public class OraColumn extends Column {
 		return (flags & FLG_ENCRYPTED) > 0;
 	}
 
-	boolean largeObject() {
+	public boolean largeObject() {
 		return (flags & FLG_LARGE_OBJECT) > 0;
 	}
 
@@ -1376,7 +1376,7 @@ public class OraColumn extends Column {
 		return (flags & FLG_DECODE_WITH_TRANS) == 0;
 	}
 
-	void transformLob(final boolean lobTransform) {
+	public void transformLob(final boolean lobTransform) {
 		if (lobTransform)
 			flags |= FLG_LOB_TRANSFORM;
 		else
@@ -1387,7 +1387,7 @@ public class OraColumn extends Column {
 		return (flags & FLG_LOB_TRANSFORM) > 0;
 	}
 
-	boolean mandatory() {
+	public boolean mandatory() {
 		return (flags & FLG_MANDATORY) > 0;
 	}
 

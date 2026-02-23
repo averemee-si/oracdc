@@ -1,4 +1,4 @@
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -20,12 +20,14 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.Strings;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -49,6 +51,10 @@ import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMP;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
+import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraConnectionObjects;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.OraTable;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.runtime.config.Parameters;
@@ -61,30 +67,38 @@ import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraTable4InitialLoad extends OraTable4SourceConnector implements ReadMarshallable, WriteMarshallable {
+public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4InitialLoad.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaInitialLoadTable.class);
 	private static final byte NULL_LENGTH_BYTE = (byte) -1;
 	private static final short NULL_LENGTH_SHORT = (short) -1;
 	private static final int NULL_LENGTH_INT = (int) -1;
 	private static final int LOB_CHUNK_SIZE = 16384;
 
+	private final KafkaRdbmsInfoStruct kris;
 	private final String pdbName;
+	private final String tableOwner;
+	private final String tableName;
+	private final List<OraColumn> allColumns;
+	private final Map<String, OraColumn> pkColumns;
+	private final OraRdbmsInfo rdbmsInfo;
 	private final Path queueDirectory;
 	private final OraCdcInitialLoad metrics;
 	private final String sqlSelect;
 	private final String tableFqn;
 	private final String kafkaTopic;
+	private final int schemaType;
+	private final boolean rowLevelScn;
+	private Schema schema;
+	private Schema keySchema;
+	private Schema valueSchema;
+	private Map<String, String> sourcePartition;
 	private ChronicleQueue tableRows;
 	private ExcerptAppender appender;
 	private ExcerptTailer tailer;
 	private int queueSize;
 	private int tailerOffset;
 	private OracleResultSet rsMaster;
-
-	//TODO
-	//TODO
-	//TODO
 	private Struct keyStruct;
 	private Struct valueStruct;
 	private Connection connTzData;
@@ -99,24 +113,26 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 	 * @param rdbmsInfo
 	 * @throws IOException
 	 */
-	public OraTable4InitialLoad(final Path rootDir, final OraTable oraTable,
+	public KafkaInitialLoadTable(final Path rootDir, final OraTable oraTable,
 				final OraCdcInitialLoad metrics,
 				final OraRdbmsInfo rdbmsInfo) throws IOException {
-		super(oraTable.tableOwner, oraTable.tableName, oraTable.schemaType);
 		LOGGER.trace("BEGIN: create OraCdcTableBuffer");
-		this.pdbName = oraTable.pdbName();
-		this.allColumns = oraTable.allColumns;
-		this.pkColumns = oraTable.pkColumns;
-		//TODO
-		this.schema = oraTable.schema;
-		this.keySchema = oraTable.keySchema;
-		this.valueSchema = oraTable.valueSchema;
-		this.sourcePartition = oraTable.sourcePartition;
+		pdbName = oraTable.pdb();
+		tableOwner = oraTable.owner();
+		tableName = oraTable.name();
+		allColumns = oraTable.allColumns();
+		pkColumns = oraTable.pkColumns();
+		kris = ((KafkaStructDataBinder) oraTable.dataBinder()).kris;
+		schema = ((KafkaStructDataBinder) oraTable.dataBinder()).schema;
+		keySchema = ((KafkaStructDataBinder) oraTable.dataBinder()).keySchema;
+		valueSchema = ((KafkaStructDataBinder) oraTable.dataBinder()).valueSchema;
+		schemaType = ((KafkaStructDataBinder) oraTable.dataBinder()).schemaType;
+		kafkaTopic = ((KafkaStructDataBinder) oraTable.dataBinder()).kafkaTopic;
+		sourcePartition = rdbmsInfo.partition();
 		this.metrics = metrics;
 		this.tableFqn = oraTable.fqn();
-		this.kafkaTopic = oraTable.kafkaTopic();
 		this.rdbmsInfo = rdbmsInfo;
-		this.rowLevelScn = oraTable.rowLevelScn;
+		this.rowLevelScn = oraTable.rowLevelScn();
 		// Build SQL select
 		final StringBuilder sb = new StringBuilder(512);
 		sb.append("select ");
@@ -565,7 +581,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			final Long asOfScn,
 			final CountDownLatch runLatch,
 			final AtomicBoolean running,
-			final BlockingQueue<OraTable4InitialLoad> tablesQueue,
+			final BlockingQueue<KafkaInitialLoadTable> tablesQueue,
 			final OraConnectionObjects oraConnections) {
 		metrics.startSelectTable(tableFqn);
 		boolean success = false;
@@ -659,7 +675,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 				//TODO
 				//TODO Improvement required!
 				//TODO
-				final Struct source = rdbmsInfo.getStruct(
+				final Struct source = kris.getStruct(
 						this.tableFqn,
 						pdbName, tableOwner, tableName,
 						0L, ts,

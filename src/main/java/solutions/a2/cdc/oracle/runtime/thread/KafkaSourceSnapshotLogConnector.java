@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.thread;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -30,6 +30,10 @@ import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcSourceBaseConfig;
+import solutions.a2.cdc.oracle.OraDictSqlTexts;
+import solutions.a2.cdc.oracle.OraPoolConnectionFactory;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceBaseConfig;
 import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
@@ -41,9 +45,9 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcSourceConnector extends SourceConnector {
+public class KafkaSourceSnapshotLogConnector extends SourceConnector {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnector.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceSnapshotLogConnector.class);
 	private static final int MAX_TABLES = 256;
 
 	static final String TASK_PARAM_MASTER = "master";
@@ -100,7 +104,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 			validConfig = false;
 			LOGGER.error("Unable to initialize database connection.");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-			LOGGER.error("{} will not run!", OraCdcSourceConnector.class.getCanonicalName());
+			LOGGER.error("{} will not run!", KafkaSourceSnapshotLogConnector.class.getCanonicalName());
 		}
 
 		if (validConfig) {
@@ -149,7 +153,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 					final String message = "Nothing to do with user " + 
 								connection.getMetaData().getUserName() + "."; 
 					LOGGER.error(message);
-					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
+					LOGGER.error("Stopping {}", KafkaSourceSnapshotLogConnector.class.getName());
 					throw new ConnectException(message);
 				}
 
@@ -158,7 +162,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 								connection.getMetaData().getUserName() +
 								".\nReduce table count from " + tableCount + " and try again."; 
 					LOGGER.error(message);
-					LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
+					LOGGER.error("Stopping {}", KafkaSourceSnapshotLogConnector.class.getName());
 					throw new ConnectException(message);
 				}
 
@@ -183,7 +187,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 
 	@Override
 	public Class<? extends Task> taskClass() {
-		return OraCdcSourceTask.class;
+		return KafkaSourceSnapshotLogTask.class;
 	}
 
 	@Override
@@ -195,7 +199,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 		}
 		if (maxTasks != tableCount) {
 			final String message = 
-					"To run " + OraCdcSourceConnector.class.getName() +
+					"To run " + KafkaSourceSnapshotLogConnector.class.getName() +
 					" against " + (
 					StringUtils.isBlank(config.walletLocation()) ?
 								config.rdbmsUrl() +
@@ -207,7 +211,7 @@ public class OraCdcSourceConnector extends SourceConnector {
 								config.walletLocation()) +
 					" parameter tasks.max must set to " + tableCount;
 			LOGGER.error(message);
-			LOGGER.error("Stopping {}", OraCdcSourceConnector.class.getName());
+			LOGGER.error("Stopping {}", KafkaSourceSnapshotLogConnector.class.getName());
 			throw new ConnectException(message);
 		}
 

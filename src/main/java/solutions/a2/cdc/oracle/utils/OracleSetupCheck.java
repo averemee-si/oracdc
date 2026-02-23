@@ -96,7 +96,7 @@ public class OracleSetupCheck {
 		LOGGER.info("Connected to Oracle database '{}' as user '{}'.", url, user);
 
 		try (final Connection connection = dbPool.getConnection()) {
-			rdbmsInfo = new OraRdbmsInfo(connection, false);
+			rdbmsInfo = new OraRdbmsInfo(connection);
 		} catch (SQLException sqle) {
 			LOGGER.error("Unable to collect Oracle database {} information as user {}!", url, user);
 			if (sqle.getErrorCode() != OraRdbmsInfo.ORA_942) {

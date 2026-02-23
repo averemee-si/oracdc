@@ -74,16 +74,16 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 
 
 	private final SchemaNameMapper snm;
-	private final KafkaRdbmsInfoStruct kris;
 	private final OraCdcPseudoColumnsProcessor pseudoColumns;
-	private final int schemaType;
-	private final String kafkaTopic;
 	private final int topicPartition;
 	private OraCdcStatementBase stmt = null;
 	private final Map<String, String> sourcePartition;
 	int mandatoryColumnsProcessed = 0;
+	final int schemaType;
 	final OraTable table;
 	final OraCdcLobTransformationsIntf transformLobs;
+	final KafkaRdbmsInfoStruct kris;
+	final String kafkaTopic;
 	Struct keyStruct;
 	Struct valueStruct;
 	Struct struct;
@@ -356,5 +356,6 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 			return sourceRecord;
 		}
 	}
+
 
 }

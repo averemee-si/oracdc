@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.thread;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -28,7 +28,12 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
+import solutions.a2.cdc.oracle.OraConnectionObjects;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.OraTable;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
+import solutions.a2.cdc.oracle.runtime.data.KafkaInitialLoadTable;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -36,9 +41,9 @@ import solutions.a2.utils.ExceptionUtils;
  * @author averemee
  *
  */
-public class OraCdcInitialLoadThread extends Thread {
+public class KafkaInitialLoadThread extends Thread {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcInitialLoadThread.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaInitialLoadThread.class);
 
 	private final int waitInterval;
 	private final long asOfScn;
@@ -46,20 +51,20 @@ public class OraCdcInitialLoadThread extends Thread {
 	private final CountDownLatch runLatch;
 	private final Map<Long, OraTable> tablesInProcessing;
 	private final Path queuesRoot;
-	private final BlockingQueue<OraTable4InitialLoad> tablesQueue;
+	private final BlockingQueue<KafkaInitialLoadTable> tablesQueue;
 	private final AtomicBoolean running;
 	private final int selectThreadCount;
 	private final OraRdbmsInfo rdbmsInfo;
 	private final OraConnectionObjects oraConnections;
 
-	public OraCdcInitialLoadThread(
+	public KafkaInitialLoadThread(
 			final int waitInterval,
 			final long asOfScn,
 			final Map<Long, OraTable> tablesInProcessing,
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraCdcInitialLoad metrics,
-			final BlockingQueue<OraTable4InitialLoad> tablesQueue,
+			final BlockingQueue<KafkaInitialLoadTable> tablesQueue,
 			OraConnectionObjects oraConnections) throws SQLException {
 		LOGGER.info("Initializing oracdc initial load thread");
 		this.setName("OraCdcInitialLoadThread-" + System.nanoTime());
@@ -92,8 +97,8 @@ public class OraCdcInitialLoadThread extends Thread {
 				TimeUnit.MILLISECONDS, workQueue, new ThreadPoolExecutor.AbortPolicy());
 			tablesInProcessing.forEach((k, oraTable) -> {
 				try {
-					final OraTable4InitialLoad table4Load =
-						new OraTable4InitialLoad(queuesRoot, oraTable, metrics, rdbmsInfo);
+					final KafkaInitialLoadTable table4Load =
+						new KafkaInitialLoadTable(queuesRoot, oraTable, metrics, rdbmsInfo);
 					threadPool.submit(() -> {
 						table4Load.readTableData(asOfScn, runLatch, running, tablesQueue, oraConnections);
 					});

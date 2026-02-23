@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -33,6 +33,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -48,6 +49,12 @@ import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
+import solutions.a2.cdc.oracle.OraCdcSourceBaseConfig;
+import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraDictSqlTexts;
+import solutions.a2.cdc.oracle.OraPoolConnectionFactory;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.UnsupportedColumnDataTypeException;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.utils.ExceptionUtils;
@@ -57,9 +64,21 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraTable4SnapshotLog extends OraTable4SourceConnector {
+public class KafkaSnapshotLogTable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4SnapshotLog.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSnapshotLogTable.class);
+
+	private final String tableOwner;
+	private final String tableName;
+	private final int schemaType;
+	private int version;
+	private List<OraColumn> allColumns;
+	private Map<String, OraColumn> pkColumns;
+	private Schema schema;
+	private Schema keySchema;
+	private Schema valueSchema;
+	private OraRdbmsInfo rdbmsInfo;
+	final KafkaRdbmsInfoStruct kris;
 
 	private int batchSize;
 	private boolean logWithRowIds = false;
@@ -90,14 +109,19 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 	 * @param config
 	 * @throws SQLException
 	 */
-	OraTable4SnapshotLog(
+	public KafkaSnapshotLogTable(
 			final String tableOwner, final String masterTable, final String snapshotLog,
 			final boolean logWithRowIds, final boolean logWithPrimaryKey, final boolean logWithSequence,
 			final int batchSize, final int schemaType,
 			final Map<String, String> sourcePartition, final Map<String, Object> sourceOffset,
 			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceBaseConfig config) throws SQLException {
-		super(tableOwner, masterTable, schemaType);
 		LOGGER.trace("Creating OraTable object for materialized view log...");
+		this.pkColumns = new LinkedHashMap<>();
+		this.schemaType = schemaType;
+		this.allColumns = new ArrayList<>();
+		this.version = 1;
+		this.tableOwner = tableOwner;
+		this.tableName = masterTable;
 		this.logWithRowIds = logWithRowIds;
 		this.logWithPrimaryKey = logWithPrimaryKey;
 		this.logWithSequence = logWithSequence;
@@ -105,6 +129,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 		this.snapshotLog = snapshotLog;
 		this.sourcePartition = sourcePartition;
 		this.rdbmsInfo = rdbmsInfo;
+		kris = new KafkaRdbmsInfoStruct(rdbmsInfo);
 
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Table owner -> {}, master table -> {}", this.tableOwner, this.tableName);
@@ -277,7 +302,23 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 			}
 		}
 		// Schema
-		schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
+		if (keySchemaBuilder == null) {
+			keySchema = null;
+		} else {
+			keySchema = keySchemaBuilder.build();
+		}
+		valueSchema = valueSchemaBuilder.build();
+		if (this.schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+			final SchemaBuilder schemaBuilder = SchemaBuilder
+					.struct()
+					.name(tableFqn + ".Envelope");
+			schemaBuilder.field("op", Schema.STRING_SCHEMA);
+			schemaBuilder.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA);
+			schemaBuilder.field("before", keySchema);
+			schemaBuilder.field("after", valueSchema);
+			schemaBuilder.field("source", kris.schema());
+			schema = schemaBuilder.build();
+		}
 
 		masterSelect.append(" from \"");
 		masterSelect.append(this.tableOwner);
@@ -311,7 +352,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 		LOGGER.trace("End of column list and SQL statements preparation for table {}.{}", this.tableOwner, this.tableName);
 	}
 
-	List<SourceRecord> pollMVLog(final Connection connection, final String kafkaConnectTopic) throws SQLException {
+	public List<SourceRecord> pollMVLog(final Connection connection, final String kafkaConnectTopic) throws SQLException {
 		LOGGER.trace("BEGIN: pollMVLog()");
 		PreparedStatement stmtLog = connection.prepareStatement(snapshotLogSelSql,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -369,7 +410,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 
 				if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 					final Struct struct = new Struct(schema);
-					final Struct source = rdbmsInfo.getStruct(
+					final Struct source = kris.getStruct(
 							null,
 							null,
 							tableOwner,

@@ -19,7 +19,7 @@ image:https://img.shields.io/docker/pulls/a2solutions/oracdc[link=https://hub.do
 *  three connectors for Apache Kafka Connect ecosystem that implement CDC
 . *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* which directly reads changes from Oracle Database redo log files
 . *solutions.a2.cdc.oracle.OraCdcLogMinerConnector* which reads changes from Oracle Database using Oracle LogMiner
-. *solutions.a2.cdc.oracle.OraCdcSourceConnector* which reads changes from Oracle Database materialized view logs
+. *solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector* which reads changes from Oracle Database materialized view logs
 
 *Important:* Although the source connectors listed above were designed for Apache Kafka Connect, they can easily be adapted to work in other ecosystems or independently. For more information on this please email us at oracle@a2.solutions
 
@@ -62,7 +62,7 @@ To get started we recommend
 * For *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector*, please refer to the https://averemee.substack.com/p/bye-logminer-welcome-ssh[Bye LogMiner, welcome ssh!]. Full connector documentation is available at link:doc/RedoMinerConnector.adoc[RedoMinerConnector.adoc].
 * For *solutions.a2.cdc.oracle.OraCdcLogMinerConnector*, please refer to the https://averemee.substack.com/p/how-to-set-up-oracle-database-tables[How to set up Oracle Database tables replication in minutes]. Full connector documentation is available at - link:doc/LogMinerConnector.adoc[LogMinerConnector.adoc].
 
-*solutions.a2.cdc.oracle.OraCdcSourceConnector* reads changes from Oracle Database materialized view logs. While it demonstrates Oracle capabilities, it is not recommended for production use due to the very large load it creates on the database. *solutions.a2.cdc.oracle.OraCdcSourceConnector* documentation is available at - link:doc/SnapshotLogConnector.adoc[SnapshotLogConnector.adoc].
+*solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector* reads changes from Oracle Database materialized view logs. While it demonstrates Oracle capabilities, it is not recommended for production use due to the very large load it creates on the database. *solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector* documentation is available at - link:doc/SnapshotLogConnector.adoc[SnapshotLogConnector.adoc].
 
 == Data in transit encryption
 

@@ -13,16 +13,9 @@
 
 package solutions.a2.cdc.oracle;
 
-import static java.sql.Types.VARCHAR;
-import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
-import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
-import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 import static solutions.a2.cdc.oracle.OraColumn.GUARD_COLUMN;
-import static solutions.a2.cdc.oracle.OraColumn.ROWID_KEY;
 import static solutions.a2.cdc.oracle.OraColumn.UNUSED_COLUMN;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_ERROR;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_RESTORE;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_KAFKA_STD;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_SINGLE;
@@ -32,11 +25,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,20 +40,16 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
-import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
-import solutions.a2.cdc.oracle.runtime.config.Parameters;
+import solutions.a2.cdc.oracle.runtime.data.DataBinder;
+import solutions.a2.cdc.oracle.runtime.data.KafkaStructDebeziumDataBinder;
+import solutions.a2.cdc.oracle.runtime.data.KafkaStructKafkaDataBinder;
+import solutions.a2.cdc.oracle.runtime.data.KafkaStructSingleDataBinder;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
-import solutions.a2.oracle.internals.RowId;
 
 /**
  * 
@@ -73,55 +60,38 @@ public abstract class OraTable {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable.class);
 
-	String tableOwner;
-	String tableName;
-	final int schemaType;
-	List<OraColumn> allColumns;
-	Map<String, OraColumn> pkColumns;
-	Map<String, String> sourcePartition;
-	Schema schema;
-	Schema keySchema;
-	Schema valueSchema;
-	boolean rowLevelScn;
-
+	private final String pdbName;
+	private final String tableOwner;
+	private final String tableName;
+	private final List<OraColumn> allColumns;
+	private final Map<String, OraColumn> pkColumns;
 	private final OraRdbmsInfo rdbmsInfo;
-	private int version;
-	private int topicPartition;
-	final String pdbName;
-	final String tableFqn;
-	final OraCdcLobTransformationsIntf transformLobs;
 	private final OraCdcSourceConnectorConfig config;
-	private String sqlGetKeysUsingRowId = null;
-	int incompleteDataTolerance = INCOMPLETE_REDO_INT_ERROR;
+	private final short conId;
+	private final boolean rowLevelScn;
+	private int version;
 	private int mandatoryColumnsCount = 0;
 	private int maxColumnId;
-	private int mandatoryColumnsProcessed = 0;
-	private final OraCdcPseudoColumnsProcessor pseudoColumns;
-	private final SchemaNameMapper snm;
-	private String kafkaTopic;
-	private final short conId;
-	Struct keyStruct;
-	private Struct valueStruct;
-	private Struct struct;
+	final String tableFqn;
+	final int schemaType;
 	private OraCdcTdeColumnDecrypter decrypter;
-	Map<String, Schema> lobColumnSchemas;
-	StructWriter structWriter;
-	final List<OraColumn> missedColumns = new ArrayList<>();
+	DataBinder dataBinder;
 
-	static final short FLG_TABLE_WITH_PK               = (short)0x0001; 
-	static final short FLG_PROCESS_LOBS                = (short)0x0002;
-	static final short FLG_WITH_LOBS                   = (short)0x0004;
-	static final short FLG_ONLY_VALUE                  = (short)0x0008;
-	static final short FLG_ALL_COLS_ON_DELETE          = (short)0x0010;
-	static final short FLG_PSEUDO_KEY                  = (short)0x0020;
-	static final short FLG_ORACDC_SCHEMAS              = (short)0x0040;
-	static final short FLG_ALL_UPDATES                 = (short)0x0080;
-	static final short FLG_CHECK_SUPPLEMENTAL          = (short)0x0100;
-	static final short FLG_PRINT_SQL_FOR_MISSED_WHERE  = (short)0x0200;
-	static final short FLG_PRINT_INVALID_HEX_WARNING   = (short)0x0400;
-	static final short FLG_PRINT_UNABLE_DELETE_WARNING = (short)0x0800;
-	static final short FLG_PRINT_UNABLE_MAP_COL_ID     = (short)0x1000;
-	static final short FLG_SUPPLEMENTAL_LOG_ALL        = (short)0x2000;
+	public static final short FLG_TABLE_WITH_PK               = (short)0x0001; 
+	public static final short FLG_PROCESS_LOBS                = (short)0x0002;
+	public static final short FLG_WITH_LOBS                   = (short)0x0004;
+	public static final short FLG_ONLY_VALUE                  = (short)0x0008;
+	public static final short FLG_ALL_COLS_ON_DELETE          = (short)0x0010;
+	public static final short FLG_PSEUDO_KEY                  = (short)0x0020;
+	public static final short FLG_ORACDC_SCHEMAS              = (short)0x0040;
+	public static final short FLG_ALL_UPDATES                 = (short)0x0080;
+	public static final short FLG_CHECK_SUPPLEMENTAL          = (short)0x0100;
+	public static final short FLG_PRINT_SQL_FOR_MISSED_WHERE  = (short)0x0200;
+	public static final short FLG_PRINT_INVALID_HEX_WARNING   = (short)0x0400;
+	public static final short FLG_PRINT_UNABLE_DELETE_WARNING = (short)0x0800;
+	public static final short FLG_PRINT_UNABLE_MAP_COL_ID     = (short)0x1000;
+	public static final short FLG_SUPPLEMENTAL_LOG_ALL        = (short)0x2000;
+	public static final short FLG_TOLERATE_INCOMPLETE_ROW     = (short)0x4000;
 	short flags = FLG_TABLE_WITH_PK | FLG_ALL_UPDATES | FLG_CHECK_SUPPLEMENTAL | FLG_PRINT_SQL_FOR_MISSED_WHERE;
 
 	/**
@@ -152,15 +122,7 @@ public abstract class OraTable {
 		this.version = version;
 		final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
 		topicNameMapper.configure(config);
-		this.kafkaTopic = topicNameMapper.getTopicName(pdbName, tableOwner, tableName);
-		if (LOGGER.isDebugEnabled())
-			LOGGER.debug("Kafka topic for table {} set to {}.", tableFqn, kafkaTopic);
-		this.sourcePartition = rdbmsInfo.partition();
-		incompleteDataTolerance = config.getIncompleteDataTolerance();
-		topicPartition = config.topicPartition();
-		pseudoColumns = config.pseudoColumnsProcessor();
-		snm = config.getSchemaNameMapper();
-		snm.configure(config);
+		if (config.tolerateIncompleteRow()) flags |= FLG_TOLERATE_INCOMPLETE_ROW;
 		if (config.isPrintInvalidHexValueWarning()) flags |= FLG_PRINT_INVALID_HEX_WARNING;
 		if (config.useAllColsOnDelete()) flags |=FLG_ALL_COLS_ON_DELETE;
 		if (config.printUnableToDeleteWarning()) flags |= FLG_PRINT_UNABLE_DELETE_WARNING;
@@ -168,19 +130,15 @@ public abstract class OraTable {
 		if (config.allUpdates()) flags |= FLG_ALL_UPDATES;
 		if (config.printUnable2MapColIdWarning()) flags |= FLG_PRINT_UNABLE_MAP_COL_ID;
 		if (config.supplementalLogAll()) flags |= FLG_SUPPLEMENTAL_LOG_ALL;
+		if (config.processLobs()) flags |= FLG_PROCESS_LOBS;
 		else {
 			flags |=FLG_ALL_COLS_ON_DELETE;
 			flags &= (~FLG_ORACDC_SCHEMAS);
 		}
-		if (config.processLobs()) {
-			flags |= FLG_PROCESS_LOBS;
-			transformLobs = config.transformLobsImpl();
-		} else
-			transformLobs = null;
 		switch (schemaType) {
-			case SCHEMA_TYPE_INT_KAFKA_STD -> structWriter = new KafkaStructWriter(this);
-			case SCHEMA_TYPE_INT_SINGLE    -> structWriter = new SingleStructWriter(this); 
-			case SCHEMA_TYPE_INT_DEBEZIUM  -> structWriter = new DebeziumStructWriter(this); 
+			case SCHEMA_TYPE_INT_KAFKA_STD -> dataBinder = new KafkaStructKafkaDataBinder(config, rdbmsInfo, this);
+			case SCHEMA_TYPE_INT_SINGLE    -> dataBinder = new KafkaStructSingleDataBinder(config, rdbmsInfo, this);
+			case SCHEMA_TYPE_INT_DEBEZIUM  -> dataBinder = new KafkaStructDebeziumDataBinder(config, rdbmsInfo, this);
 		}
 		try {
 			if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0) {
@@ -214,14 +172,8 @@ public abstract class OraTable {
 	abstract void clearIdMap();
 	abstract void removeUnusedColumn(final OraColumn unusedColumn);
 	abstract void shiftColumnId(final OraColumn column);
-	void removeUnusedLobColumn(final String unusedColName) {
-		if (lobColumnSchemas != null)
-			lobColumnSchemas.remove(unusedColName);
-	}
-	void clearLobHolders() {
-		if (lobColumnSchemas != null)
-			lobColumnSchemas.clear();
-	}
+	void removeUnusedLobColumn(final String unusedColName) {}
+	abstract void clearLobHolders();
 	abstract void createLobHolders();
 	abstract void addLobColumnId(final int columnId);
 
@@ -325,7 +277,7 @@ public abstract class OraTable {
 									=====================
 									
 									""", tableFqn);
-							throw new ConnectException("Unable to process encrypted columns without configured Oracle Wallet!");
+							throw new OraCdcException("Unable to process encrypted columns without configured Oracle Wallet!");
 						} else {
 							decrypter = OraCdcTdeColumnDecrypter.get(connection, tw, tableOwner, tableName);
 						}
@@ -432,257 +384,11 @@ public abstract class OraTable {
 			undroppedColumns = null;
 		}
 
-		// Handle empty WHERE for update
-		if ((flags & FLG_TABLE_WITH_PK) > 0) {
-			final StringBuilder sb = new StringBuilder(128);
-			sb.append("select ");
-			boolean firstColumn = true;
-			for (final Map.Entry<String, OraColumn> entry : pkColumns.entrySet()) {
-				if (firstColumn) {
-					firstColumn = false;
-				} else {
-					sb.append(", ");
-				}
-				sb.append(entry.getKey());
-			}
-			sb
-				.append("\nfrom ")
-				.append(tableOwner)
-				.append(".")
-				.append(tableName)
-				.append("\nwhere ROWID = CHARTOROWID(?)");
-			sqlGetKeysUsingRowId = sb.toString();
-		}
+		dataBinder.buildSchema(true);
 
-		buildSchema(true);
-
-		if (LOGGER.isDebugEnabled()) {
-			if (mandatoryColumnsCount > 0) {
-				LOGGER.debug("Table {} has {} mandatory columns.", tableFqn, mandatoryColumnsCount);
-			}
-			if (keySchema != null &&
-					keySchema.fields() != null &&
-					keySchema.fields().size() > 0) {
-				LOGGER.debug("Key fields for table {}.", tableFqn);
-				keySchema.fields().forEach(f ->
-					LOGGER.debug(
-							"\t{} with schema {}",
-							f.name(), f.schema().name() != null ? f.schema().name() : f.schema().toString()));
-			}
-			if (valueSchema != null &&
-					valueSchema.fields() != null &&
-					valueSchema.fields().size() > 0) {
-				LOGGER.debug("Value fields for table {}.", tableFqn);
-				valueSchema.fields().forEach(f ->
-				LOGGER.debug(
-						"\t{} with schema {}",
-						f.name(), f.schema().name() != null ? f.schema().name() : f.schema().toString()));
-			}
-		}
 		if (isCdb) {
 			if (!noLongInDict)
 				alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
-		}
-	}
-
-	private void buildSchema(final boolean initial) throws SQLException {
-		final SchemaBuilder keySchemaBuilder;
-		if (initial) {
-			if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD ||
-					schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
-				if ((flags & FLG_TABLE_WITH_PK) > 0 || (flags & FLG_PSEUDO_KEY) > 0)
-					keySchemaBuilder = schemaBuilder(true, 1);
-				else
-					keySchemaBuilder = null;
-			} else {
-				keySchemaBuilder = null;
-			}
-		} else {
-			keySchemaBuilder = null;
-			if (lobColumnSchemas != null)
-				lobColumnSchemas.clear();
-		}
-		final SchemaBuilder valueSchemaBuilder = schemaBuilder(false, version);
-		for (final OraColumn column : allColumns) {
-			if (column.largeObject()) {
-				final String lobColumnName = column.getColumnName();
-				final Schema lobSchema = transformLobs.transformSchema(pdbName, tableOwner, tableName, column, valueSchemaBuilder);
-				if (lobSchema != null) {
-					// BLOB/CLOB/NCLOB/XMLTYPE is transformed
-					if (lobColumnSchemas == null) {
-						lobColumnSchemas = new HashMap<>();
-					}
-					lobColumnSchemas.put(lobColumnName, lobSchema);
-					column.transformLob(true);
-				}
-			}
-			if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
-				if (column.isPartOfPk()) {
-					if (initial)
-						keySchemaBuilder.field(column.getColumnName(), column.getSchema());
-				} else {
-					if (!column.largeObject())
-						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
-				}
-			} else {
-				if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
-					if (column.isPartOfPk()) {
-						if (initial)
-							keySchemaBuilder.field(column.getColumnName(), column.getSchema());
-					}
-				}
-				if (!column.largeObject())
-					valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
-			}
-		}
-		if (schemaType != SCHEMA_TYPE_INT_DEBEZIUM) {
-			//TODO
-			//TODO Beter handling for 'debezium'-like schemas are required for this case...
-			//TODO
-			pseudoColumns.addToSchema(valueSchemaBuilder);
-		}
-		// Epilogue
-		if (keySchemaBuilder == null) {
-			if (initial)
-				keySchema = null;
-		} else {
-			keySchema = keySchemaBuilder.build();
-		}
-		if (this.schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
-			valueSchema = valueSchemaBuilder.build();
-			schema = SchemaBuilder
-					.struct()
-					.name(snm.getEnvelopeSchemaName(pdbName, tableOwner, tableName))
-					.version(version)
-					.field("before", valueSchema)
-					.field("after", valueSchema)
-					.field("source", rdbmsInfo.getSchema())
-					.field("op", Schema.STRING_SCHEMA)
-					.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA)
-					.field("ts_ns", Schema.OPTIONAL_INT64_SCHEMA)
-					.build();
-		} else {
-			valueSchema = valueSchemaBuilder.build();
-		}
-	}
-
-
-
-	SourceRecord createSourceRecord(
-			final OraCdcStatementBase stmt, final OraCdcTransaction transaction,
-			final Map<String, Object> offset, final char opType, final boolean skipRedoRecord,
-			final Connection connection, final List<OraColumn> missedColumns) throws SQLException {
-
-		if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0 && incompleteDataTolerance == INCOMPLETE_REDO_INT_RESTORE && missedColumns != null) {
-			if (getMissedColumnValues(connection, stmt, missedColumns, transaction)) {
-				printErrorMessage(Level.INFO, "Incomplete redo record restored from latest incarnation for table {}.", stmt, transaction);
-			} else {
-				printSkippingRedoRecordMessage(stmt, transaction);
-			}
-		}
-
-		if (skipRedoRecord)
-			return null;
-		else {
-			SourceRecord sourceRecord = null;
-			if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0 && mandatoryColumnsProcessed < mandatoryColumnsCount) {
-				if (opType != 'd') {
-					if (LOGGER.isDebugEnabled()) {
-						LOGGER.debug(
-								"Mandatory columns count for table {} is {}, but only {} mandatory columns are returned from redo record!",
-								tableFqn, mandatoryColumnsCount, mandatoryColumnsProcessed);
-					}
-					final String message = 
-							"Mandatory columns count for table {} is " +
-							mandatoryColumnsCount +
-							" but only " +
-							mandatoryColumnsProcessed +
-							" mandatory columns are returned from the redo record!\n" +
-							"Please check supplemental logging settings!\n";
-					if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
-						printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, transaction);
-						throw new ConnectException("Incomplete redo record!");
-					} else {
-						printErrorMessage(Level.ERROR,  message + "Skipping!\n", stmt, transaction);
-						return null;
-					}
-				} else if ((flags & FLG_PSEUDO_KEY) == 0) {
-					// With ROWID we does not need more checks...
-					//TODO - logic for delete only with primary columns!
-					//TODO
-					//TODO - logic for delete with all columns
-				}
-			}
-
-			if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
-				switch (opType) {
-					case 'c' -> struct.put("after", valueStruct);
-					case 'd' -> struct.put("before", valueStruct);
-					case 'u' -> struct.put("before", valueStruct);
-				}
-				struct.put("source", rdbmsInfo.getStruct(
-						stmt.getSqlRedo(), pdbName, tableOwner, tableName,
-						stmt.getScn(), stmt.getTs(), transaction.getXid(),
-						transaction.getCommitScn(), stmt.getRowId().toString()));
-				struct.put("op", String.valueOf(opType));
-				struct.put("ts_ms", System.currentTimeMillis());
-				struct.put("ts_ns", System.nanoTime());
-
-				sourceRecord = new SourceRecord(
-						sourcePartition,
-						offset,
-						kafkaTopic,
-						topicPartition,
-						keySchema,
-						keyStruct,
-						schema,
-						struct);
-			} else {
-				if (!(opType == 'd' && (flags & FLG_ALL_COLS_ON_DELETE) == 0)) {
-					//TODO
-					//TODO Beter handling for 'debezium'-like schemas are required for this case...
-					//TODO
-					pseudoColumns.addToStruct(valueStruct, stmt, transaction);
-				}
-				if ((flags & FLG_ONLY_VALUE) > 0) {
-					sourceRecord = new SourceRecord(
-							sourcePartition,
-							offset,
-							kafkaTopic,
-							topicPartition,
-							valueSchema,
-							valueStruct);
-				} else {
-					if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
-						if (stmt.getOperation() == DELETE &&
-								(flags & FLG_ALL_COLS_ON_DELETE) == 0) {
-							sourceRecord = new SourceRecord(
-									sourcePartition,
-									offset,
-									kafkaTopic,
-									topicPartition,
-									keySchema,
-									keyStruct,
-									null,
-									null);
-						} else {
-							sourceRecord = new SourceRecord(
-								sourcePartition,
-								offset,
-								kafkaTopic,
-								topicPartition,
-								keySchema,
-								keyStruct,
-								valueSchema,
-								valueStruct);
-						}
-					}
-				}
-				if (sourceRecord != null) {
-					sourceRecord.headers().addString("op", String.valueOf(opType));
-				}
-			}
-			return sourceRecord;
 		}
 	}
 
@@ -745,7 +451,7 @@ public abstract class OraTable {
 							=====================
 							
 							""", columnToDrop, tableFqn);
-					throw new ConnectException("Automatic DROP of a column included in the key for table is not supported.");
+					throw new OraCdcException("Automatic DROP of a column included in the key for table is not supported.");
 				}
 				for (OraColumn column : allColumns)
 					if (Strings.CS.equals(columnToDrop, column.getColumnName())) {
@@ -803,7 +509,7 @@ public abstract class OraTable {
 					}
 					OraColumn columnToRemove = allColumns.get(indexToRemove);
 					if (!columnToRemove.isNullable())
-						mandatoryColumnsProcessed--;
+						mandatoryColumnsCount--;
 					allColumns.remove(indexToRemove);
 					columnToRemove = null;
 				}
@@ -811,7 +517,7 @@ public abstract class OraTable {
 				updatedColumnCount = unusedColumns.size();
 
 				version++;
-				buildSchema(false);
+				dataBinder.buildSchema(false);
 			}
 			break;
 		case OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY:
@@ -881,7 +587,7 @@ public abstract class OraTable {
 					updatedColumnCount = 1;
 
 					version++;
-					buildSchema(false);
+					dataBinder.buildSchema(false);
 				}
 			}
 			break;
@@ -909,244 +615,10 @@ public abstract class OraTable {
 	}
 
 	private void alterSessionSetContainer(final Connection connection, final String container) throws SQLException {
-		Statement alterSession = connection.createStatement();
+		var alterSession = connection.createStatement();
 		alterSession.execute("alter session set CONTAINER=" + container);
 		alterSession.close();
 		alterSession = null;
-	}
-
-	SchemaBuilder schemaBuilder(final boolean isKey, final int version) {
-		if (isKey)
-			return SchemaBuilder
-				.struct()
-				.name(snm.getKeySchemaName(pdbName, tableOwner, tableName))
-				.version(version);
-		else
-			return SchemaBuilder
-				.struct()
-				.optional()
-				.name(snm.getValueSchemaName(pdbName, tableOwner, tableName))
-				.version(version);
-	}
-
-	void getMissedColumnValues(final Connection connection,  final OraCdcStatementBase stmt) throws SQLException {
-		final RowId rowId = stmt.getRowId();
-		if ((flags & FLG_PRINT_SQL_FOR_MISSED_WHERE) > 0) {
-			LOGGER.info(
-					"""
-					
-					=====================
-					'{}'
-					Will be used to handle UPDATE statements without WHERE clause for table {}.
-					=====================
-					
-					""", sqlGetKeysUsingRowId, tableFqn);
-			flags &= (~FLG_PRINT_SQL_FOR_MISSED_WHERE);
-		}
-		LOGGER.warn(
-				"""
-				
-				=====================
-				UPDATE statement without WHERE clause for table {} at SCN='{}', RS_ID='{}', ROLLBACK='{}' for ROWID='{}'.
-				We will try to get primary key values from table {} at ROWID='{}'.
-				=====================
-				
-				""",
-					tableFqn, stmt.getScn(), stmt.getRba(), stmt.isRollback(), rowId, tableFqn, rowId);
-		try {
-			if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
-				alterSessionSetContainer(connection, pdbName);
-			}
-			final PreparedStatement statement = connection .prepareStatement(sqlGetKeysUsingRowId,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			statement.setString(1, rowId.toString());
-			final ResultSet resultSet = statement.executeQuery();
-			if (resultSet.next()) {
-				for (final Map.Entry<String, OraColumn> entry : pkColumns.entrySet()) {
-					final OraColumn oraColumn = entry.getValue();
-					oraColumn.setValueFromResultSet(keyStruct, resultSet);
-				}
-			} else {
-				LOGGER.error(
-						"""
-						
-						=====================
-						Unable to find row in table {} with ROWID '{}'!
-						=====================
-						
-						""", tableFqn, rowId);
-			}
-		} catch (SQLException sqle) {
-			if (sqle.getErrorCode() == OraRdbmsInfo.ORA_942) {
-				// ORA-00942: table or view does not exist
-				LOGGER.error(
-						"""
-						
-						=====================
-						Please run as SYSDBA:
-							grant select on {} to {};
-						And restart connector!
-						=====================
-						
-						""", tableFqn, connection.getSchema());
-			}
-			throw sqle;
-		} finally {
-			if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
-				alterSessionSetContainer(connection, OraRdbmsInfo.CDB_ROOT);
-			}
-		}
-	}
-
-	private boolean getMissedColumnValues(
-			final Connection connection, final OraCdcStatementBase stmt,
-			final List<OraColumn> missedColumns, final OraCdcTransaction transaction) throws SQLException {
-		boolean result = false;
-		if (stmt.getOperation() == UPDATE ||
-				stmt.getOperation() == INSERT) {
-			final StringBuilder readData = new StringBuilder(128);
-			readData.append("select ");
-			boolean firstColumn = true;
-			for (final OraColumn oraColumn : missedColumns) {
-				if (firstColumn) {
-					firstColumn = false;
-				} else {
-					readData.append(", ");
-				}
-				readData
-					.append("\"")
-					.append(oraColumn.getOracleName())
-					.append("\"");
-			}
-			// Special processing based on case with
-			// <a href="https://etrm.live/etrm-12.2.2/etrm.oracle.com/pls/trm1222/etrm_pnav57bb.html?c_name=HR_ALL_ORGANIZATION_UNITS&c_owner=HR&c_type=TABLE">HR.HR_ALL_ORGANIZATION_UNITS</a>
-			// and 19.13 LogMiner - we need to restore latest incarnation of text data too...
-			if (stmt.getOperation() == UPDATE) {
-				for (final OraColumn oraColumn : allColumns) {
-					if (!pkColumns.containsKey(oraColumn.getColumnName()) &&
-							!oraColumn.isNullable() &&
-							oraColumn.getJdbcType() == VARCHAR) {
-						readData
-							.append(", \"")
-							.append(oraColumn.getOracleName())
-							.append("\"");
-					}
-				}
-			}
-			readData
-				.append("\nfrom ")
-				.append(tableOwner)
-				.append(".")
-				.append(tableName)
-				.append("\nwhere ");
-			if (stmt.getOperation() == UPDATE) {
-				readData.append("ROWID = CHARTOROWID(?)");
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug(
-							"The following statement will be used to get missed data from {} using ROWID {}:\n{}\n",
-							tableFqn, stmt.getRowId(), readData.toString());
-				}
-			} else {
-				//OraCdcV$LogmnrContents.INSERT
-				firstColumn = true;
-				for (final String pkColumnName : pkColumns.keySet()) {
-					if (firstColumn) {
-						firstColumn = false;
-					} else {
-						readData.append(", ");
-					}
-					readData
-						.append(pkColumnName)
-						.append(" = ?");
-				}
-				LOGGER.error(
-						"""
-						
-						=====================
-						Missed non-null values for columns in table {} at SCN={}, RBA='{}'!
-						Please check supplemental logging settings for table {}!
-						=====================
-						
-						""", tableFqn, stmt.getScn(), stmt.getRba(), tableFqn);
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug(
-							"The following statement will be used to get missed data from {} using PK values:\n{}\n",
-							tableFqn, readData.toString());
-				}
-			}
-
-			if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
-				alterSessionSetContainer(connection, pdbName);
-			}
-			try {
-				final PreparedStatement statement = connection .prepareStatement(readData.toString(),
-						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-				if (stmt.getOperation() == UPDATE) {
-					statement.setString(1, stmt.getRowId().toString());
-				} else {
-					//OraCdcV$LogmnrContents.INSERT
-					int bindNo = 0;
-					for (final String pkColumnName : pkColumns.keySet()) {
-						pkColumns.get(pkColumnName)
-							.bindWithPrepStmt(statement, ++bindNo, keyStruct.get(pkColumnName));
-					}
-				}
-				final ResultSet resultSet = statement.executeQuery();
-				if (resultSet.next()) {
-					for (OraColumn oraColumn : missedColumns) {
-						if (oraColumn.setValueFromResultSet(valueStruct, resultSet)) {
-							if (oraColumn.isPartOfPk() || (!oraColumn.isNullable())) {
-								mandatoryColumnsProcessed++;
-							}
-						}
-					}
-					result = true;
-				} else {
-					LOGGER.error(
-							"""
-							
-							=====================
-							Unable to find row in table {} with ROWID '{}' using SQL statement
-							{}
-							=====================
-							
-							""", tableFqn, stmt.getRowId(), readData.toString());
-				}
-			} catch (SQLException sqle) {
-				if (sqle.getErrorCode() == OraRdbmsInfo.ORA_942) {
-					// ORA-00942: table or view does not exist
-					LOGGER.error(
-							"""
-							
-							=====================
-							Please run as SYSDBA:
-								grant select on {} to {};
-							And restart connector!
-							=====================
-							
-							""", tableFqn, connection.getSchema());
-				} else {
-					printErrorMessage(Level.ERROR,
-							"Unable to restore row! Redo record information for table {}:\n",
-							stmt, transaction);
-				}
-				throw sqle;
-			}
-			if (rdbmsInfo.isCdb() && rdbmsInfo.isCdbRoot()) {
-				alterSessionSetContainer(connection, OraRdbmsInfo.CDB_ROOT);
-			}
-		} else {
-			LOGGER.error(
-					"""
-					
-					=====================
-					Unable to restore redo record for operation {} on table {} at SCN = {}, RS_ID(RBA) = '{}'!
-					Only UPDATE (OPERATION_CODE=3) and INSERT (OPERATION_CODE=1) are supported!
-					=====================
-					
-					""", stmt.getOperation(), tableFqn, stmt.getScn(), stmt.getRba());
-		}
-		return result;
 	}
 
 	private void printUndroppedColumnsMessage(
@@ -1309,7 +781,7 @@ public abstract class OraTable {
 				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo(), column.getColumnName());
 	}
 
-	ConnectException sqlExceptionOnInit(final SQLException sqle) {
+	OraCdcException sqlExceptionOnInit(final SQLException sqle) {
 		LOGGER.error(
 				"""
 				
@@ -1320,7 +792,7 @@ public abstract class OraTable {
 				
 				""",
 				tableOwner, tableName, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
-		return new ConnectException(sqle);
+		return new OraCdcException(sqle);
 	}
 
 	public int version() {
@@ -1331,176 +803,40 @@ public abstract class OraTable {
 		return tableFqn;
 	}
 
-	String kafkaTopic() {
-		return kafkaTopic;
+	public DataBinder dataBinder() {
+		return dataBinder;
 	}
 
-	String pdbName() {
+	public String pdb() {
 		return pdbName;
 	}
-	static abstract class StructWriter {
-		final OraTable table;
-		StructWriter(OraTable table) {
-			this.table = table;
-		}
-		public void init(OraCdcStatementBase stmt) {
-			if ((table.flags & FLG_ONLY_VALUE) > 0) {
-				table.keyStruct = null;
-			} else {
-				table.keyStruct = new Struct(table.keySchema);
-			}
-			table.valueStruct = new Struct(table.valueSchema);
-			table.mandatoryColumnsProcessed = 0;
-			table.missedColumns.clear();
-		}
-		abstract void insert(OraColumn column, Object value);
-		abstract void delete(OraColumn column, Object value);
-		abstract void update(OraColumn column, Object value, boolean after);
-		void addRowId(OraCdcStatementBase stmt) {
-			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Do primary key substitution for table {}", table.tableFqn);
-			if (LOGGER.isTraceEnabled())
-				LOGGER.trace("{} is used as primary key for table {}", stmt.getRowId(), table.tableFqn);
-		}
-		void afterBefore() {}
+
+	public String owner() {
+		return tableOwner;
 	}
 
-	private static class KafkaStructWriter extends StructWriter {
-		KafkaStructWriter(OraTable table) {
-			super(table);
-		}
-		@Override
-		public void insert(OraColumn column, Object value) {
-			if (column.isPartOfPk()) {
-				table.keyStruct.put(column.getColumnName(), value);
-				table.mandatoryColumnsProcessed++;
-			} else {
-				table.valueStruct.put(column.getColumnName(), value);
-				if (!column.isNullable())
-					table.mandatoryColumnsProcessed++;
-			}
-		}
-		@Override
-		public void delete(OraColumn column, Object value) {
-			if (column.isPartOfPk()) {
-				table.keyStruct.put(column.getColumnName(), value);
-				table.mandatoryColumnsProcessed++;
-			} else {
-				table.valueStruct.put(column.getColumnName(), value);
-				if (!column.isNullable())
-					table.mandatoryColumnsProcessed++;
-			}
-		}
-		@Override
-		public void update(OraColumn column, Object value, boolean after) {
-			if (column.isPartOfPk()) {
-				table.keyStruct.put(column.getColumnName(), value);
-				table.mandatoryColumnsProcessed++;
-			} else {
-				table.valueStruct.put(column.getColumnName(), value);
-				if (!column.isNullable())
-					table.mandatoryColumnsProcessed++;
-			}
-		}
-		@Override
-		public void addRowId(OraCdcStatementBase stmt) {
-			super.addRowId(stmt);
-			table.keyStruct.put(ROWID_KEY, stmt.getRowId().toString());
-		}
+	public String name() {
+		return tableName;
 	}
 
-	private static class SingleStructWriter extends StructWriter {
-		SingleStructWriter(OraTable table) {
-			super(table);
-		}
-		@Override
-		public void insert(OraColumn column, Object value) {
-			table.valueStruct.put(column.getColumnName(), value);
-			if (column.mandatory())
-				table.mandatoryColumnsProcessed++;
-		}
-		@Override
-		public void delete(OraColumn column, Object value) {
-			table.valueStruct.put(column.getColumnName(), value);
-			if (column.mandatory())
-				table.mandatoryColumnsProcessed++;
-		}
-		@Override
-		public void update(OraColumn column, Object value, boolean after) {
-			table.valueStruct.put(column.getColumnName(), value);
-			if (column.mandatory())
-				table.mandatoryColumnsProcessed++;
-		}
-		@Override
-		public void addRowId(OraCdcStatementBase stmt) {
-			super.addRowId(stmt);
-			table.valueStruct.put(ROWID_KEY, stmt.getRowId().toString());
-		}
+	public short flags() {
+		return flags;
 	}
 
-	private static class DebeziumStructWriter extends StructWriter {
-		DebeziumStructWriter(OraTable table) {
-			super(table);
-		}
-		@Override
-		public void init(OraCdcStatementBase stmt) {
-			super.init(stmt);
-			table.struct = new Struct(table.schema);
-		}
-		@Override
-		public void insert(OraColumn column, Object value) {
-			if (column.isPartOfPk()) {
-				table.keyStruct.put(column.getColumnName(), value);
-				table.valueStruct.put(column.getColumnName(), value);
-				table.mandatoryColumnsProcessed++;
-			} else {
-				table.valueStruct.put(column.getColumnName(), value);
-				if (!column.isNullable())
-					table.mandatoryColumnsProcessed++;
-			}
-		}
-		@Override
-		public void delete(OraColumn column, Object value) {
-			if (column.isPartOfPk()) {
-				table.keyStruct.put(column.getColumnName(), value);
-				table.valueStruct.put(column.getColumnName(), value);
-				table.mandatoryColumnsProcessed++;
-			} else {
-				table.valueStruct.put(column.getColumnName(), value);
-				if (!column.isNullable())
-					table.mandatoryColumnsProcessed++;
-			}
-		}
-		@Override
-		public void update(OraColumn column, Object value, boolean after) {
-			if (after) {
-				if (column.isPartOfPk()) {
-					table.keyStruct.put(column.getColumnName(), value);
-					table.valueStruct.put(column.getColumnName(), value);
-					table.mandatoryColumnsProcessed++;
-				} else {
-					table.valueStruct.put(column.getColumnName(), value);
-					if (!column.isNullable())
-						table.mandatoryColumnsProcessed++;
-				}
-			} else
-				table.valueStruct.put(column.getColumnName(), value);
-		}
-		@Override
-		public void addRowId(OraCdcStatementBase stmt) {
-			super.addRowId(stmt);
-			final String rowId = stmt.getRowId().toString();
-			table.keyStruct.put(ROWID_KEY, rowId);
-			table.valueStruct.put(ROWID_KEY, rowId);
-		}
-		@Override
-		void afterBefore() {
-			table.struct.put("after", table.valueStruct);
-			final Struct before = new Struct(table.valueSchema);
-			table.valueStruct.schema().fields().forEach(f -> 
-				before.put(f, table.valueStruct.get(f)));
-			table.valueStruct = before;
-		}
+	public List<OraColumn> allColumns() {
+		return allColumns;
+	}
+
+	public Map<String, OraColumn> pkColumns() {
+		return pkColumns;
+	}
+
+	public int mandatoryColumnsCount() {
+		return mandatoryColumnsCount;
+	}
+
+	public boolean rowLevelScn() {
+		return rowLevelScn;
 	}
 
 }

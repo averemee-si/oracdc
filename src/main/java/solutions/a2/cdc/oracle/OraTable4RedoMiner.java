@@ -16,8 +16,6 @@ package solutions.a2.cdc.oracle;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_ERROR;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.INCOMPLETE_REDO_INT_SKIP;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.oracle.utils.BinaryUtils.getU24BE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
@@ -30,9 +28,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.kafka.connect.errors.ConnectException;
-import org.apache.kafka.connect.errors.DataException;
-import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -111,7 +106,6 @@ public class OraTable4RedoMiner extends OraTable {
 
 	@Override
 	void clearLobHolders() {
-		super.clearLobHolders();
 		if (lobColumnIds != null)
 			lobColumnIds.clear();
 	}
@@ -127,11 +121,10 @@ public class OraTable4RedoMiner extends OraTable {
 		lobColumnIds.add(columnId);
 	}
 
-	public SourceRecord parseRedoRecord(
+	public Object parseRedoRecord(
 			final OraCdcRedoMinerStatement stmt,
 			final OraCdcTransaction transaction,
-			final Map<String, Object> offset,
-			final Connection connection) throws SQLException {
+			final Map<String, Object> offset) throws SQLException {
 		if (stmt.rollback) {
 			LOGGER.error(
 					"""
@@ -146,7 +139,7 @@ public class OraTable4RedoMiner extends OraTable {
 						transaction.getXid(), stmt.toString());
 			return null;
 		}
-		structWriter.init(stmt);
+		dataBinder.init(stmt);
 		boolean skipRedoRecord = false;
 
 		if (LOGGER.isTraceEnabled()) {
@@ -156,15 +149,13 @@ public class OraTable4RedoMiner extends OraTable {
 					stmt, transaction);
 		}
 		if ((flags & FLG_PSEUDO_KEY) > 0)
-			structWriter.addRowId(stmt);
+			dataBinder.addRowId(stmt);
 
-		final char opType;
 		final byte[] redoData = stmt.redoData();
 		if (stmt.getOperation() == INSERT) {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("parseRedoRecord() processing INSERT");
 			}
-			opType = 'c';
 			final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
 			final int[][] colDefs = new int[colCount][3];
 			stmt.readColDefs(colDefs, Short.BYTES);
@@ -175,34 +166,31 @@ public class OraTable4RedoMiner extends OraTable {
 					if (colSize < 0) {
 						if (oraColumn.mandatory()) {
 							if (oraColumn.defaultValuePresent()) {
-								structWriter.insert(oraColumn, oraColumn.typedDefaultValue());
+								dataBinder.insert(oraColumn, oraColumn.typedDefaultValue());
 								if (LOGGER.isDebugEnabled())
 									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
 											oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
 							} else {
-								if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
-									printInvalidFieldValue(oraColumn, stmt, transaction);
-									throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
-								} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
+								if ((flags & FLG_TOLERATE_INCOMPLETE_ROW) > 0) {
 									printSkippingRedoRecordMessage(stmt, transaction);
 									return null;
 								} else {
-									//INCOMPLETE_REDO_INT_RESTORE
-									missedColumns.add(oraColumn);
+									printInvalidFieldValue(oraColumn, stmt, transaction);
+									throw new OraCdcDataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
 								}
 							}
 						}
 					} else {
 						try {
-							structWriter.insert(oraColumn,
+							dataBinder.insert(oraColumn,
 								parseRedoRecordValues(oraColumn, redoData,
 									colDefs[i][2], colSize, transaction));
-						} catch (DataException de) {
+						} catch (OraCdcDataException de) {
 							LOGGER.error("Invalid value {} for column {} in table {}",
 									rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
 									oraColumn.getColumnName(), tableFqn);
 							printInvalidFieldValue(oraColumn, stmt, transaction);
-							throw new DataException(de);
+							throw de;
 						} catch (SQLException sqle) {
 							if (oraColumn.isNullable()) {
 								printToLogInvalidHexValueWarning(
@@ -213,7 +201,7 @@ public class OraTable4RedoMiner extends OraTable {
 									rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
 									oraColumn.getColumnName(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, transaction);
-								throw new SQLException(sqle);
+								throw sqle;
 							}
 						}
 					}
@@ -236,7 +224,6 @@ public class OraTable4RedoMiner extends OraTable {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("parseRedoRecord() processing DELETE");
 			}
-			opType = 'd';
 			final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
 			final int[][] colDefs = new int[colCount][3];
 			stmt.readColDefs(colDefs, Short.BYTES);
@@ -247,35 +234,32 @@ public class OraTable4RedoMiner extends OraTable {
 						if (oraColumn != null) {
 							if (colSize < 0) {
 								if (oraColumn.defaultValuePresent()) {
-									structWriter.delete(oraColumn, oraColumn.typedDefaultValue());
+									dataBinder.delete(oraColumn, oraColumn.typedDefaultValue());
 									if (LOGGER.isDebugEnabled())
 										LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
 												oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
 								} else {
 									if (oraColumn.mandatory()) {
-										if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
-											printInvalidFieldValue(oraColumn, stmt, transaction);
-											throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
-										} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
+										if ((flags & FLG_TOLERATE_INCOMPLETE_ROW) > 0) {
 											printSkippingRedoRecordMessage(stmt, transaction);
 											return null;
-										} else {
-											//INCOMPLETE_REDO_INT_RESTORE
-											missedColumns.add(oraColumn);
+										} else  {
+											printInvalidFieldValue(oraColumn, stmt, transaction);
+											throw new OraCdcDataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
 										}
 									}
 								}
 							} else if ((flags & FLG_ALL_COLS_ON_DELETE) > 0 || oraColumn.isPartOfPk()) {
 								try {
-									structWriter.delete(oraColumn, 
+									dataBinder.delete(oraColumn, 
 										parseRedoRecordValues(oraColumn, redoData,
 											colDefs[i][2], colSize, transaction));
-								} catch (DataException de) {
+								} catch (OraCdcDataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
 											oraColumn.getColumnName(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, transaction);
-									throw new DataException(de);
+									throw de;
 								} catch (SQLException sqle) {
 									if (oraColumn.isNullable()) {
 										printToLogInvalidHexValueWarning(
@@ -286,7 +270,7 @@ public class OraTable4RedoMiner extends OraTable {
 												rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
 												oraColumn.getColumnName(), tableFqn);
 										printInvalidFieldValue(oraColumn, stmt, transaction);
-										throw new SQLException(sqle);
+										throw sqle;
 									}
 								}
 							}
@@ -310,7 +294,6 @@ public class OraTable4RedoMiner extends OraTable {
 				}
 				return null;
 			}
-			opType = 'u';
 			setColumns.clear();
 			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
 			final int[][] setColDefs = new int[setColCount][3];
@@ -325,9 +308,9 @@ public class OraTable4RedoMiner extends OraTable {
 							if (!oraColumn.defaultValuePresent()) {
 								// throw error only if we don't expect to get value from WHERE clause
 								printInvalidFieldValue(oraColumn, stmt, transaction);
-								throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+								throw new OraCdcDataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
 							} else {
-								structWriter.update(oraColumn, oraColumn.typedDefaultValue(), true);
+								dataBinder.update(oraColumn, oraColumn.typedDefaultValue(), true);
 								if (LOGGER.isDebugEnabled())
 									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
 											oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
@@ -335,7 +318,7 @@ public class OraTable4RedoMiner extends OraTable {
 						}
 					} else {
 						try {
-							structWriter.update(oraColumn,
+							dataBinder.update(oraColumn,
 								parseRedoRecordValues(oraColumn, redoData,
 									setColDefs[i][2], colSize, transaction),
 								true);
@@ -349,7 +332,7 @@ public class OraTable4RedoMiner extends OraTable {
 										rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
 										oraColumn.getColumnName(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, transaction);
-								throw new SQLException(sqle);
+								throw sqle;
 							}
 						}
 					}
@@ -376,37 +359,34 @@ public class OraTable4RedoMiner extends OraTable {
 										final Object columnDefaultValue = oraColumn.typedDefaultValue();
 										if (columnDefaultValue != null) {
 											printSubstDefaultValueWarning(oraColumn, stmt);
-											structWriter.update(oraColumn, columnDefaultValue, true);
+											dataBinder.update(oraColumn, columnDefaultValue, true);
 											throwDataException = false;
 										}
 									} else {
 										printNullValueError(oraColumn, stmt);
 									}
 									if (throwDataException) {
-										if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
-											printInvalidFieldValue(oraColumn, stmt, transaction);
-											throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
-										} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
+										if ((flags & FLG_TOLERATE_INCOMPLETE_ROW) > 0) {
 											printSkippingRedoRecordMessage(stmt, transaction);
 											return null;
-										} else {
-											//INCOMPLETE_REDO_INT_RESTORE
-											missedColumns.add(oraColumn);
+										} else  {
+											printInvalidFieldValue(oraColumn, stmt, transaction);
+											throw new OraCdcDataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
 										}
 									}
 								}
 							} else {
 								try {
-									structWriter.update(oraColumn,
+									dataBinder.update(oraColumn,
 										parseRedoRecordValues(oraColumn, redoData,
 											whereColDefs[i][2], colSize, transaction),
 										true);
-								} catch (DataException de) {
+								} catch (OraCdcDataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											rawToHex(Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize)),
 											oraColumn.getColumnName(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, transaction);
-									throw new DataException(de);
+									throw de;
 								} catch (SQLException sqle) {
 									if (oraColumn.isNullable()) {
 										printToLogInvalidHexValueWarning(
@@ -417,7 +397,7 @@ public class OraTable4RedoMiner extends OraTable {
 												rawToHex(Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize)),
 												oraColumn.getColumnName(), tableFqn);
 										printInvalidFieldValue(oraColumn, stmt, transaction);
-										throw new SQLException(sqle);
+										throw sqle;
 									}
 								}
 							}
@@ -426,23 +406,20 @@ public class OraTable4RedoMiner extends OraTable {
 					}
 				}
 			} else {
-				if (incompleteDataTolerance == INCOMPLETE_REDO_INT_ERROR) {
-					final String message = 
-							"Missed where clause in UPDATE record for the table {}.\n";
-					printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, transaction);
-					throw new ConnectException("Incomplete redo record!");
-				} else if (incompleteDataTolerance == INCOMPLETE_REDO_INT_SKIP) {
+				if ((flags & FLG_TOLERATE_INCOMPLETE_ROW) > 0) {
 					final String message = 
 							"Missed where clause in UPDATE record for the table {}.\n";
 					printErrorMessage(Level.WARN,  message, stmt, transaction);
 					skipRedoRecord = true;
 				} else {
-					// OraCdcSourceConnectorConfig.INCOMPLETE_REDO_INT_RESTORE
-					getMissedColumnValues(connection, stmt);
+					final String message = 
+							"Missed where clause in UPDATE record for the table {}.\n";
+					printErrorMessage(Level.ERROR,  message + "Exiting!\n", stmt, transaction);
+					throw new OraCdcException("Incomplete redo record!");
 				}
 			}
 			//END: where clause processing...
-			structWriter.afterBefore();
+			dataBinder.afterBefore();
 			if (beforeData) {
 				for (int i = 0; i < setColDefs.length; i++)
 					for (int j = 0; j < setColDefs[i].length; j++)
@@ -454,14 +431,14 @@ public class OraTable4RedoMiner extends OraTable {
 					if (oraColumn != null) {
 						if (colSize < 0) {
 							try {
-								structWriter.update(oraColumn, null, false);
-							} catch (DataException de) {
+								dataBinder.update(oraColumn, null, false);
+							} catch (OraCdcDataException de) {
 								printInvalidFieldValue(oraColumn, stmt, transaction);
 								throw de;
 							}
 						} else {
 							try {
-								structWriter.update(oraColumn,
+								dataBinder.update(oraColumn,
 									parseRedoRecordValues(oraColumn, redoData,
 										setColDefs[i][2], colSize, transaction),
 									false);
@@ -475,7 +452,7 @@ public class OraTable4RedoMiner extends OraTable {
 											rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
 											oraColumn.getColumnName(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, transaction);
-									throw new SQLException(sqle);
+									throw sqle;
 								}
 							}
 						}
@@ -492,8 +469,7 @@ public class OraTable4RedoMiner extends OraTable {
 			throw new SQLException("Unknown OPERATION_CODE while parsing redo record!");
 		}
 
-		return createSourceRecord(stmt, transaction, offset, opType,
-				skipRedoRecord, connection, missedColumns);
+		return dataBinder.changeVector(transaction, offset, skipRedoRecord);
 	}
 
 	
@@ -503,11 +479,11 @@ public class OraTable4RedoMiner extends OraTable {
 		if (oraColumn.decodeWithoutTrans())
 			return oraColumn.decoder().decode(data, offset, length);
 		else {
-			if (oraColumn.transformLob()) {
-				return transformLobs.transformData(pdbName,
-						tableOwner, tableName, oraColumn, data, keyStruct,
-						lobColumnSchemas.get(oraColumn.getColumnName()));
-			} else
+//			if (oraColumn.transformLob()) {
+//				return transformLobs.transformData(pdbName,
+//						tableOwner, tableName, oraColumn, data, keyStruct,
+//						lobColumnSchemas.get(oraColumn.getColumnName()));
+//			} else
 				return oraColumn.decoder().decode(data, offset, length, transaction);
 		}
 	}

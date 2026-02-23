@@ -48,7 +48,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.OraCdcDictionaryChecker;
-import solutions.a2.cdc.oracle.OraCdcInitialLoadThread;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraCdcTaskBase;
@@ -58,11 +57,11 @@ import solutions.a2.cdc.oracle.OraCdcWorkerThreadBase;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraTable;
-import solutions.a2.cdc.oracle.OraTable4InitialLoad;
 import solutions.a2.cdc.oracle.OraTable4LogMiner;
 import solutions.a2.cdc.oracle.OraTable4RedoMiner;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
+import solutions.a2.cdc.oracle.runtime.data.KafkaInitialLoadTable;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
@@ -110,9 +109,9 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 
 	boolean execInitialLoad = false;
 	String initialLoadStatus = INITIAL_LOAD_IGNORE;
-	OraCdcInitialLoadThread initialLoadWorker;
-	BlockingQueue<OraTable4InitialLoad> tablesQueue;
-	OraTable4InitialLoad table4InitialLoad;
+	KafkaInitialLoadThread initialLoadWorker;
+	BlockingQueue<KafkaInitialLoadTable> tablesQueue;
+	KafkaInitialLoadTable table4InitialLoad;
 	boolean lastRecordInTable = true;
 	OraCdcInitialLoad initialLoadMetrics;
 	private String fldCommitScnInProgress = null;
@@ -603,7 +602,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 		}
 		tablesQueue = new LinkedBlockingQueue<>();
 		initialLoadMetrics = new OraCdcInitialLoad(rdbmsInfo, connectorName);
-		initialLoadWorker = new OraCdcInitialLoadThread(
+		initialLoadWorker = new KafkaInitialLoadThread(
 				WAIT_FOR_WORKER_MILLIS,
 				scn,
 				tablesInProcessing,
