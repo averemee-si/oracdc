@@ -37,9 +37,9 @@ import org.slf4j.event.Level;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraTable4RedoMiner extends OraCdcTableBase {
+public class OraCdcRedoMinerTable extends OraCdcTableBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4RedoMiner.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerTable.class);
 
 	private final Map<Integer, OraColumn> pureIdMap = new HashMap<>();
 	private final Set<Integer> setColumns = new HashSet<>();
@@ -59,7 +59,7 @@ public class OraTable4RedoMiner extends OraCdcTableBase {
 	 * @param rdbmsInfo
 	 * @param connection
 	 */
-	public OraTable4RedoMiner(
+	public OraCdcRedoMinerTable(
 			final String pdbName, final short conId, final String tableOwner,
 			final String tableName, final boolean rowLevelScn,
 			final OraCdcSourceConnectorConfig config,

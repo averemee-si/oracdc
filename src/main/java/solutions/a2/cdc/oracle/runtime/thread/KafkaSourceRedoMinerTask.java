@@ -41,7 +41,7 @@ import solutions.a2.cdc.oracle.OraCdcRedoMinerStatement;
 import solutions.a2.cdc.oracle.OraCdcRedoMinerWorkerThread;
 import solutions.a2.cdc.oracle.OraCdcTaskBase;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
-import solutions.a2.cdc.oracle.OraTable4RedoMiner;
+import solutions.a2.cdc.oracle.OraCdcRedoMinerTable;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -269,7 +269,7 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 							lastStatementInTransaction = !processTransaction;
 
 							if (processTransaction && runLatch.getCount() > 0) {
-								OraTable4RedoMiner oraTable = (OraTable4RedoMiner) checker.getTable(stmt.getTableId());
+								OraCdcRedoMinerTable oraTable = (OraCdcRedoMinerTable) checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
 									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);

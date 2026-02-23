@@ -58,7 +58,7 @@ import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.OraCdcLogMinerTable;
-import solutions.a2.cdc.oracle.OraTable4RedoMiner;
+import solutions.a2.cdc.oracle.OraCdcRedoMinerTable;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
 import solutions.a2.cdc.oracle.runtime.data.KafkaInitialLoadTable;
@@ -588,7 +588,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 								Strings.CI.equals("ENABLED", resultSet.getString("DEPENDENCIES")),
 								config, rdbmsInfo, connection, getTableVersion(combinedDataObjectId));
 					else
-						oraTable = new OraTable4RedoMiner(
+						oraTable = new OraCdcRedoMinerTable(
 								isCdb ? resultSet.getString("PDB_NAME") : null,
 								isCdb ? (short) conId : -1,
 								resultSet.getString("OWNER"), tableName,

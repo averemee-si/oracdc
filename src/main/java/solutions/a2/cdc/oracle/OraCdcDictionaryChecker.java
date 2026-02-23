@@ -237,7 +237,7 @@ public class OraCdcDictionaryChecker {
 									"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 									config, rdbmsInfo, connection, task.getTableVersion(combinedDataObjectId));
 						else
-							oraTable = new OraTable4RedoMiner(
+							oraTable = new OraCdcRedoMinerTable(
 									isCdb ? rsCheckTable.getString("PDB_NAME") : null,
 									isCdb ? (short) conId : -1,
 									tableOwner, tableName,
