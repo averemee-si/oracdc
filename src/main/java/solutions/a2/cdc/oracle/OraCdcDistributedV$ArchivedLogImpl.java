@@ -37,7 +37,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -363,7 +362,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 					try {
 						connDictionary.close();
 					} catch (SQLException sqleIgnore) {} 
-					throw new ConnectException(sqle);
+					throw new OraCdcException(sqle);
 				}
 			}
 			try {
