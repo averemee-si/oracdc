@@ -46,7 +46,7 @@ import org.slf4j.event.Level;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraTable4LogMiner extends OraTable {
+public class OraTable4LogMiner extends OraCdcTableBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4LogMiner.class);
 

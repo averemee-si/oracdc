@@ -54,7 +54,7 @@ import oracle.sql.TIMESTAMPTZ;
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.cdc.oracle.OraTable;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.runtime.config.Parameters;
@@ -113,7 +113,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 	 * @param rdbmsInfo
 	 * @throws IOException
 	 */
-	public KafkaInitialLoadTable(final Path rootDir, final OraTable oraTable,
+	public KafkaInitialLoadTable(final Path rootDir, final OraCdcTableBase oraTable,
 				final OraCdcInitialLoad metrics,
 				final OraRdbmsInfo rdbmsInfo) throws IOException {
 		LOGGER.trace("BEGIN: create OraCdcTableBuffer");

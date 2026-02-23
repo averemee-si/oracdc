@@ -16,12 +16,12 @@ package solutions.a2.cdc.oracle.runtime.data;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
-import static solutions.a2.cdc.oracle.OraTable.FLG_ALL_COLS_ON_DELETE;
-import static solutions.a2.cdc.oracle.OraTable.FLG_ONLY_VALUE;
-import static solutions.a2.cdc.oracle.OraTable.FLG_PSEUDO_KEY;
-import static solutions.a2.cdc.oracle.OraTable.FLG_SUPPLEMENTAL_LOG_ALL;
-import static solutions.a2.cdc.oracle.OraTable.FLG_TABLE_WITH_PK;
-import static solutions.a2.cdc.oracle.OraTable.FLG_TOLERATE_INCOMPLETE_ROW;
+import static solutions.a2.cdc.oracle.OraCdcTableBase.FLG_ALL_COLS_ON_DELETE;
+import static solutions.a2.cdc.oracle.OraCdcTableBase.FLG_ONLY_VALUE;
+import static solutions.a2.cdc.oracle.OraCdcTableBase.FLG_PSEUDO_KEY;
+import static solutions.a2.cdc.oracle.OraCdcTableBase.FLG_SUPPLEMENTAL_LOG_ALL;
+import static solutions.a2.cdc.oracle.OraCdcTableBase.FLG_TABLE_WITH_PK;
+import static solutions.a2.cdc.oracle.OraCdcTableBase.FLG_TOLERATE_INCOMPLETE_ROW;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_KAFKA_STD;
 
@@ -42,7 +42,7 @@ import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.cdc.oracle.OraTable;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.SchemaNameMapper;
 import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
@@ -80,7 +80,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 	private final Map<String, String> sourcePartition;
 	int mandatoryColumnsProcessed = 0;
 	final int schemaType;
-	final OraTable table;
+	final OraCdcTableBase table;
 	final OraCdcLobTransformationsIntf transformLobs;
 	final KafkaRdbmsInfoStruct kris;
 	final String kafkaTopic;
@@ -91,7 +91,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 	Schema keySchema;
 	Schema valueSchema;
 
-	KafkaStructDataBinder(final OraCdcSourceConnectorConfig config, final OraRdbmsInfo rdbmsInfo, final OraTable table) {
+	KafkaStructDataBinder(final OraCdcSourceConnectorConfig config, final OraRdbmsInfo rdbmsInfo, final OraCdcTableBase table) {
 		this.table = table;
 		kris = new KafkaRdbmsInfoStruct(rdbmsInfo);
 		snm = config.getSchemaNameMapper();

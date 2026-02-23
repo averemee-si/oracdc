@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.cdc.oracle.OraTable;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.runtime.data.KafkaInitialLoadTable;
 import solutions.a2.utils.ExceptionUtils;
@@ -49,7 +49,7 @@ public class KafkaInitialLoadThread extends Thread {
 	private final long asOfScn;
 	private final OraCdcInitialLoad metrics;
 	private final CountDownLatch runLatch;
-	private final Map<Long, OraTable> tablesInProcessing;
+	private final Map<Long, OraCdcTableBase> tablesInProcessing;
 	private final Path queuesRoot;
 	private final BlockingQueue<KafkaInitialLoadTable> tablesQueue;
 	private final AtomicBoolean running;
@@ -60,7 +60,7 @@ public class KafkaInitialLoadThread extends Thread {
 	public KafkaInitialLoadThread(
 			final int waitInterval,
 			final long asOfScn,
-			final Map<Long, OraTable> tablesInProcessing,
+			final Map<Long, OraCdcTableBase> tablesInProcessing,
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraCdcInitialLoad metrics,

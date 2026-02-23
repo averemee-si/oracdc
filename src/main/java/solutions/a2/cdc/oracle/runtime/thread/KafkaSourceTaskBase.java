@@ -56,7 +56,7 @@ import solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue;
 import solutions.a2.cdc.oracle.OraCdcWorkerThreadBase;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.cdc.oracle.OraTable;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.OraTable4LogMiner;
 import solutions.a2.cdc.oracle.OraTable4RedoMiner;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
@@ -91,7 +91,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 	AtomicBoolean isPollRunning;
 	OraConnectionObjects oraConnections;
 	Map<String, Object> offset;
-	Map<Long, OraTable> tablesInProcessing;
+	Map<Long, OraCdcTableBase> tablesInProcessing;
 	Set<Long> tablesOutOfScope;
 	BlockingQueue<OraCdcTransaction> committedTransactions;
 	OraCdcTransaction transaction;
@@ -579,7 +579,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 				final String tableName = resultSet.getString("TABLE_NAME");
 				if (!tablesInProcessing.containsKey(combinedDataObjectId)
 						&& !Strings.CS.startsWith(tableName, "MLOG$_")) {
-					OraTable oraTable;
+					OraCdcTableBase oraTable;
 					if (config.logMiner())
 						oraTable = new OraTable4LogMiner(
 								isCdb ? resultSet.getString("PDB_NAME") : null,

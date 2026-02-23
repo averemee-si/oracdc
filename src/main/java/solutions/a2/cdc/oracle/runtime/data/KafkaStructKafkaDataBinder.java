@@ -22,7 +22,7 @@ import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraColumn;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.cdc.oracle.OraTable;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
 
 /**
  *
@@ -31,7 +31,7 @@ import solutions.a2.cdc.oracle.OraTable;
  */
 public class KafkaStructKafkaDataBinder extends KafkaStructDataBinder {
 
-	public KafkaStructKafkaDataBinder(final OraCdcSourceConnectorConfig config, final OraRdbmsInfo rdbmsInfo, final OraTable table) {
+	public KafkaStructKafkaDataBinder(final OraCdcSourceConnectorConfig config, final OraRdbmsInfo rdbmsInfo, final OraCdcTableBase table) {
 		super(config, rdbmsInfo, table);
 	}
 

@@ -51,7 +51,7 @@ public class OraCdcDictionaryChecker {
 	private final OraConnectionObjects oraConnections;
 	private final OraCdcSourceConnectorConfig config;
 	private final OraRdbmsInfo rdbmsInfo;
-	private final Map<Long, OraTable> tablesInProcessing;
+	private final Map<Long, OraCdcTableBase> tablesInProcessing;
 	private final Map<Long, Long> partitionsInProcessing;
 	private final Set<Long> tablesOutOfScope;
 	private final String checkTableSql;
@@ -69,7 +69,7 @@ public class OraCdcDictionaryChecker {
 
 	public OraCdcDictionaryChecker(
 			final OraCdcTaskBase task,
-			final Map<Long, OraTable> tablesInProcessing,
+			final Map<Long, OraCdcTableBase> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final String checkTableSql,
 			final OraCdcSourceConnMgmt metrics) throws SQLException {
@@ -79,7 +79,7 @@ public class OraCdcDictionaryChecker {
 	public OraCdcDictionaryChecker(
 			final OraCdcTaskBase task,
 			final boolean staticObjIds,
-			final Map<Long, OraTable> tablesInProcessing,
+			final Map<Long, OraCdcTableBase> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final String checkTableSql,
 			Set<Integer> includeObjIds,
@@ -113,15 +113,15 @@ public class OraCdcDictionaryChecker {
 		initStatements();
 	}
 
-	public OraTable getTable(final long combinedDataObjectId) throws SQLException {
+	public OraCdcTableBase getTable(final long combinedDataObjectId) throws SQLException {
 		return getTable(
 				combinedDataObjectId,
 				(int) combinedDataObjectId,
 				(combinedDataObjectId >> 32)  & 0xFFFFFFFFL);
 	}
 
-	OraTable getTable(long combinedDataObjectId, final long dataObjectId, final long conId) throws SQLException {
-		OraTable oraTable = tablesInProcessing.get(combinedDataObjectId);
+	OraCdcTableBase getTable(long combinedDataObjectId, final long dataObjectId, final long conId) throws SQLException {
+		OraCdcTableBase oraTable = tablesInProcessing.get(combinedDataObjectId);
 		if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
 			Long combinedParentTableId = partitionsInProcessing.get(combinedDataObjectId);
 			if (combinedParentTableId != null) {

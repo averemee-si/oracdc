@@ -56,9 +56,9 @@ import solutions.a2.cdc.oracle.utils.OraSqlUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public abstract class OraTable {
+public abstract class OraCdcTableBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTableBase.class);
 
 	private final String pdbName;
 	private final String tableOwner;
@@ -104,7 +104,7 @@ public abstract class OraTable {
 	 * @param config
 	 * @param rdbmsInfo
 	 */
-	OraTable(final String pdbName, final String tableOwner, final String tableName,
+	OraCdcTableBase(final String pdbName, final String tableOwner, final String tableName,
 			final boolean rowLevelScn, final short conId, final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection, final int version) {
 		this.pkColumns = new LinkedHashMap<>();

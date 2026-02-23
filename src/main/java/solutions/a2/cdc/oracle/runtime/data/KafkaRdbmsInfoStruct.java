@@ -21,7 +21,7 @@ import org.apache.kafka.connect.data.Struct;
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.cdc.oracle.OraTable;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
 
 /**
  *
@@ -92,7 +92,7 @@ public class KafkaRdbmsInfoStruct {
 		return struct;
 	}
 
-	public Struct getStruct(OraTable table, OraCdcStatementBase stmt, OraCdcTransaction transaction) {
+	public Struct getStruct(OraCdcTableBase table, OraCdcStatementBase stmt, OraCdcTransaction transaction) {
 		var struct = new Struct(schema);
 		struct.put("instance_number", rdbmsInfo.getInstanceNumber());
 		struct.put("version", rdbmsInfo.getVersionString());
