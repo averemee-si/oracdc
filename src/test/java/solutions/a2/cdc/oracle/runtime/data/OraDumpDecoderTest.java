@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import static java.sql.Types.FLOAT;
 import static java.sql.Types.DOUBLE;
@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import oracle.sql.BINARY_DOUBLE;
 import oracle.sql.BINARY_FLOAT;
 import oracle.sql.NUMBER;
+import solutions.a2.cdc.oracle.OraCdcDecoder;
 
 /**
  *  

@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,6 +24,8 @@ import org.apache.kafka.connect.data.Struct;
 import org.junit.jupiter.api.Test;
 
 import oracle.sql.json.OracleJsonFactory;
+import solutions.a2.cdc.oracle.OraCdcDecoder;
+import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.oracle.internals.LobLocator;
 
 /**
