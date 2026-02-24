@@ -23,8 +23,8 @@ import static oracle.jdbc.OracleTypes.JSON;
 import static oracle.jdbc.OracleTypes.VECTOR;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
-import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_PREFIX;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
+import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_PREFIX;
 import static solutions.a2.kafka.sink.JdbcSinkConnectorConfig.CONNECTOR_REPLICATE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
