@@ -177,7 +177,7 @@ public abstract class OraCdcTableBase {
 	abstract void createLobHolders();
 	abstract void addLobColumnId(final int columnId);
 
-	void readAndParseOraColumns(final Connection connection) throws SQLException {
+	void readAndParseOraColumns(final Connection connection, final boolean initial) throws SQLException {
 		final var isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
 		final boolean useRowIdAsKey;
@@ -384,7 +384,7 @@ public abstract class OraCdcTableBase {
 			undroppedColumns = null;
 		}
 
-		dataBinder.buildSchema(true);
+		dataBinder.buildSchema(initial);
 
 		if (isCdb) {
 			if (!noLongInDict)
@@ -605,7 +605,7 @@ public abstract class OraCdcTableBase {
 			mandatoryColumnsCount = 0;
 			updatedColumnCount = 1;
 			version++;
-			readAndParseOraColumns(connection);
+			readAndParseOraColumns(connection, false);
 
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("END: Processing DDL for OraTable {} using dictionary  data...", tableFqn);

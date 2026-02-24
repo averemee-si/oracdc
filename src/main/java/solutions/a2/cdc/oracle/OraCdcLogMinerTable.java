@@ -87,7 +87,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);
 			}
-			readAndParseOraColumns(connection);
+			readAndParseOraColumns(connection, true);
 		} catch (SQLException sqle) {
 			throw sqlExceptionOnInit(sqle);
 		}
