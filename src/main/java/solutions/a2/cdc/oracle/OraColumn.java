@@ -27,12 +27,10 @@ import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
 import oracle.sql.json.OracleJsonFactory;
 import solutions.a2.cdc.oracle.data.OraInterval;
@@ -1305,49 +1303,6 @@ public class OraColumn extends Column {
 			return StringUtils.substringBetween(StringUtils.remove(rawColumnName, CHAR_0), "\"", "\"");
 		else
 			return StringUtils.upperCase(StringUtils.remove(rawColumnName, CHAR_0));
-	}
-
-	/**
-	 * 
-	 * @param struct
-	 * @param resultSet
-	 * @return true if columnValue from DB was not null
-	 * @throws SQLException
-	 */
-	public boolean setValueFromResultSet(
-			final Struct struct, final ResultSet resultSet) throws SQLException  {
-		switch (jdbcType) {
-			case DATE, TIMESTAMP, TIMESTAMP_WITH_TIMEZONE ->
-				struct.put(columnName, resultSet.getTimestamp(columnName));
-			case BOOLEAN ->
-				struct.put(columnName, resultSet.getBoolean(columnName));
-			case TINYINT ->
-				struct.put(columnName, resultSet.getByte(columnName));
-			case SMALLINT ->
-				struct.put(columnName, resultSet.getShort(columnName));
-			case INTEGER ->
-				struct.put(columnName, resultSet.getInt(columnName));
-			case BIGINT ->
-				struct.put(columnName, resultSet.getLong(columnName));
-			case FLOAT ->
-				struct.put(columnName, resultSet.getFloat(columnName));
-			case DOUBLE ->
-				struct.put(columnName, resultSet.getDouble(columnName));
-			case DECIMAL ->
-				struct.put(columnName, resultSet.getBigDecimal(columnName));
-			case NUMERIC ->
-				struct.put(columnName, ((OracleResultSet) resultSet).getNUMBER(columnName).getBytes());
-			case BINARY ->
-				struct.put(columnName, resultSet.getBytes(columnName));
-			case VARCHAR ->
-				struct.put(columnName, resultSet.getString(columnName));
-			default -> {
-				LOGGER.error("Unsupported data type {} for column {}.",
-					getTypeName(jdbcType), columnName);
-				throw new SQLException("Unsupported data type: " + getTypeName(jdbcType));
-			}
-		}
-		return !resultSet.wasNull();
 	}
 
 	public boolean isNumber() {
