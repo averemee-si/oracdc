@@ -146,12 +146,12 @@ public class KafkaConnectSchema {
 									: rdbmsInfo.nCharset();
 				if (suppLogAll) {
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(charset, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(charset);
+							? KafkaConnectDecoders.get(charset, decrypter, column.salted())
+							: KafkaConnectDecoders.get(charset);
 				} else {
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, charset, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema, charset);
+							? KafkaConnectDecoders.get(schema, charset, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema, charset);
 				}
 			}
 			case LONGVARCHAR, LONGNVARCHAR -> {
@@ -186,22 +186,22 @@ public class KafkaConnectSchema {
 					}
 					schema = optionalOrRequired(column.mandatory(), builder);
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(decrypter, column.salted())
-							: OraCdcDecoderFactory.get();
+							? KafkaConnectDecoders.get(decrypter, column.salted())
+							: KafkaConnectDecoders.get();
 				} else {
 					schema = column.mandatory()
 							? WRAPPED_NUMBER_SCHEMA
 							: WRAPPED_OPT_NUMBER_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema);
 				}
 			}
 			case FLOAT -> {
 				if (suppLogAll) {
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(BINARY_FLOAT, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(BINARY_FLOAT);
+							? KafkaConnectDecoders.get(BINARY_FLOAT, decrypter, column.salted())
+							: KafkaConnectDecoders.get(BINARY_FLOAT);
 					var builder = SchemaBuilder.float32();
 					if (column.defaultValuePresent()) {
 						try {
@@ -218,8 +218,8 @@ public class KafkaConnectSchema {
 							? WRAPPED_FLOAT32_SCHEMA
 							: WRAPPED_OPT_FLOAT32_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, BINARY_FLOAT, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema, BINARY_FLOAT);
+							? KafkaConnectDecoders.get(schema, BINARY_FLOAT, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema, BINARY_FLOAT);
 				}
 			}
 			case DOUBLE -> {
@@ -236,8 +236,8 @@ public class KafkaConnectSchema {
 					}
 					if (column.IEEE754()) {
 						decoder = column.encrypted()
-								? OraCdcDecoderFactory.get(BINARY_DOUBLE, decrypter, column.salted())
-								: OraCdcDecoderFactory.get(BINARY_DOUBLE);
+								? KafkaConnectDecoders.get(BINARY_DOUBLE, decrypter, column.salted())
+								: KafkaConnectDecoders.get(BINARY_DOUBLE);
 					} else {
 						decoder = decoderFromJdbcType(column);
 					}
@@ -248,20 +248,20 @@ public class KafkaConnectSchema {
 							: WRAPPED_OPT_FLOAT64_SCHEMA;
 					if (column.IEEE754()) {
 						decoder = column.encrypted()
-								? OraCdcDecoderFactory.get(schema, BINARY_DOUBLE, decrypter, column.salted())
-								: OraCdcDecoderFactory.get(schema, BINARY_DOUBLE);
+								? KafkaConnectDecoders.get(schema, BINARY_DOUBLE, decrypter, column.salted())
+								: KafkaConnectDecoders.get(schema, BINARY_DOUBLE);
 					} else {
 						decoder = column.encrypted()
-								? OraCdcDecoderFactory.get(schema, DOUBLE, decrypter, column.salted())
-								: OraCdcDecoderFactory.get(schema, DOUBLE);
+								? KafkaConnectDecoders.get(schema, DOUBLE, decrypter, column.salted())
+								: KafkaConnectDecoders.get(schema, DOUBLE);
 					}
 				}
 			}
 			case DECIMAL -> {
 				if (suppLogAll) {
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.getNUMBER(column.getDataScale(), decrypter, column.salted())
-							: OraCdcDecoderFactory.getNUMBER(column.getDataScale());
+							? KafkaConnectDecoders.getNUMBER(column.getDataScale(), decrypter, column.salted())
+							: KafkaConnectDecoders.getNUMBER(column.getDataScale());
 					var builder = Decimal.builder(column.getDataScale());
 					if (column.defaultValuePresent()) {
 						try {
@@ -278,8 +278,8 @@ public class KafkaConnectSchema {
 							? WRAPPED_DECIMAL_SCHEMA(column.getDataScale())
 							: WRAPPED_OPT_DECIMAL_SCHEMA(column.getDataScale());
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema);
 				}
 			}
 			case TINYINT -> {
@@ -301,8 +301,8 @@ public class KafkaConnectSchema {
 							? WRAPPED_INT8_SCHEMA
 							: WRAPPED_OPT_INT8_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema, jdbcType);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema, jdbcType);
 				}
 			}
 			case SMALLINT -> {
@@ -324,8 +324,8 @@ public class KafkaConnectSchema {
 							? WRAPPED_INT16_SCHEMA
 							: WRAPPED_OPT_INT16_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema, jdbcType);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema, jdbcType);
 				}
 			}
 			case INTEGER -> {
@@ -347,8 +347,8 @@ public class KafkaConnectSchema {
 							? WRAPPED_INT32_SCHEMA
 							: WRAPPED_OPT_INT32_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema, jdbcType);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema, jdbcType);
 				}
 			}
 			case BIGINT -> {
@@ -370,8 +370,8 @@ public class KafkaConnectSchema {
 							? WRAPPED_INT64_SCHEMA
 							: WRAPPED_OPT_INT64_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema, jdbcType);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema, jdbcType);
 				}
 			}
 			case BOOLEAN -> {
@@ -392,7 +392,7 @@ public class KafkaConnectSchema {
 					schema = column.mandatory()
 							? WRAPPED_BOOLEAN_SCHEMA
 							: WRAPPED_OPT_BOOLEAN_SCHEMA;
-					decoder = OraCdcDecoderFactory.get(schema, jdbcType);
+					decoder = KafkaConnectDecoders.get(schema, jdbcType);
 				}
 			}
 			case TIMESTAMP_WITH_TIMEZONE -> {
@@ -402,15 +402,15 @@ public class KafkaConnectSchema {
 							? OraTimestamp.builder().required().build()
 							: OraTimestamp.builder().optional().build();
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(zoneId, column.localTimeZone(), decrypter, column.salted())
-							: OraCdcDecoderFactory.get(zoneId, column.localTimeZone());
+							? KafkaConnectDecoders.get(zoneId, column.localTimeZone(), decrypter, column.salted())
+							: KafkaConnectDecoders.get(zoneId, column.localTimeZone());
 				} else {
 					schema = (column.mandatory())
 							? WRAPPED_TIMESTAMPTZ_SCHEMA
 							: WRAPPED_OPT_TIMESTAMPTZ_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema);
 				}
 			}
 			case TIMESTAMPLTZ -> {
@@ -419,8 +419,8 @@ public class KafkaConnectSchema {
 						? WRAPPED_TIMESTAMPLTZ_SCHEMA(tz.getId())
 						: WRAPPED_OPT_TIMESTAMPLTZ_SCHEMA(tz.getId());
 				decoder = column.encrypted()
-						? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-						: OraCdcDecoderFactory.get(schema);
+						? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+						: KafkaConnectDecoders.get(schema);
 			}
 			case DATE, TIMESTAMP -> {
 				if (suppLogAll) {
@@ -433,8 +433,8 @@ public class KafkaConnectSchema {
 							? WRAPPED_TIMESTAMP_SCHEMA
 							: WRAPPED_OPT_TIMESTAMP_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema);
 				}
 			}
 			case ROWID -> {
@@ -444,8 +444,8 @@ public class KafkaConnectSchema {
 			case INTERVALYM -> {
 				if (suppLogAll) {
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(decrypter, column.salted())
-							: OraCdcDecoderFactory.get();
+							? KafkaConnectDecoders.get(decrypter, column.salted())
+							: KafkaConnectDecoders.get();
 					schema = column.mandatory()
 							? OraIntervalYM.builder().required().build()
 							: OraIntervalYM.builder().optional().build();
@@ -454,15 +454,15 @@ public class KafkaConnectSchema {
 							? WRAPPED_INTERVALYM_SCHEMA
 							: WRAPPED_OPT_INTERVALYM_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema);
 				}
 			}
 			case INTERVALDS -> {
 				if (suppLogAll) {
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(decrypter, column.salted())
-							: OraCdcDecoderFactory.get();
+							? KafkaConnectDecoders.get(decrypter, column.salted())
+							: KafkaConnectDecoders.get();
 					schema = column.mandatory()
 							? OraIntervalDS.builder().required().build()
 							: OraIntervalDS.builder().optional().build();
@@ -471,14 +471,14 @@ public class KafkaConnectSchema {
 							? WRAPPED_INTERVALDS_SCHEMA
 							: WRAPPED_OPT_INTERVALDS_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema);
 				}
 			}
 			case JAVA_SQL_TYPE_INTERVALYM_STRING, JAVA_SQL_TYPE_INTERVALDS_STRING -> {
 				decoder = column.encrypted()
-						? OraCdcDecoderFactory.get(jdbcType, decrypter, column.salted())
-						: OraCdcDecoderFactory.get(jdbcType);
+						? KafkaConnectDecoders.get(jdbcType, decrypter, column.salted())
+						: KafkaConnectDecoders.get(jdbcType);
 				schema = column.mandatory()
 						? OraInterval.builder().required().build()
 						: OraInterval.builder().optional().build();
@@ -489,15 +489,15 @@ public class KafkaConnectSchema {
 							? Schema.BYTES_SCHEMA
 							: Schema.OPTIONAL_BYTES_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(decrypter, column.salted())
-							: OraCdcDecoderFactory.get();
+							? KafkaConnectDecoders.get(decrypter, column.salted())
+							: KafkaConnectDecoders.get();
 				} else {
 					schema = column.mandatory()
 							? WRAPPED_BYTES_SCHEMA
 							: WRAPPED_OPT_BYTES_SCHEMA;
 					decoder = column.encrypted()
-							? OraCdcDecoderFactory.get(schema, decrypter, column.salted())
-							: OraCdcDecoderFactory.get(schema);
+							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
+							: KafkaConnectDecoders.get(schema);
 				}
 			}
 			case LONGVARBINARY -> {
@@ -520,9 +520,9 @@ public class KafkaConnectSchema {
 			case JSON -> {
 				schema = null;		//TODO re-implement LOB transform here
 				decoder = column.encrypted()
-						? OraCdcDecoderFactory.get(rdbmsInfo == null ? new OracleJsonFactory() : rdbmsInfo.jsonFactory(),
+						? KafkaConnectDecoders.get(rdbmsInfo == null ? new OracleJsonFactory() : rdbmsInfo.jsonFactory(),
 											decrypter, column.salted())
-						: OraCdcDecoderFactory.get(rdbmsInfo == null ? new OracleJsonFactory() : rdbmsInfo.jsonFactory());
+						: KafkaConnectDecoders.get(rdbmsInfo == null ? new OracleJsonFactory() : rdbmsInfo.jsonFactory());
 			}
 			default -> {
 				schema = null;
@@ -535,14 +535,14 @@ public class KafkaConnectSchema {
 
 	private OraCdcDecoder decoderFromJdbcType(final OraColumn column) {
 		return column.encrypted()
-				? OraCdcDecoderFactory.get(column.getJdbcType(), decrypter, column.salted())
-				: OraCdcDecoderFactory.get(column.getJdbcType());
+				? KafkaConnectDecoders.get(column.getJdbcType(), decrypter, column.salted())
+				: KafkaConnectDecoders.get(column.getJdbcType());
 	}
 
 	private OraCdcDecoder decoderFromJdbcType(final OraColumn column, final Schema schema) {
 		return column.encrypted()
-				? OraCdcDecoderFactory.get(schema, column.getJdbcType(), decrypter, column.salted())
-				: OraCdcDecoderFactory.get(schema, column.getJdbcType());
+				? KafkaConnectDecoders.get(schema, column.getJdbcType(), decrypter, column.salted())
+				: KafkaConnectDecoders.get(schema, column.getJdbcType());
 	}
 
 	private Schema optionalOrRequired(boolean mandatory, SchemaBuilder builder) {

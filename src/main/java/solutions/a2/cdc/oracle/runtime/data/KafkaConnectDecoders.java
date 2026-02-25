@@ -113,12 +113,12 @@ import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcDecoderFactory {
+public class KafkaConnectDecoders {
 
 	private static final Map<Integer, OraCdcDecoder> decoders = new HashMap<>();
 	private static final Map<String, String> oraToJava = new HashMap<>();
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcDecoderFactory.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaConnectDecoders.class);
 	
 	static OraCdcDecoder get() {
 		return new OraCdcDecoder() {

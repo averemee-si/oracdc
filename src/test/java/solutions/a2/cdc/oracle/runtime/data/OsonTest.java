@@ -51,7 +51,7 @@ public class OsonTest {
 		assertTrue(ll.dataInRow());
 
 		OracleJsonFactory factory = new OracleJsonFactory();
-		OraCdcDecoder decoder = OraCdcDecoderFactory.get(factory);
+		OraCdcDecoder decoder = KafkaConnectDecoders.get(factory);
 		final OraCdcTransaction transaction = null;
 		try {
 			Struct osonData = (Struct) decoder.decode(oson, 0, oson.length, transaction);

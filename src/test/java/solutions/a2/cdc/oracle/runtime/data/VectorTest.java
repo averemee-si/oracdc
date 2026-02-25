@@ -41,7 +41,7 @@ public class VectorTest {
 	@Test
 	public void test() {
 
-		OraCdcDecoder decoder = OraCdcDecoderFactory.get(VECTOR);
+		OraCdcDecoder decoder = KafkaConnectDecoders.get(VECTOR);
 		final OraCdcTransaction transaction = null;
 		
 		LobLocator ll;
