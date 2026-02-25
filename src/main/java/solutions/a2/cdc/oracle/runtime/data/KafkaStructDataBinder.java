@@ -95,7 +95,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 	KafkaStructDataBinder(final OraCdcSourceConnectorConfig config, final OraRdbmsInfo rdbmsInfo, final OraCdcTableBase table) {
 		this.table = table;
 		kris = new KafkaRdbmsInfoStruct(rdbmsInfo);
-		kcs = new KafkaConnectSchema(rdbmsInfo);
+		kcs = new KafkaConnectSchema(rdbmsInfo, table);
 		snm = config.getSchemaNameMapper();
 		snm.configure(config);
 		schemaType = config.schemaType();

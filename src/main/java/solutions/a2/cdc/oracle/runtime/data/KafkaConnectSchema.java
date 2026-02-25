@@ -120,9 +120,9 @@ public class KafkaConnectSchema {
 	private final OraCdcTdeColumnDecrypter decrypter;
 	private final boolean suppLogAll;
 
-	KafkaConnectSchema(final OraRdbmsInfo rdbmsInfo, final OraCdcTdeColumnDecrypter decrypter, final OraCdcTableBase table) {
+	KafkaConnectSchema(final OraRdbmsInfo rdbmsInfo, final OraCdcTableBase table) {
 		this.rdbmsInfo = rdbmsInfo;
-		this.decrypter = decrypter;
+		decrypter = table.decrypter();
 		suppLogAll = (table.flags() & FLG_SUPPLEMENTAL_LOG_ALL) > 0;
 	}
 

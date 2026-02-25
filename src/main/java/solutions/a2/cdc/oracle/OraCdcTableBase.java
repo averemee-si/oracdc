@@ -839,4 +839,8 @@ public abstract class OraCdcTableBase {
 		return rowLevelScn;
 	}
 
+	public OraCdcTdeColumnDecrypter decrypter() {
+		return decrypter;
+	}
+
 }
