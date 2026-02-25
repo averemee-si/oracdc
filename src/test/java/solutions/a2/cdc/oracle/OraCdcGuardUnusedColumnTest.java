@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static solutions.a2.cdc.oracle.OraColumn.GUARD_COLUMN;
-import static solutions.a2.cdc.oracle.OraColumn.UNUSED_COLUMN;
+import static solutions.a2.cdc.oracle.OraCdcColumn.GUARD_COLUMN;
+import static solutions.a2.cdc.oracle.OraCdcColumn.UNUSED_COLUMN;
 
 import java.util.regex.Matcher;
 

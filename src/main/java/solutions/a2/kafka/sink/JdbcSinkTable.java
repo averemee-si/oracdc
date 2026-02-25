@@ -37,7 +37,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraJson;
@@ -676,8 +676,8 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 						holder.STATEMENT = connection.prepareStatement(holder.SQL_TEXT);
 						holder.EXEC_COUNT = 0;
 					}
-					if (objLobColumn instanceof OraColumn) {
-						final int lobColType = ((OraColumn)objLobColumn).getJdbcType();
+					if (objLobColumn instanceof OraCdcColumn) {
+						final int lobColType = ((OraCdcColumn)objLobColumn).getJdbcType();
 						if (lobColType == BLOB) {
 							final byte[] columnByteValue = objLobValue.getBytes("V");
 							if (columnByteValue == null)

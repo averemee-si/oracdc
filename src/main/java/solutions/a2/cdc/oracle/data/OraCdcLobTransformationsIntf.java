@@ -17,7 +17,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 
 import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;
@@ -38,7 +38,7 @@ import static oracle.jdbc.OracleTypes.VECTOR;
 public interface OraCdcLobTransformationsIntf {
 
 	public default Schema transformSchema(final String pdbName, final String tableOwner,
-			final String tableName, final OraColumn lobColumn, final SchemaBuilder valueSchema) {
+			final String tableName, final OraCdcColumn lobColumn, final SchemaBuilder valueSchema) {
 		// Default:
 		// pass columns AS IS to valueSchema
 		final String columnName = lobColumn.getColumnName(); 
@@ -66,7 +66,7 @@ public interface OraCdcLobTransformationsIntf {
 	}
 
 	public Struct transformData(final String pdbName, final String tableOwner,
-			final String tableName, final OraColumn lobColumn, final byte[] content,
+			final String tableName, final OraCdcColumn lobColumn, final byte[] content,
 			final Struct keyStruct, final Schema valueSchema);
 
 }

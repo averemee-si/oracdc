@@ -13,8 +13,8 @@
 
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.OraColumn.GUARD_COLUMN;
-import static solutions.a2.cdc.oracle.OraColumn.UNUSED_COLUMN;
+import static solutions.a2.cdc.oracle.OraCdcColumn.GUARD_COLUMN;
+import static solutions.a2.cdc.oracle.OraCdcColumn.UNUSED_COLUMN;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_KAFKA_STD;
@@ -63,8 +63,8 @@ public abstract class OraCdcTableBase {
 	private final String pdbName;
 	private final String tableOwner;
 	private final String tableName;
-	private final List<OraColumn> allColumns;
-	private final Map<String, OraColumn> pkColumns;
+	private final List<OraCdcColumn> allColumns;
+	private final Map<String, OraCdcColumn> pkColumns;
 	private final OraRdbmsInfo rdbmsInfo;
 	private final OraCdcSourceConnectorConfig config;
 	private final short conId;
@@ -168,10 +168,10 @@ public abstract class OraCdcTableBase {
 		}
 	}
 
-	abstract void addToIdMap(final OraColumn column);
+	abstract void addToIdMap(final OraCdcColumn column);
 	abstract void clearIdMap();
-	abstract void removeUnusedColumn(final OraColumn unusedColumn);
-	abstract void shiftColumnId(final OraColumn column);
+	abstract void removeUnusedColumn(final OraCdcColumn unusedColumn);
+	abstract void shiftColumnId(final OraCdcColumn column);
 	void removeUnusedLobColumn(final String unusedColName) {}
 	abstract void clearLobHolders();
 	abstract void createLobHolders();
@@ -208,7 +208,7 @@ public abstract class OraCdcTableBase {
 			flags &= (~FLG_TABLE_WITH_PK);
 			if ((flags & FLG_ONLY_VALUE) == 0 && useRowIdAsKey) {
 				flags |= FLG_PSEUDO_KEY;
-				final OraColumn rowIdColumn = OraColumn.getRowIdKey();
+				final OraCdcColumn rowIdColumn = OraCdcColumn.getRowIdKey();
 				allColumns.add(rowIdColumn);
 				pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
 			}
@@ -225,7 +225,7 @@ public abstract class OraCdcTableBase {
 		}
 
 
-		final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberRemap;
+		final List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>> numberRemap;
 		var noLongInDict = rdbmsInfo.noLongInDict();
 		if (isCdb) {
 			if (!noLongInDict)
@@ -261,7 +261,7 @@ public abstract class OraCdcTableBase {
 						rsColumns.getInt("COLUMN_ID"), rsColumns.getString("HIDDEN_COLUMN"), rsColumns.getInt("INTERNAL_COLUMN_ID"));
 			}
 			var columnAdded = false;
-			OraColumn column = null;
+			OraCdcColumn column = null;
 			if (Strings.CI.equals(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
 				try {
 					if (!hasEncryptedColumns && Strings.CI.equals("YES", rsColumns.getString("ENCRYPTED"))) {
@@ -282,11 +282,11 @@ public abstract class OraCdcTableBase {
 							decrypter = OraCdcTdeColumnDecrypter.get(connection, tw, tableOwner, tableName);
 						}
 					}
-					column = new OraColumn(
+					column = new OraCdcColumn(
 							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
 							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0, noLongInDict);
 					if (column.isNumber() && numberRemap != null) {
-						final OraColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
+						final OraCdcColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
 						if (newDefinition != null) {
 							column.remap(newDefinition, decrypter, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
 						}
@@ -417,9 +417,9 @@ public abstract class OraCdcTableBase {
 		case OraSqlUtils.ALTER_TABLE_COLUMN_ADD:
 			for (String columnDefinition : StringUtils.split(preProcessed, ";")) {
 				String newColumnName = StringUtils.split(columnDefinition)[0];
-				newColumnName = OraColumn.canonicalColumnName(newColumnName);
+				newColumnName = OraCdcColumn.canonicalColumnName(newColumnName);
 				boolean alreadyExist = false;
-				for (OraColumn column : allColumns) {
+				for (OraCdcColumn column : allColumns) {
 					if (Strings.CS.equals(newColumnName, column.getColumnName())) {
 						alreadyExist = true;
 						break;
@@ -436,11 +436,11 @@ public abstract class OraCdcTableBase {
 			break;
 		case OraSqlUtils.ALTER_TABLE_COLUMN_DROP:
 			final String[] columnNamesToDrop = StringUtils.split(preProcessed, ";");
-			final List<OraColumn> unusedColumns = new ArrayList<>();
+			final List<OraCdcColumn> unusedColumns = new ArrayList<>();
 			final Set<Integer> unusedColumnIndexes = new HashSet<>();
 			for (int i = 0; i < columnNamesToDrop.length; i++) {
 				unusedColumnIndexes.add(i);
-				final String columnToDrop = OraColumn.canonicalColumnName(columnNamesToDrop[i]);
+				final String columnToDrop = OraCdcColumn.canonicalColumnName(columnNamesToDrop[i]);
 				if (pkColumns.containsKey(columnToDrop)) {
 					LOGGER.error(
 							"""
@@ -453,7 +453,7 @@ public abstract class OraCdcTableBase {
 							""", columnToDrop, tableFqn);
 					throw new OraCdcException("Automatic DROP of a column included in the key for table is not supported.");
 				}
-				for (OraColumn column : allColumns)
+				for (OraCdcColumn column : allColumns)
 					if (Strings.CS.equals(columnToDrop, column.getColumnName())) {
 						unusedColumns.add(column);
 						unusedColumnIndexes.remove(i);
@@ -483,19 +483,19 @@ public abstract class OraCdcTableBase {
 								tableFqn, originalDdl);
 			}
 			if (!unusedColumns.isEmpty()) {
-				final Comparator<OraColumn> comparator = new Comparator<OraColumn>() {
-					public int compare(OraColumn col1, OraColumn col2){
+				final Comparator<OraCdcColumn> comparator = new Comparator<OraCdcColumn>() {
+					public int compare(OraCdcColumn col1, OraCdcColumn col2){
 						return col1.getColumnId() - col2.getColumnId();
 					}
 				};
 				Collections.sort(unusedColumns, comparator);
 				Collections.sort(allColumns, comparator);
-				for (final OraColumn unusedColumn : unusedColumns) {
+				for (final OraCdcColumn unusedColumn : unusedColumns) {
 					int indexToRemove = -1;
 					final String unusedColName = unusedColumn.getColumnName();
 					final int unusedColId = unusedColumn.getColumnId();
 					for (int i = 0; i < allColumns.size(); i++) {
-						final OraColumn column = allColumns.get(i);
+						final OraCdcColumn column = allColumns.get(i);
 						if (column.getColumnId() == unusedColId) {
 							indexToRemove = i;
 							if ((flags & FLG_WITH_LOBS) > 0) {
@@ -507,7 +507,7 @@ public abstract class OraCdcTableBase {
 							column.setColumnId(column.getColumnId() - 1);
 						}
 					}
-					OraColumn columnToRemove = allColumns.get(indexToRemove);
+					OraCdcColumn columnToRemove = allColumns.get(indexToRemove);
 					if (!columnToRemove.isNullable())
 						mandatoryColumnsCount--;
 					allColumns.remove(indexToRemove);
@@ -523,7 +523,7 @@ public abstract class OraCdcTableBase {
 		case OraSqlUtils.ALTER_TABLE_COLUMN_MODIFY:
 			for (String columnDefinition : StringUtils.split(preProcessed, ";")) {
 				String changedColumnName = StringUtils.split(columnDefinition)[0];
-				changedColumnName = OraColumn.canonicalColumnName(changedColumnName);
+				changedColumnName = OraCdcColumn.canonicalColumnName(changedColumnName);
 				int columnIndex = -1;
 				for (int i = 0; i < allColumns.size(); i++) {
 					if (Strings.CS.equals(changedColumnName, allColumns.get(i).getColumnName())) {
@@ -548,8 +548,8 @@ public abstract class OraCdcTableBase {
 			break;
 		case OraSqlUtils.ALTER_TABLE_COLUMN_RENAME:
 			final String[] namesArray = StringUtils.split(preProcessed, ";");
-			final String oldName = OraColumn.canonicalColumnName(namesArray[0]);
-			final String newName = OraColumn.canonicalColumnName(namesArray[1]);
+			final String oldName = OraCdcColumn.canonicalColumnName(namesArray[0]);
+			final String newName = OraCdcColumn.canonicalColumnName(namesArray[1]);
 			boolean newNamePresent = false;
 			int columnIndex = -1;
 			for (int i = 0; i < allColumns.size(); i++) {
@@ -638,7 +638,7 @@ public abstract class OraCdcTableBase {
 				.append(pair.getLeft());
 		}
 		List<String> affected = new ArrayList<>();
-		for (final OraColumn oraColumn : allColumns) {
+		for (final OraCdcColumn oraColumn : allColumns) {
 			if (oraColumn.getColumnId() >= minUndroppedId) {
 				affected.add(oraColumn.getColumnName());
 			}
@@ -707,7 +707,7 @@ public abstract class OraCdcTableBase {
 		}
 	}
 
-	void printInvalidFieldValue(final OraColumn oraColumn,
+	void printInvalidFieldValue(final OraCdcColumn oraColumn,
 			final OraCdcStatementBase stmt, final OraCdcTransaction transaction) {
 		if (oraColumn.isNullable()) {
 			printErrorMessage(Level.ERROR,
@@ -751,7 +751,7 @@ public abstract class OraCdcTableBase {
 					tableFqn, stmt.getScn(), stmt.getRba(), stmt.getRowId(), stmt.getSqlRedo());
 	}
 
-	void printSubstDefaultValueWarning(final OraColumn column, final OraCdcStatementBase stmt) {
+	void printSubstDefaultValueWarning(final OraCdcColumn column, final OraCdcStatementBase stmt) {
 		LOGGER.warn(
 				"""
 				
@@ -766,7 +766,7 @@ public abstract class OraCdcTableBase {
 				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo());
 	}
 
-	void printNullValueError(final OraColumn column, final OraCdcStatementBase stmt) {
+	void printNullValueError(final OraCdcColumn column, final OraCdcStatementBase stmt) {
 		LOGGER.error(
 				"""
 				
@@ -823,11 +823,11 @@ public abstract class OraCdcTableBase {
 		return flags;
 	}
 
-	public List<OraColumn> allColumns() {
+	public List<OraCdcColumn> allColumns() {
 		return allColumns;
 	}
 
-	public Map<String, OraColumn> pkColumns() {
+	public Map<String, OraCdcColumn> pkColumns() {
 		return pkColumns;
 	}
 

@@ -13,14 +13,14 @@
 
 package solutions.a2.cdc.oracle.runtime.data;
 
-import static solutions.a2.cdc.oracle.OraColumn.ROWID_KEY;
+import static solutions.a2.cdc.oracle.OraCdcColumn.ROWID_KEY;
 
 import org.apache.kafka.connect.errors.DataException;
 
 import solutions.a2.cdc.oracle.OraCdcDataException;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
 
@@ -36,7 +36,7 @@ public class KafkaStructSingleDataBinder extends KafkaStructDataBinder {
 	}
 
 	@Override
-	public void insert(OraColumn column, Object value) {
+	public void insert(OraCdcColumn column, Object value) {
 		try {
 			valueStruct.put(column.getColumnName(), value);
 			if (column.mandatory())
@@ -47,7 +47,7 @@ public class KafkaStructSingleDataBinder extends KafkaStructDataBinder {
 	}
 
 	@Override
-	public void delete(OraColumn column, Object value) {
+	public void delete(OraCdcColumn column, Object value) {
 		try {
 			valueStruct.put(column.getColumnName(), value);
 			if (column.mandatory())
@@ -58,7 +58,7 @@ public class KafkaStructSingleDataBinder extends KafkaStructDataBinder {
 	}
 
 	@Override
-	public void update(OraColumn column, Object value, boolean after) {
+	public void update(OraCdcColumn column, Object value, boolean after) {
 		try {
 			valueStruct.put(column.getColumnName(), value);
 			if (column.mandatory())

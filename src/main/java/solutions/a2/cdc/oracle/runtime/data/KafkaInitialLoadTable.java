@@ -51,7 +51,7 @@ import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMP;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
@@ -79,8 +79,8 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 	private final String pdbName;
 	private final String tableOwner;
 	private final String tableName;
-	private final List<OraColumn> allColumns;
-	private final Map<String, OraColumn> pkColumns;
+	private final List<OraCdcColumn> allColumns;
+	private final Map<String, OraCdcColumn> pkColumns;
 	private final OraRdbmsInfo rdbmsInfo;
 	private final Path queueDirectory;
 	private final OraCdcInitialLoad metrics;
@@ -137,10 +137,10 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 		final StringBuilder sb = new StringBuilder(512);
 		sb.append("select ");
 		for (int i = 0; i < allColumns.size(); i++) {
-			OraColumn oraColumn = allColumns.get(i);
-			if (oraColumn.getColumnName().equals(OraColumn.ROWID_KEY)) {
+			OraCdcColumn oraColumn = allColumns.get(i);
+			if (oraColumn.getColumnName().equals(OraCdcColumn.ROWID_KEY)) {
 				sb.append("ROWID as ");
-				sb.append(OraColumn.ROWID_KEY);
+				sb.append(OraCdcColumn.ROWID_KEY);
 			} else {
 				sb.append(oraColumn.getColumnName());
 			}
@@ -184,7 +184,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 		Bytes<?> bytes = wire.bytes();
 		try {
 			for (int i = 0; i < allColumns.size(); i++) {
-				final OraColumn oraColumn = allColumns.get(i);
+				final OraCdcColumn oraColumn = allColumns.get(i);
 				final String columnName = oraColumn.getColumnName();
 				switch (oraColumn.getJdbcType()) {
 					case Types.DATE:
@@ -395,7 +395,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 		Bytes<?> raw = wire.bytes();
 		try {
 			for (int i = 0; i < allColumns.size(); i++) {
-				final OraColumn oraColumn = allColumns.get(i);
+				final OraCdcColumn oraColumn = allColumns.get(i);
 				final String columnName = oraColumn.getColumnName();
 				Object columnValue = null;
 				byte sizeByte;

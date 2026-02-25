@@ -41,7 +41,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerTable.class);
 
-	private final Map<Integer, OraColumn> pureIdMap = new HashMap<>();
+	private final Map<Integer, OraCdcColumn> pureIdMap = new HashMap<>();
 	private final Set<Integer> setColumns = new HashSet<>();
 	private Set<Integer> lobColumnIds;
 	private final boolean beforeData;
@@ -77,7 +77,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 	}
 
 	@Override
-	void addToIdMap(final OraColumn column) {
+	void addToIdMap(final OraCdcColumn column) {
 		pureIdMap.put(column.getColumnId(), column);
 	}
 
@@ -87,7 +87,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 	}
 
 	@Override
-	void removeUnusedColumn(final OraColumn unusedColumn) {
+	void removeUnusedColumn(final OraCdcColumn unusedColumn) {
 		final int unusedColId = unusedColumn.getColumnId();
 		pureIdMap.remove(unusedColId);
 		if ((flags & FLG_WITH_LOBS) > 0 && lobColumnIds != null)
@@ -95,7 +95,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 	}
 
 	@Override
-	void shiftColumnId(final OraColumn column) {
+	void shiftColumnId(final OraCdcColumn column) {
 		final int oldColumnId = column.getColumnId();
 		pureIdMap.put(oldColumnId - 1, column);
 		if ((flags & FLG_WITH_LOBS) > 0 && lobColumnIds != null && lobColumnIds.contains(oldColumnId)) {
@@ -160,7 +160,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 			final int[][] colDefs = new int[colCount][3];
 			stmt.readColDefs(colDefs, Short.BYTES);
 			for (int i = 0; i < colCount; i++) {
-				final OraColumn oraColumn = pureIdMap.get(colDefs[i][0]);
+				final OraCdcColumn oraColumn = pureIdMap.get(colDefs[i][0]);
 				final int colSize = colDefs[i][1];
 				if (oraColumn != null) {
 					if (colSize < 0) {
@@ -230,7 +230,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 			if ((flags & FLG_TABLE_WITH_PK) > 0 || (flags & FLG_PSEUDO_KEY) > 0) {
 				for (int i = 0; i < colCount; i++) {
 					final int colSize = colDefs[i][1];
-						final OraColumn oraColumn = pureIdMap.get(colDefs[i][0]);
+						final OraCdcColumn oraColumn = pureIdMap.get(colDefs[i][0]);
 						if (oraColumn != null) {
 							if (colSize < 0) {
 								if (oraColumn.defaultValuePresent()) {
@@ -300,7 +300,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 			int pos = stmt.readColDefs(setColDefs, Short.BYTES);
 			for (int i = 0; i < setColCount; i++) {
 				final int colSize = setColDefs[i][1];
-				final OraColumn oraColumn = pureIdMap.get(setColDefs[i][0]);
+				final OraCdcColumn oraColumn = pureIdMap.get(setColDefs[i][0]);
 				if (oraColumn != null) {
 					setColumns.add(setColDefs[i][0]);
 					if (colSize < 0) {
@@ -349,7 +349,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 				stmt.readColDefs(whereColDefs, pos);
 				for (int i = 0; i < whereColCount; i++) {
 					if (!setColumns.contains(whereColDefs[i][0])) {
-						final OraColumn oraColumn = pureIdMap.get(whereColDefs[i][0]);
+						final OraCdcColumn oraColumn = pureIdMap.get(whereColDefs[i][0]);
 						if (oraColumn != null) {
 							final int colSize = whereColDefs[i][1];
 							if (colSize < 0) {
@@ -427,7 +427,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 				pos = stmt.readColDefs(setColDefs, origDataPos);
 				for (int i = 0; i < setColCount; i++) {
 					final int colSize = setColDefs[i][1];
-					final OraColumn oraColumn = pureIdMap.get(setColDefs[i][0]);
+					final OraCdcColumn oraColumn = pureIdMap.get(setColDefs[i][0]);
 					if (oraColumn != null) {
 						if (colSize < 0) {
 							try {
@@ -474,7 +474,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 
 	
 	private Object parseRedoRecordValues(
-			final OraColumn oraColumn, final byte[] data, final int offset, final int length,
+			final OraCdcColumn oraColumn, final byte[] data, final int offset, final int length,
 			final OraCdcTransaction transaction) throws SQLException {
 		if (oraColumn.decodeWithoutTrans())
 			return oraColumn.decoder().decode(data, offset, length);

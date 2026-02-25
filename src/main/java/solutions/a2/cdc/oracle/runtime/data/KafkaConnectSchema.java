@@ -46,8 +46,8 @@ import static oracle.jdbc.OracleTypes.JSON;
 import static oracle.jdbc.OracleTypes.TIMESTAMPLTZ;
 import static oracle.jdbc.OracleTypes.VECTOR;
 import static solutions.a2.cdc.oracle.OraCdcTableBase.FLG_SUPPLEMENTAL_LOG_ALL;
-import static solutions.a2.cdc.oracle.OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING;
-import static solutions.a2.cdc.oracle.OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING;
+import static solutions.a2.cdc.oracle.OraCdcColumn.JAVA_SQL_TYPE_INTERVALDS_STRING;
+import static solutions.a2.cdc.oracle.OraCdcColumn.JAVA_SQL_TYPE_INTERVALYM_STRING;
 import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_BOOLEAN_SCHEMA;
 import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_BYTES_SCHEMA;
 import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_DECIMAL_SCHEMA;
@@ -97,7 +97,7 @@ import org.slf4j.LoggerFactory;
 import oracle.sql.NUMBER;
 import oracle.sql.json.OracleJsonFactory;
 import solutions.a2.cdc.oracle.OraCdcDecoder;
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraIntervalDS;
@@ -132,7 +132,7 @@ public class KafkaConnectSchema {
 		suppLogAll = true;
 	}
 
-	public Schema get(final OraColumn column) {
+	public Schema get(final OraCdcColumn column) {
 		final Schema schema;
 		final OraCdcDecoder decoder;
 		var jdbcType = column.getJdbcType();
@@ -533,13 +533,13 @@ public class KafkaConnectSchema {
 		return schema;
 	}
 
-	private OraCdcDecoder decoderFromJdbcType(final OraColumn column) {
+	private OraCdcDecoder decoderFromJdbcType(final OraCdcColumn column) {
 		return column.encrypted()
 				? KafkaConnectDecoders.get(column.getJdbcType(), decrypter, column.salted())
 				: KafkaConnectDecoders.get(column.getJdbcType());
 	}
 
-	private OraCdcDecoder decoderFromJdbcType(final OraColumn column, final Schema schema) {
+	private OraCdcDecoder decoderFromJdbcType(final OraCdcColumn column, final Schema schema) {
 		return column.encrypted()
 				? KafkaConnectDecoders.get(schema, column.getJdbcType(), decrypter, column.salted())
 				: KafkaConnectDecoders.get(schema, column.getJdbcType());
@@ -563,7 +563,7 @@ public class KafkaConnectSchema {
 				""", defaultValue, columnName, dataTypeName, defaultValue);
 	}
 
-	private Schema stringSchema(final OraColumn column) {
+	private Schema stringSchema(final OraCdcColumn column) {
 		if (suppLogAll) {
 			var builder = SchemaBuilder.string();
 			if (column.defaultValuePresent()) {

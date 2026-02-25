@@ -70,9 +70,9 @@ import solutions.a2.utils.ExceptionUtils;
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
-public class OraColumn extends Column {
+public class OraCdcColumn extends Column {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraColumn.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcColumn.class);
 
 	public static final String ROWID_KEY = "ORA_ROW_ID";
 	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";
@@ -130,7 +130,7 @@ public class OraColumn extends Column {
 	 * @throws SQLException
 	 * @throws UnsupportedColumnDataTypeException 
 	 */
-	public OraColumn(
+	public OraCdcColumn(
 			final boolean mviewSource,
 			final boolean useOracdcSchemas,
 			final boolean processLobs,
@@ -222,7 +222,7 @@ public class OraColumn extends Column {
 	 * @param columnId
 	 * @throws UnsupportedColumnDataTypeException 
 	 */
-	public OraColumn(
+	public OraCdcColumn(
 			final boolean useOracdcSchemas,
 			final String columnName,
 			final String columnAttributes,
@@ -556,7 +556,7 @@ public class OraColumn extends Column {
 	 * @param jdbcType
 	 * @param scale
 	 */
-	public OraColumn(
+	public OraCdcColumn(
 			final String columnName,
 			final int jdbcType,
 			final int scale) {
@@ -566,7 +566,7 @@ public class OraColumn extends Column {
 		
 	}
 
-	public void remap(final OraColumn newDef, final OraCdcTdeColumnDecrypter decrypter, final boolean suppLogAll) {
+	public void remap(final OraCdcColumn newDef, final OraCdcTdeColumnDecrypter decrypter, final boolean suppLogAll) {
 		if ((newDef.jdbcType != NULL && jdbcType != newDef.jdbcType) ||
 				(newDef.jdbcType != NULL && jdbcType == newDef.jdbcType && jdbcType == DECIMAL && dataScale != newDef.dataScale)) {
 			jdbcType = newDef.jdbcType;
@@ -574,8 +574,8 @@ public class OraColumn extends Column {
 		}
 	}
 
-	public static OraColumn getRowIdKey() {
-		OraColumn rowIdColumn = new OraColumn(ROWID_KEY, ROWID, 0);
+	public static OraCdcColumn getRowIdKey() {
+		OraCdcColumn rowIdColumn = new OraCdcColumn(ROWID_KEY, ROWID, 0);
 		rowIdColumn.flags |= (FLG_PART_OF_PK | FLG_MANDATORY);
 		return rowIdColumn;
 	}
@@ -730,7 +730,7 @@ public class OraColumn extends Column {
 		if (getClass() != obj.getClass()) {
 			return false;
 		}
-		OraColumn other = (OraColumn) obj;
+		OraCdcColumn other = (OraCdcColumn) obj;
 		return
 				Objects.equals(columnName, other.columnName) &&
 				Objects.equals(columnId, other.columnId) &&

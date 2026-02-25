@@ -17,7 +17,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 
 /**
  * 
@@ -31,14 +31,14 @@ public class OraCdcDefaultLobTransformationsImpl implements OraCdcLobTransformat
 
 	@Override
 	public Schema transformSchema(final String pdbName, final String tableOwner,
-			final String tableName, final OraColumn lobColumn, final SchemaBuilder valueSchema) {
+			final String tableName, final OraCdcColumn lobColumn, final SchemaBuilder valueSchema) {
 		return OraCdcLobTransformationsIntf.super.transformSchema(
 				pdbName, tableOwner, tableName, lobColumn,valueSchema);
 	}
 
 	@Override
 	public Struct transformData(final String pdbName, final String tableOwner,
-			final String tableName, final OraColumn lobColumn, final byte[] content,
+			final String tableName, final OraCdcColumn lobColumn, final byte[] content,
 			final Struct keyStruct, final Schema valueSchema) {
 		// Default do nothing...
 		// Not called if column definition is not overloaded with transformation

@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import oracle.ucp.UniversalConnectionPoolException;
 import solutions.a2.cdc.oracle.OraCdcSourceBaseConfig;
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceBaseConfig;
@@ -106,12 +106,12 @@ public class KafkaSourceSnapshotLogTask extends SourceTask {
 			final Map<String, String> partition = Collections.singletonMap(PARTITION_FIELD, sourcePartitionName);
 			Map<String, Object> offset = context.offsetStorageReader().offset(partition);
 			if (offset != null && LOGGER.isDebugEnabled()) {
-				if (offset.get(OraColumn.ORA_ROWSCN) != null)
+				if (offset.get(OraCdcColumn.ORA_ROWSCN) != null)
 					LOGGER.debug("Last record SCN(from {} pseudocolumn) for {} in offset file = {}.",
-							OraColumn.ORA_ROWSCN, sourcePartitionName, (long) offset.get(OraColumn.ORA_ROWSCN));
-				if (offset.get(OraColumn.MVLOG_SEQUENCE) != null)
+							OraCdcColumn.ORA_ROWSCN, sourcePartitionName, (long) offset.get(OraCdcColumn.ORA_ROWSCN));
+				if (offset.get(OraCdcColumn.MVLOG_SEQUENCE) != null)
 					LOGGER.debug("Last processed {} for {} in offset file = {}.",
-							OraColumn.MVLOG_SEQUENCE, sourcePartitionName, (long) offset.get(OraColumn.MVLOG_SEQUENCE));
+							OraCdcColumn.MVLOG_SEQUENCE, sourcePartitionName, (long) offset.get(OraCdcColumn.MVLOG_SEQUENCE));
 			}
 
 			oraTable = new KafkaSnapshotLogTable(

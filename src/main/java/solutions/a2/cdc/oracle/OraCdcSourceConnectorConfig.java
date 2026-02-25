@@ -30,12 +30,12 @@ import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
  */
 public interface OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	
-	public List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+	public List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 			tableNumberMapping(final String tableOwner, final String tableName);
-	public List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+	public List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 			tableNumberMapping(final String pdbName, final String tableOwner, final String tableName);
-	public OraColumn columnNumberMapping(
-			List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+	public OraCdcColumn columnNumberMapping(
+			List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 				numberRemap, final String columnName);
 	public boolean useOracdcSchemas();
 	public boolean tolerateIncompleteRow();

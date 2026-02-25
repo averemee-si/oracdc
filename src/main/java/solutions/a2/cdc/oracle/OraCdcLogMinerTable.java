@@ -59,10 +59,10 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 	private static final int LOB_BASICFILES_DATA_BEGINS = 72;
 	private static final int LOB_SECUREFILES_DATA_BEGINS = 60;
 
-	private final Map<String, OraColumn> idToNameMap = new HashMap<>();
+	private final Map<String, OraCdcColumn> idToNameMap = new HashMap<>();
 	private final Set<String> setColumns = new HashSet<>();
-	private Map<Long, OraColumn> lobColumnsObjectIds;
-	private Map<String, OraColumn> lobColumnsNames;
+	private Map<Long, OraCdcColumn> lobColumnsObjectIds;
+	private Map<String, OraCdcColumn> lobColumnsNames;
 
 	/**
 	 * 
@@ -94,7 +94,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 	}
 
 	@Override
-	void addToIdMap(final OraColumn column) {
+	void addToIdMap(final OraCdcColumn column) {
 		idToNameMap.put(column.getNameFromId(), column);
 		if ((flags & FLG_WITH_LOBS) > 0)
 			lobColumnsNames.put(column.getColumnName(), column);
@@ -106,12 +106,12 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 	}
 
 	@Override
-	void removeUnusedColumn(final OraColumn unusedColumn) {
+	void removeUnusedColumn(final OraCdcColumn unusedColumn) {
 		idToNameMap.remove(unusedColumn.getColumnName());
 	}
 
 	@Override
-	void shiftColumnId(final OraColumn column) {}
+	void shiftColumnId(final OraCdcColumn column) {}
 
 	@Override
 	void removeUnusedLobColumn(final String unusedColName) {
@@ -168,7 +168,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 			for (int i = 0; i < columnsList.length; i++) {
 				final String columnName = StringUtils.trim(columnsList[i]);
 				final String columnValue = StringUtils.trim(valuesList[i]);
-				final OraColumn oraColumn = idToNameMap.get(columnName);
+				final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 				if (oraColumn != null) {
 					if (Strings.CS.startsWith(columnValue, "N")) {
 						if (oraColumn.mandatory()) {
@@ -237,14 +237,14 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 						final String columnName;
 						if (Strings.CS.endsWith(currentExpr, "L")) {
 							columnName = StringUtils.substringBefore(currentExpr, SQL_REDO_IS);
-							final OraColumn oraColumn = idToNameMap.get(columnName);
+							final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 							if (oraColumn != null && oraColumn.mandatory()) {
 								printInvalidFieldValue(oraColumn, stmt, transaction);
 								throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
 							}
 						} else {
 							columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
-							final OraColumn oraColumn = idToNameMap.get(columnName);
+							final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 							if (oraColumn != null) {
 								final String columnValue = StringUtils.trim(StringUtils.substringAfter(currentExpr, "="));
 								try {
@@ -271,7 +271,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 						if (!Strings.CS.endsWith(currentExpr, "L")) {
 							// PK can't be null!!!
 							final String columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
-							final OraColumn oraColumn = idToNameMap.get(columnName);
+							final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 							if (oraColumn != null && oraColumn.isPartOfPk()) {
 								dataBinder.delete(oraColumn,
 										parseRedoRecordValues(idToNameMap.get(columnName),
@@ -323,7 +323,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 				final String currentExpr = StringUtils.trim(setClause[i]);
 				final String columnName;
 				columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
-				final OraColumn oraColumn = idToNameMap.get(columnName);
+				final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 				if (oraColumn != null) {
 					// Column can be excluded
 					if (Strings.CS.endsWith(currentExpr, "L")) {
@@ -395,7 +395,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 					if (Strings.CS.endsWith(currentExpr, "L")) {
 						columnName = StringUtils.substringBefore(currentExpr, SQL_REDO_IS);
 						if (!setColumns.contains(columnName)) {
-							final OraColumn oraColumn = idToNameMap.get(columnName);
+							final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 							if (oraColumn != null) {
 								if (oraColumn.mandatory()) {
 									// Check again for column default value...
@@ -426,7 +426,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 					} else {
 						columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
 						if (!setColumns.contains(columnName)) {
-							final OraColumn oraColumn = idToNameMap.get(columnName);
+							final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 							if (oraColumn != null) {
 								// Column can be excluded
 								final String columnValue = StringUtils.trim(StringUtils.substringAfter(currentExpr, "="));
@@ -471,7 +471,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 				} else {
 					columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
 				}
-				final OraColumn oraColumn = idToNameMap.get(columnName);
+				final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 				if (oraColumn != null) {
 					if (!Strings.CS.endsWith(currentExpr, "L")) {
 						dataBinder.update(oraColumn,parseRedoRecordValues(oraColumn,
@@ -503,7 +503,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 				for (int i = 0; i < lobs.size(); i++) {
 					final OraCdcLargeObjectHolder lob = lobs.get(i);
 					final String lobColumnName;
-					final OraColumn lobColumn;
+					final OraCdcColumn lobColumn;
 					if (lob.getLobId() > 0) {
 						lobColumn = lobColumnsObjectIds.get(lob.getLobId());
 						lobColumnName = lobColumn.getColumnName();
@@ -534,7 +534,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 		return dataBinder.changeVector(transaction, offset, skipRedoRecord);
 	}
 
-	private Object parseRedoRecordValues(final OraColumn oraColumn, final String hexValue) throws SQLException {
+	private Object parseRedoRecordValues(final OraCdcColumn oraColumn, final String hexValue) throws SQLException {
 		//final String hex = StringUtils.substring(hexValue, 1, hexValue.length() - 1);
 		final String hex = StringUtils.substringBetween(hexValue, "'");
 		final Object columnValue;
@@ -592,7 +592,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 		return tableFqn;
 	}
 
-	OraColumn getLobColumn(final long lobObjectId, final PreparedStatement psCheckLob) throws SQLException {
+	OraCdcColumn getLobColumn(final long lobObjectId, final PreparedStatement psCheckLob) throws SQLException {
 		if (lobColumnsObjectIds.containsKey(lobObjectId)) {
 			return lobColumnsObjectIds.get(lobObjectId);
 		} else {
@@ -602,7 +602,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 			if (rsCheckLob.next()) {
 				final String columnName = rsCheckLob.getString("COLUMN_NAME");
 				if (lobColumnsNames.containsKey(columnName)) {
-					final OraColumn column = lobColumnsNames.get(columnName);
+					final OraCdcColumn column = lobColumnsNames.get(columnName);
 					column.setSecureFile(Strings.CS.equals("YES", rsCheckLob.getString("SECUREFILE")));
 					lobColumnsObjectIds.put(lobObjectId, column);
 					return column;

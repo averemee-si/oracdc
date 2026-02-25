@@ -40,7 +40,7 @@ import solutions.a2.cdc.oracle.LastProcessedSeqNotifier;
 import solutions.a2.cdc.oracle.OraCdcKeyOverrideTypes;
 import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.SchemaNameMapper;
 import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
@@ -197,20 +197,20 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 	}
 
 	@Override
-	public List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+	public List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 			tableNumberMapping(final String tableOwner, final String tableName) {
 		return holder.tableNumberMapping(null, tableOwner, tableName);
 	}
 
 	@Override
-	public List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+	public List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 			tableNumberMapping(final String pdbName, final String tableOwner, final String tableName) {
 		return holder.tableNumberMapping(pdbName, tableOwner, tableName);
 	}
 
 	@Override
-	public OraColumn columnNumberMapping(
-			List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+	public OraCdcColumn columnNumberMapping(
+			List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 				numberRemap, final String columnName) {
 		return holder.columnNumberMapping(numberRemap, columnName);
 	}

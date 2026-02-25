@@ -51,9 +51,9 @@ public class OraCdcNumberMapTest {
 		final OraCdcSourceConnectorConfig configKafka = new KafkaSourceConnectorConfig(props);
 		final OraCdcSourceConnectorConfig configGeneric = new GenericSourceConnectorConfig(props);
 
-		final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+		final List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 			redefScottDept = configKafka.tableNumberMapping("SCOTT", "DEPT");
-		final List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+		final List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 			redefApInvAll = configKafka.tableNumberMapping("EBS122", "AP", "AP_INVOICES_ALL");
 
 		assertEquals(redefScottDept, configGeneric.tableNumberMapping("SCOTT", "DEPT"));

@@ -74,7 +74,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.LastProcessedSeqNotifier;
 import solutions.a2.cdc.oracle.OraCdcKeyOverrideTypes;
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -92,7 +92,7 @@ public class SourceConnectorConfig {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(SourceConnectorConfig.class);
 
-	private final Map<String, Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> numberColumnsMap = new LinkedHashMap<>();
+	private final Map<String, Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>> numberColumnsMap = new LinkedHashMap<>();
 	private final int topicNameStyle;
 	private final int pkType;
 	private final Map<String, OraCdcKeyOverrideTypes> keyOverrideMap;
@@ -137,9 +137,9 @@ public class SourceConnectorConfig {
 			var fqn = StringUtils.substring(param, 0, lastDotPos);
 			if (!numberColumnsMap.containsKey(fqn)) {
 				numberColumnsMap.put(fqn, Triple.of(
-						new ArrayList<Pair<String, OraColumn>>(),
-						new HashMap<String, OraColumn>(),
-						new ArrayList<Pair<String, OraColumn>>()));
+						new ArrayList<Pair<String, OraCdcColumn>>(),
+						new HashMap<String, OraCdcColumn>(),
+						new ArrayList<Pair<String, OraCdcColumn>>()));
 			}
 			var jdbcType = Types.NULL;
 			var scale = 0;
@@ -193,13 +193,13 @@ public class SourceConnectorConfig {
 				if (Strings.CS.endsWith(column, "%")) {
 					numberColumnsMap.get(fqn).getLeft().add(Pair.of(
 							StringUtils.substring(column, 0, column.length() - 1),
-							new OraColumn(column, jdbcType, scale)));
+							new OraCdcColumn(column, jdbcType, scale)));
 				} else if (Strings.CS.startsWith(column, "%")) {
 					numberColumnsMap.get(fqn).getRight().add(Pair.of(
 							StringUtils.substring(column, 1),
-							new OraColumn(column, jdbcType, scale)));
+							new OraCdcColumn(column, jdbcType, scale)));
 				} else {
-					numberColumnsMap.get(fqn).getMiddle().put(column, new OraColumn(column, jdbcType, scale));
+					numberColumnsMap.get(fqn).getMiddle().put(column, new OraCdcColumn(column, jdbcType, scale));
 				}
 			}
 		});
@@ -516,12 +516,12 @@ public class SourceConnectorConfig {
 		}
 	}
 
-	List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+	List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 		tableNumberMapping(final String pdbName, final String tableOwner, final String tableName) {
 		var fqn =  tableOwner + "." + tableName;
 		if (pdbName == null) {
 			if (numberColumnsMap.containsKey(fqn)) {
-				List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> result =
+				List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>> result =
 						new ArrayList<>(1);
 				result.add(numberColumnsMap.get(fqn));
 				return result;
@@ -532,18 +532,18 @@ public class SourceConnectorConfig {
 			var forAll = numberColumnsMap.get(fqn);
 			var exact = numberColumnsMap.get(pdbName + "." + fqn);
 			if (exact != null && forAll == null) {
-				List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> result =
+				List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>> result =
 						new ArrayList<>(1);
 				result.add(exact);
 				return result;
 			} else if (exact != null && forAll != null) {
-				List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> result =
+				List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>> result =
 						new ArrayList<>(2);
 				result.add(exact);
 				result.add(forAll);
 				return result;
 			} else if (forAll != null) {
-				List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>> result =
+				List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>> result =
 						new ArrayList<>(1);
 				result.add(forAll);
 				return result;
@@ -553,14 +553,14 @@ public class SourceConnectorConfig {
 		}
 	}
 
-	OraColumn columnNumberMapping(
-			List<Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>>>
+	OraCdcColumn columnNumberMapping(
+			List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>>
 				numberRemap, final String columnName) {
 		if (numberRemap != null)
 			for (int i = 0; i < numberRemap.size(); i++) {
-				Triple<List<Pair<String, OraColumn>>, Map<String, OraColumn>, List<Pair<String, OraColumn>>> reDefs =
+				Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>> reDefs =
 						numberRemap.get(i);
-				OraColumn result = reDefs.getMiddle().get(columnName);
+				OraCdcColumn result = reDefs.getMiddle().get(columnName);
 				if (result != null) {
 					return result;
 				} else if ((result = remapUsingPattern(reDefs.getLeft(), columnName, true)) != null) {
@@ -572,8 +572,8 @@ public class SourceConnectorConfig {
 		return null;
 	}
 
-	private OraColumn remapUsingPattern(final List<Pair<String, OraColumn>> patterns, final String columnName, final boolean startsWith) {
-		for (final Pair<String, OraColumn> pattern : patterns)
+	private OraCdcColumn remapUsingPattern(final List<Pair<String, OraCdcColumn>> patterns, final String columnName, final boolean startsWith) {
+		for (final Pair<String, OraCdcColumn> pattern : patterns)
 			if (startsWith &&
 					Strings.CS.startsWith(columnName, pattern.getKey()))
 				return pattern.getValue();

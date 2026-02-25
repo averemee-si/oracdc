@@ -40,7 +40,7 @@ import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.SchemaNameMapper;
@@ -121,9 +121,9 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 		mandatoryColumnsProcessed = 0;
 	}
 
-	public abstract void insert(OraColumn column, Object value);
-	public abstract void delete(OraColumn column, Object value);
-	public abstract void update(OraColumn column, Object value, boolean after);
+	public abstract void insert(OraCdcColumn column, Object value);
+	public abstract void delete(OraCdcColumn column, Object value);
+	public abstract void update(OraCdcColumn column, Object value, boolean after);
 	public void addRowId(OraCdcStatementBase stmt) {
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("Do primary key substitution for table {}", table.fqn());
@@ -148,7 +148,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 			keySchemaBuilder = null;
 		}
 		final SchemaBuilder valueSchemaBuilder = schemaBuilder(false, table.version());
-		for (final OraColumn column : table.allColumns()) {
+		for (final OraCdcColumn column : table.allColumns()) {
 			if (column.largeObject()) {
 				final Schema lobSchema = transformLobs.transformSchema(table.pdb(), table.owner(), table.name(), column, valueSchemaBuilder);
 				if (lobSchema != null) {

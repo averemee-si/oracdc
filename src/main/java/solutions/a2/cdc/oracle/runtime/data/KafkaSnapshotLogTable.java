@@ -50,7 +50,7 @@ import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
 import solutions.a2.cdc.oracle.OraCdcSourceBaseConfig;
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraPoolConnectionFactory;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
@@ -72,8 +72,8 @@ public class KafkaSnapshotLogTable {
 	private final String tableName;
 	private final int schemaType;
 	private int version;
-	private List<OraColumn> allColumns;
-	private Map<String, OraColumn> pkColumns;
+	private List<OraCdcColumn> allColumns;
+	private Map<String, OraCdcColumn> pkColumns;
 	private Schema schema;
 	private Schema keySchema;
 	private Schema valueSchema;
@@ -220,10 +220,10 @@ public class KafkaSnapshotLogTable {
 			// ROWID access is always faster that any other
 			masterWhere.append("ROWID=?");
 			// Add M_ROW$$ column for snapshot logs with ROWID
-			LOGGER.trace("Adding {} to column list.", OraColumn.ROWID_KEY);
+			LOGGER.trace("Adding {} to column list.", OraCdcColumn.ROWID_KEY);
 			mViewFirstColumn = false;
 			mViewSelect.append("chartorowid(M_ROW$$) ");
-			mViewSelect.append(OraColumn.ROWID_KEY);
+			mViewSelect.append(OraCdcColumn.ROWID_KEY);
 		}
 
 		final String tableFqn = this.tableOwner + "." + this.tableName;
@@ -248,9 +248,9 @@ public class KafkaSnapshotLogTable {
 		while (rsColumns.next()) {
 			
 			boolean columnAdded = false;
-			OraColumn column = null;
+			OraCdcColumn column = null;
 			try {
-				column = new OraColumn(true, false, false, rsColumns, null, null, rdbmsInfo, true, false);
+				column = new OraCdcColumn(true, false, false, rsColumns, null, null, rdbmsInfo, true, false);
 				columnAdded = true;
 			} catch (UnsupportedColumnDataTypeException ucdte) {
 				LOGGER.warn("Column {} not added to definition of table {}.{}",
@@ -331,24 +331,24 @@ public class KafkaSnapshotLogTable {
 
 		if (logWithSequence) {
 			mViewSelect.append(", ");
-			mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
+			mViewSelect.append(OraCdcColumn.MVLOG_SEQUENCE);
 		}
 		mViewSelect.append(", case DMLTYPE$$ when 'I' then 'c' when 'U' then 'u' else 'd' end as OPTYPE$$, ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$, ROWID from ");
 		mViewSelect.append(snapshotFqn);
 		if (logWithSequence) {
 			LOGGER.trace("BEGIN: mvlog with sequence specific.");
-			if (sourceOffset != null && sourceOffset.get(OraColumn.MVLOG_SEQUENCE) != null) {
-				long lastProcessedSequence = (long) sourceOffset.get(OraColumn.MVLOG_SEQUENCE);
+			if (sourceOffset != null && sourceOffset.get(OraCdcColumn.MVLOG_SEQUENCE) != null) {
+				long lastProcessedSequence = (long) sourceOffset.get(OraCdcColumn.MVLOG_SEQUENCE);
 				mViewSelect.append("\nwhere ");
-				mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
+				mViewSelect.append(OraCdcColumn.MVLOG_SEQUENCE);
 				mViewSelect.append(" > ");
 				mViewSelect.append(lastProcessedSequence);
 				mViewSelect.append("\n");
 				LOGGER.debug("Will read mvlog with {} greater than {}.",
-							OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
+							OraCdcColumn.MVLOG_SEQUENCE, lastProcessedSequence);
 			}
 			mViewSelect.append(" order by ");
-			mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
+			mViewSelect.append(OraCdcColumn.MVLOG_SEQUENCE);
 			LOGGER.trace("END: mvlog with sequence specific.");
 		}
 		LOGGER.trace("End of column list and SQL statements preparation for table {}.{}", this.tableOwner, this.tableName);
@@ -393,19 +393,19 @@ public class KafkaSnapshotLogTable {
 			}
 			// Ready to process message
 			if (success) {
-				final long lastProcessedScn = rsLog.getLong(OraColumn.ORA_ROWSCN);
+				final long lastProcessedScn = rsLog.getLong(OraCdcColumn.ORA_ROWSCN);
 				Map<String, Object> offset = null;
 				if (kafkaConnectTopic != null) {
 					LOGGER.trace("BEGIN: Prepare Kafka Connect offset");
 					offset = new HashMap<>();
-					offset.put(OraColumn.ORA_ROWSCN, lastProcessedScn);
+					offset.put(OraCdcColumn.ORA_ROWSCN, lastProcessedScn);
 					LOGGER.debug("Owner -> {}, table -> {}, last processed {} is {}.",
-							tableOwner, tableName, OraColumn.ORA_ROWSCN, lastProcessedScn);
+							tableOwner, tableName, OraCdcColumn.ORA_ROWSCN, lastProcessedScn);
 					if (this.logWithSequence) {
-						final long lastProcessedSequence = rsLog.getLong(OraColumn.MVLOG_SEQUENCE);
-						offset.put(OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
+						final long lastProcessedSequence = rsLog.getLong(OraCdcColumn.MVLOG_SEQUENCE);
+						offset.put(OraCdcColumn.MVLOG_SEQUENCE, lastProcessedSequence);
 						LOGGER.debug("Owner -> {}, table -> {}, last processed {} is {}.",
-								tableOwner, tableName, OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
+								tableOwner, tableName, OraCdcColumn.MVLOG_SEQUENCE, lastProcessedSequence);
 					}
 					LOGGER.trace("END: Prepare Kafka Connect offset");
 				}
@@ -486,11 +486,11 @@ public class KafkaSnapshotLogTable {
 	private void processPkColumns(final boolean deleteOp, ResultSet rsLog,
 			final Struct keyStruct, final Struct valueStruct, PreparedStatement stmtMaster) throws SQLException {
 		if (this.logWithPrimaryKey && this.logWithRowIds && !deleteOp)
-			stmtMaster.setRowId(1, rsLog.getRowId(OraColumn.ROWID_KEY));
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+			stmtMaster.setRowId(1, rsLog.getRowId(OraCdcColumn.ROWID_KEY));
+		Iterator<Entry<String, OraCdcColumn>> iterator = pkColumns.entrySet().iterator();
 		int bindNo = 1;
 		while (iterator.hasNext()) {
-			final OraColumn oraColumn = iterator.next().getValue();
+			final OraCdcColumn oraColumn = iterator.next().getValue();
 			final String columnName = oraColumn.getColumnName();
 			switch (oraColumn.getJdbcType()) {
 			case Types.ROWID:
@@ -580,10 +580,10 @@ public class KafkaSnapshotLogTable {
 
 	private String nonExistentPk(ResultSet rsLog) throws SQLException {
 		StringBuilder sbPrimaryKey = new StringBuilder(128);
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+		Iterator<Entry<String, OraCdcColumn>> iterator = pkColumns.entrySet().iterator();
 		int i = 0;
 		while (iterator.hasNext()) {
-			final OraColumn oraColumn = iterator.next().getValue();
+			final OraCdcColumn oraColumn = iterator.next().getValue();
 			final String columnName = oraColumn.getColumnName();
 			if (i > 0)
 				sbPrimaryKey.append(" and ");
@@ -657,7 +657,7 @@ public class KafkaSnapshotLogTable {
 	private void processAllColumns(
 			OracleResultSet rsMaster, final Struct keyStruct, final Struct valueStruct) throws SQLException {
 		for (int i = 0; i < allColumns.size(); i++) {
-			final OraColumn oraColumn = allColumns.get(i);
+			final OraCdcColumn oraColumn = allColumns.get(i);
 			final String columnName = oraColumn.getColumnName();
 			Object columnValue = null; 
 			switch (oraColumn.getJdbcType()) {
@@ -813,7 +813,7 @@ public class KafkaSnapshotLogTable {
 	private void addPseudoKey(
 			final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) {
 		// Add ROWID (ORA$ROWID) - this column is not in dictionary!!!
-		OraColumn rowIdColumn = OraColumn.getRowIdKey();
+		OraCdcColumn rowIdColumn = OraCdcColumn.getRowIdKey();
 		allColumns.add(rowIdColumn);
 		pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
 		keySchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);

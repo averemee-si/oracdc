@@ -73,7 +73,7 @@ public class OraCdcLargeObjectWorker {
 	 * @throws SQLException
 	 */
 	OraCdcLargeObjectHolder readLobData(final long scn, final String rsId, final String parentOpRsId, 
-			final long dataObjectId, final long lobObjectId, final String xid, final OraColumn oraColumn,
+			final long dataObjectId, final long lobObjectId, final String xid, final OraCdcColumn oraColumn,
 			final NUMBER srcConUid) throws SQLException {
 
 		final long processingStartMillis = System.currentTimeMillis();

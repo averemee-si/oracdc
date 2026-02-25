@@ -18,7 +18,7 @@ import java.util.Map;
 
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
-import solutions.a2.cdc.oracle.OraColumn;
+import solutions.a2.cdc.oracle.OraCdcColumn;
 
 /**
  *
@@ -27,9 +27,9 @@ import solutions.a2.cdc.oracle.OraColumn;
  */
 public interface DataBinder {
 	void init(OraCdcStatementBase stmt);
-	void insert(OraColumn column, Object value);
-	void delete(OraColumn column, Object value);
-	void update(OraColumn column, Object value, boolean after);
+	void insert(OraCdcColumn column, Object value);
+	void delete(OraCdcColumn column, Object value);
+	void update(OraCdcColumn column, Object value, boolean after);
 	void addRowId(OraCdcStatementBase stmt);
 	void afterBefore();
 	void buildSchema(boolean initial) throws SQLException;
