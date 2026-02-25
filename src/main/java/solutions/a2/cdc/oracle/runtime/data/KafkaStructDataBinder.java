@@ -78,6 +78,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 	private final int topicPartition;
 	private OraCdcStatementBase stmt = null;
 	private final Map<String, String> sourcePartition;
+	private final KafkaConnectSchema kcs;
 	int mandatoryColumnsProcessed = 0;
 	final int schemaType;
 	final OraCdcTableBase table;
@@ -94,6 +95,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 	KafkaStructDataBinder(final OraCdcSourceConnectorConfig config, final OraRdbmsInfo rdbmsInfo, final OraCdcTableBase table) {
 		this.table = table;
 		kris = new KafkaRdbmsInfoStruct(rdbmsInfo);
+		kcs = new KafkaConnectSchema(rdbmsInfo);
 		snm = config.getSchemaNameMapper();
 		snm.configure(config);
 		schemaType = config.schemaType();
@@ -154,23 +156,24 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 					column.transformLob(true);
 				}
 			}
+			var schema = kcs.get(column);
 			if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
 				if (column.isPartOfPk()) {
 					if (initial)
-						keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+						keySchemaBuilder.field(column.getColumnName(), schema);
 				} else {
 					if (!column.largeObject())
-						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+						valueSchemaBuilder.field(column.getColumnName(), schema);
 				}
 			} else {
 				if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
 					if (column.isPartOfPk()) {
 						if (initial)
-							keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+							keySchemaBuilder.field(column.getColumnName(), schema);
 					}
 				}
 				if (!column.largeObject())
-					valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+					valueSchemaBuilder.field(column.getColumnName(), schema);
 			}
 		}
 		if (schemaType != SCHEMA_TYPE_INT_DEBEZIUM) {

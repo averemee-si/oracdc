@@ -78,7 +78,8 @@ public class KafkaSnapshotLogTable {
 	private Schema keySchema;
 	private Schema valueSchema;
 	private OraRdbmsInfo rdbmsInfo;
-	final KafkaRdbmsInfoStruct kris;
+	private final KafkaRdbmsInfoStruct kris;
+	private final KafkaConnectSchema kcs;
 
 	private int batchSize;
 	private boolean logWithRowIds = false;
@@ -130,6 +131,7 @@ public class KafkaSnapshotLogTable {
 		this.sourcePartition = sourcePartition;
 		this.rdbmsInfo = rdbmsInfo;
 		kris = new KafkaRdbmsInfoStruct(rdbmsInfo);
+		kcs = new KafkaConnectSchema(rdbmsInfo);
 
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Table owner -> {}, master table -> {}", this.tableOwner, this.tableName);
@@ -270,13 +272,13 @@ public class KafkaSnapshotLogTable {
 					LOGGER.debug("New column {} added to table definition {}.",
 							column.getColumnName(), tableFqn);
 				}
-
+				var schema = kcs.get(column);
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
 					// Schema addition
-					keySchemaBuilder.field(column.getColumnName(), column.getSchema());
+					keySchemaBuilder.field(column.getColumnName(), schema);
 					if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
-						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+						valueSchemaBuilder.field(column.getColumnName(), schema);
 					}
 					if (mViewFirstColumn) {
 						mViewFirstColumn = false;
@@ -297,7 +299,7 @@ public class KafkaSnapshotLogTable {
 					}
 				} else {
 					// Just add to value schema
-					valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+					valueSchemaBuilder.field(column.getColumnName(), schema);
 				}
 			}
 		}
@@ -665,7 +667,7 @@ public class KafkaSnapshotLogTable {
 					break;
 				case Types.TIMESTAMP_WITH_TIMEZONE:
 					final Connection connection = rsMaster.getStatement().getConnection();
-					if (oraColumn.isLocalTimeZone()) {
+					if (oraColumn.localTimeZone()) {
 						TIMESTAMPLTZ ltz = rsMaster.getTIMESTAMPLTZ(columnName);
 						columnValue = rsMaster.wasNull() ?
 							null :

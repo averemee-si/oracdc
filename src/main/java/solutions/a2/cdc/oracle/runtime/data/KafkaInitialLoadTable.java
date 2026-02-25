@@ -200,7 +200,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 						break;
 					case Types.TIMESTAMP_WITH_TIMEZONE:
 						byte[] baTsTzData = null;
-						if (oraColumn.isLocalTimeZone()) {
+						if (oraColumn.localTimeZone()) {
 							final TIMESTAMPLTZ ltz = rsMaster.getTIMESTAMPLTZ(columnName);
 							if (ltz != null) {
 								baTsTzData = ltz.getBytes();
@@ -235,7 +235,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 						break;
 					case Types.FLOAT:
 						byte[] baFloat = null;
-						if (oraColumn.isBinaryFloatDouble()) {
+						if (oraColumn.IEEE754()) {
 							final float floatValue = rsMaster.getFloat(columnName);
 							if (!rsMaster.wasNull()) {
 								baFloat = (new BINARY_FLOAT(floatValue)).getBytes();
@@ -255,7 +255,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 						break;
 					case Types.DOUBLE:
 						byte[] baDouble = null;
-						if (oraColumn.isBinaryFloatDouble()) {
+						if (oraColumn.IEEE754()) {
 							final double doubleValue = rsMaster.getDouble(columnName);
 							if (!rsMaster.wasNull()) {
 								baDouble = (new BINARY_DOUBLE(doubleValue)).getBytes();
@@ -414,7 +414,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 						if (sizeByte != NULL_LENGTH_BYTE) {
 							final byte[] ba = new byte[sizeByte];
 							raw.read(ba);
-							if (oraColumn.isLocalTimeZone()) {
+							if (oraColumn.localTimeZone()) {
 								TIMESTAMPLTZ ltz = new TIMESTAMPLTZ(ba);
 								columnValue = OraTimestamp.ISO_8601_FMT.format(ltz.offsetDateTimeValue(connTzData));
 							} else {
@@ -463,7 +463,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 						}
 						break;
 					case Types.FLOAT:
-						if (oraColumn.isBinaryFloatDouble()) {
+						if (oraColumn.IEEE754()) {
 							sizeByte = raw.readByte();
 							if (sizeByte != NULL_LENGTH_BYTE) {
 								final byte[] ba = new byte[sizeByte];
@@ -479,7 +479,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 						}
 						break;
 					case Types.DOUBLE:
-						if (oraColumn.isBinaryFloatDouble()) {
+						if (oraColumn.IEEE754()) {
 							sizeByte = raw.readByte();
 							if (sizeByte != NULL_LENGTH_BYTE) {
 								final byte[] ba = new byte[sizeByte];

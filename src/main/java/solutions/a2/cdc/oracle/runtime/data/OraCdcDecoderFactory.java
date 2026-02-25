@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.charset.StandardCharsets.UTF_16;
@@ -76,6 +76,8 @@ import oracle.sql.BINARY_FLOAT;
 import oracle.sql.json.OracleJsonException;
 import oracle.sql.json.OracleJsonFactory;
 import oracle.sql.json.OracleJsonParser;
+import solutions.a2.cdc.oracle.OraCdcDecoder;
+import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraJson;
@@ -267,6 +269,20 @@ public class OraCdcDecoderFactory {
 						try {
 							final var struct = new Struct(schema);
 							if (len > 0) struct.put("V", toLong(raw, off, len));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, false, jdbcType);
+						}
+					}
+				};
+			}
+			case DOUBLE -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						try {
+							final var struct = new Struct(schema);
+							if (len > 0) struct.put("V", toDouble(Arrays.copyOfRange(raw, off, off + len)));
 							return struct;
 						} catch (Exception e) {
 							throw invalidNumberData(e, raw, off, len, false, jdbcType);
@@ -728,6 +744,20 @@ public class OraCdcDecoderFactory {
 						try {
 							final var struct = new Struct(schema);
 							if (len > 0) struct.put("V", toLong(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted)));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
+					}
+				};						
+			}
+			case DOUBLE -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						try {
+							final var struct = new Struct(schema);
+							if (len > 0) struct.put("V", toDouble(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted)));
 							return struct;
 						} catch (Exception e) {
 							throw invalidNumberData(e, raw, off, len, true, jdbcType);

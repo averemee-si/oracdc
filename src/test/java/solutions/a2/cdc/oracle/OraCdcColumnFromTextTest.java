@@ -57,14 +57,28 @@ public class OraCdcColumnFromTextTest {
 				6, null, null, true);
 		assertFalse(colDeptDate.isNullable());
 		assertEquals(colDeptDate.defaultValue(), "SYSDATE");
-		assertEquals(colDeptDate.getJdbcType(), Types.TIMESTAMP);
+		assertEquals(colDeptDate.getJdbcType(), Types.DATE);
+
+		OraColumn colDeptTimestamp = new OraColumn(true, "DEPT_FOUNDED", "TIMESTAMP not null default SYSDATE",
+				"alter table dept add DEPT_FOUNDED date not null default SYSDATE",
+				6, null, null, true);
+		assertFalse(colDeptTimestamp.isNullable());
+		assertEquals(colDeptTimestamp.defaultValue(), "SYSDATE");
+		assertEquals(colDeptTimestamp.getJdbcType(), Types.TIMESTAMP);
 
 		OraColumn colDeptDateSimple = new OraColumn(true, "DEPT_FOUNDED", "date",
 				"alter table dept add DEPT_FOUNDED date",
 				6, null, null, true);
 		assertTrue(colDeptDateSimple.isNullable());
 		assertNull(colDeptDateSimple.defaultValue());
-		assertEquals(colDeptDateSimple.getJdbcType(), Types.TIMESTAMP);
+		assertEquals(colDeptDateSimple.getJdbcType(), Types.DATE);
+
+		OraColumn colDeptTimestampSimple = new OraColumn(true, "DEPT_FOUNDED", "timestamp",
+				"alter table dept add DEPT_FOUNDED timestamp",
+				6, null, null, true);
+		assertTrue(colDeptTimestampSimple.isNullable());
+		assertNull(colDeptTimestampSimple.defaultValue());
+		assertEquals(colDeptTimestampSimple.getJdbcType(), Types.TIMESTAMP);
 
 		OraColumn colDeptNumberTinyInt = new OraColumn(true, "SOME_NUMBER", "NUMBER(2)",
 				"alter table dept add SOME_NUMBER number(2)",
