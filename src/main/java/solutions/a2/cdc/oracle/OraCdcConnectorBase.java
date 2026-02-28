@@ -13,6 +13,20 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.ARCHIVED_LOG_CAT_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.CONNECTION_PASSWORD_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.CONNECTION_URL_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.CONNECTION_USER_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.DISTRIBUTED_URL_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.DISTRIBUTED_WALLET_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INTERNAL_DG4RAC_THREAD_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.INTERNAL_RAC_URLS_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.MAKE_DISTRIBUTED_ACTIVE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.MAKE_STANDBY_ACTIVE_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.STANDBY_URL_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.STANDBY_WALLET_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.USE_RAC_PARAM;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,11 +44,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
+import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
+import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.cdc.oracle.utils.Version;
-import solutions.a2.kafka.ConnectorParams;
-
-import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INTERNAL_DG4RAC_THREAD_PARAM;
-import static solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig.INTERNAL_RAC_URLS_PARAM;
 
 /**
  * 
@@ -76,7 +88,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 		""";
 
 	private Map<String, String> connectorProperties;
-	private OraCdcSourceConnectorConfig config;
+	private KafkaSourceConnectorConfig config;
 
 	@Override
 	public String version() {
@@ -87,7 +99,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 	public void start(Map<String, String> props) {
 		LOGGER.info(LOGO);
 		try {
-			config = new OraCdcSourceConnectorConfig(props);
+			config = new KafkaSourceConnectorConfig(props);
 			connectorProperties = new HashMap<>();
 			connectorProperties.putAll(config.originalsStrings());
 			// Copy rest of params...
@@ -114,34 +126,30 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
-		if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_URL_PARAM))) {
+		if (StringUtils.isBlank(config.rdbmsUrl())) {
 			LOGGER.error("Parameter '{}' must be set for running connector!",
-					ConnectorParams.CONNECTION_URL_PARAM);
+					CONNECTION_URL_PARAM);
 					throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 		}
 
 		// V1.1.0 - a2.jdbc.url is mandatory parameter! No more separate a2.tns.admin and a2.tns.alias!!!
 		checkDeprecatedTnsParameters(
-				props, "a2.tns.admin", "a2.tns.alias", ConnectorParams.CONNECTION_URL_PARAM);
+				props, "a2.tns.admin", "a2.tns.alias", Parameters.CONNECTION_URL_PARAM);
 		checkDeprecatedTnsParameters(
-				props, "a2.distributed.tns.admin", "a2.distributed.tns.alias", ParamConstants.DISTRIBUTED_URL_PARAM);
+				props, "a2.distributed.tns.admin", "a2.distributed.tns.alias", DISTRIBUTED_URL_PARAM);
 
 		if (StringUtils.isBlank(config.walletLocation())) {
-			if (StringUtils.isBlank(config.getString(ConnectorParams.CONNECTION_USER_PARAM))) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
-						ConnectorParams.CONNECTION_USER_PARAM,
-						ConnectorParams.CONNECTION_URL_PARAM);
+			if (StringUtils.isBlank(config.rdbmsUser())) {
+				LOGGER.error(DB_PARAM_MUST_SET_WHEN, CONNECTION_USER_PARAM, CONNECTION_URL_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			if (StringUtils.isBlank(
-					config.getPassword(ConnectorParams.CONNECTION_PASSWORD_PARAM).value())) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN,
-						ConnectorParams.CONNECTION_PASSWORD_PARAM,
-						ConnectorParams.CONNECTION_URL_PARAM);
+					config.rdbmsPassword())) {
+				LOGGER.error(DB_PARAM_MUST_SET_WHEN, CONNECTION_PASSWORD_PARAM, CONNECTION_URL_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			LOGGER.info("Connection to RDBMS will be performed using Oracle username '{}'",
-					config.getString(ConnectorParams.CONNECTION_USER_PARAM));
+					config.rdbmsUser());
 		} else {
 			LOGGER.info("Connection to RDBMS will be performed using Oracle Wallet '{}'",
 					config.walletLocation());
@@ -149,18 +157,14 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 
 		if (config.activateStandby()) {
 			if (StringUtils.isBlank(config.standbyJdbcUrl())) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						config.standbyJdbcUrlParamName(),
-						config.activateStandbyParamName());
+				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE, STANDBY_URL_PARAM, MAKE_STANDBY_ACTIVE_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 			if (StringUtils.isBlank(config.standbyWallet())) {
-				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						config.standbyWalletParamName(),
-						config.activateStandbyParamName());
+				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE, STANDBY_WALLET_PARAM, MAKE_STANDBY_ACTIVE_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
-			if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
+			if (config.activateDistributed()) {
 				LOGGER.warn(
 						"""
 						
@@ -168,23 +172,22 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 						When the '{}' parameter is set to true, the '{}' parameter must be set to false!
 						=====================
 						
-						""", config.activateStandbyParamName(),
-							ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
+						""", MAKE_STANDBY_ACTIVE_PARAM, MAKE_DISTRIBUTED_ACTIVE_PARAM);
 			}
 		}
-		if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
-			if (StringUtils.isBlank(config.getString(ParamConstants.DISTRIBUTED_WALLET_PARAM))) {
+		if (config.activateDistributed()) {
+			if (StringUtils.isBlank(config.distributedWallet())) {
 				LOGGER.error(DB_PARAM_MUST_SET_WHEN_TRUE,
-						ParamConstants.DISTRIBUTED_WALLET_PARAM,
-						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM);
+						DISTRIBUTED_WALLET_PARAM,
+						MAKE_DISTRIBUTED_ACTIVE_PARAM);
 				throw new ConnectException(DB_PARAM_ERROR_GENERIC);
 			}
 		}
 
-		if (config.getBoolean(ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM)) {
+		if (config.activateDistributed()) {
 			// When this set we need explicitly value of  a2.archived.log.catalog parameter
 			if (!OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName()
-					.equals(config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM))) {
+					.equals(config.classLogMinerName())) {
 				LOGGER.warn(
 						"""
 						
@@ -194,13 +197,13 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 						=====================
 						
 						""",
-						ParamConstants.MAKE_DISTRIBUTED_ACTIVE_PARAM,
-						ParamConstants.ARCHIVED_LOG_CAT_PARAM,
+						MAKE_DISTRIBUTED_ACTIVE_PARAM,
+						ARCHIVED_LOG_CAT_PARAM,
 						OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName(),
-						ParamConstants.ARCHIVED_LOG_CAT_PARAM,
+						ARCHIVED_LOG_CAT_PARAM,
 						OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName());
 			}
-			connectorProperties.put(ParamConstants.ARCHIVED_LOG_CAT_PARAM, 
+			connectorProperties.put(ARCHIVED_LOG_CAT_PARAM, 
 					OraCdcDistributedV$ArchivedLogImpl.class.getCanonicalName());
 		}
 		try {
@@ -243,7 +246,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 								=====================
 								
 								""",
-								config.getString(ConnectorParams.CONNECTION_URL_PARAM),
+								config.rdbmsUrl(),
 								instances.size(), maxTasks, instances.size());
 						throw new ConnectException("Please increase value of 'tasks.max' parameter!");
 					}
@@ -271,8 +274,8 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 							The connector continues to operate with the '{}'='false' parameter.
 							=====================
 							
-							""", config.useRacParamName(), config.useRacParamName());
-					connectorProperties.put(config.useRacParamName(), Boolean.FALSE.toString());
+							""", USE_RAC_PARAM, USE_RAC_PARAM);
+					connectorProperties.put(USE_RAC_PARAM, Boolean.FALSE.toString());
 				}
 			} catch (SQLException sqle) {
 				LOGGER.error(
@@ -390,7 +393,7 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 
 	@Override
 	public ConfigDef config() {
-		return OraCdcSourceConnectorConfig.config();
+		return KafkaSourceConnectorConfig.config();
 	}
 
 	private void checkDeprecatedTnsParameters(final Map<String, String> props,

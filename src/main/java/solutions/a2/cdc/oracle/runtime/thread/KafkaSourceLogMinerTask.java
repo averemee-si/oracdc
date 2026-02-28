@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.thread;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -30,6 +30,16 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcDictionaryChecker;
+import solutions.a2.cdc.oracle.OraCdcLargeObjectHolder;
+import solutions.a2.cdc.oracle.OraCdcLogMinerStatement;
+import solutions.a2.cdc.oracle.OraCdcLogMinerWorkerThread;
+import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
+import solutions.a2.cdc.oracle.OraCdcTransaction;
+import solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue;
+import solutions.a2.cdc.oracle.OraCdcV$LogmnrContents;
+import solutions.a2.cdc.oracle.OraDictSqlTexts;
+import solutions.a2.cdc.oracle.OraCdcLogMinerTable;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -40,9 +50,9 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcLogMinerTask extends OraCdcTaskBase {
+public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerTask.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceLogMinerTask.class);
 
 	private OraCdcSourceConnMgmt metrics;
 	private Map<String, OraCdcTransaction> activeTransactions;
@@ -347,7 +357,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 							lastStatementInTransaction = !processTransaction;
 
 							if (processTransaction) {
-								final OraTable4LogMiner oraTable = (OraTable4LogMiner) checker.getTable(stmt.getTableId());
+								final OraCdcLogMinerTable oraTable = (OraCdcLogMinerTable) checker.getTable(stmt.getTableId());
 								if (oraTable == null) {
 									checker.printConsistencyError(transaction, stmt);
 									isPollRunning.set(false);
@@ -365,7 +375,7 @@ public class OraCdcLogMinerTask extends OraCdcTaskBase {
 										} else {
 											final long startParseTs = System.currentTimeMillis();
 											putInProgressOffsets(stmt);
-											final SourceRecord record = oraTable.parseRedoRecord(
+											final SourceRecord record = (SourceRecord) oraTable.parseRedoRecord(
 													stmt, lobs,
 													transaction,
 													offset,

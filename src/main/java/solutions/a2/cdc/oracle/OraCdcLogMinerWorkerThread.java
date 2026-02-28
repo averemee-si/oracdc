@@ -37,7 +37,6 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Triple;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,7 +68,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private static final int TRANS_PREFIX = 8;
 	private static final byte[] SQUEEZE_PATTERN = "HEXTORAW(".getBytes(US_ASCII);
 
-	private final OraCdcLogMinerTask task;
+	private final OraCdcTaskBase task;
 	private final OraCdcSourceConnMgmt metrics;
 	private boolean logMinerReady = false;
 	private final OraLogMiner logMiner;
@@ -107,7 +106,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final long logMinerReconnectIntervalMs;
 
 	public OraCdcLogMinerWorkerThread(
-			final OraCdcLogMinerTask task,
+			final OraCdcTaskBase task,
 			final OraCdcDictionaryChecker checker,
 			final long firstScn,
 			final String mineDataSql,
@@ -123,16 +122,14 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.activeTransactions = activeTransactions;
 		this.metrics = metrics;
 		this.connectionRetryBackoff = config.connectionRetryBackoff();
-		this.fetchSize = config.getInt(ParamConstants.FETCH_SIZE_PARAM);
-		this.traceSession = config.getBoolean(ParamConstants.TRACE_LOGMINER_PARAM);
+		this.fetchSize = config.fetchSize();
+		this.traceSession = config.logMinerTrace();
 		this.committedTransactions = committedTransactions;
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
 		prefixedTransactions = new HashMap<>();
 		this.logMinerReconnectIntervalMs = config.logMinerReconnectIntervalMs();
-		useChronicleQueue = Strings.CI.equals(
-				config.getString(ParamConstants.ORA_TRANSACTION_IMPL_PARAM),
-				ParamConstants.ORA_TRANSACTION_IMPL_CHRONICLE);
+		useChronicleQueue = config.useOffHeapMemory();
 		queuesRoot = config.queuesRoot();
 		concTransThreshold = config.transactionsThreshold();
 		runtime = Runtime.getRuntime();
@@ -165,9 +162,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						negotiatedSDU);
 			}
 
-			final String archivedLogCatalogImplClass = config.getString(ParamConstants.ARCHIVED_LOG_CAT_PARAM);
 			try {
-				final Class<?> classLogMiner = Class.forName(archivedLogCatalogImplClass);
+				final Class<?> classLogMiner = config.classLogMiner();
 				final Constructor<?> constructor = classLogMiner.getConstructor(
 						Connection.class,
 						OraCdcSourceConnMgmt.class,
@@ -178,45 +174,33 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						OraConnectionObjects.class);
 				logMiner = (OraLogMiner) constructor.newInstance(
 						connLogMiner, metrics, firstScn, config, runLatch, rdbmsInfo, oraConnections);
-			} catch (ClassNotFoundException nfe) {
-				LOGGER.error("ClassNotFoundException while instantiating {}", archivedLogCatalogImplClass);
-				throw new ConnectException("ClassNotFoundException while instantiating " + archivedLogCatalogImplClass, nfe);
-			} catch (NoSuchMethodException nme) {
+			} catch (NoSuchMethodException nsme) {
 				LOGGER.error(
-						"NoSuchMethodException while obtaining " +
-						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("NoSuchMethodException while obtaining required constructor for " + archivedLogCatalogImplClass, nme);
-			} catch (SecurityException se) {
+						"""
+						
+						=====================
+						Unable to get default constructor for the class '{}'.
+						{}
+						
+						=====================
+						
+						""", config.classLogMinerName(),
+						ExceptionUtils.getExceptionStackTrace(nsme));
+				throw new IllegalArgumentException(nsme);
+			} catch (SecurityException | InvocationTargetException | IllegalAccessException | InstantiationException | IllegalArgumentException e) {
 				LOGGER.error(
-						"SecurityException while obtaining " +
-						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("SecurityException while obtaining required constructor for " + archivedLogCatalogImplClass, se);
-			} catch (InvocationTargetException ite) {
-				LOGGER.error(
-						"InvocationTargetException while calling " +
-						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("InvocationTargetException while calling required constructor for " + archivedLogCatalogImplClass, ite);
-			} catch (IllegalAccessException iae) {
-				LOGGER.error(
-						"IllegalAccessException while calling " +
-						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("IllegalAccessException while calling required constructor for " + archivedLogCatalogImplClass, iae);
-			} catch (InstantiationException ie) {
-				LOGGER.error(
-						"InstantiationException while calling " +
-						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("InstantiationException while calling required constructor for " + archivedLogCatalogImplClass, ie);
-			} catch (IllegalArgumentException iae2) {
-				LOGGER.error(
-						"IllegalArgumentException while calling " +
-						"'{}.(java.sql.Connection, solutions.a2.cdc.oracle.jmx.OraCdcLogMinerMgmtIntf, long, Integer, Long)'" +
-						" constructor", archivedLogCatalogImplClass);
-				throw new ConnectException("IllegalArgumentException while calling required constructor for " + archivedLogCatalogImplClass, iae2);
+						"""
+						
+						=====================
+						'{}' while instantinating the class '{}'.
+						{}
+						
+						=====================
+						
+						""", e.getMessage(),
+						config.classLogMinerName(),
+						ExceptionUtils.getExceptionStackTrace(e));
+				throw new IllegalArgumentException(e);
 			}
 
 			if (logMiner.isOracleConnectionRequired()) {
@@ -447,7 +431,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								combinedDataObjectId = dataObjectId;
 							}
 							// First check for table definition...
-							OraTable4LogMiner oraTable = (OraTable4LogMiner) checker.getTable(combinedDataObjectId, dataObjectId, conId);
+							OraCdcLogMinerTable oraTable = (OraCdcLogMinerTable) checker.getTable(combinedDataObjectId, dataObjectId, conId);
 
 							if (oraTable != null) {
 								final byte[] redoBytes = readSqlRedo();
@@ -734,24 +718,39 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 					}
 				}
 			} catch (Exception e) {
-				LOGGER.error(e.getMessage());
+				var sqlError = new StringBuilder();
 				if (e instanceof SQLException) {
 					SQLException sqle = (SQLException) e;
-					LOGGER.error("SQL errorCode = {}, SQL state = '{}'",
-							sqle.getErrorCode(), sqle.getSQLState());
-					if (isRsLogMinerRowAvailable) {
-						LOGGER.error("Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'",
-								lastScn, lastRba, lastSubScn, xid);
-					}
-					LOGGER.error("Current query is:\n{}\n", mineDataSql);
+					sqlError
+						.append("\n")
+						.append("SQL errorCode = ")
+						.append(sqle.getErrorCode())
+						.append(", SQL state = '")
+						.append(sqle.getSQLState())
+						.append("'");
 				}
-				LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 				lastScn = lastGuaranteedScn;
 				lastRba = lastGuaranteedRsId;
 				lastSubScn = lastGuaranteedSsn;
+				LOGGER.error(
+						"""
+						
+						=====================
+						{} {}
+						Last read row information: SCN={}, RS_ID='{}', SSN={}, XID='{}'
+						Current query:
+						{}
+						---------------------
+						{}
+						=====================
+						
+						""", e.getMessage(), sqlError.toString(),
+						lastScn, lastRba, lastSubScn, xid, mineDataSql,
+						ExceptionUtils.getExceptionStackTrace(e));
+				
 				running.set(false);
 				task.stop(false);
-				throw new ConnectException(e);
+				throw new IllegalArgumentException(e);
 			}
 		}
 		LOGGER.debug("End of LogMiner loop...");
@@ -790,23 +789,34 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 				}
 				if (retries == MAX_RETRIES) {
 					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to restore connections after {} retries.\n" +
-							"Original error: '{}',\n\tSQL errorCode = {}, SQL state = '{}'\n" +
-							"\n=====================\n",
-							retries, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
-					throw new ConnectException(sqle);
+							"""
+							
+							=====================
+							Unable to restore connections after {} retries.
+							Original error: '{}',\n\tSQL errorCode = {}, SQL state = '{}'
+							{}
+							=====================
+							
+							""", retries, sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
+							ExceptionUtils.getExceptionStackTrace(sqle));
+					throw new IllegalArgumentException(sqle);
 				}
 			}
 		} else {
 			LOGGER.error(
-					"\n=====================\n" +
-					"Unhandled '{}', SQL errorCode = {}, SQL state = '{}'\n" +
-					"in restoreOraConnection(sqle) !\n" +
-					"To fix - please send this message to oracle@a2.solutions\n" +
-					"=====================\n",
-					sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState());
-			throw new ConnectException(sqle);
+					"""
+					=====================
+					"Unhandled '{}', SQL errorCode = {}, SQL state = '{}'
+					in restoreOraConnection(sqle) !
+					
+					{}
+					
+					To fix - please send this message to oracle@a2.solutions
+					=====================
+					
+					""", sqle.getMessage(), sqle.getErrorCode(), sqle.getSQLState(),
+					ExceptionUtils.getExceptionStackTrace(sqle));
+			throw new IllegalArgumentException(sqle);
 		}
 	}
 
@@ -839,7 +849,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 
 	private List<OraCdcLargeObjectHolder> catchTheLob(
 			final short operation, final String xid,
-			final long dataObjectId, final OraTable4LogMiner oraTable,
+			final long dataObjectId, final OraCdcLogMinerTable oraTable,
 			final byte[] redoBytes) throws SQLException {
 		List<OraCdcLargeObjectHolder> lobs = null;
 		if (processLobs && oraTable.isWithLobs() &&
@@ -1281,26 +1291,35 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 					} catch (InterruptedException ie) {}
 				} else {
 					LOGGER.error(
-							"\n=====================\n" +
-							"'{}' while initializing Chronicle Queue.\n" +
-							"\tThis might be issue https://github.com/OpenHFT/Chronicle-Queue/issues/1446 or you don't have enough open files limit.\n" +
-							"Please send errorstack below to oracle@a2.solutions\n{}\n" +
-							"=====================\n",
+							"""
+							
+							=====================
+							'{}' while initializing Chronicle Queue.
+								This might be issue https://github.com/OpenHFT/Chronicle-Queue/issues/1446 or you don't have enough open files limit.
+							Please send errorstack below to oracle@a2.solutions\n{}
+							=====================
+							
+							""",
 							cqe.getMessage(), ExceptionUtils.getExceptionStackTrace(cqe));
-					throw new ConnectException(cqe);
+					throw new IllegalArgumentException(cqe);
 				}
 			}
 		}
 		LOGGER.error(
-					"\n=====================\n" +
-					"Failed to reconnect to create Chronicle Queue after {} attempts in {} ms.\n{}" +
-					"\n=====================\n",
+					"""
+					
+					=====================
+					Failed to reconnect to create Chronicle Queue after {} attempts in {} ms.
+					{}
+					=====================
+					
+					""",
 					attempt, (System.currentTimeMillis() - start),
 					lastException != null ? ExceptionUtils.getExceptionStackTrace(lastException) : "");
 		if (lastException != null)
-			throw new ConnectException(lastException);
+			throw new IllegalArgumentException(lastException);
 		else
-			throw new ConnectException("Unable to create Chronicle Queue!");
+			throw new IllegalArgumentException("Unable to create Chronicle Queue!");
 	}
 
 }

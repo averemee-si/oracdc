@@ -11,7 +11,15 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.thread;
+
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_KAFKA_STD;
+import static solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector.TASK_PARAM_MASTER;
+import static solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector.TASK_PARAM_MV_LOG;
+import static solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector.TASK_PARAM_MV_PK;
+import static solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector.TASK_PARAM_MV_ROWID;
+import static solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector.TASK_PARAM_MV_SEQUENCE;
+import static solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector.TASK_PARAM_OWNER;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -29,30 +37,26 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.ucp.UniversalConnectionPoolException;
+import solutions.a2.cdc.oracle.OraCdcSourceBaseConfig;
+import solutions.a2.cdc.oracle.OraCdcColumn;
+import solutions.a2.cdc.oracle.OraPoolConnectionFactory;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.runtime.config.KafkaSourceBaseConfig;
+import solutions.a2.cdc.oracle.runtime.data.KafkaSnapshotLogTable;
 import solutions.a2.cdc.oracle.utils.Version;
 import solutions.a2.utils.ExceptionUtils;
-
-import static solutions.a2.kafka.ConnectorParams.BATCH_SIZE_PARAM;
-import static solutions.a2.kafka.ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD;
-
-import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MASTER;
-import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_LOG;
-import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_OWNER;
-import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_ROWID;
-import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_PK;
-import static solutions.a2.cdc.oracle.OraCdcSourceConnector.TASK_PARAM_MV_SEQUENCE;
 
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcSourceTask extends SourceTask {
+public class KafkaSourceSnapshotLogTask extends SourceTask {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceTask.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceSnapshotLogTask.class);
 	private static final String PARTITION_FIELD = "mvlog";
 
-	private OraTable4SnapshotLog oraTable;
+	private KafkaSnapshotLogTable oraTable;
 	private int batchSize;
 	private int pollInterval;
 	private int schemaType;
@@ -70,12 +74,12 @@ public class OraCdcSourceTask extends SourceTask {
 		LOGGER.info("Starting oracdc Source Task for {}", props.get(TASK_PARAM_MASTER));
 
 		try {
-			config = new OraCdcSourceBaseConfig(props);
+			config = new KafkaSourceBaseConfig(props);
 		} catch (ConfigException ce) {
 			throw new ConnectException("Couldn't start oracdc due to coniguration error", ce);
 		}
 
-		batchSize = config.getInt(BATCH_SIZE_PARAM);
+		batchSize = config.batchSize();
 		LOGGER.debug("batchSize = {} records.", batchSize);
 		pollInterval = config.pollIntervalMs();
 		LOGGER.debug("pollInterval = {} ms.", pollInterval);
@@ -102,15 +106,15 @@ public class OraCdcSourceTask extends SourceTask {
 			final Map<String, String> partition = Collections.singletonMap(PARTITION_FIELD, sourcePartitionName);
 			Map<String, Object> offset = context.offsetStorageReader().offset(partition);
 			if (offset != null && LOGGER.isDebugEnabled()) {
-				if (offset.get(OraColumn.ORA_ROWSCN) != null)
+				if (offset.get(OraCdcColumn.ORA_ROWSCN) != null)
 					LOGGER.debug("Last record SCN(from {} pseudocolumn) for {} in offset file = {}.",
-							OraColumn.ORA_ROWSCN, sourcePartitionName, (long) offset.get(OraColumn.ORA_ROWSCN));
-				if (offset.get(OraColumn.MVLOG_SEQUENCE) != null)
+							OraCdcColumn.ORA_ROWSCN, sourcePartitionName, (long) offset.get(OraCdcColumn.ORA_ROWSCN));
+				if (offset.get(OraCdcColumn.MVLOG_SEQUENCE) != null)
 					LOGGER.debug("Last processed {} for {} in offset file = {}.",
-							OraColumn.MVLOG_SEQUENCE, sourcePartitionName, (long) offset.get(OraColumn.MVLOG_SEQUENCE));
+							OraCdcColumn.MVLOG_SEQUENCE, sourcePartitionName, (long) offset.get(OraCdcColumn.MVLOG_SEQUENCE));
 			}
 
-			oraTable = new OraTable4SnapshotLog(
+			oraTable = new KafkaSnapshotLogTable(
 					tableOwner, tableName,
 					props.get(TASK_PARAM_MV_LOG),
 					"YES".equalsIgnoreCase(props.get(TASK_PARAM_MV_ROWID)),

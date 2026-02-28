@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import static java.sql.Types.FLOAT;
 import static java.sql.Types.DOUBLE;
@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import oracle.sql.BINARY_DOUBLE;
 import oracle.sql.BINARY_FLOAT;
 import oracle.sql.NUMBER;
+import solutions.a2.cdc.oracle.OraCdcDecoder;
 
 /**
  *  
@@ -80,7 +81,7 @@ public class OraDumpDecoderTest {
 		String number_11_7_Sqrt3 = "c1024a153351";
 
 		try {
-			OraCdcDecoder decoder = OraCdcDecoderFactory.get("AL32UTF8");
+			OraCdcDecoder decoder = KafkaConnectDecoders.get("AL32UTF8");
 			System.out.println(decoder.decode(sUsAscii));
 			assertEquals(decoder.decode(sUsAscii), "thanks");
 			System.out.println(decoder.decode(sTrChinese));
@@ -91,40 +92,40 @@ public class OraDumpDecoderTest {
 			assertEquals(decoder.decode(sCyrillic), "Спасибо");
 
 			// BigDecimal
-			decoder = OraCdcDecoderFactory.getNUMBER(NUMBER.toBigDecimal(hexToRaw(bdNegative)).scale());
+			decoder = KafkaConnectDecoders.getNUMBER(NUMBER.toBigDecimal(hexToRaw(bdNegative)).scale());
 			System.out.println(decoder.decode(bdNegative));
 			assertEquals(decoder.decode(bdNegative), NUMBER.toBigDecimal(hexToRaw(bdNegative)));
 
 			// float
-			decoder = OraCdcDecoderFactory.get(FLOAT);
+			decoder = KafkaConnectDecoders.get(FLOAT);
 			System.out.println(decoder.decode(hexToRaw(bdNegative)));
 			assertEquals(decoder.decode(hexToRaw(bdNegative)), NUMBER.toFloat(hexToRaw(bdNegative)));
 	
 			// double
-			decoder = OraCdcDecoderFactory.get(DOUBLE);
+			decoder = KafkaConnectDecoders.get(DOUBLE);
 			System.out.println(decoder.decode(hexToRaw(bdNegative)));
 			assertEquals(decoder.decode(hexToRaw(bdNegative)), NUMBER.toDouble(hexToRaw(bdNegative)));
 
-			decoder = OraCdcDecoderFactory.get(BINARY_FLOAT);
+			decoder = KafkaConnectDecoders.get(BINARY_FLOAT);
 			System.out.println(decoder.decode(binaryFloatSqrt3));
 			assertEquals(decoder.decode(binaryFloatSqrt3), new BINARY_FLOAT(hexToRaw(binaryFloatSqrt3)).floatValue());
 
-			decoder = OraCdcDecoderFactory.get(BINARY_DOUBLE);
+			decoder = KafkaConnectDecoders.get(BINARY_DOUBLE);
 			System.out.println(decoder.decode(binaryDoubleSqrt3));
 			assertEquals(decoder.decode(binaryDoubleSqrt3), new BINARY_DOUBLE(hexToRaw(binaryDoubleSqrt3)).doubleValue());
 
 			// BigDecimal
-			decoder = OraCdcDecoderFactory.getNUMBER(NUMBER.toBigDecimal(hexToRaw(number_11_7_Sqrt3)).scale());
+			decoder = KafkaConnectDecoders.getNUMBER(NUMBER.toBigDecimal(hexToRaw(number_11_7_Sqrt3)).scale());
 			System.out.println(decoder.decode(number_11_7_Sqrt3));
 			assertEquals(decoder.decode(number_11_7_Sqrt3), NUMBER.toBigDecimal(hexToRaw(number_11_7_Sqrt3)));
 
 			// float
-			decoder = OraCdcDecoderFactory.get(FLOAT);
+			decoder = KafkaConnectDecoders.get(FLOAT);
 			System.out.println(decoder.decode(hexToRaw(number_11_7_Sqrt3)));
 			assertEquals(decoder.decode(hexToRaw(number_11_7_Sqrt3)), NUMBER.toFloat(hexToRaw(number_11_7_Sqrt3)));
 
 			// double
-			decoder = OraCdcDecoderFactory.get(DOUBLE);
+			decoder = KafkaConnectDecoders.get(DOUBLE);
 			System.out.println(decoder.decode(hexToRaw(number_11_7_Sqrt3)));
 			assertEquals(decoder.decode(hexToRaw(number_11_7_Sqrt3)), NUMBER.toDouble(hexToRaw(number_11_7_Sqrt3)));
 

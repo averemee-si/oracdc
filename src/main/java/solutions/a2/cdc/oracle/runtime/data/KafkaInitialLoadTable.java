@@ -1,4 +1,4 @@
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -20,12 +20,14 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.Strings;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
@@ -49,9 +51,13 @@ import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMP;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
+import solutions.a2.cdc.oracle.OraCdcColumn;
+import solutions.a2.cdc.oracle.OraConnectionObjects;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
-import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.utils.ExceptionUtils;
 
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
@@ -61,30 +67,38 @@ import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraTable4InitialLoad extends OraTable4SourceConnector implements ReadMarshallable, WriteMarshallable {
+public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4InitialLoad.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaInitialLoadTable.class);
 	private static final byte NULL_LENGTH_BYTE = (byte) -1;
 	private static final short NULL_LENGTH_SHORT = (short) -1;
 	private static final int NULL_LENGTH_INT = (int) -1;
 	private static final int LOB_CHUNK_SIZE = 16384;
 
+	private final KafkaRdbmsInfoStruct kris;
 	private final String pdbName;
+	private final String tableOwner;
+	private final String tableName;
+	private final List<OraCdcColumn> allColumns;
+	private final Map<String, OraCdcColumn> pkColumns;
+	private final OraRdbmsInfo rdbmsInfo;
 	private final Path queueDirectory;
 	private final OraCdcInitialLoad metrics;
 	private final String sqlSelect;
 	private final String tableFqn;
 	private final String kafkaTopic;
+	private final int schemaType;
+	private final boolean rowLevelScn;
+	private Schema schema;
+	private Schema keySchema;
+	private Schema valueSchema;
+	private Map<String, String> sourcePartition;
 	private ChronicleQueue tableRows;
 	private ExcerptAppender appender;
 	private ExcerptTailer tailer;
 	private int queueSize;
 	private int tailerOffset;
 	private OracleResultSet rsMaster;
-
-	//TODO
-	//TODO
-	//TODO
 	private Struct keyStruct;
 	private Struct valueStruct;
 	private Connection connTzData;
@@ -99,32 +113,34 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 	 * @param rdbmsInfo
 	 * @throws IOException
 	 */
-	public OraTable4InitialLoad(final Path rootDir, final OraTable oraTable,
+	public KafkaInitialLoadTable(final Path rootDir, final OraCdcTableBase oraTable,
 				final OraCdcInitialLoad metrics,
 				final OraRdbmsInfo rdbmsInfo) throws IOException {
-		super(oraTable.tableOwner, oraTable.tableName, oraTable.schemaType);
 		LOGGER.trace("BEGIN: create OraCdcTableBuffer");
-		this.pdbName = oraTable.pdbName();
-		this.allColumns = oraTable.allColumns;
-		this.pkColumns = oraTable.pkColumns;
-		//TODO
-		this.schema = oraTable.schema;
-		this.keySchema = oraTable.keySchema;
-		this.valueSchema = oraTable.valueSchema;
-		this.sourcePartition = oraTable.sourcePartition;
+		pdbName = oraTable.pdb();
+		tableOwner = oraTable.owner();
+		tableName = oraTable.name();
+		allColumns = oraTable.allColumns();
+		pkColumns = oraTable.pkColumns();
+		kris = ((KafkaStructDataBinder) oraTable.dataBinder()).kris;
+		schema = ((KafkaStructDataBinder) oraTable.dataBinder()).schema;
+		keySchema = ((KafkaStructDataBinder) oraTable.dataBinder()).keySchema;
+		valueSchema = ((KafkaStructDataBinder) oraTable.dataBinder()).valueSchema;
+		schemaType = ((KafkaStructDataBinder) oraTable.dataBinder()).schemaType;
+		kafkaTopic = ((KafkaStructDataBinder) oraTable.dataBinder()).kafkaTopic;
+		sourcePartition = rdbmsInfo.partition();
 		this.metrics = metrics;
 		this.tableFqn = oraTable.fqn();
-		this.kafkaTopic = oraTable.kafkaTopic();
 		this.rdbmsInfo = rdbmsInfo;
-		this.rowLevelScn = oraTable.rowLevelScn;
+		this.rowLevelScn = oraTable.rowLevelScn();
 		// Build SQL select
 		final StringBuilder sb = new StringBuilder(512);
 		sb.append("select ");
 		for (int i = 0; i < allColumns.size(); i++) {
-			OraColumn oraColumn = allColumns.get(i);
-			if (oraColumn.getColumnName().equals(OraColumn.ROWID_KEY)) {
+			OraCdcColumn oraColumn = allColumns.get(i);
+			if (oraColumn.getColumnName().equals(OraCdcColumn.ROWID_KEY)) {
 				sb.append("ROWID as ");
-				sb.append(OraColumn.ROWID_KEY);
+				sb.append(OraCdcColumn.ROWID_KEY);
 			} else {
 				sb.append(oraColumn.getColumnName());
 			}
@@ -168,7 +184,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		Bytes<?> bytes = wire.bytes();
 		try {
 			for (int i = 0; i < allColumns.size(); i++) {
-				final OraColumn oraColumn = allColumns.get(i);
+				final OraCdcColumn oraColumn = allColumns.get(i);
 				final String columnName = oraColumn.getColumnName();
 				switch (oraColumn.getJdbcType()) {
 					case Types.DATE:
@@ -184,7 +200,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						break;
 					case Types.TIMESTAMP_WITH_TIMEZONE:
 						byte[] baTsTzData = null;
-						if (oraColumn.isLocalTimeZone()) {
+						if (oraColumn.localTimeZone()) {
 							final TIMESTAMPLTZ ltz = rsMaster.getTIMESTAMPLTZ(columnName);
 							if (ltz != null) {
 								baTsTzData = ltz.getBytes();
@@ -219,7 +235,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						break;
 					case Types.FLOAT:
 						byte[] baFloat = null;
-						if (oraColumn.isBinaryFloatDouble()) {
+						if (oraColumn.IEEE754()) {
 							final float floatValue = rsMaster.getFloat(columnName);
 							if (!rsMaster.wasNull()) {
 								baFloat = (new BINARY_FLOAT(floatValue)).getBytes();
@@ -239,7 +255,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						break;
 					case Types.DOUBLE:
 						byte[] baDouble = null;
-						if (oraColumn.isBinaryFloatDouble()) {
+						if (oraColumn.IEEE754()) {
 							final double doubleValue = rsMaster.getDouble(columnName);
 							if (!rsMaster.wasNull()) {
 								baDouble = (new BINARY_DOUBLE(doubleValue)).getBytes();
@@ -379,7 +395,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 		Bytes<?> raw = wire.bytes();
 		try {
 			for (int i = 0; i < allColumns.size(); i++) {
-				final OraColumn oraColumn = allColumns.get(i);
+				final OraCdcColumn oraColumn = allColumns.get(i);
 				final String columnName = oraColumn.getColumnName();
 				Object columnValue = null;
 				byte sizeByte;
@@ -398,7 +414,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						if (sizeByte != NULL_LENGTH_BYTE) {
 							final byte[] ba = new byte[sizeByte];
 							raw.read(ba);
-							if (oraColumn.isLocalTimeZone()) {
+							if (oraColumn.localTimeZone()) {
 								TIMESTAMPLTZ ltz = new TIMESTAMPLTZ(ba);
 								columnValue = OraTimestamp.ISO_8601_FMT.format(ltz.offsetDateTimeValue(connTzData));
 							} else {
@@ -447,7 +463,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						}
 						break;
 					case Types.FLOAT:
-						if (oraColumn.isBinaryFloatDouble()) {
+						if (oraColumn.IEEE754()) {
 							sizeByte = raw.readByte();
 							if (sizeByte != NULL_LENGTH_BYTE) {
 								final byte[] ba = new byte[sizeByte];
@@ -463,7 +479,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						}
 						break;
 					case Types.DOUBLE:
-						if (oraColumn.isBinaryFloatDouble()) {
+						if (oraColumn.IEEE754()) {
 							sizeByte = raw.readByte();
 							if (sizeByte != NULL_LENGTH_BYTE) {
 								final byte[] ba = new byte[sizeByte];
@@ -532,9 +548,9 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 					}
 				}
 				// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
-				if ((schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
-						schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
-						schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+				if ((schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
+						schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE ||
+						schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 					valueStruct.put(columnName, columnValue);
 				}
 			}
@@ -565,7 +581,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			final Long asOfScn,
 			final CountDownLatch runLatch,
 			final AtomicBoolean running,
-			final BlockingQueue<OraTable4InitialLoad> tablesQueue,
+			final BlockingQueue<KafkaInitialLoadTable> tablesQueue,
 			final OraConnectionObjects oraConnections) {
 		metrics.startSelectTable(tableFqn);
 		boolean success = false;
@@ -643,7 +659,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 
 	public SourceRecord getSourceRecord() {
 		final long startNanos = System.nanoTime();
-		if (schemaType != ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
+		if (schemaType != Parameters.SCHEMA_TYPE_INT_SINGLE) {
 			keyStruct = new Struct(keySchema);
 		}
 		valueStruct = new Struct(valueSchema);
@@ -653,13 +669,13 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 			final Map<String, Object> offset = new HashMap<>();
 			offset.put("ROWNUM", tailerOffset);
 			SourceRecord sourceRecord = null;
-			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+			if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 				final long ts = System.currentTimeMillis();
 				final Struct struct = new Struct(schema);
 				//TODO
 				//TODO Improvement required!
 				//TODO
-				final Struct source = rdbmsInfo.getStruct(
+				final Struct source = kris.getStruct(
 						this.tableFqn,
 						pdbName, tableOwner, tableName,
 						0L, ts,
@@ -676,7 +692,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 						schema,
 						struct);
 			} else {
-				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
+				if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD) {
 					sourceRecord = new SourceRecord(
 							sourcePartition,
 							offset,
@@ -685,7 +701,7 @@ public class OraTable4InitialLoad extends OraTable4SourceConnector implements Re
 							keyStruct,
 							valueSchema,
 							valueStruct);
-				} else if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE) {
+				} else if (schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE) {
 					sourceRecord = new SourceRecord(
 							sourcePartition,
 							offset,

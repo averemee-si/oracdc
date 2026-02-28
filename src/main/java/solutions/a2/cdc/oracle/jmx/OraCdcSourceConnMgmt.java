@@ -29,10 +29,10 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
 import org.apache.commons.math3.util.Precision;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcException;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
 import solutions.a2.utils.ExceptionUtils;
@@ -106,14 +106,14 @@ public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 				} catch (InstanceNotFoundException nfe) {
 					LOGGER.error("Unable to unregister MBean {}", name.getCanonicalName());
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(nfe));
-					throw new ConnectException(nfe);
+					throw new OraCdcException(nfe);
 				}
 			}
 			mbs.registerMBean(this, name);
 		} catch (MalformedObjectNameException | InstanceAlreadyExistsException | MBeanRegistrationException | NotCompliantMBeanException e) {
 			LOGGER.error("Unable to register MBean {} !!! ", sb.toString());
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
-			throw new ConnectException(e);
+			throw new OraCdcException(e);
 		}
 	}
 

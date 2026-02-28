@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.charset.StandardCharsets.UTF_16;
@@ -40,8 +40,8 @@ import static oracle.sql.NUMBER.toBigDecimal;
 import static oracle.sql.NUMBER.toDouble;
 import static oracle.sql.NUMBER.toFloat;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
-import static solutions.a2.cdc.oracle.OraColumn.JAVA_SQL_TYPE_INTERVALDS_STRING;
-import static solutions.a2.cdc.oracle.OraColumn.JAVA_SQL_TYPE_INTERVALYM_STRING;
+import static solutions.a2.cdc.oracle.OraCdcColumn.JAVA_SQL_TYPE_INTERVALDS_STRING;
+import static solutions.a2.cdc.oracle.OraCdcColumn.JAVA_SQL_TYPE_INTERVALYM_STRING;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toByte;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toInt;
 import static solutions.a2.oracle.jdbc.types.OracleNumber.toLong;
@@ -76,6 +76,8 @@ import oracle.sql.BINARY_FLOAT;
 import oracle.sql.json.OracleJsonException;
 import oracle.sql.json.OracleJsonFactory;
 import oracle.sql.json.OracleJsonParser;
+import solutions.a2.cdc.oracle.OraCdcDecoder;
+import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraJson;
@@ -111,12 +113,12 @@ import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcDecoderFactory {
+public class KafkaConnectDecoders {
 
 	private static final Map<Integer, OraCdcDecoder> decoders = new HashMap<>();
 	private static final Map<String, String> oraToJava = new HashMap<>();
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcDecoderFactory.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaConnectDecoders.class);
 	
 	static OraCdcDecoder get() {
 		return new OraCdcDecoder() {
@@ -267,6 +269,20 @@ public class OraCdcDecoderFactory {
 						try {
 							final var struct = new Struct(schema);
 							if (len > 0) struct.put("V", toLong(raw, off, len));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, false, jdbcType);
+						}
+					}
+				};
+			}
+			case DOUBLE -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						try {
+							final var struct = new Struct(schema);
+							if (len > 0) struct.put("V", toDouble(Arrays.copyOfRange(raw, off, off + len)));
 							return struct;
 						} catch (Exception e) {
 							throw invalidNumberData(e, raw, off, len, false, jdbcType);
@@ -728,6 +744,20 @@ public class OraCdcDecoderFactory {
 						try {
 							final var struct = new Struct(schema);
 							if (len > 0) struct.put("V", toLong(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted)));
+							return struct;
+						} catch (Exception e) {
+							throw invalidNumberData(e, raw, off, len, true, jdbcType);
+						}
+					}
+				};						
+			}
+			case DOUBLE -> {
+				return new OraCdcDecoder() {
+					@Override
+					public Object decode(final byte[] raw, final int off, final int len) throws SQLException {
+						try {
+							final var struct = new Struct(schema);
+							if (len > 0) struct.put("V", toDouble(decrypter.decrypt(Arrays.copyOfRange(raw, off, off + len), salted)));
 							return struct;
 						} catch (Exception e) {
 							throw invalidNumberData(e, raw, off, len, true, jdbcType);

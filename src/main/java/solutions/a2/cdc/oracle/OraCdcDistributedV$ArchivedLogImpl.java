@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.DISTRIBUTED_TARGET_HOST;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -35,7 +37,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -270,11 +271,11 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			oracleDbZoneId = TimeZone.getDefault().toZoneId();
 			psGetArchivedLogs = connDictionary.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			final String targetHost = config.getString(ParamConstants.DISTRIBUTED_TARGET_HOST);
+			final String targetHost = config.distributedTargetHost();
 			if (StringUtils.isBlank(targetHost)) {
-				throw new SQLException("Parameter {} must be set", ParamConstants.DISTRIBUTED_TARGET_HOST);
+				throw new SQLException("Parameter {} must be set", DISTRIBUTED_TARGET_HOST);
 			}
-			final int targetPort = config.getInt(ParamConstants.DISTRIBUTED_TARGET_PORT);
+			final int targetPort = config.distributedTargetPort();
 			metrics = new OraCdcRedoShipment(targetHost, targetPort);
 			targetServerAddress = new InetSocketAddress(targetHost, targetPort);
 		}
@@ -361,7 +362,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 					try {
 						connDictionary.close();
 					} catch (SQLException sqleIgnore) {} 
-					throw new ConnectException(sqle);
+					throw new OraCdcException(sqle);
 				}
 			}
 			try {

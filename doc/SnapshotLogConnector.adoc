@@ -1,4 +1,4 @@
-*solutions.a2.cdc.oracle.OraCdcSourceConnector* reads changes from Oracle RDBMS https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html[materialized view log's] as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by *solutions.a2.cdc.oracle.OraCdcSourceConnector*.
+*solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector* reads changes from Oracle RDBMS https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-MATERIALIZED-VIEW-LOG.html[materialized view log's] as source for data changes and materializes Oracle RDBMS materialized view log at heterogeneous database system. No materialized view should consume information from materialized view log's which are used by *solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector*.
 In addition to read privileges on the underlying base tables and materialized view logs, the user running connector must have access to
 
 ----

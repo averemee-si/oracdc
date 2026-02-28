@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import static oracle.jdbc.OracleTypes.VECTOR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import org.apache.kafka.connect.data.Struct;
 import org.junit.jupiter.api.Test;
 
+import solutions.a2.cdc.oracle.OraCdcDecoder;
+import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.oracle.internals.LobLocator;
 
 /**
@@ -39,7 +41,7 @@ public class VectorTest {
 	@Test
 	public void test() {
 
-		OraCdcDecoder decoder = OraCdcDecoderFactory.get(VECTOR);
+		OraCdcDecoder decoder = KafkaConnectDecoders.get(VECTOR);
 		final OraCdcTransaction transaction = null;
 		
 		LobLocator ll;

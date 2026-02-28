@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -33,6 +33,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -48,8 +49,14 @@ import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
+import solutions.a2.cdc.oracle.OraCdcSourceBaseConfig;
+import solutions.a2.cdc.oracle.OraCdcColumn;
+import solutions.a2.cdc.oracle.OraDictSqlTexts;
+import solutions.a2.cdc.oracle.OraPoolConnectionFactory;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.UnsupportedColumnDataTypeException;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
-import solutions.a2.kafka.ConnectorParams;
+import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -57,9 +64,22 @@ import solutions.a2.utils.ExceptionUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraTable4SnapshotLog extends OraTable4SourceConnector {
+public class KafkaSnapshotLogTable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraTable4SnapshotLog.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSnapshotLogTable.class);
+
+	private final String tableOwner;
+	private final String tableName;
+	private final int schemaType;
+	private int version;
+	private List<OraCdcColumn> allColumns;
+	private Map<String, OraCdcColumn> pkColumns;
+	private Schema schema;
+	private Schema keySchema;
+	private Schema valueSchema;
+	private OraRdbmsInfo rdbmsInfo;
+	private final KafkaRdbmsInfoStruct kris;
+	private final KafkaConnectSchema kcs;
 
 	private int batchSize;
 	private boolean logWithRowIds = false;
@@ -90,14 +110,19 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 	 * @param config
 	 * @throws SQLException
 	 */
-	OraTable4SnapshotLog(
+	public KafkaSnapshotLogTable(
 			final String tableOwner, final String masterTable, final String snapshotLog,
 			final boolean logWithRowIds, final boolean logWithPrimaryKey, final boolean logWithSequence,
 			final int batchSize, final int schemaType,
 			final Map<String, String> sourcePartition, final Map<String, Object> sourceOffset,
 			final OraRdbmsInfo rdbmsInfo, final OraCdcSourceBaseConfig config) throws SQLException {
-		super(tableOwner, masterTable, schemaType);
 		LOGGER.trace("Creating OraTable object for materialized view log...");
+		this.pkColumns = new LinkedHashMap<>();
+		this.schemaType = schemaType;
+		this.allColumns = new ArrayList<>();
+		this.version = 1;
+		this.tableOwner = tableOwner;
+		this.tableName = masterTable;
 		this.logWithRowIds = logWithRowIds;
 		this.logWithPrimaryKey = logWithPrimaryKey;
 		this.logWithSequence = logWithSequence;
@@ -105,6 +130,8 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 		this.snapshotLog = snapshotLog;
 		this.sourcePartition = sourcePartition;
 		this.rdbmsInfo = rdbmsInfo;
+		kris = new KafkaRdbmsInfoStruct(rdbmsInfo);
+		kcs = new KafkaConnectSchema(rdbmsInfo);
 
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Table owner -> {}, master table -> {}", this.tableOwner, this.tableName);
@@ -193,10 +220,10 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 			// ROWID access is always faster that any other
 			masterWhere.append("ROWID=?");
 			// Add M_ROW$$ column for snapshot logs with ROWID
-			LOGGER.trace("Adding {} to column list.", OraColumn.ROWID_KEY);
+			LOGGER.trace("Adding {} to column list.", OraCdcColumn.ROWID_KEY);
 			mViewFirstColumn = false;
 			mViewSelect.append("chartorowid(M_ROW$$) ");
-			mViewSelect.append(OraColumn.ROWID_KEY);
+			mViewSelect.append(OraCdcColumn.ROWID_KEY);
 		}
 
 		final String tableFqn = this.tableOwner + "." + this.tableName;
@@ -221,9 +248,9 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 		while (rsColumns.next()) {
 			
 			boolean columnAdded = false;
-			OraColumn column = null;
+			OraCdcColumn column = null;
 			try {
-				column = new OraColumn(true, false, false, rsColumns, null, null, rdbmsInfo, true, false);
+				column = new OraCdcColumn(true, false, false, rsColumns, null, null, rdbmsInfo, true, false);
 				columnAdded = true;
 			} catch (UnsupportedColumnDataTypeException ucdte) {
 				LOGGER.warn("Column {} not added to definition of table {}.{}",
@@ -245,13 +272,13 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 					LOGGER.debug("New column {} added to table definition {}.",
 							column.getColumnName(), tableFqn);
 				}
-
+				var schema = kcs.get(column);
 				if (column.isPartOfPk()) {
 					pkColumns.put(column.getColumnName(), column);
 					// Schema addition
-					keySchemaBuilder.field(column.getColumnName(), column.getSchema());
-					if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
-						valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+					keySchemaBuilder.field(column.getColumnName(), schema);
+					if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+						valueSchemaBuilder.field(column.getColumnName(), schema);
 					}
 					if (mViewFirstColumn) {
 						mViewFirstColumn = false;
@@ -272,12 +299,28 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 					}
 				} else {
 					// Just add to value schema
-					valueSchemaBuilder.field(column.getColumnName(), column.getSchema());
+					valueSchemaBuilder.field(column.getColumnName(), schema);
 				}
 			}
 		}
 		// Schema
-		schemaEiplogue(tableFqn, keySchemaBuilder, valueSchemaBuilder);
+		if (keySchemaBuilder == null) {
+			keySchema = null;
+		} else {
+			keySchema = keySchemaBuilder.build();
+		}
+		valueSchema = valueSchemaBuilder.build();
+		if (this.schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
+			final SchemaBuilder schemaBuilder = SchemaBuilder
+					.struct()
+					.name(tableFqn + ".Envelope");
+			schemaBuilder.field("op", Schema.STRING_SCHEMA);
+			schemaBuilder.field("ts_ms", Schema.OPTIONAL_INT64_SCHEMA);
+			schemaBuilder.field("before", keySchema);
+			schemaBuilder.field("after", valueSchema);
+			schemaBuilder.field("source", kris.schema());
+			schema = schemaBuilder.build();
+		}
 
 		masterSelect.append(" from \"");
 		masterSelect.append(this.tableOwner);
@@ -288,30 +331,30 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 
 		if (logWithSequence) {
 			mViewSelect.append(", ");
-			mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
+			mViewSelect.append(OraCdcColumn.MVLOG_SEQUENCE);
 		}
 		mViewSelect.append(", case DMLTYPE$$ when 'I' then 'c' when 'U' then 'u' else 'd' end as OPTYPE$$, ORA_ROWSCN, SYSTIMESTAMP at time zone 'GMT' as TIMESTAMP$$, ROWID from ");
 		mViewSelect.append(snapshotFqn);
 		if (logWithSequence) {
 			LOGGER.trace("BEGIN: mvlog with sequence specific.");
-			if (sourceOffset != null && sourceOffset.get(OraColumn.MVLOG_SEQUENCE) != null) {
-				long lastProcessedSequence = (long) sourceOffset.get(OraColumn.MVLOG_SEQUENCE);
+			if (sourceOffset != null && sourceOffset.get(OraCdcColumn.MVLOG_SEQUENCE) != null) {
+				long lastProcessedSequence = (long) sourceOffset.get(OraCdcColumn.MVLOG_SEQUENCE);
 				mViewSelect.append("\nwhere ");
-				mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
+				mViewSelect.append(OraCdcColumn.MVLOG_SEQUENCE);
 				mViewSelect.append(" > ");
 				mViewSelect.append(lastProcessedSequence);
 				mViewSelect.append("\n");
 				LOGGER.debug("Will read mvlog with {} greater than {}.",
-							OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
+							OraCdcColumn.MVLOG_SEQUENCE, lastProcessedSequence);
 			}
 			mViewSelect.append(" order by ");
-			mViewSelect.append(OraColumn.MVLOG_SEQUENCE);
+			mViewSelect.append(OraCdcColumn.MVLOG_SEQUENCE);
 			LOGGER.trace("END: mvlog with sequence specific.");
 		}
 		LOGGER.trace("End of column list and SQL statements preparation for table {}.{}", this.tableOwner, this.tableName);
 	}
 
-	List<SourceRecord> pollMVLog(final Connection connection, final String kafkaConnectTopic) throws SQLException {
+	public List<SourceRecord> pollMVLog(final Connection connection, final String kafkaConnectTopic) throws SQLException {
 		LOGGER.trace("BEGIN: pollMVLog()");
 		PreparedStatement stmtLog = connection.prepareStatement(snapshotLogSelSql,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -350,26 +393,26 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 			}
 			// Ready to process message
 			if (success) {
-				final long lastProcessedScn = rsLog.getLong(OraColumn.ORA_ROWSCN);
+				final long lastProcessedScn = rsLog.getLong(OraCdcColumn.ORA_ROWSCN);
 				Map<String, Object> offset = null;
 				if (kafkaConnectTopic != null) {
 					LOGGER.trace("BEGIN: Prepare Kafka Connect offset");
 					offset = new HashMap<>();
-					offset.put(OraColumn.ORA_ROWSCN, lastProcessedScn);
+					offset.put(OraCdcColumn.ORA_ROWSCN, lastProcessedScn);
 					LOGGER.debug("Owner -> {}, table -> {}, last processed {} is {}.",
-							tableOwner, tableName, OraColumn.ORA_ROWSCN, lastProcessedScn);
+							tableOwner, tableName, OraCdcColumn.ORA_ROWSCN, lastProcessedScn);
 					if (this.logWithSequence) {
-						final long lastProcessedSequence = rsLog.getLong(OraColumn.MVLOG_SEQUENCE);
-						offset.put(OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
+						final long lastProcessedSequence = rsLog.getLong(OraCdcColumn.MVLOG_SEQUENCE);
+						offset.put(OraCdcColumn.MVLOG_SEQUENCE, lastProcessedSequence);
 						LOGGER.debug("Owner -> {}, table -> {}, last processed {} is {}.",
-								tableOwner, tableName, OraColumn.MVLOG_SEQUENCE, lastProcessedSequence);
+								tableOwner, tableName, OraCdcColumn.MVLOG_SEQUENCE, lastProcessedSequence);
 					}
 					LOGGER.trace("END: Prepare Kafka Connect offset");
 				}
 
-				if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+				if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 					final Struct struct = new Struct(schema);
-					final Struct source = rdbmsInfo.getStruct(
+					final Struct source = kris.getStruct(
 							null,
 							null,
 							tableOwner,
@@ -391,7 +434,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 							schema,
 							struct);
 					result.add(sourceRecord);
-				} else if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD) {
+				} else if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD) {
 					final SourceRecord sourceRecord = new SourceRecord(
 							(kafkaConnectTopic == null) ? null : sourcePartition,
 							(kafkaConnectTopic == null) ? null : offset,
@@ -443,11 +486,11 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 	private void processPkColumns(final boolean deleteOp, ResultSet rsLog,
 			final Struct keyStruct, final Struct valueStruct, PreparedStatement stmtMaster) throws SQLException {
 		if (this.logWithPrimaryKey && this.logWithRowIds && !deleteOp)
-			stmtMaster.setRowId(1, rsLog.getRowId(OraColumn.ROWID_KEY));
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+			stmtMaster.setRowId(1, rsLog.getRowId(OraCdcColumn.ROWID_KEY));
+		Iterator<Entry<String, OraCdcColumn>> iterator = pkColumns.entrySet().iterator();
 		int bindNo = 1;
 		while (iterator.hasNext()) {
-			final OraColumn oraColumn = iterator.next().getValue();
+			final OraCdcColumn oraColumn = iterator.next().getValue();
 			final String columnName = oraColumn.getColumnName();
 			switch (oraColumn.getJdbcType()) {
 			case Types.ROWID:
@@ -529,7 +572,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 					stmtMaster.setString(bindNo, columnName);
 				break;
 			}
-			if (schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM)
+			if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM)
 				valueStruct.put(columnName, keyStruct.get(columnName));
 			bindNo++;
 		}
@@ -537,10 +580,10 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 
 	private String nonExistentPk(ResultSet rsLog) throws SQLException {
 		StringBuilder sbPrimaryKey = new StringBuilder(128);
-		Iterator<Entry<String, OraColumn>> iterator = pkColumns.entrySet().iterator();
+		Iterator<Entry<String, OraCdcColumn>> iterator = pkColumns.entrySet().iterator();
 		int i = 0;
 		while (iterator.hasNext()) {
-			final OraColumn oraColumn = iterator.next().getValue();
+			final OraCdcColumn oraColumn = iterator.next().getValue();
 			final String columnName = oraColumn.getColumnName();
 			if (i > 0)
 				sbPrimaryKey.append(" and ");
@@ -614,7 +657,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 	private void processAllColumns(
 			OracleResultSet rsMaster, final Struct keyStruct, final Struct valueStruct) throws SQLException {
 		for (int i = 0; i < allColumns.size(); i++) {
-			final OraColumn oraColumn = allColumns.get(i);
+			final OraCdcColumn oraColumn = allColumns.get(i);
 			final String columnName = oraColumn.getColumnName();
 			Object columnValue = null; 
 			switch (oraColumn.getJdbcType()) {
@@ -624,7 +667,7 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 					break;
 				case Types.TIMESTAMP_WITH_TIMEZONE:
 					final Connection connection = rsMaster.getStatement().getConnection();
-					if (oraColumn.isLocalTimeZone()) {
+					if (oraColumn.localTimeZone()) {
 						TIMESTAMPLTZ ltz = rsMaster.getTIMESTAMPLTZ(columnName);
 						columnValue = rsMaster.wasNull() ?
 							null :
@@ -759,9 +802,9 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 				keyStruct.put(columnName, columnValue);
 			}
 			// Don't process PK again in case of SCHEMA_TYPE_INT_KAFKA_STD
-			if ((schemaType == ConnectorParams.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
-					schemaType == ConnectorParams.SCHEMA_TYPE_INT_SINGLE ||
-					schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+			if ((schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD && !pkColumns.containsKey(columnName)) ||
+					schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE ||
+					schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 				valueStruct.put(columnName, columnValue);
 			}
 		}
@@ -770,11 +813,11 @@ public class OraTable4SnapshotLog extends OraTable4SourceConnector {
 	private void addPseudoKey(
 			final SchemaBuilder keySchemaBuilder, final SchemaBuilder valueSchemaBuilder) {
 		// Add ROWID (ORA$ROWID) - this column is not in dictionary!!!
-		OraColumn rowIdColumn = OraColumn.getRowIdKey();
+		OraCdcColumn rowIdColumn = OraCdcColumn.getRowIdKey();
 		allColumns.add(rowIdColumn);
 		pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
 		keySchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
-		if (this.schemaType == ConnectorParams.SCHEMA_TYPE_INT_DEBEZIUM) {
+		if (this.schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
 			valueSchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
 		}
 	}

@@ -26,7 +26,6 @@ import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Triple;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -496,7 +495,7 @@ public class OraRedoMiner {
 									=====================
 									
 									""", (flags1 & FLG1_NEED_NAME_CHANGE) > 0 ? config.convertRedoFileName(currentRedoLog, bfile || transfer) : currentRedoLog);
-							throw new ConnectException("Missed redo log file " + currentRedoLog + " !");
+							throw new OraCdcException("Missed redo log file " + currentRedoLog + " !");
 						} else {
 							firstChange = nextChange;
 							flags1 &= (~FLG1_WAIT_ON_ERROR);

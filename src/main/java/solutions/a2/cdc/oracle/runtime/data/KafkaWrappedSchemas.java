@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle.data;
+package solutions.a2.cdc.oracle.runtime.data;
 
 import static org.apache.kafka.connect.data.Schema.INT8_SCHEMA;
 import static org.apache.kafka.connect.data.Schema.INT16_SCHEMA;
@@ -43,7 +43,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class WrappedSchemas {
+public class KafkaWrappedSchemas {
 
 	public static final String WRAPPED_PREFIX      = "solutions.a2.w.";
 

@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.PK_TYPE_INT_ANY_UNIQUE;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -30,9 +32,6 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,7 +91,6 @@ public class OraRdbmsInfo {
 	private boolean cdbRoot;
 	private boolean pdbConnectionAllowed;
 	private String pdbName;
-	private final Schema schema;
 	private String dbCharset;
 	private String dbNCharCharset;
 	private String dbUniqueName;
@@ -124,10 +122,6 @@ public class OraRdbmsInfo {
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraRdbmsInfo.class);
 
 	public OraRdbmsInfo(final Connection connection) throws SQLException {
-		this(connection, true);
-	}
-
-	public OraRdbmsInfo(final Connection connection, final boolean includeSchema) throws SQLException {
 		try (final PreparedStatement psInstance = connection.prepareStatement(OraDictSqlTexts.RDBMS_VERSION_AND_MORE,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 				final ResultSet rsInstance = psInstance.executeQuery()) {			
@@ -324,68 +318,12 @@ public class OraRdbmsInfo {
 			throw sqle;
 		}
 
-
-		if (includeSchema) {
-			SchemaBuilder schemaBuilder = SchemaBuilder
-				.struct()
-				.name("solutions.a2.cdc.oracle.Source");
-			schemaBuilder.field("instance_number", Schema.INT16_SCHEMA);
-			schemaBuilder.field("version", Schema.STRING_SCHEMA);
-			schemaBuilder.field("instance_name", Schema.STRING_SCHEMA);
-			schemaBuilder.field("host_name", Schema.STRING_SCHEMA);
-			schemaBuilder.field("dbid", Schema.INT64_SCHEMA);
-			schemaBuilder.field("database_name", Schema.STRING_SCHEMA);
-			schemaBuilder.field("platform_name", Schema.STRING_SCHEMA);
-			// Operation specific
-			schemaBuilder.field("commit_scn", Schema.INT64_SCHEMA);
-			schemaBuilder.field("xid", Schema.STRING_SCHEMA);
-			// Table specific
-			schemaBuilder.field("query", Schema.OPTIONAL_STRING_SCHEMA);
-			schemaBuilder.field("pdb_name", Schema.OPTIONAL_STRING_SCHEMA);
-			schemaBuilder.field("owner", Schema.OPTIONAL_STRING_SCHEMA);
-			schemaBuilder.field("table", Schema.OPTIONAL_STRING_SCHEMA);
-			// Row specific
-			schemaBuilder.field("scn", Schema.INT64_SCHEMA);
-			schemaBuilder.field("row_id", Schema.STRING_SCHEMA);
-			schemaBuilder.field("ts_ms", Schema.INT64_SCHEMA);
-			schema = schemaBuilder.build();
-		} else {
-			schema = null;
-		}
 		jsonFactory = new OracleJsonFactory();
 		sourcePartitionName = instanceName + "_" + hostName;
 		partition = Collections.singletonMap(sourcePartitionName, Long.toString(dbId));
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Source Partition {} set to {}.", sourcePartitionName, dbId);
 		}
-	}
-
-	public Struct getStruct(final String query, final String pdbName, final String owner,
-			final String table, final long scn, final long ts, final String xid,
-			final long commitScn, final String rowId) {
-		Struct struct = new Struct(schema);
-		struct.put("instance_number", instanceNumber);
-		struct.put("version", versionString);
-		struct.put("instance_name", instanceName);
-		struct.put("host_name", hostName);
-		struct.put("dbid", dbId);
-		struct.put("database_name", databaseName);
-		struct.put("platform_name", platformName);
-		// Table/Operation specific
-		if (query != null)
-			struct.put("query", query);
-		if (pdbName != null)
-			struct.put("pdb_name", pdbName);
-		if (owner != null)
-			struct.put("owner", owner);
-		if (table != null)
-			struct.put("table", table);
-		struct.put("scn", scn);
-		struct.put("ts_ms", ts);
-		struct.put("xid", xid);
-		struct.put("commit_scn", commitScn);
-		struct.put("row_id", rowId);
-		return struct;
 	}
 
 	public static boolean supplementalLoggingSet(
@@ -485,7 +423,7 @@ public class OraRdbmsInfo {
 			ps = null;
 			if (result != null) {
 				printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName, false);
-			} else if (pkType == OraCdcSourceConnectorConfig.PK_TYPE_INT_ANY_UNIQUE) {
+			} else if (pkType == PK_TYPE_INT_ANY_UNIQUE) {
 				ps = connection.prepareStatement(
 						(isCdb) ?
 								OraDictSqlTexts.WELL_DEFINED_UNIQUE_COLUMNS_CDB :
@@ -1097,10 +1035,6 @@ public class OraRdbmsInfo {
 
 	public String getPdbName() {
 		return pdbName;
-	}
-
-	public Schema getSchema() {
-		return schema;
 	}
 
 	public String getDbUniqueName() {

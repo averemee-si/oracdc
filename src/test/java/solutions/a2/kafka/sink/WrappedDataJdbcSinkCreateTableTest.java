@@ -16,8 +16,8 @@ package solutions.a2.kafka.sink;
 import static org.apache.kafka.connect.data.Schema.STRING_SCHEMA;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_INT8_SCHEMA;
-import static solutions.a2.cdc.oracle.data.WrappedSchemas.WRAPPED_OPT_STRING_SCHEMA;
+import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_INT8_SCHEMA;
+import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_OPT_STRING_SCHEMA;
 
 import java.util.ArrayList;
 import java.util.HashMap;

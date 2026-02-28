@@ -579,7 +579,7 @@ public abstract class OraCdcTransaction {
 	public abstract boolean getStatement(OraCdcStatementBase oraSql);
 	abstract long size();
 	abstract int length();
-	abstract void close();
+	public abstract void close();
 
 	static class PartialRollbackEntry {
 		long index;

@@ -51,7 +51,7 @@ public class OraCdcDictionaryChecker {
 	private final OraConnectionObjects oraConnections;
 	private final OraCdcSourceConnectorConfig config;
 	private final OraRdbmsInfo rdbmsInfo;
-	private final Map<Long, OraTable> tablesInProcessing;
+	private final Map<Long, OraCdcTableBase> tablesInProcessing;
 	private final Map<Long, Long> partitionsInProcessing;
 	private final Set<Long> tablesOutOfScope;
 	private final String checkTableSql;
@@ -67,19 +67,19 @@ public class OraCdcDictionaryChecker {
 	private PreparedStatement psCheckTable;
 	private boolean logMiner;
 
-	OraCdcDictionaryChecker(
+	public OraCdcDictionaryChecker(
 			final OraCdcTaskBase task,
-			final Map<Long, OraTable> tablesInProcessing,
+			final Map<Long, OraCdcTableBase> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final String checkTableSql,
 			final OraCdcSourceConnMgmt metrics) throws SQLException {
 		this(task, false, tablesInProcessing, tablesOutOfScope, checkTableSql, null, null, metrics);
 	}
 
-	OraCdcDictionaryChecker(
+	public OraCdcDictionaryChecker(
 			final OraCdcTaskBase task,
 			final boolean staticObjIds,
-			final Map<Long, OraTable> tablesInProcessing,
+			final Map<Long, OraCdcTableBase> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final String checkTableSql,
 			Set<Integer> includeObjIds,
@@ -109,19 +109,19 @@ public class OraCdcDictionaryChecker {
 		this.connection = oraConnections.getConnection();
 		this.metrics = metrics;
 		this.partitionsInProcessing = new HashMap<>();
-		logMiner = task.config.logMiner();
+		logMiner = config.logMiner();
 		initStatements();
 	}
 
-	OraTable getTable(final long combinedDataObjectId) throws SQLException {
+	public OraCdcTableBase getTable(final long combinedDataObjectId) throws SQLException {
 		return getTable(
 				combinedDataObjectId,
 				(int) combinedDataObjectId,
 				(combinedDataObjectId >> 32)  & 0xFFFFFFFFL);
 	}
 
-	OraTable getTable(long combinedDataObjectId, final long dataObjectId, final long conId) throws SQLException {
-		OraTable oraTable = tablesInProcessing.get(combinedDataObjectId);
+	OraCdcTableBase getTable(long combinedDataObjectId, final long dataObjectId, final long conId) throws SQLException {
+		OraCdcTableBase oraTable = tablesInProcessing.get(combinedDataObjectId);
 		if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
 			Long combinedParentTableId = partitionsInProcessing.get(combinedDataObjectId);
 			if (combinedParentTableId != null) {
@@ -230,14 +230,14 @@ public class OraCdcDictionaryChecker {
 						final String tableName = rsCheckTable.getString("TABLE_NAME");
 						final String tableOwner = rsCheckTable.getString("OWNER");
 						if (logMiner)
-							oraTable = new OraTable4LogMiner(
+							oraTable = new OraCdcLogMinerTable(
 									isCdb ? rsCheckTable.getString("PDB_NAME") : null,
 									isCdb ? (short) conId : -1,
 									tableOwner, tableName,
 									"ENABLED".equalsIgnoreCase(rsCheckTable.getString("DEPENDENCIES")),
 									config, rdbmsInfo, connection, task.getTableVersion(combinedDataObjectId));
 						else
-							oraTable = new OraTable4RedoMiner(
+							oraTable = new OraCdcRedoMinerTable(
 									isCdb ? rsCheckTable.getString("PDB_NAME") : null,
 									isCdb ? (short) conId : -1,
 									tableOwner, tableName,
@@ -274,7 +274,7 @@ public class OraCdcDictionaryChecker {
 				checkTableSql, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 	}
 
-	void printConsistencyError(final OraCdcTransaction transaction, final OraCdcStatementBase stmt) {
+	public void printConsistencyError(final OraCdcTransaction transaction, final OraCdcStatementBase stmt) {
 		final StringBuilder sb = new StringBuilder(0x800);
 		sb
 			.append("\n=====================\n")
