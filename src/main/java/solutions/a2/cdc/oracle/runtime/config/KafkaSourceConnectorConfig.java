@@ -46,10 +46,16 @@ import solutions.a2.cdc.oracle.LastProcessedSeqNotifier;
 import solutions.a2.cdc.oracle.OraCdcKeyOverrideTypes;
 import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.SchemaNameMapper;
 import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
+import solutions.a2.cdc.oracle.runtime.data.DataBinder;
+import solutions.a2.cdc.oracle.runtime.data.KafkaStructDebeziumDataBinder;
+import solutions.a2.cdc.oracle.runtime.data.KafkaStructKafkaDataBinder;
+import solutions.a2.cdc.oracle.runtime.data.KafkaStructSingleDataBinder;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -862,6 +868,15 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	@Override
 	public String fileTransferStageDir() {
 		return getString(TRANSFER_DIR_STAGE_PARAM);
+	}
+
+	@Override
+	public DataBinder dataBinder(OraCdcTableBase table, OraRdbmsInfo rdbmsInfo) {
+		switch (schemaType()) {
+			case SCHEMA_TYPE_INT_SINGLE:   return new KafkaStructSingleDataBinder(this, rdbmsInfo, table);
+			case SCHEMA_TYPE_INT_DEBEZIUM: return new KafkaStructDebeziumDataBinder(this, rdbmsInfo, table);
+			default:                       return new KafkaStructKafkaDataBinder(this, rdbmsInfo, table);
+		}
 	}
 
 	// Kafka only

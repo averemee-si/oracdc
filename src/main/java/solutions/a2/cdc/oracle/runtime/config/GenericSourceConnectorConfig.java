@@ -40,8 +40,11 @@ import solutions.a2.cdc.oracle.LastProcessedSeqNotifier;
 import solutions.a2.cdc.oracle.OraCdcKeyOverrideTypes;
 import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
+import solutions.a2.cdc.oracle.runtime.data.DataBinder;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 
 /**
@@ -59,7 +62,6 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 
 	public static Configuration config() {
 		return GenericSourceBaseConfig.config()
-				.define(TOPIC_PARTITION_PARAM, INT, 0)
 				.define(FIRST_CHANGE_PARAM, STRING, "0")
 				.define(TEMP_DIR_PARAM, STRING, System.getProperty("java.io.tmpdir"))
 				.define(MAKE_STANDBY_ACTIVE_PARAM, BOOLEAN, false)
@@ -96,10 +98,8 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 				.define(USE_ALL_COLUMNS_ON_DELETE_PARAM, BOOLEAN, USE_ALL_COLUMNS_ON_DELETE_DEFAULT)
 				.define(INTERNAL_RAC_URLS_PARAM, LIST, "")
 				.define(INTERNAL_DG4RAC_THREAD_PARAM, LIST, "")
-				.define(TOPIC_MAPPER_PARAM, STRING, TOPIC_MAPPER_DEFAULT)
 				.define(STOP_ON_ORA_1284_PARAM, BOOLEAN, STOP_ON_ORA_1284_DEFAULT)
 				.define(PRINT_UNABLE_TO_DELETE_WARNING_PARAM, BOOLEAN, PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT)
-				.define(SCHEMANAME_MAPPER_PARAM, STRING, SCHEMANAME_MAPPER_DEFAULT)
 				.define(ORA_ROWSCN_PARAM, STRING, "")
 				.define(ORA_COMMITSCN_PARAM, STRING, "")
 				.define(ORA_ROWTS_PARAM, STRING, "")
@@ -800,6 +800,11 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 	@Override
 	public String fileTransferStageDir() {
 		return getString(TRANSFER_DIR_STAGE_PARAM);
+	}
+
+	@Override
+	public DataBinder dataBinder(OraCdcTableBase table, OraRdbmsInfo rdbmsInfo) {
+		return null;
 	}
 
 }

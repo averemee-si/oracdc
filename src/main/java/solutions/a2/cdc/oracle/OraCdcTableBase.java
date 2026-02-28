@@ -16,9 +16,6 @@ package solutions.a2.cdc.oracle;
 import static solutions.a2.cdc.oracle.OraCdcColumn.GUARD_COLUMN;
 import static solutions.a2.cdc.oracle.OraCdcColumn.UNUSED_COLUMN;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_KAFKA_STD;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_SINGLE;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 
 import java.sql.Connection;
@@ -46,9 +43,6 @@ import org.slf4j.event.Level;
 
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.runtime.data.DataBinder;
-import solutions.a2.cdc.oracle.runtime.data.KafkaStructDebeziumDataBinder;
-import solutions.a2.cdc.oracle.runtime.data.KafkaStructKafkaDataBinder;
-import solutions.a2.cdc.oracle.runtime.data.KafkaStructSingleDataBinder;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 
 /**
@@ -133,11 +127,7 @@ public abstract class OraCdcTableBase {
 			flags |=FLG_ALL_COLS_ON_DELETE;
 			flags &= (~FLG_ORACDC_SCHEMAS);
 		}
-		switch (schemaType) {
-			case SCHEMA_TYPE_INT_KAFKA_STD -> dataBinder = new KafkaStructKafkaDataBinder(config, rdbmsInfo, this);
-			case SCHEMA_TYPE_INT_SINGLE    -> dataBinder = new KafkaStructSingleDataBinder(config, rdbmsInfo, this);
-			case SCHEMA_TYPE_INT_DEBEZIUM  -> dataBinder = new KafkaStructDebeziumDataBinder(config, rdbmsInfo, this);
-		}
+		dataBinder = config.dataBinder(this, rdbmsInfo);
 		try {
 			if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0) {
 				if (rdbmsInfo.isCheckSupplementalLogData4Table()) {
