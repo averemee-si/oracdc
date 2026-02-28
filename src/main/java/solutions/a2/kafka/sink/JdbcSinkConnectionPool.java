@@ -37,6 +37,8 @@ public class JdbcSinkConnectionPool {
 	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkConnectionPool.class);
 	private static final String DRIVER_POSTGRESQL = "org.postgresql.Driver";
 	private static final String PREFIX_POSTGRESQL = "jdbc:postgresql:";
+	private static final String DRIVER_ORACLE = "oracle.jdbc.OracleDriver";
+	private static final String PREFIX_ORACLE = "jdbc:oracle:";
 
 	public static final int DB_TYPE_MYSQL = 1;
 	public static final int DB_TYPE_POSTGRESQL = 2;
@@ -54,16 +56,13 @@ public class JdbcSinkConnectionPool {
 	 */
 	public JdbcSinkConnectionPool(
 			final String connectorName, final JdbcSinkConnectorConfig config) throws SQLException {
-		final String url = config.getJdbcUrl();
-		final String user = config.getJdbcUser();
-		final String password = config.getJdbcPassword();
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("JDBC Url = {}", url);
-		}
+		var url = config.getJdbcUrl();
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("JDBC Url = {}", config.getJdbcUrl());
 		dataSource = new HikariDataSource();
 		dataSource.setJdbcUrl(url);
-		dataSource.setUsername(user);
-		dataSource.setPassword(password);
+		dataSource.setUsername(config.getJdbcUser());
+		dataSource.setPassword(config.getJdbcPassword());
 		dataSource.setAutoCommit(false);
 		dataSource.setPoolName("oracdc-hikari-" + connectorName);
 		dataSource.setMinimumIdle(0);
@@ -111,6 +110,12 @@ public class JdbcSinkConnectionPool {
 			}
 			if (!Strings.CS.contains(url, "reWriteBatchedInserts")) {
 				dataSource.addDataSourceProperty("reWriteBatchedInserts", "true");
+			}
+		} else if (Strings.CS.startsWith(url, PREFIX_ORACLE)) {
+			if (!isDriverLoaded(DRIVER_ORACLE)) {
+				try {
+					Class.forName(DRIVER_ORACLE);
+				} catch (ClassNotFoundException cnf) { }
 			}
 		}
 
