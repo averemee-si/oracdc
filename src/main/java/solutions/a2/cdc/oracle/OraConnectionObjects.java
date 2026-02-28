@@ -20,7 +20,6 @@ import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_USER_NAME;
 import static oracle.jdbc.OracleConnection.CONNECTION_PROPERTY_WALLET_LOCATION;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
 import java.time.Duration;
@@ -370,8 +369,10 @@ public class OraConnectionObjects {
 			props.put(CONNECTION_PROPERTY_USER_NAME, config.rdbmsUser());
 			props.put(CONNECTION_PROPERTY_PASSWORD, config.rdbmsPassword());
 		}
-		final Connection connection = DriverManager.getConnection(config.rdbmsUrl(), props);
-		return connection;
+		var ods = new OracleDataSource();
+		ods.setURL(config.rdbmsUrl());
+		ods.setConnectionProperties(props);
+		return ods.getConnection();
 	}
 
 	public void destroy() throws SQLException {
