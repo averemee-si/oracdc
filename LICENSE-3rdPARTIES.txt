@@ -56,7 +56,7 @@ Bouncy Castle License
 BSD-2-Clause
 
 
-- postgresql-42.7.9, see: licenses/BSD-2-Clause-postgresql
+- postgresql-42.7.10, see: licenses/BSD-2-Clause-postgresql
 
 
 ----------------------------------------
