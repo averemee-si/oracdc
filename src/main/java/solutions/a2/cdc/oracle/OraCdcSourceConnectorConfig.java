@@ -48,8 +48,6 @@ public interface OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	public boolean useAllColsOnDelete();
 	public boolean stopOnOra1284();
 	public boolean printUnableToDeleteWarning();
-	public TopicNameMapper getTopicNameMapper();
-	public SchemaNameMapper getSchemaNameMapper();
 	public String getOraRowScnField();
 	public String getOraCommitScnField();
 	public String getOraRowTsField();
@@ -77,8 +75,6 @@ public interface OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	public String standbyPrivilege();
 	public List<String> racUrls();
 	public List<String> dg4RacThreads();
-	public int topicPartition();
-	public void topicPartition(final int redoThread);
 	public Path queuesRoot();
 	public long startScn();
 	public boolean staticObjIds();

@@ -120,8 +120,6 @@ public abstract class OraCdcTableBase {
 		this.config = config;
 		this.rowLevelScn = rowLevelScn;
 		this.version = version;
-		final TopicNameMapper topicNameMapper = config.getTopicNameMapper();
-		topicNameMapper.configure(config);
 		if (config.tolerateIncompleteRow()) flags |= FLG_TOLERATE_INCOMPLETE_ROW;
 		if (config.isPrintInvalidHexValueWarning()) flags |= FLG_PRINT_INVALID_HEX_WARNING;
 		if (config.useAllColsOnDelete()) flags |=FLG_ALL_COLS_ON_DELETE;

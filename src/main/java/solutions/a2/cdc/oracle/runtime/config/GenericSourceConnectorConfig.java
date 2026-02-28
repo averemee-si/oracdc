@@ -41,8 +41,6 @@ import solutions.a2.cdc.oracle.OraCdcKeyOverrideTypes;
 import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcColumn;
-import solutions.a2.cdc.oracle.SchemaNameMapper;
-import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 
@@ -58,7 +56,6 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 	private final SourceConnectorConfig holder;
 	private String connectorName;
 	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
-	private int topicPartition = 0;
 
 	public static Configuration config() {
 		return GenericSourceBaseConfig.config()
@@ -271,22 +268,6 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 	}
 
 	@Override
-	public TopicNameMapper getTopicNameMapper() {
-		//TODO
-		//TOPO Kafka specific, will be removed after changes in OraTable
-		//TODO
-		return null;
-	}
-
-	@Override
-	public SchemaNameMapper getSchemaNameMapper() {
-		//TODO
-		//TOPO Kafka specific, will be removed after changes in OraTable
-		//TODO
-		return null;
-	}
-
-	@Override
 	public String getOraRowScnField() {
 		return getPseudoColumn(ORA_ROWSCN_PARAM);
 	}
@@ -449,32 +430,6 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 	@Override
 	public List<String> dg4RacThreads() {
 		return getList(INTERNAL_DG4RAC_THREAD_PARAM);
-	}
-
-	@Override
-	public int topicPartition() {
-		return topicPartition;
-	}
-
-	@Override
-	public void topicPartition(final int redoThread) {
-		if (useRac() || 
-			(activateStandby() && dg4RacThreads() != null && dg4RacThreads().size() > 1)) {
-			topicPartition = redoThread - 1;
-			if (topicPartition < 0) {
-				LOGGER.error(
-						"""
-						
-						=====================
-						Invalid partition: '{}'! THREAD#={}. Partition number should always be non-negative.
-						=====================
-						
-						""", topicPartition, redoThread);
-				throw new IllegalArgumentException("Invalid partition: " + topicPartition);
-			}
-		} else {
-			topicPartition = getInt(TOPIC_PARTITION_PARAM);
-		}
 	}
 
 	@Override

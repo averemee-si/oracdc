@@ -330,102 +330,6 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	}
 
 	@Override
-	public TopicNameMapper getTopicNameMapper() {
-		final TopicNameMapper tnm;
-		final Class<?> clazz;
-		final Constructor<?> constructor;
-		try {
-			clazz = Class.forName(getString(TOPIC_MAPPER_PARAM));
-		} catch (ClassNotFoundException nfe) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Class '{}' specified as the parameter '{}' value was not found.\n" +
-					ExceptionUtils.getExceptionStackTrace(nfe) +
-					"\n" +
-					"=====================\n",
-					getString(TOPIC_MAPPER_PARAM), TOPIC_MAPPER_PARAM);
-			throw new ConnectException(nfe);
-		}
-		try {
-			constructor = clazz.getConstructor();
-		} catch (NoSuchMethodException nsme) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to get default constructor for the class '{}'.\n" +
-					ExceptionUtils.getExceptionStackTrace(nsme) +
-					"\n" +
-					"=====================\n",
-					getString(TOPIC_MAPPER_PARAM));
-			throw new ConnectException(nsme);
-		} 
-		
-		try {
-			tnm = (TopicNameMapper) constructor.newInstance();
-		} catch (SecurityException | 
-				InvocationTargetException | 
-				IllegalAccessException | 
-				InstantiationException e) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"'{}' while instantinating the class '{}'.\n" +
-					ExceptionUtils.getExceptionStackTrace(e) +
-					"\n" +
-					"=====================\n",
-					e.getMessage(),getString(TOPIC_MAPPER_PARAM));
-			throw new ConnectException(e);
-		}
-		return tnm;
-	}
-
-	@Override
-	public SchemaNameMapper getSchemaNameMapper() {
-		final SchemaNameMapper snm;
-		final Class<?> clazz;
-		final Constructor<?> constructor;
-		try {
-			clazz = Class.forName(getString(SCHEMANAME_MAPPER_PARAM));
-		} catch (ClassNotFoundException nfe) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Class '{}' specified as the parameter '{}' value was not found.\n" +
-					ExceptionUtils.getExceptionStackTrace(nfe) +
-					"\n" +
-					"=====================\n",
-					getString(SCHEMANAME_MAPPER_PARAM), SCHEMANAME_MAPPER_PARAM);
-			throw new ConnectException(nfe);
-		}
-		try {
-			constructor = clazz.getConstructor();
-		} catch (NoSuchMethodException nsme) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"Unable to get default constructor for the class '{}'.\n" +
-					ExceptionUtils.getExceptionStackTrace(nsme) +
-					"\n" +
-					"=====================\n",
-					getString(SCHEMANAME_MAPPER_PARAM));
-			throw new ConnectException(nsme);
-		} 
-		
-		try {
-			snm = (SchemaNameMapper) constructor.newInstance();
-		} catch (SecurityException | 
-				InvocationTargetException | 
-				IllegalAccessException | 
-				InstantiationException e) {
-			LOGGER.error(
-					"\n=====================\n" +
-					"'{}' while instantinating the class '{}'.\n" +
-					ExceptionUtils.getExceptionStackTrace(e) +
-					"\n" +
-					"=====================\n",
-					e.getMessage(),getString(SCHEMANAME_MAPPER_PARAM));
-			throw new ConnectException(e);
-		}
-		return snm;
-	}
-
-	@Override
 	public String getOraRowScnField() {
 		return getPseudoColumn(ORA_ROWSCN_PARAM);
 	}
@@ -588,32 +492,6 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	@Override
 	public List<String> dg4RacThreads() {
 		return getList(INTERNAL_DG4RAC_THREAD_PARAM);
-	}
-
-	@Override
-	public int topicPartition() {
-		return topicPartition;
-	}
-
-	@Override
-	public void topicPartition(final int redoThread) {
-		if (useRac() || 
-			(activateStandby() && dg4RacThreads() != null && dg4RacThreads().size() > 1)) {
-			topicPartition = redoThread - 1;
-			if (topicPartition < 0) {
-				LOGGER.error(
-						"""
-						
-						=====================
-						Invalid partition: '{}'! THREAD#={}. Partition number should always be non-negative.
-						=====================
-						
-						""", topicPartition, redoThread);
-				throw new IllegalArgumentException("Invalid partition: " + topicPartition);
-			}
-		} else {
-			topicPartition = getInt(TOPIC_PARTITION_PARAM);
-		}
 	}
 
 	@Override
@@ -984,6 +862,125 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	@Override
 	public String fileTransferStageDir() {
 		return getString(TRANSFER_DIR_STAGE_PARAM);
+	}
+
+	// Kafka only
+	public TopicNameMapper getTopicNameMapper() {
+		final TopicNameMapper tnm;
+		final Class<?> clazz;
+		final Constructor<?> constructor;
+		try {
+			clazz = Class.forName(getString(TOPIC_MAPPER_PARAM));
+		} catch (ClassNotFoundException nfe) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Class '{}' specified as the parameter '{}' value was not found.\n" +
+					ExceptionUtils.getExceptionStackTrace(nfe) +
+					"\n" +
+					"=====================\n",
+					getString(TOPIC_MAPPER_PARAM), TOPIC_MAPPER_PARAM);
+			throw new ConnectException(nfe);
+		}
+		try {
+			constructor = clazz.getConstructor();
+		} catch (NoSuchMethodException nsme) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Unable to get default constructor for the class '{}'.\n" +
+					ExceptionUtils.getExceptionStackTrace(nsme) +
+					"\n" +
+					"=====================\n",
+					getString(TOPIC_MAPPER_PARAM));
+			throw new ConnectException(nsme);
+		} 
+		
+		try {
+			tnm = (TopicNameMapper) constructor.newInstance();
+		} catch (SecurityException | 
+				InvocationTargetException | 
+				IllegalAccessException | 
+				InstantiationException e) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"'{}' while instantinating the class '{}'.\n" +
+					ExceptionUtils.getExceptionStackTrace(e) +
+					"\n" +
+					"=====================\n",
+					e.getMessage(),getString(TOPIC_MAPPER_PARAM));
+			throw new ConnectException(e);
+		}
+		return tnm;
+	}
+
+	public SchemaNameMapper getSchemaNameMapper() {
+		final SchemaNameMapper snm;
+		final Class<?> clazz;
+		final Constructor<?> constructor;
+		try {
+			clazz = Class.forName(getString(SCHEMANAME_MAPPER_PARAM));
+		} catch (ClassNotFoundException nfe) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Class '{}' specified as the parameter '{}' value was not found.\n" +
+					ExceptionUtils.getExceptionStackTrace(nfe) +
+					"\n" +
+					"=====================\n",
+					getString(SCHEMANAME_MAPPER_PARAM), SCHEMANAME_MAPPER_PARAM);
+			throw new ConnectException(nfe);
+		}
+		try {
+			constructor = clazz.getConstructor();
+		} catch (NoSuchMethodException nsme) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"Unable to get default constructor for the class '{}'.\n" +
+					ExceptionUtils.getExceptionStackTrace(nsme) +
+					"\n" +
+					"=====================\n",
+					getString(SCHEMANAME_MAPPER_PARAM));
+			throw new ConnectException(nsme);
+		} 
+		
+		try {
+			snm = (SchemaNameMapper) constructor.newInstance();
+		} catch (SecurityException | 
+				InvocationTargetException | 
+				IllegalAccessException | 
+				InstantiationException e) {
+			LOGGER.error(
+					"\n=====================\n" +
+					"'{}' while instantinating the class '{}'.\n" +
+					ExceptionUtils.getExceptionStackTrace(e) +
+					"\n" +
+					"=====================\n",
+					e.getMessage(),getString(SCHEMANAME_MAPPER_PARAM));
+			throw new ConnectException(e);
+		}
+		return snm;
+	}
+
+	public int topicPartition() {
+		return topicPartition;
+	}
+
+	public void topicPartition(final int redoThread) {
+		if (useRac() || 
+			(activateStandby() && dg4RacThreads() != null && dg4RacThreads().size() > 1)) {
+			topicPartition = redoThread - 1;
+			if (topicPartition < 0) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						Invalid partition: '{}'! THREAD#={}. Partition number should always be non-negative.
+						=====================
+						
+						""", topicPartition, redoThread);
+				throw new IllegalArgumentException("Invalid partition: " + topicPartition);
+			}
+		} else {
+			topicPartition = getInt(TOPIC_PARTITION_PARAM);
+		}
 	}
 
 }
