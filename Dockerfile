@@ -30,17 +30,14 @@ ARG    JSR305_VERSION=3.0.2
 ARG    GSON_VERSION=2.13.2
 ARG    EPA_VERSION=2.46.0
 ARG    ANTLR4_VERSION=4.13.2
-ARG    JACKSON_VERSION=2.21.1
-ARG    JACKSON_ANN_VERSION=2.20
+ARG    JACKSON_VERSION=2.19.2
 ARG    PROTOP_VERSION=4.0.3
-ARG    SYAML_VERSION=2.5
 ARG    NESSIE_VERSION=0.6.0
 ARG    WOODSTOX_VERSION=7.1.1
 ARG    JACKSON_PB_VERSION=0.9.18
 ARG    JSONATA_VERSION=2.6.2
 ARG    HTTP_CLI_VERSION=5.6
 ARG    HTTP_CORE_VERSION=5.4
-ARG    SWGR_VERSION=2.2.41
 
 #
 # Confluent AVRO support uber-jar
@@ -60,23 +57,17 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
           "${CONFLUENT_BASE}/kafka-schema-converter/${CONFLUENT_VERSION}/kafka-schema-converter-${CONFLUENT_VERSION}.jar" \
           "${CONFLUENT_BASE}/kafka-schema-rules/${CONFLUENT_VERSION}/kafka-schema-rules-${CONFLUENT_VERSION}.jar" \
           "${MVN_BASE}/info/picocli/picocli/${PICOCLI_VERSION}/picocli-${PICOCLI_VERSION}.jar" \
-          "${MVN_BASE}/io/swagger/core/v3/swagger-annotations/${SWGR_VERSION}/swagger-annotations-${SWGR_VERSION}.jar" \
           "${MVN_BASE}/com/google/crypto/tink/tink/${TINK_VERSION}/tink-${TINK_VERSION}.jar" \
           "${MVN_BASE}/com/google/code/findbugs/jsr305/${JSR305_VERSION}/jsr305-${JSR305_VERSION}.jar" \
           "${MVN_BASE}/com/google/code/gson/gson/${GSON_VERSION}/gson-${GSON_VERSION}.jar" \
           "${MVN_BASE}/com/google/errorprone/error_prone_annotations/${EPA_VERSION}/error_prone_annotations-${EPA_VERSION}.jar" \
           "${MVN_BASE}/com/google/guava/guava/${GUAVA_VERSION}/guava-${GUAVA_VERSION}.jar" \
           "${MVN_BASE}/com/google/guava/failureaccess/${FA_VERSION}/failureaccess-${FA_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-core/${JACKSON_VERSION}/jackson-core-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-databind/${JACKSON_VERSION}/jackson-databind-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-annotations/${JACKSON_ANN_VERSION}/jackson-annotations-${JACKSON_ANN_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/${JACKSON_VERSION}/jackson-dataformat-yaml-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-protobuf/${JACKSON_VERSION}/jackson-dataformat-protobuf-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/woodstox/woodstox-core/${WOODSTOX_VERSION}/woodstox-core-${WOODSTOX_VERSION}.jar" \
           "${MVN_BASE}/com/hubspot/jackson/jackson-datatype-protobuf/${JACKSON_PB_VERSION}/jackson-datatype-protobuf-${JACKSON_PB_VERSION}.jar" \
           "${MVN_BASE}/com/ibm/jsonata4java/JSONata4Java/${JSONATA_VERSION}/JSONata4Java-${JSONATA_VERSION}.jar" \
           "${MVN_BASE}/com/squareup/protoparser/${PROTOP_VERSION}/protoparser-${PROTOP_VERSION}.jar" \
-          "${MVN_BASE}/org/yaml/snakeyaml/${SYAML_VERSION}/snakeyaml-${SYAML_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-core/${NESSIE_VERSION}/cel-core-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-tools/${NESSIE_VERSION}/cel-tools-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-generated-pb/${NESSIE_VERSION}/cel-generated-pb-${NESSIE_VERSION}.jar" \
@@ -117,18 +108,12 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
           "${CONFLUENT_BASE}/kafka-schema-converter/${CONFLUENT_VERSION}/kafka-schema-converter-${CONFLUENT_VERSION}.jar" \
           "${CONFLUENT_BASE}/kafka-schema-rules/${CONFLUENT_VERSION}/kafka-schema-rules-${CONFLUENT_VERSION}.jar" \
           "${MVN_BASE}/info/picocli/picocli/${PICOCLI_VERSION}/picocli-${PICOCLI_VERSION}.jar" \
-          "${MVN_BASE}/io/swagger/core/v3/swagger-annotations/${SWGR_VERSION}/swagger-annotations-${SWGR_VERSION}.jar" \
           "${MVN_BASE}/com/google/crypto/tink/tink/${TINK_VERSION}/tink-${TINK_VERSION}.jar" \
           "${MVN_BASE}/com/google/code/findbugs/jsr305/${JSR305_VERSION}/jsr305-${JSR305_VERSION}.jar" \
           "${MVN_BASE}/com/google/code/gson/gson/${GSON_VERSION}/gson-${GSON_VERSION}.jar" \
           "${MVN_BASE}/com/google/errorprone/error_prone_annotations/${EPA_VERSION}/error_prone_annotations-${EPA_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-core/${JACKSON_VERSION}/jackson-core-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-databind/${JACKSON_VERSION}/jackson-databind-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-annotations/${JACKSON_ANN_VERSION}/jackson-annotations-${JACKSON_ANN_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/${JACKSON_VERSION}/jackson-dataformat-yaml-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-protobuf/${JACKSON_VERSION}/jackson-dataformat-protobuf-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/squareup/protoparser/${PROTOP_VERSION}/protoparser-${PROTOP_VERSION}.jar" \
-          "${MVN_BASE}/org/yaml/snakeyaml/${SYAML_VERSION}/snakeyaml-${SYAML_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-core/${NESSIE_VERSION}/cel-core-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-tools/${NESSIE_VERSION}/cel-tools-${NESSIE_VERSION}.jar" \
           "${MVN_BASE}/org/projectnessie/cel/cel-generated-pb/${NESSIE_VERSION}/cel-generated-pb-${NESSIE_VERSION}.jar" \
