@@ -29,7 +29,6 @@ package solutions.a2.cdc.oracle.internals;
 public class OraCdcChangeRowOp extends OraCdcChange {
 
 	public final static int KDO_POS = 0x1;
-	private boolean compressed = false;
 
 	OraCdcChangeRowOp(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
@@ -56,10 +55,6 @@ public class OraCdcChangeRowOp extends OraCdcChange {
 	@Override
 	public String toString() {
 		return toDumpFormat().toString();
-	}
-
-	public boolean compressed() {
-		return compressed;
 	}
 
 }

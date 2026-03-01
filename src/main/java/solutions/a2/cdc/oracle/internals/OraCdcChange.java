@@ -203,6 +203,7 @@ public class OraCdcChange {
 
 	int length;
 	final short operation;
+	private final int offset;
 	final OraCdcRedoLog redoLog;
 	final int[][] coords;
 	final RedoByteAddress rba;
@@ -210,7 +211,6 @@ public class OraCdcChange {
 	int obj = 0;
 	int dataObj;
 	short opc;
-	short slt;
 	short flg;
 	Xid xid;
 	byte op;
@@ -223,12 +223,7 @@ public class OraCdcChange {
 	short qmRowCount;
 	byte fb;
 	byte flags;
-	private final short cls;
-	private final short afn;
 	private int dba;
-	private final long scn;
-	private final byte seq;
-	private final byte typ;
 	final boolean encrypted;
 	private final int changeDataObj;
 	LobId lid;
@@ -238,6 +233,7 @@ public class OraCdcChange {
 	static final byte FLG_LOB_BIMG   = 1; 
 	static final byte FLG_LOB_SUPLOG = 2; 
 	private byte kdli_flg2;
+	boolean compressed = false;
 
 	OraCdcChange(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		this.num = num;
@@ -245,13 +241,9 @@ public class OraCdcChange {
 		this.operation = operation;
 		this.rba = redoRecord.rba();
 		this.record = record;
-		cls = redoLog.bu().getU16(record, offset + 0x02);
-		afn = redoLog.bu().getU16(record, offset + 0x04);
+		this.offset = offset;
 		dba = redoLog.bu().getU32(record, offset + 0x08);
-		scn = redoLog.bu().getScn(record, offset + 0x0C);
-		seq = record[offset + 0x14];
 		encrypted = (record[offset + 0x15] & FLG_TDE_ENCRYPTION) != 0;
-		typ = (byte) (record[offset + 0x15] & 0x7F);
 		changeDataObj = (
 				Short.toUnsignedInt(redoLog.bu().getU16(record, offset + 0x06)) << 16) |
 				Short.toUnsignedInt(redoLog.bu().getU16(record, offset + 0x16));
@@ -280,7 +272,8 @@ public class OraCdcChange {
 	}
 
 	void xid(final short slt, final int sqn) {
-		final short usn = (short) (cls >= 0x0F ? (cls - 0x0F) / 2 : -1);
+		var cls = redoLog.bu().getU16(record, offset + 0x02);
+		var usn = (short) (cls >= 0x0F ? (cls - 0x0F) / 2 : -1);
 		xid = new Xid(usn, slt, sqn);
 	}
 
@@ -299,7 +292,7 @@ public class OraCdcChange {
 					=====================
 					
 					""", formatOpCode(operation), num, rba, redoLog.fileName(),
-						coords.length, binaryDump(), rawToHex(record));
+						coords.length, minElements, binaryDump(), rawToHex(record));
 			throw new IllegalArgumentException();
 		}
 	}
@@ -1430,7 +1423,8 @@ public class OraCdcChange {
 	}
 
 	StringBuilder toDumpFormat() {
-		final StringBuilder sb = new StringBuilder(1024);
+		var sb = new StringBuilder(0x400);
+		var typ = (byte) (record[offset + 0x15] & 0x7F);
 		sb
 			.append("CHANGE #")
 			.append(num);
@@ -1447,19 +1441,19 @@ public class OraCdcChange {
 			.append(" TYP:")
 			.append(typ)
 			.append(" CLS:")
-			.append(cls)
+			.append(redoLog.bu().getU16(record, offset + 0x02))
 			.append(" AFN:")
-			.append(afn)
+			.append(redoLog.bu().getU16(record, offset + 0x04))
 			.append(" DBA:")
 			.append(String.format("0x%08x", Integer.toUnsignedLong(dba)))
 			.append(" OBJ:")
 			.append(Integer.toUnsignedLong(changeDataObj));
 		}
 		sb.append(" SCN:0x");
-		FormattingUtils.leftPad(sb, scn, 16);
+		FormattingUtils.leftPad(sb, redoLog.bu().getScn(record, offset + 0x0C), 16);
 		sb
 			.append(" SEQ:")
-			.append(Byte.toUnsignedInt(seq))
+			.append(Byte.toUnsignedInt(record[offset + 0x14]))
 			.append(" OP:")
 			.append(formatOpCode(operation))
 			.append(" ENC:")
@@ -1576,10 +1570,6 @@ public class OraCdcChange {
 
 	public byte flags() {
 		return flags;
-	}
-
-	public long scn() {
-		return scn;
 	}
 
 	public LobId lid() {
@@ -1703,6 +1693,29 @@ public class OraCdcChange {
 	public int writeColsWithNulls(final ByteArrayOutputStream baos,
 			final int index, final int colNumIndex, final int offset,
 			final int nullPos) throws IOException {
+		if (compressed) {
+			var callStack = new StringBuilder(0x400);
+			for (var ste : Thread.currentThread().getStackTrace())
+				callStack
+					.append(ste.toString())
+					.append('\n');
+			LOGGER.error(
+					"""
+					
+					=====================
+					Unable to execute writeColsWithNulls for compressed OP:{} for change #{} at RBA {} in '{}'.
+					Change contents:
+					{}
+					Redo record contents:
+					{}
+					Call stack:
+					{}
+					=====================
+					
+					""",
+					formatOpCode(operation), num, rba, redoLog.fileName(), binaryDump(), rawToHex(record), callStack.toString());
+			throw new IllegalArgumentException();
+		}
 		final int colNumOffset;
 		if (colNumIndex > 0) {
 			colNumOffset = offset - redoLog.bu().getU16(record, coords[colNumIndex][0]);
@@ -1713,6 +1726,23 @@ public class OraCdcChange {
 		int diff = nullPos;
 		for (int i = 0; i < columnCount; i++) {
 			final int colDataIndex = index + i + (colNumIndex > 0 ? 2 : 1);
+			if (colDataIndex >= coords.length)  {
+				LOGGER.error(
+						"""
+						
+						=====================
+						Unable to execute writeColsWithNulls for OP:{} for change #{} at RBA {} in '{}'.
+						Actual number of elements {} is smaller than requested index {}!
+						Change contents:
+						{}
+						Redo record contents:
+						{}
+						=====================
+						
+						""", formatOpCode(operation), num, rba, redoLog.fileName(),
+							coords.length, colDataIndex, binaryDump(), rawToHex(record));
+				throw new ArrayIndexOutOfBoundsException(colDataIndex);
+			}
 			final int colNum;
 			if (colNumIndex > 0) {
 				colNum = redoLog.bu().getU16(record, coords[colNumIndex][0] + i * Short.BYTES) + colNumOffset;
@@ -1787,6 +1817,10 @@ public class OraCdcChange {
 			return record[coords[columnCount + 3][0]];
 		else
 			return 0;
+	}
+
+	public boolean compressed() {
+		return compressed;
 	}
 
 }

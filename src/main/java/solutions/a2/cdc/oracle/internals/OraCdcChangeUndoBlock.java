@@ -67,7 +67,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	private int suppOffsetRedo = 0;
 	private byte kdilk = 0;
 	private byte kdilkType;
-	private boolean compressed = false;
 
 	OraCdcChangeUndoBlock(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _5_1_RDB, record, offset, headerLength);
@@ -513,7 +512,4 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 			return new RowId(dataObj, bdba, slot);
 	}
 
-	public boolean compressed() {
-		return compressed;
-	}
 }

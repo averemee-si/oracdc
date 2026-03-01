@@ -163,12 +163,10 @@ public class OraCdcChangeUndo extends OraCdcChange {
 		obj = redoLog.bu().getU32(record, coords[index][0]);
 		dataObj = redoLog.bu().getU32(record, coords[index][0] + 0x04);
 		opc = (short) (((record[coords[index][0] + 0x10]) << 8) | record[coords[index][0] + 0x11]);
-		slt = record[coords[index][0] + 0x12];
 		flg = redoLog.bu().getU16(record, coords[index][0] + 0x14);
 		if (partialRollback) {
-			//TODO
-//			xid(slt, 0x0000FFFF & redoLog.bu().getU16(record, coords[index][0] + 0x16));
-			xid(slt, 0);
+			//	Undo slt = record[coords[index][0] + 0x12];
+			xid(record[coords[index][0] + 0x12], 0);
 		}
 		//TODO
 	}
@@ -178,7 +176,7 @@ public class OraCdcChangeUndo extends OraCdcChange {
 		sb
 			.append(ktubl ? "\nktubl" : "\nktubu")
 			.append(" redo: slt: ")
-			.append(Short.toUnsignedInt(slt));
+			.append(Short.toUnsignedInt(record[coords[index][0] + 0x12]));
 		if (redoLog.versionMajor() >= 19) {
 			sb
 				.append(" wrp: ")
