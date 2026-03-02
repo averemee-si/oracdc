@@ -13,32 +13,15 @@
 
 package solutions.a2.kafka;
 
-import static java.sql.Types.BIGINT;
-import static java.sql.Types.BINARY;
-import static java.sql.Types.BOOLEAN;
-import static java.sql.Types.DATE;
-import static java.sql.Types.DECIMAL;
 import static java.sql.Types.DOUBLE;
 import static java.sql.Types.FLOAT;
-import static java.sql.Types.INTEGER;
-import static java.sql.Types.NUMERIC;
-import static java.sql.Types.SMALLINT;
-import static java.sql.Types.TIMESTAMP;
-import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
-import static java.sql.Types.TINYINT;
-import static java.sql.Types.VARCHAR;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 
-import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import solutions.a2.cdc.oracle.data.OraNumber;
-import solutions.a2.cdc.oracle.data.OraTimestamp;
 
 /**
  * 
@@ -94,109 +77,6 @@ public abstract class Column {
 
 	public int getDataScale() {
 		return dataScale;
-	}
-
-	/**
-	 * 
-	 * @param dbType
-	 * @param statement
-	 * @param columnNo
-	 * @param columnValue
-	 * @throws SQLException
-	 */
-	protected void bindWithPrepStmt(
-			final int dbType,
-			final PreparedStatement statement,
-			final int columnNo,
-			final Object columnValue) throws SQLException  {
-		if (columnValue == null) {
-			statement.setNull(columnNo, jdbcType);
-		} else {
-			switch (jdbcType) {
-			case DATE:
-				statement.setDate(columnNo, new java.sql.Date(((java.util.Date) columnValue).getTime()));
-				break;
-			case TIMESTAMP:
-				statement.setTimestamp(columnNo, new java.sql.Timestamp(((java.util.Date) columnValue).getTime()));
-				break;
-			case TIMESTAMP_WITH_TIMEZONE:
-				statement.setObject(columnNo, OraTimestamp.toLogical((String) columnValue));
-				break;
-			case BOOLEAN:
-				statement.setBoolean(columnNo, (boolean) columnValue);
-				break;
-			case TINYINT:
-				statement.setByte(columnNo, (Byte) columnValue);
-				break;
-			case SMALLINT:
-				statement.setShort(columnNo, (Short) columnValue);
-				break;
-			case INTEGER:
-				statement.setInt(columnNo, (Integer) columnValue);
-				break;
-			case BIGINT:
-				try {
-					statement.setLong(columnNo, (Long) columnValue);
-				} catch (ClassCastException cce) {
-					statement.setLong(columnNo, (Integer) columnValue);
-				}
-				break;
-			case FLOAT:
-				if (!handleFloatNegativeInfinity(statement, columnNo, columnValue)) {
-					statement.setFloat(columnNo, (float) columnValue);
-				}
-				break;
-			case DOUBLE:
-				if (!handleFloatNegativeInfinity(statement, columnNo, columnValue)) {
-					statement.setDouble(columnNo, (double) columnValue);
-				}
-				break;
-			case DECIMAL:
-				statement.setBigDecimal(columnNo, (BigDecimal) columnValue);
-				break;
-			case NUMERIC:
-				byte[] ba;
-				boolean setNull = false;
-				if (columnValue instanceof ByteBuffer) {
-					ba = new byte[((ByteBuffer)columnValue).remaining()];
-					((ByteBuffer)columnValue).get(ba);
-				} else {
-					try {
-						ba = (byte[]) columnValue;
-					} catch (Exception e) {
-						LOGGER.error(
-								"\n" +
-								"=====================\n" +
-								"Exception {} while converting {} to byte[] for column {}, bind # {}! \n" +
-								"=====================\n",
-								e.getClass().getName(), columnValue.getClass().getName(), columnName, columnNo);
-						ba = null;
-						setNull = true;
-					}
-				}
-				BigDecimal bd = null;
-				bd = OraNumber.toLogical(ba);
-				if (bd == null) {
-					setNull = true;
-				}
-				if (setNull) {
-					statement.setNull(columnNo, NUMERIC);
-				} else {
-					statement.setBigDecimal(columnNo, bd);
-				}
-				break;
-			case BINARY:
-				statement.setBytes(columnNo, ((ByteBuffer) columnValue).array());
-				break;
-			case VARCHAR:
-				statement.setString(columnNo, (String) columnValue);
-				break;
-			default:
-				LOGGER.error("Unsupported data type {} for column {}.",
-						getTypeName(jdbcType), columnName);
-				throw new SQLException("Unsupported data type: " + getTypeName(jdbcType));
-			}
-		}
 	}
 
 	public boolean handleFloatNegativeInfinity(PreparedStatement statement, int columnNo, Object value) throws SQLException {
