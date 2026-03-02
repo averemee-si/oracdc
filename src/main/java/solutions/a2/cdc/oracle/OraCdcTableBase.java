@@ -121,8 +121,9 @@ public abstract class OraCdcTableBase {
 		if (config.useOracdcSchemas()) flags |= FLG_ORACDC_SCHEMAS;
 		if (config.allUpdates()) flags |= FLG_ALL_UPDATES;
 		if (config.printUnable2MapColIdWarning()) flags |= FLG_PRINT_UNABLE_MAP_COL_ID;
-		if (config.supplementalLogAll()) flags |= FLG_SUPPLEMENTAL_LOG_ALL;
 		if (config.processLobs()) flags |= FLG_PROCESS_LOBS;
+		if (config.supplementalLogAll())
+			flags |= FLG_SUPPLEMENTAL_LOG_ALL;
 		else {
 			flags |=FLG_ALL_COLS_ON_DELETE;
 			flags &= (~FLG_ORACDC_SCHEMAS);
