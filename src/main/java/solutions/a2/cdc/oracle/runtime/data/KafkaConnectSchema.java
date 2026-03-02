@@ -102,7 +102,6 @@ import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraIntervalDS;
 import solutions.a2.cdc.oracle.data.OraIntervalYM;
-import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
@@ -113,6 +112,8 @@ import solutions.a2.cdc.oracle.OraCdcTableBase;
  * 
  */
 public class KafkaConnectSchema {
+
+	public static final String ORA_NUMBER_LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraNumber";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaConnectSchema.class);
 
@@ -162,7 +163,7 @@ public class KafkaConnectSchema {
 			}
 			case NUMERIC -> {
 				if (suppLogAll) {
-					var builder = OraNumber.builder();
+					var builder = oraNumberBuilder();
 					if (column.defaultValuePresent()) {
 						try {
 							var typedDefaultValue = (new NUMBER(column.defaultValue(), 10)).getBytes();
@@ -595,6 +596,25 @@ public class KafkaConnectSchema {
 
 	void decrypter(OraCdcTdeColumnDecrypter decrypter) {
 		this.decrypter = decrypter;
+	}
+
+	/**
+	 * 
+	 * Representation of Oracle NUMBER for Kafka Connect
+	 * 
+	 * For more information about Oracle NUMBER format:
+	 *	   <a href="https://gotodba.com/2015/03/24/how-are-numbers-saved-in-oracle/">How are Numbers Saved in Oracle?</a>
+	 *	   <a href="https://www.orafaq.com/wiki/Number">Number</a>
+	 *     <a href="https://support.oracle.com/rs?type=doc&id=1031902.6">How Does Oracle Store Internal Numeric Data? (Doc ID 1031902.6)</a>
+	 *     <a href="https://docs.oracle.com/en/database/oracle/oracle-database/12.2/jajdb/index.html?oracle/sql/NUMBER.html">Class NUMBER</a>
+	 * 
+	 * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
+	 *
+	 */
+	public static SchemaBuilder oraNumberBuilder() {
+		return SchemaBuilder.bytes()
+				.name(ORA_NUMBER_LOGICAL_NAME)
+				.version(1);
 	}
 
 }

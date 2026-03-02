@@ -14,16 +14,19 @@
 package solutions.a2.cdc.oracle;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static solutions.a2.cdc.oracle.runtime.data.KafkaConnectSchema.oraNumberBuilder;
+import static solutions.a2.cdc.oracle.runtime.data.KafkaConnectSchema.ORA_NUMBER_LOGICAL_NAME;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.junit.jupiter.api.Test;
 
-import solutions.a2.cdc.oracle.data.OraNumber;
+import oracle.sql.NUMBER;
 
 /**
  *  
@@ -63,25 +66,40 @@ public class OraNumberTest {
 				.name("NUMBER.Test")
 				.version(1);
 		schemaBuilder.field("NUMBER01",
-				OraNumber.builder().optional().build());
+				oraNumberBuilder().optional().build());
 		schemaBuilder.field("NUMBER02",
-				OraNumber.builder().build());
+				oraNumberBuilder().build());
 		Schema schema = schemaBuilder.build();
 		Struct struct = new Struct(schema);
 		struct.put("NUMBER01", hexToRaw("3f534966"));
 		struct.put("NUMBER02", hexToRaw("c1024a153351"));
 
 		System.out.println(struct.schema().field("NUMBER01").schema().name());
-		assertTrue(struct.schema().field("NUMBER01").schema().name().equals(OraNumber.LOGICAL_NAME));
-		assertTrue(struct.schema().field("NUMBER02").schema().name().equals(OraNumber.LOGICAL_NAME));
+		assertTrue(struct.schema().field("NUMBER01").schema().name().equals(ORA_NUMBER_LOGICAL_NAME));
+		assertTrue(struct.schema().field("NUMBER02").schema().name().equals(ORA_NUMBER_LOGICAL_NAME));
 
 		final BigDecimal bdRef1 = new BigDecimal("-0.1828");
 		final BigDecimal bdRef2 = new BigDecimal("1.7320508");
 		
-		final BigDecimal bd1 = OraNumber.toLogical(struct.getBytes("NUMBER01"));
-		final BigDecimal bd2 = OraNumber.toLogical(struct.getBytes("NUMBER02"));
+		final BigDecimal bd1 = toLogical(struct.getBytes("NUMBER01"));
+		final BigDecimal bd2 = toLogical(struct.getBytes("NUMBER02"));
 
 		assertTrue(bd1.equals(bdRef1));
 		assertTrue(bd2.equals(bdRef2));
 	}
+
+	public static BigDecimal toLogical(final byte[] dumpValue) {
+		final BigDecimal bd;
+		try {
+			bd = new NUMBER(dumpValue).bigDecimalValue();
+		} catch (SQLException  sqle) {
+			if (dumpValue.length == 1 && dumpValue[0] == 0x0) {
+				return null;
+			} else {
+				throw new IllegalArgumentException(sqle);
+			}
+		}
+		return bd;
+	}
+
 }

@@ -36,6 +36,7 @@ import static oracle.jdbc.OracleTypes.INTERVALDS;
 import static oracle.jdbc.OracleTypes.INTERVALYM;
 import static oracle.jdbc.OracleTypes.JSON;
 import static oracle.jdbc.OracleTypes.VECTOR;
+import static solutions.a2.cdc.oracle.runtime.data.KafkaConnectSchema.ORA_NUMBER_LOGICAL_NAME;
 import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_BOOLEAN;
 import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_BYTES;
 import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_DECIMAL;
@@ -98,7 +99,6 @@ import solutions.a2.cdc.oracle.data.OraIntervalDS;
 import solutions.a2.cdc.oracle.data.OraIntervalYM;
 import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
-import solutions.a2.cdc.oracle.data.OraNumber;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
@@ -348,7 +348,7 @@ public class JdbcSinkColumn extends Column {
 									}
 								};
 						}
-						case OraNumber.LOGICAL_NAME -> {
+						case ORA_NUMBER_LOGICAL_NAME -> {
 							jdbcType = NUMERIC;
 							if (partOfPk)
 								binder = new JdbcSinkBinder() {

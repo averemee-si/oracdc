@@ -13,6 +13,7 @@
 
 package solutions.a2.kafka.transforms;
 
+import static solutions.a2.cdc.oracle.runtime.data.KafkaConnectSchema.ORA_NUMBER_LOGICAL_NAME;
 import static solutions.a2.kafka.transforms.ConversionType.ALL;
 import static solutions.a2.kafka.transforms.ConversionType.STARTS_WITH;
 import static solutions.a2.kafka.transforms.ConversionType.ENDS_WITH;
@@ -49,7 +50,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.sql.NUMBER;
-import solutions.a2.cdc.oracle.data.OraNumber;
 
 /**
  *
@@ -338,7 +338,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 			if (params.convType == ALL) {
 				for (Field field: schema.fields()) {
 					if (field.schema().type() == Schema.Type.BYTES &&
-							Strings.CS.equals(field.schema().name(), OraNumber.LOGICAL_NAME)) {
+							Strings.CS.equals(field.schema().name(), ORA_NUMBER_LOGICAL_NAME)) {
 						builder.field(field.name(), CONVERTERS.get(params.targetType).typeSchema(field.schema().isOptional(), params));
 					} else {
 						builder.field(field.name(), field.schema());
@@ -348,7 +348,7 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 					params.convType == ENDS_WITH) {
 				for (Field field: schema.fields()) {
 					if (field.schema().type() == Schema.Type.BYTES &&
-							Strings.CS.equals(field.schema().name(), OraNumber.LOGICAL_NAME) && (
+							Strings.CS.equals(field.schema().name(), ORA_NUMBER_LOGICAL_NAME) && (
 							(params.convType == STARTS_WITH && field.name().startsWith(params.field)) ||
 							(params.convType == ENDS_WITH && field.name().endsWith(params.field)))) {
 						builder.field(field.name(), CONVERTERS.get(params.targetType).typeSchema(field.schema().isOptional(), params));
@@ -405,13 +405,13 @@ public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements
 				final Object updatedFieldValue;
 				if (params.convType == ALL && (
 						field.schema().type() == Schema.Type.BYTES &&
-						Strings.CS.equals(field.schema().name(), OraNumber.LOGICAL_NAME))) {
+						Strings.CS.equals(field.schema().name(), ORA_NUMBER_LOGICAL_NAME))) {
 					updatedFieldValue = convertOraNumber(getFieldValue(value, field));
 				} else  if (params.convType == SPECIFIC &&
 						Strings.CS.equals(field.name(), params.field)) {
 						updatedFieldValue = convertOraNumber(getFieldValue(value, field));
 				} else 	if (field.schema().type() == Schema.Type.BYTES &&
-						Strings.CS.equals(field.schema().name(), OraNumber.LOGICAL_NAME) && (
+						Strings.CS.equals(field.schema().name(), ORA_NUMBER_LOGICAL_NAME) && (
 						(params.convType == STARTS_WITH && field.name().startsWith(params.field)) ||
 						(params.convType == ENDS_WITH && field.name().endsWith(params.field)))) {
 					updatedFieldValue = convertOraNumber(getFieldValue(value, field));

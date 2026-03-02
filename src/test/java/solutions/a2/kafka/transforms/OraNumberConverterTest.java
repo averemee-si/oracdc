@@ -14,6 +14,7 @@
 package solutions.a2.kafka.transforms;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static solutions.a2.cdc.oracle.runtime.data.KafkaConnectSchema.oraNumberBuilder;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -21,7 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import oracle.sql.NUMBER;
-import solutions.a2.cdc.oracle.data.OraNumber;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -48,12 +48,12 @@ public class OraNumberConverterTest {
 		final Map<String, String> props = new HashMap<>();
 		OraNumberConverter<SinkRecord> fromOra;
 		final Schema schema = SchemaBuilder.struct()
-				.field("LINE_ID", OraNumber.builder().build())
-				.field("ORG_ID", OraNumber.builder().build())
-				.field("INVOICING_RULE_ID", OraNumber.builder().build())
-				.field("QUANTITY", OraNumber.builder().optional().build())
-				.field("ACCEPTED_QUANTITY", OraNumber.builder().optional().build())
-				.field("MAX_MINMAX_QUANTITY", OraNumber.builder().optional().build())
+				.field("LINE_ID", oraNumberBuilder().build())
+				.field("ORG_ID", oraNumberBuilder().build())
+				.field("INVOICING_RULE_ID", oraNumberBuilder().build())
+				.field("QUANTITY", oraNumberBuilder().optional().build())
+				.field("ACCEPTED_QUANTITY", oraNumberBuilder().optional().build())
+				.field("MAX_MINMAX_QUANTITY", oraNumberBuilder().optional().build())
 				.build();
 		final Struct struct = new Struct(schema);
 		struct.put("LINE_ID", new NUMBER(lineId).getBytes());
