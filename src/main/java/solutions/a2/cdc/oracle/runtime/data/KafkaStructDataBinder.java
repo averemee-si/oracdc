@@ -145,6 +145,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 			} else {
 				keySchemaBuilder = null;
 			}
+			kcs.decrypter(table.decrypter());
 		} else {
 			keySchemaBuilder = null;
 		}

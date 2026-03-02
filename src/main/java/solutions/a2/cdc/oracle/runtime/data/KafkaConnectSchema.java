@@ -117,18 +117,16 @@ public class KafkaConnectSchema {
 	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaConnectSchema.class);
 
 	private final OraRdbmsInfo rdbmsInfo;
-	private final OraCdcTdeColumnDecrypter decrypter;
 	private final boolean suppLogAll;
+	private OraCdcTdeColumnDecrypter decrypter = null;
 
 	KafkaConnectSchema(final OraRdbmsInfo rdbmsInfo, final OraCdcTableBase table) {
 		this.rdbmsInfo = rdbmsInfo;
-		decrypter = table.decrypter();
 		suppLogAll = (table.flags() & FLG_SUPPLEMENTAL_LOG_ALL) > 0;
 	}
 
 	KafkaConnectSchema(final OraRdbmsInfo rdbmsInfo) {
 		this.rdbmsInfo = rdbmsInfo;
-		decrypter = null;
 		suppLogAll = true;
 	}
 
@@ -593,6 +591,10 @@ public class KafkaConnectSchema {
 			return column.mandatory()
 					? WRAPPED_STRING_SCHEMA
 					: WRAPPED_OPT_STRING_SCHEMA;
+	}
+
+	void decrypter(OraCdcTdeColumnDecrypter decrypter) {
+		this.decrypter = decrypter;
 	}
 
 }
