@@ -108,7 +108,7 @@ public class KafkaRdbmsInfoStruct {
 		struct.put("owner", table.owner());
 		struct.put("table", table.name());
 		struct.put("scn", stmt.getScn());
-		struct.put("ts_ms", stmt.getTimestamp());
+		struct.put("ts_ms", stmt.getTs());
 		struct.put("xid", transaction.getXid());
 		struct.put("commit_scn", transaction.getCommitScn());
 		struct.put("row_id", stmt.getRowId().toString());
