@@ -109,6 +109,12 @@ This project is licensed under the Apache-2.0 License.
 
 == Release history
 
+=== 2.14.4 (MAR-2026)
+
+1. Code cleanup: split code into core CDC code and code specific to the Kafka Connect ecosystem.
+
+2. Bug fixes
+
 === 2.14.3 (FEB-2026)
 
 1. Important changes to ensure proper handling of supplemental log data in partial rollback operations.
