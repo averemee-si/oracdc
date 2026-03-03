@@ -42,8 +42,11 @@ import solutions.a2.oracle.internals.Xid;
  */
 public class Ops_IRP_ORP_BindingTest extends TestWithOutput {
 
+	/*
+	 * Testcase for https://github.com/averemee-si/oracdc/issues/118
+	 */
 	@Test
-	public void advancedCompression() {
+	public void advCompIssue1118() {
 
 		var orl = OraCdcRedoLog.getLinux19c();
 
@@ -61,6 +64,8 @@ public class Ops_IRP_ORP_BindingTest extends TestWithOutput {
 		assertTrue(rrInsert1.has11_x());
 		assertTrue(rrInsert1.change11_x().fb() != 0);
 		assertEquals(rrInsert1.change11_x().operation, _11_2_IRP);
+		assertFalse(rrInsert1.change11_x().compressed());
+		assertFalse(rrInsert1.change5_1().compressed());
 
 		/*
 		 * SCN:59233255, RBA:0x00020a.00009a66.00cc, OP:5.1 fb:--H-FL--, supp fb:-----L--, OP:11.6 fb:--H-----
@@ -76,6 +81,8 @@ public class Ops_IRP_ORP_BindingTest extends TestWithOutput {
 		assertTrue(rrOverwrite1.has11_x());
 		assertTrue(rrOverwrite1.change11_x().fb() != 0);
 		assertEquals(rrOverwrite1.change11_x().operation, _11_6_ORP);
+		assertFalse(rrOverwrite1.change11_x().compressed());
+		assertTrue(rrOverwrite1.change5_1().compressed());
 
 		assertEquals(rrInsert1.halfDoneKey(), rrOverwrite1.halfDoneKey());
 
@@ -107,5 +114,78 @@ public class Ops_IRP_ORP_BindingTest extends TestWithOutput {
 		} catch(IOException | SQLException e) {}
 	}
 
+	/*
+	 * Testcase for https://github.com/averemee-si/oracdc/issues/122
+	 */
+	@Test
+	public void advCompIssue122() {
+
+		var orl = OraCdcRedoLog.getLinux19c();
+
+		/*
+		 * SCN:66395030, RBA:0x000244.0004c134.0134, OP:5.1 fb:--------, supp fb:----F---, OP:11.2 fb:----FL--
+		 */
+		var baInsert1 = hexToRaw("D401000001630000961BF503020000062984184B00000180050116000B00FFFF41094002931BF503000000000100FFFF0300000000000000220014001800200014001C000E000E00020002000200050004000B0007000200010079B8DC0080112200000003000E0001140000F10310008B270100ED35010006000000000000000B010E0F00000114040D00000C180000020021008C130000D6064002B804270000800080D870F4039300400392004003FA122309010040039F0001000108070002000000000000000018000000220000970040030200010001000200030004000500060007001000020002000200050004000B0007000000C1041300C1040000C10406006767676767E1010062626161787E03020C0F0B3936B6983D77A004140101010007000001081903000B0201000D00010093004003961BF503000000000100ED3503000000000000000800180031003100010D01000D00010003000E000114000041094002F10310009300400392004003FA120209011840030C010700970040030200000000000000000000000000000031009F0001000000005D03C20C000700007F00004BCC62626161CF77A00414010101CD6767676767D3787E03020C0F0B3936B698CAC104CAC104CAC104115703");
+		var rrInsert1 = new OraCdcRedoRecord(orl, 0x0000000003f51b96l, "0x000244.0004c134.0134", baInsert1);
+
+		assertTrue(rrInsert1.has5_1());
+		assertTrue(rrInsert1.change5_1().supplementalLogData());
+		assertTrue(rrInsert1.change5_1().supplementalFb() != 0);
+		assertTrue(rrInsert1.change5_1().fb() == 0);
+		assertFalse(rrInsert1.has10_x());
+		assertTrue(rrInsert1.has11_x());
+		assertTrue(rrInsert1.change11_x().fb() != 0);
+		assertEquals(rrInsert1.change11_x().operation, _11_2_IRP);
+		assertFalse(rrInsert1.change5_1().compressed());
+		assertTrue(rrInsert1.change11_x().compressed());
+
+		/*
+		 * SCN:66395030, RBA:0x000244.0004c135.0118, OP:5.1 fb:--H-FL--, supp fb:-----L--, OP:11.6 fb:--H-----
+		 */
+		var baOverwrite1 = hexToRaw("B401000001570000961BF503030000062984184B000005BF050116000B00FFFF41094002961BF503000000000100FFFF03000000000000002000140018001000310019001C000E000E00020002000200070004000B0007000001A2102200000003000E0001140000F10311B68B270100ED35010006000000000000000B010E1000000114020D00000000000041094002F1030F009700400392004003FA122601010000002C0105B6847F0000000000000000000006000000847F0000190002000100000080035D062C010500D3787E03020C0F0B3936B698CAC104CAC104CAC104C51111010407000200010000000000001800000002000097004003020001000100020003000400050006000700C23B020002000200070004000B00070006C5C1045703C104C511C104035D616161616161610662626161787E03020C0F0B3936B6985D77A00414010101030B0601000D00010097004003931BF503000000000200ED3503000000000000000600100030000000020D00808F1BF50341094002F10311009700400392004003FA12060101000000200100B6847F000000000000930040039F000000847F00000900020001000000");
+		var rrOverwrite1 = new OraCdcRedoRecord(orl, 0x0000000003f51b96l, "0x000244.0004c135.0118", baOverwrite1);
+
+		assertTrue(rrOverwrite1.has5_1());
+		assertTrue(rrOverwrite1.change5_1().supplementalLogData());
+		assertTrue(rrOverwrite1.change5_1().supplementalFb() != 0);
+		assertTrue(rrOverwrite1.change5_1().fb() != 0);
+		assertFalse(rrOverwrite1.has10_x());
+		assertTrue(rrOverwrite1.has11_x());
+		assertTrue(rrOverwrite1.change11_x().fb() != 0);
+		assertEquals(rrOverwrite1.change11_x().operation, _11_6_ORP);
+		assertTrue(rrOverwrite1.change5_1().compressed());
+		assertFalse(rrOverwrite1.change11_x().compressed());
+
+		assertEquals(rrInsert1.halfDoneKey(), rrOverwrite1.halfDoneKey());
+
+		var raw = new OraCdcRawTransaction(new Xid((short)0x3, (short)0xe, 0x1401), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
+		try {
+			raw.add(rrInsert1, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrOverwrite1, (int)(System.currentTimeMillis() / 1000));
+			raw.commitScn(0x0000000003f51b97l);
+			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
+			var stmt = new OraCdcRedoMinerStatement();
+
+			assertTrue(transaction.completed());
+
+			assertTrue(transaction.getStatement(stmt));
+			assertEquals(stmt.getOperation(), UPDATE);
+			assertEquals(stmt.getRba(), rrInsert1.rba());
+			assertEquals(stmt.getRowId().toString(), "AAATXtAANAAAACXAAC");
+			System.out.println(stmt);
+			final String lmUpd1 =
+					"update \"UNKNOWN\".\"OBJ# 75659\" set \"COL 4\" = HEXTORAW('6767676767') where \"COL 1\" = HEXTORAW('c104') and \"COL 2\" = HEXTORAW('c104') and \"COL 3\" = HEXTORAW('c104') and \"COL 4\" = HEXTORAW('61616161616161') and \"COL 5\" = HEXTORAW('62626161') and \"COL 6\" = HEXTORAW('787e03020c0f0b3936b698') and \"COL 7\" = HEXTORAW('77a00414010101')";
+			//TODO
+			//TODO
+			//TODO Need to find out why "COL 1", "COL 2", "COL 3", "COL 5", "COL 6", "COL 7" column in the LogMiner output
+			//TODO is only present in the WHERE clause:
+			//TODO Remove from SET clause if present with SAME value in WHERE!?
+			//TODO Looks like the supplemental data in OP:11.2 contains a hint to exclude this column from the SET clause?
+			//TODO
+			//TODO
+			assertFalse(compareLogMinerText(lmUpd1, stmt.getSqlRedo()));
+
+		} catch(IOException | SQLException e) {}
+	}
 
 }
