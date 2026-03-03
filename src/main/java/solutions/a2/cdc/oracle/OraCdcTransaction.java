@@ -1765,16 +1765,21 @@ public abstract class OraCdcTransaction {
 								}
 							}
 							case _11_2_IRP -> {
-								rowChange.writeColsWithNulls(
-										baos, OraCdcChangeRowOp.KDO_POS, 0,
-										change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
-										KDO_ORP_IRP_NULL_POS);
-								if (rr.has5_1())
-									change.writeColsWithNulls(
-										baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
-										(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet : 
-											(change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo()),
-										KDO_ORP_IRP_NULL_POS);
+								if (rowChange.compressed()) {
+									if (rr.has5_1())
+										change.writeSupplementalCols(baos);
+								} else {
+									rowChange.writeColsWithNulls(
+											baos, OraCdcChangeRowOp.KDO_POS, 0,
+											change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo(),
+											KDO_ORP_IRP_NULL_POS);
+									if (rr.has5_1())
+										change.writeColsWithNulls(
+											baosB, OraCdcChangeUndoBlock.KDO_POS, 0,
+											(row.flags & FLG_PARTIAL_ROLLBACK) > 0 ? colNumOffsetSet : 
+												(change.suppOffsetUndo() == 0 ? colNumOffsetSet : change.suppOffsetUndo()),
+											KDO_ORP_IRP_NULL_POS);
+								}
 							}
 							case _11_6_ORP -> {
 								change.writeSupplementalCols(baosB);
