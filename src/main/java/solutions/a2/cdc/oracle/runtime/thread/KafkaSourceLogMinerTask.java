@@ -64,7 +64,7 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 	public void start(Map<String, String> props) {
 		LOGGER.info("Starting oracdc logminer source task for connector {}.", connectorName);
 		super.start(props);
-		config.logMiner(false);
+		config.logMiner(true);
 		if (committedTransactions == null) committedTransactions = new LinkedBlockingQueue<>();
 
 		try (Connection connDictionary = oraConnections.getConnection()) {
