@@ -204,7 +204,7 @@ public class OraRdbmsInfo {
 				rs = ps.executeQuery();
 				if (rs.next()) {
 					pdbName = rs.getString("CON_NAME");
-					conUid = rs.getInt("CON_UID");
+					conUid = (int) rs.getLong("CON_UID");
 					if (Strings.CI.equals(rs.getString("CDB"), "YES")) {
 						cdb = true;
 						if (Strings.CI.equals(pdbName, CDB_ROOT)) {
