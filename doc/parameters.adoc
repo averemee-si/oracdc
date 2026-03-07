@@ -116,7 +116,7 @@ Default - *true*.
 Default - *false*.
 
 `a2.schema.name.mapper` - The fully-qualified class name of the class that constructs schema name from the Oracle PDB name (if present), the table owner, and the table name.
-Default - *solutions.a2.cdc.oracle.OraCdcDefaultSchemaNameMapper* 
+Default - *solutions.a2.cdc.oracle.runtime.config.KafkaDefaultSchemaNameMapper* 
 
 `a2.pseudocolumn.ora_rowscn` - The name of the field in the Kafka Connect record that contains the SCN where the row change was made. If the value is empty, the SCN field is not included in the Kafka Connect records.
 Default - *<EMPTY_STRING>*, i.e. do not include SCN field in Kafka Connect record.

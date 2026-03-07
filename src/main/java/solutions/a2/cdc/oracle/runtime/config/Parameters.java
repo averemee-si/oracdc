@@ -227,7 +227,7 @@ public class Parameters {
 			
 			Default - """ + PRINT_UNABLE_TO_DELETE_WARNING_DEFAULT;
 
-	public static final String SCHEMANAME_MAPPER_DEFAULT = "solutions.a2.cdc.oracle.OraCdcDefaultSchemaNameMapper";
+	public static final String SCHEMANAME_MAPPER_DEFAULT = "solutions.a2.cdc.oracle.runtime.config.KafkaDefaultSchemaNameMapper";
 	public static final String SCHEMANAME_MAPPER_PARAM = "a2.schema.name.mapper";
 	public static final String SCHEMANAME_MAPPER_DOC =
 			"""

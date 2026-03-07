@@ -11,20 +11,20 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.config;
 
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_SINGLE;
 
 import org.apache.commons.lang3.StringUtils;
 
-import solutions.a2.cdc.oracle.runtime.config.KafkaSchemaNameMapper;
+import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 
 /**
  *
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcDefaultSchemaNameMapper implements KafkaSchemaNameMapper {
+public class KafkaDefaultSchemaNameMapper implements KafkaSchemaNameMapper {
 
 	private int schemaType;
 	private boolean protobufSchemaNaming;
