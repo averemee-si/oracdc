@@ -61,7 +61,7 @@ public class Op11_2_Test extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)7, (short)0x12, 0xcee), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrInsert1, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrInsert1, oraRedoNow());
 			raw.commitScn(0x0000000003da258al);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();
@@ -108,8 +108,8 @@ public class Op11_2_Test extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)0x77, (short)0x20, 0x1b996c), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrInsert1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrInsert2, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrInsert1, oraRedoNow());
+			raw.add(rrInsert2, oraRedoNow());
 			raw.commitScn(0x0000058df34a31eel);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();
@@ -144,7 +144,7 @@ public class Op11_2_Test extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)2, (short)0x20, 0xe5f), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrInsert1, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrInsert1, oraRedoNow());
 			raw.commitScn(0x00000000031ca610l);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();
@@ -227,10 +227,10 @@ public class Op11_2_Test extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)74, (short)0x1f, 0x24ae02), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrInsert1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrInsert2, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrDelete1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrDelete2, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrInsert1, oraRedoNow());
+			raw.add(rrInsert2, oraRedoNow());
+			raw.add(rrDelete1, oraRedoNow());
+			raw.add(rrDelete2, oraRedoNow());
 			raw.commitScn(0x0000058e35c9f0f6l);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();

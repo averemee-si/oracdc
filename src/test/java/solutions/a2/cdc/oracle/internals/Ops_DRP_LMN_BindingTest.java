@@ -75,10 +75,10 @@ public class Ops_DRP_LMN_BindingTest extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)0xc, (short)0x12, 0x5157c), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrDelete1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rr_11_16Lmn1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrDelete2, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rr_11_16Lmn2, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrDelete1, oraRedoNow());
+			raw.add(rr_11_16Lmn1, oraRedoNow());
+			raw.add(rrDelete2, oraRedoNow());
+			raw.add(rr_11_16Lmn2, oraRedoNow());
 			raw.commitScn(0xd05dbd26a4al);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();
@@ -150,12 +150,12 @@ public class Ops_DRP_LMN_BindingTest extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)2, (short)0x1b, 0xd3ec1), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrDelete1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rr_11_16Lmn1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrDelete2, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rr_11_16Lmn2, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrDelete3, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rr_11_16Lmn3, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrDelete1, oraRedoNow());
+			raw.add(rr_11_16Lmn1, oraRedoNow());
+			raw.add(rrDelete2, oraRedoNow());
+			raw.add(rr_11_16Lmn2, oraRedoNow());
+			raw.add(rrDelete3, oraRedoNow());
+			raw.add(rr_11_16Lmn3, oraRedoNow());
 			raw.commitScn(0xd05e761cf4el);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();

@@ -66,8 +66,8 @@ public class Op10_35_Test extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)2, (short)4, 0x906), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrUpdate1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrUpdate2, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrUpdate1, oraRedoNow());
+			raw.add(rrUpdate2, oraRedoNow());
 			raw.commitScn(0x78d306);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();

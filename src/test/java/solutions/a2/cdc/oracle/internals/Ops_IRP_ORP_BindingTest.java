@@ -88,8 +88,8 @@ public class Ops_IRP_ORP_BindingTest extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)0xa, (short)0x20, 0x1647), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrInsert1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrOverwrite1, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrInsert1, oraRedoNow());
+			raw.add(rrOverwrite1, oraRedoNow());
 			raw.commitScn(0x000000000387d3e9l);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();
@@ -160,8 +160,8 @@ public class Ops_IRP_ORP_BindingTest extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)0x3, (short)0xe, 0x1401), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrInsert1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrOverwrite1, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrInsert1, oraRedoNow());
+			raw.add(rrOverwrite1, oraRedoNow());
 			raw.commitScn(0x0000000003f51b97l);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();

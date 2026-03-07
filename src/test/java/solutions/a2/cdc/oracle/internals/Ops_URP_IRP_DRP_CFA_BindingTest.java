@@ -233,18 +233,18 @@ public class Ops_URP_IRP_DRP_CFA_BindingTest extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)0x5, (short)0x5, 0x2d68d0), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrUpdate1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrInsert1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrDelete1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrCfa1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrLmn1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrUpdate2, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrUpdate3, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrUpdate4, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrLmn2, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrUpdate5, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrLmn3, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrUpdate6, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrUpdate1, oraRedoNow());
+			raw.add(rrInsert1, oraRedoNow());
+			raw.add(rrDelete1, oraRedoNow());
+			raw.add(rrCfa1, oraRedoNow());
+			raw.add(rrLmn1, oraRedoNow());
+			raw.add(rrUpdate2, oraRedoNow());
+			raw.add(rrUpdate3, oraRedoNow());
+			raw.add(rrUpdate4, oraRedoNow());
+			raw.add(rrLmn2, oraRedoNow());
+			raw.add(rrUpdate5, oraRedoNow());
+			raw.add(rrLmn3, oraRedoNow());
+			raw.add(rrUpdate6, oraRedoNow());
 			raw.commitScn(0x0000058e235a68f1l);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();

@@ -13,10 +13,18 @@
 
 package solutions.a2.cdc.oracle.internals;
 
+import static java.util.Calendar.YEAR;
+import static java.util.Calendar.MONTH;
+import static java.util.Calendar.DAY_OF_MONTH;
+import static java.util.Calendar.HOUR;
+import static java.util.Calendar.MINUTE;
+import static java.util.Calendar.SECOND;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
 
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -201,6 +209,15 @@ public abstract class TestWithOutput {
 					.append("\n");
 			LOGGER.error(sb.toString());
 		}
+	}
+
+	int oraRedoNow() {
+		var calendar = Calendar.getInstance();
+		calendar.setTime(new Date());
+		var ts = (long)
+				((((calendar.get(YEAR) - 1988) * 12 + (calendar.get(MONTH) - 1)) * 31 + (calendar.get(DAY_OF_MONTH) - 1)) * 24);
+		ts = ((ts + calendar.get(HOUR)) * 60 + calendar.get(MINUTE)) * 60 + calendar.get(SECOND);
+		return (int) ts;
 	}
 
 }

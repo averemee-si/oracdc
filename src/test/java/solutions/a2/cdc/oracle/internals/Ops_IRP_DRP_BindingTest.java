@@ -96,10 +96,10 @@ public class Ops_IRP_DRP_BindingTest extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)0x56, (short)0x7, 0x336d1e), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrUpdate1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrInsert1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrDelete1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrCfa1, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrUpdate1, oraRedoNow());
+			raw.add(rrInsert1, oraRedoNow());
+			raw.add(rrDelete1, oraRedoNow());
+			raw.add(rrCfa1, oraRedoNow());
 			raw.commitScn(0x0000058dd5a4795el);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
 			var stmt = new OraCdcRedoMinerStatement();

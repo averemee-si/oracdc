@@ -119,12 +119,12 @@ public class Ops_URP_LMN_BindingLifoTest extends TestWithOutput {
 
 		var raw = new OraCdcRawTransaction(new Xid((short)0x56, (short)0x19, 0x33758e), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
 		try {
-			raw.add(rrUpdate1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrLmn1, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrUpdate2, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrLmn2, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrUpdate3, (int)(System.currentTimeMillis() / 1000));
-			raw.add(rrUpdate4, (int)(System.currentTimeMillis() / 1000));
+			raw.add(rrUpdate1, oraRedoNow());
+			raw.add(rrLmn1, oraRedoNow());
+			raw.add(rrUpdate2, oraRedoNow());
+			raw.add(rrLmn2, oraRedoNow());
+			raw.add(rrUpdate3, oraRedoNow());
+			raw.add(rrUpdate4, oraRedoNow());
 
 			raw.commitScn(0x0000058dd7ec0179l);
 			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
