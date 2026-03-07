@@ -35,7 +35,6 @@ public interface OraCdcSourceBaseConfig {
 	public List<String> includeObj();
 	public List<String> excludeObj();
 	public int pollIntervalMs();
-	public void pollIntervalMs(final Map<String, String> taskParam);
 	public int batchSize();
 
 }

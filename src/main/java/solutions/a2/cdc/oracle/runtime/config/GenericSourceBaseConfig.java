@@ -130,11 +130,6 @@ public class GenericSourceBaseConfig extends AbstractConfiguration implements Or
 	}
 
 	@Override
-	public void pollIntervalMs(final Map<String, String> taskParam) {
-		taskParam.put(POLL_INTERVAL_MS_PARAM, Integer.toString(getInt(POLL_INTERVAL_MS_PARAM)));
-	}
-
-	@Override
 	public int batchSize() {
 		return getInt(BATCH_SIZE_PARAM);
 	}

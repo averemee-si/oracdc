@@ -13,6 +13,8 @@
 
 package solutions.a2.cdc.oracle.runtime.thread;
 
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.POLL_INTERVAL_MS_PARAM;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -241,7 +243,8 @@ public class KafkaSourceSnapshotLogConnector extends SourceConnector {
 
 				taskParam.put(Parameters.BATCH_SIZE_PARAM,
 					((Integer)config.batchSize()).toString());
-				config.pollIntervalMs(taskParam);
+				taskParam.put(POLL_INTERVAL_MS_PARAM,
+						Integer.toString(config.pollIntervalMs()));
 				taskParam.put(TASK_PARAM_MASTER,
 					resultSet.getString("MASTER"));
 				taskParam.put(TASK_PARAM_MV_LOG,

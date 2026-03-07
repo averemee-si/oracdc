@@ -146,11 +146,6 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 	}
 
 	@Override
-	public void pollIntervalMs(final Map<String, String> taskParam) {
-		taskParam.put(POLL_INTERVAL_MS_PARAM, getInt(POLL_INTERVAL_MS_PARAM).toString());
-	}
-
-	@Override
 	public int batchSize() {
 		return getInt(BATCH_SIZE_PARAM);
 	}
