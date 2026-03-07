@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.config;
 
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.TOPIC_NAME_STYLE_INT_SCHEMA_TABLE;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.TOPIC_NAME_STYLE_INT_TABLE;
@@ -20,7 +20,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper;
+import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 
 /**
@@ -28,9 +28,9 @@ import solutions.a2.cdc.oracle.utils.KafkaUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcDefaultTopicNameMapper implements KafkaTopicNameMapper {
+public class KafkaDefaultTopicNameMapper implements KafkaTopicNameMapper {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcDefaultTopicNameMapper.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaDefaultTopicNameMapper.class);
 
 	private String topicParam;
 	private int topicNameStyle;

@@ -594,9 +594,9 @@ To select a Kafka topic to publish changes to, you must set the parameter
 
 |===
 
-The connector comes with two predefined classes: `solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper` and `solutions.a2.cdc.oracle.OraCdcSingleTopicNameMapper`.
+The connector comes with two predefined classes: `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper` and `solutions.a2.cdc.oracle.OraCdcSingleTopicNameMapper`.
 
-== a2.topic.mapper=solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper
+== a2.topic.mapper=solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper
 
 This is the default value for the `a2.topic.mapper` parameter. In this mode, a unique name is generated for each processed table based on the table's PDB name, table's owner(schema name), and the table name itself. Additional parameters listed below are used to customize the topic name
 
