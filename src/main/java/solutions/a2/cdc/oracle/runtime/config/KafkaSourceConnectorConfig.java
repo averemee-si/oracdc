@@ -49,7 +49,6 @@ import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcColumn;
-import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.runtime.data.DataBinder;
 import solutions.a2.cdc.oracle.runtime.data.KafkaStructDebeziumDataBinder;
@@ -879,8 +878,8 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	}
 
 	// Kafka only
-	public TopicNameMapper getTopicNameMapper() {
-		final TopicNameMapper tnm;
+	public KafkaTopicNameMapper getTopicNameMapper() {
+		final KafkaTopicNameMapper tnm;
 		final Class<?> clazz;
 		final Constructor<?> constructor;
 		try {
@@ -909,7 +908,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 		} 
 		
 		try {
-			tnm = (TopicNameMapper) constructor.newInstance();
+			tnm = (KafkaTopicNameMapper) constructor.newInstance();
 		} catch (SecurityException | 
 				InvocationTargetException | 
 				IllegalAccessException | 

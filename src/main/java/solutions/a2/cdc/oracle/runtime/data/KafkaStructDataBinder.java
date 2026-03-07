@@ -43,10 +43,10 @@ import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
-import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSchemaNameMapper;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
+import solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper;
 
 /**
  *
@@ -102,7 +102,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 		schemaType = config.schemaType();
 		topicPartition = ((KafkaSourceConnectorConfig) config).topicPartition();
 		sourcePartition = rdbmsInfo.partition();
-		final TopicNameMapper topicNameMapper = ((KafkaSourceConnectorConfig) config).getTopicNameMapper();
+		final KafkaTopicNameMapper topicNameMapper = ((KafkaSourceConnectorConfig) config).getTopicNameMapper();
 		topicNameMapper.configure(config);
 		kafkaTopic = topicNameMapper.getTopicName(table.pdb(), table.owner(), table.name());
 		if (LOGGER.isDebugEnabled())

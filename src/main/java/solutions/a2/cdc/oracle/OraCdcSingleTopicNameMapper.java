@@ -13,12 +13,14 @@
 
 package solutions.a2.cdc.oracle;
 
+import solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper;
+
 /**
  *
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcSingleTopicNameMapper implements TopicNameMapper {
+public class OraCdcSingleTopicNameMapper implements KafkaTopicNameMapper {
 
 	private String topicName;
 

@@ -20,6 +20,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
 
 /**
@@ -27,7 +28,7 @@ import solutions.a2.cdc.oracle.utils.KafkaUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcDefaultTopicNameMapper implements TopicNameMapper {
+public class OraCdcDefaultTopicNameMapper implements KafkaTopicNameMapper {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcDefaultTopicNameMapper.class);
 

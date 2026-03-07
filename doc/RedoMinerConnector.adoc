@@ -590,7 +590,7 @@ To select a Kafka topic to publish changes to, you must set the parameter
 |===
 |Parameter Name |Value |Description
 
-|a2.topic.mapper | String | The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent. The class must implement the https://github.com/averemee-si/oracdc/blob/feature/advanced-compression/src/main/java/solutions/a2/cdc/oracle/TopicNameMapper.java[solutions.a2.cdc.oracle.TopicNameMapper] interface.
+|a2.topic.mapper | String | The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent. The class must implement the https://github.com/averemee-si/oracdc/blob/feature/advanced-compression/src/main/java/solutions/a2/cdc/oracle/runtime/config/KafkaTopicNameMapper.java[solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper] interface.
 
 |===
 

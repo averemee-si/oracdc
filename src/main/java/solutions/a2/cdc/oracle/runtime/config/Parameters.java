@@ -202,7 +202,7 @@ public class Parameters {
 	public static final String TOPIC_MAPPER_DOC =
 			"""
 			The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent.
-			The class must implement the `solutions.a2.cdc.oracle.TopicNameMapper` interface.
+			The class must implement the `solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper` interface.
 			The connector comes with two predefined classes:
 			1) `solutions.a2.cdc.oracle.OraCdcDefaultTopicNameMapper`, which generates a unique name for each table based on the PDB name, schema name, and table name using the values ​​of the `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter` parameters.
 			2) Another predefined class, `solutions.a2.cdc.oracle.OraCdcSingleTopicNameMapper`, uses the value of the `a2.kafka.topic` parameter as the Kafka topic name, and all change events for all tables are written to a single Kafka topic.
