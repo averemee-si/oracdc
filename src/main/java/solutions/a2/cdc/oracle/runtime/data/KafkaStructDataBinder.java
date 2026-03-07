@@ -43,9 +43,9 @@ import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
-import solutions.a2.cdc.oracle.KafkaSchemaNameMapper;
 import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
+import solutions.a2.cdc.oracle.runtime.config.KafkaSchemaNameMapper;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
 
 /**

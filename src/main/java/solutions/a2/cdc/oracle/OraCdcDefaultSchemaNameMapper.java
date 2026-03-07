@@ -17,6 +17,8 @@ import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_
 
 import org.apache.commons.lang3.StringUtils;
 
+import solutions.a2.cdc.oracle.runtime.config.KafkaSchemaNameMapper;
+
 /**
  *
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
