@@ -203,11 +203,14 @@ public class Parameters {
 			"""
 			The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent.
 			The class must implement the `solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper` interface.
-			The connector comes with two predefined classes:
+			The connector comes with three predefined mappers:
 			1) `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper`, which generates a unique name for each table based on the PDB name, schema name, and table name using the values ​​of the `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter` parameters.
-			2) Another predefined class, `solutions.a2.cdc.oracle.runtime.config.KafkaSingleTopicNameMapper`, uses the value of the `a2.kafka.topic` parameter as the Kafka topic name, and all change events for all tables are written to a single Kafka topic.
+			2) Second predefined mapper, `solutions.a2.cdc.oracle.runtime.config.KafkaSingleTopicNameMapper`, uses the value of the `a2.kafka.topic` parameter as the Kafka topic name, and all change events for all tables are written to a single Kafka topic.
+			3) The third predefined mapper, `solutions.a2.cdc.oracle.runtime.config.KafkaFlexibleTopicNameMapper`, extends `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper`, providing the ability to put data for tables defined by the parameter `a2.map.topic.<TOPIC_NAME>=<LIST_OF_TABLES>` into a single topic `<TOPIC_NAME>`. Table names in the comma-separated list of tables must be in the format <OWNER>.<TABLE_NAME> or <PDB_NAME>.<OWNER>.<TABLE_NAME> 
 			
 			Default - """ + TOPIC_MAPPER_DEFAULT;
+
+	public static final String TOPIC_MAP_PREFIX = "a2.map.topic.";
 
 	public static final boolean STOP_ON_ORA_1284_DEFAULT = true;
 	public static final String STOP_ON_ORA_1284_PARAM = "a2.stop.on.ora.1284";

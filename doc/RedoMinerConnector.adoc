@@ -594,7 +594,7 @@ To select a Kafka topic to publish changes to, you must set the parameter
 
 |===
 
-The connector comes with two predefined classes: `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper` and `solutions.a2.cdc.oracle.runtime.config.KafkaSingleTopicNameMapper`.
+The connector comes with three predefined mappers: `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper`, `solutions.a2.cdc.oracle.runtime.config.KafkaSingleTopicNameMapper`, and `solutions.a2.cdc.oracle.runtime.config.KafkaFlexibleTopicNameMapper`.
 
 == a2.topic.mapper=solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper
 
@@ -623,6 +623,25 @@ In this mode, all change events for all tables are written to a single Kafka top
 |Parameter Name |Value |Description
 
 |a2.kafka.topic | String | Valid Apache Kafka topic name
+
+|===
+
+
+== a2.topic.mapper=solutions.a2.cdc.oracle.runtime.config.KafkaFlexibleTopicNameMapper
+
+This mode extends `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper`, providing the ability to put data for tables defined by the parameter `a2.map.topic.<TOPIC_NAME>=<LIST_OF_TABLES>` into a single topic `<TOPIC_NAME>`. Table names in the comma-separated list of tables must be in the format <OWNER>.<TABLE_NAME> or <PDB_NAME>.<OWNER>.<TABLE_NAME>. Additional parameters listed below are used to customize the topic name
+
+[width="100%",cols="<20%,<10%,<70%",options="header",]
+|===
+|Parameter Name |Value |Description
+
+|a2.topic.prefix | String | prefix to prepend to the unique name of the Kafka topic
+
+|a2.topic.name.style | `TABLE`, `SCHEMA_TABLE`, `PDB_SCHEMA_TABLE` | `TABLE` is default
+
+|a2.topic.name.delimiter | `_` or `-` or `.` | `_` is default
+
+|a2.map.topic.<TOPIC_NAME> | LIST_OF_TABLES> | 
 
 |===
 

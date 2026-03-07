@@ -70,6 +70,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	private String connectorName;
 	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
 	private int topicPartition = 0;
+	private Map<String, String> topicMapParams;
 
 	public static ConfigDef config() {
 		return KafkaSourceBaseConfig.config()
@@ -238,6 +239,11 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 				.filter(prop -> Strings.CS.startsWith(prop.getKey(), NUMBER_MAP_PREFIX))
 				.collect(Collectors.toMap(
 						prop -> Strings.CS.replace(prop.getKey(), NUMBER_MAP_PREFIX, ""),
+						Map.Entry::getValue));
+		topicMapParams = originals.entrySet().stream()
+				.filter(prop -> Strings.CS.startsWith(prop.getKey(), TOPIC_MAP_PREFIX))
+				.collect(Collectors.toMap(
+						prop -> Strings.CS.replace(prop.getKey(), TOPIC_MAP_PREFIX, ""),
 						Map.Entry::getValue));
 		holder = new SourceConnectorConfig(new ParamsRecord(
 				numberMapParams,
@@ -994,6 +1000,10 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 		} else {
 			topicPartition = getInt(TOPIC_PARTITION_PARAM);
 		}
+	}
+
+	public Map<String, String> 	topicMapParams() {
+		return topicMapParams;
 	}
 
 }
