@@ -116,11 +116,6 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 	}
 
 	@Override
-	public void kafkaTopic(final Map<String, String> taskParam) {
-		taskParam.put(KAFKA_TOPIC_PARAM, kafkaTopic());
-	}
-
-	@Override
 	public int schemaType() {
 		return holder.schemaType();
 	}
