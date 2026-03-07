@@ -43,7 +43,7 @@ import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
-import solutions.a2.cdc.oracle.SchemaNameMapper;
+import solutions.a2.cdc.oracle.KafkaSchemaNameMapper;
 import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
@@ -74,7 +74,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 			""";
 
 
-	private final SchemaNameMapper snm;
+	private final KafkaSchemaNameMapper snm;
 	private final OraCdcPseudoColumnsProcessor pseudoColumns;
 	private final int topicPartition;
 	private OraCdcStatementBase stmt = null;

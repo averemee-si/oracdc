@@ -22,7 +22,7 @@ import org.apache.commons.lang3.StringUtils;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcDefaultSchemaNameMapper implements SchemaNameMapper {
+public class OraCdcDefaultSchemaNameMapper implements KafkaSchemaNameMapper {
 
 	private int schemaType;
 	private boolean protobufSchemaNaming;

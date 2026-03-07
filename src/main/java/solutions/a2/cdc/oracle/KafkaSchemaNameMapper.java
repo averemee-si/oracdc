@@ -18,7 +18,7 @@ package solutions.a2.cdc.oracle;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public interface SchemaNameMapper {
+public interface KafkaSchemaNameMapper {
 
 	default void configure(OraCdcSourceConnectorConfig config) {};
 	String getKeySchemaName(String pdbName, String tableOwner, String tableName);
