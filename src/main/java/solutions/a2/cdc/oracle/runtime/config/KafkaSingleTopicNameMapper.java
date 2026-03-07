@@ -11,16 +11,16 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.config;
 
-import solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper;
+import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 
 /**
  *
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcSingleTopicNameMapper implements KafkaTopicNameMapper {
+public class KafkaSingleTopicNameMapper implements KafkaTopicNameMapper {
 
 	private String topicName;
 
