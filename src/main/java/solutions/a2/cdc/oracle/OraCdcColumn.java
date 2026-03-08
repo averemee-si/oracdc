@@ -126,7 +126,6 @@ public class OraCdcColumn extends Column {
 	 * @param decrypter
 	 * @param rdbmsInfo
 	 * @param suppLogAll
-	 * @param noLongInDict
 	 * @throws SQLException
 	 * @throws UnsupportedColumnDataTypeException 
 	 */
