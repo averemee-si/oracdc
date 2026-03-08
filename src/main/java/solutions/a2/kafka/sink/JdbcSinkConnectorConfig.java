@@ -20,12 +20,17 @@ import java.util.Map;
 import org.apache.commons.lang3.Strings;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.ConfigDef.Importance;
-import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.apache.kafka.common.config.ConfigDef.Importance.HIGH;
+import static org.apache.kafka.common.config.ConfigDef.Importance.LOW;
+import static org.apache.kafka.common.config.ConfigDef.Importance.MEDIUM;
+import static org.apache.kafka.common.config.ConfigDef.Type.BOOLEAN;
+import static org.apache.kafka.common.config.ConfigDef.Type.INT;
+import static org.apache.kafka.common.config.ConfigDef.Type.PASSWORD;
+import static org.apache.kafka.common.config.ConfigDef.Type.STRING;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.BATCH_SIZE_DEFAULT;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.BATCH_SIZE_DOC;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.BATCH_SIZE_PARAM;
@@ -116,46 +121,37 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 				"a2.connection.init.sql" : "SET work_mem = '16MB'"
 			""";
 
+	private static final String SCHEMA_NAME_PREFIX_PARAM = "a2.schema.name.prefix";
+	private static final String SCHEMA_NAME_PREFIX_DOC =
+			"""
+			Prefix of existing Kafka Connect schema.
+			Default - "" (Empty string - no prefix)
+			""";
+
 	private int schemaType = -1;
 	private int connectorMode = -1;
 
 	static ConfigDef config() {
 		return new ConfigDef()
-				.define(CONNECTION_URL_PARAM, Type.STRING,
-						Importance.HIGH, CONNECTION_URL_DOC)
-				.define(CONNECTION_USER_PARAM, Type.STRING,
-						Importance.HIGH, CONNECTION_USER_DOC)
-				.define(CONNECTION_PASSWORD_PARAM, Type.PASSWORD,
-						Importance.HIGH, CONNECTION_PASSWORD_DOC)
-				.define(BATCH_SIZE_PARAM, Type.INT,
-						BATCH_SIZE_DEFAULT,
-						Importance.HIGH, BATCH_SIZE_DOC)
-				.define(SCHEMA_TYPE_PARAM, Type.STRING,
-						SCHEMA_TYPE_KAFKA,
+				.define(CONNECTION_URL_PARAM, STRING, HIGH, CONNECTION_URL_DOC)
+				.define(CONNECTION_USER_PARAM, STRING, HIGH, CONNECTION_USER_DOC)
+				.define(CONNECTION_PASSWORD_PARAM, PASSWORD, HIGH, CONNECTION_PASSWORD_DOC)
+				.define(BATCH_SIZE_PARAM, INT, BATCH_SIZE_DEFAULT, HIGH, BATCH_SIZE_DOC)
+				.define(SCHEMA_TYPE_PARAM, STRING, SCHEMA_TYPE_KAFKA,
 						ConfigDef.ValidString.in(SCHEMA_TYPE_KAFKA, SCHEMA_TYPE_DEBEZIUM, SCHEMA_TYPE_SINGLE),
-						Importance.HIGH, SCHEMA_TYPE_DOC)
-				.define(AUTO_CREATE_PARAM, Type.BOOLEAN, false,
-						Importance.HIGH, AUTO_CREATE_DOC)
-				.define(PK_STRING_LENGTH_PARAM, Type.INT, PK_STRING_LENGTH_DEFAULT,
-						Importance.LOW, PK_STRING_LENGTH_DOC)
-				.define(USE_ALL_COLUMNS_ON_DELETE_PARAM,
-						Type.BOOLEAN, USE_ALL_COLUMNS_ON_DELETE_DEFAULT,
-						Importance.MEDIUM, USE_ALL_COLUMNS_ON_DELETE_DOC)
-				.define(TOPIC_PREFIX_PARAM, Type.STRING, "",
-						Importance.MEDIUM, TOPIC_PREFIX_DOC)
-				.define(TABLE_NAME_PREFIX_PARAM, Type.STRING, "",
-						Importance.LOW, TABLE_NAME_PREFIX_DOC)
-				.define(TABLE_NAME_SUFFIX_PARAM, Type.STRING, "",
-						Importance.LOW, TABLE_NAME_SUFFIX_DOC)
-				.define(TABLE_MAPPER_PARAM, Type.STRING,
-						TABLE_MAPPER_DEFAULT,
-						Importance.MEDIUM, TABLE_MAPPER_DOC)
-				.define(CONN_TYPE_PARAM, Type.STRING,
-						CONN_TYPE_REPLICATE,
+						HIGH, SCHEMA_TYPE_DOC)
+				.define(AUTO_CREATE_PARAM, BOOLEAN, false, HIGH, AUTO_CREATE_DOC)
+				.define(PK_STRING_LENGTH_PARAM, INT, PK_STRING_LENGTH_DEFAULT, LOW, PK_STRING_LENGTH_DOC)
+				.define(USE_ALL_COLUMNS_ON_DELETE_PARAM, BOOLEAN, USE_ALL_COLUMNS_ON_DELETE_DEFAULT, MEDIUM, USE_ALL_COLUMNS_ON_DELETE_DOC)
+				.define(TOPIC_PREFIX_PARAM, STRING, "", MEDIUM, TOPIC_PREFIX_DOC)
+				.define(TABLE_NAME_PREFIX_PARAM, STRING, "", LOW, TABLE_NAME_PREFIX_DOC)
+				.define(TABLE_NAME_SUFFIX_PARAM, STRING, "", LOW, TABLE_NAME_SUFFIX_DOC)
+				.define(TABLE_MAPPER_PARAM, STRING, TABLE_MAPPER_DEFAULT, MEDIUM, TABLE_MAPPER_DOC)
+				.define(CONN_TYPE_PARAM, STRING, CONN_TYPE_REPLICATE,
 						ConfigDef.ValidString.in(CONN_TYPE_REPLICATE, CONN_TYPE_AUDIT_TRAIL),
-						Importance.HIGH, CONN_TYPE_DOC)
-				.define(INIT_SQL_PARAM, Type.STRING, "",
-						Importance.LOW, INIT_SQL_DOC)
+						HIGH, CONN_TYPE_DOC)
+				.define(INIT_SQL_PARAM, STRING, "", LOW, INIT_SQL_DOC)
+				.define(SCHEMA_NAME_PREFIX_PARAM, STRING, "", LOW, SCHEMA_NAME_PREFIX_DOC)
 				;
 	}
 
@@ -277,6 +273,14 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 
 	int batchSize() {
 		return getInt(BATCH_SIZE_PARAM);
+	}
+
+	String topicPrefix() {
+		return getString(TOPIC_PREFIX_PARAM);
+	}
+
+	String schemaPrefix() {
+		return getString(SCHEMA_NAME_PREFIX_PARAM);
 	}
 
 }
