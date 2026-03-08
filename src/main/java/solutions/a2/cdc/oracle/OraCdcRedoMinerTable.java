@@ -16,7 +16,6 @@ package solutions.a2.cdc.oracle;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
 import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.oracle.utils.BinaryUtils.getU24BE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
@@ -65,7 +64,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection, final int version) {
 		super(pdbName, tableOwner, tableName, rowLevelScn, conId, config, rdbmsInfo, connection, version);
-		beforeData = (schemaType == SCHEMA_TYPE_INT_DEBEZIUM);
+		beforeData = config.beforeDataImage();
 		try {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Preparing column list and mining SQL statements for table {}.", tableFqn);

@@ -70,7 +70,6 @@ public abstract class OraCdcTableBase {
 	private int mandatoryColumnsCount = 0;
 	private int maxColumnId;
 	final String tableFqn;
-	final int schemaType;
 	private OraCdcTdeColumnDecrypter decrypter;
 	DataBinder dataBinder;
 
@@ -105,7 +104,6 @@ public abstract class OraCdcTableBase {
 			final boolean rowLevelScn, final short conId, final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo, final Connection connection, final int version) {
 		this.pkColumns = new LinkedHashMap<>();
-		this.schemaType = config.schemaType();
 		this.allColumns = new ArrayList<>();
 		this.tableOwner = tableOwner;
 		this.tableName = tableName;		

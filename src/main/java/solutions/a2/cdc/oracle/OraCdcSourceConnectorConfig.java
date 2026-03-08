@@ -151,5 +151,6 @@ public interface OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	int[] offHeapSize();
 	String fileTransferStageDir();
 	DataBinder dataBinder(OraCdcTableBase table, OraRdbmsInfo rdbmsInfo);
+	boolean beforeDataImage();
 
 }

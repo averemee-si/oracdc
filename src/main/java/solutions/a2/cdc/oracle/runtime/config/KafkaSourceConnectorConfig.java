@@ -883,6 +883,12 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 		}
 	}
 
+	@Override
+	public boolean beforeDataImage() {
+		return schemaType() == SCHEMA_TYPE_INT_DEBEZIUM;
+	}
+
+
 	// Kafka only
 	public KafkaTopicNameMapper getTopicNameMapper() {
 		final KafkaTopicNameMapper tnm;

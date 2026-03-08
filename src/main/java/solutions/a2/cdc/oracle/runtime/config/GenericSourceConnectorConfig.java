@@ -807,4 +807,10 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 		return null;
 	}
 
+	@Override
+	public boolean beforeDataImage() {
+		return false;
+	}
+
+
 }
