@@ -15,6 +15,9 @@ package solutions.a2.cdc.oracle;
 
 import static solutions.a2.cdc.oracle.OraCdcColumn.GUARD_COLUMN;
 import static solutions.a2.cdc.oracle.OraCdcColumn.UNUSED_COLUMN;
+import static solutions.a2.cdc.oracle.OraDictSqlTexts.COLUMN_LIST_PLAIN;
+import static solutions.a2.cdc.oracle.OraDictSqlTexts.COLUMN_LIST_PLAIN_CDB;
+import static solutions.a2.cdc.oracle.OraDictSqlTexts.COLUMN_LIST_PLAIN_PDB;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 
@@ -215,20 +218,23 @@ public abstract class OraCdcTableBase {
 
 
 		final List<Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>> numberRemap;
-		var noLongInDict = rdbmsInfo.noLongInDict();
-		if (isCdb) {
-			if (!noLongInDict)
+		if (isCdb && rdbmsInfo.isCdbRoot()) {
+			if (!rdbmsInfo.noLongInDict())
 				alterSessionSetContainer(connection, pdbName);
 			numberRemap = config.tableNumberMapping(pdbName, tableOwner, tableName);
 		} else {
 			numberRemap = config.tableNumberMapping(tableOwner, tableName);
 		}
 		PreparedStatement statement = connection.prepareStatement(
-				noLongInDict ? OraDictSqlTexts.COLUMN_LIST_PLAIN_CDB : OraDictSqlTexts.COLUMN_LIST_PLAIN,
+				rdbmsInfo.noLongInDict() 
+					? rdbmsInfo.isCdbRoot()
+							? COLUMN_LIST_PLAIN_CDB
+							: COLUMN_LIST_PLAIN_PDB
+					: COLUMN_LIST_PLAIN,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		statement.setString(1, this.tableOwner);
 		statement.setString(2, this.tableName);
-		if (noLongInDict)
+		if (rdbmsInfo.noLongInDict() && rdbmsInfo.isCdbRoot())
 			statement.setInt(3, conId);
 
 		ResultSet rsColumns = statement.executeQuery();
@@ -241,9 +247,11 @@ public abstract class OraCdcTableBase {
 		while (rsColumns.next()) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace(
-						"\tColumn {}.{} information:\n" +
-						"\t\tDATA_TYPE={}, DATA_LENGTH={}, DATA_PRECISION={}, DATA_SCALE={}, NULLABLE={},\n" +
-						"\t\tCOLUMN_ID={}, HIDDEN_COLUMN={}, INTERNAL_COLUMN_ID={}",
+						"""
+							Column {}.{} information:
+								DATA_TYPE={}, DATA_LENGTH={}, DATA_PRECISION={}, DATA_SCALE={}, NULLABLE={},
+								COLUMN_ID={}, HIDDEN_COLUMN={}, INTERNAL_COLUMN_ID={}
+						""",
 						tableFqn, rsColumns.getString("COLUMN_NAME"),
 						rsColumns.getString("DATA_TYPE"), rsColumns.getInt("DATA_LENGTH"), rsColumns.getInt("DATA_PRECISION"),
 								rsColumns.getInt("DATA_SCALE"), rsColumns.getString("NULLABLE"),
@@ -273,7 +281,7 @@ public abstract class OraCdcTableBase {
 					}
 					column = new OraCdcColumn(
 							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
-							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0, noLongInDict);
+							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
 					if (column.isNumber() && numberRemap != null) {
 						final OraCdcColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
 						if (newDefinition != null) {
@@ -375,8 +383,8 @@ public abstract class OraCdcTableBase {
 
 		dataBinder.buildSchema(initial);
 
-		if (isCdb) {
-			if (!noLongInDict)
+		if (isCdb && rdbmsInfo.isCdbRoot()) {
+			if (!rdbmsInfo.noLongInDict())
 				alterSessionSetContainer(connection, rdbmsInfo.getPdbName());
 		}
 	}

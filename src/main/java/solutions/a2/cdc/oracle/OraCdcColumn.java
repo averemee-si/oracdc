@@ -138,8 +138,7 @@ public class OraCdcColumn extends Column {
 			final Set<String> pkColsSet,
 			final OraCdcTdeColumnDecrypter decrypter,
 			final OraRdbmsInfo rdbmsInfo,
-			final boolean suppLogAll,
-			final boolean noLongInDict) throws SQLException, UnsupportedColumnDataTypeException {
+			final boolean suppLogAll) throws SQLException, UnsupportedColumnDataTypeException {
 		oracleName = resultSet.getString("COLUMN_NAME");
 		if (!KafkaUtils.validAvroFieldName(oracleName)) {
 			columnName = KafkaUtils.fixAvroFieldName(oracleName, "_");
@@ -161,7 +160,7 @@ public class OraCdcColumn extends Column {
 			flags |= FLG_MANDATORY;
 		this.setColumnId(resultSet.getInt("COLUMN_ID"));
 		try {
-			defaultValue = trim(resultSet.getString(noLongInDict ? "DATA_DEFAULT_VC" : "DATA_DEFAULT"));
+			defaultValue = trim(resultSet.getString(rdbmsInfo.noLongInDict() ? "DATA_DEFAULT_VC" : "DATA_DEFAULT"));
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == ORA_17027) {
 				LOGGER.warn(
