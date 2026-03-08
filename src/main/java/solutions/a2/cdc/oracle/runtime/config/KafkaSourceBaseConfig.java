@@ -116,11 +116,6 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 	}
 
 	@Override
-	public void kafkaTopic(final Map<String, String> taskParam) {
-		taskParam.put(KAFKA_TOPIC_PARAM, kafkaTopic());
-	}
-
-	@Override
 	public int schemaType() {
 		return holder.schemaType();
 	}
@@ -148,11 +143,6 @@ public class KafkaSourceBaseConfig extends AbstractConfig implements OraCdcSourc
 	@Override
 	public int pollIntervalMs() {
 		return getInt(POLL_INTERVAL_MS_PARAM);
-	}
-
-	@Override
-	public void pollIntervalMs(final Map<String, String> taskParam) {
-		taskParam.put(POLL_INTERVAL_MS_PARAM, getInt(POLL_INTERVAL_MS_PARAM).toString());
 	}
 
 	@Override

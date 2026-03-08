@@ -100,11 +100,6 @@ public class GenericSourceBaseConfig extends AbstractConfiguration implements Or
 	}
 
 	@Override
-	public void kafkaTopic(final Map<String, String> taskParam) {
-		taskParam.put(KAFKA_TOPIC_PARAM, kafkaTopic());
-	}
-
-	@Override
 	public int schemaType() {
 		return holder.schemaType();
 	}
@@ -132,11 +127,6 @@ public class GenericSourceBaseConfig extends AbstractConfiguration implements Or
 	@Override
 	public int pollIntervalMs() {
 		return getInt(POLL_INTERVAL_MS_PARAM);
-	}
-
-	@Override
-	public void pollIntervalMs(final Map<String, String> taskParam) {
-		taskParam.put(POLL_INTERVAL_MS_PARAM, Integer.toString(getInt(POLL_INTERVAL_MS_PARAM)));
 	}
 
 	@Override

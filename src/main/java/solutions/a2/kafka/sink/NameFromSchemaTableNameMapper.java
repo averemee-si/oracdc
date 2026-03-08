@@ -27,18 +27,18 @@ import solutions.a2.cdc.oracle.runtime.config.Parameters;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class DefaultTableNameMapper implements TableNameMapper {
+public class NameFromSchemaTableNameMapper implements TableNameMapper {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(DefaultTableNameMapper.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(NameFromSchemaTableNameMapper.class);
 
-	private String topicPrefix;
+	private String schemaPrefix;
 	private String prefix;
 	private String suffix;
 	private int schemaType;
 
 	@Override
 	public void configure(final JdbcSinkConnectorConfig config) {
-		topicPrefix = config.topicPrefix();
+		schemaPrefix = config.schemaPrefix();
 		prefix = StringUtils.trim(config.getTableNamePrefix());
 		suffix = StringUtils.trim(config.getTableNameSuffix());
 		schemaType = config.getSchemaType();
@@ -49,17 +49,18 @@ public class DefaultTableNameMapper implements TableNameMapper {
 		final String tableName;
 		if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD ||
 				schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE) {
-			if (StringUtils.isNotBlank(topicPrefix) &&
-					Strings.CS.startsWith(record.topic(), topicPrefix)) {
-				tableName = prefix + StringUtils.substring(record.topic(), topicPrefix.length()) + suffix;
+			var schemaName = StringUtils.substring(record.valueSchema().name(), 0, Strings.CS.lastIndexOf(record.valueSchema().name(), "Value") - 1);
+			if (StringUtils.isNotBlank(schemaPrefix) &&
+					Strings.CS.startsWith(schemaName, schemaPrefix)) {
+				tableName = prefix + StringUtils.substring(schemaName, schemaPrefix.length()) + suffix;
 				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Table name '{}' is set using the Kafka topic name {} and parameter '{}' with value {}.",
-						tableName, record.topic(), topicPrefix);
+					LOGGER.debug("Table name '{}' is set using the Kafka schema name {} and parameter '{}' with value {}.",
+						tableName, schemaName, schemaPrefix);
 				}
 			} else {
-				tableName = record.topic();
+				tableName = schemaName;
 				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Table name is set to the Kafka topic name '{}'.", tableName);
+					LOGGER.debug("Table name is set to the Kafka schema name '{}'.", tableName);
 				}
 			}
 		} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM

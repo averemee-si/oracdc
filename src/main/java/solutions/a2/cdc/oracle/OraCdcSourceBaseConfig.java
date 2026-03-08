@@ -29,14 +29,12 @@ public interface OraCdcSourceBaseConfig {
 	public String rdbmsPassword();
 	public String walletLocation();
 	public String kafkaTopic();
-	public void kafkaTopic(final Map<String, String> taskParam);
 	public int schemaType();
 	public void schemaType(final Map<String, String> taskParam);
 	public String topicOrPrefix();
 	public List<String> includeObj();
 	public List<String> excludeObj();
 	public int pollIntervalMs();
-	public void pollIntervalMs(final Map<String, String> taskParam);
 	public int batchSize();
 
 }

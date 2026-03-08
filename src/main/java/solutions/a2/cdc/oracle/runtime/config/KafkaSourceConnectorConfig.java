@@ -49,8 +49,6 @@ import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcColumn;
-import solutions.a2.cdc.oracle.SchemaNameMapper;
-import solutions.a2.cdc.oracle.TopicNameMapper;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.runtime.data.DataBinder;
 import solutions.a2.cdc.oracle.runtime.data.KafkaStructDebeziumDataBinder;
@@ -72,6 +70,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	private String connectorName;
 	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
 	private int topicPartition = 0;
+	private Map<String, String> topicMapParams;
 
 	public static ConfigDef config() {
 		return KafkaSourceBaseConfig.config()
@@ -240,6 +239,11 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 				.filter(prop -> Strings.CS.startsWith(prop.getKey(), NUMBER_MAP_PREFIX))
 				.collect(Collectors.toMap(
 						prop -> Strings.CS.replace(prop.getKey(), NUMBER_MAP_PREFIX, ""),
+						Map.Entry::getValue));
+		topicMapParams = originals.entrySet().stream()
+				.filter(prop -> Strings.CS.startsWith(prop.getKey(), TOPIC_MAP_PREFIX))
+				.collect(Collectors.toMap(
+						prop -> Strings.CS.replace(prop.getKey(), TOPIC_MAP_PREFIX, ""),
 						Map.Entry::getValue));
 		holder = new SourceConnectorConfig(new ParamsRecord(
 				numberMapParams,
@@ -880,8 +884,8 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	}
 
 	// Kafka only
-	public TopicNameMapper getTopicNameMapper() {
-		final TopicNameMapper tnm;
+	public KafkaTopicNameMapper getTopicNameMapper() {
+		final KafkaTopicNameMapper tnm;
 		final Class<?> clazz;
 		final Constructor<?> constructor;
 		try {
@@ -910,7 +914,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 		} 
 		
 		try {
-			tnm = (TopicNameMapper) constructor.newInstance();
+			tnm = (KafkaTopicNameMapper) constructor.newInstance();
 		} catch (SecurityException | 
 				InvocationTargetException | 
 				IllegalAccessException | 
@@ -927,8 +931,8 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 		return tnm;
 	}
 
-	public SchemaNameMapper getSchemaNameMapper() {
-		final SchemaNameMapper snm;
+	public KafkaSchemaNameMapper getSchemaNameMapper() {
+		final KafkaSchemaNameMapper snm;
 		final Class<?> clazz;
 		final Constructor<?> constructor;
 		try {
@@ -957,7 +961,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 		} 
 		
 		try {
-			snm = (SchemaNameMapper) constructor.newInstance();
+			snm = (KafkaSchemaNameMapper) constructor.newInstance();
 		} catch (SecurityException | 
 				InvocationTargetException | 
 				IllegalAccessException | 
@@ -996,6 +1000,10 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 		} else {
 			topicPartition = getInt(TOPIC_PARTITION_PARAM);
 		}
+	}
+
+	public Map<String, String> 	topicMapParams() {
+		return topicMapParams;
 	}
 
 }

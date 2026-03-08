@@ -11,26 +11,20 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.config;
+
+import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 
 /**
  *
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcSingleTopicNameMapper implements TopicNameMapper {
+public interface KafkaSchemaNameMapper {
 
-	private String topicName;
-
-	@Override
-	public void configure(OraCdcSourceConnectorConfig config) {
-		topicName = config.kafkaTopic();
-	}
-
-	@Override
-	public String getTopicName(
-			final String pdbName, final String tableOwner, final String tableName) {
-		return topicName;
-	}
+	default void configure(OraCdcSourceConnectorConfig config) {};
+	String getKeySchemaName(String pdbName, String tableOwner, String tableName);
+	String getValueSchemaName(String pdbName, String tableOwner, String tableName);
+	String getEnvelopeSchemaName(String pdbName, String tableOwner, String tableName);
 
 }
