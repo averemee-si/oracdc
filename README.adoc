@@ -109,6 +109,14 @@ This project is licensed under the Apache-2.0 License.
 
 == Release history
 
+=== 2.14.5 (MAR-2026)
+
+1. Dockerfile: fix for https://github.com/advisories/GHSA-72hv-8253-57qq[GHSA-72hv-8253-57qq] and https://nvd.nist.gov/vuln/detail/CVE-2026-1605[CVE-2026-1605]
+
+2. New strategy for specifying a Kafka topic by table name **solutions.a2.cdc.oracle.runtime.config.KafkaFlexibleTopicNameMapper**, for details, see link:doc/RedoMinerConnector.adoc[RedoMinerConnector.adoc]
+
+3. Bug fixes
+
 === 2.14.4 (MAR-2026)
 
 1. Code cleanup: split code into core CDC code and code specific to the Kafka Connect ecosystem.
