@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
+import org.agrona.collections.IntHashSet;
 import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,9 +59,9 @@ public class OraCdcDictionaryChecker {
 	private final CountDownLatch runLatch;
 	private final boolean isCdb;
 	private final int connectionRetryBackoff;
-	private final Set<Integer> includeObjIds;
+	private final IntHashSet includeObjIds;
 	private final boolean includeFilter;
-	private final Set<Integer> excludeObjIds;
+	private final IntHashSet excludeObjIds;
 	private final boolean excludeFilter;
 	private final OraCdcSourceConnMgmt metrics;
 	private Connection connection;
@@ -82,8 +83,8 @@ public class OraCdcDictionaryChecker {
 			final Map<Long, OraCdcTableBase> tablesInProcessing,
 			final Set<Long> tablesOutOfScope,
 			final String checkTableSql,
-			Set<Integer> includeObjIds,
-			Set<Integer> excludeObjIds,
+			IntHashSet includeObjIds,
+			IntHashSet excludeObjIds,
 			final OraCdcSourceConnMgmt metrics) throws SQLException {
 		this.task = task;
 		this.staticObjIds = staticObjIds;

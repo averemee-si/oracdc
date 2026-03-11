@@ -19,12 +19,12 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.Set;
 
+import org.agrona.collections.Int2IntHashMap;
+import org.agrona.collections.IntHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 import org.apache.commons.lang3.tuple.MutableTriple;
@@ -108,12 +108,11 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 					initialLoadSql.append(OraDictSqlTexts.INITIAL_LOAD_LIST_NON_CDB);
 				}
 			}
-			Set<Integer> includeObjIds = null;
-			Map<Integer, Integer> iotMapping = null;
+			IntHashSet includeObjIds = null;
+			Int2IntHashMap iotMapping = null;
 			if (includeList != null && includeList.size() > 0) {
-				final String tableList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
-				final Entry<Set<Integer>, Map<Integer, Integer>> includeEntries = rdbmsInfo.getMineObjectsIds(
-						false, tableList, connDictionary, processLobs);
+				var tableList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
+				var includeEntries = rdbmsInfo.getMineObjectsIds(false, tableList, connDictionary, processLobs);
 				includeObjIds = includeEntries.getKey();
 				iotMapping = includeEntries.getValue();
 				if (includeObjIds == null || includeObjIds.size() == 0) {
@@ -126,7 +125,7 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 					initialLoadSql.append(tableList);
 				}
 			}
-			Set<Integer> excludeObjIds = null;
+			IntHashSet excludeObjIds = null;
 			if (excludeList != null && excludeList.size() > 0) {
 				excludeObjIds = rdbmsInfo.getMineObjectsIds(true,
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList),

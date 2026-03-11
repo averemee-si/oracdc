@@ -23,13 +23,14 @@ import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.agrona.collections.Int2IntHashMap;
+import org.agrona.collections.IntHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
@@ -751,14 +752,10 @@ public class OraRdbmsInfo {
 	 */
 	public String getMineObjectsIds(final Connection connection,
 			final boolean exclude, final String where) throws SQLException {
-		final StringBuilder sb = new StringBuilder(32768);
-		if (exclude) {
-			sb.append(" and DATA_OBJ# not in (");
-		} else {
-			sb.append(" and (DATA_OBJ# in (");
-		}
-		Set<Integer> data = getMineObjectsIds(exclude, where, connection, false).getKey();
-		
+		var sb = new StringBuilder(0x8000);
+		sb.append(exclude ? " and DATA_OBJ# not in (" : sb.append(" and (DATA_OBJ# in ("));
+		var data = getMineObjectsIds(exclude, where, connection, false).getKey();
+
 		boolean firstValue = true;
 		boolean lastValue = false;
 		int recordCount = 0;
@@ -802,11 +799,11 @@ public class OraRdbmsInfo {
 	 * @return
 	 * @throws SQLException
 	 */
-	public Entry<Set<Integer>, Map<Integer, Integer>> getMineObjectsIds(final boolean exclude,
+	public Entry<IntHashSet, Int2IntHashMap> getMineObjectsIds(final boolean exclude,
 			final String where, final Connection connection,
 			final boolean processLobs) throws SQLException {
-		Set<Integer> objIds = new HashSet<>(0x100);
-		Map<Integer, Integer> iotIds = new HashMap<>();
+		var objIds = new IntHashSet(0x100);
+		var iotIds = new Int2IntHashMap(0x100);
 
 		//TODO
 		//TODO For CDB - pair required!!!
