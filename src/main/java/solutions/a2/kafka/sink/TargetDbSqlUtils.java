@@ -14,13 +14,13 @@
 package solutions.a2.kafka.sink;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.commons.lang3.Strings;
 
 import static java.sql.Types.BOOLEAN;
@@ -60,8 +60,7 @@ public class TargetDbSqlUtils {
 	public static final String UPSERT = "#3";
 	public static final String WHERE  = "#4";
 
-	private static final Map<Integer, String> MYSQL_MAPPING =
-			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
+	private static final Int2ObjectHashMap<String> MYSQL_MAPPING = new Int2ObjectHashMap<>() {{
 				put(BOOLEAN, "tinyint");
 				put(TINYINT, "tinyint");
 				put(SMALLINT, "smallint");
@@ -81,9 +80,8 @@ public class TargetDbSqlUtils {
 				put(NCLOB, "longtext");
 				put(SQLXML, "longtext");
 				put(JSON, "longtext");
-			}});
-	private static final Map<Integer, String> POSTGRESQL_MAPPING =
-			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
+			}};
+	private static final Int2ObjectHashMap<String>  POSTGRESQL_MAPPING = new Int2ObjectHashMap<>() {{
 				put(BOOLEAN, "boolean");
 				put(TINYINT, "smallint");
 				put(SMALLINT, "smallint");
@@ -103,9 +101,8 @@ public class TargetDbSqlUtils {
 				put(NCLOB, "text");
 				put(SQLXML, "text");
 				put(JSON, "text");
-			}});
-	private static final Map<Integer, String> ORACLE_MAPPING =
-			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
+			}};
+	private static final Int2ObjectHashMap<String> ORACLE_MAPPING = new Int2ObjectHashMap<>() {{
 				put(BOOLEAN, "CHAR(1)");
 				put(TINYINT, "NUMBER(3)");
 				put(SMALLINT, "NUMBER(5)");
@@ -125,9 +122,8 @@ public class TargetDbSqlUtils {
 				put(NCLOB, "NCLOB");
 				put(SQLXML, "XMLTYPE");
 				put(JSON, "CLOB");
-			}});
-	private static final Map<Integer, String> MSSQL_MAPPING =
-			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
+			}};
+	private static final Int2ObjectHashMap<String> MSSQL_MAPPING = new Int2ObjectHashMap<>() {{
 				put(BOOLEAN, "bit");
 				put(TINYINT, "tinyint");
 				put(SMALLINT, "smallint");
@@ -147,14 +143,13 @@ public class TargetDbSqlUtils {
 				put(NCLOB, "nvarchar(max)");
 				put(SQLXML, "xml");
 				put(JSON, "nvarchar(max)");
-			}});
-	private static final Map<Integer, String> PK_STRING_MAPPING =
-			Collections.unmodifiableMap(new HashMap<Integer, String>() {{
+			}};
+	private static final Int2ObjectHashMap<String>  PK_STRING_MAPPING = new Int2ObjectHashMap<>() {{
 				put(DB_TYPE_MYSQL, "varchar($)");
 				put(DB_TYPE_POSTGRESQL, "varchar($)");
 				put(DB_TYPE_ORACLE, "VARCHAR2($)");
 				put(DB_TYPE_MSSQL, "nvarchar($)");
-			}});
+			}};
 
 	/**
 	 * 
@@ -175,7 +170,7 @@ public class TargetDbSqlUtils {
 			final Map<String, JdbcSinkColumn> pkColumns,
 			final List<JdbcSinkColumn> allColumns,
 			final Map<String, Object> lobColumns) {
-		final Map<Integer, String> dataTypesMap = dataTypesMap(dbType);
+		var dataTypesMap = dataTypesMap(dbType);
 
 		final boolean onlyValue = pkColumns.size() == 0;
 		final List<String> sqlStrings = new ArrayList<>();
@@ -277,7 +272,7 @@ public class TargetDbSqlUtils {
 		return sqlStrings;
 	}
 
-	private static String getTargetDbColumn(final int dbType, final int pkStringLength, final Map<Integer, String> dataTypesMap, final JdbcSinkColumn column) {
+	private static String getTargetDbColumn(final int dbType, final int pkStringLength, final Int2ObjectHashMap<String> dataTypesMap, final JdbcSinkColumn column) {
 		final StringBuilder sb = new StringBuilder(64);
 		sb.append(column.getColumnName());
 		sb.append(" ");
@@ -607,7 +602,7 @@ public class TargetDbSqlUtils {
 			final String tableName,
 			final int dbType,
 			final JdbcSinkColumn columnToAdd) {
-		final Map<Integer, String> dataTypesMap = dataTypesMap(dbType);
+		var dataTypesMap = dataTypesMap(dbType);
 		
 		final StringBuilder sbAlterTable = new StringBuilder(0x80);
 		sbAlterTable
@@ -618,7 +613,7 @@ public class TargetDbSqlUtils {
 		return sbAlterTable.toString();
 	}
 
-	private static Map<Integer, String> dataTypesMap(final int dbType) {
+	private static Int2ObjectHashMap<String> dataTypesMap(final int dbType) {
 		switch (dbType) {
 		case DB_TYPE_POSTGRESQL:
 			return POSTGRESQL_MAPPING;
