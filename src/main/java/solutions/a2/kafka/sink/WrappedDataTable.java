@@ -27,6 +27,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 
+import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Field;
@@ -84,7 +85,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 	private final Set<String> pkInUpsertBatch = new HashSet<>();
 	private String updateStmtStart;
 	private String updateStmtWhere;
-	private final Map<Integer, UpdateStatement> updateStatements = new HashMap<>();
+	private final Int2ObjectHashMap<UpdateStatement> updateStatements = new Int2ObjectHashMap<>();
 	
 
 	public WrappedDataTable(final JdbcSinkConnectionPool sinkPool,
