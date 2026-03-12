@@ -30,6 +30,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.agrona.collections.Int2IntHashMap;
+import org.agrona.collections.IntArrayList;
 import org.agrona.collections.IntHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
@@ -875,7 +876,7 @@ public class OraRdbmsInfo {
 
 	public int[] getConUidsArray(final Connection connection) throws SQLException {
 		if (cdb && !pdbConnectionAllowed) {
-			List<Integer> list = new ArrayList<>();
+			var list = new IntArrayList();
 			// We do not need CDB$ROOT and PDB$SEED
 			PreparedStatement statement = connection.prepareStatement(
 					"select CON_UID from V$CONTAINERS where CON_ID > 2");
