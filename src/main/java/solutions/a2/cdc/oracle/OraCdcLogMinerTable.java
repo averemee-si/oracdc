@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.agrona.collections.Long2ObjectHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.errors.DataException;
@@ -61,7 +62,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 
 	private final Map<String, OraCdcColumn> idToNameMap = new HashMap<>();
 	private final Set<String> setColumns = new HashSet<>();
-	private Map<Long, OraCdcColumn> lobColumnsObjectIds;
+	private Long2ObjectHashMap<OraCdcColumn> lobColumnsObjectIds;
 	private Map<String, OraCdcColumn> lobColumnsNames;
 
 	/**
@@ -131,7 +132,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 	@Override
 	void createLobHolders() {
 		lobColumnsNames = new HashMap<>();
-		lobColumnsObjectIds = new HashMap<>();
+		lobColumnsObjectIds = new Long2ObjectHashMap<>();
 	}
 
 	@Override

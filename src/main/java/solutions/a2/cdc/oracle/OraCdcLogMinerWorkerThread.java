@@ -26,14 +26,13 @@ import java.sql.SQLRecoverableException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
+import org.agrona.collections.LongHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
@@ -88,8 +87,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
 	private final boolean traceSession;
-	private final Set<Long> lobObjects;
-	private final Set<Long> nonLobObjects;
+	private final LongHashSet lobObjects;
+	private final LongHashSet nonLobObjects;
 	private final OraCdcDictionaryChecker checker;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
 	private final OraCdcTransactionChronicleQueue.LobProcessingStatus lobProcessingStatus;
@@ -137,8 +136,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 		if (processLobs) {
 			lobProcessingStatus = LOGMINER;
-			lobObjects = new HashSet<>();
-			nonLobObjects = new HashSet<>();
+			lobObjects = new LongHashSet();
+			nonLobObjects = new LongHashSet();
 		} else {
 			lobProcessingStatus = NOT_AT_ALL;
 			lobObjects = null;
