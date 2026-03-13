@@ -804,7 +804,7 @@ public class OraRdbmsInfo {
 			final String where, final Connection connection,
 			final boolean processLobs) throws SQLException {
 		var objIds = new IntHashSet(0x100);
-		var iotIds = new Int2IntHashMap(0x100);
+		var iotIds = new Int2IntHashMap(0x100, .9f, 0);
 
 		//TODO
 		//TODO For CDB - pair required!!!
