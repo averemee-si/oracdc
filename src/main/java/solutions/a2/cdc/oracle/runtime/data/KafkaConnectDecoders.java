@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
 import org.slf4j.Logger;
@@ -115,7 +116,7 @@ import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
  */
 public class KafkaConnectDecoders {
 
-	private static final Map<Integer, OraCdcDecoder> decoders = new HashMap<>();
+	private static final Int2ObjectHashMap<OraCdcDecoder> decoders = new Int2ObjectHashMap<>();
 	private static final Map<String, String> oraToJava = new HashMap<>();
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaConnectDecoders.class);
