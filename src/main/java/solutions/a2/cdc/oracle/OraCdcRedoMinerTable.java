@@ -22,11 +22,10 @@ import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
+import org.agrona.collections.Int2ObjectHashMap;
+import org.agrona.collections.IntHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
@@ -40,9 +39,9 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerTable.class);
 
-	private final Map<Integer, OraCdcColumn> pureIdMap = new HashMap<>();
-	private final Set<Integer> setColumns = new HashSet<>();
-	private Set<Integer> lobColumnIds;
+	private final Int2ObjectHashMap<OraCdcColumn> pureIdMap = new Int2ObjectHashMap<>();
+	private final IntHashSet setColumns = new IntHashSet();
+	private IntHashSet lobColumnIds;
 	private final boolean beforeData;
 
 	/**
@@ -116,7 +115,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 	@Override
 	void addLobColumnId(final int columnId) {
 		if (lobColumnIds == null)
-			lobColumnIds = new HashSet<>();
+			lobColumnIds = new IntHashSet();
 		lobColumnIds.add(columnId);
 	}
 
