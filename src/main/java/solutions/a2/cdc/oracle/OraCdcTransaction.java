@@ -86,6 +86,7 @@ import java.util.zip.Inflater;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.IntHashSet;
+import org.agrona.collections.Long2ObjectHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -145,7 +146,7 @@ public abstract class OraCdcTransaction {
 	int capacity;
 	final LobProcessingStatus processLobs;
 	private Map<LobId, LobHolder> transLobs;
-	private Map<Long, LobId> lobCols;
+	private Long2ObjectHashMap<LobId> lobCols;
 	final Path rootDir;
 	Path lobsQueueDirectory;
 
@@ -363,7 +364,7 @@ public abstract class OraCdcTransaction {
 			lobsQueueDirectory = Files.createTempDirectory(rootDir, xid + ".LOBDATA.");
 			if (processLobs == LobProcessingStatus.REDOMINER) {
 				transLobs = new HashMap<>();
-				lobCols = new HashMap<>();
+				lobCols = new Long2ObjectHashMap<>();
 			} else {
 				// processLobs == LobProcessingStatus.LOGMINER
 				transLobs = null;
