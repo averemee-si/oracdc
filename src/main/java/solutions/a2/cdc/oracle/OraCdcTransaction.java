@@ -84,6 +84,9 @@ import java.util.Set;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
+import org.agrona.collections.Int2ObjectHashMap;
+import org.agrona.collections.IntHashSet;
+import org.agrona.collections.Long2ObjectHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,7 +129,7 @@ public abstract class OraCdcTransaction {
 
 	boolean partialRollback = false;
 	List<PartialRollbackEntry> rollbackEntriesList;
-	Set<Integer> rollbackPairs;
+	IntHashSet rollbackPairs;
 	private boolean suspicious = false;
 
 	private String username;
@@ -136,14 +139,14 @@ public abstract class OraCdcTransaction {
 	private String sessionInfo;
 	private String clientId;
 
-	private final Map<Integer, Deque<RowChangeHolder>> halfDone = new HashMap<>(0x20, .7f);
-	private final Map<Integer, List<RowChangeHolder>> finishedQueue = new HashMap<>();
+	private final Int2ObjectHashMap<Deque<RowChangeHolder>> halfDone = new Int2ObjectHashMap<>(0x20, .7f);
+	private final Int2ObjectHashMap<List<RowChangeHolder>> finishedQueue = new Int2ObjectHashMap<>();
 	private boolean isCdb = false;
 	boolean needInit = true;
 	int capacity;
 	final LobProcessingStatus processLobs;
 	private Map<LobId, LobHolder> transLobs;
-	private Map<Long, LobId> lobCols;
+	private Long2ObjectHashMap<LobId> lobCols;
 	final Path rootDir;
 	Path lobsQueueDirectory;
 
@@ -361,7 +364,7 @@ public abstract class OraCdcTransaction {
 			lobsQueueDirectory = Files.createTempDirectory(rootDir, xid + ".LOBDATA.");
 			if (processLobs == LobProcessingStatus.REDOMINER) {
 				transLobs = new HashMap<>();
-				lobCols = new HashMap<>();
+				lobCols = new Long2ObjectHashMap<>();
 			} else {
 				// processLobs == LobProcessingStatus.LOGMINER
 				transLobs = null;
@@ -419,7 +422,7 @@ public abstract class OraCdcTransaction {
 		this.commitScn = commitScn;
 		if (partialRollback) {
 			// Need to process all entries in reverse order
-			rollbackPairs = new HashSet<>();
+			rollbackPairs = new IntHashSet();
 			processRollbackEntries();
 		}
 		if (suspicious) {

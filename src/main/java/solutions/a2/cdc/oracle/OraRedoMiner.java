@@ -25,10 +25,10 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.Strings;
-import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogBfileFactory;
@@ -113,7 +113,7 @@ public class OraRedoMiner {
 
 	public OraRedoMiner(
 			final OraCdcSourceConnMgmt metrics,
-			final Triple<Long, RedoByteAddress, Long> startFrom,
+			final Coords startFrom,
 			final OraCdcSourceConnectorConfig config,
 			final CountDownLatch runLatch,
 			final OraRdbmsInfo rdbmsInfo,
@@ -178,10 +178,10 @@ public class OraRedoMiner {
 			onlineRedoQueryMsMin = Integer.MIN_VALUE;
 		}
 		if (config.stopOnMissedLogFile()) flags1 |= FLG1_STOP_ON_MISSED_FILE;
-		this.firstChange = startFrom.getLeft();
-		if (startFrom.getMiddle() != null) {
+		this.firstChange = startFrom.scn();
+		if (startFrom.rba() != null) {
 			flags1 &= (~FLG1_INITED);
-			firstRba = startFrom.getMiddle();
+			firstRba = startFrom.rba();
 		}
 		var connection = this.oraConnections.getConnection();
 		createStatements(connection);

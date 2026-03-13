@@ -26,23 +26,22 @@ import java.sql.SQLRecoverableException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
+import org.agrona.collections.LongHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.CHAR;
+import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -82,14 +81,14 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private Connection connDictionary;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final Map<String, String> prefixedTransactions;
-	private final TreeMap<String, Triple<Long, RedoByteAddress, Long>> sortedByFirstScn;
+	private final TreeMap<String, Coords> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
 	private final boolean traceSession;
-	private final Set<Long> lobObjects;
-	private final Set<Long> nonLobObjects;
+	private final LongHashSet lobObjects;
+	private final LongHashSet nonLobObjects;
 	private final OraCdcDictionaryChecker checker;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
 	private final OraCdcTransactionChronicleQueue.LobProcessingStatus lobProcessingStatus;
@@ -137,8 +136,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 		if (processLobs) {
 			lobProcessingStatus = LOGMINER;
-			lobObjects = new HashSet<>();
-			nonLobObjects = new HashSet<>();
+			lobObjects = new LongHashSet();
+			nonLobObjects = new LongHashSet();
 		} else {
 			lobProcessingStatus = NOT_AT_ALL;
 			lobObjects = null;
@@ -453,8 +452,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 										transaction = createTransaction(xid, lastScn, activeTransactions.size());
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
-										sortedByFirstScn.put(xid,
-													Triple.of(lastScn, lastRba, lastSubScn));
+										sortedByFirstScn.put(xid, 
+												new Coords(lastScn, lastRba, lastSubScn));
 										if (firstTransaction) {
 											firstTransaction = false;
 											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -504,7 +503,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
-													Triple.of(lastScn, lastRba, lastSubScn));
+													new Coords(lastScn, lastRba, lastSubScn));
 										if (firstTransaction) {
 											firstTransaction = false;
 											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -654,7 +653,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 					rsLogMiner = null;
 					if (activeTransactions.isEmpty() && lastGuaranteedScn > 0) {
 						// Update restart point in time
-						task.putReadRestartScn(Triple.of(lastGuaranteedScn, lastGuaranteedRsId, lastGuaranteedSsn));
+						task.putReadRestartScn(new Coords(lastGuaranteedScn, lastGuaranteedRsId, lastGuaranteedSsn));
 					}
 					if (runLatch.getCount() > 0) {
 						try {

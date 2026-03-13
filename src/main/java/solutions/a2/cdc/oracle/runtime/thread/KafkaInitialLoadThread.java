@@ -16,7 +16,6 @@ package solutions.a2.cdc.oracle.runtime.thread;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -24,6 +23,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.agrona.collections.Long2ObjectHashMap;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +38,7 @@ import solutions.a2.utils.ExceptionUtils;
 
 /**
  * 
- * @author averemee
+ * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
 public class KafkaInitialLoadThread extends Thread {
@@ -49,7 +49,7 @@ public class KafkaInitialLoadThread extends Thread {
 	private final long asOfScn;
 	private final OraCdcInitialLoad metrics;
 	private final CountDownLatch runLatch;
-	private final Map<Long, OraCdcTableBase> tablesInProcessing;
+	private final Long2ObjectHashMap<OraCdcTableBase> tablesInProcessing;
 	private final Path queuesRoot;
 	private final BlockingQueue<KafkaInitialLoadTable> tablesQueue;
 	private final AtomicBoolean running;
@@ -60,7 +60,7 @@ public class KafkaInitialLoadThread extends Thread {
 	public KafkaInitialLoadThread(
 			final int waitInterval,
 			final long asOfScn,
-			final Map<Long, OraCdcTableBase> tablesInProcessing,
+			final Long2ObjectHashMap<OraCdcTableBase> tablesInProcessing,
 			final OraCdcSourceConnectorConfig config,
 			final OraRdbmsInfo rdbmsInfo,
 			final OraCdcInitialLoad metrics,

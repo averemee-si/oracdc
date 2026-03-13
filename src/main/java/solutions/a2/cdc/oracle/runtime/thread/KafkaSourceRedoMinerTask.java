@@ -19,16 +19,13 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.Set;
 
+import org.agrona.collections.Int2IntHashMap;
+import org.agrona.collections.IntHashSet;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.ImmutableTriple;
-import org.apache.commons.lang3.tuple.MutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
@@ -44,7 +41,6 @@ import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraCdcRedoMinerTable;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
-import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 import solutions.a2.utils.ExceptionUtils;
 
@@ -108,12 +104,11 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 					initialLoadSql.append(OraDictSqlTexts.INITIAL_LOAD_LIST_NON_CDB);
 				}
 			}
-			Set<Integer> includeObjIds = null;
-			Map<Integer, Integer> iotMapping = null;
+			IntHashSet includeObjIds = null;
+			Int2IntHashMap iotMapping = null;
 			if (includeList != null && includeList.size() > 0) {
-				final String tableList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
-				final Entry<Set<Integer>, Map<Integer, Integer>> includeEntries = rdbmsInfo.getMineObjectsIds(
-						false, tableList, connDictionary, processLobs);
+				var tableList = OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, includeList);
+				var includeEntries = rdbmsInfo.getMineObjectsIds(false, tableList, connDictionary, processLobs);
 				includeObjIds = includeEntries.getKey();
 				iotMapping = includeEntries.getValue();
 				if (includeObjIds == null || includeObjIds.size() == 0) {
@@ -126,7 +121,7 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 					initialLoadSql.append(tableList);
 				}
 			}
-			Set<Integer> excludeObjIds = null;
+			IntHashSet excludeObjIds = null;
 			if (excludeList != null && excludeList.size() > 0) {
 				excludeObjIds = rdbmsInfo.getMineObjectsIds(true,
 							OraSqlUtils.parseTableSchemaList(false, OraSqlUtils.MODE_WHERE_ALL_OBJECTS, excludeList),
@@ -159,8 +154,10 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 						TABLE_LIST_STYLE_PARAM, TABLE_LIST_STYLE_DYNAMIC);
 				throw new ConnectException("Check oracdc parameters!");
 			}
-			MutableTriple<Long, RedoByteAddress, Long> coords = new MutableTriple<>();
+			Coords coords = new Coords();
 			boolean rewind = startPosition(coords);
+			if (!rewind)
+				coords.resetRbaSubScn();
 			var concTransThreshold = config.transactionsThreshold();
 			LOGGER.info("The threshold for concurrent transactions processed is set to {}", concTransThreshold);
 			committedTransactions = new ArrayBlockingQueue<>(concTransThreshold);
@@ -174,7 +171,7 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 			worker = new OraCdcRedoMinerWorkerThread(
 					this,
 					emitter,
-					rewind ? coords : new ImmutableTriple<>(coords.getLeft(), null, -1l),
+					coords,
 					conUids,
 					checker,
 					activeTransactions,
@@ -183,7 +180,7 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 					metrics,
 					rewind);
 			if (execInitialLoad) {
-				prepareInitialLoadWorker(initialLoadSql.toString(), coords.getLeft());
+				prepareInitialLoadWorker(initialLoadSql.toString(), coords.scn());
 			}
 
 		} catch (SQLException | InvalidPathException e) {
@@ -353,7 +350,7 @@ public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements Ora
 			super.stop(true);
 			if (activeTransactions != null && activeTransactions.isEmpty()) {
 				if (worker != null && worker.lastRba() != null && worker.lastScn() > 0) {
-					putReadRestartScn(Triple.of(
+					putReadRestartScn(new Coords(
 							worker.lastScn(),
 							worker.lastRba(),
 							worker.lastSubScn()));

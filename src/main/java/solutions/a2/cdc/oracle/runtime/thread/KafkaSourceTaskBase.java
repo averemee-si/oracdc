@@ -23,11 +23,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -36,10 +33,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.agrona.collections.Long2ObjectHashMap;
+import org.agrona.collections.LongHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.commons.lang3.tuple.MutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -91,8 +88,8 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 	AtomicBoolean isPollRunning;
 	OraConnectionObjects oraConnections;
 	Map<String, Object> offset;
-	Map<Long, OraCdcTableBase> tablesInProcessing;
-	Set<Long> tablesOutOfScope;
+	Long2ObjectHashMap<OraCdcTableBase> tablesInProcessing;
+	LongHashSet tablesOutOfScope;
 	BlockingQueue<OraCdcTransaction> committedTransactions;
 	OraCdcTransaction transaction;
 	OraCdcWorkerThreadBase worker;
@@ -243,9 +240,9 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 
 		if (offset == null) offset = new ConcurrentHashMap<>();
 		if (tablesInProcessing == null)
-			tablesInProcessing = new HashMap<>(config.tablesInProcessSize(), .7f);
+			tablesInProcessing = new Long2ObjectHashMap<>(config.tablesInProcessSize(), .7f);
 		if (tablesOutOfScope == null)
-			tablesOutOfScope = new HashSet<>(config.tablesOutOfScopeSize(), .7f);
+			tablesOutOfScope = new LongHashSet(config.tablesOutOfScopeSize(), .7f);
 
 		try (Connection connDictionary = oraConnections.getConnection()) {
 			rdbmsInfo = new OraRdbmsInfo(connDictionary);
@@ -432,7 +429,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 		}
 	}
 
-	boolean startPosition(MutableTriple<Long, RedoByteAddress, Long> coords) throws SQLException {
+	boolean startPosition(Coords coords) throws SQLException {
 		boolean rewind = false;
 		final long firstAvailableScn = rdbmsInfo.firstScnFromArchivedLogs(
 				oraConnections.getLogMinerConnection(),
@@ -516,9 +513,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 				firstScn = firstAvailableScn;
 			}
 		}
-		coords.setLeft(firstScn);
-		coords.setMiddle(firstRba);
-		coords.setRight(firstSubScn);
+		coords.init(firstScn, firstRba, firstSubScn);
 		return rewind;
 	}
 
@@ -543,10 +538,10 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 	}
 
 	@Override
-	public void putReadRestartScn(final Triple<Long, RedoByteAddress, Long> transData) {
-		offset.put(fldScnStart, transData.getLeft());
-		offset.put(fldRbaStart, transData.getMiddle().toString());
-		offset.put(fldSubScnStart, transData.getRight());
+	public void putReadRestartScn(final Coords transData) {
+		offset.put(fldScnStart, transData.scn());
+		offset.put(fldRbaStart, transData.rba().toString());
+		offset.put(fldSubScnStart, transData.subScn());
 	}
 
 	@Override

@@ -23,8 +23,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.commons.lang3.tuple.MutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
@@ -42,7 +40,6 @@ import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraCdcLogMinerTable;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
-import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -248,7 +245,7 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 				LOGGER.debug("Mining SQL = {}", mineDataSql);
 				LOGGER.debug("Dictionary check SQL = {}", checkTableSql);
 			}
-			MutableTriple<Long, RedoByteAddress, Long> coords = new MutableTriple<>();
+			var coords = new Coords();
 			boolean rewind = startPosition(coords);
 			activeTransactions = new HashMap<>();
 
@@ -257,14 +254,14 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 					tablesInProcessing, tablesOutOfScope, checkTableSql, metrics);
 
 			worker = new OraCdcLogMinerWorkerThread(this,
-					checker, coords.getLeft(), mineDataSql, activeTransactions,
+					checker, coords.scn(), mineDataSql, activeTransactions,
 					committedTransactions, metrics);
 			if (rewind) {
-				worker.rewind(coords.getLeft(), coords.getMiddle(), coords.getRight());
+				worker.rewind(coords.scn(), coords.rba(), coords.subScn());
 			}
 
 			if (execInitialLoad) {
-				prepareInitialLoadWorker(initialLoadSql, coords.getLeft());
+				prepareInitialLoadWorker(initialLoadSql, coords.scn());
 			}
 
 		} catch (SQLException e) {
@@ -442,7 +439,7 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 		}
 		if (activeTransactions != null && activeTransactions.isEmpty()) {
 			if (worker != null && worker.lastRba() != null && worker.lastScn() > 0) {
-				putReadRestartScn(Triple.of(
+				putReadRestartScn(new Coords(
 						worker.lastScn(),
 						worker.lastRba(),
 						worker.lastSubScn()));

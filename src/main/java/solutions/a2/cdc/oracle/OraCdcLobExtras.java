@@ -16,6 +16,8 @@ package solutions.a2.cdc.oracle;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.agrona.collections.Int2ObjectHashMap;
+
 import solutions.a2.cdc.oracle.internals.OraCdcChangeLlb;
 
 /**
@@ -25,7 +27,7 @@ import solutions.a2.cdc.oracle.internals.OraCdcChangeLlb;
  */
 public class OraCdcLobExtras {
 
-	private final Map<Integer, Map<Short, Short>[]> intColIdsMap = new HashMap<>();
+	private final Int2ObjectHashMap<Map<Short, Short>[]> intColIdsMap = new Int2ObjectHashMap<>();
 
 	public short intColumnId(final int obj, final short col, final boolean direct) {
 		final Map<Short, Short>[] columns = intColIdsMap.get(obj);

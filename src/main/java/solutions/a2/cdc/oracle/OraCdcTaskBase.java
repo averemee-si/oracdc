@@ -15,8 +15,6 @@ package solutions.a2.cdc.oracle;
 
 import java.util.concurrent.CountDownLatch;
 
-import org.apache.commons.lang3.tuple.Triple;
-
 import solutions.a2.oracle.internals.RedoByteAddress;
 
 /**
@@ -34,6 +32,36 @@ public interface OraCdcTaskBase {
 	void putTableVersion(final long combinedDataObjectId, final int version);
 	void stop();
 	void stop(boolean stopWorker);
-	void putReadRestartScn(final Triple<Long, RedoByteAddress, Long> transData);
+	void putReadRestartScn(final Coords transData);
+
+	public static class Coords {
+		private long scn;
+		private RedoByteAddress rba;
+		private long subScn;
+		public Coords() {}
+		public Coords(long scn, RedoByteAddress rba, long subScn) {
+			this.scn = scn;
+			this.rba = rba;
+			this.subScn = subScn;
+		}
+		public void init(long scn, RedoByteAddress rba, long subScn) {
+			this.scn = scn;
+			this.rba = rba;
+			this.subScn = subScn;
+		}
+		public long scn() {
+			return scn;
+		}
+		public RedoByteAddress rba() {
+			return rba;
+		}
+		public long subScn() {
+			return subScn;
+		}
+		public void resetRbaSubScn() {
+			rba = null;
+			subScn = -1L;
+		}
+	};
 
 }

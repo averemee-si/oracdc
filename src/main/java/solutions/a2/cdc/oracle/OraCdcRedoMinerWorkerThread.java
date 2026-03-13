@@ -28,11 +28,13 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
 
+import org.agrona.collections.Int2IntHashMap;
+import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.commons.lang3.Strings;
-import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.oracle.internals.LobId;
@@ -76,8 +78,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final OraRedoMiner redoMiner;
 	private final Map<Xid, OraCdcRawTransaction> activeTransactions;
 	private final BlockingQueue<OraCdcRawTransaction> rawTransactions;
-	private final Map<Integer, Xid> prefixedTransactions;
-	private final TreeMap<Xid, Triple<Long, RedoByteAddress, Long>> sortedByFirstScn;
+	private final Int2ObjectHashMap<Xid> prefixedTransactions;
+	private final TreeMap<Xid, Coords> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
 	private final BinaryUtils bu;
 
@@ -93,19 +95,19 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final TreeMap<Long, List<OraCdcRedoRecord>> halfDoneRcm;
 	private final Map<LobId, Xid> transFromLobId;
 	private final Map<Xid, List<LobId>> lobIdFromTrans;
-	private final Map<Integer, Integer> iotMapping;
+	private final Int2IntHashMap iotMapping;
 	private final OraCdcLobExtras lobExtras;
 	private final OraCdcRedoMinerEmitterThread emitter;
 
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcTaskBase task,
 			final OraCdcRedoMinerEmitterThread emitter,
-			final Triple<Long, RedoByteAddress, Long> startFrom,
+			final Coords startFrom,
 			final int[] conUids,
 			final OraCdcDictionaryChecker checker,
 			final Map<Xid, OraCdcRawTransaction> activeTransactions,
 			final BlockingQueue<OraCdcRawTransaction> rawTransactions,
-			final Map<Integer, Integer> iotMapping,
+			final Int2IntHashMap iotMapping,
 			final OraCdcSourceConnMgmt metrics,
 			final boolean rewind) throws SQLException {
 		super(task);
@@ -126,7 +128,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.iotMapping = iotMapping;
 		activeTransComparator = new ActiveTransComparator(activeTransactions);
 		sortedByFirstScn = new TreeMap<>(activeTransComparator);
-		prefixedTransactions = new HashMap<>(task.config().transactionsInProcessSize(), .7f);
+		prefixedTransactions = new Int2ObjectHashMap<>(task.config().transactionsInProcessSize(), .7f);
 		this.bu = BinaryUtils.get(rdbmsInfo.littleEndian());
 		dbZoneId = rdbmsInfo.getDbTimeZone();
 		this.halfDoneRcm  = new TreeMap<>(new Comparator<Long>() {
@@ -155,7 +157,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			throw sqle;
 		}
 		// Finally - prepare for mining...
-		redoMinerNext(startFrom.getLeft(), startFrom.getMiddle(), startFrom.getRight(), rewind);
+		redoMinerNext(startFrom.scn(), startFrom.rba(), startFrom.subScn(), rewind);
 	}
 
 	@Override
@@ -520,7 +522,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					miner = null;
 					if (activeTransactions.isEmpty() && lastScn > 0) {
 						// Update restart point in time
-						task.putReadRestartScn(Triple.of(lastScn, lastRba, lastSubScn));
+						task.putReadRestartScn(new Coords(lastScn, lastRba, lastSubScn));
 					}
 					redoMinerNext(lastScn, lastRba, lastSubScn, false);
 				}
@@ -588,7 +590,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private void createTransactionPrefix(final Xid xid, final RedoByteAddress rba) {
-		final int partial = xid.partial();
+		var partial = xid.partial();
 		final Xid prevXid = prefixedTransactions.put(partial, xid);
 		if (prevXid != null) {
 			final StringBuilder sb = new StringBuilder(
@@ -781,7 +783,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			}
 			createTransactionPrefix(xid, lastRba);
 			sortedByFirstScn.put(xid,
-						Triple.of(lastScn, lastRba, lastSubScn));
+						new Coords(lastScn, lastRba, lastSubScn));
 			if (firstTransaction) {
 				firstTransaction = false;
 				task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -878,8 +880,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	}
 
 	private void iotObjRemap(final boolean overflow, final OraCdcRedoRecord record) {
-		final Integer iotObjId = iotMapping.get(record.change5_1().obj());
-		if (iotObjId  != null) {
+		var iotObjId = iotMapping.get(record.change5_1().obj());
+		if (iotObjId  != 0) {
 			if (LOGGER.isDebugEnabled())
 				LOGGER.debug(
 						"Remapping {} obj {} at RBA {} to parent obj {}",

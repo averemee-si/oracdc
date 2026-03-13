@@ -26,9 +26,8 @@ import static solutions.a2.oracle.utils.BinaryUtils.getU24BE;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
+import org.agrona.collections.IntHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -148,7 +147,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 			}
 		} else if (operation == UPDATE) {
 			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
-			final Set<Integer> changedCols = new HashSet<>(setColCount);
+			var changedCols = new IntHashSet((int) (setColCount * 1.2), 0.9f);
 			int[][] setColDefs = new int[setColCount][3];
 			int pos = readAndSortColDefs(setColDefs, Short.BYTES);
 
