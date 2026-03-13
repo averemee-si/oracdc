@@ -28,7 +28,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +35,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Matcher;
 
+import org.agrona.collections.IntHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
@@ -432,7 +432,7 @@ public abstract class OraCdcTableBase {
 		case OraSqlUtils.ALTER_TABLE_COLUMN_DROP:
 			final String[] columnNamesToDrop = StringUtils.split(preProcessed, ";");
 			final List<OraCdcColumn> unusedColumns = new ArrayList<>();
-			final Set<Integer> unusedColumnIndexes = new HashSet<>();
+			final IntHashSet unusedColumnIndexes = new IntHashSet();
 			for (int i = 0; i < columnNamesToDrop.length; i++) {
 				unusedColumnIndexes.add(i);
 				final String columnToDrop = OraCdcColumn.canonicalColumnName(columnNamesToDrop[i]);
