@@ -18,12 +18,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
 import org.agrona.collections.IntHashSet;
+import org.agrona.collections.Long2LongHashMap;
+import org.agrona.collections.Long2ObjectHashMap;
+import org.agrona.collections.LongHashSet;
 import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,9 +52,9 @@ public class OraCdcDictionaryChecker {
 	private final OraConnectionObjects oraConnections;
 	private final OraCdcSourceConnectorConfig config;
 	private final OraRdbmsInfo rdbmsInfo;
-	private final Map<Long, OraCdcTableBase> tablesInProcessing;
-	private final Map<Long, Long> partitionsInProcessing;
-	private final Set<Long> tablesOutOfScope;
+	private final Long2ObjectHashMap<OraCdcTableBase> tablesInProcessing;
+	private final Long2LongHashMap partitionsInProcessing;
+	private final LongHashSet tablesOutOfScope;
 	private final String checkTableSql;
 	private final CountDownLatch runLatch;
 	private final boolean isCdb;
@@ -70,8 +70,8 @@ public class OraCdcDictionaryChecker {
 
 	public OraCdcDictionaryChecker(
 			final OraCdcTaskBase task,
-			final Map<Long, OraCdcTableBase> tablesInProcessing,
-			final Set<Long> tablesOutOfScope,
+			final Long2ObjectHashMap<OraCdcTableBase> tablesInProcessing,
+			final LongHashSet tablesOutOfScope,
 			final String checkTableSql,
 			final OraCdcSourceConnMgmt metrics) throws SQLException {
 		this(task, false, tablesInProcessing, tablesOutOfScope, checkTableSql, null, null, metrics);
@@ -80,8 +80,8 @@ public class OraCdcDictionaryChecker {
 	public OraCdcDictionaryChecker(
 			final OraCdcTaskBase task,
 			final boolean staticObjIds,
-			final Map<Long, OraCdcTableBase> tablesInProcessing,
-			final Set<Long> tablesOutOfScope,
+			final Long2ObjectHashMap<OraCdcTableBase> tablesInProcessing,
+			final LongHashSet tablesOutOfScope,
 			final String checkTableSql,
 			IntHashSet includeObjIds,
 			IntHashSet excludeObjIds,
@@ -109,7 +109,7 @@ public class OraCdcDictionaryChecker {
 		this.connectionRetryBackoff = config.connectionRetryBackoff();
 		this.connection = oraConnections.getConnection();
 		this.metrics = metrics;
-		this.partitionsInProcessing = new HashMap<>();
+		this.partitionsInProcessing = new Long2LongHashMap(config.tablesInProcessSize(), .7f, 0L);
 		logMiner = config.logMiner();
 		initStatements();
 	}
@@ -124,8 +124,8 @@ public class OraCdcDictionaryChecker {
 	OraCdcTableBase getTable(long combinedDataObjectId, final long dataObjectId, final long conId) throws SQLException {
 		OraCdcTableBase oraTable = tablesInProcessing.get(combinedDataObjectId);
 		if (oraTable == null && !tablesOutOfScope.contains(combinedDataObjectId)) {
-			Long combinedParentTableId = partitionsInProcessing.get(combinedDataObjectId);
-			if (combinedParentTableId != null) {
+			var combinedParentTableId = partitionsInProcessing.get(combinedDataObjectId);
+			if (combinedParentTableId != 0L) {
 				return tablesInProcessing.get(combinedParentTableId);
 			} else {
 				// Check for object...
