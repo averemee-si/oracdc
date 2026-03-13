@@ -36,13 +36,13 @@ import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.CHAR;
+import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.cdc.oracle.utils.OraSqlUtils;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -82,7 +82,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private Connection connDictionary;
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final Map<String, String> prefixedTransactions;
-	private final TreeMap<String, Triple<Long, RedoByteAddress, Long>> sortedByFirstScn;
+	private final TreeMap<String, Coords> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
@@ -453,8 +453,8 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 										transaction = createTransaction(xid, lastScn, activeTransactions.size());
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
-										sortedByFirstScn.put(xid,
-													Triple.of(lastScn, lastRba, lastSubScn));
+										sortedByFirstScn.put(xid, 
+												new Coords(lastScn, lastRba, lastSubScn));
 										if (firstTransaction) {
 											firstTransaction = false;
 											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -504,7 +504,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 										activeTransactions.put(xid, transaction);
 										createTransactionPrefix(xid);
 										sortedByFirstScn.put(xid,
-													Triple.of(lastScn, lastRba, lastSubScn));
+													new Coords(lastScn, lastRba, lastSubScn));
 										if (firstTransaction) {
 											firstTransaction = false;
 											task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
@@ -654,7 +654,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 					rsLogMiner = null;
 					if (activeTransactions.isEmpty() && lastGuaranteedScn > 0) {
 						// Update restart point in time
-						task.putReadRestartScn(Triple.of(lastGuaranteedScn, lastGuaranteedRsId, lastGuaranteedSsn));
+						task.putReadRestartScn(new Coords(lastGuaranteedScn, lastGuaranteedRsId, lastGuaranteedSsn));
 					}
 					if (runLatch.getCount() > 0) {
 						try {

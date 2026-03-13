@@ -31,10 +31,10 @@ import java.util.concurrent.BlockingQueue;
 import org.agrona.collections.Int2IntHashMap;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.commons.lang3.Strings;
-import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.oracle.internals.LobId;
@@ -79,7 +79,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final Map<Xid, OraCdcRawTransaction> activeTransactions;
 	private final BlockingQueue<OraCdcRawTransaction> rawTransactions;
 	private final Int2ObjectHashMap<Xid> prefixedTransactions;
-	private final TreeMap<Xid, Triple<Long, RedoByteAddress, Long>> sortedByFirstScn;
+	private final TreeMap<Xid, Coords> sortedByFirstScn;
 	private final ActiveTransComparator activeTransComparator;
 	private final BinaryUtils bu;
 
@@ -102,7 +102,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	public OraCdcRedoMinerWorkerThread(
 			final OraCdcTaskBase task,
 			final OraCdcRedoMinerEmitterThread emitter,
-			final Triple<Long, RedoByteAddress, Long> startFrom,
+			final Coords startFrom,
 			final int[] conUids,
 			final OraCdcDictionaryChecker checker,
 			final Map<Xid, OraCdcRawTransaction> activeTransactions,
@@ -157,7 +157,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			throw sqle;
 		}
 		// Finally - prepare for mining...
-		redoMinerNext(startFrom.getLeft(), startFrom.getMiddle(), startFrom.getRight(), rewind);
+		redoMinerNext(startFrom.scn(), startFrom.rba(), startFrom.subScn(), rewind);
 	}
 
 	@Override
@@ -522,7 +522,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					miner = null;
 					if (activeTransactions.isEmpty() && lastScn > 0) {
 						// Update restart point in time
-						task.putReadRestartScn(Triple.of(lastScn, lastRba, lastSubScn));
+						task.putReadRestartScn(new Coords(lastScn, lastRba, lastSubScn));
 					}
 					redoMinerNext(lastScn, lastRba, lastSubScn, false);
 				}
@@ -783,7 +783,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			}
 			createTransactionPrefix(xid, lastRba);
 			sortedByFirstScn.put(xid,
-						Triple.of(lastScn, lastRba, lastSubScn));
+						new Coords(lastScn, lastRba, lastSubScn));
 			if (firstTransaction) {
 				firstTransaction = false;
 				task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());

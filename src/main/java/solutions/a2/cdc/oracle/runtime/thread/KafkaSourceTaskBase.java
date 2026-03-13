@@ -38,8 +38,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.commons.lang3.tuple.MutableTriple;
-import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -432,7 +430,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 		}
 	}
 
-	boolean startPosition(MutableTriple<Long, RedoByteAddress, Long> coords) throws SQLException {
+	boolean startPosition(Coords coords) throws SQLException {
 		boolean rewind = false;
 		final long firstAvailableScn = rdbmsInfo.firstScnFromArchivedLogs(
 				oraConnections.getLogMinerConnection(),
@@ -516,9 +514,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 				firstScn = firstAvailableScn;
 			}
 		}
-		coords.setLeft(firstScn);
-		coords.setMiddle(firstRba);
-		coords.setRight(firstSubScn);
+		coords.init(firstScn, firstRba, firstSubScn);
 		return rewind;
 	}
 
@@ -543,10 +539,10 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 	}
 
 	@Override
-	public void putReadRestartScn(final Triple<Long, RedoByteAddress, Long> transData) {
-		offset.put(fldScnStart, transData.getLeft());
-		offset.put(fldRbaStart, transData.getMiddle().toString());
-		offset.put(fldSubScnStart, transData.getRight());
+	public void putReadRestartScn(final Coords transData) {
+		offset.put(fldScnStart, transData.scn());
+		offset.put(fldRbaStart, transData.rba().toString());
+		offset.put(fldSubScnStart, transData.subScn());
 	}
 
 	@Override
