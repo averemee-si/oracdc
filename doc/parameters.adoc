@@ -206,8 +206,8 @@ Default - false.
 alter session set max_dump_file_size=unlimited;
 alter session set tracefile_identifier='oracdc';
 alter session set events '10046 trace name context forever, level 8';
+----
 
------
 
 `a2.log.miner.reconnect.ms` - The time interval in milliseconds after which a reconnection to LogMiner occurs, including the re-creation of the Oracle connection. Unix/Linux only, on Windows **oracdc** creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called. Default - https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Long.html#MAX_VALUE[Long.MAX_VALUE]
 
@@ -256,11 +256,15 @@ Default - 86,400,000 (24 hours)
 
 `a2.ssh.strict.host.key.checking` - SSH strict host key checking. Default - false.
 
-`a2.ssh.provider` - Library that provides SSH connection: maverick for Maverick Synergy (https://jadaptive.com/) or sshj for Hierynomus sshj (https://github.com/hierynomus/sshj). Default - sshj
+`a2.ssh.provider` - Library that provides SSH connection: `maverick` for https://jadaptive.com/[Maverick Synergy] or `sshj` for https://github.com/hierynomus/sshj[Hierynomus sshj] or `mina` for https://mina.apache.org/sshd-project/[Apache Mina SSHD]. Default - sshj
 
 `a2.ssh.max.unconfirmed.reads` - Maximum number of unconfirmed reads from SFTP server when using Hierynomus sshj. Default - 256
 
 `a2.ssh.buffer.size` - Read-ahead buffer size in bytes for data from SFTP server when using Hierynomus sshj. Default - 32768
+
+`a2.ssh.connect.timeout` - SSH connect timeout in ms when using Apache Mina SSHD. Default - 30_000
+
+`a2.smb.timeout` - SMB read timeout in ms. Default - 180_000
 
 `a2.smb.server` - FQDN or IP address of the remote SMB (Windows) server with redo log files
 
