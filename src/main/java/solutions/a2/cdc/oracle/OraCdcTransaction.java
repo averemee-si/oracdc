@@ -241,28 +241,49 @@ public abstract class OraCdcTransaction {
 				Set<RedoByteAddress> toRemove = null;
 				var key = hdIterator.next();
 				var waitingList = finishedQueue.get(key);
-				for (var holder : waitingList) {
-					if (holder.complete) {
-						if (LOGGER.isDebugEnabled())
-							LOGGER.debug("Emitting the completed row change, first RBA={}, last RBA={}", holder.first().rba(), holder.last().rba());
-						emitRowChange(holder, holder.lwnUnixMillis);
-					} else {
-						if (holder.last().hasPrb() && (holder.last().has11_x() || holder.last().has10_x())) {
-							var complete = false;
-							for (var rr : holder.records) {
-								if (flgCompleted(rr.rowChange().prbSupplementalFb())) {
-									if (LOGGER.isDebugEnabled())
-										LOGGER.debug("Changing the row change status to 'completed', first RBA={}, last RBA={}", holder.first().rba(), holder.last().rba());
-									complete = true;
-									break;
+				if (waitingList == null) {
+					var first = records.get(0);
+					var last = records.get(records.size() - 1);
+					LOGGER.warn(
+							"""
+							
+							=====================
+							waitingList not found in XID={}, COMMIT_SCN={} for key={}.
+							start RBA={}, end RBA={}, records.size= {}, halfDone.size = {}
+							=====================
+							
+							""", xid, raw.commitScn(), key,
+							first.rba(), last.rba(), records.size(), halfDone.size());
+					if ((first.has5_1() && !first.change5_1().supplementalLogData()) ||
+							(last.has5_1() && !last.change5_1().supplementalLogData()) ||
+							(first.hasPrb() && first.rowChange().prbSupplementalFb() == 0) ||
+							(last.hasPrb() && last.rowChange().prbSupplementalFb() == 0)) {
+						throw new OraCdcException("No supplemental log data available in XID " + xid + " !");
+					}
+				} else {
+					for (var holder : waitingList) {
+						if (holder.complete) {
+							if (LOGGER.isDebugEnabled())
+								LOGGER.debug("Emitting the completed row change, first RBA={}, last RBA={}", holder.first().rba(), holder.last().rba());
+							emitRowChange(holder, holder.lwnUnixMillis);
+						} else {
+							if (holder.last().hasPrb() && (holder.last().has11_x() || holder.last().has10_x())) {
+								var complete = false;
+								for (var rr : holder.records) {
+									if (flgCompleted(rr.rowChange().prbSupplementalFb())) {
+										if (LOGGER.isDebugEnabled())
+											LOGGER.debug("Changing the row change status to 'completed', first RBA={}, last RBA={}", holder.first().rba(), holder.last().rba());
+										complete = true;
+										break;
+									}
 								}
-							}
-							if (complete) {
-								holder.complete = true;
-								if (toRemove == null)
-									toRemove = new HashSet<RedoByteAddress>();
-								toRemove.add(holder.last().rba());
-								emitRowChange(holder, holder.lwnUnixMillis);
+								if (complete) {
+									holder.complete = true;
+									if (toRemove == null)
+										toRemove = new HashSet<RedoByteAddress>();
+									toRemove.add(holder.last().rba());
+									emitRowChange(holder, holder.lwnUnixMillis);
+								}
 							}
 						}
 					}
