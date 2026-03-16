@@ -45,24 +45,21 @@ public class OraCdcRedoLogSshtoolsMaverickFactory extends OraCdcRedoLogFactoryBa
     private SshClient ssh;
     private SftpClient sftp;
 
-	public OraCdcRedoLogSshtoolsMaverickFactory(
-			final String username, final String hostname, final int port,
-			final String keyFile, final String password, final boolean strictHostKeyChecking,
+	public OraCdcRedoLogSshtoolsMaverickFactory(final OraCdcSourceConnectorConfig config,
 			final BinaryUtils bu, final boolean valCheckSum) throws SQLException {
 		super(bu, valCheckSum);
-		this.username = username;
-		this.hostname = hostname;
-		this.port = port;
-		this.strictHostKeyChecking = strictHostKeyChecking;
-		if (StringUtils.isBlank(keyFile)) {
+		username = config.sshUser();
+		hostname = config.sshHostname();
+		port = config.sshPort();
+		strictHostKeyChecking = config.sshStrictHostKeyChecking();
+		if (StringUtils.isBlank(config.sshKey())) {
 			usePassword = true;
-			secret = password;
+			secret = config.sshPassword();
 		} else {
 			usePassword = false;
-			secret = keyFile;
+			secret = config.sshKey();
 		}
 		create();
-
 	}
 
 	private void create() throws SQLException {
@@ -85,13 +82,6 @@ public class OraCdcRedoLogSshtoolsMaverickFactory extends OraCdcRedoLogFactoryBa
 		} catch (IOException | SshException | PermissionDeniedException e) {
 			throw new SQLException(e);
 		}
-	}
-
-
-	public OraCdcRedoLogSshtoolsMaverickFactory(final OraCdcSourceConnectorConfig config, final BinaryUtils bu, final boolean valCheckSum) throws SQLException {
-		this(config.sshUser(), config.sshHostname(), config.sshPort(),
-			config.sshKey(), config.sshPassword(), config.sshStrictHostKeyChecking(),
-			bu, valCheckSum);
 	}
 
 	@Override

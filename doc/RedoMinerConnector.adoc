@@ -150,7 +150,7 @@ To stream redo log files from a database server using the SSH protocol, you need
 
 |a2.storage.media | SSH | Mandatory setting
 
-|a2.ssh.provider | sshj or maverick | Optional, library that provides SSH connection: maverick for https://jadaptive.com/[Maverick Synergy] or sshj for https://github.com/hierynomus/sshj[Hierynomus sshj]. Default - sshj
+|a2.ssh.provider | sshj or maverick | Optional, library that provides SSH connection: `maverick` for https://jadaptive.com/[Maverick Synergy] or `sshj` for https://github.com/hierynomus/sshj[Hierynomus sshj] or `mina` for https://mina.apache.org/sshd-project/[Apache Mina SSHD]. Default - `sshj`
 
 |a2.ssh.hostname | String | Mandatory, FQDN or IP address of the remote server with redo log files
 
@@ -170,6 +170,9 @@ Default - 86,400,000 (24 hours)
 |a2.ssh.max.unconfirmed.reads | Integer | Optional, maximum number of unconfirmed reads from SFTP server when using https://github.com/hierynomus/sshj[Hierynomus sshj]. Default - 256
 
 |a2.ssh.buffer.size | Integer | Optional, read-ahead buffer size in bytes for data from SFTP server when using https://github.com/hierynomus/sshj[Hierynomus sshj]. Default - 32768
+
+|a2.ssh.connect.timeout | Integer | SSH connect timeout in ms when using https://mina.apache.org/sshd-project/[Apache Mina SSHD]. Default - 30_000
+
 |===
 
 *IMPORTANT* You must specify a value for one of the parameters a2.ssh.private.key or a2.ssh.password

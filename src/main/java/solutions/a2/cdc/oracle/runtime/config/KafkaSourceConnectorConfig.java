@@ -192,11 +192,13 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 				.define(SSH_STRICT_HOST_KEY_CHECKING_PARAM, BOOLEAN, false, MEDIUM, SSH_STRICT_HOST_KEY_CHECKING_DOC)
 				.define(SSH_PROVIDER_PARAM, STRING, SSH_PROVIDER_DEFAULT,
 						ConfigDef.ValidString.in(
+								SSH_PROVIDER_SSHJ,
 								SSH_PROVIDER_MAVERICK,
-								SSH_PROVIDER_SSHJ),
+								SSH_PROVIDER_MINA),
 						LOW, SSH_PROVIDER_DOC)
 				.define(SSH_UNCONFIRMED_READS_PARAM, INT, SSH_UNCONFIRMED_READS_DEFAULT, LOW, SSH_UNCONFIRMED_READS_DOC)
 				.define(SSH_BUFFER_SIZE_PARAM, INT, SSH_BUFFER_SIZE_DEFAULT, LOW, SSH_BUFFER_SIZE_DOC)
+				.define(SSH_CONNECT_TIMEOUT_MS_PARAM, INT, SSH_CONNECT_TIMEOUT_MS_DEFAULT, LOW, SSH_CONNECT_TIMEOUT_MS_DOC)
 				.define(SMB_SERVER_PARAM, STRING, "", LOW, SMB_SERVER_DOC)
 				.define(SMB_SHARE_ONLINE_PARAM, STRING, "", LOW, SMB_SHARE_ONLINE_DOC)
 				.define(SMB_SHARE_ARCHIVE_PARAM, STRING, "", LOW, SMB_SHARE_ARCHIVE_DOC)
@@ -717,6 +719,11 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	@Override
 	public int sshBufferSize() {
 		return getInt(SSH_BUFFER_SIZE_PARAM);
+	}
+
+	@Override
+	public int sshConnectTimeout() {
+		return getInt(SSH_CONNECT_TIMEOUT_MS_PARAM);
 	}
 
 	@Override

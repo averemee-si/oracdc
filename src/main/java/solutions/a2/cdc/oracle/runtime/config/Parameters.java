@@ -650,6 +650,7 @@ public class Parameters {
 			Library that provides SSH connection:
 			maverick for Maverick Synergy (https://jadaptive.com/)
 			sshj for Hierynomus sshj (https://github.com/hierynomus/sshj)
+			mina for Apache Mina SSHD (https://mina.apache.org/sshd-project/)
 			
 			"Default - """ + SSH_PROVIDER_DEFAULT;
 	public static final int SSH_UNCONFIRMED_READS_DEFAULT = 0x100;
@@ -666,6 +667,13 @@ public class Parameters {
 			Read-ahead buffer size in bytes for fata from SFTP server when using Hierynomus sshj.
 			
 			Default - """ + SSH_BUFFER_SIZE_DEFAULT;
+	public static final int SSH_CONNECT_TIMEOUT_MS_DEFAULT = 30_000;
+	public static final String SSH_CONNECT_TIMEOUT_MS_PARAM = "a2.ssh.connect.timeout";
+	public static final String SSH_CONNECT_TIMEOUT_MS_DOC =
+			"""
+			SSH connect timeout in ms when using Apache Mina SSHD.
+			
+			Default - """ + SSH_CONNECT_TIMEOUT_MS_DEFAULT;
 
 	public static final String SMB_SERVER_PARAM = "a2.smb.server";
 	public static final String SMB_SERVER_DOC = "FQDN or IP address of the remote SMB (Windows) server with redo log files";

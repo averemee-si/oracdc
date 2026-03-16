@@ -29,6 +29,11 @@ import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_SERVER_PARAM
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_SHARE_ARCHIVE_PARAM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_SHARE_ONLINE_PARAM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SMB_USER_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SSH_HOST_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SSH_PORT_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SSH_USER_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SSH_KEY_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.SSH_PASSWORD_PARAM;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 import java.io.FileOutputStream;
@@ -257,8 +262,11 @@ public class OraRedoLogFile  {
 				System.exit(1);
 			}
 			redoFile = fileName;
-			final var password = cmd.getOptionValue(SSH_PASSWORD);
-			final var identityFile = cmd.getOptionValue(SSH_IDENTITY);
+			final Map<String, String> sshProps = new HashMap<>();
+			sshProps.put(SSH_HOST_PARAM, hostname);
+			sshProps.put(SSH_USER_PARAM, userName);
+			sshProps.put(SSH_PASSWORD_PARAM, cmd.getOptionValue(SSH_PASSWORD));
+			sshProps.put(SSH_KEY_PARAM, cmd.getOptionValue(SSH_IDENTITY));
 			var sshPort = 0x16;
 			final var sshPortString =  cmd.getOptionValue(SSH_PORT);
 			if (StringUtils.isNotBlank(sshPortString)) {
@@ -276,7 +284,8 @@ public class OraRedoLogFile  {
 							""", sshPortString, sshPort, SSH_PORT);
 				}
 			}
-			if (StringUtils.isAllBlank(password, identityFile)) {
+			sshProps.put(SSH_PORT_PARAM, Integer.toString(sshPort));
+			if (StringUtils.isAllBlank(sshProps.get(SSH_PASSWORD_PARAM), sshProps.get(SSH_KEY_PARAM))) {
 				LOGGER.error(
 						"""
 						
@@ -289,8 +298,7 @@ public class OraRedoLogFile  {
 				System.exit(1);
 			}
 			try {
-				rlf = new OraCdcRedoLogSshjFactory(userName, hostname, sshPort,
-						identityFile, password, false, 0x100, 0x8000, bu, true);
+				rlf = new OraCdcRedoLogSshjFactory(new GenericSourceConnectorConfig(sshProps), bu, true);
 			} catch (SQLException sqle) {
 				LOGGER.error(
 						"""

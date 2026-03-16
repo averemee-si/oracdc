@@ -119,6 +119,7 @@ public interface OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	boolean sshProviderMina();
 	int sshUnconfirmedReads();
 	int sshBufferSize();
+	int sshConnectTimeout();
 	String smbServer();
 	String smbShareOnline();
 	String smbShareArchive();

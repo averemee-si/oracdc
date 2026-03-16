@@ -137,6 +137,7 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 				.define(SSH_PROVIDER_PARAM, STRING, SSH_PROVIDER_DEFAULT)
 				.define(SSH_UNCONFIRMED_READS_PARAM, INT, SSH_UNCONFIRMED_READS_DEFAULT)
 				.define(SSH_BUFFER_SIZE_PARAM, INT, SSH_BUFFER_SIZE_DEFAULT)
+				.define(SSH_CONNECT_TIMEOUT_MS_PARAM, INT, SSH_CONNECT_TIMEOUT_MS_DEFAULT)
 				.define(SMB_SERVER_PARAM, STRING, "")
 				.define(SMB_SHARE_ONLINE_PARAM, STRING, "")
 				.define(SMB_SHARE_ARCHIVE_PARAM, STRING, "")
@@ -645,6 +646,11 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 	@Override
 	public int sshBufferSize() {
 		return getInt(SSH_BUFFER_SIZE_PARAM);
+	}
+
+	@Override
+	public int sshConnectTimeout() {
+		return getInt(SSH_CONNECT_TIMEOUT_MS_PARAM);
 	}
 
 	@Override
