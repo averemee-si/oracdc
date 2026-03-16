@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
+import solutions.a2.cdc.oracle.internals.OraCdcRedoLogApacheMinaFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogAsmFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogBfileFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLogFactory;
@@ -151,6 +152,8 @@ public class OraRedoMiner {
 			reconnectIntervalMs = config.sshReconnectIntervalMs();
 			if (config.sshProviderMaverick())
 				rlf = new OraCdcRedoLogSshtoolsMaverickFactory(config, bu, true);
+			else if (config.sshProviderMina())
+				rlf = new OraCdcRedoLogApacheMinaFactory(config, bu, true);
 			else
 				rlf = new OraCdcRedoLogSshjFactory(config, bu, true);
 		} else if (bfile || transfer) {
