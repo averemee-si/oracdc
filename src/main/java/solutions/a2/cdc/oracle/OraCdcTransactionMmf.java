@@ -162,7 +162,7 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 			tailerOffset = 0;
 			if (processLobs == LobProcessingStatus.LOGMINER) {
 				mmfLobs = rootDir + File.separator + getXid() + ".LOBDATA." + System.nanoTime();
-				lobs = new OffHeapMmf(mmfStatements, blockSize);
+				lobs = new OffHeapMmf(mmfLobs, blockSize);
 			}
 		} catch (IOException ioe) {
 			LOGGER.error(
