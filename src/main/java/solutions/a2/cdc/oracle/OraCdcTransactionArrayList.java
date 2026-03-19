@@ -72,10 +72,9 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 			printPartialRollbackEntryDebug(pre);
 			var pairFound = false;
 			for (var i = pre.index; i > -1; i--) {
-				final OraCdcStatementBase lmStmt = statements.get(i);
-				if (pre.match(lmStmt)) {
-					final var rba = lmStmt.getRba();
-					final var rowid = lmStmt.getRowId();
+				if (pre.match(statements.get(i))) {
+					final var rba = statements.get(i).getRba();
+					final var rowid = statements.get(i).getRowId();
 					final var uniqueAddr = Objects.hash(rba.sqn(), rba.blk(), rba.offset(), rowid.dataBlk(), rowid.rowNum());
 					if (!rollbackPairs.contains(uniqueAddr)) {
 						rollbackPairs.add(uniqueAddr);

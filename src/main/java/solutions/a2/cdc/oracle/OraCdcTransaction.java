@@ -64,6 +64,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.putU16;
 import static solutions.a2.oracle.utils.BinaryUtils.putU24;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -74,6 +75,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -610,6 +612,13 @@ public abstract class OraCdcTransaction {
 			operation = oraSql.getOperation();
 			rowId = oraSql.getRowId();
 			rba = oraSql.getRba();
+		}
+
+		PartialRollbackEntry(final int index, final short operation, final RedoByteAddress rba, final RowId rowId) {
+			this.index = index;
+			this.operation = operation;
+			this.rowId = rowId;
+			this.rba = rba;
 		}
 
 		boolean match(final OraCdcStatementBase lmStmt) {
@@ -2142,6 +2151,13 @@ public abstract class OraCdcTransaction {
 						closeIt.lid.toString(), closeIt.chunks.size());
 				try { closeIt.lastChunk.os.close();} catch (Exception e) {}
 			}
+	}
+
+	void deleteLobFiles() throws IOException {
+		Files.walk(lobsQueueDirectory)
+			.sorted(Comparator.reverseOrder())
+			.map(Path::toFile)
+			.forEach(File::delete);
 	}
 
 	public byte[] getLob(final LobLocator ll) throws SQLException {

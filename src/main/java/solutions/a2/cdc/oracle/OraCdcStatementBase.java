@@ -32,6 +32,14 @@ public class OraCdcStatementBase {
 	public static final int APPROXIMATE_SIZE = 0x4000;
 	public static final BinaryUtils BE = BinaryUtils.get(false);
 
+	static final int OPERATION_POS = Long.BYTES;
+	static final int RBA_PART1_POS = 0x22;
+	static final int RBA_PART2_POS = 0x26;
+	static final int RBA_PART3_POS = 0x2A;
+	static final int ROWID_POS_START = 0x2C;
+	static final int ROWID_POS_END = 0x36;
+	static final int ROLLBACK_POS = 0x37;
+
 	/** (((long)V$LOGMNR_CONTENTS.CON_ID) {@literal <}{@literal <} 32) | (V$LOGMNR_CONTENTS.DATA_OBJ# {@literal &} 0xFFFFFFFFL) */
 	protected long tableId;
 	/** V$LOGMNR_CONTENTS.OPERATION_CODE */
@@ -92,6 +100,10 @@ public class OraCdcStatementBase {
 		// All strings are US7ASCII
 		holderSize =  HOLDER_SIZE + redoData.length;
 		this.rollback = rollback;
+	}
+
+	public OraCdcStatementBase(final byte[] content) {
+		restore(content);
 	}
 
 	public long getTableId() {
@@ -176,20 +188,23 @@ public class OraCdcStatementBase {
 		return ba;
 	}
 
-	public void content(final byte[] content) {
+	public void restore(final byte[] content) {
 		tableId = BE.getU64(content, 0);
-		operation = BE.getU16(content, Long.BYTES);
+		operation = BE.getU16(content, OPERATION_POS);
 		ts = BE.getU64(content, 0xA);
 		scn = BE.getU64(content, 0x12);
 		ssn = BE.getU64(content, 0x1A);
-		rba = new RedoByteAddress(BE.getU32(content, 0x22), BE.getU32(content, 0x26), BE.getU16(content, 0x2A));
+		rba = new RedoByteAddress(
+				BE.getU32(content, RBA_PART1_POS),
+				BE.getU32(content, RBA_PART2_POS),
+				BE.getU16(content, RBA_PART3_POS));
 		//TODO need allocation-free method!
-		rowId = new RowId(Arrays.copyOfRange(content, 0x2C, 0x36));
+		rowId = new RowId(
+				Arrays.copyOfRange(content, ROWID_POS_START, ROWID_POS_END));
 		lobCount = content[0x36];
-		rollback = content[0x37] == 1 ? true : false;
+		rollback = content[ROLLBACK_POS] == 1 ? true : false;
 		redoData = Arrays.copyOfRange(content, HOLDER_SIZE, HOLDER_SIZE + BE.getU32(content, 0x38));
 	}
-
 
 	public StringBuilder toStringBuilder() {
 		final StringBuilder sb = new StringBuilder(APPROXIMATE_SIZE);

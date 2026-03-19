@@ -13,11 +13,23 @@
 	
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.BE;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.OPERATION_POS;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.RBA_PART1_POS;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.RBA_PART2_POS;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.RBA_PART3_POS;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.ROWID_POS_START;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.ROWID_POS_END;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.ROLLBACK_POS;
+
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -25,6 +37,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.OffHeapMmf;
+import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.RowId;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
@@ -43,7 +57,6 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 	private String  mmfLobs;
 	private OffHeapMmf lobs;
 	private final int blockSize;
-	private final OraCdcStatementBase lmStmt = new OraCdcStatementBase();
 
 	/**
 	 * 
@@ -109,9 +122,17 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 		var index = queueSize - rollbackEntriesList.size();
 		var nonRollback = new PartialRollbackEntry[index];
 		while ((data = statements.readNext()) != null) {
-			lmStmt.content(data);
-			if (!lmStmt.isRollback())
-				nonRollback[--index] = new PartialRollbackEntry(statements.readIndex(), lmStmt);
+			if (data[ROLLBACK_POS] != 1)
+				nonRollback[--index] = new PartialRollbackEntry(
+						statements.readIndex(),
+						BE.getU16(data, OPERATION_POS),
+						new RedoByteAddress(
+								BE.getU32(data, RBA_PART1_POS),
+								BE.getU32(data, RBA_PART2_POS),
+								BE.getU16(data, RBA_PART3_POS)),
+						//TODO need allocation-free method!
+						new RowId(
+								Arrays.copyOfRange(data, ROWID_POS_START, ROWID_POS_END)));
 		}
 		statements.resetReadIndex();
 		// Step 2
@@ -141,8 +162,7 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 	void addToPrintOutput(final StringBuilder sb) {
 		byte[] data;
 		while ((data = statements.readNext()) != null) {
-			lmStmt.content(data);
-			sb.append(lmStmt.toDelimitedRow());
+			sb.append(new OraCdcStatementBase(data).toDelimitedRow());
 		}
 		statements.resetReadIndex();
 	}
@@ -219,7 +239,7 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 		while (true) {
 			var data = statements.readNext();
 			if (data != null) {
-				oraSql.content(data);
+				oraSql.restore(data);
 				if (!willItRolledBack(oraSql))
 					return true;
 				else
@@ -273,16 +293,16 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 			LOGGER.debug("Closing and deleting memory-mapped files for transaction {}.", getXid());
 		}
 		try {
-			if (processLobs != LobProcessingStatus.NOT_AT_ALL) {
-				if (processLobs == LobProcessingStatus.REDOMINER) {
-					closeLobFiles();
-				} else {
-					// LobProcessingStatus.LOGMINER
-					if (lobs != null) {
-						lobs.close();
-						lobs = null;
-					}
+			if (processLobs == LobProcessingStatus.REDOMINER) {
+				closeLobFiles();
+				deleteLobFiles();
+			} else if (processLobs == LobProcessingStatus.LOGMINER) {
+				if (lobs != null) {
+					lobs.close();
+					lobs = null;
 				}
+			}
+			if (processLobs != LobProcessingStatus.NOT_AT_ALL) {
 			}
 			if (statements != null) {
 				statements.close();

@@ -22,7 +22,6 @@ import java.sql.SQLException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
-import org.apache.commons.lang3.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +46,6 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 	private final LobProcessingStatus lobStatus;
 	private final boolean isCdb;
 	private final Path queuesRoot;
-	private final int backoffMs;
 	private final int reduceLoadMs;
 	private final int[] offHeapSize;
 	private boolean coolDown = false;
@@ -66,7 +64,6 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 			lobStatus = NOT_AT_ALL;
 		isCdb = task.rdbmsInfo().isCdb() && !task.rdbmsInfo().isPdbConnectionAllowed();
 		queuesRoot = task.config().queuesRoot();
-		backoffMs = task.config().connectionRetryBackoff();
 		reduceLoadMs = task.config().reduceLoadMs();
 		offHeapSize = task.config().offHeapSize();
 		this.setDaemon(true);
@@ -112,61 +109,21 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 	}
 
 	private OraCdcTransactionMmf getOffHeap(final OraCdcRawTransaction raw) {
-		var start = System.currentTimeMillis();
-		var attempt = 0;
-		Exception lastException = null;
-		while (true) {
-			if (attempt > Byte.MAX_VALUE)
-				break;
-			else
-				attempt++;
-			try {
-				return new OraCdcTransactionMmf(raw, isCdb, lobStatus, queuesRoot, offHeapSize);
-			} catch (Exception cqe) {
-				lastException = cqe;
-				if (cqe.getCause() != null &&
-						cqe.getCause() instanceof IOException &&
-						Strings.CI.contains(cqe.getCause().getMessage(), "Too") &&
-						Strings.CI.contains(cqe.getCause().getMessage(), "many") &&
-						Strings.CI.contains(cqe.getCause().getMessage(), "open") &&
-						Strings.CI.contains(cqe.getCause().getMessage(), "files")) {
-					try {
-						LOGGER.info("Wait {} ms until OS resources become available to create a Chronicle Queue", backoffMs);
-						Thread.sleep(backoffMs);
-					} catch (InterruptedException ie) {}
-				} else {
-					LOGGER.error(
-							"""
-							
-							=====================
-							'{}' while initializing Chronicle Queue.
-								This might be issue https://github.com/OpenHFT/Chronicle-Queue/issues/1446 or you don't have enough open files limit.
-							Please send errorstack below to oracle@a2.solutions
-							{}
-							=====================
-							
-							""", cqe.getMessage(),
-							ExceptionUtils.getExceptionStackTrace(cqe));
-					task.stop();
-					throw new IllegalArgumentException(cqe);
-				}
-			}
+		try {
+			return new OraCdcTransactionMmf(raw, isCdb, lobStatus, queuesRoot, offHeapSize);
+		} catch (SQLException | IOException e) {
+			LOGGER.error(
+					"""
+					
+					=====================
+					Failed to create memory mapped file!
+					{}
+					=====================
+					
+					""", ExceptionUtils.getExceptionStackTrace(e));
+			task.stop();
 		}
-		LOGGER.error(
-				"""
-				
-				=====================
-				Failed to reconnect to create Chronicle Queue after {} attempts in {} ms.
-				{}
-				=====================
-				
-				""", attempt, (System.currentTimeMillis() - start),
-				lastException != null ? ExceptionUtils.getExceptionStackTrace(lastException) : "");
-		task.stop();
-		if (lastException != null)
-			throw new IllegalArgumentException(lastException);
-		else
-			throw new IllegalArgumentException("Unable to create Chronicle Queue!");
+		return null;
 	}
 
 	boolean coolDown() {
