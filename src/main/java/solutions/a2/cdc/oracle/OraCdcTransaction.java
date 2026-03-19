@@ -148,7 +148,7 @@ public abstract class OraCdcTransaction {
 	private Map<LobId, LobHolder> transLobs;
 	private Long2ObjectHashMap<LobId> lobCols;
 	final Path rootDir;
-	Path lobsQueueDirectory;
+	private Path lobsQueueDirectory;
 
 	OraCdcTransaction(final String xid, final long firstChange, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) {
 		this.xid = xid;
@@ -332,7 +332,7 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	void checkForRollback(final OraCdcStatementBase oraSql, final long index) {
+	void checkForRollback(final OraCdcStatementBase oraSql, final int index) {
 		if (firstRecord) {
 			firstRecord = false;
 			nextChange = oraSql.getScn();
@@ -358,16 +358,10 @@ public abstract class OraCdcTransaction {
 					partialRollback = true;
 					rollbackEntriesList = new ArrayList<>();
 				}
-				final PartialRollbackEntry pre = new PartialRollbackEntry();
-				pre.index = index;
-				pre.operation = oraSql.getOperation();
-				pre.rowId = oraSql.getRowId();
-				pre.rba = oraSql.getRba();
-
-				rollbackEntriesList.add(pre);
+				rollbackEntriesList.add(new PartialRollbackEntry(index, oraSql));
 				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("New partial rollback entry at SCN={}, RS_ID(RBA)='{}' for ROWID={} added.",
-							oraSql.getScn(), oraSql.getRba(), oraSql.getRowId());
+					LOGGER.debug("New partial rollback entry at SCN={}, RS_ID(RBA)='{}', pre.index={} for ROWID={} added.",
+							oraSql.getScn(), oraSql.getRba(), index, oraSql.getRowId());
 				}
 			}
 		}
@@ -583,7 +577,7 @@ public abstract class OraCdcTransaction {
 
 	void printPartialRollbackEntryDebug(final PartialRollbackEntry pre) {
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Working with partial rollback statement for ROWID={} at RBA='{}'", pre.rowId, pre.rba);
+			LOGGER.debug("Working with partial rollback statement for ROWID={} at RBA='{}'", pre.rowId(), pre.rba());
 		}
 	}
 
@@ -596,21 +590,55 @@ public abstract class OraCdcTransaction {
 				No pair for partial rollback statement with ROWID={} RBA='{}' in transaction XID='{}'!
 				=====================
 				
-				""", pre.rowId, pre.rba, getXid());
+				""", pre.rowId(), pre.rba(), getXid());
 	}
 
-	abstract void addStatement(final OraCdcStatementBase oraSql);
+	abstract void addStatement(final OraCdcStatementBase oraSql) throws IOException;
 	public abstract boolean getStatement(OraCdcStatementBase oraSql);
 	abstract long size();
 	abstract int length();
 	public abstract void close();
 
-	static class PartialRollbackEntry {
-		long index;
-		short operation;
-		RowId rowId;
-		RedoByteAddress rba;
-	}
+	static class PartialRollbackEntry{
+		final int index;
+		final short operation;
+		final RowId rowId;
+		final RedoByteAddress rba;
+
+		PartialRollbackEntry(final int index, final OraCdcStatementBase oraSql) {
+			this.index = index;
+			operation = oraSql.getOperation();
+			rowId = oraSql.getRowId();
+			rba = oraSql.getRba();
+		}
+
+		boolean match(final OraCdcStatementBase lmStmt) {
+			if (!lmStmt.isRollback() &&
+					((operation == DELETE && lmStmt.getOperation() == INSERT) ||
+					(operation == INSERT && lmStmt.getOperation() == DELETE) ||
+					(operation == UPDATE && lmStmt.getOperation() == UPDATE)) &&
+					rowId.equals(lmStmt.getRowId()))
+				return true;
+			return false;
+		}
+
+		boolean match(final PartialRollbackEntry other) {
+			if (((operation == DELETE && other.operation == INSERT) ||
+					(operation == INSERT && other.operation == DELETE) ||
+					(operation == UPDATE && other.operation == UPDATE)) &&
+					rowId.equals(other.rowId))
+				return true;
+			return false;
+		}
+
+		RowId rowId() {
+			return rowId;
+		}
+
+		RedoByteAddress rba() {
+			return rba;
+		}
+	};
 
 	private static final byte FLG_NEED_HEAD_FLAG   = 0x01;
 	private static final byte FLG_REORDER          = 0x02;
@@ -1914,7 +1942,7 @@ public abstract class OraCdcTransaction {
 		return halfDone.isEmpty();
 	}
 
-	private void emitDdlChange(OraCdcRedoRecord rr, final long lwnUnixMillis) {
+	private void emitDdlChange(OraCdcRedoRecord rr, final long lwnUnixMillis) throws IOException {
 		final OraCdcChangeDdl ddl = rr.changeDdl();
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("emitDdlChange() in XID {} at SCN/RBA {}/{} for OP:{}",

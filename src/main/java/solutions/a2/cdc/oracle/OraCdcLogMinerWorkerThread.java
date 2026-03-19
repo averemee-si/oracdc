@@ -91,7 +91,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final LongHashSet nonLobObjects;
 	private final OraCdcDictionaryChecker checker;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
-	private final OraCdcTransactionChronicleQueue.LobProcessingStatus lobProcessingStatus;
+	private final OraCdcTransactionMmf.LobProcessingStatus lobProcessingStatus;
 	private final Path queuesRoot;
 	private final boolean useChronicleQueue;
 	private final int concTransThreshold;
@@ -460,7 +460,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 										}
 									}
 									if (processLobs) {
-										((OraCdcTransactionChronicleQueue) transaction).addStatement(lmStmt, lobs);
+										((OraCdcTransactionMmf) transaction).addStatement(lmStmt, lobs);
 									} else {
 										transaction.addStatement(lmStmt);
 									}
@@ -1265,7 +1265,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			return new OraCdcTransactionArrayList(xidAsString, firstScn, initialCapacity, isCdb);
 	}
 
-	private OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString, final long firstScn) {
+	private OraCdcTransactionMmf getChronicleQueue(final String xidAsString, final long firstScn) {
 		long start = System.currentTimeMillis();
 		int attempt = 0;
 		Exception lastException = null;
@@ -1275,7 +1275,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			else
 				attempt++;
 			try {
-				return new OraCdcTransactionChronicleQueue(lobProcessingStatus, queuesRoot, xidAsString, firstScn, isCdb, offHeapSize);
+				return new OraCdcTransactionMmf(lobProcessingStatus, queuesRoot, xidAsString, firstScn, isCdb, offHeapSize);
 			} catch (Exception cqe) {
 				lastException = cqe;
 				if (cqe.getCause() != null &&

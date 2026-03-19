@@ -111,7 +111,7 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 		LOGGER.info("END: OraCdcRedoMinerEmitterThread.run()");
 	}
 
-	private OraCdcTransactionChronicleQueue getOffHeap(final OraCdcRawTransaction raw) {
+	private OraCdcTransactionMmf getOffHeap(final OraCdcRawTransaction raw) {
 		var start = System.currentTimeMillis();
 		var attempt = 0;
 		Exception lastException = null;
@@ -121,7 +121,7 @@ public class OraCdcRedoMinerEmitterThread extends Thread {
 			else
 				attempt++;
 			try {
-				return new OraCdcTransactionChronicleQueue(raw, isCdb, lobStatus, queuesRoot, offHeapSize);
+				return new OraCdcTransactionMmf(raw, isCdb, lobStatus, queuesRoot, offHeapSize);
 			} catch (Exception cqe) {
 				lastException = cqe;
 				if (cqe.getCause() != null &&

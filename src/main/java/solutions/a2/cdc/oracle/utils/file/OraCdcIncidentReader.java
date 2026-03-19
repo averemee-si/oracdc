@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 import solutions.a2.cdc.oracle.OraCdcLobExtras;
 import solutions.a2.cdc.oracle.OraCdcRawTransaction;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
-import solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue;
+import solutions.a2.cdc.oracle.OraCdcTransactionMmf;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -149,7 +149,7 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 		}
 
 		final int[] halfQuarter = {0x800000, 0x200000};
-		var transaction = new OraCdcTransactionChronicleQueue(raw, orl.cdb(), REDOMINER, queuesRoot, halfQuarter);
+		var transaction = new OraCdcTransactionMmf(raw, orl.cdb(), REDOMINER, queuesRoot, halfQuarter);
 		raf.seek(HEADER_SIZE);
 		return transaction;
 	}
@@ -180,7 +180,7 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 		
 		try {
 			var ir = new OraCdcIncidentReader(transFile);
-			var transaction = (OraCdcTransactionChronicleQueue) ir.get();
+			var transaction = (OraCdcTransactionMmf) ir.get();
 			millis = System.currentTimeMillis() - millis;
 			var errorExit = false;
 			if (transaction.completed())

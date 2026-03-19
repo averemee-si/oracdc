@@ -49,7 +49,7 @@ import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraCdcTaskBase;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
-import solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue;
+import solutions.a2.cdc.oracle.OraCdcTransactionMmf;
 import solutions.a2.cdc.oracle.OraCdcWorkerThreadBase;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
@@ -411,12 +411,11 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 		if (useChronicleQueue && committedTransactions!= null && !committedTransactions.isEmpty()) {
 			// Clean only when we use ChronicleQueue
 			committedTransactions.forEach(transaction -> {
-				if (isPollRunning.get()) {
-					LOGGER.error("Unable to remove directory {}, please remove it manually",
-							((OraCdcTransactionChronicleQueue) transaction).getPath().toString());
-				} else {
+				if (isPollRunning.get())
+					LOGGER.error("Unable to remove file {}, please remove it manually",
+							((OraCdcTransactionMmf) transaction).mmfStatements());
+				else
 					transaction.close();
-				}
 			});
 		}
 		if (oraConnections != null) {

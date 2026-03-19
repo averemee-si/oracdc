@@ -18,12 +18,6 @@ import java.sql.SQLException;
 
 import org.apache.kafka.connect.data.Struct;
 
-import net.openhft.chronicle.bytes.Bytes;
-import net.openhft.chronicle.core.io.IORuntimeException;
-import net.openhft.chronicle.wire.WireOut;
-import net.openhft.chronicle.wire.ReadMarshallable;
-import net.openhft.chronicle.wire.WireIn;
-import net.openhft.chronicle.wire.WriteMarshallable;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraNClob;
@@ -41,7 +35,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshallable {
+public class OraCdcLargeObjectHolder {
 
 	/** LOB object Id */
 	private long lobId;
@@ -128,6 +122,7 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 		return holderSize;
 	}
 
+/*
 	@Override
 	public void writeMarshallable(WireOut wire) {
 		wire.bytes().writeLong(lobId);
@@ -142,7 +137,6 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 			wire.bytes().write(content);
 		}
 	}
-
 
 	@Override
 	public void readMarshallable(WireIn wire) throws IORuntimeException {
@@ -160,11 +154,5 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 			content = new byte[0];
 		}
 	}
-
-
-	@Override
-	public boolean usesSelfDescribingMessage() {
-		// TODO Auto-generated method stub
-		return ReadMarshallable.super.usesSelfDescribingMessage();
-	}
+*/
 }
