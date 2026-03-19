@@ -496,7 +496,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 							"""
 							
 							=====================
-							"Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.
+							Ignoring {}={} in connector properties, and setting {} to first available SCN in V$ARCHIVED_LOG {}.
 							=====================
 							""",
 								FIRST_CHANGE_PARAM, firstScn, FIRST_CHANGE_PARAM, firstAvailableScn);
