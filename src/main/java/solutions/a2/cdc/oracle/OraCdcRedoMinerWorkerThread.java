@@ -66,7 +66,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.parseTimestamp;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
+public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase implements Comparator<Xid> {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerWorkerThread.class);
 	private static final String SQL_STATE_REWIND = "RWND00";
@@ -80,7 +80,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final BlockingQueue<OraCdcRawTransaction> rawTransactions;
 	private final Int2ObjectHashMap<Xid> prefixedTransactions;
 	private final TreeMap<Xid, Coords> sortedByFirstScn;
-	private final ActiveTransComparator activeTransComparator;
 	private final BinaryUtils bu;
 
 	private Iterator<OraCdcRedoRecord> miner = null;
@@ -126,8 +125,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			conFilter = true;
 		this.checker = checker;
 		this.iotMapping = iotMapping;
-		activeTransComparator = new ActiveTransComparator(activeTransactions);
-		sortedByFirstScn = new TreeMap<>(activeTransComparator);
+		sortedByFirstScn = new TreeMap<>(this);
 		prefixedTransactions = new Int2ObjectHashMap<>(task.config().transactionsInProcessSize(), .7f);
 		this.bu = BinaryUtils.get(rdbmsInfo.littleEndian());
 		dbZoneId = rdbmsInfo.getDbTimeZone();
@@ -561,32 +559,21 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		LOGGER.info("END: OraCdcRedoMinerWorkerThread.run()");
 	}
 
-	private static class ActiveTransComparator implements Comparator<Xid> {
-
-		private final Map<Xid, OraCdcRawTransaction> activeTransactions;
-
-		ActiveTransComparator(final Map<Xid, OraCdcRawTransaction> activeTransactions) {
-			this.activeTransactions = activeTransactions;
+	@Override
+	public int compare(Xid first, Xid second) {
+		if (first.equals(second)) {
+			// A transaction ID is unique to a transaction and represents the undo segment number, slot, and sequence number.
+			// https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/transactions.html#GUID-E3FB3DC3-3317-4589-BADD-D89A3547F87D
+			return 0;
 		}
 
-		@Override
-		public int compare(Xid first, Xid second) {
-			if (first.equals(second)) {
-				// A transaction ID is unique to a transaction and represents the undo segment number, slot, and sequence number.
-				// https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/transactions.html#GUID-E3FB3DC3-3317-4589-BADD-D89A3547F87D
-				return 0;
-			}
+		OraCdcRawTransaction firstOraTran = activeTransactions.get(first);
+		OraCdcRawTransaction secondOraTran = activeTransactions.get(second);
 
-			OraCdcRawTransaction firstOraTran = activeTransactions.get(first);
-			OraCdcRawTransaction secondOraTran = activeTransactions.get(second);
-
-			if (firstOraTran != null && secondOraTran != null && Long.compareUnsigned(firstOraTran.firstChange(), secondOraTran.firstChange()) >= 0) {
-				return 1;
-			}
-
-			return -1;
+		if (firstOraTran != null && secondOraTran != null && Long.compareUnsigned(firstOraTran.firstChange(), secondOraTran.firstChange()) >= 0) {
+			return 1;
 		}
-
+		return -1;
 	}
 
 	private void createTransactionPrefix(final Xid xid, final RedoByteAddress rba) {
