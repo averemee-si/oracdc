@@ -13,9 +13,11 @@
 
 package solutions.a2.cdc.oracle;
 
+import java.util.Comparator;
 import java.util.concurrent.CountDownLatch;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
+import solutions.a2.oracle.internals.Xid;
 
 /**
  * 
@@ -63,5 +65,30 @@ public interface OraCdcTaskBase {
 			subScn = -1L;
 		}
 	};
+
+	record XidCoords(Xid xid, Coords coords) {
+		static final Comparator<XidCoords> COMPARATOR = new Comparator<>() {
+			@Override
+			public int compare(XidCoords first, XidCoords second) {
+				var scnComparision = Long.compareUnsigned(first.coords.scn(), second.coords.scn());
+				return scnComparision == 0
+					? Long.compare(first.coords.subScn(), second.coords.subScn())
+					: scnComparision;
+			}
+		};
+		@Override
+		public int hashCode() {
+			return xid.hashCode();
+		}
+		@Override
+		public boolean equals(Object other) {
+			if (this == other) return true;
+			if (other == null) return false;
+			if (!(other instanceof XidCoords)) return false;
+			var xrt = (XidCoords) other;
+			return xid.equals(xrt.xid);
+		}
+	}
+
 
 }
