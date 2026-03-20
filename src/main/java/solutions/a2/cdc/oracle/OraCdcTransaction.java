@@ -152,7 +152,8 @@ public abstract class OraCdcTransaction {
 	final Path rootDir;
 	private Path lobsQueueDirectory;
 
-	OraCdcTransaction(final String xid, final long firstChange, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) {
+	OraCdcTransaction(
+			final String xid, final long firstChange, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) {
 		this.xid = xid;
 		this.firstChange = firstChange;
 		this.transSize = 0;
@@ -161,17 +162,17 @@ public abstract class OraCdcTransaction {
 		this.rootDir = rootDir;
 	}
 
-	OraCdcTransaction(final OraCdcRawTransaction raw, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
+	OraCdcTransaction(
+			final OraCdcRawTransaction raw, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
 		xid = raw.xid().toString();
 		firstChange = raw.firstChange();
 		transSize = 0;
 		this.isCdb = isCdb;
 		this.rootDir = rootDir;
 		this.processLobs = processLobs;
-		init(raw);
 	}
 
-	private void init(final OraCdcRawTransaction raw) throws SQLException, IOException {
+	void init(final OraCdcRawTransaction raw) throws SQLException, IOException {
 		var records = raw.records();
 		capacity = records.size();
 		for (var i = 0; i  < records.size(); i++) {

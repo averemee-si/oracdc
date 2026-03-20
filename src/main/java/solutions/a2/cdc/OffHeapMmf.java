@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 
@@ -43,6 +45,7 @@ public class OffHeapMmf {
 
 	private static final int END_OF_SEGMENT_MARKER = 0xFFFFFFFF;
 	private static final int MADV_HUGEPAGE = 14;
+	private static final Logger LOGGER = LoggerFactory.getLogger(OffHeapMmf.class);
 
 	public static final boolean LINUX;
 	static {
@@ -59,6 +62,7 @@ public class OffHeapMmf {
 					libc.find("madvise").orElseThrow(),
 					FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT));
 			USE_HUGEPAGES = true;
+			LOGGER.info("OffHeapMmf will use HugePages in {} OS", System.getProperty("os.name"));
 		} else {
 			MADVISE_HANDLE = null;
 			USE_HUGEPAGES = false;
@@ -74,13 +78,6 @@ public class OffHeapMmf {
 	private int readIndex = 0;
  
 	public OffHeapMmf(final String fileName, final int segmentSize) throws IOException {
-/*
-
-	long hugePageSize = 2 * 1024 * 1024;
-    if (size % hugePageSize != 0) {
-        throw new IllegalArgumentException("Size must be a multiple of 2MB");
-    }
- */
 		segments = new ArrayList<>();
 		arenas = new ArrayList<>();
 		file = Path.of(fileName).toFile(); 
@@ -97,9 +94,16 @@ public class OffHeapMmf {
 			var segment = channel.map(READ_WRITE, startPosition, segmentSize, arena);
 			if (USE_HUGEPAGES) {
 				try {
-					var result = (int) MADVISE_HANDLE.invokeExact(segment, segmentSize, MADV_HUGEPAGE); 
+					var result = (int) MADVISE_HANDLE.invokeExact(segment, (long) segmentSize, MADV_HUGEPAGE);
 					if (result != 0) {
-						//unable to allocate
+						LOGGER.error(
+								"""
+								
+								=====================
+								madvise returned code {} when called for segmentSize = {}
+								=====================
+								
+								""", result, segmentSize);
 					}
 				} catch (Throwable t) {
 					throw new IOException(t);

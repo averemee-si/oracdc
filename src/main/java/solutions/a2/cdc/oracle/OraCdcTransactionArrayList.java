@@ -64,6 +64,7 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 			final OraCdcRawTransaction raw, final boolean isCdb,
 			final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
 		super(raw, isCdb, processLobs, rootDir);
+		init(raw);
 	}
 
 	void processRollbackEntries() {

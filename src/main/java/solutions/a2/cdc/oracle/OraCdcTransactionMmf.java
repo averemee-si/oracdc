@@ -24,12 +24,10 @@ import static solutions.a2.cdc.oracle.OraCdcStatementBase.ROLLBACK_POS;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
@@ -56,7 +54,7 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 	private int tailerOffset;
 	private String  mmfLobs;
 	private OffHeapMmf lobs;
-	private final int blockSize;
+	private final int segmentSize;
 
 	/**
 	 * 
@@ -74,12 +72,12 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 			final Path rootDir, final String xid, final long firstChange, final boolean isCdb, final int[] sizeArray) throws IOException {
 		super(xid, firstChange, isCdb, processLobs, rootDir);
 		transSize = 0;
-		blockSize = sizeArray[0];
+		segmentSize = sizeArray[0];
 	}
 
 	/**
 	 * 
-	 * Creates OraCdcTransaction for new transaction without LOBs
+	 * Creates OraCdcTransaction for new transaction without LOBs (only for testing!)
 	 * 
 	 * @param rootDir
 	 * @param xid
@@ -91,10 +89,9 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 			final Path rootDir, final String xid, final OraCdcStatementBase firstStatement, final boolean isCdb) throws IOException {
 		super(xid, firstStatement.getScn(), isCdb, LobProcessingStatus.NOT_AT_ALL, rootDir);
 		transSize = 0;
-		//TODO - temporary, constructor used only in test!
-		blockSize = 0x400000;
+		segmentSize = 0x400000;
 		if (LOGGER.isDebugEnabled())
-			LOGGER.debug("MMF blocksize is set to {}", blockSize);
+			LOGGER.debug("MMF blocksize is set to {}", segmentSize);
 		addStatement(firstStatement);
 	}
 
@@ -113,7 +110,9 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 			final LobProcessingStatus processLobs, final Path rootDir,
 			final int[] sizeArray) throws SQLException, IOException {
 		super(raw, isCdb, processLobs, rootDir);
-		blockSize = sizeArray[0];
+		//TODO - in Java 25 with Prologue init must go back to super constructor
+		segmentSize = sizeArray[0];
+		init(raw);
 	}
 
 	void processRollbackEntries() {
@@ -173,7 +172,7 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 		try {
 			initLobs();
 			mmfStatements = rootDir + File.separator + getXid() + "." + System.nanoTime();
-			statements = new OffHeapMmf(mmfStatements, blockSize);
+			statements = new OffHeapMmf(mmfStatements, segmentSize);
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Created row data queue directory {} for transaction XID {}.",
 						mmfStatements, getXid());
@@ -182,7 +181,7 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 			tailerOffset = 0;
 			if (processLobs == LobProcessingStatus.LOGMINER) {
 				mmfLobs = rootDir + File.separator + getXid() + ".LOBDATA." + System.nanoTime();
-				lobs = new OffHeapMmf(mmfLobs, blockSize);
+				lobs = new OffHeapMmf(mmfLobs, segmentSize);
 			}
 		} catch (IOException ioe) {
 			LOGGER.error(
@@ -200,9 +199,7 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 	}
 
 	private void addStatementInt(final OraCdcStatementBase oraSql) throws IOException {
-		if (needInit) {
-			init();
-		}
+		if (needInit) init();
 		checkForRollback(oraSql, queueSize++);
 		statements.writeRecord(oraSql.content());
 		transSize += oraSql.size();
