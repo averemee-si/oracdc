@@ -1,4 +1,23 @@
 ===============================================================================
+This project bundles some components that are also licensed under the Apache
+License Version 2.0:
+
+- agrona-2.4.0
+- commons-cli-1.11.0
+- commons-lang3-3.20.0
+- commons-math3-3.6.1
+- sshj-0.40.0
+- asn-one-0.6.0
+- smbj-0.14.0
+- sshd-core-2.17.1
+- sshd-common-2.17.1
+- sshd-sftp-2.17.1
+- jcl-over-slf4j-1.7.36
+- HikariCP-7.0.2
+- ojdbc-types-0.9.9
+
+
+===============================================================================
 This product bundles various third-party components under other open source
 licenses. This file summarizes those components and their licenses.
 See licenses/ folder for text of these licenses.
@@ -6,7 +25,6 @@ See licenses/ folder for text of these licenses.
 
 ----------------------------------------
 Oracle Free Use Terms and Conditions
-
 
 - ojdbc17-23.26.1.0.0, see: licenses/oracle-FUTC
 - ucp17-23.26.1.0.0, see: licenses/oracle-FUTC
@@ -18,7 +36,6 @@ Oracle Free Use Terms and Conditions
 ----------------------------------------
 LGPL-3.0 or later
 
-
 - maverick-base-3.1.4, see: licenses/lgpl-3.0
 - maverick-logging-3.1.4, see: licenses/lgpl-3.0
 - maverick-synergy-client-3.1.4, see: licenses/lgpl-3.0
@@ -26,15 +43,7 @@ LGPL-3.0 or later
 - maverick-utils-3.1.4, see: licenses/lgpl-3.0
 
 ----------------------------------------
-Dual License LGPL-2.1 or later, or Apache-2.0
-
-
-- jna-5.8.0, see: licenses/lgpl-3.0
-- jna-platform-5.8.0, see: licenses/lgpl-3.0
-
-----------------------------------------
 MIT License
-
 
 - slf4j-api-2.0.17, see: licenses/MIT-slf4j 
 - slf4j-reload4j-2.0.17, see: licenses/MIT-slf4j
@@ -46,7 +55,6 @@ MIT License
 ----------------------------------------
 Bouncy Castle License
 
-
 - bcprov-jdk18on-1.83, see: licenses/bouncycastle
 - bcpkix-jdk18on-1.83, see: licenses/bouncycastle
 - bcutil-jdk18on-1.83, see: licenses/bouncycastle
@@ -55,12 +63,5 @@ Bouncy Castle License
 ----------------------------------------
 BSD-2-Clause
 
-
 - postgresql-42.7.10, see: licenses/BSD-2-Clause-postgresql
 
-
-----------------------------------------
-BSD-3-Clause
-
-
-- asm-9.2, see: licenses/BSD-3-Clause-asm
