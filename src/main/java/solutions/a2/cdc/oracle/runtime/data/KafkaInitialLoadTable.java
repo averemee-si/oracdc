@@ -28,6 +28,7 @@ import static java.sql.Types.NCHAR;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.NUMERIC;
 import static java.sql.Types.NVARCHAR;
+import static java.sql.Types.ROWID;
 import static java.sql.Types.SMALLINT;
 import static java.sql.Types.SQLXML;
 import static java.sql.Types.TIMESTAMP;
@@ -38,9 +39,9 @@ import static solutions.a2.cdc.oracle.OraCdcStatementBase.BE;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.CharBuffer;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Clob;
 import java.sql.Connection;
@@ -49,6 +50,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +64,6 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.bouncycastle.util.Arrays;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,7 +104,7 @@ public class KafkaInitialLoadTable {
 	private final List<OraCdcColumn> allColumns;
 	private final Map<String, OraCdcColumn> pkColumns;
 	private final OraRdbmsInfo rdbmsInfo;
-	private final Path mappedFile;
+	private final String mappedFile;
 	private final OraCdcInitialLoad metrics;
 	private final String sqlSelect;
 	private final String tableFqn;
@@ -178,12 +179,12 @@ public class KafkaInitialLoadTable {
 		LOGGER.debug("{} will be used for initial data load.", sqlSelect);
 
 		// Create memory-mapped file
-		mappedFile = Files.createTempFile(rootDir, Strings.CS.replace(tableFqn, ":", "-") + ".", "mmf");
+		mappedFile = rootDir + File.separator + Strings.CS.replace(tableFqn, ":", "-") + "." + System.nanoTime();
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Created queue directory {} .", mappedFile.toString());
+			LOGGER.debug("Created queue directory {} .", mappedFile);
 		}
 		try {
-			tableRows = new OffHeapMmf(mappedFile.toString(), 0x400000);
+			tableRows = new OffHeapMmf(mappedFile, 0x400000);
 			queueSize = 0;
 			tailerOffset = 0;
 		} catch (Exception e) {
@@ -276,16 +277,17 @@ public class KafkaInitialLoadTable {
 						}
 					}
 					case BINARY -> {
-						var rawValue = rsMaster.getBytes(columnName);
+						var rawValue = rsMaster.getRAW(columnName);
 						if (rawValue == null)
 							putU16(baos, NULL_LENGTH_SHORT);
 						else {
-							putU16(baos, (short) rawValue.length);
-							baos.write(rawValue);
+							var ba = rawValue.getBytes();
+							putU16(baos, (short) ba.length);
+							baos.write(ba);
 						}
 					}
 					case CHAR, VARCHAR, NCHAR, NVARCHAR -> {
-						var charValue = rsMaster.getString(columnName);
+						var charValue = rsMaster.getCHAR(columnName);
 						if (charValue == null)
 							putU16(baos, NULL_LENGTH_SHORT);
 						else {
@@ -293,6 +295,11 @@ public class KafkaInitialLoadTable {
 							putU16(baos, (short) ba.length);
 							baos.write(ba);
 						}
+					}
+					case ROWID -> {
+						var ba = rsMaster.getROWID(columnName).getBytes();
+						baos.write((byte) ba.length);
+						baos.write(ba);
 					}
 					case CLOB, NCLOB -> {
 						Clob clobValue = oraColumn.getJdbcType() == CLOB
@@ -420,12 +427,12 @@ public class KafkaInitialLoadTable {
 
 	public void bytes2Row(final byte[] data) {
 		try {
+			var pos = 0;
 			for (int i = 0; i < allColumns.size(); i++) {
 				var oraColumn = allColumns.get(i);
 				var columnName = oraColumn.getColumnName();
 				Object columnValue = null;
 				byte sizeByte;
-				var pos = 0;
 				switch (oraColumn.getJdbcType()) {
 					case DATE, TIMESTAMP -> {
 						sizeByte = data[pos++];
@@ -536,10 +543,29 @@ public class KafkaInitialLoadTable {
 							pos = next;
 						}
 					}
-					case CLOB, NCLOB, BLOB, SQLXML -> {
-						//TODO
-						//TODO Decoders!!!
-						//TODO
+					case ROWID -> {
+						sizeByte = data[pos++];
+						var next = pos + sizeByte;
+						columnValue = new String(Arrays.copyOfRange(data, pos, next));
+						pos = next;
+					}
+					case BLOB -> {
+						var sizeInt = BE.getU32(data, pos);
+						pos += Integer.BYTES;
+						if (sizeInt != NULL_LENGTH_INT) {
+							var next = pos + sizeInt;
+							columnValue = Arrays.copyOfRange(data, pos, next);
+							pos = next;
+						}
+					}
+					case CLOB, NCLOB, SQLXML -> {
+						var sizeInt = BE.getU32(data, pos);
+						pos += Integer.BYTES;
+						if (sizeInt != NULL_LENGTH_INT) {
+							var next = pos + sizeInt;
+							columnValue = new String(Arrays.copyOfRange(data, pos, next));
+							pos = next;
+						}
 					}
 					default ->
 						throw new SQLException("Unsupported JDBC Type " +
@@ -733,10 +759,16 @@ public class KafkaInitialLoadTable {
 				tableRows.close();
 			}
 			tableRows = null;
-			Files.delete(mappedFile);
 		} catch (IOException ioe) {
-			LOGGER.error("Unable to delete the memory mapped file {}.", mappedFile);
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+			LOGGER.error(
+					"""
+					
+					=====================
+					Unable to close memory mapped files!
+					{}
+					=====================
+					
+					""", ExceptionUtils.getExceptionStackTrace(ioe));
 		}
 	}
 
