@@ -26,7 +26,7 @@ import static solutions.a2.cdc.oracle.runtime.config.Parameters.OFFHEAP_SIZE_HAL
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.OFFHEAP_SIZE_HALF_INT;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.OFFHEAP_SIZE_QUARTER;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.OFFHEAP_SIZE_QUARTER_INT;
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.ORA_TRANSACTION_IMPL_CHRONICLE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.ORA_TRANSACTION_IMPL_OFFHEAP;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.PK_TYPE_ANY_UNIQUE;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.PK_TYPE_INT_ANY_UNIQUE;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.PK_TYPE_INT_WELL_DEFINED;
@@ -450,7 +450,7 @@ public class SourceConnectorConfig {
 		//
 		// transactionImpl
 		//
-		if (Strings.CI.equals(paramsRecord.transactionImpl(), ORA_TRANSACTION_IMPL_CHRONICLE))
+		if (Strings.CI.equals(paramsRecord.transactionImpl(), ORA_TRANSACTION_IMPL_OFFHEAP))
 			flags |= OFF_HEAP_MEMORY;
 		//
 		// redoFileNameConversion

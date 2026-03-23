@@ -36,9 +36,9 @@ To process online redo log files and achieve minimal lag between the time a tran
 
 
 == Memory management
-*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* supports both https://docs.oracle.com/en/java/javase/21/core/heap-and-heap-memory.html[On-Heap and Off-Heap memory] (the latter is the default mode). To specify the type of memory used, you need to set *a2.transaction.implementation* parameter to the appropriate value:
+*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* supports both https://docs.oracle.com/en/java/javase/25/core/heap-and-heap-memory.html[On-Heap and Off-Heap memory] (the latter is the default mode). To specify the type of memory used, you need to set *a2.transaction.implementation* parameter to the appropriate value:
 
-* *ChronicleQueue* - default value, this mode uses https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] to store Oracle Database transactions in Off-Heap memory. We are preparing for the transition to Java 25 and are considering replacing https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] with the new memory management features such as https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/foreign/MemorySegment.html[MemorySegment] introduced in Java 25.
+* *OffHeap* - default value, this mode uses https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/foreign/MemorySegment.html[MemorySegment] to store Oracle Database transactions in Off-Heap memory.
 * *ArrayList* - this mode uses https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/ArrayList.html[ArrayList] to store Oracle Database transactions in Heap memory.
 
 If you are using heap memory, you set the initial capacity of the https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/ArrayList.html[ArrayList] using
@@ -67,7 +67,7 @@ are not processed. To process them, you must set the following parameters:
 |===
 |Parameter Name |Value |Description
 
-|a2.transaction.implementation | ChronicleQueue | Mandatory setting
+|a2.transaction.implementation | OffHeap | Mandatory setting
 
 |a2.process.lobs | true | Mandatory setting
 

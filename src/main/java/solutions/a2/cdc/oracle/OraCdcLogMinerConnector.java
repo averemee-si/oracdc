@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceLogMinerTask;
+import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceConnectorBase;
 
 
 /**
@@ -27,7 +28,7 @@ import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceLogMinerTask;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcLogMinerConnector extends OraCdcConnectorBase {
+public class OraCdcLogMinerConnector extends KafkaSourceConnectorBase {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerConnector.class);
 
