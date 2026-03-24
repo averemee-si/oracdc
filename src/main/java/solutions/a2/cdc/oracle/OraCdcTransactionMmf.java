@@ -13,7 +13,7 @@
 	
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.OraCdcStatementBase.BE;
+import static solutions.a2.cdc.oracle.OraCdcRawStatementBase.BIG_ENDIAN;
 import static solutions.a2.cdc.oracle.OraCdcStatementBase.OPERATION_POS;
 import static solutions.a2.cdc.oracle.OraCdcStatementBase.RBA_PART1_POS;
 import static solutions.a2.cdc.oracle.OraCdcStatementBase.RBA_PART2_POS;
@@ -124,11 +124,11 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 			if (data[ROLLBACK_POS] != 1)
 				nonRollback[--index] = new PartialRollbackEntry(
 						statements.readIndex(),
-						BE.getU16(data, OPERATION_POS),
+						BIG_ENDIAN.getU16(data, OPERATION_POS),
 						new RedoByteAddress(
-								BE.getU32(data, RBA_PART1_POS),
-								BE.getU32(data, RBA_PART2_POS),
-								BE.getU16(data, RBA_PART3_POS)),
+								BIG_ENDIAN.getU32(data, RBA_PART1_POS),
+								BIG_ENDIAN.getU32(data, RBA_PART2_POS),
+								BIG_ENDIAN.getU16(data, RBA_PART3_POS)),
 						//TODO need allocation-free method!
 						new RowId(
 								Arrays.copyOfRange(data, ROWID_POS_START, ROWID_POS_END)));
@@ -210,23 +210,20 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 		addStatementInt(oraSql);
 	}
 
-	public void addStatement(final OraCdcStatementBase oraSql, final List<OraCdcLargeObjectHolder> lobs) throws IOException {
+	public void addStatement(final OraCdcStatementBase oraSql, final List<OraCdcLargeObjectHolder> lobHolders) throws IOException {
 		final boolean lobsExists;
 		if (lobs == null) {
 			lobsExists = false;
 			oraSql.setLobCount((byte) 0);
 		} else {
 			lobsExists = true;
-			oraSql.setLobCount((byte) lobs.size());
+			oraSql.setLobCount((byte) lobHolders.size());
 		}
 		addStatementInt(oraSql); 
 		if (lobsExists) {
-			for (int i = 0; i < lobs.size(); i++) {
-				//TODO
-				//TODO
-				//TODO
-//				lobsAppender.writeDocument(lobs.get(i));
-				transSize += lobs.get(i).size();
+			for (int i = 0; i < lobHolders.size(); i++) {
+				lobs.writeRecord(lobHolders.get(i).content());
+				transSize += lobHolders.get(i).size();
 			}
 		}
 	}
@@ -246,37 +243,33 @@ public class OraCdcTransactionMmf extends OraCdcTransaction {
 		}
 	}
 
-	public boolean getStatement(OraCdcStatementBase oraSql, List<OraCdcLargeObjectHolder> lobs) {
+	public boolean getStatement(OraCdcStatementBase oraSql, List<OraCdcLargeObjectHolder> lobHolders) {
 		boolean result = getStatement(oraSql);
 		if (result) {
 			for (int i = 0; i < oraSql.getLobCount(); i++) {
-				OraCdcLargeObjectHolder lobHolder = new OraCdcLargeObjectHolder();
-				//TODO
-				//TODO
-				//TODO
-//				if (!lobsTailer.readDocument(lobHolder)) {
-//					break;
-//				} else {
-//					lobs.add(lobHolder);
-//				}
+				var content = lobs.readNext();
+				if (content != null) {
+					var lobHolder = new OraCdcLargeObjectHolder();
+					lobHolder.restore(content);
+					lobHolders.add(lobHolder);
+				} else
+					break;
 			}
 		}
 		return result;
 	}
 
-	public boolean getLobs(final int lobCount, final List<OraCdcLargeObjectHolder> lobs) {
-		boolean result = true;
+	public boolean getLobs(final int lobCount, final List<OraCdcLargeObjectHolder> lobHolders) {
+		var result = false;
 		for (int i = 0; i < lobCount; i++) {
-			OraCdcLargeObjectHolder lobHolder = new OraCdcLargeObjectHolder();
-			//TODO
-			//TODO
-			//TODO
-//			result = result && lobsTailer.readDocument(lobHolder);
-			if (!result) {
+			var content = lobs.readNext();
+			if (content != null) {
+				if (!result) result = true;
+				var lobHolder = new OraCdcLargeObjectHolder();
+				lobHolder.restore(content);
+				lobHolders.add(lobHolder);
+			} else
 				break;
-			} else {
-				lobs.add(lobHolder);
-			}
 		}
 		return result;
 	}

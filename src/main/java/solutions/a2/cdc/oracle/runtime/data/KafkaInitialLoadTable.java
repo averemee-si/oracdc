@@ -35,7 +35,7 @@ import static java.sql.Types.TIMESTAMP;
 import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.Types.TINYINT;
 import static java.sql.Types.VARCHAR;
-import static solutions.a2.cdc.oracle.OraCdcStatementBase.BE;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.BIG_ENDIAN;
 import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
 
 import java.io.ByteArrayOutputStream;
@@ -526,7 +526,7 @@ public class KafkaInitialLoadTable {
 						}
 					}
 					case BINARY -> {
-						var sizeShort = BE.getU16(data, pos);
+						var sizeShort = BIG_ENDIAN.getU16(data, pos);
 						pos += Short.BYTES;
 						if (sizeShort != NULL_LENGTH_SHORT) {
 							var next = pos + sizeShort;
@@ -535,7 +535,7 @@ public class KafkaInitialLoadTable {
 						}
 					}
 					case CHAR, VARCHAR, NCHAR, NVARCHAR -> {
-						var sizeShort = BE.getU16(data, pos);
+						var sizeShort = BIG_ENDIAN.getU16(data, pos);
 						pos += Short.BYTES;
 						if (sizeShort != NULL_LENGTH_SHORT) {
 							var next = pos + sizeShort;
@@ -550,7 +550,7 @@ public class KafkaInitialLoadTable {
 						pos = next;
 					}
 					case BLOB -> {
-						var sizeInt = BE.getU32(data, pos);
+						var sizeInt = BIG_ENDIAN.getU32(data, pos);
 						pos += Integer.BYTES;
 						if (sizeInt != NULL_LENGTH_INT) {
 							var next = pos + sizeInt;
@@ -559,7 +559,7 @@ public class KafkaInitialLoadTable {
 						}
 					}
 					case CLOB, NCLOB, SQLXML -> {
-						var sizeInt = BE.getU32(data, pos);
+						var sizeInt = BIG_ENDIAN.getU32(data, pos);
 						pos += Integer.BYTES;
 						if (sizeInt != NULL_LENGTH_INT) {
 							var next = pos + sizeInt;

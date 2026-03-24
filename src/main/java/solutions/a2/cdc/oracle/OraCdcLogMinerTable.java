@@ -59,6 +59,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 
 	private static final int LOB_BASICFILES_DATA_BEGINS = 72;
 	private static final int LOB_SECUREFILES_DATA_BEGINS = 60;
+	private static final byte[] EMPTY_LOB = new byte[0];
 
 	private final Map<String, OraCdcColumn> idToNameMap = new HashMap<>();
 	private final Set<String> setColumns = new HashSet<>();
@@ -167,9 +168,8 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 			String[] valuesList = StringUtils.split(StringUtils.substringBetween(
 					StringUtils.substring(stmt.getSqlRedo(), valuedClauseStart + 8), "(", ")"), ",");
 			for (int i = 0; i < columnsList.length; i++) {
-				final String columnName = StringUtils.trim(columnsList[i]);
 				final String columnValue = StringUtils.trim(valuesList[i]);
-				final OraCdcColumn oraColumn = idToNameMap.get(columnName);
+				final OraCdcColumn oraColumn = idToNameMap.get(StringUtils.trim(columnsList[i]));
 				if (oraColumn != null) {
 					if (Strings.CS.startsWith(columnValue, "N")) {
 						if (oraColumn.mandatory()) {
@@ -181,45 +181,48 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 								throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
 							}
 						}
-					} else if (Strings.CS.equals("''", columnValue) && oraColumn.largeObject()) {
-						// EMPTY_BLOB()/EMPTY_CLOB() passed as ''
-						dataBinder.insert(oraColumn, new byte[0]);
-						continue;
-					} else {
-						// Handle LOB inline value!
-						try {
-							//We don't have inline values for XMLTYPE
-							if (oraColumn.getJdbcType() != SQLXML) {
-								if (columnValue != null && columnValue.length() > 0) {
-									try {
-										dataBinder.insert(oraColumn, parseRedoRecordValues(oraColumn, columnValue));
-									} catch (SQLException sqle) {
-										if (oraColumn.isNullable()) {
-											printToLogInvalidHexValueWarning(
-													columnValue, oraColumn.getColumnName(), stmt);
-										} else {
-											LOGGER.error("Invalid value {} for column {} in table {}",
-													columnValue, oraColumn.getColumnName(), tableFqn);
-											printInvalidFieldValue(oraColumn, stmt, transaction);
-											throw new SQLException(sqle);
+					} else if (oraColumn.getJdbcType() != SQLXML) {
+						//We don't have inline values for XMLTYPE
+						if (Strings.CS.equals("''", columnValue) && oraColumn.largeObject()) {
+							// EMPTY_BLOB()/EMPTY_CLOB() passed as ''
+							dataBinder.insert(oraColumn, EMPTY_LOB);
+							continue;
+						} else {
+							// Handle LOB inline value!
+							try {
+								//We don't have inline values for XMLTYPE
+								if (oraColumn.getJdbcType() != SQLXML) {
+									if (columnValue != null && columnValue.length() > 0) {
+										try {
+											dataBinder.insert(oraColumn, parseRedoRecordValues(oraColumn, columnValue));
+										} catch (SQLException sqle) {
+											if (oraColumn.isNullable()) {
+												printToLogInvalidHexValueWarning(
+														columnValue, oraColumn.getColumnName(), stmt);
+											} else {
+												LOGGER.error("Invalid value {} for column {} in table {}",
+														columnValue, oraColumn.getColumnName(), tableFqn);
+												printInvalidFieldValue(oraColumn, stmt, transaction);
+												throw new SQLException(sqle);
+											}
 										}
+									} else {
+										LOGGER.warn(
+												"""
+												
+												=====================
+												Null or zero length data for overload for LOB column {} with inline value in table {}.
+												=====================
+												
+												""", oraColumn.getColumnName(), tableFqn);
 									}
-								} else {
-									LOGGER.warn(
-											"""
-											
-											=====================
-											Null or zero length data for overload for LOB column {} with inline value in table {}.
-											=====================
-											
-											""", oraColumn.getColumnName(), tableFqn);
 								}
+							} catch (DataException de) {
+								LOGGER.error("Invalid value {} for column {} in table {}",
+										columnValue, oraColumn.getColumnName(), tableFqn);
+								printInvalidFieldValue(oraColumn, stmt, transaction);
+								throw new DataException(de);
 							}
-						} catch (DataException de) {
-							LOGGER.error("Invalid value {} for column {} in table {}",
-									columnValue, oraColumn.getColumnName(), tableFqn);
-							printInvalidFieldValue(oraColumn, stmt, transaction);
-							throw new DataException(de);
 						}
 					}
 				}
@@ -330,7 +333,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 					if (Strings.CS.endsWith(currentExpr, "L")) {
 						if (oraColumn.largeObject()) {
 							// Explicit NULL for LOB!
-							dataBinder.update(oraColumn, new byte[0], true);
+							dataBinder.update(oraColumn, EMPTY_LOB, true);
 						} else {
 							if (oraColumn.mandatory()) {
 								if (oraColumn.defaultValuePresent()) {
@@ -351,7 +354,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 						final String columnValue = StringUtils.substringAfter(currentExpr, "=");
 						if ("''".equals(columnValue) &&
 								(oraColumn.largeObject())) {
-							dataBinder.update(oraColumn, new byte[0], true);
+							dataBinder.update(oraColumn, EMPTY_LOB, true);
 							continue;
 						} else {
 							try {
@@ -461,6 +464,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("parseRedoRecord() processing XML_DOC_BEGIN (for XMLTYPE update)");
 			}
+System.out.println("XML_DOC_BEGIN!");
 			final int whereClauseStart = Strings.CS.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 			String[] whereClause = StringUtils.splitByWholeSeparator(
 					StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
@@ -475,7 +479,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 				final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 				if (oraColumn != null) {
 					if (!Strings.CS.endsWith(currentExpr, "L")) {
-						dataBinder.update(oraColumn,parseRedoRecordValues(oraColumn,
+						dataBinder.update(oraColumn, parseRedoRecordValues(oraColumn,
 								StringUtils.trim(StringUtils.substringAfter(currentExpr, "="))), true);
 					}
 				} else {
@@ -526,7 +530,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 //										keyStruct, lobColumnSchemas.get(lobColumnName)),
 //								true);
 //					} else {
-						dataBinder.update(lobColumn, lob.getContent(lobColumn.getJdbcType()), true);
+						dataBinder.update(lobColumn, lobColumn.decoder().decode(lob.content()), true);
 //					}
 				}
 			}
@@ -559,7 +563,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 									UTF_16);
 					}
 					if (clobValue.length() == 0) {
-						columnValue = new byte[0];
+						columnValue = EMPTY_LOB;
 					} else {
 						columnValue = clobValue;
 					}
@@ -567,7 +571,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 				case BLOB -> {
 					if (oraColumn.getSecureFile()) {
 						if (hex.length() == LOB_SECUREFILES_DATA_BEGINS || hex.length() == 0) {
-							columnValue = new byte[0];
+							columnValue = EMPTY_LOB;
 						} else {
 							columnValue = hexToRaw(StringUtils.substring(hex,
 									LOB_SECUREFILES_DATA_BEGINS  + (extraSecureFileLengthByte(hex) ? 2 : 0)));

@@ -20,17 +20,13 @@ import java.util.Arrays;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
-import solutions.a2.oracle.utils.BinaryUtils;
 
 /**
  *
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcStatementBase {
-
-	public static final int APPROXIMATE_SIZE = 0x4000;
-	public static final BinaryUtils BE = BinaryUtils.get(false);
+public class OraCdcStatementBase extends OraCdcRawStatementBase {
 
 	static final int OPERATION_POS = Long.BYTES;
 	static final int RBA_PART1_POS = 0x22;
@@ -172,6 +168,7 @@ public class OraCdcStatementBase {
 		other.holderSize = this.holderSize;
 	}
 
+	@Override
 	public byte[] content() {
 		var ba = new byte[(HOLDER_SIZE + redoData.length + 3) & 0xFFFFFFFC];
 		putU64(ba, tableId, 0);
@@ -188,22 +185,23 @@ public class OraCdcStatementBase {
 		return ba;
 	}
 
+	@Override
 	public void restore(final byte[] content) {
-		tableId = BE.getU64(content, 0);
-		operation = BE.getU16(content, OPERATION_POS);
-		ts = BE.getU64(content, 0xA);
-		scn = BE.getU64(content, 0x12);
-		ssn = BE.getU64(content, 0x1A);
+		tableId = BIG_ENDIAN.getU64(content, 0);
+		operation = BIG_ENDIAN.getU16(content, OPERATION_POS);
+		ts = BIG_ENDIAN.getU64(content, 0xA);
+		scn = BIG_ENDIAN.getU64(content, 0x12);
+		ssn = BIG_ENDIAN.getU64(content, 0x1A);
 		rba = new RedoByteAddress(
-				BE.getU32(content, RBA_PART1_POS),
-				BE.getU32(content, RBA_PART2_POS),
-				BE.getU16(content, RBA_PART3_POS));
+				BIG_ENDIAN.getU32(content, RBA_PART1_POS),
+				BIG_ENDIAN.getU32(content, RBA_PART2_POS),
+				BIG_ENDIAN.getU16(content, RBA_PART3_POS));
 		//TODO need allocation-free method!
 		rowId = new RowId(
 				Arrays.copyOfRange(content, ROWID_POS_START, ROWID_POS_END));
 		lobCount = content[0x36];
 		rollback = content[ROLLBACK_POS] == 1 ? true : false;
-		redoData = Arrays.copyOfRange(content, HOLDER_SIZE, HOLDER_SIZE + BE.getU32(content, 0x38));
+		redoData = Arrays.copyOfRange(content, HOLDER_SIZE, HOLDER_SIZE + BIG_ENDIAN.getU32(content, 0x38));
 	}
 
 	public StringBuilder toStringBuilder() {
@@ -285,29 +283,6 @@ public class OraCdcStatementBase {
 			.append(rollback ? "1" : "0")
 			.append("\n");
 		return sb;
-	}
-
-	private static void putU16(final byte[] ba, final short u16, final int offset) {
-		ba[offset] = (byte)(u16 >>> 8);
-		ba[offset + 1] = (byte)u16;
-	}
-
-	private static void putU32(final byte[] ba, final int u32, final int offset) {
-		ba[offset] = (byte)(u32 >>> 24);
-		ba[offset + 1] = (byte)(u32 >>> 16);
-		ba[offset + 2] = (byte)(u32 >>> 8);
-		ba[offset + 3] = (byte)u32;
-	}
-
-	private static void putU64(final byte[] ba, final long u64, final int offset) {
-		ba[offset] = (byte)(u64 >>> 56);
-		ba[offset + 1] = (byte)(u64 >>> 48);
-		ba[offset + 2] = (byte)(u64 >>> 40);
-		ba[offset + 3] = (byte)(u64 >>> 32);
-		ba[offset + 4] = (byte)(u64 >>> 24);
-		ba[offset + 5] = (byte)(u64 >>> 16);
-		ba[offset + 6] = (byte)(u64 >>> 8);
-		ba[offset + 7] = (byte)u64;
 	}
 
 }
