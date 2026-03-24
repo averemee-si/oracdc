@@ -464,7 +464,6 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("parseRedoRecord() processing XML_DOC_BEGIN (for XMLTYPE update)");
 			}
-System.out.println("XML_DOC_BEGIN!");
 			final int whereClauseStart = Strings.CS.indexOf(stmt.getSqlRedo(), SQL_REDO_WHERE);
 			String[] whereClause = StringUtils.splitByWholeSeparator(
 					StringUtils.substring(stmt.getSqlRedo(), whereClauseStart + 7), SQL_REDO_AND);
