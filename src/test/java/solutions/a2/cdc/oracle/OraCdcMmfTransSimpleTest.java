@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 
+import org.apache.log4j.BasicConfigurator;
 import org.junit.jupiter.api.Test;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -30,10 +31,11 @@ import solutions.a2.oracle.internals.RowId;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcChronicleQueueTest {
+public class OraCdcMmfTransSimpleTest {
 
 	@Test
 	public void test() throws IOException {
+		BasicConfigurator.configure();
 		final String tmpDir = System.getProperty("java.io.tmpdir");
 		final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
 		final OraCdcLogMinerStatement updIn =  new  OraCdcLogMinerStatement(
@@ -44,7 +46,7 @@ public class OraCdcChronicleQueueTest {
 				0, 
 				new RowId("AAAWbzAAEAAAB6FAAA"), false);
 		String xid = "0000270016000000";
-		OraCdcTransaction transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, updIn, false);
+		OraCdcTransaction transaction = new OraCdcTransactionMmf(queuesRoot, xid, updIn, false);
 		transaction.setCommitScn(updIn.getScn());
 		OraCdcLogMinerStatement updOut = new OraCdcLogMinerStatement();
 		transaction.getStatement(updOut);

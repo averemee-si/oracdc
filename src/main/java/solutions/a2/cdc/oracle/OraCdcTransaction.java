@@ -64,6 +64,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.putU16;
 import static solutions.a2.oracle.utils.BinaryUtils.putU24;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -74,6 +75,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -148,9 +150,10 @@ public abstract class OraCdcTransaction {
 	private Map<LobId, LobHolder> transLobs;
 	private Long2ObjectHashMap<LobId> lobCols;
 	final Path rootDir;
-	Path lobsQueueDirectory;
+	private Path lobsQueueDirectory;
 
-	OraCdcTransaction(final String xid, final long firstChange, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) {
+	OraCdcTransaction(
+			final String xid, final long firstChange, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) {
 		this.xid = xid;
 		this.firstChange = firstChange;
 		this.transSize = 0;
@@ -159,17 +162,17 @@ public abstract class OraCdcTransaction {
 		this.rootDir = rootDir;
 	}
 
-	OraCdcTransaction(final OraCdcRawTransaction raw, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
+	OraCdcTransaction(
+			final OraCdcRawTransaction raw, final boolean isCdb, final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
 		xid = raw.xid().toString();
 		firstChange = raw.firstChange();
 		transSize = 0;
 		this.isCdb = isCdb;
 		this.rootDir = rootDir;
 		this.processLobs = processLobs;
-		init(raw);
 	}
 
-	private void init(final OraCdcRawTransaction raw) throws SQLException, IOException {
+	void init(final OraCdcRawTransaction raw) throws SQLException, IOException {
 		var records = raw.records();
 		capacity = records.size();
 		for (var i = 0; i  < records.size(); i++) {
@@ -332,7 +335,7 @@ public abstract class OraCdcTransaction {
 		}
 	}
 
-	void checkForRollback(final OraCdcStatementBase oraSql, final long index) {
+	void checkForRollback(final OraCdcStatementBase oraSql, final int index) {
 		if (firstRecord) {
 			firstRecord = false;
 			nextChange = oraSql.getScn();
@@ -358,16 +361,10 @@ public abstract class OraCdcTransaction {
 					partialRollback = true;
 					rollbackEntriesList = new ArrayList<>();
 				}
-				final PartialRollbackEntry pre = new PartialRollbackEntry();
-				pre.index = index;
-				pre.operation = oraSql.getOperation();
-				pre.rowId = oraSql.getRowId();
-				pre.rba = oraSql.getRba();
-
-				rollbackEntriesList.add(pre);
+				rollbackEntriesList.add(new PartialRollbackEntry(index, oraSql));
 				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("New partial rollback entry at SCN={}, RS_ID(RBA)='{}' for ROWID={} added.",
-							oraSql.getScn(), oraSql.getRba(), oraSql.getRowId());
+					LOGGER.debug("New partial rollback entry at SCN={}, RS_ID(RBA)='{}', pre.index={} for ROWID={} added.",
+							oraSql.getScn(), oraSql.getRba(), index, oraSql.getRowId());
 				}
 			}
 		}
@@ -382,17 +379,19 @@ public abstract class OraCdcTransaction {
 			transLobs = null;
 			lobCols = null;
 		} else {
-			lobsQueueDirectory = Files.createTempDirectory(rootDir, xid + ".LOBDATA.");
 			if (processLobs == LobProcessingStatus.REDOMINER) {
+				lobsQueueDirectory = Files.createTempDirectory(rootDir, xid + ".LOBDATA.");
 				transLobs = new HashMap<>();
 				lobCols = new Long2ObjectHashMap<>();
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug("Created LOB data queue directory {} for transaction XID {}.",
+						lobsQueueDirectory.toString(), xid);
 			} else {
 				// processLobs == LobProcessingStatus.LOGMINER
+				lobsQueueDirectory = null;
 				transLobs = null;
 				lobCols = null;
 			}
-			LOGGER.debug("Created LOB data queue directory {} for transaction XID {}.",
-					lobsQueueDirectory.toString(), xid);
 		}
 	}
 
@@ -583,7 +582,7 @@ public abstract class OraCdcTransaction {
 
 	void printPartialRollbackEntryDebug(final PartialRollbackEntry pre) {
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Working with partial rollback statement for ROWID={} at RBA='{}'", pre.rowId, pre.rba);
+			LOGGER.debug("Working with partial rollback statement for ROWID={} at RBA='{}'", pre.rowId(), pre.rba());
 		}
 	}
 
@@ -596,21 +595,62 @@ public abstract class OraCdcTransaction {
 				No pair for partial rollback statement with ROWID={} RBA='{}' in transaction XID='{}'!
 				=====================
 				
-				""", pre.rowId, pre.rba, getXid());
+				""", pre.rowId(), pre.rba(), getXid());
 	}
 
-	abstract void addStatement(final OraCdcStatementBase oraSql);
+	abstract void addStatement(final OraCdcStatementBase oraSql) throws IOException;
 	public abstract boolean getStatement(OraCdcStatementBase oraSql);
 	abstract long size();
 	abstract int length();
 	public abstract void close();
 
-	static class PartialRollbackEntry {
-		long index;
-		short operation;
-		RowId rowId;
-		RedoByteAddress rba;
-	}
+	static class PartialRollbackEntry{
+		final int index;
+		final short operation;
+		final RowId rowId;
+		final RedoByteAddress rba;
+
+		PartialRollbackEntry(final int index, final OraCdcStatementBase oraSql) {
+			this.index = index;
+			operation = oraSql.getOperation();
+			rowId = oraSql.getRowId();
+			rba = oraSql.getRba();
+		}
+
+		PartialRollbackEntry(final int index, final short operation, final RedoByteAddress rba, final RowId rowId) {
+			this.index = index;
+			this.operation = operation;
+			this.rowId = rowId;
+			this.rba = rba;
+		}
+
+		boolean match(final OraCdcStatementBase lmStmt) {
+			if (!lmStmt.isRollback() &&
+					((operation == DELETE && lmStmt.getOperation() == INSERT) ||
+					(operation == INSERT && lmStmt.getOperation() == DELETE) ||
+					(operation == UPDATE && lmStmt.getOperation() == UPDATE)) &&
+					rowId.equals(lmStmt.getRowId()))
+				return true;
+			return false;
+		}
+
+		boolean match(final PartialRollbackEntry other) {
+			if (((operation == DELETE && other.operation == INSERT) ||
+					(operation == INSERT && other.operation == DELETE) ||
+					(operation == UPDATE && other.operation == UPDATE)) &&
+					rowId.equals(other.rowId))
+				return true;
+			return false;
+		}
+
+		RowId rowId() {
+			return rowId;
+		}
+
+		RedoByteAddress rba() {
+			return rba;
+		}
+	};
 
 	private static final byte FLG_NEED_HEAD_FLAG   = 0x01;
 	private static final byte FLG_REORDER          = 0x02;
@@ -1914,7 +1954,7 @@ public abstract class OraCdcTransaction {
 		return halfDone.isEmpty();
 	}
 
-	private void emitDdlChange(OraCdcRedoRecord rr, final long lwnUnixMillis) {
+	private void emitDdlChange(OraCdcRedoRecord rr, final long lwnUnixMillis) throws IOException {
 		final OraCdcChangeDdl ddl = rr.changeDdl();
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("emitDdlChange() in XID {} at SCN/RBA {}/{} for OP:{}",
@@ -2114,6 +2154,13 @@ public abstract class OraCdcTransaction {
 						closeIt.lid.toString(), closeIt.chunks.size());
 				try { closeIt.lastChunk.os.close();} catch (Exception e) {}
 			}
+	}
+
+	void deleteLobFiles() throws IOException {
+		Files.walk(lobsQueueDirectory)
+			.sorted(Comparator.reverseOrder())
+			.map(Path::toFile)
+			.forEach(File::delete);
 	}
 
 	public byte[] getLob(final LobLocator ll) throws SQLException {

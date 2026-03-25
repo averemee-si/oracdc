@@ -16,13 +16,8 @@ package solutions.a2.cdc.oracle;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Arrays;
 
-import net.openhft.chronicle.bytes.Bytes;
-import net.openhft.chronicle.core.io.IORuntimeException;
-import net.openhft.chronicle.wire.ReadMarshallable;
-import net.openhft.chronicle.wire.WireIn;
-import net.openhft.chronicle.wire.WireOut;
-import net.openhft.chronicle.wire.WriteMarshallable;
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.RowId;
 
@@ -31,9 +26,15 @@ import solutions.a2.oracle.internals.RowId;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcStatementBase implements ReadMarshallable, WriteMarshallable {
+public class OraCdcStatementBase extends OraCdcRawStatementBase {
 
-	public static final int APPROXIMATE_SIZE = 0x4000;
+	static final int OPERATION_POS = Long.BYTES;
+	static final int RBA_PART1_POS = 0x22;
+	static final int RBA_PART2_POS = 0x26;
+	static final int RBA_PART3_POS = 0x2A;
+	static final int ROWID_POS_START = 0x2C;
+	static final int ROWID_POS_END = 0x36;
+	static final int ROLLBACK_POS = 0x37;
 
 	/** (((long)V$LOGMNR_CONTENTS.CON_ID) {@literal <}{@literal <} 32) | (V$LOGMNR_CONTENTS.DATA_OBJ# {@literal &} 0xFFFFFFFFL) */
 	protected long tableId;
@@ -58,16 +59,15 @@ public class OraCdcStatementBase implements ReadMarshallable, WriteMarshallable 
 	/** is this partial rollback? */
 	protected boolean rollback;
 
-	// tableId(Long) + operation(Short) + ts(Long) + scn(Long) + ssn(Long) + lobCount(Byte) + RBA + ROWID + <Content length>
+	// tableId(Long) + operation(Short) + ts(Long) + scn(Long) + ssn(Long) + lobCount(Byte) + PRB(Byte) + RBA + ROWID + <Content length>
 	private static final int HOLDER_SIZE = Long.BYTES + Short.BYTES + Long.BYTES + Long.BYTES + Long.BYTES + Byte.BYTES +
-			RedoByteAddress.BYTES + RowId.BYTES + Integer.BYTES;
+			Byte.BYTES + RedoByteAddress.BYTES + RowId.BYTES + Integer.BYTES;
 	/**
 	 * 
 	 * Default constructor
 	 * 
 	 */
-	public OraCdcStatementBase() {
-	}
+	public OraCdcStatementBase() {}
 
 	/**
 	 * 
@@ -98,6 +98,10 @@ public class OraCdcStatementBase implements ReadMarshallable, WriteMarshallable 
 		this.rollback = rollback;
 	}
 
+	public OraCdcStatementBase(final byte[] content) {
+		restore(content);
+	}
+
 	public long getTableId() {
 		return tableId;
 	}
@@ -107,7 +111,7 @@ public class OraCdcStatementBase implements ReadMarshallable, WriteMarshallable 
 	}
 
 	public String getSqlRedo() {
-		return "";
+		return null;
 	}
 
 	public long getTs() {
@@ -165,52 +169,39 @@ public class OraCdcStatementBase implements ReadMarshallable, WriteMarshallable 
 	}
 
 	@Override
-	public void writeMarshallable(WireOut wire) {
-		wire.bytes()
-			.writeLong(tableId)
-			.writeShort(operation)
-			.writeLong(ts)
-			.writeLong(scn)
-			.writeLong(ssn)
-			.write(rba.toByteArray())
-			.write(rowId.toByteArray())
-			.writeByte(lobCount)
-			.writeBoolean(rollback)
-			.writeInt(redoData.length)
-			.write(redoData);
-	}
-
-
-	@Override
-	public void readMarshallable(WireIn wire) throws IORuntimeException {
-		Bytes<?> raw = wire.bytes();
-		tableId = raw.readLong();
-		operation = raw.readShort();
-		ts = raw.readLong();
-		scn = raw.readLong();
-		ssn = raw.readLong();
-		final byte[] baRba = new byte[RedoByteAddress.BYTES];
-		if (raw.read(baRba) != RedoByteAddress.BYTES) {
-			throw new IORuntimeException("Unable to read RBA as byte array!");
-		}
-		rba = RedoByteAddress.fromByteArray(baRba);
-		final byte[] baRowId = new byte[RowId.BYTES];
-		if (raw.read(baRowId) != RowId.BYTES) {
-			throw new IORuntimeException("Unable to read ROWID as byte array!");
-		}
-		rowId = new RowId(baRowId);
-		lobCount = raw.readByte();
-		rollback = raw.readBoolean();
-		final int size = raw.readInt();
-		redoData = new byte[size];
-		if (raw.read(redoData) != size) {
-			throw new IORuntimeException("Unable to read redo content!");
-		}
+	public byte[] content() {
+		var ba = new byte[(HOLDER_SIZE + redoData.length + 3) & 0xFFFFFFFC];
+		putU64(ba, tableId, 0);
+		putU16(ba, operation, Long.BYTES);
+		putU64(ba, ts, 0xA);
+		putU64(ba, scn, 0x12);
+		putU64(ba, ssn, 0x1A);
+		System.arraycopy(rba.toByteArray(), 0, ba, 0x22, RedoByteAddress.BYTES);
+		System.arraycopy(rowId.toByteArray(), 0, ba, 0x2C, RowId.BYTES);
+		ba[0x36] = lobCount;
+		ba[0x37] = (byte) (rollback ? 1 : 0);
+		putU32(ba, redoData.length, 0x38);
+		System.arraycopy(redoData, 0, ba, HOLDER_SIZE, redoData.length); 
+		return ba;
 	}
 
 	@Override
-	public boolean usesSelfDescribingMessage() {
-		return ReadMarshallable.super.usesSelfDescribingMessage();
+	public void restore(final byte[] content) {
+		tableId = BIG_ENDIAN.getU64(content, 0);
+		operation = BIG_ENDIAN.getU16(content, OPERATION_POS);
+		ts = BIG_ENDIAN.getU64(content, 0xA);
+		scn = BIG_ENDIAN.getU64(content, 0x12);
+		ssn = BIG_ENDIAN.getU64(content, 0x1A);
+		rba = new RedoByteAddress(
+				BIG_ENDIAN.getU32(content, RBA_PART1_POS),
+				BIG_ENDIAN.getU32(content, RBA_PART2_POS),
+				BIG_ENDIAN.getU16(content, RBA_PART3_POS));
+		//TODO need allocation-free method!
+		rowId = new RowId(
+				Arrays.copyOfRange(content, ROWID_POS_START, ROWID_POS_END));
+		lobCount = content[0x36];
+		rollback = content[ROLLBACK_POS] == 1 ? true : false;
+		redoData = Arrays.copyOfRange(content, HOLDER_SIZE, HOLDER_SIZE + BIG_ENDIAN.getU32(content, 0x38));
 	}
 
 	public StringBuilder toStringBuilder() {
@@ -294,5 +285,4 @@ public class OraCdcStatementBase implements ReadMarshallable, WriteMarshallable 
 		return sb;
 	}
 
-	
 }

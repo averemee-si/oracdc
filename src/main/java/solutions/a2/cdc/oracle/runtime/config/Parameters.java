@@ -357,7 +357,8 @@ public class Parameters {
 
 	public static final String ORA_TRANSACTION_IMPL_CHRONICLE = "ChronicleQueue";
 	public static final String ORA_TRANSACTION_IMPL_JVM = "ArrayList";
-	public static final String ORA_TRANSACTION_IMPL_DEFAULT = ORA_TRANSACTION_IMPL_CHRONICLE;
+	public static final String ORA_TRANSACTION_IMPL_OFFHEAP = "OffHeap";
+	public static final String ORA_TRANSACTION_IMPL_DEFAULT = ORA_TRANSACTION_IMPL_OFFHEAP;
 	public static final String ORA_TRANSACTION_IMPL_PARAM = "a2.transaction.implementation";
 	public static final String ORA_TRANSACTION_IMPL_DOC = 
 			"""

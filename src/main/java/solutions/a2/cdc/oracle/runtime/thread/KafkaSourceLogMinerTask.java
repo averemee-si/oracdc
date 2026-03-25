@@ -34,7 +34,7 @@ import solutions.a2.cdc.oracle.OraCdcLogMinerStatement;
 import solutions.a2.cdc.oracle.OraCdcLogMinerWorkerThread;
 import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
-import solutions.a2.cdc.oracle.OraCdcTransactionChronicleQueue;
+import solutions.a2.cdc.oracle.OraCdcTransactionMmf;
 import solutions.a2.cdc.oracle.OraCdcV$LogmnrContents;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
 import solutions.a2.cdc.oracle.OraCdcLogMinerTable;
@@ -324,7 +324,7 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 								processTransaction = transaction.getStatement(stmt);
 								if (processLobs && processTransaction && stmt.getLobCount() > 0) {
 									lobs.clear();
-									((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
+									((OraCdcTransactionMmf) transaction).getLobs(stmt.getLobCount(), lobs);
 								}
 								lastStatementInTransaction = !processTransaction;
 								if (stmt.getScn() == lastInProgressScn &&
@@ -349,7 +349,7 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 							processTransaction = transaction.getStatement(stmt);
 							if (processLobs && processTransaction && stmt.getLobCount() > 0) {
 								lobs.clear();
-								((OraCdcTransactionChronicleQueue) transaction).getLobs(stmt.getLobCount(), lobs);
+								((OraCdcTransactionMmf) transaction).getLobs(stmt.getLobCount(), lobs);
 							}
 							lastStatementInTransaction = !processTransaction;
 

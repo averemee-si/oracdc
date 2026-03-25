@@ -47,7 +47,7 @@ public class OraCdcRollbackZeroRows implements Closeable {
 		} else {
 			final String tmpDir = System.getProperty("java.io.tmpdir");
 			final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
-			transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, firstStmt, false);
+			transaction = new OraCdcTransactionMmf(queuesRoot, xid, firstStmt, false);
 		}
 		transaction.addStatement(new OraCdcLogMinerStatement(175041, (short)3,
 				"update \"WSH\".\"WSH_TRIPS\" set".getBytes(StandardCharsets.US_ASCII),

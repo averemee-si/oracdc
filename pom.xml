@@ -69,13 +69,11 @@
 		<commons.lang3.version>3.20.0</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<commons.cli.version>1.11.0</commons.cli.version>
-		<chronicle.queue.version>5.25ea17</chronicle.queue.version>
-		<chronicle.affinity.version>3.23.3</chronicle.affinity.version>
 		<ora.jdbc.version>23.26.1.0.0</ora.jdbc.version>
 		<pg.jdbc.version>42.7.10</pg.jdbc.version>
 		<HikariCP.version>7.0.2</HikariCP.version>
 		<slf4j.version>2.0.17</slf4j.version>
-		<ojdbc.types.version>0.9.8</ojdbc.types.version>
+		<ojdbc.types.version>0.9.9</ojdbc.types.version>
 		<maverick.version>3.1.4</maverick.version>
 		<sshj.version>0.40.0</sshj.version>
 		<smbj.version>0.14.0</smbj.version>
@@ -85,6 +83,7 @@
 		<mina.version>2.17.1</mina.version>
 		<kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
 		<jar.plugin.version>3.4.2</jar.plugin.version>
+		<compiler.plugin.version>3.15.0</compiler.plugin.version>
 		<assembly.plugin.version>3.8.0</assembly.plugin.version>
 		<surefire.plugin.version>3.5.4</surefire.plugin.version>
 		<source.plugin.version>3.4.0</source.plugin.version>
@@ -171,24 +170,6 @@
 			<groupId>commons-cli</groupId>
 			<artifactId>commons-cli</artifactId>
 			<version>${commons.cli.version}</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/net.openhft/affinity -->
-		<dependency>
-			<groupId>net.openhft</groupId>
-			<artifactId>affinity</artifactId>
-			<version>${chronicle.affinity.version}</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/net.openhft/chronicle-queue -->
-		<dependency>
-			<groupId>net.openhft</groupId>
-			<artifactId>chronicle-queue</artifactId>
-			<version>${chronicle.queue.version}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>net.openhft</groupId>
-					<artifactId>affinity</artifactId>
-				</exclusion>
-			</exclusions>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc17 -->
 		<dependency>
@@ -344,6 +325,15 @@
 	<build>
 		<plugins>
 			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>${compiler.plugin.version}</version>
+				<configuration>
+					<compilerArgs>
+						<arg>--enable-preview</arg>
+					</compilerArgs>
+				</configuration>
+			</plugin>
+			<plugin>
 				<artifactId>maven-dependency-plugin</artifactId>
 				<executions>
 					<execution>
@@ -363,15 +353,7 @@
 				<version>${surefire.plugin.version}</version>
 				<configuration>
 					<argLine>
-						--add-exports java.base/jdk.internal.ref=ALL-UNNAMED
-						--add-exports java.base/sun.nio.ch=ALL-UNNAMED
-						--add-exports jdk.unsupported/sun.misc=ALL-UNNAMED
-						--add-exports jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED
-						--add-opens jdk.compiler/com.sun.tools.javac=ALL-UNNAMED
-						--add-opens java.base/java.lang=ALL-UNNAMED
-						--add-opens java.base/java.lang.reflect=ALL-UNNAMED
-						--add-opens java.base/java.io=ALL-UNNAMED
-						--add-opens java.base/java.util=ALL-UNNAMED
+						--enable-preview
 					</argLine>
 				</configuration>
 			</plugin>
@@ -524,6 +506,9 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-javadoc-plugin</artifactId>
 				<version>${javadoc.plugin.version}</version>
+				<configuration>
+					<additionalOptions>--enable-preview</additionalOptions>
+				</configuration>
 				<executions>
 					<execution>
 						<id>attach-javadocs</id>

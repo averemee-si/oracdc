@@ -13,27 +13,9 @@
 
 package solutions.a2.cdc.oracle;
 
-import java.io.UnsupportedEncodingException;
-import java.sql.SQLException;
+import java.util.Arrays;
 
-import org.apache.kafka.connect.data.Struct;
-
-import net.openhft.chronicle.bytes.Bytes;
-import net.openhft.chronicle.core.io.IORuntimeException;
-import net.openhft.chronicle.wire.WireOut;
-import net.openhft.chronicle.wire.ReadMarshallable;
-import net.openhft.chronicle.wire.WireIn;
-import net.openhft.chronicle.wire.WriteMarshallable;
-import solutions.a2.cdc.oracle.data.OraBlob;
-import solutions.a2.cdc.oracle.data.OraClob;
-import solutions.a2.cdc.oracle.data.OraNClob;
-import solutions.a2.cdc.oracle.data.OraXml;
-
-import static java.sql.Types.BLOB;
-import static java.sql.Types.CLOB;
-import static java.sql.Types.NCLOB;
-import static java.sql.Types.SQLXML;
-import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 /**
  * Chronicle queue for LOB columns
@@ -41,7 +23,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshallable {
+public class OraCdcLargeObjectHolder extends OraCdcRawStatementBase {
 
 	/** LOB object Id */
 	private long lobId;
@@ -95,31 +77,6 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 		return content;
 	}
 
-	public Struct getContent(final int jdbcType) throws SQLException {
-		if (jdbcType == BLOB) {
-			final Struct blob = new Struct(OraBlob.schema());
-			blob.put("V",  content);
-			return blob;
-		} else if (jdbcType == CLOB || jdbcType == NCLOB) {
-			final Struct lob = new Struct(jdbcType == CLOB ? OraClob.schema() : OraNClob.schema());
-			try {
-				lob.put("V",  new String(content, "UTF-16"));
-			} catch (UnsupportedEncodingException e) {
-				throw new SQLException("Invalid encoding for UTF-16 encoded LOB for HEXTORAW " + rawToHex(content) +  ".", e);
-			}
-			return lob;
-		} else if (jdbcType == SQLXML) {
-			final Struct xml = new Struct(OraXml.schema());
-			try {
-				xml.put("V",  new String(content, "UTF-8"));
-			} catch (UnsupportedEncodingException e) {
-				throw new SQLException("Invalid encoding for UTF-8 encoded XML for HEXTORAW " + rawToHex(content) +  ".", e);
-			}
-			return xml;
-		}
-		return null;
-	}
-
 	public String getColumnId() {
 		return columnId;
 	}
@@ -129,42 +86,36 @@ public class OraCdcLargeObjectHolder implements ReadMarshallable, WriteMarshalla
 	}
 
 	@Override
-	public void writeMarshallable(WireOut wire) {
-		wire.bytes().writeLong(lobId);
+	public byte[] content() {
+		var length = Long.BYTES;
+		if (lobId == 0)
+			length += 1 + columnId.length();
+		length += Integer.BYTES + content.length;
+		var bytes = new byte[length];
+		putU64(bytes, lobId, 0);
+		var pos = Long.BYTES;
 		if (lobId == 0) {
-			// only for SYS.XMLTYPE
-			wire.bytes().write8bit(columnId);
+			bytes[pos++] = (byte) columnId.length();
+			System.arraycopy(columnId.getBytes(US_ASCII), 0, bytes, pos, columnId.length());
+			pos += columnId.length();
 		}
-		if (content == null || content.length < 1) {
-			wire.bytes().writeInt(-1);
-		} else {
-			wire.bytes().writeInt(content.length);
-			wire.bytes().write(content);
-		}
+		System.arraycopy(content, 0, bytes, pos, content.length);
+		return bytes;
 	}
 
-
-	@Override
-	public void readMarshallable(WireIn wire) throws IORuntimeException {
-		Bytes<?> raw = wire.bytes();
-		lobId = raw.readLong();
+	public void restore(final byte[] bytes) {
+		lobId = BIG_ENDIAN.getU64(bytes, 0);
+		var pos = Long.BYTES;
 		if (lobId == 0) {
-			// SYS.XMLTYPE
-			columnId = raw.read8bit();
+			columnId = new String(bytes, pos, bytes[pos], US_ASCII);
+			pos += bytes[pos];
 		}
-		final int length = raw.readInt();
+		var length = BIG_ENDIAN.getU32(bytes, pos);
 		if (length > 0) {
-			content = new byte[length];
-			raw.read(content);
-		} else {
+			pos += Integer.BYTES;
+			content = Arrays.copyOfRange(bytes, pos, pos + length);
+		} else
 			content = new byte[0];
-		}
 	}
 
-
-	@Override
-	public boolean usesSelfDescribingMessage() {
-		// TODO Auto-generated method stub
-		return ReadMarshallable.super.usesSelfDescribingMessage();
-	}
 }

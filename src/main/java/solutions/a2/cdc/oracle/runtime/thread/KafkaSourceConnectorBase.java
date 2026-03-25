@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.cdc.oracle;
+package solutions.a2.cdc.oracle.runtime.thread;
 
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.ARCHIVED_LOG_CAT_PARAM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.CONNECTION_PASSWORD_PARAM;
@@ -26,6 +26,9 @@ import static solutions.a2.cdc.oracle.runtime.config.Parameters.MAKE_STANDBY_ACT
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.STANDBY_URL_PARAM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.STANDBY_WALLET_PARAM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.USE_RAC_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.ORA_TRANSACTION_IMPL_PARAM;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.ORA_TRANSACTION_IMPL_CHRONICLE;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.ORA_TRANSACTION_IMPL_OFFHEAP;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -44,6 +47,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.jdbc.OracleConnection;
+import solutions.a2.cdc.oracle.OraConnectionObjects;
+import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.OraCdcDistributedV$ArchivedLogImpl;
 import solutions.a2.cdc.oracle.runtime.config.KafkaSourceConnectorConfig;
 import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.cdc.oracle.utils.Version;
@@ -53,9 +59,9 @@ import solutions.a2.cdc.oracle.utils.Version;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public abstract class OraCdcConnectorBase extends SourceConnector {
+public abstract class KafkaSourceConnectorBase extends SourceConnector {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcConnectorBase.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceConnectorBase.class);
 	private static final String DB_PARAM_ERROR_GENERIC = "Database connection parameters are not properly set!";
 	private static final String DB_PARAM_MUST_SET_WHEN = 
 			"""
@@ -99,6 +105,23 @@ public abstract class OraCdcConnectorBase extends SourceConnector {
 	public void start(Map<String, String> props) {
 		LOGGER.info(LOGO);
 		try {
+			if (props.containsKey(ORA_TRANSACTION_IMPL_PARAM) &&
+					Strings.CI.equals(props.get(ORA_TRANSACTION_IMPL_PARAM), ORA_TRANSACTION_IMPL_CHRONICLE)) {
+				props.put(ORA_TRANSACTION_IMPL_PARAM, ORA_TRANSACTION_IMPL_OFFHEAP);
+				LOGGER.warn(
+						"""
+						
+						=====================
+						The value {} for the {} parameter is no longer supported.
+						The value for parameter {} is set to {}.
+						Please replace the value {} of the parameter {} with {} in your connector definition file!
+						=====================
+						
+						""",
+						ORA_TRANSACTION_IMPL_CHRONICLE, ORA_TRANSACTION_IMPL_PARAM,
+						ORA_TRANSACTION_IMPL_PARAM, ORA_TRANSACTION_IMPL_OFFHEAP,
+						ORA_TRANSACTION_IMPL_CHRONICLE, ORA_TRANSACTION_IMPL_PARAM, ORA_TRANSACTION_IMPL_OFFHEAP);
+			}
 			config = new KafkaSourceConnectorConfig(props);
 			connectorProperties = new HashMap<>();
 			connectorProperties.putAll(config.originalsStrings());

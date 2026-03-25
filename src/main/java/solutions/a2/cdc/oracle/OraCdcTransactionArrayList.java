@@ -13,10 +13,6 @@
 
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
-import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
-import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.SQLException;
@@ -68,23 +64,19 @@ public class OraCdcTransactionArrayList extends OraCdcTransaction {
 			final OraCdcRawTransaction raw, final boolean isCdb,
 			final LobProcessingStatus processLobs, final Path rootDir) throws SQLException, IOException {
 		super(raw, isCdb, processLobs, rootDir);
+		init(raw);
 	}
 
 	void processRollbackEntries() {
 		long nanos = System.nanoTime();
-		for (final PartialRollbackEntry pre : rollbackEntriesList) {
+		for (var pre : rollbackEntriesList) {
 			printPartialRollbackEntryDebug(pre);
-			boolean pairFound = false;
-			for (int i = (int) pre.index; i > -1; i--) {
-				final OraCdcStatementBase lmStmt = statements.get(i);
-				if (!lmStmt.isRollback() &&
-					((pre.operation == DELETE && lmStmt.getOperation() == INSERT) ||
-					(pre.operation == INSERT && lmStmt.getOperation() == DELETE) ||
-					(pre.operation == UPDATE && lmStmt.getOperation() == UPDATE)) &&
-					pre.rowId.equals(lmStmt.getRowId())) {
-					final var rba = lmStmt.getRba();
-					final var rowid = lmStmt.getRowId();
-					final var uniqueAddr = Objects.hash(rba.sqn(), rba.blk(), rba.offset(),rowid.dataBlk(),rowid.rowNum());
+			var pairFound = false;
+			for (var i = pre.index; i > -1; i--) {
+				if (pre.match(statements.get(i))) {
+					final var rba = statements.get(i).getRba();
+					final var rowid = statements.get(i).getRowId();
+					final var uniqueAddr = Objects.hash(rba.sqn(), rba.blk(), rba.offset(), rowid.dataBlk(), rowid.rowNum());
 					if (!rollbackPairs.contains(uniqueAddr)) {
 						rollbackPairs.add(uniqueAddr);
 						pairFound = true;

@@ -1,24 +1,56 @@
+/**
+ * Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
+ * compliance with the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
+ * the License for the specific language governing permissions and limitations under the License.
+ */
+
 package solutions.a2.cdc.oracle.runtime.data;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.sql.Types.BIGINT;
+import static java.sql.Types.BINARY;
+import static java.sql.Types.BLOB;
+import static java.sql.Types.CHAR;
+import static java.sql.Types.CLOB;
+import static java.sql.Types.DATE;
+import static java.sql.Types.DECIMAL;
+import static java.sql.Types.DOUBLE;
+import static java.sql.Types.FLOAT;
+import static java.sql.Types.INTEGER;
+import static java.sql.Types.NCHAR;
+import static java.sql.Types.NCLOB;
+import static java.sql.Types.NUMERIC;
+import static java.sql.Types.NVARCHAR;
+import static java.sql.Types.ROWID;
+import static java.sql.Types.SMALLINT;
+import static java.sql.Types.SQLXML;
+import static java.sql.Types.TIMESTAMP;
+import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
+import static java.sql.Types.TINYINT;
+import static java.sql.Types.VARCHAR;
+import static solutions.a2.cdc.oracle.OraCdcStatementBase.BIG_ENDIAN;
+import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
-import java.math.BigDecimal;
-import java.nio.file.Files;
+import java.nio.CharBuffer;
 import java.nio.file.Path;
-import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.RowId;
 import java.sql.SQLException;
-import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Types;
-import java.util.Comparator;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,15 +67,6 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.openhft.chronicle.bytes.Bytes;
-import net.openhft.chronicle.core.io.IORuntimeException;
-import net.openhft.chronicle.queue.ChronicleQueue;
-import net.openhft.chronicle.queue.ExcerptAppender;
-import net.openhft.chronicle.queue.ExcerptTailer;
-import net.openhft.chronicle.wire.ReadMarshallable;
-import net.openhft.chronicle.wire.WireIn;
-import net.openhft.chronicle.wire.WireOut;
-import net.openhft.chronicle.wire.WriteMarshallable;
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.BINARY_DOUBLE;
 import oracle.sql.BINARY_FLOAT;
@@ -51,28 +74,27 @@ import oracle.sql.NUMBER;
 import oracle.sql.TIMESTAMP;
 import oracle.sql.TIMESTAMPLTZ;
 import oracle.sql.TIMESTAMPTZ;
+import solutions.a2.cdc.OffHeapMmf;
 import solutions.a2.cdc.oracle.OraCdcColumn;
+import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.jmx.OraCdcInitialLoad;
 import solutions.a2.cdc.oracle.runtime.config.Parameters;
 import solutions.a2.utils.ExceptionUtils;
-
-import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_942;
 
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallable {
+public class KafkaInitialLoadTable {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaInitialLoadTable.class);
 	private static final byte NULL_LENGTH_BYTE = (byte) -1;
 	private static final short NULL_LENGTH_SHORT = (short) -1;
-	private static final int NULL_LENGTH_INT = (int) -1;
+	private static final byte NULL_LENGTH_INT = (int) -1;
 	private static final int LOB_CHUNK_SIZE = 16384;
 
 	private final KafkaRdbmsInfoStruct kris;
@@ -82,7 +104,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 	private final List<OraCdcColumn> allColumns;
 	private final Map<String, OraCdcColumn> pkColumns;
 	private final OraRdbmsInfo rdbmsInfo;
-	private final Path queueDirectory;
+	private final String mappedFile;
 	private final OraCdcInitialLoad metrics;
 	private final String sqlSelect;
 	private final String tableFqn;
@@ -93,9 +115,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 	private Schema keySchema;
 	private Schema valueSchema;
 	private Map<String, String> sourcePartition;
-	private ChronicleQueue tableRows;
-	private ExcerptAppender appender;
-	private ExcerptTailer tailer;
+	private OffHeapMmf tableRows;
 	private int queueSize;
 	private int tailerOffset;
 	private OracleResultSet rsMaster;
@@ -116,7 +136,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 	public KafkaInitialLoadTable(final Path rootDir, final OraCdcTableBase oraTable,
 				final OraCdcInitialLoad metrics,
 				final OraRdbmsInfo rdbmsInfo) throws IOException {
-		LOGGER.trace("BEGIN: create OraCdcTableBuffer");
+		LOGGER.trace("BEGIN: create KafkaInitialLoadTable");
 		pdbName = oraTable.pdb();
 		tableOwner = oraTable.owner();
 		tableName = oraTable.name();
@@ -129,12 +149,12 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 		schemaType = ((KafkaStructDataBinder) oraTable.dataBinder()).schemaType;
 		kafkaTopic = ((KafkaStructDataBinder) oraTable.dataBinder()).kafkaTopic;
 		sourcePartition = rdbmsInfo.partition();
+		rowLevelScn = oraTable.rowLevelScn();
+		tableFqn = oraTable.fqn();
 		this.metrics = metrics;
-		this.tableFqn = oraTable.fqn();
 		this.rdbmsInfo = rdbmsInfo;
-		this.rowLevelScn = oraTable.rowLevelScn();
 		// Build SQL select
-		final StringBuilder sb = new StringBuilder(512);
+		var sb = new StringBuilder(0x200);
 		sb.append("select ");
 		for (int i = 0; i < allColumns.size(); i++) {
 			OraCdcColumn oraColumn = allColumns.get(i);
@@ -158,375 +178,396 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 		sqlSelect = sb.toString();
 		LOGGER.debug("{} will be used for initial data load.", sqlSelect);
 
-		// Create ChronicleQueue
-		queueDirectory = Files.createTempDirectory(rootDir, Strings.CS.replace(tableFqn, ":", "-") + ".");
+		// Create memory-mapped file
+		mappedFile = rootDir + File.separator + Strings.CS.replace(tableFqn, ":", "-") + "." + System.nanoTime();
 		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Created queue directory {} .", queueDirectory.toString());
+			LOGGER.debug("Created queue directory {} .", mappedFile);
 		}
 		try {
-			tableRows = ChronicleQueue
-				.singleBuilder(queueDirectory)
-				.build();
-			tailer = this.tableRows.createTailer();
-			appender = this.tableRows.createAppender();
+			tableRows = new OffHeapMmf(mappedFile, 0x400000);
 			queueSize = 0;
 			tailerOffset = 0;
 		} catch (Exception e) {
-			LOGGER.error("Unable to create Chronicle Queue!");
+			LOGGER.error("Unable to create Memory Mapped File!");
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new IOException(e);
 		}
-		LOGGER.trace("END: create OraCdcTableBuffer");
+		LOGGER.trace("END: create KafkaInitialLoadTable");
 	}
 
-	@Override
-	public void writeMarshallable(WireOut wire) {
-		Bytes<?> bytes = wire.bytes();
+	private byte[] row2Bytes() {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream(allColumns.size() * 0x20);
 		try {
-			for (int i = 0; i < allColumns.size(); i++) {
-				final OraCdcColumn oraColumn = allColumns.get(i);
-				final String columnName = oraColumn.getColumnName();
+			for (var i = 0; i < allColumns.size(); i++) {
+				var oraColumn = allColumns.get(i);
+				var columnName = oraColumn.getColumnName();
 				switch (oraColumn.getJdbcType()) {
-					case Types.DATE:
-					case Types.TIMESTAMP:
-						final TIMESTAMP timeStampValue = rsMaster.getTIMESTAMP(columnName);
-						if (rsMaster.wasNull()) {
-							bytes.writeByte(NULL_LENGTH_BYTE);
-						} else {
+					case DATE, TIMESTAMP -> {
+						var timeStampValue = rsMaster.getTIMESTAMP(columnName);
+						if (rsMaster.wasNull())
+							baos.write(NULL_LENGTH_BYTE);
+						else {
 							final byte[] baData = timeStampValue.getBytes();
-							bytes.writeByte((byte) baData.length);
-							bytes.write(baData);
+							baos.write((byte) baData.length);
+							baos.write(baData);
 						}
-						break;
-					case Types.TIMESTAMP_WITH_TIMEZONE:
+					}
+					case TIMESTAMP_WITH_TIMEZONE -> {
 						byte[] baTsTzData = null;
 						if (oraColumn.localTimeZone()) {
-							final TIMESTAMPLTZ ltz = rsMaster.getTIMESTAMPLTZ(columnName);
-							if (ltz != null) {
+							var ltz = rsMaster.getTIMESTAMPLTZ(columnName);
+							if (ltz != null)
 								baTsTzData = ltz.getBytes();
-							}
 						} else {
-							final TIMESTAMPTZ tz = rsMaster.getTIMESTAMPTZ(columnName);
-							if (tz != null) {
+							var tz = rsMaster.getTIMESTAMPTZ(columnName);
+							if (tz != null)
 								baTsTzData = tz.getBytes();
-							}
 						}
-						if (baTsTzData == null) {
-							bytes.writeByte(NULL_LENGTH_BYTE);
-						} else {
-							bytes.writeByte((byte) baTsTzData.length);
-							bytes.write(baTsTzData);
+						if (baTsTzData == null)
+							baos.write(NULL_LENGTH_BYTE);
+						else {
+							baos.write((byte) baTsTzData.length);
+							baos.write(baTsTzData);
 						}
-						break;
-					case Types.TINYINT:
-					case Types.SMALLINT:
-					case Types.INTEGER:
-					case Types.BIGINT:
-					case Types.DECIMAL:
-					case Types.NUMERIC:
-						final NUMBER numberValue = rsMaster.getNUMBER(columnName);
-						if (rsMaster.wasNull()) {
-							bytes.writeByte(NULL_LENGTH_BYTE);
-						} else {
+					}
+					case TINYINT, SMALLINT, INTEGER, BIGINT, DECIMAL, NUMERIC -> {
+						var numberValue = rsMaster.getNUMBER(columnName);
+						if (rsMaster.wasNull())
+							baos.write(NULL_LENGTH_BYTE);
+						else {
 							final byte[] baData = numberValue.getBytes();
-							bytes.writeByte((byte) baData.length);
-							bytes.write(baData);
+							baos.write((byte) baData.length);
+							baos.write(baData);
 						}
-						break;
-					case Types.FLOAT:
+					}
+					case FLOAT -> {
 						byte[] baFloat = null;
 						if (oraColumn.IEEE754()) {
-							final float floatValue = rsMaster.getFloat(columnName);
-							if (!rsMaster.wasNull()) {
+							var floatValue = rsMaster.getFloat(columnName);
+							if (!rsMaster.wasNull())
 								baFloat = (new BINARY_FLOAT(floatValue)).getBytes();
-							}
 						} else {
 							final NUMBER floatValue = rsMaster.getNUMBER(columnName);
-							if (!rsMaster.wasNull()) {
+							if (!rsMaster.wasNull())
 								baFloat = floatValue.getBytes();
-							}
 						}
-						if (baFloat == null) {
-							bytes.writeByte(NULL_LENGTH_BYTE);
-						} else {
-							bytes.writeByte((byte) baFloat.length);
-							bytes.write(baFloat);
+						if (baFloat == null)
+							baos.write(NULL_LENGTH_BYTE);
+						else {
+							baos.write((byte) baFloat.length);
+							baos.write(baFloat);
 						}
-						break;
-					case Types.DOUBLE:
+					}
+					case DOUBLE -> {
 						byte[] baDouble = null;
 						if (oraColumn.IEEE754()) {
-							final double doubleValue = rsMaster.getDouble(columnName);
-							if (!rsMaster.wasNull()) {
+							var doubleValue = rsMaster.getDouble(columnName);
+							if (!rsMaster.wasNull())
 								baDouble = (new BINARY_DOUBLE(doubleValue)).getBytes();
-							}
 						} else {
 							final NUMBER doubleValue = rsMaster.getNUMBER(columnName);
-							if (!rsMaster.wasNull()) {
+							if (!rsMaster.wasNull())
 								baDouble = doubleValue.getBytes();
-							}
 						}
-						if (baDouble == null) {
-							bytes.writeByte(NULL_LENGTH_BYTE);
-						} else {
-							bytes.writeByte((byte) baDouble.length);
-							bytes.write(baDouble);
+						if (baDouble == null)
+							baos.write(NULL_LENGTH_BYTE);
+						else {
+							baos.write((byte) baDouble.length);
+							baos.write(baDouble);
 						}
-						break;
-					case Types.BINARY:
-						final byte[] rawValue = rsMaster.getBytes(columnName);
-						if (rawValue == null) {
-							bytes.writeShort(NULL_LENGTH_SHORT);
-						} else {
-							bytes.writeShort((short) rawValue.length);
-							bytes.write(rawValue);
+					}
+					case BINARY -> {
+						var rawValue = rsMaster.getRAW(columnName);
+						if (rawValue == null)
+							putU16(baos, NULL_LENGTH_SHORT);
+						else {
+							var ba = rawValue.getBytes();
+							putU16(baos, (short) ba.length);
+							baos.write(ba);
 						}
-						break;
-					case Types.CHAR:
-					case Types.VARCHAR:
-						bytes.writeUtf8(rsMaster.getString(columnName));
-						break;
-					case Types.NCHAR:
-					case Types.NVARCHAR:
-						bytes.writeUtf8(rsMaster.getNString(columnName));
-						break;
-					case Types.ROWID:
-						final RowId rowIdValue = rsMaster.getRowId(columnName);
-						bytes.write8bit(rowIdValue == null ? ((String) null): rowIdValue.toString());
-						break;
-					case Types.CLOB:
-					case Types.NCLOB:
-						final Clob clobValue;
-						if (oraColumn.getJdbcType() == Types.CLOB) {
-							clobValue = rsMaster.getClob(columnName);
-						} else {
-							//NCLOB
-							clobValue = rsMaster.getNClob(columnName);
+					}
+					case CHAR, VARCHAR, NCHAR, NVARCHAR -> {
+						var charValue = rsMaster.getCHAR(columnName);
+						if (charValue == null)
+							putU16(baos, NULL_LENGTH_SHORT);
+						else {
+							var ba = charValue.getBytes();
+							putU16(baos, (short) ba.length);
+							baos.write(ba);
 						}
-						if (rsMaster.wasNull() || clobValue.length() < 1) {
-							bytes.writeInt(NULL_LENGTH_INT);
-						} else {
+					}
+					case ROWID -> {
+						var ba = rsMaster.getROWID(columnName).getBytes();
+						baos.write((byte) ba.length);
+						baos.write(ba);
+					}
+					case CLOB, NCLOB -> {
+						Clob clobValue = oraColumn.getJdbcType() == CLOB
+								? rsMaster.getClob(columnName)
+								: rsMaster.getNClob(columnName);
+						if (rsMaster.wasNull() || clobValue.length() < 1)
+							putU32(baos, NULL_LENGTH_INT);
+						else {
 							if (Integer.MAX_VALUE < clobValue.length()) {
 								LOGGER.error(
-										"Unable to process {} column {}({}) with length ({}) greater than Integer.MAX_VALUE ({})",
-										oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
-										this.fqn(), columnName, clobValue.length(), Integer.MAX_VALUE);
-								throw new SQLException(
+										"""
+										
+										=====================
+										Unable to process {} column {}({}) with length ({}) greater than Integer.MAX_VALUE ({})
+										=====================
+										
+										""", oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+										tableFqn, columnName, clobValue.length(), Integer.MAX_VALUE);
+								throw new IOException(
 										"Unable to process " +
 										(oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB") +
 										"column with length " + clobValue.length() + " chars!");
 							}
-							try (Reader reader = clobValue.getCharacterStream()) {
-								final StringBuilder sbClob = new StringBuilder((int) clobValue.length());
-								int charsRead;
-								final char[] data = new char[LOB_CHUNK_SIZE];
+							try (var reader = clobValue.getCharacterStream()) {
+								var baosClob = new ByteArrayOutputStream((int) (clobValue.length() * 2));
+								var charsRead = 0;
+								var data = new char[LOB_CHUNK_SIZE];
 								while ((charsRead = reader.read(data, 0, data.length)) != -1) {
-									sbClob.append(data, 0, charsRead);
+									var charBuffer = CharBuffer.wrap(data, 0, charsRead);
+									var byteBuffer = UTF_8.encode(charBuffer);
+									baosClob.write(byteBuffer.array());
 								}
-								bytes.writeInt(sbClob.length());
-								bytes.writeUtf8(sbClob.toString());
+								putU32(baos, baosClob.size());
+								baos.write(baosClob.toByteArray());
+								baosClob = null;
+								clobValue = null;
 							} catch (IOException ioe) {
-								LOGGER.error("IO Error while processing {} column {}({})",
-										oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
-										this.fqn(), columnName);
-								LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-								throw new ConnectException(ioe);
+								LOGGER.error(
+										"""
+										
+										=====================
+										IO Error while processing {} column {}({})
+										{}
+										=====================
+										
+										""",  oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+										tableFqn, columnName, ExceptionUtils.getExceptionStackTrace(ioe));
+								throw ioe;
 							}
 						}
-						break;
-					case Types.BLOB:
-						final Blob blobValue = rsMaster.getBlob(columnName);
-						if (rsMaster.wasNull() || blobValue.length() < 1) {
-							bytes.writeInt(NULL_LENGTH_INT);
-						} else {
+					}
+					case BLOB -> {
+						var blobValue = rsMaster.getBlob(columnName);
+						if (rsMaster.wasNull() || blobValue.length() < 1)
+							putU32(baos, NULL_LENGTH_INT);
+						else {
 							if (Integer.MAX_VALUE < blobValue.length()) {
 								LOGGER.error(
-										"Unable to process BLOB column {}({}) with length ({}) greater than Integer.MAX_VALUE ({})",
-										this.fqn(), columnName, blobValue.length(), Integer.MAX_VALUE);
-								throw new SQLException(
+										"""
+										
+										=====================
+										Unable to process BLOB column {}({}) with length ({}) greater than Integer.MAX_VALUE ({})
+										=====================
+										
+										""", tableFqn, columnName, blobValue.length(), Integer.MAX_VALUE);
+								throw new IOException(
 										"Unable to process BLOB column with length " + blobValue.length() + " bytes!");
 							}
-							try (InputStream is = blobValue.getBinaryStream();
-									ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-								final byte[] data = new byte[LOB_CHUNK_SIZE];
+							try (var is = blobValue.getBinaryStream()) {
+								var baosBlob = new ByteArrayOutputStream();
+								var data = new byte[LOB_CHUNK_SIZE];
 								int bytesRead;
 								while ((bytesRead = is.read(data, 0, data.length)) != -1) {
-									baos.write(data, 0, bytesRead);
+									baosBlob.write(data, 0, bytesRead);
 								}
-								bytes.writeInt(baos.size());
-								bytes.write(baos.toByteArray());
+								putU32(baos, baosBlob.size());
+								baos.write(baosBlob.toByteArray());
+								baosBlob = null;
+								blobValue = null;
 							} catch (IOException ioe) {
-								LOGGER.error("IO Error while processing BLOB column {}({})", 
-										this.fqn(), columnName);
-								LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
-								throw new ConnectException(ioe);
+								LOGGER.error(
+										"""
+										
+										=====================
+										IO Error while processing column {}({})
+										{}
+										=====================
+										
+										""", tableFqn, columnName, ExceptionUtils.getExceptionStackTrace(ioe));
+								throw ioe;
 							}
 						}
-						break;
-					case Types.SQLXML:
-						final SQLXML xmlValue = rsMaster.getSQLXML(columnName);
-						if (rsMaster.wasNull()) {
-							bytes.writeInt(NULL_LENGTH_INT);
-						} else {
-							//TODO
-							//TODO or better to use xmlValue.getCharacterStream() ?
-							//TODO
-							final String xmlAsString = xmlValue.getString();
-							if (xmlAsString.length() < 1) {
-								bytes.writeInt(NULL_LENGTH_INT);
-							} else {
-								bytes.writeInt(xmlAsString.length());
-								bytes.writeUtf8(xmlAsString);
-							}
+					}
+					case SQLXML -> {
+						var xmlValue = rsMaster.getSQLXML(columnName);
+						if (rsMaster.wasNull())
+							putU32(baos, NULL_LENGTH_INT);
+						else {
+							var ba = xmlValue.getString().getBytes();
+							putU32(baos, ba.length);
+							baos.write(ba);
 						}
-						break;
-					default:
+					}
+					default ->
 						throw new SQLException("Unsupported JDBC Type " + oraColumn.getJdbcType());
 				}
 			}
-		} catch (SQLException sqle) {
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(sqle));
-			throw new ConnectException(sqle);
+		} catch (SQLException | IOException e) {
+			throw new ConnectException(e);
 		}
+		var aligned = (baos.size() + 3) & 0xFFFFFFFC;
+		switch (aligned - baos.size()) {
+			case 3 -> {
+				baos.write(0); baos.write(0); baos.write(0);
+			}
+			case 2 -> {
+				baos.write(0); baos.write(0);
+			}
+			case 1 -> {
+				baos.write(0);
+			}
+		}
+		return baos.toByteArray();
 	}
 
-	@Override
-	public void readMarshallable(WireIn wire) throws IORuntimeException {
-		Bytes<?> raw = wire.bytes();
+	public void bytes2Row(final byte[] data) {
 		try {
+			var pos = 0;
 			for (int i = 0; i < allColumns.size(); i++) {
-				final OraCdcColumn oraColumn = allColumns.get(i);
-				final String columnName = oraColumn.getColumnName();
+				var oraColumn = allColumns.get(i);
+				var columnName = oraColumn.getColumnName();
 				Object columnValue = null;
 				byte sizeByte;
 				switch (oraColumn.getJdbcType()) {
-					case Types.DATE:
-					case Types.TIMESTAMP:
-						sizeByte = raw.readByte();
+					case DATE, TIMESTAMP -> {
+						sizeByte = data[pos++];
 						if (sizeByte != NULL_LENGTH_BYTE) {
-							final byte[] ba = new byte[sizeByte];
-							raw.read(ba);
-							columnValue = (new TIMESTAMP(ba)).timestampValue();
+							var next = pos + sizeByte;
+							columnValue = (new TIMESTAMP(Arrays.copyOfRange(data, pos, next))).timestampValue();
+							pos = next;
 						}
-						break;
-					case Types.TIMESTAMP_WITH_TIMEZONE:
-						sizeByte = raw.readByte();
+					}
+					case TIMESTAMP_WITH_TIMEZONE -> {
+						sizeByte = data[pos++];
 						if (sizeByte != NULL_LENGTH_BYTE) {
-							final byte[] ba = new byte[sizeByte];
-							raw.read(ba);
+							var next = pos + sizeByte;
 							if (oraColumn.localTimeZone()) {
-								TIMESTAMPLTZ ltz = new TIMESTAMPLTZ(ba);
+								var ltz = new TIMESTAMPLTZ(Arrays.copyOfRange(data, pos, next));
 								columnValue = OraTimestamp.ISO_8601_FMT.format(ltz.offsetDateTimeValue(connTzData));
 							} else {
-								TIMESTAMPTZ tz = new TIMESTAMPTZ(ba);
+								var tz = new TIMESTAMPTZ(Arrays.copyOfRange(data, pos, next));
 								columnValue = OraTimestamp.ISO_8601_FMT.format(tz.offsetDateTimeValue(connTzData));
 							}
+							pos = next;
 						}
-						break;
-					case Types.TINYINT:
-						final NUMBER tinyIntNumber = readNUMBER(raw);
-						if (tinyIntNumber != null) {
-							columnValue = tinyIntNumber.byteValue();
-						}
-						break;
-					case Types.SMALLINT:
-						final NUMBER smallIntNumber = readNUMBER(raw);
-						if (smallIntNumber != null) {
-							columnValue = smallIntNumber.shortValue();
-						}
-						break;
-					case Types.INTEGER:
-						final NUMBER integerNumber = readNUMBER(raw);
-						if (integerNumber != null) {
-							columnValue = integerNumber.intValue();
-						}
-						break;
-					case Types.BIGINT:
-						final NUMBER bigIntNumber = readNUMBER(raw);
-						if (bigIntNumber != null) {
-							columnValue = bigIntNumber.longValue();
-						}
-						break;
-					case Types.DECIMAL:
-						final NUMBER decimalNumber = readNUMBER(raw);
-						if (decimalNumber != null) {
-							final BigDecimal bdColumnValue = decimalNumber.bigDecimalValue();
-							columnValue = bdColumnValue.setScale(oraColumn.getDataScale());
-						}
-						break;
-					case Types.NUMERIC:
-						sizeByte = raw.readByte();
+					}
+					case TINYINT -> {
+						sizeByte = data[pos++];
 						if (sizeByte != NULL_LENGTH_BYTE) {
-							final byte[] ba = new byte[sizeByte];
-							raw.read(ba);
-							columnValue = ba;
+							var next = pos + sizeByte;
+							columnValue = new NUMBER(Arrays.copyOfRange(data, pos, next)).byteValue();
+							pos = next;
 						}
-						break;
-					case Types.FLOAT:
-						if (oraColumn.IEEE754()) {
-							sizeByte = raw.readByte();
-							if (sizeByte != NULL_LENGTH_BYTE) {
-								final byte[] ba = new byte[sizeByte];
-								raw.read(ba);
-								final BINARY_FLOAT floatNumber = new BINARY_FLOAT(ba);
-								columnValue = floatNumber.floatValue();
-							}
-						} else {
-							final NUMBER floatNumber = readNUMBER(raw);
-							if (floatNumber != null) {
-								columnValue = floatNumber.floatValue();
-							}
+					}
+					case SMALLINT -> {
+						sizeByte = data[pos++];
+						if (sizeByte != NULL_LENGTH_BYTE) {
+							var next = pos + sizeByte;
+							columnValue = new NUMBER(Arrays.copyOfRange(data, pos, next)).shortValue();
+							pos = next;
 						}
-						break;
-					case Types.DOUBLE:
-						if (oraColumn.IEEE754()) {
-							sizeByte = raw.readByte();
-							if (sizeByte != NULL_LENGTH_BYTE) {
-								final byte[] ba = new byte[sizeByte];
-								raw.read(ba);
-								final BINARY_DOUBLE doubleNumber = new BINARY_DOUBLE(ba);
-								columnValue = doubleNumber.doubleValue();
-							}
-						} else {
-							final NUMBER doubleNumber = readNUMBER(raw);
-							if (doubleNumber != null) {
-								columnValue = doubleNumber.doubleValue();
-							}
+					}
+					case INTEGER -> {
+						sizeByte = data[pos++];
+						if (sizeByte != NULL_LENGTH_BYTE) {
+							var next = pos + sizeByte;
+							columnValue = new NUMBER(Arrays.copyOfRange(data, pos, next)).intValue();
+							pos = next;
 						}
-						break;
-					case Types.BINARY:
-						final short sizeShort = raw.readShort();
+					}
+					case BIGINT -> {
+						sizeByte = data[pos++];
+						if (sizeByte != NULL_LENGTH_BYTE) {
+							var next = pos + sizeByte;
+							columnValue = new NUMBER(Arrays.copyOfRange(data, pos, next)).longValue();
+							pos = next;
+						}
+					}
+					case DECIMAL -> {
+						sizeByte = data[pos++];
+						if (sizeByte != NULL_LENGTH_BYTE) {
+							var next = pos + sizeByte;
+							var bdColumnValue = new NUMBER(Arrays.copyOfRange(data, pos, next)).bigDecimalValue();
+							columnValue = bdColumnValue.setScale(oraColumn.getDataScale());
+							pos = next;
+						}
+					}
+					case NUMERIC -> {
+						sizeByte = data[pos++];
+						if (sizeByte != NULL_LENGTH_BYTE) {
+							var next = pos + sizeByte;
+							columnValue = Arrays.copyOfRange(data, pos, next);
+							pos = next;
+						}
+					}
+					case FLOAT -> {
+						sizeByte = data[pos++];
+						if (sizeByte != NULL_LENGTH_BYTE) {
+							var next = pos + sizeByte;
+							columnValue = oraColumn.IEEE754()
+									? new BINARY_FLOAT(Arrays.copyOfRange(data, pos, next)).floatValue()
+									: new NUMBER(Arrays.copyOfRange(data, pos, next)).floatValue();
+							pos = next;
+						}
+					}
+					case DOUBLE -> {
+						sizeByte = data[pos++];
+						if (sizeByte != NULL_LENGTH_BYTE) {
+							var next = pos + sizeByte;
+							columnValue = oraColumn.IEEE754()
+									? new BINARY_FLOAT(Arrays.copyOfRange(data, pos, next)).doubleValue()
+									: new NUMBER(Arrays.copyOfRange(data, pos, next)).doubleValue();
+							pos = next;
+						}
+					}
+					case BINARY -> {
+						var sizeShort = BIG_ENDIAN.getU16(data, pos);
+						pos += Short.BYTES;
 						if (sizeShort != NULL_LENGTH_SHORT) {
-							final byte[] ba = new byte[sizeShort];
-							raw.read(ba);
-							columnValue = ba;
+							var next = pos + sizeShort;
+							columnValue = Arrays.copyOfRange(data, pos, next);
+							pos = next;
 						}
-						break;
-					case Types.CHAR:
-					case Types.VARCHAR:
-					case Types.NCHAR:
-					case Types.NVARCHAR:
-						columnValue = raw.readUtf8();
-						break;
-					case Types.ROWID:
-						columnValue = raw.read8bit();
-						break;
-					case Types.CLOB:
-					case Types.NCLOB:
-					case Types.BLOB:
-					case Types.SQLXML:
-						final int sizeInt = raw.readInt();
+					}
+					case CHAR, VARCHAR, NCHAR, NVARCHAR -> {
+						var sizeShort = BIG_ENDIAN.getU16(data, pos);
+						pos += Short.BYTES;
+						if (sizeShort != NULL_LENGTH_SHORT) {
+							var next = pos + sizeShort;
+							columnValue = new String(Arrays.copyOfRange(data, pos, next));
+							pos = next;
+						}
+					}
+					case ROWID -> {
+						sizeByte = data[pos++];
+						var next = pos + sizeByte;
+						columnValue = new String(Arrays.copyOfRange(data, pos, next));
+						pos = next;
+					}
+					case BLOB -> {
+						var sizeInt = BIG_ENDIAN.getU32(data, pos);
+						pos += Integer.BYTES;
 						if (sizeInt != NULL_LENGTH_INT) {
-							final byte[] ba = new byte[sizeInt];
-							raw.read(ba);
-							columnValue = ba;
-						} else {
-							//For nullify BLOB/CLOB/NCLOB/XMLTYPE we need to pass zero length array
-							//NULL at Kafka side is for "not touch LOB"
-							columnValue = new byte[0];
+							var next = pos + sizeInt;
+							columnValue = Arrays.copyOfRange(data, pos, next);
+							pos = next;
 						}
-						break;
-					default:
+					}
+					case CLOB, NCLOB, SQLXML -> {
+						var sizeInt = BIG_ENDIAN.getU32(data, pos);
+						pos += Integer.BYTES;
+						if (sizeInt != NULL_LENGTH_INT) {
+							var next = pos + sizeInt;
+							columnValue = new String(Arrays.copyOfRange(data, pos, next));
+							pos = next;
+						}
+					}
+					default ->
 						throw new SQLException("Unsupported JDBC Type " +
 								oraColumn.getJdbcType() + " for column " + columnName);
 				}
@@ -560,23 +601,6 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 		}
 	}
 
-	private NUMBER readNUMBER(Bytes<?> raw) {
-		final byte sizeByte = raw.readByte();
-		if (sizeByte != NULL_LENGTH_BYTE) {
-			final byte[] ba = new byte[sizeByte];
-			raw.read(ba);
-			return new NUMBER(ba);
-		} else {
-			return null;
-		}
-	}
-
-	@Override
-	public boolean usesSelfDescribingMessage() {
-		// TODO Auto-generated method stub
-		return ReadMarshallable.super.usesSelfDescribingMessage();
-	}
-
 	public void readTableData(
 			final Long asOfScn,
 			final CountDownLatch runLatch,
@@ -606,7 +630,7 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 			final long startTime = System.nanoTime();
 			rsMaster = (OracleResultSet) statement.executeQuery();
 			while (rsMaster.next() && running.get()) {
-				appender.writeDocument(this);
+				tableRows.writeRecord(row2Bytes());
 				queueSize++;
 			}
 			if (running.get()) {
@@ -628,12 +652,15 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 		} catch (SQLException sqle) {
 			if (sqle.getErrorCode() == ORA_942) {
 				LOGGER.error(
-						"\n" +
-						"=====================\n" +
-						"Please run as SYSDBA:\n" +
-						"\tgrant select on {} to {};\n" +
-						"And restart connector!\n" +
-						"=====================\n",
+						"""
+						
+						=====================
+						Please run as SYSDBA:
+							grant select on {} to {};
+						And restart connector!
+						=====================
+						
+						""",
 						tableFqn, userName);
 			} else if (running.get()) {
 				LOGGER.error("Error while performing initial load of {}!", tableFqn);
@@ -642,6 +669,9 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 			} else {
 				success = false;
 			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		if (success) {
 			try {
@@ -659,13 +689,14 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 
 	public SourceRecord getSourceRecord() {
 		final long startNanos = System.nanoTime();
-		if (schemaType != Parameters.SCHEMA_TYPE_INT_SINGLE) {
-			keyStruct = new Struct(keySchema);
-		}
-		valueStruct = new Struct(valueSchema);
-		final boolean result = tailer.readDocument(this);
-		tailerOffset++;
-		if (result) {
+		var data = tableRows.readNext(); 
+		if (data != null) {
+			if (schemaType != Parameters.SCHEMA_TYPE_INT_SINGLE) {
+				keyStruct = new Struct(keySchema);
+			}
+			valueStruct = new Struct(valueSchema);
+			bytes2Row(data);
+
 			final Map<String, Object> offset = new HashMap<>();
 			offset.put("ROWNUM", tailerOffset);
 			SourceRecord sourceRecord = null;
@@ -713,9 +744,8 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 			}
 			metrics.addSendInfo(allColumns.size(), System.nanoTime() - startNanos);
 			return sourceRecord;
-		} else {
+		} else
 			return null;
-		}
 	}
 
 	public String fqn() {
@@ -723,32 +753,35 @@ public class KafkaInitialLoadTable implements ReadMarshallable, WriteMarshallabl
 	}
 
 	public void close() {
-		LOGGER.trace("Closing Cronicle Queue and deleting files.");
-		if (tableRows != null) {
-			tableRows.close();
-		}
-		tableRows = null;
+		LOGGER.trace("Closing and deleting the memory mapped file {}.", mappedFile);
 		try {
-			Files.walk(queueDirectory)
-				.sorted(Comparator.reverseOrder())
-				.map(Path::toFile)
-				.forEach(File::delete);
+			if (tableRows != null) {
+				tableRows.close();
+			}
+			tableRows = null;
 		} catch (IOException ioe) {
-			LOGGER.error("Unable to delete Cronicle Queue files.");
-			LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
+			LOGGER.error(
+					"""
+					
+					=====================
+					Unable to close memory mapped files!
+					{}
+					=====================
+					
+					""", ExceptionUtils.getExceptionStackTrace(ioe));
 		}
 	}
 
-	public int length() {
-		return queueSize;
+	private static void putU16(ByteArrayOutputStream baos, final short u16) {
+		baos.write((byte)(u16 >>> 8));
+		baos.write((byte)u16);
 	}
 
-	public int offset() {
-		return tailerOffset;
-	}
-
-	public Path getPath() {
-		return queueDirectory;
+	private static void putU32(ByteArrayOutputStream baos, final int u32) {
+		baos.write((byte)(u32 >>> 24));
+		baos.write((byte)(u32 >>> 16));
+		baos.write((byte)(u32 >>> 8));
+		baos.write((byte)u32);
 	}
 
 }

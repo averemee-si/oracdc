@@ -92,6 +92,23 @@ cd oracdc
 ./mvnw clean install -Dgpg.skip
 ----
 
+== Supported JVM versions
+
+Minimum supported version https://openjdk.org/projects/jdk/21/[Java 21]. To run using this version, you need to pass the following arguments to the JVM
+
+----
+--enable-preview --enable-native-access=ALL-UNNAMED
+----
+
+It is recommended to use https://openjdk.org/projects/jdk/25/[Java 25]. To run using this version, you need to pass the following arguments to the JVM
+
+----
+--enable-native-access=ALL-UNNAMED
+----
+
+
+
+
 == Monitoring
 All connectors publish a number of metrics about the their activity that can be monitored through JMX. For complete list of metrics please refer to link:doc/JMX-METRICS.adoc[JMX-METRICS.adoc]
 
@@ -104,7 +121,7 @@ This project is licensed under the Apache-2.0 License.
 
 == Future plans
 * better schema management including ideas from https://github.com/confluentinc/schema-registry/issues/1899[timestamp of creation of a schema version]
-* transition to Java 25 and replacement of https://github.com/OpenHFT/Chronicle-Queue[Chronicle Queue] with the new memory management features
+* transition to Java 25
 
 
 == Release history

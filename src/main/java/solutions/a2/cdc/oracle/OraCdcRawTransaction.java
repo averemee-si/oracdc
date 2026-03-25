@@ -18,6 +18,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
+import solutions.a2.cdc.oracle.OraCdcTaskBase.XidCoords;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.oracle.internals.Xid;
 
@@ -36,12 +38,18 @@ public class OraCdcRawTransaction {
 	private final OraCdcLobExtras lobExtras;
 	private long commitScn;
 	private long size = 0;
+	private XidCoords xc;
 
 	public OraCdcRawTransaction(Xid xid, ZoneId dbZoneId, int initialCapacity, OraCdcLobExtras lobExtras) {
+		this(xid, dbZoneId, initialCapacity, lobExtras, null);
+	}
+
+	public OraCdcRawTransaction(Xid xid, ZoneId dbZoneId, int initialCapacity, OraCdcLobExtras lobExtras, Coords coords) {
 		this.xid = xid;
 		this.dbZoneId = dbZoneId;
 		records = new ArrayList<>(initialCapacity);
 		this.lobExtras = lobExtras;
+		xc = new XidCoords(xid, coords);
 	}
 
 	Xid xid() {
@@ -98,6 +106,11 @@ public class OraCdcRawTransaction {
 	public void close() {
 		records.clear();
 		records = null;
+		xc = null;
+	}
+
+	XidCoords xidCoords() {
+		return xc;
 	}
 
 }

@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.BlockingQueue;
 
 import org.agrona.collections.Int2IntHashMap;
@@ -35,6 +36,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
+import solutions.a2.cdc.oracle.OraCdcTaskBase.XidCoords;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoRecord;
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 import solutions.a2.oracle.internals.LobId;
@@ -79,8 +81,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final Map<Xid, OraCdcRawTransaction> activeTransactions;
 	private final BlockingQueue<OraCdcRawTransaction> rawTransactions;
 	private final Int2ObjectHashMap<Xid> prefixedTransactions;
-	private final TreeMap<Xid, Coords> sortedByFirstScn;
-	private final ActiveTransComparator activeTransComparator;
+	private final TreeSet<XidCoords> sortedByFirstScn;
 	private final BinaryUtils bu;
 
 	private Iterator<OraCdcRedoRecord> miner = null;
@@ -126,12 +127,11 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			conFilter = true;
 		this.checker = checker;
 		this.iotMapping = iotMapping;
-		activeTransComparator = new ActiveTransComparator(activeTransactions);
-		sortedByFirstScn = new TreeMap<>(activeTransComparator);
+		sortedByFirstScn = new TreeSet<>(XidCoords.COMPARATOR);
 		prefixedTransactions = new Int2ObjectHashMap<>(task.config().transactionsInProcessSize(), .7f);
-		this.bu = BinaryUtils.get(rdbmsInfo.littleEndian());
+		bu = BinaryUtils.get(rdbmsInfo.littleEndian());
 		dbZoneId = rdbmsInfo.getDbTimeZone();
-		this.halfDoneRcm  = new TreeMap<>(new Comparator<Long>() {
+		halfDoneRcm  = new TreeMap<>(new Comparator<Long>() {
 			@Override
 			public int compare(Long l1, Long l2) {
 				return Long.compareUnsigned(l1, l2);
@@ -561,34 +561,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		LOGGER.info("END: OraCdcRedoMinerWorkerThread.run()");
 	}
 
-	private static class ActiveTransComparator implements Comparator<Xid> {
-
-		private final Map<Xid, OraCdcRawTransaction> activeTransactions;
-
-		ActiveTransComparator(final Map<Xid, OraCdcRawTransaction> activeTransactions) {
-			this.activeTransactions = activeTransactions;
-		}
-
-		@Override
-		public int compare(Xid first, Xid second) {
-			if (first.equals(second)) {
-				// A transaction ID is unique to a transaction and represents the undo segment number, slot, and sequence number.
-				// https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/transactions.html#GUID-E3FB3DC3-3317-4589-BADD-D89A3547F87D
-				return 0;
-			}
-
-			OraCdcRawTransaction firstOraTran = activeTransactions.get(first);
-			OraCdcRawTransaction secondOraTran = activeTransactions.get(second);
-
-			if (firstOraTran != null && secondOraTran != null && Long.compareUnsigned(firstOraTran.firstChange(), secondOraTran.firstChange()) >= 0) {
-				return 1;
-			}
-
-			return -1;
-		}
-
-	}
-
 	private void createTransactionPrefix(final Xid xid, final RedoByteAddress rba) {
 		var partial = xid.partial();
 		final Xid prevXid = prefixedTransactions.put(partial, xid);
@@ -686,11 +658,50 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					lastCommitScn = commitScn;
 				}
 			}
-			sortedByFirstScn.remove(xid);
 			activeTransactions.remove(xid);
 			prefixedTransactions.remove(xid.partial());
+			if (!sortedByFirstScn.remove(raw.xidCoords()) && sortedByFirstScn.size() > activeTransactions.size()) {
+				var sb = new StringBuilder(0x400);
+				sortedByFirstScn.forEach(xc -> {
+					sb
+						.append("\n\t")
+						.append(xc.xid().toString())
+						.append("\tCoords[")
+						.append(Long.toUnsignedString(xc.coords().scn()))
+						.append('/')
+						.append(xc.coords().subScn())
+						.append(", ")
+						.append(xc.coords().rba().toString())
+						.append(']');
+				});
+				if (activeTransactions.size() == 0) {
+					LOGGER.warn(
+							"""
+							
+							=====================
+							Resetting sortedByFirstScn with {} elements
+							{}
+							=====================
+							
+							""", sortedByFirstScn.size(), sb.toString());
+					sortedByFirstScn.clear();
+				} else {
+					LOGGER.warn(
+							"""
+							
+							=====================
+							Unable to renove XidCoords = {} [{}/{}, {}]
+							sortedByFirstScn.size = {}
+							{}
+							=====================
+							
+							""",
+							raw.xidCoords().xid(), raw.xidCoords().coords().scn(), raw.xidCoords().coords().subScn(), raw.xidCoords().coords().rba(),
+							sortedByFirstScn.size(), sb.toString());
+				}
+			}
 			if (!sortedByFirstScn.isEmpty()) {
-				task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+				task.putReadRestartScn(sortedByFirstScn.first().coords());
 			} else {
 				firstTransaction = true;
 			}
@@ -761,7 +772,8 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					Thread.sleep(reduceLoadMs);
 				} catch(InterruptedException ie) {}
 			}
-			raw = new OraCdcRawTransaction(xid, dbZoneId, initialCapacity, lobExtras);
+			var coords = new Coords(lastScn, lastRba, lastSubScn);
+			raw = new OraCdcRawTransaction(xid, dbZoneId, initialCapacity, lobExtras, coords);
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug(
 						"Starting transaction {} at SCN={}, RBA={}",
@@ -782,11 +794,10 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				throw new IllegalArgumentException("Duplicate XID/hash function error!");
 			}
 			createTransactionPrefix(xid, lastRba);
-			sortedByFirstScn.put(xid,
-						new Coords(lastScn, lastRba, lastSubScn));
+			sortedByFirstScn.add(raw.xidCoords());
 			if (firstTransaction) {
 				firstTransaction = false;
-				task.putReadRestartScn(sortedByFirstScn.firstEntry().getValue());
+				task.putReadRestartScn(sortedByFirstScn.first().coords());
 			}
 		}
 		return raw;

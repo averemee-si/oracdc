@@ -754,13 +754,13 @@ public class OraRdbmsInfo {
 	public String getMineObjectsIds(final Connection connection,
 			final boolean exclude, final String where) throws SQLException {
 		var sb = new StringBuilder(0x8000);
-		sb.append(exclude ? " and DATA_OBJ# not in (" : sb.append(" and (DATA_OBJ# in ("));
+		sb.append(exclude ? " and DATA_OBJ# not in (" : " and (DATA_OBJ# in (");
 		var data = getMineObjectsIds(exclude, where, connection, false).getKey();
 
-		boolean firstValue = true;
-		boolean lastValue = false;
-		int recordCount = 0;
-		for (int id : data) {
+		var firstValue = true;
+		var lastValue = false;
+		var recordCount = 0;
+		for (var id : data) {
 			lastValue = false;
 			if (firstValue) {
 				firstValue = false;

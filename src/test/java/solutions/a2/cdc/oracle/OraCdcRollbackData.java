@@ -61,7 +61,7 @@ public class OraCdcRollbackData {
 		} else {
 			final String tmpDir = System.getProperty("java.io.tmpdir");
 			final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
-			transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, firstStmt, false);
+			transaction = new OraCdcTransactionMmf(queuesRoot, xid, firstStmt, false);
 		}
 		transaction.addStatement(new OraCdcLogMinerStatement(186929, (short)1,
 				"insert into \"INV\".\"MLOG$_MTL_MATERIAL_TRANSAC\"(".getBytes(StandardCharsets.US_ASCII),
@@ -1125,7 +1125,7 @@ SCN     TIMESTAMP       RBA     SSN     OBJECT_ID       ROWID   OPERATION_CODE  
 		} else {
 			final String tmpDir = System.getProperty("java.io.tmpdir");
 			final Path queuesRoot = FileSystems.getDefault().getPath(tmpDir);
-			transaction = new OraCdcTransactionChronicleQueue(queuesRoot, xid, firstStmt, false);
+			transaction = new OraCdcTransactionMmf(queuesRoot, xid, firstStmt, false);
 		}
 		transaction.addStatement(new OraCdcLogMinerStatement(175017, (short)3,
 				"update \"WIP\".\"WIP_OPERATIONS\" set ".getBytes(StandardCharsets.US_ASCII),

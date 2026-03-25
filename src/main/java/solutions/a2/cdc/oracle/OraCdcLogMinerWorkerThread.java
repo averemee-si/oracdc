@@ -50,10 +50,22 @@ import solutions.a2.oracle.utils.BinaryUtils;
 import solutions.a2.utils.ExceptionUtils;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INTERNAL;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.COMMIT;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.ROLLBACK;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DDL;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.SELECT_LOB_LOCATOR;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.XML_DOC_BEGIN;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.XML_DOC_WRITE;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.XML_DOC_END;
 import static solutions.a2.cdc.oracle.OraCdcStatementBase.APPROXIMATE_SIZE;
 import static solutions.a2.cdc.oracle.OraCdcTransaction.LobProcessingStatus.LOGMINER;
 import static solutions.a2.cdc.oracle.OraCdcTransaction.LobProcessingStatus.NOT_AT_ALL;
 import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
+
 /**
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
@@ -91,7 +103,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final LongHashSet nonLobObjects;
 	private final OraCdcDictionaryChecker checker;
 	private final BlockingQueue<OraCdcTransaction> committedTransactions;
-	private final OraCdcTransactionChronicleQueue.LobProcessingStatus lobProcessingStatus;
+	private final OraCdcTransactionMmf.LobProcessingStatus lobProcessingStatus;
 	private final Path queuesRoot;
 	private final boolean useChronicleQueue;
 	private final int concTransThreshold;
@@ -333,7 +345,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						lastSubScn = rsLogMiner.getLong("SSN");
 						OraCdcTransaction transaction = activeTransactions.get(xid);
 						switch (operation) {
-						case OraCdcV$LogmnrContents.COMMIT:
+						case COMMIT:
 							if (transaction != null) {
 								// SCN of commit
 								transaction.setCommitScn(lastScn, pseudoColumns, rsLogMiner);
@@ -357,7 +369,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 							break;
-						case OraCdcV$LogmnrContents.ROLLBACK:
+						case ROLLBACK:
 							if (transaction != null) {
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Rolling back at SCN transaction XID {} with {} records.",
@@ -380,10 +392,10 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 							break;
-						case OraCdcV$LogmnrContents.INSERT:
-						case OraCdcV$LogmnrContents.DELETE:
-						case OraCdcV$LogmnrContents.UPDATE:
-						case OraCdcV$LogmnrContents.XML_DOC_BEGIN:
+						case INSERT:
+						case DELETE:
+						case UPDATE:
+						case XML_DOC_BEGIN:
 							if (transaction == null && partialRollback) {
 								final String substitutedXid = prefixedTransactions.get(StringUtils.left(xid, TRANS_PREFIX));
 								if (Strings.CS.endsWith(xid, "FFFFFFFF") && substitutedXid != null) {
@@ -460,7 +472,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 										}
 									}
 									if (processLobs) {
-										((OraCdcTransactionChronicleQueue) transaction).addStatement(lmStmt, lobs);
+										((OraCdcTransactionMmf) transaction).addStatement(lmStmt, lobs);
 									} else {
 										transaction.addStatement(lmStmt);
 									}
@@ -476,7 +488,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 							break;
-						case OraCdcV$LogmnrContents.DDL:
+						case DDL:
 							final long combinedDdlDataObjectId;
 							if (isCdb) {
 								combinedDdlDataObjectId = (rsLogMiner.getInt("CON_ID") << 32) | (rsLogMiner.getLong("DATA_OBJ#") & 0xFFFFFFFFL); 
@@ -522,7 +534,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 							break;
-						case OraCdcV$LogmnrContents.INTERNAL:
+						case INTERNAL:
 							if (processLobs) {
 								// Only in this case...
 								if (LOGGER.isDebugEnabled()) {
@@ -580,7 +592,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 								}
 							}
 							break;
-						case OraCdcV$LogmnrContents.SELECT_LOB_LOCATOR:
+						case SELECT_LOB_LOCATOR:
 							// SELECT_LOB_LOCATOR is processed in inner loop before,
 							// except for LOB_TRIM and LOB_ERASE
 							LOGGER.warn("Unexpected SELECT_LOB_LOCATOR operation at SCN {}, RS_ID '{}' for object ID '{}', ROWID '{}', transaction XID '{}'",
@@ -852,9 +864,9 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final byte[] redoBytes) throws SQLException {
 		List<OraCdcLargeObjectHolder> lobs = null;
 		if (processLobs && oraTable.isWithLobs() &&
-				(operation == OraCdcV$LogmnrContents.INSERT ||
-				operation == OraCdcV$LogmnrContents.UPDATE ||
-				operation == OraCdcV$LogmnrContents.XML_DOC_BEGIN)) {
+				(operation == INSERT ||
+				operation == UPDATE ||
+				operation == XML_DOC_BEGIN)) {
 			final String redoData = new String(redoBytes, US_ASCII);
 			final String tableOperationRsId = rsLogMiner.getString("RS_ID");
 			String lobStartRsId = tableOperationRsId; 
@@ -874,20 +886,20 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 				if (searchLobObjects) {
 					final short catchLobOperation = rsLogMiner.getShort("OPERATION_CODE");
 					final String catchLobXid = rsLogMiner.getString("XID");
-					if (catchLobOperation == OraCdcV$LogmnrContents.INSERT ||
-							catchLobOperation == OraCdcV$LogmnrContents.UPDATE ||
-							catchLobOperation == OraCdcV$LogmnrContents.DELETE) {
+					if (catchLobOperation == INSERT ||
+							catchLobOperation == UPDATE ||
+							catchLobOperation == DELETE) {
 						// Next INSERT/UPDATE/DELETE for given objects.....
 						// Do nothing and don't call next() for rsLogMiner
 						fetchRsLogMinerNext = false;
 						searchLobObjects = false;
-					} else if ((catchLobOperation == OraCdcV$LogmnrContents.COMMIT ||
-							catchLobOperation == OraCdcV$LogmnrContents.ROLLBACK) &&
+					} else if ((catchLobOperation == COMMIT ||
+							catchLobOperation == ROLLBACK) &&
 							(catchLobXid.equals(xid) || activeTransactions.containsKey(catchLobXid))) {
 						// Do nothing and don't call next() for rsLogMiner
 						fetchRsLogMinerNext = false;
 						searchLobObjects = false;
-					} else if (catchLobOperation == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
+					} else if (catchLobOperation == XML_DOC_BEGIN) {
 						// Previous operation was OraCdcV$LogmnrContents.INSERT
 						// Current position is "XML DOC BEGIN" - need to read column id from SQL_REDO
 						// String is:
@@ -918,7 +930,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						isRsLogMinerRowAvailable = rsLogMiner.next();
 						if (isRsLogMinerRowAvailable) {
 							if (dataObjectId == rsLogMiner.getLong("DATA_OBJ#") &&
-									OraCdcV$LogmnrContents.UPDATE == rsLogMiner.getShort("OPERATION_CODE") &&
+									UPDATE == rsLogMiner.getShort("OPERATION_CODE") &&
 									Strings.CS.contains(rsLogMiner.getString("SQL_REDO"), "HEXTORAW('0070") &&
 									Strings.CS.equals(rsLogMiner.getString("XID"), xid)) {
 								// Skip these records
@@ -938,7 +950,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						//TODO END: Workaround for operation duplication when LogMiner runs
 						//TODO END: without dictionary 
 						//TODO
-					} else if (catchLobOperation == OraCdcV$LogmnrContents.XML_DOC_WRITE) { 
+					} else if (catchLobOperation == XML_DOC_WRITE) { 
 						final String xmlColumnId = getLobColumnId(redoData);
 						//TODO
 						//TODO What if XML DOC WRITE is in more than one redo log?
@@ -956,7 +968,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						isRsLogMinerRowAvailable = rsLogMiner.next();
 						if (isRsLogMinerRowAvailable) {
 							if (dataObjectId == rsLogMiner.getLong("DATA_OBJ#") &&
-									OraCdcV$LogmnrContents.UPDATE == rsLogMiner.getShort("OPERATION_CODE") &&
+									UPDATE == rsLogMiner.getShort("OPERATION_CODE") &&
 									Strings.CS.contains(rsLogMiner.getString("SQL_REDO"), "HEXTORAW('0070") &&
 									Strings.CS.equals(rsLogMiner.getString("XID"), xid)) {
 								// Skip these records
@@ -1024,7 +1036,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 						} else {
 							lobObjectId = rsLogMiner.getInt("DATA_OBJ#");
 							lobStartRsId = rsLogMiner.getString("RS_ID");
-							if (catchLobOperation == OraCdcV$LogmnrContents.XML_DOC_BEGIN) {
+							if (catchLobOperation == XML_DOC_BEGIN) {
 								// Perform XML document processing here
 							}
 						}
@@ -1091,14 +1103,14 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 				fetchRsLogMinerNext = true;
 			}
 			final short operation = rsLogMiner.getShort("OPERATION_CODE");
-			if (operation != OraCdcV$LogmnrContents.XML_DOC_WRITE &&
-					operation != OraCdcV$LogmnrContents.XML_DOC_BEGIN &&
-					operation != OraCdcV$LogmnrContents.XML_DOC_END	) {
+			if (operation != XML_DOC_WRITE &&
+					operation != XML_DOC_BEGIN &&
+					operation != XML_DOC_END	) {
 				LOGGER.error("Unexpected operation with code {} at SCN {} RBA '{}'",
 						rsLogMiner.getShort("OPERATION_CODE"), rsLogMiner.getLong("SCN"), rsLogMiner.getString("RS_ID"));
 				throw new SQLException("Unexpected operation!!!");
 			}
-			if (operation == OraCdcV$LogmnrContents.XML_DOC_WRITE) {
+			if (operation == XML_DOC_WRITE) {
 				multiLineSql = rsLogMiner.getBoolean("CSF");
 				final String currentLine = rsLogMiner.getString("SQL_REDO");
 				if (!withHexToRaw)
@@ -1265,7 +1277,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			return new OraCdcTransactionArrayList(xidAsString, firstScn, initialCapacity, isCdb);
 	}
 
-	private OraCdcTransactionChronicleQueue getChronicleQueue(final String xidAsString, final long firstScn) {
+	private OraCdcTransactionMmf getChronicleQueue(final String xidAsString, final long firstScn) {
 		long start = System.currentTimeMillis();
 		int attempt = 0;
 		Exception lastException = null;
@@ -1275,7 +1287,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 			else
 				attempt++;
 			try {
-				return new OraCdcTransactionChronicleQueue(lobProcessingStatus, queuesRoot, xidAsString, firstScn, isCdb, offHeapSize);
+				return new OraCdcTransactionMmf(lobProcessingStatus, queuesRoot, xidAsString, firstScn, isCdb, offHeapSize);
 			} catch (Exception cqe) {
 				lastException = cqe;
 				if (cqe.getCause() != null &&
