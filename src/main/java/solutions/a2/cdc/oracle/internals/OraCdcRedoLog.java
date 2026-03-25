@@ -815,10 +815,10 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return false;
 	}
 
-	static final int VSN_11_2_0_0 = 0x0B020000;
-	static final int VSN_12_1_0_0 = 0x0C010000;
-	static final int VSN_19_0_0_0 = 0x13000000;
-	static final int VSN_23_0_0_0 = 0x17000000;
+	private static final int VSN_11_2_0_0 = 0x0B020000;
+//	private static final int VSN_12_1_0_0 = 0x0C010000;
+	private static final int VSN_19_0_0_0 = 0x13000000;
+//	private static final int VSN_23_0_0_0 = 0x17000000;
 
 	private OraCdcRedoLog(final boolean littleEndian, final int compatibilityVsn) throws IOException {
 		fileName = "virtual";
@@ -884,6 +884,12 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	public static OraCdcRedoLog getAix19c() {
 		try {
 			return new OraCdcRedoLog(false, VSN_19_0_0_0);
+		} catch(IOException ioe) {throw new IllegalArgumentException();}
+	}
+
+	public static OraCdcRedoLog getLinux11g() {
+		try {
+			return new OraCdcRedoLog(true, VSN_11_2_0_0);
 		} catch(IOException ioe) {throw new IllegalArgumentException();}
 	}
 
