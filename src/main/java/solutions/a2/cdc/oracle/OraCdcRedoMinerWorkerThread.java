@@ -320,7 +320,15 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 									}
 									case _11_16_LMN, _11_8_CFA ->
 										getTransaction(record).add(record, lwnTs);
-									case _11_4_LKR, _11_10_SKL -> {
+									case _11_4_LKR -> {
+										if (record.change5_1().eligibleLock())
+											getTransaction(record).add(record, lwnTs);
+										else {
+											if (LOGGER.isDebugEnabled())
+												LOGGER.debug("Skipping OP:11.4 ({}) at RBA {}", record.change5_1().prbSupplementalFor(), record.rba());
+										}
+									}
+									case _11_10_SKL -> {
 										if (LOGGER.isDebugEnabled())
 											LOGGER.debug("Skipping OP:{} at RBA {}", formatOpCode(operation), record.rba());
 									}

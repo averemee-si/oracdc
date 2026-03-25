@@ -502,6 +502,10 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 		return supplementalLogData;
 	}
 
+	public boolean eligibleLock() {
+		return supplementalLogData && record[coords[suppDataStartIndex][0]] == SUPPL_LOG_UPDATE;
+	}
+
 	public RowId supplementalRowId() {
 		if (supplementalLogData && SUPPL_LOG_ROW_MIN_LENGTH <= coords[suppDataStartIndex][1]) {
 			return new RowId(

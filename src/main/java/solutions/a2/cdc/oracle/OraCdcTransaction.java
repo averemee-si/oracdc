@@ -30,6 +30,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_30_LNU;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._10_35_LCU;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_2_IRP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_3_DRP;
+import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_4_LKR;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_5_URP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_6_ORP;
 import static solutions.a2.cdc.oracle.internals.OraCdcChange._11_8_CFA;
@@ -188,7 +189,7 @@ public abstract class OraCdcTransaction {
 				}
 				if (rr.has11_x()) {
 					switch (rr.change11_x().operation()) {
-						case _11_2_IRP, _11_3_DRP, _11_5_URP,_11_6_ORP ->
+						case _11_2_IRP, _11_3_DRP, _11_4_LKR, _11_5_URP,_11_6_ORP ->
 							processRowChange(rr, false, lwnUnixMillis);
 						case _11_16_LMN, _11_8_CFA ->
 							processRowChangeLmn(rr, lwnUnixMillis);
@@ -1547,14 +1548,18 @@ public abstract class OraCdcTransaction {
 							whereColCount += change.columnCount();
 							whereColCount += change.supplementalCc();
 						}
-						default -> LOGGER.error(
-							"""
-							
-							=====================
-							Unable to count number of columns at RBA {} for OP:{}
-							=====================
-							
-							""", rr.rba(), formatOpCode(rowChange.operation()));
+						default -> {
+							if (rowChange.operation() != _11_4_LKR)
+								LOGGER.error(
+									"""
+									
+									=====================
+									Unable to count number of columns at RBA {} for OP:{}
+									=====================
+									
+									""",
+									rr.rba(), formatOpCode(rowChange.operation()));
+						}
 					}
 				} else {
 					final StringBuilder sb = new StringBuilder(0x400);
@@ -1889,8 +1894,10 @@ public abstract class OraCdcTransaction {
 								colNumOffsetSet += ((OraCdcChangeIndexOp) rowChange).writeIndexColumns(baos,
 										change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
 							}
-							default ->
-								LOGGER.warn("Unknow operation OP:{} at RBA {}", formatOpCode(rowChange.operation()), rr.rba());
+							default -> {
+								if (rowChange.operation() != _11_4_LKR)
+									LOGGER.warn("Unknow operation OP:{} at RBA {}", formatOpCode(rowChange.operation()), rr.rba());
+							}
 						}
 					}
 					byte[] baosBBytes = baosB.toByteArray();
