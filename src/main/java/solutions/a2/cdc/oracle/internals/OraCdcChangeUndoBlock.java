@@ -59,7 +59,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	public static final byte KDILCNU = 0x23;
 
 	private boolean supplementalLogData = false;
-	private byte supplementalFb = 0;
 	private int supplementalCc = 0;
 	private int supplementalCcNn = 0;
 	private int suppDataStartIndex = -1;
@@ -123,7 +122,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 							suppDataStartIndex = coords.length - 1;
 						}
 						elementLengthCheck("mandatory supplemental logging data", "(OP:5.1)", suppDataStartIndex, SUPPL_LOG_MIN_LENGTH, "");
-						supplementalFb = record[coords[suppDataStartIndex][0] + 0x1];
 						suppOffsetUndo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x6));
 						suppOffsetRedo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x8));
 					}
@@ -176,7 +174,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 
 					if (supplementalLogData) {
 						elementLengthCheck("mandatory supplemental logging data", "(OP:5.1)", suppDataStartIndex, SUPPL_LOG_MIN_LENGTH, "");
-						supplementalFb = record[coords[suppDataStartIndex][0] + 0x1];
 						suppOffsetUndo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x6));
 						suppOffsetRedo = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x8));
 						supplementalCcNn = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[suppDataStartIndex][0] + 0x2));
@@ -331,7 +328,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 				.append("\n pos: ")
 				.append(suppDataStartIndex)
 				.append(" fb: ")
-				.append(printFbFlags(supplementalFb));
+				.append(printFbFlags(record[coords[suppDataStartIndex][0] + 0x1]));
 			if (supplementalCc > 0) {
 				if (kdilkType == KDILCNU) {
 					sb.append("\n Supplemental logging:");
@@ -388,7 +385,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	}
 
 	public byte supplementalFb() {
-		return supplementalFb;
+		return record[coords[suppDataStartIndex][0] + 0x1];
 	}
 
 	public int supplementalCc() {
@@ -503,7 +500,10 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	}
 
 	public boolean eligibleLock() {
-		return supplementalLogData && record[coords[suppDataStartIndex][0]] == SUPPL_LOG_UPDATE;
+		return supplementalLogData &&
+				record[coords[suppDataStartIndex][0]] == SUPPL_LOG_UPDATE &&
+				flgFirstPart(record[coords[suppDataStartIndex][0] + 0x1]) &&
+				!flgLastPart(record[coords[suppDataStartIndex][0] + 0x1]);
 	}
 
 	public RowId supplementalRowId() {

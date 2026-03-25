@@ -1738,7 +1738,7 @@ public abstract class OraCdcTransaction {
 									baos, OraCdcChangeIndexOp.COL_NUM_10_35_POS, change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
 							change.writeIndexColumnsOp35(
 									baosB, OraCdcChangeUndoBlock.COL_NUM_10_35_POS, change.suppOffsetRedo() == 0 ? colNumOffsetSet : change.suppOffsetRedo());
-						} else if (rowChange.operation() != _11_16_LMN) {
+						} else if (rowChange.operation() != _11_16_LMN && rowChange.operation() != _11_4_LKR) {
 							LOGGER.warn("Unable to read column data for UPDATE (SET) at RBA {}, change #{} OP:{}",
 									rr.rba(), rowChange.num(), formatOpCode(rowChange.operation()));
 						}
