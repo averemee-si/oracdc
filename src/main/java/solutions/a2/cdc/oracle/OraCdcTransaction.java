@@ -379,17 +379,19 @@ public abstract class OraCdcTransaction {
 			transLobs = null;
 			lobCols = null;
 		} else {
-			lobsQueueDirectory = Files.createTempDirectory(rootDir, xid + ".LOBDATA.");
 			if (processLobs == LobProcessingStatus.REDOMINER) {
+				lobsQueueDirectory = Files.createTempDirectory(rootDir, xid + ".LOBDATA.");
 				transLobs = new HashMap<>();
 				lobCols = new Long2ObjectHashMap<>();
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug("Created LOB data queue directory {} for transaction XID {}.",
+						lobsQueueDirectory.toString(), xid);
 			} else {
 				// processLobs == LobProcessingStatus.LOGMINER
+				lobsQueueDirectory = null;
 				transLobs = null;
 				lobCols = null;
 			}
-			LOGGER.debug("Created LOB data queue directory {} for transaction XID {}.",
-					lobsQueueDirectory.toString(), xid);
 		}
 	}
 
