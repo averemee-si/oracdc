@@ -1,4 +1,4 @@
-image:https://img.shields.io/:license-apache-blue.svg[License,link=https://raw.githubusercontent.com/averemee-si/ora2iceberg/refs/heads/main/LICENSE]
+image:https://img.shields.io/:license-apache-blue.svg[License,link=https://raw.githubusercontent.com/averemee-si/oracdc/refs/heads/main/LICENSE]
 image:https://img.shields.io/maven-central/v/solutions.a2.oracle/oracdc-kafka.svg[link=https://central.sonatype.com/artifact/solutions.a2.oracle/oracdc-kafka]
 image:https://img.shields.io/docker/pulls/a2solutions/oracdc[link=https://hub.docker.com/r/a2solutions/oracdc/]
 
