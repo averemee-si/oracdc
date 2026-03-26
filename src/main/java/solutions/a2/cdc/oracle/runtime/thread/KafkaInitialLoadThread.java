@@ -67,16 +67,16 @@ public class KafkaInitialLoadThread extends Thread {
 			final BlockingQueue<KafkaInitialLoadTable> tablesQueue,
 			OraConnectionObjects oraConnections) throws SQLException {
 		LOGGER.info("Initializing oracdc initial load thread");
-		this.setName("OraCdcInitialLoadThread-" + System.nanoTime());
+		this.setName("KafkaInitialLoadThread-" + System.nanoTime());
 		this.waitInterval = waitInterval;
 		this.asOfScn = asOfScn;
 		this.tablesInProcessing = tablesInProcessing;
 		this.queuesRoot = config.queuesRoot();
 		this.tablesQueue = tablesQueue;
 		this.oraConnections = oraConnections;
-		final int coreCount = Runtime.getRuntime().availableProcessors();
-		this.selectThreadCount = Math.min(coreCount, rdbmsInfo.getCpuCoreCount());
-		LOGGER.info("DB cores available {}, Kafka Cores available {}.", rdbmsInfo.getCpuCoreCount(), coreCount);
+		var coreCount = Runtime.getRuntime().availableProcessors();
+		selectThreadCount = Math.min(coreCount, rdbmsInfo.getCpuCoreCount());
+		LOGGER.info("{} DB cores available, {} Kafka Worker Cores available.", rdbmsInfo.getCpuCoreCount(), coreCount);
 		LOGGER.info("{} parallel loaders for select phase will be used.");
 		this.metrics = metrics;
 		// Set latch to number of tables for load...
@@ -84,11 +84,17 @@ public class KafkaInitialLoadThread extends Thread {
 		// Need running status set here!!!
 		running = new AtomicBoolean(true);
 		this.rdbmsInfo = rdbmsInfo;
+		if (!config.logMiner()) {
+			var connection = oraConnections.getConnection();
+			rdbmsInfo.checkSDU(connection);
+			connection.close();
+			connection = null;
+		}
 	}
 
 	@Override
 	public void run()  {
-		LOGGER.info("BEGIN: OraCdcInitialLoadThread.run()");
+		LOGGER.info("BEGIN: KafkaInitialLoadThread.run()");
 		final long startMillis = System.currentTimeMillis();
 		if (tablesInProcessing != null && tablesInProcessing.size() > 0) {
 			final BlockingQueue<Runnable> workQueue = new ArrayBlockingQueue<Runnable>(tablesInProcessing.size());
@@ -121,7 +127,7 @@ public class KafkaInitialLoadThread extends Thread {
 			LOGGER.warn("No tables for initial load!!!");
 		}
 		running.set(false);
-		LOGGER.info("END: OraCdcInitialLoadThread.run(), elapsed time {} ms",
+		LOGGER.info("END: KafkaInitialLoadThread.run(), elapsed time {} ms",
 				(System.currentTimeMillis() - startMillis));
 	}
 

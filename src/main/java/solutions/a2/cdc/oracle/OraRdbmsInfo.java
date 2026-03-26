@@ -1071,7 +1071,7 @@ public class OraRdbmsInfo {
 		return sessionTimeZone;
 	}
 
-	public int getNegotiatedSDU(final Connection connection) {
+	public int negotiatedSDU(final Connection connection) {
 		try {
 			final oracle.jdbc.internal.OracleConnection ora =
 					(oracle.jdbc.internal.OracleConnection) connection;
@@ -1086,6 +1086,23 @@ public class OraRdbmsInfo {
 					"=====================\n");
 		}
 		return 0;
+	}
+
+	public void checkSDU(final Connection connection) {
+		var negotiatedSDU =  negotiatedSDU(connection);
+		if (negotiatedSDU > 0 && negotiatedSDU <= 0x2000) {
+			LOGGER.warn(
+					"""
+					
+					=====================
+					The negotiated SDU between connector and mining instance is set to {}.
+						We recommend increasing it to achieve better performance. 
+						Instructions on how to do this can be found at
+								https://github.com/averemee-si/oracdc#performance-tips
+					=====================
+					
+					""", negotiatedSDU);
+		}
 	}
 
 	public String getLogMode() {
