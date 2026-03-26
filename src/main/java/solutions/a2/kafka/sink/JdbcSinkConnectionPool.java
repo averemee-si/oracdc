@@ -13,40 +13,16 @@
 
 package solutions.a2.kafka.sink;
 
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.SQLTransientConnectionException;
-import java.util.Enumeration;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.zaxxer.hikari.HikariDataSource;
+import solutions.a2.cdc.JdbcConnectionPool;
 
 /**
  *
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public class JdbcSinkConnectionPool {
-
-	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkConnectionPool.class);
-	private static final String DRIVER_POSTGRESQL = "org.postgresql.Driver";
-	private static final String PREFIX_POSTGRESQL = "jdbc:postgresql:";
-	private static final String DRIVER_ORACLE = "oracle.jdbc.OracleDriver";
-	private static final String PREFIX_ORACLE = "jdbc:oracle:";
-
-	public static final int DB_TYPE_MYSQL = 1;
-	public static final int DB_TYPE_POSTGRESQL = 2;
-	public static final int DB_TYPE_ORACLE = 3;
-	public static final int DB_TYPE_MSSQL = 4;
-
-	private HikariDataSource dataSource;
-	private int dbType = DB_TYPE_MYSQL;
+public class JdbcSinkConnectionPool extends JdbcConnectionPool {
 
 	/**
 	 * 
@@ -56,150 +32,7 @@ public class JdbcSinkConnectionPool {
 	 */
 	public JdbcSinkConnectionPool(
 			final String connectorName, final JdbcSinkConnectorConfig config) throws SQLException {
-		var url = config.getJdbcUrl();
-		if (LOGGER.isDebugEnabled())
-			LOGGER.debug("JDBC Url = {}", config.getJdbcUrl());
-		dataSource = new HikariDataSource();
-		dataSource.setJdbcUrl(url);
-		dataSource.setUsername(config.getJdbcUser());
-		dataSource.setPassword(config.getJdbcPassword());
-		dataSource.setAutoCommit(false);
-		dataSource.setPoolName("oracdc-hikari-" + connectorName);
-		dataSource.setMinimumIdle(0);
-		final String initSql = config.getInitSql();
-		if (StringUtils.isNotBlank(initSql)) {
-			dataSource.setConnectionInitSql(initSql);
-		}
-		if (Strings.CS.startsWith(url, "jdbc:mariadb:") ||
-				Strings.CS.startsWith(url, "jdbc:mysql:")) {
-			if (!Strings.CS.contains(url, "cachePrepStmts")) {
-				dataSource.addDataSourceProperty("cachePrepStmts", "true");
-			}
-			if (!Strings.CS.contains(url, "prepStmtCacheSize")) {
-				dataSource.addDataSourceProperty("prepStmtCacheSize", "256");
-			}
-			if (!Strings.CS.contains(url, "prepStmtCacheSqlLimit")) {
-				dataSource.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-			}
-			if (!Strings.CS.contains(url, "useServerPrepStmts")) {
-				dataSource.addDataSourceProperty("useServerPrepStmts", "true");
-			}
-			if (!Strings.CS.contains(url, "tcpKeepAlive")) {
-				dataSource.addDataSourceProperty("tcpKeepAlive", "true");
-			}
-			if (!Strings.CS.contains(url, "maintainTimeStats")) {
-				dataSource.addDataSourceProperty("maintainTimeStats", "false");
-			}
-		} else if (Strings.CS.startsWith(url, PREFIX_POSTGRESQL)) {
-			if (!isDriverLoaded(DRIVER_POSTGRESQL)) {
-				try {
-					Class.forName(DRIVER_POSTGRESQL);
-				} catch (ClassNotFoundException cnf) { }
-			}
-			if (!Strings.CS.contains(url, "ApplicationName")) {
-				dataSource.addDataSourceProperty("ApplicationName", "oracdc");
-			}
-			if (!Strings.CS.contains(url, "prepareThreshold")) {
-				dataSource.addDataSourceProperty("prepareThreshold", "1");
-			}
-			if (!Strings.CS.contains(url, "preparedStatementCacheSizeMiB")) {
-				dataSource.addDataSourceProperty("preparedStatementCacheSizeMiB", "16");
-			}
-			if (!Strings.CS.contains(url, "tcpKeepAlive")) {
-				dataSource.addDataSourceProperty("tcpKeepAlive", "true");
-			}
-			if (!Strings.CS.contains(url, "reWriteBatchedInserts")) {
-				dataSource.addDataSourceProperty("reWriteBatchedInserts", "true");
-			}
-		} else if (Strings.CS.startsWith(url, PREFIX_ORACLE)) {
-			if (!isDriverLoaded(DRIVER_ORACLE)) {
-				try {
-					Class.forName(DRIVER_ORACLE);
-				} catch (ClassNotFoundException cnf) { }
-			}
-		}
-
-		// Detect database type
-		Connection connection = getConnection();
-		final String databaseProductName = connection.getMetaData().getDatabaseProductName();
-		LOGGER.debug("connection.getMetaData().getDatabaseProductName() returns {}", databaseProductName);
-		connection.close();
-
-		if ("MariaDB".equalsIgnoreCase(databaseProductName) ||
-				"MySQL".equalsIgnoreCase(databaseProductName)) {
-			dbType = DB_TYPE_MYSQL;
-		} else if ("PostgreSQL".equalsIgnoreCase(databaseProductName)) {
-			dbType = DB_TYPE_POSTGRESQL;
-		} else if ("Oracle".equalsIgnoreCase(databaseProductName)) {
-			dbType = DB_TYPE_ORACLE;
-		} else if (databaseProductName.startsWith("Microsoft")) {
-			dbType = DB_TYPE_MSSQL;
-		} else {
-			//TODO - more?
-		}
-	}
-
-	public Connection getConnection() throws SQLException {
-		Connection connection = null;
-		int attempt = 0;
-		long waitTimeMillis = 0;
-		boolean tryToGet = true;
-		do {
-			try {
-				connection = dataSource.getConnection();
-				tryToGet = false;
-			} catch (SQLTransientConnectionException stce) {
-				//TODO - parameterize it!
-				if (waitTimeMillis > 300_000) {
-					LOGGER.error(
-							"\n=====================\n" +
-							"Unable to get connection to {} after {} milliseconds!.\n" +
-							"=====================\n",
-							dataSource.getJdbcUrl(), waitTimeMillis);
-					throw stce;
-				} else {
-					long currentWait = (long) Math.pow(10, ++attempt);
-					waitTimeMillis += currentWait;
-					try {
-						LOGGER.debug("Waiting [] ms for connection", currentWait);
-						Thread.sleep(currentWait);
-					} catch (InterruptedException ie) {}
-				}
-			} catch (SQLException sqle) {
-				LOGGER.error(
-						"\n=====================\n" +
-						"Unable to get connection to {}.\n" +
-						"=====================\n",
-						dataSource.getJdbcUrl());
-				throw sqle;
-			}
-		} while (tryToGet);
-		if (connection.getAutoCommit()) {
-			connection.setAutoCommit(false);
-		}
-		return connection;
-	}
-
-	public int getDbType() {
-		return dbType;
-	}
-
-	public void close() {
-		if (dataSource != null) {
-			dataSource.close();
-		}
-		dataSource = null;
-	}
-
-	private boolean isDriverLoaded(final String driverClass) {
-		final Enumeration<Driver> availableDrivers = DriverManager.getDrivers();
-		while (availableDrivers.hasMoreElements()) {
-			final Driver driver = availableDrivers.nextElement();
-			if (Strings.CS.equals(driverClass, driver.getClass().getCanonicalName())) {
-				return true;
-			}
-		}
-		return false;
+		super(connectorName, config.getJdbcUrl(), config.getJdbcUser(), config.getJdbcPassword(), config.getInitSql());
 	}
 
 }

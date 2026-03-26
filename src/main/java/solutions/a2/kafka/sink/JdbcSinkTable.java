@@ -93,7 +93,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 			final JdbcSinkConnectionPool sinkPool, final String tableName,
 			final SinkRecord record, final int schemaType, 
 			final JdbcSinkConnectorConfig config) throws SQLException {
-		super(schemaType, sinkPool.getDbType());
+		super(schemaType, sinkPool.dbType());
 		LOGGER.debug("Creating OraTable object from Kafka connect SinkRecord...");
 		pkStringLength = config.getPkStringLength();
 		connectorMode = config.getConnectorMode();
