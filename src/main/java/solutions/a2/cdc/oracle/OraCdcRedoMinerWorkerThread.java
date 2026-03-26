@@ -586,7 +586,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				.append(xid.toString())
 				.append(" at RBA ")
 				.append(rba.toString());
-			sb.append(printHalfDoneRcmContents());
+			sb.append(printHalfDoneRcmContents(partial));
 			if (activeTransactions.size() > 0) {
 				sb.append("\n\nList of transactions in progress (XID, FIRST_CHANGE#, NEXT_CHANGE#, NUMBBER_OF_CHANGES, SIZE_IN_BYTES)");
 				final var sbPrefix = new StringBuilder();
@@ -726,7 +726,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			final StringBuilder sb = new StringBuilder(halfDoneRcm.size() * 0x40 + 0x10);
 			sb
 				.append("\n=====================\n")
-				.append(printHalfDoneRcmContents())
+				.append(printHalfDoneRcmContents(0xFFFFFFFF))
 				.append("\n=====================\n");
 			LOGGER.warn(sb.toString());
 		}
@@ -744,22 +744,25 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		super.shutdown();
 	}
 
-	private StringBuilder printHalfDoneRcmContents() {
+	private StringBuilder printHalfDoneRcmContents(final int partial) {
 		final StringBuilder sb = new StringBuilder(halfDoneRcm.size() * 0x40 + 0x10);
 		if (halfDoneRcm.size() > 0) {
 			sb.append("\n\nList of transactions with delayed commit (XID, RBA, FIRST_CHANGE#, COMMIT_SCN#)");
+			if (partial != 0xFFFFFFFF)
+				sb.append(" for specific USN/SLT");
 			for (final Map.Entry<Long, List<OraCdcRedoRecord>> entry : halfDoneRcm.entrySet()) {
 				for (final OraCdcRedoRecord record : entry.getValue()) {
 					if (activeTransactions.containsKey(record.xid())) {
-						sb
-							.append("\n\t")
-							.append(record.xid().toString())
-							.append('\t')
-							.append(record.rba().toString())
-							.append('\t')
-							.append(record.hasKrvMisc() ? record.changeKrvMisc().startScn() : "N/A")
-							.append('\t')
-							.append(entry.getKey());
+						if (partial == 0xFFFFFFFF || (record.xid().partial() == partial))
+							sb
+								.append("\n\t")
+								.append(record.xid().toString())
+								.append('\t')
+								.append(record.rba().toString())
+								.append('\t')
+								.append(record.hasKrvMisc() ? record.changeKrvMisc().startScn() : "N/A")
+								.append('\t')
+								.append(entry.getKey());
 					}
 				}
 			}
