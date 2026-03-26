@@ -428,4 +428,9 @@ public class OraConnectionObjects {
 		return oco;
 	}
 
+	public void poolSize(final int degree) throws SQLException {
+		pds.setMinPoolSize(degree);
+		pds.setMaxPoolSize(degree + 8);
+	}
+
 }
