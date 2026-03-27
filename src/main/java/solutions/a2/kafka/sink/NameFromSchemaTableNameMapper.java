@@ -13,6 +13,10 @@
 
 package solutions.a2.kafka.sink;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Struct;
@@ -31,14 +35,15 @@ public class NameFromSchemaTableNameMapper implements TableNameMapper {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(NameFromSchemaTableNameMapper.class);
 
-	private String schemaPrefix;
+	private final Map<String, String> preparedNames = new HashMap<>();
+	private List<String> schemaPrefixes;
 	private String prefix;
 	private String suffix;
 	private int schemaType;
 
 	@Override
 	public void configure(final JdbcSinkConnectorConfig config) {
-		schemaPrefix = config.schemaPrefix();
+		schemaPrefixes = config.schemaPrefix();
 		prefix = StringUtils.trim(config.getTableNamePrefix());
 		suffix = StringUtils.trim(config.getTableNameSuffix());
 		schemaType = config.getSchemaType();
@@ -46,22 +51,35 @@ public class NameFromSchemaTableNameMapper implements TableNameMapper {
 
 	@Override
 	public String getTableName(final SinkRecord record) {
-		final String tableName;
+		String tableName;
 		if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD ||
 				schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE) {
-			var schemaName = StringUtils.substring(record.valueSchema().name(), 0, Strings.CS.lastIndexOf(record.valueSchema().name(), "Value") - 1);
-			if (StringUtils.isNotBlank(schemaPrefix) &&
-					Strings.CS.startsWith(schemaName, schemaPrefix)) {
-				tableName = prefix + StringUtils.substring(schemaName, schemaPrefix.length()) + suffix;
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Table name '{}' is set using the Kafka schema name {} and parameter '{}' with value {}.",
-						tableName, schemaName, schemaPrefix);
+			tableName = preparedNames.get(record.valueSchema().name());
+			if (tableName == null) {
+				var schemaName = StringUtils.substring(record.valueSchema().name(), 0, Strings.CS.lastIndexOf(record.valueSchema().name(), "Value") - 1);
+				var need2Build = false;
+				String schemaPrefix = null;
+				if (schemaPrefixes != null && schemaPrefixes.size() > 0) {
+					for (var prfx : schemaPrefixes)
+						if (Strings.CS.startsWith(schemaName, prfx)) {
+							need2Build = true;
+							schemaPrefix = prfx;
+							break;
+						}
 				}
-			} else {
-				tableName = schemaName;
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Table name is set to the Kafka schema name '{}'.", tableName);
+				if (need2Build) {
+					tableName = prefix + StringUtils.substring(schemaName, schemaPrefix.length()) + suffix;
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Table name '{}' is set using the Kafka schema name {} and parameter '{}' with value {}.",
+							tableName, schemaName, schemaPrefix);
+					}
+				} else {
+					tableName = schemaName;
+					if (LOGGER.isDebugEnabled()) {
+						LOGGER.debug("Table name is set to the Kafka schema name '{}'.", tableName);
+					}
 				}
+				preparedNames.put(record.valueSchema().name(), tableName);
 			}
 		} else { //schemaType == ParamConstants.SCHEMA_TYPE_INT_DEBEZIUM
 			tableName = ((Struct) record.value()).getStruct("source").getString("table");

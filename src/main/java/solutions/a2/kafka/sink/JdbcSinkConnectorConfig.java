@@ -15,6 +15,7 @@ package solutions.a2.kafka.sink;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.Strings;
@@ -30,6 +31,7 @@ import static org.apache.kafka.common.config.ConfigDef.Importance.MEDIUM;
 import static org.apache.kafka.common.config.ConfigDef.Type.BOOLEAN;
 import static org.apache.kafka.common.config.ConfigDef.Type.INT;
 import static org.apache.kafka.common.config.ConfigDef.Type.PASSWORD;
+import static org.apache.kafka.common.config.ConfigDef.Type.LIST;
 import static org.apache.kafka.common.config.ConfigDef.Type.STRING;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.BATCH_SIZE_DEFAULT;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.BATCH_SIZE_DOC;
@@ -151,7 +153,7 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 						ConfigDef.ValidString.in(CONN_TYPE_REPLICATE, CONN_TYPE_AUDIT_TRAIL),
 						HIGH, CONN_TYPE_DOC)
 				.define(INIT_SQL_PARAM, STRING, "", LOW, INIT_SQL_DOC)
-				.define(SCHEMA_NAME_PREFIX_PARAM, STRING, "", LOW, SCHEMA_NAME_PREFIX_DOC)
+				.define(SCHEMA_NAME_PREFIX_PARAM, LIST, "", LOW, SCHEMA_NAME_PREFIX_DOC)
 				;
 	}
 
@@ -279,8 +281,8 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 		return getString(TOPIC_PREFIX_PARAM);
 	}
 
-	String schemaPrefix() {
-		return getString(SCHEMA_NAME_PREFIX_PARAM);
+	List<String> schemaPrefix() {
+		return getList(SCHEMA_NAME_PREFIX_PARAM);
 	}
 
 }
