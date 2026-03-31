@@ -239,12 +239,19 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 				.struct()
 				.name(snm.getKeySchemaName(table.pdb(), table.owner(), table.name()))
 				.version(1);
-		else
-			return SchemaBuilder
-				.struct()
-				.optional()
-				.name(snm.getValueSchemaName(table.pdb(), table.owner(), table.name()))
-				.version(version);
+		else {
+			if ((table.flags() & FLG_ALL_COLS_ON_DELETE) > 0)
+				return SchemaBuilder
+						.struct()
+						.name(snm.getValueSchemaName(table.pdb(), table.owner(), table.name()))
+						.version(version);
+			else
+				return SchemaBuilder
+						.struct()
+						.optional()
+						.name(snm.getValueSchemaName(table.pdb(), table.owner(), table.name()))
+						.version(version);
+		}
 	}
 
 	@Override
