@@ -232,6 +232,9 @@ RUN    cd ${KAFKA_HOME}/libs && rm -f jackson-*-2.19.2.jar && rm -f snakeyaml-2.
        "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-jakarta-xmlbind-annotations/${XV}/jackson-module-jakarta-xmlbind-annotations-${XV}.jar" \
        "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-blackbird/${XV}/jackson-module-blackbird-${XV}.jar"
 # GHSA-72hv-8253-57qq END
+# CVE-2025-67030 BEGIN
+RUN    cd ${KAFKA_HOME}/libs && rm -f plexus-utils-*.jar
+# CVE-2025-67030 END
 RUN    mkdir ${KAFKA_HOME}/logs
 RUN    touch ${KAFKA_HOME}/logs/connect.log
 COPY   LICENSE* ${BASEDIR}/oracdc
