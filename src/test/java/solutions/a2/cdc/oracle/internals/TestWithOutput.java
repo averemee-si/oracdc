@@ -215,7 +215,7 @@ public abstract class TestWithOutput {
 		var calendar = Calendar.getInstance();
 		calendar.setTime(new Date());
 		var ts = (long)
-				((((calendar.get(YEAR) - 1988) * 12 + (calendar.get(MONTH) - 1)) * 31 + (calendar.get(DAY_OF_MONTH) - 1)) * 24);
+				((((calendar.get(YEAR) - 1988) * 12 + (calendar.get(MONTH))) * 31 + (calendar.get(DAY_OF_MONTH) - 1)) * 24);
 		ts = ((ts + calendar.get(HOUR)) * 60 + calendar.get(MINUTE)) * 60 + calendar.get(SECOND);
 		return (int) ts;
 	}
