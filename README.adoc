@@ -126,6 +126,14 @@ This project is licensed under the Apache-2.0 License.
 
 == Release history
 
+=== 2.15.0 (APR-2026)
+
+1. Replacement of https://chronicle.software/queue/[Chronicle Queue] off-heap memory support to https://docs.oracle.com/en/java/javase/25/core/foreign-function-and-memory-api.html[Java's native foreign memory API]
+
+2. In addition to the already supported SSР/SFTP connection methods using https://github.com/hierynomus/sshj[SSHJ] and https://jadaptive.com/java-ssh-library/[Maverick Synergy], support for https://mina.apache.org/sshd-project/[Apache Mina SSH] has been added
+
+3. Bug fixes
+
 === 2.14.5 (MAR-2026)
 
 1. Dockerfile: fix for https://github.com/advisories/GHSA-72hv-8253-57qq[GHSA-72hv-8253-57qq] and https://nvd.nist.gov/vuln/detail/CVE-2026-1605[CVE-2026-1605]
