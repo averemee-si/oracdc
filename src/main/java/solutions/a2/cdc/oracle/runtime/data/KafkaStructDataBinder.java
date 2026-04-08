@@ -56,23 +56,6 @@ import solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper;
 public abstract class KafkaStructDataBinder implements DataBinder {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaStructDataBinder.class);
-	private static final String TOLERANCE_ERR_MSG =
-			"""
-			
-			=====================
-			The number of required columns for table {} is {},
-			but only {} required columns are returned from the redo record!
-			Please check the supplemental logging settings!
-			SQL statement information:
-			SCN/RBA = {}/{}, COMMIT_SCN={}, XID={}
-			{}
-			
-			{}
-			
-			=====================
-			
-			""";
-
 
 	private final KafkaSchemaNameMapper snm;
 	private final OraCdcPseudoColumnsProcessor pseudoColumns;

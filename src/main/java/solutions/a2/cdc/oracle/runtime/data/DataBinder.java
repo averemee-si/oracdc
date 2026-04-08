@@ -34,4 +34,22 @@ public interface DataBinder {
 	void afterBefore();
 	void buildSchema(boolean initial) throws SQLException;
 	Object changeVector(OraCdcTransaction transaction, Map<String, Object> offset, boolean skipRedoRecord) throws SQLException;
+
+	static final String TOLERANCE_ERR_MSG =
+			"""
+			
+			=====================
+			The number of required columns for table {} is {},
+			but only {} required columns are returned from the redo record!
+			Please check the supplemental logging settings!
+			SQL statement information:
+			SCN/RBA = {}/{}, COMMIT_SCN={}, XID={}
+			{}
+			
+			{}
+			
+			=====================
+			
+			""";
+
 }
