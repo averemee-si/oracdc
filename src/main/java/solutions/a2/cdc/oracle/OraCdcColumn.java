@@ -578,7 +578,7 @@ public class OraCdcColumn extends Column {
 		return rowIdColumn;
 	}
 
-	int getColumnId() {
+	public int getColumnId() {
 		return columnId;
 	}
 
