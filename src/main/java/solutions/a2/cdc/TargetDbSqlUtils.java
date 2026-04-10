@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.kafka.sink;
+package solutions.a2.cdc;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,8 +22,6 @@ import java.util.Map.Entry;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.commons.lang3.Strings;
-
-import solutions.a2.cdc.Column;
 
 import static java.sql.Types.BOOLEAN;
 import static java.sql.Types.TINYINT;
@@ -228,8 +226,8 @@ public class TargetDbSqlUtils {
 			Iterator<Entry<String, Object>> lobIterator = lobColumns.entrySet().iterator();
 			while (lobIterator.hasNext()) {
 				final Object columnObject = lobIterator.next().getValue(); 
-				if (columnObject instanceof JdbcSinkColumn) {
-					final var column = (JdbcSinkColumn) columnObject;
+				if (columnObject instanceof Column) {
+					final var column = (Column) columnObject;
 					sbCreateTable.append("  ");
 					sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 
@@ -249,7 +247,7 @@ public class TargetDbSqlUtils {
 					}
 				} else {
 					@SuppressWarnings("unchecked")
-					final var columnList = (List<JdbcSinkColumn>) columnObject;
+					final var columnList = (List<Column>) columnObject;
 					for (int i = 0; i < columnList.size(); i++) {
 						final var column = columnList.get(i);
 						sbCreateTable.append("  ");
@@ -302,8 +300,8 @@ public class TargetDbSqlUtils {
 
 	public static Map<String, String> generateSinkSql(final String tableName,
 			final int dbType,
-			final Map<String, JdbcSinkColumn> pkColumns,
-			final List<JdbcSinkColumn> allColumns,
+			final Map<String, ? extends Column> pkColumns,
+			final List<? extends Column> allColumns,
 			final Map<String, Object> lobColumns,
 			final boolean auditTrail) {
 
@@ -567,7 +565,7 @@ public class TargetDbSqlUtils {
 			if (lobColumns != null && lobColumns.size() > 0) {
 				for (Map.Entry<String, Object> entry : lobColumns.entrySet()) {
 					final String columnName = entry.getKey();
-					if (entry.getValue() instanceof JdbcSinkColumn) {
+					if (entry.getValue() instanceof Column) {
 						final StringBuilder sbLobUpdate = new StringBuilder(256);
 						sbLobUpdate.append("update ");
 						sbLobUpdate.append(tableName);
@@ -579,7 +577,7 @@ public class TargetDbSqlUtils {
 					} else {
 						// Update for transformed lob
 						@SuppressWarnings("unchecked")
-						final var columnList = (List<JdbcSinkColumn>) entry.getValue();
+						final var columnList = (List<Column>) entry.getValue();
 						final StringBuilder sbLobUpdate = new StringBuilder(512);
 						sbLobUpdate.append("update ");
 						sbLobUpdate.append(tableName);
@@ -603,7 +601,7 @@ public class TargetDbSqlUtils {
 	public static String addColumnSql(
 			final String tableName,
 			final int dbType,
-			final JdbcSinkColumn columnToAdd) {
+			final Column columnToAdd) {
 		var dataTypesMap = dataTypesMap(dbType);
 		
 		final StringBuilder sbAlterTable = new StringBuilder(0x80);

@@ -25,6 +25,7 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.junit.jupiter.api.Test;
 
+import solutions.a2.cdc.TargetDbSqlUtils;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraXml;
 
