@@ -11,7 +11,7 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.kafka;
+package solutions.a2.cdc;
 
 import static java.sql.Types.DOUBLE;
 import static java.sql.Types.FLOAT;

@@ -92,6 +92,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.sql.NUMBER;
+import solutions.a2.cdc.Column;
 import solutions.a2.cdc.oracle.data.OraBlob;
 import solutions.a2.cdc.oracle.data.OraClob;
 import solutions.a2.cdc.oracle.data.OraInterval;
@@ -102,7 +103,6 @@ import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraTimestamp;
 import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
-import solutions.a2.kafka.Column;
 import solutions.a2.oracle.jdbc.types.OracleTimestamp;
 import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
 

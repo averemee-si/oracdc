@@ -23,6 +23,8 @@ import java.util.Map.Entry;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.commons.lang3.Strings;
 
+import solutions.a2.cdc.Column;
+
 import static java.sql.Types.BOOLEAN;
 import static java.sql.Types.TINYINT;
 import static java.sql.Types.SMALLINT;
@@ -167,14 +169,14 @@ public class TargetDbSqlUtils {
 			final String tableName,
 			final int dbType,
 			final int pkStringLength,
-			final Map<String, JdbcSinkColumn> pkColumns,
-			final List<JdbcSinkColumn> allColumns,
+			final Map<String, ? extends Column> pkColumns,
+			final List<? extends Column> allColumns,
 			final Map<String, Object> lobColumns) {
 		var dataTypesMap = dataTypesMap(dbType);
 
-		final boolean onlyValue = pkColumns.size() == 0;
+		var onlyValue = pkColumns.size() == 0;
 		final List<String> sqlStrings = new ArrayList<>();
-		final StringBuilder sbCreateTable = new StringBuilder(256);
+		var sbCreateTable = new StringBuilder(0x100);
 
 		sbCreateTable.append("create table ");
 		sbCreateTable.append(tableName);
@@ -189,7 +191,7 @@ public class TargetDbSqlUtils {
 			sbPrimaryKey.append(tableName);
 			sbPrimaryKey.append("_PK primary key(");
 			
-			Iterator<Entry<String, JdbcSinkColumn>> pkIterator = pkColumns.entrySet().iterator();
+			var pkIterator = pkColumns.entrySet().iterator();
 			while (pkIterator.hasNext()) {
 				var column = pkIterator.next().getValue();
 				sbCreateTable.append("  ");
@@ -272,7 +274,7 @@ public class TargetDbSqlUtils {
 		return sqlStrings;
 	}
 
-	private static String getTargetDbColumn(final int dbType, final int pkStringLength, final Int2ObjectHashMap<String> dataTypesMap, final JdbcSinkColumn column) {
+	private static String getTargetDbColumn(final int dbType, final int pkStringLength, final Int2ObjectHashMap<String> dataTypesMap, final Column column) {
 		final StringBuilder sb = new StringBuilder(64);
 		sb.append(column.getColumnName());
 		sb.append(" ");

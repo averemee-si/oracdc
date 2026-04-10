@@ -61,9 +61,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import oracle.sql.NUMBER;
+import solutions.a2.cdc.Column;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
-import solutions.a2.kafka.Column;
 import solutions.a2.utils.ExceptionUtils;
 
 /**
