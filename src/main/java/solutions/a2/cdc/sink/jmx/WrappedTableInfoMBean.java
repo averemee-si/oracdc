@@ -11,17 +11,21 @@
  * the License for the specific language governing permissions and limitations under the License.
  */
 
-package solutions.a2.kafka.sink.jmx;
+package solutions.a2.cdc.sink.jmx;
 
 /**
  *
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  * 
  */
-public interface SinkTableInfoMBean extends SinkInfoBaseMBean {
-	public long getUpsertCount();
-	public long getUpsertProcessingMillis();
-	public String getUpsertProcessingTime();
-	public double getUpsertsPerSecond();
+public interface WrappedTableInfoMBean extends SinkInfoBaseMBean {
+	public long getUpdateCount();
+	public long getUpdateProcessingMillis();
+	public String getUpdateProcessingTime();
+	public double getUpdatesPerSecond();
+	public long getInsertCount();
+	public long getInsertProcessingMillis();
+	public String getInsertProcessingTime();
+	public double getInsertsPerSecond();
 
 }

@@ -44,7 +44,7 @@ import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.oracle.runtime.config.Parameters;
-import solutions.a2.kafka.sink.jmx.SinkTableInfo;
+import solutions.a2.cdc.sink.jmx.SinkTableInfo;
 
 import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;

@@ -45,7 +45,7 @@ import solutions.a2.cdc.oracle.data.OraJson;
 import solutions.a2.cdc.oracle.data.OraNClob;
 import solutions.a2.cdc.oracle.data.OraVector;
 import solutions.a2.cdc.oracle.data.OraXml;
-import solutions.a2.kafka.sink.jmx.WrappedTableInfo;
+import solutions.a2.cdc.sink.jmx.WrappedTableInfo;
 
 import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;
