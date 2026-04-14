@@ -232,7 +232,7 @@ public class TargetDbSqlUtils {
 					sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 
 					if (dbType == DB_TYPE_POSTGRESQL &&
-							column.getJdbcType() == BLOB) {
+							column.jdbcType() == BLOB) {
 						final StringBuilder sbPostgresLoTriggers = new StringBuilder(128);
 						sbPostgresLoTriggers.append("CREATE TRIGGER t_lo_");
 						sbPostgresLoTriggers.append(tableName);
@@ -276,22 +276,22 @@ public class TargetDbSqlUtils {
 		final StringBuilder sb = new StringBuilder(64);
 		sb.append(column.getColumnName());
 		sb.append(" ");
-		if (column.getJdbcType() != DECIMAL)
-			if (column.getJdbcType() == VARCHAR && pkStringLength > -1) {
+		if (column.jdbcType() != DECIMAL)
+			if (column.jdbcType() == VARCHAR && pkStringLength > -1) {
 				sb.append(
 						Strings.CS.replace(PK_STRING_MAPPING.get(dbType), "$", Integer.toString(pkStringLength)));
 			} else {
-				sb.append(dataTypesMap.get(column.getJdbcType()));
+				sb.append(dataTypesMap.get(column.jdbcType()));
 			}
 		else {
 			if (dbType == DB_TYPE_POSTGRESQL || 
 					dbType == DB_TYPE_ORACLE ||
 					dbType == DB_TYPE_MSSQL) {
-				sb.append(dataTypesMap.get(column.getJdbcType()));
+				sb.append(dataTypesMap.get(column.jdbcType()));
 			} else if (dbType == DB_TYPE_MYSQL) {
-				sb.append(dataTypesMap.get(column.getJdbcType()));
+				sb.append(dataTypesMap.get(column.jdbcType()));
 				sb.append("(38,");
-				sb.append(column.getDataScale());
+				sb.append(column.dataScale());
 				sb.append(")");
 			}
 		}

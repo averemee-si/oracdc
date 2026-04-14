@@ -72,11 +72,15 @@ public abstract class Column {
 		return jdbcType;
 	}
 
+	public int jdbcType() {
+		return jdbcType;
+	}
+
 	public boolean isNullable() {
 		return (flags & FLG_NULLABLE) > 0;
 	}
 
-	public int getDataScale() {
+	public int dataScale() {
 		return dataScale;
 	}
 

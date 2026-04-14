@@ -492,7 +492,7 @@ public class KafkaSnapshotLogTable {
 		while (iterator.hasNext()) {
 			final OraCdcColumn oraColumn = iterator.next().getValue();
 			final String columnName = oraColumn.getColumnName();
-			switch (oraColumn.getJdbcType()) {
+			switch (oraColumn.jdbcType()) {
 			case Types.ROWID:
 				if (!this.logWithPrimaryKey)
 					keyStruct.put(columnName, rsLog.getRowId(columnName).toString());
@@ -537,7 +537,7 @@ public class KafkaSnapshotLogTable {
 					stmtMaster.setDouble(bindNo, rsLog.getDouble(columnName));
 				break;
 			case Types.DECIMAL:
-				BigDecimal bdValue = rsLog.getBigDecimal(columnName).setScale(oraColumn.getDataScale());
+				BigDecimal bdValue = rsLog.getBigDecimal(columnName).setScale(oraColumn.dataScale());
 				keyStruct.put(columnName, bdValue);
 				if (!deleteOp && !this.logWithRowIds)
 					stmtMaster.setBigDecimal(bindNo, bdValue);
@@ -589,7 +589,7 @@ public class KafkaSnapshotLogTable {
 				sbPrimaryKey.append(" and ");
 			sbPrimaryKey.append(columnName);
 			sbPrimaryKey.append("=");
-			switch (oraColumn.getJdbcType()) {
+			switch (oraColumn.jdbcType()) {
 			case Types.DATE:
 				sbPrimaryKey.append("'");
 				sbPrimaryKey.append(
@@ -660,7 +660,7 @@ public class KafkaSnapshotLogTable {
 			final OraCdcColumn oraColumn = allColumns.get(i);
 			final String columnName = oraColumn.getColumnName();
 			Object columnValue = null; 
-			switch (oraColumn.getJdbcType()) {
+			switch (oraColumn.jdbcType()) {
 				case Types.DATE:
 				case Types.TIMESTAMP:
 					columnValue = rsMaster.getTimestamp(columnName);
@@ -697,7 +697,7 @@ public class KafkaSnapshotLogTable {
 					break;
 				case Types.DECIMAL:
 					final BigDecimal bdColumnValue = rsMaster.getBigDecimal(columnName);
-					columnValue = rsMaster.wasNull() ?  null : bdColumnValue.setScale(oraColumn.getDataScale());
+					columnValue = rsMaster.wasNull() ?  null : bdColumnValue.setScale(oraColumn.dataScale());
 					break;
 				case Types.NUMERIC:
 					final NUMBER numberValue = rsMaster.getNUMBER(columnName);
@@ -749,7 +749,7 @@ public class KafkaSnapshotLogTable {
 				case Types.CLOB:
 				case Types.NCLOB:
 					final Clob clobColumnValue;
-					if (oraColumn.getJdbcType() == Types.CLOB) {
+					if (oraColumn.jdbcType() == Types.CLOB) {
 						clobColumnValue = rsMaster.getClob(columnName);
 					} else {
 						// Types.NCLOB
@@ -768,7 +768,7 @@ public class KafkaSnapshotLogTable {
 							columnValue = sbClob.toString();
 						} catch (IOException ioe) {
 							LOGGER.error("IO Error while processing {} column {}.{}({})", 
-									oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+									oraColumn.jdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
 									tableOwner, tableName, columnName);
 							LOGGER.error(ExceptionUtils.getExceptionStackTrace(ioe));
 						}

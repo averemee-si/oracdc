@@ -42,7 +42,7 @@ public interface OraCdcLobTransformationsIntf {
 		// Default:
 		// pass columns AS IS to valueSchema
 		final String columnName = lobColumn.getColumnName(); 
-		switch (lobColumn.getJdbcType()) {
+		switch (lobColumn.jdbcType()) {
 		case BLOB:
 			valueSchema.field(columnName, OraBlob.schema());
 			break;

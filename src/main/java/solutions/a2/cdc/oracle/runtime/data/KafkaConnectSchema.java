@@ -134,7 +134,7 @@ public class KafkaConnectSchema {
 	public Schema get(final OraCdcColumn column) {
 		final Schema schema;
 		final OraCdcDecoder decoder;
-		var jdbcType = column.getJdbcType();
+		var jdbcType = column.jdbcType();
 		switch (jdbcType) {
 			case CHAR, VARCHAR, NCHAR, NVARCHAR -> {
 				schema = stringSchema(column);
@@ -259,12 +259,12 @@ public class KafkaConnectSchema {
 			case DECIMAL -> {
 				if (suppLogAll) {
 					decoder = column.encrypted()
-							? KafkaConnectDecoders.getNUMBER(column.getDataScale(), decrypter, column.salted())
-							: KafkaConnectDecoders.getNUMBER(column.getDataScale());
-					var builder = Decimal.builder(column.getDataScale());
+							? KafkaConnectDecoders.getNUMBER(column.dataScale(), decrypter, column.salted())
+							: KafkaConnectDecoders.getNUMBER(column.dataScale());
+					var builder = Decimal.builder(column.dataScale());
 					if (column.defaultValuePresent()) {
 						try {
-							var typedDefaultValue = (new BigDecimal(column.defaultValue())).setScale(column.getDataScale());
+							var typedDefaultValue = (new BigDecimal(column.defaultValue())).setScale(column.dataScale());
 							column.typedDefaultValue(typedDefaultValue);
 							builder.defaultValue(typedDefaultValue);
 						} catch (NumberFormatException nfe) {
@@ -274,8 +274,8 @@ public class KafkaConnectSchema {
 					schema = optionalOrRequired(column.mandatory(), builder);
 				} else {
 					schema = column.mandatory()
-							? WRAPPED_DECIMAL_SCHEMA(column.getDataScale())
-							: WRAPPED_OPT_DECIMAL_SCHEMA(column.getDataScale());
+							? WRAPPED_DECIMAL_SCHEMA(column.dataScale())
+							: WRAPPED_OPT_DECIMAL_SCHEMA(column.dataScale());
 					decoder = column.encrypted()
 							? KafkaConnectDecoders.get(schema, decrypter, column.salted())
 							: KafkaConnectDecoders.get(schema);
@@ -534,14 +534,14 @@ public class KafkaConnectSchema {
 
 	private OraCdcDecoder decoderFromJdbcType(final OraCdcColumn column) {
 		return column.encrypted()
-				? KafkaConnectDecoders.get(column.getJdbcType(), decrypter, column.salted())
-				: KafkaConnectDecoders.get(column.getJdbcType());
+				? KafkaConnectDecoders.get(column.jdbcType(), decrypter, column.salted())
+				: KafkaConnectDecoders.get(column.jdbcType());
 	}
 
 	private OraCdcDecoder decoderFromJdbcType(final OraCdcColumn column, final Schema schema) {
 		return column.encrypted()
-				? KafkaConnectDecoders.get(schema, column.getJdbcType(), decrypter, column.salted())
-				: KafkaConnectDecoders.get(schema, column.getJdbcType());
+				? KafkaConnectDecoders.get(schema, column.jdbcType(), decrypter, column.salted())
+				: KafkaConnectDecoders.get(schema, column.jdbcType());
 	}
 
 	private Schema optionalOrRequired(boolean mandatory, SchemaBuilder builder) {

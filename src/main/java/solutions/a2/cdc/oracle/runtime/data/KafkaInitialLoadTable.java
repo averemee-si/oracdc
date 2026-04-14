@@ -201,7 +201,7 @@ public class KafkaInitialLoadTable {
 			for (var i = 0; i < allColumns.size(); i++) {
 				var oraColumn = allColumns.get(i);
 				var columnName = oraColumn.getColumnName();
-				switch (oraColumn.getJdbcType()) {
+				switch (oraColumn.jdbcType()) {
 					case DATE, TIMESTAMP -> {
 						var timeStampValue = rsMaster.getTIMESTAMP(columnName);
 						if (rsMaster.wasNull())
@@ -302,7 +302,7 @@ public class KafkaInitialLoadTable {
 						baos.write(ba);
 					}
 					case CLOB, NCLOB -> {
-						Clob clobValue = oraColumn.getJdbcType() == CLOB
+						Clob clobValue = oraColumn.jdbcType() == CLOB
 								? rsMaster.getClob(columnName)
 								: rsMaster.getNClob(columnName);
 						if (rsMaster.wasNull() || clobValue.length() < 1)
@@ -316,11 +316,11 @@ public class KafkaInitialLoadTable {
 										Unable to process {} column {}({}) with length ({}) greater than Integer.MAX_VALUE ({})
 										=====================
 										
-										""", oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+										""", oraColumn.jdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
 										tableFqn, columnName, clobValue.length(), Integer.MAX_VALUE);
 								throw new IOException(
 										"Unable to process " +
-										(oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB") +
+										(oraColumn.jdbcType() == Types.CLOB ? "CLOB" : "NCLOB") +
 										"column with length " + clobValue.length() + " chars!");
 							}
 							try (var reader = clobValue.getCharacterStream()) {
@@ -345,7 +345,7 @@ public class KafkaInitialLoadTable {
 										{}
 										=====================
 										
-										""",  oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+										""",  oraColumn.jdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
 										tableFqn, columnName, ExceptionUtils.getExceptionStackTrace(ioe));
 								throw ioe;
 							}
@@ -404,7 +404,7 @@ public class KafkaInitialLoadTable {
 						}
 					}
 					default ->
-						throw new SQLException("Unsupported JDBC Type " + oraColumn.getJdbcType());
+						throw new SQLException("Unsupported JDBC Type " + oraColumn.jdbcType());
 				}
 			}
 		} catch (SQLException | IOException e) {
@@ -433,7 +433,7 @@ public class KafkaInitialLoadTable {
 				var columnName = oraColumn.getColumnName();
 				Object columnValue = null;
 				byte sizeByte;
-				switch (oraColumn.getJdbcType()) {
+				switch (oraColumn.jdbcType()) {
 					case DATE, TIMESTAMP -> {
 						sizeByte = data[pos++];
 						if (sizeByte != NULL_LENGTH_BYTE) {
@@ -493,7 +493,7 @@ public class KafkaInitialLoadTable {
 						if (sizeByte != NULL_LENGTH_BYTE) {
 							var next = pos + sizeByte;
 							var bdColumnValue = new NUMBER(Arrays.copyOfRange(data, pos, next)).bigDecimalValue();
-							columnValue = bdColumnValue.setScale(oraColumn.getDataScale());
+							columnValue = bdColumnValue.setScale(oraColumn.dataScale());
 							pos = next;
 						}
 					}
@@ -569,7 +569,7 @@ public class KafkaInitialLoadTable {
 					}
 					default ->
 						throw new SQLException("Unsupported JDBC Type " +
-								oraColumn.getJdbcType() + " for column " + columnName);
+								oraColumn.jdbcType() + " for column " + columnName);
 				}
 				if (keyStruct != null && pkColumns.containsKey(columnName)) {
 					try {
