@@ -578,7 +578,7 @@ public abstract class OraCdcTableBase {
 							
 							""", originalDdl, oldName, tableFqn);
 				} else {
-					allColumns.get(columnIndex).setColumnName(newName);
+					allColumns.get(columnIndex).name(newName);
 					updatedColumnCount = 1;
 
 					version++;

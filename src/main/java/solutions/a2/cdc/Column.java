@@ -64,10 +64,6 @@ public abstract class Column {
 		return columnName;
 	}
 
-	public void setColumnName(String columnName) {
-		this.columnName = columnName;
-	}
-
 	public void name(String columnName) {
 		this.columnName = columnName;
 	}
