@@ -54,6 +54,7 @@ public abstract class Column {
 	protected static final short FLG_LOB_TRANSFORM       = (short)0x0800;
 	protected static final short FLG_WRAPPED             = (short)0x1000;
 	protected static final short FLG_DECODE_WITH_TRANS   = (short) (FLG_LARGE_OBJECT | FLG_SECURE_FILE);
+	private Object extension;
 
 	public String getColumnName() {
 		return columnName;
@@ -111,5 +112,14 @@ public abstract class Column {
 		} else
 			return false;
 	}
+
+	public void extension(Object extension) {
+		this.extension = extension;
+	}
+
+	public Object extension() {
+		return extension;
+	}
+
 
 }
