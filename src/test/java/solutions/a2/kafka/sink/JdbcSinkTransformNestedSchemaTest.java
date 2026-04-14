@@ -76,7 +76,7 @@ public class JdbcSinkTransformNestedSchemaTest {
 		for (Field field : keySchema.fields()) {
 			try {
 				final var column = new JdbcSinkColumn(field, true);
-				pkColumns.put(column.getColumnName(), column);
+				pkColumns.put(column.name(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();
 			}
@@ -98,11 +98,11 @@ public class JdbcSinkTransformNestedSchemaTest {
 				if (!pkColumns.containsKey(field.name())) {
 					try {
 						final var column = new JdbcSinkColumn(field, false);
-						if (column.getJdbcType() == Types.BLOB ||
-								column.getJdbcType() == Types.CLOB ||
-								column.getJdbcType() == Types.NCLOB ||
-								column.getJdbcType() == Types.SQLXML) {
-							lobColumns.put(column.getColumnName(), column);
+						if (column.jdbcType() == Types.BLOB ||
+								column.jdbcType() == Types.CLOB ||
+								column.jdbcType() == Types.NCLOB ||
+								column.jdbcType() == Types.SQLXML) {
+							lobColumns.put(column.name(), column);
 						} else {
 							allColumns.add(column);
 						}

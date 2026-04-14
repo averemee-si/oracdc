@@ -59,10 +59,10 @@ public class OraCdcNumberMapTest {
 		assertEquals(redefScottDept, configGeneric.tableNumberMapping("SCOTT", "DEPT"));
 		assertEquals(redefApInvAll, configGeneric.tableNumberMapping("EBS122", "AP", "AP_INVOICES_ALL"));
 
-		assertEquals(configKafka.columnNumberMapping(redefScottDept, "DEPTNO").getJdbcType(), Types.SMALLINT);
-		assertEquals(configKafka.columnNumberMapping(redefApInvAll, "INVOICE_ID").getJdbcType(), Types.BIGINT);
+		assertEquals(configKafka.columnNumberMapping(redefScottDept, "DEPTNO").jdbcType(), Types.SMALLINT);
+		assertEquals(configKafka.columnNumberMapping(redefApInvAll, "INVOICE_ID").jdbcType(), Types.BIGINT);
 
-		assertEquals(configKafka.columnNumberMapping(redefApInvAll, "LEGAL_ENTITY_ID").getJdbcType(), Types.INTEGER);
+		assertEquals(configKafka.columnNumberMapping(redefApInvAll, "LEGAL_ENTITY_ID").jdbcType(), Types.INTEGER);
 
 	}
 }

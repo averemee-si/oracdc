@@ -99,7 +99,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 	void addToIdMap(final OraCdcColumn column) {
 		idToNameMap.put(column.getNameFromId(), column);
 		if ((flags & FLG_WITH_LOBS) > 0)
-			lobColumnsNames.put(column.getColumnName(), column);
+			lobColumnsNames.put(column.name(), column);
 	}
 
 	@Override
@@ -109,7 +109,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 
 	@Override
 	void removeUnusedColumn(final OraCdcColumn unusedColumn) {
-		idToNameMap.remove(unusedColumn.getColumnName());
+		idToNameMap.remove(unusedColumn.name());
 	}
 
 	@Override
@@ -178,10 +178,10 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 								return null;
 							} else {
 								printInvalidFieldValue(oraColumn, stmt, transaction);
-								throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+								throw new DataException("Mandatory field " + oraColumn.name() + " is NULL!");
 							}
 						}
-					} else if (oraColumn.getJdbcType() != SQLXML) {
+					} else if (oraColumn.jdbcType() != SQLXML) {
 						//We don't have inline values for XMLTYPE
 						if (Strings.CS.equals("''", columnValue) && oraColumn.largeObject()) {
 							// EMPTY_BLOB()/EMPTY_CLOB() passed as ''
@@ -191,17 +191,17 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 							// Handle LOB inline value!
 							try {
 								//We don't have inline values for XMLTYPE
-								if (oraColumn.getJdbcType() != SQLXML) {
+								if (oraColumn.jdbcType() != SQLXML) {
 									if (columnValue != null && columnValue.length() > 0) {
 										try {
 											dataBinder.insert(oraColumn, parseRedoRecordValues(oraColumn, columnValue));
 										} catch (SQLException sqle) {
 											if (oraColumn.isNullable()) {
 												printToLogInvalidHexValueWarning(
-														columnValue, oraColumn.getColumnName(), stmt);
+														columnValue, oraColumn.name(), stmt);
 											} else {
 												LOGGER.error("Invalid value {} for column {} in table {}",
-														columnValue, oraColumn.getColumnName(), tableFqn);
+														columnValue, oraColumn.name(), tableFqn);
 												printInvalidFieldValue(oraColumn, stmt, transaction);
 												throw new SQLException(sqle);
 											}
@@ -214,12 +214,12 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 												Null or zero length data for overload for LOB column {} with inline value in table {}.
 												=====================
 												
-												""", oraColumn.getColumnName(), tableFqn);
+												""", oraColumn.name(), tableFqn);
 									}
 								}
 							} catch (DataException de) {
 								LOGGER.error("Invalid value {} for column {} in table {}",
-										columnValue, oraColumn.getColumnName(), tableFqn);
+										columnValue, oraColumn.name(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, transaction);
 								throw new DataException(de);
 							}
@@ -244,7 +244,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 							final OraCdcColumn oraColumn = idToNameMap.get(columnName);
 							if (oraColumn != null && oraColumn.mandatory()) {
 								printInvalidFieldValue(oraColumn, stmt, transaction);
-								throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+								throw new DataException("Mandatory field " + oraColumn.name() + " is NULL!");
 							}
 						} else {
 							columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
@@ -255,16 +255,16 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 									dataBinder.delete(oraColumn, parseRedoRecordValues(oraColumn, columnValue));
 								} catch (DataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
-											columnValue, oraColumn.getColumnName(), tableFqn);
+											columnValue, oraColumn.name(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw new DataException(de);
 								} catch (SQLException sqle) {
 									if (oraColumn.isNullable()) {
 										printToLogInvalidHexValueWarning(
-												columnValue, oraColumn.getColumnName(), stmt);
+												columnValue, oraColumn.name(), stmt);
 									} else {
 										LOGGER.error("Invalid value {} for column {} in table {}",
-												columnValue, oraColumn.getColumnName(), tableFqn);
+												columnValue, oraColumn.name(), tableFqn);
 										printInvalidFieldValue(oraColumn, stmt, transaction);
 										throw new SQLException(sqle);
 									}
@@ -340,12 +340,12 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 									dataBinder.update(oraColumn, oraColumn.typedDefaultValue(), true);
 									if (LOGGER.isDebugEnabled()) {
 										LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
-												oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
+												oraColumn.name(), tableFqn, oraColumn.defaultValue());
 									}
 								} else {
 									// throw error only if we don't expect to get value from WHERE clause
 									printInvalidFieldValue(oraColumn, stmt, transaction);
-									throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+									throw new DataException("Mandatory field " + oraColumn.name() + " is NULL!");
 								}
 							}
 						}
@@ -365,10 +365,10 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 							} catch (SQLException sqle ) {
 								if (oraColumn.isNullable()) {
 									printToLogInvalidHexValueWarning(
-											columnValue, oraColumn.getColumnName(), stmt);
+											columnValue, oraColumn.name(), stmt);
 								} else {
 									LOGGER.error("Invalid value {} for column {} in table {}",
-											columnValue, oraColumn.getColumnName(), tableFqn);
+											columnValue, oraColumn.name(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw new SQLException(sqle);
 								}
@@ -421,7 +421,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 											return null;
 										} else {
 											printInvalidFieldValue(oraColumn, stmt, transaction);
-											throw new DataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+											throw new DataException("Mandatory field " + oraColumn.name() + " is NULL!");
 										}
 									}
 								}
@@ -440,16 +440,16 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 											true);
 								} catch (DataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
-											columnValue, oraColumn.getColumnName(), tableFqn);
+											columnValue, oraColumn.name(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw new DataException(de);
 								} catch (SQLException sqle) {
 									if (oraColumn.isNullable()) {
 										printToLogInvalidHexValueWarning(
-												columnValue, oraColumn.getColumnName(), stmt);
+												columnValue, oraColumn.name(), stmt);
 									} else {
 										LOGGER.error("Invalid value {} for column {} in table {}",
-												columnValue, oraColumn.getColumnName(), tableFqn);
+												columnValue, oraColumn.name(), tableFqn);
 										printInvalidFieldValue(oraColumn, stmt, transaction);
 										throw new SQLException(sqle);
 									}
@@ -510,11 +510,11 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 					final OraCdcColumn lobColumn;
 					if (lob.getLobId() > 0) {
 						lobColumn = lobColumnsObjectIds.get(lob.getLobId());
-						lobColumnName = lobColumn.getColumnName();
+						lobColumnName = lobColumn.name();
 					} else {
 						// lob.getLobId() == 0
 						lobColumn = idToNameMap.get(lob.getColumnId());
-						lobColumnName = lobColumn.getColumnName();
+						lobColumnName = lobColumn.name();
 					}
 					if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug("{}: setting value for BLOB/C column {}, value length={}.",
@@ -545,7 +545,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 		if (!oraColumn.largeObject()) {
 			columnValue = oraColumn.decoder().decode(hex);
 		} else {
-			switch (oraColumn.getJdbcType()) {
+			switch (oraColumn.jdbcType()) {
 				case CLOB, NCLOB -> {
 					final String clobValue;
 					if (oraColumn.getSecureFile()) {

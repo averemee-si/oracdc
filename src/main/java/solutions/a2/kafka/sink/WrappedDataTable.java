@@ -227,7 +227,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 				}
 				//TODO - currently JDBCType only from Kafka Topic!!!
 				final var column = new JdbcSinkColumn(pkField, true);
-				pkColumns.put(column.getColumnName(), column);
+				pkColumns.put(column.name(), column);
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("Primary key column {}.{} from primary key {} is mapped to {} STRUCT.",
 							dbPkColumn, tableName, dbPkColumn, (isKey ? "key" : "value"));
@@ -276,13 +276,13 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 				if (valueField != null) {
 					final var column = new JdbcSinkColumn(valueField, false);
 					//TODO - currently JDBCType only from Kafka Topic!!!
-					if (column.getJdbcType() == BLOB ||
-							column.getJdbcType() == CLOB ||
-							column.getJdbcType() == NCLOB ||
-							column.getJdbcType() == SQLXML ||
-							column.getJdbcType() == JSON ||
-							column.getJdbcType() == VECTOR) {
-						lobColumns.put(column.getColumnName(), column);
+					if (column.jdbcType() == BLOB ||
+							column.jdbcType() == CLOB ||
+							column.jdbcType() == NCLOB ||
+							column.jdbcType() == SQLXML ||
+							column.jdbcType() == JSON ||
+							column.jdbcType() == VECTOR) {
+						lobColumns.put(column.name(), column);
 					} else {
 							allColumns.add(column);
 							allColsMap.put(dbValueColumn4M, column);
@@ -306,7 +306,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 			LOGGER.warn("Column list for {}:", this.tableName);
 			pkColumns.forEach((k, oraColumn) -> {
 				LOGGER.warn("\t{},\t JDBC Type -> {}",
-						oraColumn.getColumnName(), getTypeName(oraColumn.getJdbcType()));
+						oraColumn.name(), getTypeName(oraColumn.jdbcType()));
 			});
 		} else {
 			onlyPkColumns = false;
@@ -341,7 +341,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 					throw sqle;
 				}
 				allColumns.add(column);
-				allColsMap.put(column.getColumnName(), column);
+				allColsMap.put(column.name(), column);
 			}
 
 		}
@@ -563,7 +563,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 						Table={}, PK column={}, {}.
 						=====================
 						
-						""", tableName, oraColumn.getColumnName(),
+						""", tableName, oraColumn.name(),
 							structValueAsString(oraColumn, structs.getKey()));
 				throw de;
 			}
@@ -599,13 +599,13 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 					columnNo++;
 				} catch (DataException | SQLException de) {
 					LOGGER.error("Data error while performing insert! Table={}, column={}, {}.",
-							tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, structs.getValue()));
+							tableName, oraColumn.name(), structValueAsString(oraColumn, structs.getValue()));
 					LOGGER.error("SQL statement:\n\t{}", sinkInsertSql);
 					LOGGER.error("PK value(s) for this row in table {} are", tableName);
 					int colNo = 1;
 					for (final var column : allColumns) {
 						LOGGER.error("\t{}) column {}, {}",
-								colNo, column.getColumnName(), structValueAsString(column, structs.getValue()));
+								colNo, column.name(), structValueAsString(column, structs.getValue()));
 						colNo++;
 					}
 					throw new DataException(de);
@@ -759,7 +759,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 				Table={}, PK column={}, {}.
 				=====================
 				
-				""", tableName, column.getColumnName(), structValueAsString(column, struct));
+				""", tableName, column.name(), structValueAsString(column, struct));
 	}
 
 	private static final String DUP_ROW_MESSAGE =

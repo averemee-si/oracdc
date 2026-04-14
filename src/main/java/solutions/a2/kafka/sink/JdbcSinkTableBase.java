@@ -111,14 +111,14 @@ public abstract class JdbcSinkTableBase {
 		final var sb = new StringBuilder(0x80);
 		sb
 			.append("Column Type =")
-			.append(getTypeName(column.getJdbcType()))
+			.append(getTypeName(column.jdbcType()))
 			.append(", Column Value='");
-		switch (column.getJdbcType()) {
+		switch (column.jdbcType()) {
 			case NUMERIC, BINARY -> {
-				ByteBuffer bb = (ByteBuffer) struct.get(column.getColumnName());
+				ByteBuffer bb = (ByteBuffer) struct.get(column.name());
 				sb.append(rawToHex(bb.array()));
 			}
-			default -> sb.append(struct.get(column.getColumnName()));
+			default -> sb.append(struct.get(column.name()));
 		}
 		sb.append("'");
 		return sb.toString();
@@ -216,7 +216,7 @@ public abstract class JdbcSinkTableBase {
 		if (!onlyValue) {
 			for (Field field : keyFields) {
 				final var column = new JdbcSinkColumn(field, true);
-				pkColumns.put(column.getColumnName(), column);
+				pkColumns.put(column.name(), column);
 			}
 		}
 
@@ -289,16 +289,16 @@ public abstract class JdbcSinkTableBase {
 					lobColumns.put(field.name(), transformation);
 				} else {
 					final var column = new JdbcSinkColumn(field, false);
-					if (column.getJdbcType() == BLOB ||
-						column.getJdbcType() == CLOB ||
-						column.getJdbcType() == NCLOB ||
-						column.getJdbcType() == SQLXML ||
-						column.getJdbcType() == JSON ||
-						column.getJdbcType() == VECTOR) {
-						lobColumns.put(column.getColumnName(), column);
+					if (column.jdbcType() == BLOB ||
+						column.jdbcType() == CLOB ||
+						column.jdbcType() == NCLOB ||
+						column.jdbcType() == SQLXML ||
+						column.jdbcType() == JSON ||
+						column.jdbcType() == VECTOR) {
+						lobColumns.put(column.name(), column);
 					} else {
 						allColumns.add(column);
-						allColsMap.put(column.getColumnName(), column);
+						allColsMap.put(column.name(), column);
 					}
 				}
 			}
@@ -309,7 +309,7 @@ public abstract class JdbcSinkTableBase {
 			LOGGER.warn("Column list for {}:", this.tableName);
 			pkColumns.forEach((k, oraColumn) -> {
 				LOGGER.warn("\t{},\t JDBC Type -> {}",
-						oraColumn.getColumnName(), getTypeName(oraColumn.getJdbcType()));
+						oraColumn.name(), getTypeName(oraColumn.jdbcType()));
 			});
 		} else {
 			onlyPkColumns = false;

@@ -80,14 +80,14 @@ public class OraCdcLargeObjectWorker {
 		if (LOGGER.isDebugEnabled() || LOGGER.isTraceEnabled()) {
 			if (isCdb) {
 				LOGGER.debug("readLobData started for SCN={}, RS_ID='{}', XID='{}', DATA_OBJ#={}, Parent OP RS_ID='{}', CON_ID={} for LOB column {} (OBJECT_ID={})",
-						scn, rsId, xid, dataObjectId, parentOpRsId, srcConUid.bigIntegerValue(), oraColumn.getColumnName(), lobObjectId);
+						scn, rsId, xid, dataObjectId, parentOpRsId, srcConUid.bigIntegerValue(), oraColumn.name(), lobObjectId);
 				LOGGER.trace("readLobData started for SCN={}, RS_ID='{}', XID='{}', DATA_OBJ#={}, Parent OP RS_ID='{}', CON_ID={} for LOB column {} (OBJECT_ID={})",
-						scn, rsId, xid, dataObjectId, parentOpRsId, srcConUid.bigIntegerValue(), oraColumn.getColumnName(), lobObjectId);
+						scn, rsId, xid, dataObjectId, parentOpRsId, srcConUid.bigIntegerValue(), oraColumn.name(), lobObjectId);
 			} else {
 				LOGGER.debug("readLobData started for SCN={}, RS_ID='{}', XID='{}', DATA_OBJ#={}, Parent OP RS_ID='{}' for LOB column {} (OBJECT_ID={})",
-						scn, rsId, xid, dataObjectId, parentOpRsId, oraColumn.getColumnName(), lobObjectId);
+						scn, rsId, xid, dataObjectId, parentOpRsId, oraColumn.name(), lobObjectId);
 				LOGGER.trace("readLobData started for SCN={}, RS_ID='{}', XID='{}', DATA_OBJ#={}, Parent OP RS_ID='{}' for LOB column {} (OBJECT_ID={})",
-						scn, rsId, xid, dataObjectId, parentOpRsId, oraColumn.getColumnName(), lobObjectId);
+						scn, rsId, xid, dataObjectId, parentOpRsId, oraColumn.name(), lobObjectId);
 			}
 		}
 
@@ -242,32 +242,32 @@ public class OraCdcLargeObjectWorker {
 		rsReadLob = null;
 
 		final byte[] ba;
-		switch (oraColumn.getJdbcType()) {
+		switch (oraColumn.jdbcType()) {
 		case Types.CLOB:
 		case Types.NCLOB:
 			final String clobAsString = new String(hexToRaw(lobHexData.toString()), UTF_16);
 			ba = clobAsString.getBytes();
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("{} column {}, XID='{}' processing completed, processing time {} ms, data length={}, compressed data length={}",
-						oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
-						oraColumn.getColumnName(), xid, (System.currentTimeMillis() - processingStartMillis), clobAsString.length(), ba.length);
+						oraColumn.jdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+						oraColumn.name(), xid, (System.currentTimeMillis() - processingStartMillis), clobAsString.length(), ba.length);
 			}
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace("{} column {} content:\n{}",
-						oraColumn.getJdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
-						oraColumn.getColumnName(), clobAsString);
+						oraColumn.jdbcType() == Types.CLOB ? "CLOB" : "NCLOB",
+						oraColumn.name(), clobAsString);
 			}
 			break;
 		case Types.BLOB:
 			ba = hexToRaw(lobHexData.toString());
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("BLOB column {}, XID='{}' processing completed, processing time {} ms, data length={}",
-						oraColumn.getColumnName(), xid, (System.currentTimeMillis() - processingStartMillis), ba.length);
+						oraColumn.name(), xid, (System.currentTimeMillis() - processingStartMillis), ba.length);
 			}
 			break;
 		default:
 			LOGGER.error("Type {} for column {} is not supported by {}",
-					oraColumn.getJdbcType(), oraColumn.getColumnName(), OraCdcLargeObjectWorker.class.getCanonicalName());
+					oraColumn.jdbcType(), oraColumn.name(), OraCdcLargeObjectWorker.class.getCanonicalName());
 			throw new SQLException("Unknown LOB type!!!");
 		}
 

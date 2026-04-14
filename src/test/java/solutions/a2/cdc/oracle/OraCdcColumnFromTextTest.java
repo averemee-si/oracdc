@@ -36,84 +36,84 @@ public class OraCdcColumnFromTextTest {
 				4, null, null, true);
 		assertTrue(colDname.isNullable());
 		assertEquals(colDname.defaultValue(), "'SALES'");
-		assertEquals(colDname.getJdbcType(), Types.VARCHAR);
+		assertEquals(colDname.jdbcType(), Types.VARCHAR);
 
 		OraCdcColumn colDnameSimple = new OraCdcColumn(true, "DNAME", "varchar2(100)",
 				"alter table dept add DNAME varchar2(100)",
 				4, null, null, true);
 		assertTrue(colDnameSimple.isNullable());
 		assertNull(colDnameSimple.defaultValue());
-		assertEquals(colDnameSimple.getJdbcType(), Types.VARCHAR);
+		assertEquals(colDnameSimple.jdbcType(), Types.VARCHAR);
 
 		OraCdcColumn colDloc = new OraCdcColumn(true, "DLOC", "varchar2(10) not null default 'NY'",
 				"alter table dept add DLOC varchar2(10) not null default 'NY'",
 				5, null, null, true);
 		assertFalse(colDloc.isNullable());
 		assertEquals(colDloc.defaultValue(), "'NY'");
-		assertEquals(colDloc.getJdbcType(), Types.VARCHAR);
+		assertEquals(colDloc.jdbcType(), Types.VARCHAR);
 
 		OraCdcColumn colDeptDate = new OraCdcColumn(true, "DEPT_FOUNDED", "date not null default SYSDATE",
 				"alter table dept add DEPT_FOUNDED date not null default SYSDATE",
 				6, null, null, true);
 		assertFalse(colDeptDate.isNullable());
 		assertEquals(colDeptDate.defaultValue(), "SYSDATE");
-		assertEquals(colDeptDate.getJdbcType(), Types.DATE);
+		assertEquals(colDeptDate.jdbcType(), Types.DATE);
 
 		OraCdcColumn colDeptTimestamp = new OraCdcColumn(true, "DEPT_FOUNDED", "TIMESTAMP not null default SYSDATE",
 				"alter table dept add DEPT_FOUNDED date not null default SYSDATE",
 				6, null, null, true);
 		assertFalse(colDeptTimestamp.isNullable());
 		assertEquals(colDeptTimestamp.defaultValue(), "SYSDATE");
-		assertEquals(colDeptTimestamp.getJdbcType(), Types.TIMESTAMP);
+		assertEquals(colDeptTimestamp.jdbcType(), Types.TIMESTAMP);
 
 		OraCdcColumn colDeptDateSimple = new OraCdcColumn(true, "DEPT_FOUNDED", "date",
 				"alter table dept add DEPT_FOUNDED date",
 				6, null, null, true);
 		assertTrue(colDeptDateSimple.isNullable());
 		assertNull(colDeptDateSimple.defaultValue());
-		assertEquals(colDeptDateSimple.getJdbcType(), Types.DATE);
+		assertEquals(colDeptDateSimple.jdbcType(), Types.DATE);
 
 		OraCdcColumn colDeptTimestampSimple = new OraCdcColumn(true, "DEPT_FOUNDED", "timestamp",
 				"alter table dept add DEPT_FOUNDED timestamp",
 				6, null, null, true);
 		assertTrue(colDeptTimestampSimple.isNullable());
 		assertNull(colDeptTimestampSimple.defaultValue());
-		assertEquals(colDeptTimestampSimple.getJdbcType(), Types.TIMESTAMP);
+		assertEquals(colDeptTimestampSimple.jdbcType(), Types.TIMESTAMP);
 
 		OraCdcColumn colDeptNumberTinyInt = new OraCdcColumn(true, "SOME_NUMBER", "NUMBER(2)",
 				"alter table dept add SOME_NUMBER number(2)",
 				7, null, null, true);
 		assertTrue(colDeptNumberTinyInt.isNullable());
 		assertNull(colDeptNumberTinyInt.defaultValue());
-		assertEquals(colDeptNumberTinyInt.getJdbcType(), Types.TINYINT);
+		assertEquals(colDeptNumberTinyInt.jdbcType(), Types.TINYINT);
 
 		OraCdcColumn colDeptNumberSmallInt = new OraCdcColumn(true, "SOME_NUMBER", "NUMBER(4)",
 				"alter table dept add SOME_NUMBER NUMBER(4)",
 				7, null, null, true);
 		assertTrue(colDeptNumberSmallInt.isNullable());
 		assertNull(colDeptNumberSmallInt.defaultValue());
-		assertEquals(colDeptNumberSmallInt.getJdbcType(), Types.SMALLINT);
+		assertEquals(colDeptNumberSmallInt.jdbcType(), Types.SMALLINT);
 
 		OraCdcColumn colDeptNumberInteger = new OraCdcColumn(true, "SOME_NUMBER", "NUMBER(8)",
 				"alter table dept add SOME_NUMBER NUMBER(8)",
 				7, null, null, true);
 		assertTrue(colDeptNumberInteger.isNullable());
 		assertNull(colDeptNumberInteger.defaultValue());
-		assertEquals(colDeptNumberInteger.getJdbcType(), Types.INTEGER);
+		assertEquals(colDeptNumberInteger.jdbcType(), Types.INTEGER);
 
 		OraCdcColumn colDeptNumberBigInt = new OraCdcColumn(true, "SOME_NUMBER", "NUMBER(18) not null",
 				"alter table dept add SOME_NUMBER NUMBER(18) not null",
 				7, null, null, true);
 		assertFalse(colDeptNumberBigInt.isNullable());
 		assertNull(colDeptNumberBigInt.defaultValue());
-		assertEquals(colDeptNumberBigInt.getJdbcType(), Types.BIGINT);
+		assertEquals(colDeptNumberBigInt.jdbcType(), Types.BIGINT);
 
 		OraCdcColumn colDeptNumber = new OraCdcColumn(true, "SOME_NUMBER", "NUMBER not null",
 				"alter table dept add SOME_NUMBER NUMBER not null",
 				7, null, null, true);
 		assertFalse(colDeptNumber.isNullable());
 		assertNull(colDeptNumber.defaultValue());
-		assertEquals(colDeptNumber.getJdbcType(), Types.NUMERIC);
+		assertEquals(colDeptNumber.jdbcType(), Types.NUMERIC);
 
 	}
 

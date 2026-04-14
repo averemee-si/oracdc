@@ -60,16 +60,20 @@ public abstract class Column {
 		return columnName;
 	}
 
+	public String name() {
+		return columnName;
+	}
+
 	public void setColumnName(String columnName) {
+		this.columnName = columnName;
+	}
+
+	public void name(String columnName) {
 		this.columnName = columnName;
 	}
 
 	public boolean isPartOfPk() {
 		return (flags & FLG_PART_OF_PK) > 0;
-	}
-
-	public int getJdbcType() {
-		return jdbcType;
 	}
 
 	public int jdbcType() {

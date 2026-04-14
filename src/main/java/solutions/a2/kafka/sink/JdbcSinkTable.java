@@ -149,7 +149,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 					if (keyFields != null) {
 						for (Field field : keyFields) {
 							final var column = new JdbcSinkColumn(field, true);
-							pkColumns.put(column.getColumnName(), column);
+							pkColumns.put(column.name(), column);
 						}
 
 						sinkDeleteSql = TargetDbSqlUtils.generateSinkSql(
@@ -265,7 +265,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 				}
 				//TODO - currently JDBCType only from Kafka Topic!!!
 				final var column = new JdbcSinkColumn(pkField, true);
-				pkColumns.put(column.getColumnName(), column);
+				pkColumns.put(column.name(), column);
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("Primary key column {}.{} from primary key {} is mapped to {} STRUCT.",
 							dbPkColumn, tableName, dbPkColumn, (isKey ? "key" : "value"));
@@ -314,12 +314,12 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 				if (valueField != null) {
 					final var column = new JdbcSinkColumn(valueField, false);
 					//TODO - currently JDBCType only from Kafka Topic!!!
-					if (column.getJdbcType() == BLOB ||
-							column.getJdbcType() == CLOB ||
-							column.getJdbcType() == NCLOB ||
-							column.getJdbcType() == SQLXML ||
-							column.getJdbcType() == JSON) {
-						lobColumns.put(column.getColumnName(), column);
+					if (column.jdbcType() == BLOB ||
+							column.jdbcType() == CLOB ||
+							column.jdbcType() == NCLOB ||
+							column.jdbcType() == SQLXML ||
+							column.jdbcType() == JSON) {
+						lobColumns.put(column.name(), column);
 					} else {
 							allColumns.add(column);
 					}
@@ -342,7 +342,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 			LOGGER.warn("Column list for {}:", this.tableName);
 			pkColumns.forEach((k, oraColumn) -> {
 				LOGGER.warn("\t{},\t JDBC Type -> {}",
-						oraColumn.getColumnName(), getTypeName(oraColumn.getJdbcType()));
+						oraColumn.name(), getTypeName(oraColumn.jdbcType()));
 			});
 		} else {
 			onlyPkColumns = false;
@@ -633,7 +633,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 						Data error while performing upsert! Table={}, PK column={}, {}.
 						=====================
 						""",
-							tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, structs.getKey()));
+							tableName, oraColumn.name(), structValueAsString(oraColumn, structs.getKey()));
 				throw de;
 			}
 		}
@@ -646,7 +646,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 					columnNo++;
 				} catch (DataException | SQLException de) {
 					LOGGER.error("Data error while performing upsert! Table={}, column={}, {}.",
-							tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, structs.getValue()));
+							tableName, oraColumn.name(), structValueAsString(oraColumn, structs.getValue()));
 					LOGGER.error("SQL statement:\n\t{}", sinkUpsertSql);
 					LOGGER.error("PK value(s) for this row in table {} are", tableName);
 					int colNo = 1;
@@ -654,7 +654,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 					while (pkIterator.hasNext()) {
 						var pkColumn = pkIterator.next().getValue();
 						LOGGER.error("\t{}) PK column {}, {}",
-								colNo, pkColumn.getColumnName(), structValueAsString(pkColumn, structs.getKey()));
+								colNo, pkColumn.name(), structValueAsString(pkColumn, structs.getKey()));
 						colNo++;
 					}
 					throw new DataException(de);
@@ -677,7 +677,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 						holder.EXEC_COUNT = 0;
 					}
 					if (objLobColumn instanceof JdbcSinkColumn) {
-						final int lobColType = ((JdbcSinkColumn)objLobColumn).getJdbcType();
+						final int lobColType = ((JdbcSinkColumn)objLobColumn).jdbcType();
 						if (lobColType == BLOB) {
 							final byte[] columnByteValue = objLobValue.getBytes("V");
 							if (columnByteValue == null)
@@ -756,7 +756,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 				columnNo++;
 			} catch (DataException de) {
 				LOGGER.error("Data error while performing delete! Table {}, PK column {}, {}.",
-						tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, structs.getKey()));
+						tableName, oraColumn.name(), structValueAsString(oraColumn, structs.getKey()));
 				throw new DataException(de);
 			}
 		}
@@ -785,13 +785,13 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 					columnNo++;
 				} catch (DataException | SQLException de) {
 					LOGGER.error("Data error while performing insert! Table={}, column={}, {}.",
-							tableName, oraColumn.getColumnName(), structValueAsString(oraColumn, structs.getValue()));
+							tableName, oraColumn.name(), structValueAsString(oraColumn, structs.getValue()));
 					LOGGER.error("SQL statement:\n\t{}", sinkUpsertSql);
 					LOGGER.error("PK value(s) for this row in table {} are", tableName);
 					int colNo = 1;
 					for (final var column : allColumns) {
 						LOGGER.error("\t{}) column {}, {}",
-								colNo, column.getColumnName(), structValueAsString(column, structs.getValue()));
+								colNo, column.name(), structValueAsString(column, structs.getValue()));
 						colNo++;
 					}
 					throw new DataException(de);

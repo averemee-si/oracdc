@@ -200,7 +200,7 @@ public abstract class OraCdcTableBase {
 				flags |= FLG_PSEUDO_KEY;
 				final OraCdcColumn rowIdColumn = OraCdcColumn.getRowIdKey();
 				allColumns.add(rowIdColumn);
-				pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
+				pkColumns.put(rowIdColumn.name(), rowIdColumn);
 			}
 			LOGGER.warn(
 					"""
@@ -281,7 +281,7 @@ public abstract class OraCdcTableBase {
 							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
 							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
 					if (column.isNumber() && numberRemap != null) {
-						final OraCdcColumn newDefinition = config.columnNumberMapping(numberRemap, column.getColumnName());
+						final OraCdcColumn newDefinition = config.columnNumberMapping(numberRemap, column.name());
 						if (newDefinition != null) {
 							column.remap(newDefinition, decrypter, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
 						}
@@ -353,14 +353,14 @@ public abstract class OraCdcTableBase {
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("New{}column {}({}) with ID={} added to table definition {}.",
 							column.isPartOfPk() ? " PK " : (column.isNullable() ? " " : " mandatory "),
-							column.getColumnName(), getTypeName(column.getJdbcType()),
+							column.name(), getTypeName(column.jdbcType()),
 							column.getColumnId(), tableFqn);
 					if (column.defaultValuePresent()) {
 						LOGGER.debug("\tDefault value is set to \"{}\"", column.defaultValue());
 					}
 				}
 				if (column.isPartOfPk()) {
-					pkColumns.put(column.getColumnName(), column);
+					pkColumns.put(column.name(), column);
 				}
 
 				if (column.isPartOfPk() || (!column.isNullable() && !column.defaultValuePresent())) {
@@ -415,7 +415,7 @@ public abstract class OraCdcTableBase {
 				newColumnName = OraCdcColumn.canonicalColumnName(newColumnName);
 				boolean alreadyExist = false;
 				for (OraCdcColumn column : allColumns) {
-					if (Strings.CS.equals(newColumnName, column.getColumnName())) {
+					if (Strings.CS.equals(newColumnName, column.name())) {
 						alreadyExist = true;
 						break;
 					}
@@ -449,7 +449,7 @@ public abstract class OraCdcTableBase {
 					throw new OraCdcException("Automatic DROP of a column included in the key for table is not supported.");
 				}
 				for (OraCdcColumn column : allColumns)
-					if (Strings.CS.equals(columnToDrop, column.getColumnName())) {
+					if (Strings.CS.equals(columnToDrop, column.name())) {
 						unusedColumns.add(column);
 						unusedColumnIndexes.remove(i);
 						break;
@@ -487,7 +487,7 @@ public abstract class OraCdcTableBase {
 				Collections.sort(allColumns, comparator);
 				for (final OraCdcColumn unusedColumn : unusedColumns) {
 					int indexToRemove = -1;
-					final String unusedColName = unusedColumn.getColumnName();
+					final String unusedColName = unusedColumn.name();
 					final int unusedColId = unusedColumn.getColumnId();
 					for (int i = 0; i < allColumns.size(); i++) {
 						final OraCdcColumn column = allColumns.get(i);
@@ -521,7 +521,7 @@ public abstract class OraCdcTableBase {
 				changedColumnName = OraCdcColumn.canonicalColumnName(changedColumnName);
 				int columnIndex = -1;
 				for (int i = 0; i < allColumns.size(); i++) {
-					if (Strings.CS.equals(changedColumnName, allColumns.get(i).getColumnName())) {
+					if (Strings.CS.equals(changedColumnName, allColumns.get(i).name())) {
 						columnIndex = i;
 						break;
 					}
@@ -548,7 +548,7 @@ public abstract class OraCdcTableBase {
 			boolean newNamePresent = false;
 			int columnIndex = -1;
 			for (int i = 0; i < allColumns.size(); i++) {
-				final String columnName = allColumns.get(i).getColumnName();
+				final String columnName = allColumns.get(i).name();
 				if ((columnIndex < 0) && Strings.CS.equals(oldName, columnName)) {
 					columnIndex = i;
 				}
@@ -635,7 +635,7 @@ public abstract class OraCdcTableBase {
 		List<String> affected = new ArrayList<>();
 		for (final OraCdcColumn oraColumn : allColumns) {
 			if (oraColumn.getColumnId() >= minUndroppedId) {
-				affected.add(oraColumn.getColumnName());
+				affected.add(oraColumn.name());
 			}
 		}
 		final boolean warning = affected.size() == 0;
@@ -711,7 +711,7 @@ public abstract class OraCdcTableBase {
 		} else {
 			printErrorMessage(Level.ERROR,
 					"NULL value for NON NULL column {}!\nRedo record information for table {}:\n",
-					oraColumn.getColumnName(), stmt, transaction);
+					oraColumn.name(), stmt, transaction);
 		}
 	}
 
@@ -757,7 +757,7 @@ public abstract class OraCdcTableBase {
 				=====================
 				
 				""",
-				column.getColumnName(), tableFqn, column.typedDefaultValue(),
+				column.name(), tableFqn, column.typedDefaultValue(),
 				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo());
 	}
 
@@ -772,8 +772,8 @@ public abstract class OraCdcTableBase {
 				=====================
 				
 				""",
-				column.getColumnName(), tableFqn,
-				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo(), column.getColumnName());
+				column.name(), tableFqn,
+				stmt.getScn(), stmt.getRba(), stmt.getSqlRedo(), column.name());
 	}
 
 	OraCdcException sqlExceptionOnInit(final SQLException sqle) {
