@@ -640,7 +640,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		for (int i = 0; i < allColumns.size(); i++) {
 			final var oraColumn = allColumns.get(i);
 			if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD ||
-					(schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
+					(schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.partOfPk())) {
 				try {
 					oraColumn.binder().bind(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;
@@ -779,7 +779,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 			final var oraColumn = allColumns.get(i);
 			if (schemaType == Parameters.SCHEMA_TYPE_INT_KAFKA_STD ||
 					schemaType == Parameters.SCHEMA_TYPE_INT_SINGLE ||
-					(schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
+					(schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.partOfPk())) {
 				try {
 					oraColumn.binder().bind(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;

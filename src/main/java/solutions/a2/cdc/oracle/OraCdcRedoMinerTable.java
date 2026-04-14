@@ -190,7 +190,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 							printInvalidFieldValue(oraColumn, stmt, transaction);
 							throw de;
 						} catch (SQLException sqle) {
-							if (oraColumn.isNullable()) {
+							if (oraColumn.nullable()) {
 								printToLogInvalidHexValueWarning(
 										rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
 										oraColumn.name(), stmt);
@@ -247,7 +247,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 										}
 									}
 								}
-							} else if ((flags & FLG_ALL_COLS_ON_DELETE) > 0 || oraColumn.isPartOfPk()) {
+							} else if ((flags & FLG_ALL_COLS_ON_DELETE) > 0 || oraColumn.partOfPk()) {
 								try {
 									dataBinder.delete(oraColumn, 
 										parseRedoRecordValues(oraColumn, redoData,
@@ -259,7 +259,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw de;
 								} catch (SQLException sqle) {
-									if (oraColumn.isNullable()) {
+									if (oraColumn.nullable()) {
 										printToLogInvalidHexValueWarning(
 												rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
 												oraColumn.name(), stmt);
@@ -321,7 +321,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 									setColDefs[i][2], colSize, transaction),
 								true);
 						} catch (SQLException sqle ) {
-							if (oraColumn.isNullable()) {
+							if (oraColumn.nullable()) {
 								printToLogInvalidHexValueWarning(
 										rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
 										oraColumn.name(), stmt);
@@ -386,7 +386,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw de;
 								} catch (SQLException sqle) {
-									if (oraColumn.isNullable()) {
+									if (oraColumn.nullable()) {
 										printToLogInvalidHexValueWarning(
 											rawToHex(Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize)),
 											oraColumn.name(), stmt);
@@ -441,7 +441,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 										setColDefs[i][2], colSize, transaction),
 									false);
 							} catch (SQLException sqle ) {
-								if (oraColumn.isNullable()) {
+								if (oraColumn.nullable()) {
 									printToLogInvalidHexValueWarning(
 											rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
 											oraColumn.name(), stmt);

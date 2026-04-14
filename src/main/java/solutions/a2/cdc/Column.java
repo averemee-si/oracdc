@@ -64,7 +64,7 @@ public abstract class Column {
 		this.columnName = columnName;
 	}
 
-	public boolean isPartOfPk() {
+	public boolean partOfPk() {
 		return (flags & FLG_PART_OF_PK) > 0;
 	}
 
@@ -72,7 +72,7 @@ public abstract class Column {
 		return jdbcType;
 	}
 
-	public boolean isNullable() {
+	public boolean nullable() {
 		return (flags & FLG_NULLABLE) > 0;
 	}
 

@@ -273,7 +273,7 @@ public class KafkaSnapshotLogTable {
 							column.name(), tableFqn);
 				}
 				var schema = kcs.get(column);
-				if (column.isPartOfPk()) {
+				if (column.partOfPk()) {
 					pkColumns.put(column.name(), column);
 					// Schema addition
 					keySchemaBuilder.field(column.name(), schema);

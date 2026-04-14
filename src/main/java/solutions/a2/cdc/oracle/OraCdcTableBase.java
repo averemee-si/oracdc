@@ -352,18 +352,18 @@ public abstract class OraCdcTableBase {
 				}
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("New{}column {}({}) with ID={} added to table definition {}.",
-							column.isPartOfPk() ? " PK " : (column.isNullable() ? " " : " mandatory "),
+							column.partOfPk() ? " PK " : (column.nullable() ? " " : " mandatory "),
 							column.name(), getTypeName(column.jdbcType()),
 							column.getColumnId(), tableFqn);
 					if (column.defaultValuePresent()) {
 						LOGGER.debug("\tDefault value is set to \"{}\"", column.defaultValue());
 					}
 				}
-				if (column.isPartOfPk()) {
+				if (column.partOfPk()) {
 					pkColumns.put(column.name(), column);
 				}
 
-				if (column.isPartOfPk() || (!column.isNullable() && !column.defaultValuePresent())) {
+				if (column.partOfPk() || (!column.nullable() && !column.defaultValuePresent())) {
 					mandatoryColumnsCount++;
 				}
 			}
@@ -503,7 +503,7 @@ public abstract class OraCdcTableBase {
 						}
 					}
 					OraCdcColumn columnToRemove = allColumns.get(indexToRemove);
-					if (!columnToRemove.isNullable())
+					if (!columnToRemove.nullable())
 						mandatoryColumnsCount--;
 					allColumns.remove(indexToRemove);
 					columnToRemove = null;
@@ -704,7 +704,7 @@ public abstract class OraCdcTableBase {
 
 	void printInvalidFieldValue(final OraCdcColumn oraColumn,
 			final OraCdcStatementBase stmt, final OraCdcTransaction transaction) {
-		if (oraColumn.isNullable()) {
+		if (oraColumn.nullable()) {
 			printErrorMessage(Level.ERROR,
 					"Redo record information for table {}:\n",
 					stmt, transaction);

@@ -196,7 +196,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 										try {
 											dataBinder.insert(oraColumn, parseRedoRecordValues(oraColumn, columnValue));
 										} catch (SQLException sqle) {
-											if (oraColumn.isNullable()) {
+											if (oraColumn.nullable()) {
 												printToLogInvalidHexValueWarning(
 														columnValue, oraColumn.name(), stmt);
 											} else {
@@ -259,7 +259,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw new DataException(de);
 								} catch (SQLException sqle) {
-									if (oraColumn.isNullable()) {
+									if (oraColumn.nullable()) {
 										printToLogInvalidHexValueWarning(
 												columnValue, oraColumn.name(), stmt);
 									} else {
@@ -276,7 +276,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 							// PK can't be null!!!
 							final String columnName = StringUtils.trim(StringUtils.substringBefore(currentExpr, "="));
 							final OraCdcColumn oraColumn = idToNameMap.get(columnName);
-							if (oraColumn != null && oraColumn.isPartOfPk()) {
+							if (oraColumn != null && oraColumn.partOfPk()) {
 								dataBinder.delete(oraColumn,
 										parseRedoRecordValues(idToNameMap.get(columnName),
 												StringUtils.trim(StringUtils.substringAfter(currentExpr, "="))));
@@ -363,7 +363,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 										true);
 								setColumns.add(columnName);
 							} catch (SQLException sqle ) {
-								if (oraColumn.isNullable()) {
+								if (oraColumn.nullable()) {
 									printToLogInvalidHexValueWarning(
 											columnValue, oraColumn.name(), stmt);
 								} else {
@@ -444,7 +444,7 @@ public class OraCdcLogMinerTable extends OraCdcTableBase {
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw new DataException(de);
 								} catch (SQLException sqle) {
-									if (oraColumn.isNullable()) {
+									if (oraColumn.nullable()) {
 										printToLogInvalidHexValueWarning(
 												columnValue, oraColumn.name(), stmt);
 									} else {

@@ -216,7 +216,7 @@ public class TargetDbSqlUtils {
 				sbCreateTable.append(",\n  ");
 			}
 			sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
-			if (!column.isNullable()) {
+			if (!column.nullable()) {
 				sbCreateTable.append(" not null");
 			}
 		}

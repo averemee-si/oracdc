@@ -593,7 +593,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 			final var oraColumn = allColumns.get(i);
 			if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD ||
 					schemaType == SCHEMA_TYPE_INT_SINGLE ||
-					(schemaType == SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.isPartOfPk())) {
+					(schemaType == SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.partOfPk())) {
 				try {
 					oraColumn.binder().bind(dbType, sinkInsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;

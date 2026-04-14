@@ -143,7 +143,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 			}
 			var schema = kcs.get(column);
 			if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
-				if (column.isPartOfPk()) {
+				if (column.partOfPk()) {
 					if (initial)
 						keySchemaBuilder.field(column.name(), schema);
 				} else {
@@ -152,7 +152,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 				}
 			} else {
 				if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
-					if (column.isPartOfPk()) {
+					if (column.partOfPk()) {
 						if (initial)
 							keySchemaBuilder.field(column.name(), schema);
 					}
