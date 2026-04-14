@@ -167,14 +167,14 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 								dataBinder.insert(oraColumn, oraColumn.typedDefaultValue());
 								if (LOGGER.isDebugEnabled())
 									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
-											oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
+											oraColumn.name(), tableFqn, oraColumn.defaultValue());
 							} else {
 								if ((flags & FLG_TOLERATE_INCOMPLETE_ROW) > 0) {
 									printSkippingRedoRecordMessage(stmt, transaction);
 									return null;
 								} else {
 									printInvalidFieldValue(oraColumn, stmt, transaction);
-									throw new OraCdcDataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+									throw new OraCdcDataException("Mandatory field " + oraColumn.name() + " is NULL!");
 								}
 							}
 						}
@@ -186,18 +186,18 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 						} catch (OraCdcDataException de) {
 							LOGGER.error("Invalid value {} for column {} in table {}",
 									rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
-									oraColumn.getColumnName(), tableFqn);
+									oraColumn.name(), tableFqn);
 							printInvalidFieldValue(oraColumn, stmt, transaction);
 							throw de;
 						} catch (SQLException sqle) {
 							if (oraColumn.isNullable()) {
 								printToLogInvalidHexValueWarning(
 										rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
-										oraColumn.getColumnName(), stmt);
+										oraColumn.name(), stmt);
 							} else {
 								LOGGER.error("Invalid value {} for column {} in table {}",
 									rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
-									oraColumn.getColumnName(), tableFqn);
+									oraColumn.name(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, transaction);
 								throw sqle;
 							}
@@ -235,7 +235,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 									dataBinder.delete(oraColumn, oraColumn.typedDefaultValue());
 									if (LOGGER.isDebugEnabled())
 										LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
-												oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
+												oraColumn.name(), tableFqn, oraColumn.defaultValue());
 								} else {
 									if (oraColumn.mandatory()) {
 										if ((flags & FLG_TOLERATE_INCOMPLETE_ROW) > 0) {
@@ -243,7 +243,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 											return null;
 										} else  {
 											printInvalidFieldValue(oraColumn, stmt, transaction);
-											throw new OraCdcDataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+											throw new OraCdcDataException("Mandatory field " + oraColumn.name() + " is NULL!");
 										}
 									}
 								}
@@ -255,18 +255,18 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 								} catch (OraCdcDataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
-											oraColumn.getColumnName(), tableFqn);
+											oraColumn.name(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw de;
 								} catch (SQLException sqle) {
 									if (oraColumn.isNullable()) {
 										printToLogInvalidHexValueWarning(
 												rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
-												oraColumn.getColumnName(), stmt);
+												oraColumn.name(), stmt);
 									} else {
 										LOGGER.error("Invalid value {} for column {} in table {}",
 												rawToHex(Arrays.copyOfRange(redoData, colDefs[i][2], colDefs[i][2] + colSize)),
-												oraColumn.getColumnName(), tableFqn);
+												oraColumn.name(), tableFqn);
 										printInvalidFieldValue(oraColumn, stmt, transaction);
 										throw sqle;
 									}
@@ -306,12 +306,12 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 							if (!oraColumn.defaultValuePresent()) {
 								// throw error only if we don't expect to get value from WHERE clause
 								printInvalidFieldValue(oraColumn, stmt, transaction);
-								throw new OraCdcDataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+								throw new OraCdcDataException("Mandatory field " + oraColumn.name() + " is NULL!");
 							} else {
 								dataBinder.update(oraColumn, oraColumn.typedDefaultValue(), true);
 								if (LOGGER.isDebugEnabled())
 									LOGGER.debug("Value of column {} in table {} is set to default value of '{}'",
-											oraColumn.getColumnName(), tableFqn, oraColumn.defaultValue());
+											oraColumn.name(), tableFqn, oraColumn.defaultValue());
 							}
 						}
 					} else {
@@ -324,11 +324,11 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 							if (oraColumn.isNullable()) {
 								printToLogInvalidHexValueWarning(
 										rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
-										oraColumn.getColumnName(), stmt);
+										oraColumn.name(), stmt);
 							} else {
 								LOGGER.error("Invalid value {} for column {} in table {}",
 										rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
-										oraColumn.getColumnName(), tableFqn);
+										oraColumn.name(), tableFqn);
 								printInvalidFieldValue(oraColumn, stmt, transaction);
 								throw sqle;
 							}
@@ -369,7 +369,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 											return null;
 										} else  {
 											printInvalidFieldValue(oraColumn, stmt, transaction);
-											throw new OraCdcDataException("Mandatory field " + oraColumn.getColumnName() + " is NULL!");
+											throw new OraCdcDataException("Mandatory field " + oraColumn.name() + " is NULL!");
 										}
 									}
 								}
@@ -382,18 +382,18 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 								} catch (OraCdcDataException de) {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											rawToHex(Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize)),
-											oraColumn.getColumnName(), tableFqn);
+											oraColumn.name(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw de;
 								} catch (SQLException sqle) {
 									if (oraColumn.isNullable()) {
 										printToLogInvalidHexValueWarning(
 											rawToHex(Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize)),
-											oraColumn.getColumnName(), stmt);
+											oraColumn.name(), stmt);
 									} else {
 										LOGGER.error("Invalid value {} for column {} in table {}",
 												rawToHex(Arrays.copyOfRange(redoData, whereColDefs[i][2], whereColDefs[i][2] + colSize)),
-												oraColumn.getColumnName(), tableFqn);
+												oraColumn.name(), tableFqn);
 										printInvalidFieldValue(oraColumn, stmt, transaction);
 										throw sqle;
 									}
@@ -444,11 +444,11 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 								if (oraColumn.isNullable()) {
 									printToLogInvalidHexValueWarning(
 											rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
-											oraColumn.getColumnName(), stmt);
+											oraColumn.name(), stmt);
 								} else {
 									LOGGER.error("Invalid value {} for column {} in table {}",
 											rawToHex(Arrays.copyOfRange(redoData, setColDefs[i][2], setColDefs[i][2] + colSize)),
-											oraColumn.getColumnName(), tableFqn);
+											oraColumn.name(), tableFqn);
 									printInvalidFieldValue(oraColumn, stmt, transaction);
 									throw sqle;
 								}
@@ -480,7 +480,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 //			if (oraColumn.transformLob()) {
 //				return transformLobs.transformData(pdbName,
 //						tableOwner, tableName, oraColumn, data, keyStruct,
-//						lobColumnSchemas.get(oraColumn.getColumnName()));
+//						lobColumnSchemas.get(oraColumn.name()));
 //			} else
 				return oraColumn.decoder().decode(data, offset, length, transaction);
 		}

@@ -177,10 +177,10 @@ public class KafkaConnectSchema {
 									Unable to convert default value (DATA_DEFAULT) '{}' of column '{}' to oracle.sql.NUMBER!
 									=====================
 									
-									""", column.defaultValue(), column.getColumnName());
+									""", column.defaultValue(), column.name());
 							throw new NumberFormatException(sqle.getMessage());
 						} catch (NumberFormatException nfe) {
-							logDefaultValueError(column.getColumnName(), "oracle.sql.NUMBER", column.defaultValue());
+							logDefaultValueError(column.name(), "oracle.sql.NUMBER", column.defaultValue());
 						}
 					}
 					schema = optionalOrRequired(column.mandatory(), builder);
@@ -208,7 +208,7 @@ public class KafkaConnectSchema {
 							column.typedDefaultValue(typedDefaultValue);
 							builder.defaultValue(typedDefaultValue);
 						} catch (NumberFormatException nfe) {
-							logDefaultValueError(column.getColumnName(), "float", column.defaultValue());
+							logDefaultValueError(column.name(), "float", column.defaultValue());
 						}
 					}
 					schema = optionalOrRequired(column.mandatory(), builder);
@@ -230,7 +230,7 @@ public class KafkaConnectSchema {
 							column.typedDefaultValue(typedDefaultValue);
 							builder.defaultValue(typedDefaultValue);
 						} catch (NumberFormatException nfe) {
-							logDefaultValueError(column.getColumnName(), "double", column.defaultValue());
+							logDefaultValueError(column.name(), "double", column.defaultValue());
 						}
 					}
 					if (column.IEEE754()) {
@@ -268,7 +268,7 @@ public class KafkaConnectSchema {
 							column.typedDefaultValue(typedDefaultValue);
 							builder.defaultValue(typedDefaultValue);
 						} catch (NumberFormatException nfe) {
-							logDefaultValueError(column.getColumnName(), "java.math.BigDecimal", column.defaultValue());
+							logDefaultValueError(column.name(), "java.math.BigDecimal", column.defaultValue());
 						}
 					}
 					schema = optionalOrRequired(column.mandatory(), builder);
@@ -291,7 +291,7 @@ public class KafkaConnectSchema {
 							column.typedDefaultValue(typedDefaultValue);
 							builder.defaultValue(typedDefaultValue);
 						} catch (NumberFormatException nfe) {
-							logDefaultValueError(column.getColumnName(), "byte", column.defaultValue());
+							logDefaultValueError(column.name(), "byte", column.defaultValue());
 						}
 					}
 					schema = optionalOrRequired(column.mandatory(), builder);
@@ -314,7 +314,7 @@ public class KafkaConnectSchema {
 							column.typedDefaultValue(typedDefaultValue);
 							builder.defaultValue(typedDefaultValue);
 						} catch (NumberFormatException nfe) {
-							logDefaultValueError(column.getColumnName(), "short", column.defaultValue());
+							logDefaultValueError(column.name(), "short", column.defaultValue());
 						}
 					}
 					schema = optionalOrRequired(column.mandatory(), builder);
@@ -337,7 +337,7 @@ public class KafkaConnectSchema {
 							column.typedDefaultValue(typedDefaultValue);
 							builder.defaultValue(typedDefaultValue);
 						} catch (NumberFormatException nfe) {
-							logDefaultValueError(column.getColumnName(), "int", column.defaultValue());
+							logDefaultValueError(column.name(), "int", column.defaultValue());
 						}
 					}
 					schema = optionalOrRequired(column.mandatory(), builder);
@@ -360,7 +360,7 @@ public class KafkaConnectSchema {
 							column.typedDefaultValue(typedDefaultValue);
 							builder.defaultValue(typedDefaultValue);
 						} catch (NumberFormatException nfe) {
-							logDefaultValueError(column.getColumnName(), "long", column.defaultValue());
+							logDefaultValueError(column.name(), "long", column.defaultValue());
 						}
 					}
 					schema = optionalOrRequired(column.mandatory(), builder);
@@ -383,7 +383,7 @@ public class KafkaConnectSchema {
 							column.typedDefaultValue(typedDefaultValue);
 							builder.defaultValue(typedDefaultValue);
 						} catch (NumberFormatException nfe) {
-							logDefaultValueError(column.getColumnName(), "column.getColumnName(), bool", column.defaultValue());
+							logDefaultValueError(column.name(), "column.name(), bool", column.defaultValue());
 						}
 					}
 					schema = optionalOrRequired(column.mandatory(), builder);
@@ -572,7 +572,7 @@ public class KafkaConnectSchema {
 					typedDefaultValue = StringUtils.substringBetween(column.defaultValue(), "'", "'");
 					column.typedDefaultValue(typedDefaultValue);
 					LOGGER.trace("Setting default value of column '{}' to '{}'",
-							column.getColumnName(), typedDefaultValue);
+							column.name(), typedDefaultValue);
 				} else {
 					typedDefaultValue = column.defaultValue();
 					LOGGER.warn(
@@ -583,7 +583,7 @@ public class KafkaConnectSchema {
 							Setting default value (DATA_DEFAULT) of column '{}' to "{}"
 							=====================
 							
-							""", column.getColumnName(), typedDefaultValue);
+							""", column.name(), typedDefaultValue);
 				}
 				builder = builder.defaultValue(typedDefaultValue);
 			}

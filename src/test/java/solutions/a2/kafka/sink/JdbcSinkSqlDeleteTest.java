@@ -50,7 +50,7 @@ public class JdbcSinkSqlDeleteTest {
 		for (Field field : keyFields) {
 			try {
 				final var column = new JdbcSinkColumn(field, true);
-				pkColumns.put(column.getColumnName(), column);
+				pkColumns.put(column.name(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();
 			}

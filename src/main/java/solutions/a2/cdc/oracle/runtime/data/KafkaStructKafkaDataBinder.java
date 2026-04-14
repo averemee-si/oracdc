@@ -39,10 +39,10 @@ public class KafkaStructKafkaDataBinder extends KafkaStructDataBinder {
 	public void insert(OraCdcColumn column, Object value) {
 		try {
 			if (column.isPartOfPk()) {
-				keyStruct.put(column.getColumnName(), value);
+				keyStruct.put(column.name(), value);
 				mandatoryColumnsProcessed++;
 			} else {
-				valueStruct.put(column.getColumnName(), value);
+				valueStruct.put(column.name(), value);
 				if (!column.isNullable())
 					mandatoryColumnsProcessed++;
 			}
@@ -55,10 +55,10 @@ public class KafkaStructKafkaDataBinder extends KafkaStructDataBinder {
 	public void delete(OraCdcColumn column, Object value) {
 		try {
 			if (column.isPartOfPk()) {
-				keyStruct.put(column.getColumnName(), value);
+				keyStruct.put(column.name(), value);
 				mandatoryColumnsProcessed++;
 			} else {
-				valueStruct.put(column.getColumnName(), value);
+				valueStruct.put(column.name(), value);
 				if (!column.isNullable())
 					mandatoryColumnsProcessed++;
 			}
@@ -71,10 +71,10 @@ public class KafkaStructKafkaDataBinder extends KafkaStructDataBinder {
 	public void update(OraCdcColumn column, Object value, boolean after) {
 		try {
 			if (column.isPartOfPk()) {
-				keyStruct.put(column.getColumnName(), value);
+				keyStruct.put(column.name(), value);
 				mandatoryColumnsProcessed++;
 			} else {
-				valueStruct.put(column.getColumnName(), value);
+				valueStruct.put(column.name(), value);
 				if (!column.isNullable())
 					mandatoryColumnsProcessed++;
 			}

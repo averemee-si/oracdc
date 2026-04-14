@@ -56,10 +56,6 @@ public abstract class Column {
 	protected static final short FLG_DECODE_WITH_TRANS   = (short) (FLG_LARGE_OBJECT | FLG_SECURE_FILE);
 	private Object extension;
 
-	public String getColumnName() {
-		return columnName;
-	}
-
 	public String name() {
 		return columnName;
 	}

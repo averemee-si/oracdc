@@ -66,7 +66,7 @@ public class JdbcSinkSqlInsertTest {
 		for (Field field : keyFields) {
 			try {
 				final var column = new JdbcSinkColumn(field, true);
-				pkColumns.put(column.getColumnName(), column);
+				pkColumns.put(column.name(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();
 			}
@@ -85,7 +85,7 @@ public class JdbcSinkSqlInsertTest {
 		for (Field field : lobFields) {
 			try {
 				final var column = new JdbcSinkColumn(field, false);
-				lobColumns.put(column.getColumnName(), column);
+				lobColumns.put(column.name(), column);
 			} catch (SQLException sqle) {
 				sqle.printStackTrace();
 			}

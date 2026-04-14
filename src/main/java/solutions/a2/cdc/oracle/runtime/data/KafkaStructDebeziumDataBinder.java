@@ -46,11 +46,11 @@ public class KafkaStructDebeziumDataBinder extends KafkaStructDataBinder {
 	public void insert(OraCdcColumn column, Object value) {
 		try {
 			if (column.isPartOfPk()) {
-				keyStruct.put(column.getColumnName(), value);
-				valueStruct.put(column.getColumnName(), value);
+				keyStruct.put(column.name(), value);
+				valueStruct.put(column.name(), value);
 				mandatoryColumnsProcessed++;
 			} else {
-				valueStruct.put(column.getColumnName(), value);
+				valueStruct.put(column.name(), value);
 				if (!column.isNullable())
 					mandatoryColumnsProcessed++;
 			}
@@ -63,11 +63,11 @@ public class KafkaStructDebeziumDataBinder extends KafkaStructDataBinder {
 	public void delete(OraCdcColumn column, Object value) {
 		try {
 			if (column.isPartOfPk()) {
-				keyStruct.put(column.getColumnName(), value);
-				valueStruct.put(column.getColumnName(), value);
+				keyStruct.put(column.name(), value);
+				valueStruct.put(column.name(), value);
 				mandatoryColumnsProcessed++;
 			} else {
-				valueStruct.put(column.getColumnName(), value);
+				valueStruct.put(column.name(), value);
 				if (!column.isNullable())
 					mandatoryColumnsProcessed++;
 			}
@@ -81,16 +81,16 @@ public class KafkaStructDebeziumDataBinder extends KafkaStructDataBinder {
 		try {
 			if (after) {
 				if (column.isPartOfPk()) {
-					keyStruct.put(column.getColumnName(), value);
-					valueStruct.put(column.getColumnName(), value);
+					keyStruct.put(column.name(), value);
+					valueStruct.put(column.name(), value);
 					mandatoryColumnsProcessed++;
 				} else {
-					valueStruct.put(column.getColumnName(), value);
+					valueStruct.put(column.name(), value);
 					if (!column.isNullable())
 						mandatoryColumnsProcessed++;
 				}
 			} else
-				valueStruct.put(column.getColumnName(), value);
+				valueStruct.put(column.name(), value);
 		} catch (DataException de) {
 			throw new OraCdcDataException(de);
 		}

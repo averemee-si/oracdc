@@ -196,7 +196,7 @@ public class TargetDbSqlUtils {
 				sbCreateTable.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column));
 				sbCreateTable.append(" not null");
 
-				sbPrimaryKey.append(column.getColumnName());
+				sbPrimaryKey.append(column.name());
 
 				if (pkIterator.hasNext()) {
 					sbCreateTable.append(",\n");
@@ -237,11 +237,11 @@ public class TargetDbSqlUtils {
 						sbPostgresLoTriggers.append("CREATE TRIGGER t_lo_");
 						sbPostgresLoTriggers.append(tableName);
 						sbPostgresLoTriggers.append("_");
-						sbPostgresLoTriggers.append(column.getColumnName());
+						sbPostgresLoTriggers.append(column.name());
 						sbPostgresLoTriggers.append(" BEFORE UPDATE OR DELETE ON ");
 						sbPostgresLoTriggers.append(tableName);
 						sbPostgresLoTriggers.append("\n\tFOR EACH ROW EXECUTE FUNCTION lo_manage(");
-						sbPostgresLoTriggers.append(column.getColumnName());
+						sbPostgresLoTriggers.append(column.name());
 						sbPostgresLoTriggers.append(")\n");
 						sqlStrings.add(sbPostgresLoTriggers.toString());
 					}
@@ -274,7 +274,7 @@ public class TargetDbSqlUtils {
 
 	private static String getTargetDbColumn(final int dbType, final int pkStringLength, final Int2ObjectHashMap<String> dataTypesMap, final Column column) {
 		final StringBuilder sb = new StringBuilder(64);
-		sb.append(column.getColumnName());
+		sb.append(column.name());
 		sb.append(" ");
 		if (column.jdbcType() != DECIMAL)
 			if (column.jdbcType() == VARCHAR && pkStringLength > -1) {
@@ -319,7 +319,7 @@ public class TargetDbSqlUtils {
 			for (final var column : allColumns) {
 				if (firstColumn) firstColumn = false;
 				else sbInsertSql.append(", ");
-				sbInsertSql.append(column.getColumnName());
+				sbInsertSql.append(column.name());
 			}
 			sbInsertSql.append(")\nvalues(");
 			firstColumn = true;
@@ -340,12 +340,12 @@ public class TargetDbSqlUtils {
 			while (iterator.hasNext()) {
 				if (firstColumn) firstColumn = false;
 				else sbInsertSql.append(", ");
-				sbInsertSql.append(iterator.next().getValue().getColumnName());
+				sbInsertSql.append(iterator.next().getValue().name());
 			}
 			for (final var column : allColumns) {
 				if (firstColumn) firstColumn = false;
 				else sbInsertSql.append(", ");
-				sbInsertSql.append(column.getColumnName());
+				sbInsertSql.append(column.name());
 			}
 			iterator = null;
 
@@ -395,7 +395,7 @@ public class TargetDbSqlUtils {
 			iterator = pkColumns.entrySet().iterator();
 			int pkColumnNo = 0;
 			while (iterator.hasNext()) {
-				final String columnName = iterator.next().getValue().getColumnName();
+				final String columnName = iterator.next().getValue().name();
 				if (pkColumnNo > 0) {
 					sbDelUpdWhere.append(" and ");
 				}
@@ -465,38 +465,38 @@ public class TargetDbSqlUtils {
 				if (dbType == DB_TYPE_ORACLE || dbType == DB_TYPE_MSSQL) {
 					sbInsSql.append("? ");
 				}
-				sbInsSql.append(allColumns.get(i).getColumnName());
+				sbInsSql.append(allColumns.get(i).name());
 
-				sbUpdSql.append(allColumns.get(i).getColumnName());
+				sbUpdSql.append(allColumns.get(i).name());
 				if (i < nonPkColumnCount - 1) {
 					sbUpdSql.append("=?,");
 				} else {
 					sbUpdSql.append("=?");
 				}
 				if (dbType == DB_TYPE_POSTGRESQL) {
-					sbUpsert.append(allColumns.get(i).getColumnName());
+					sbUpsert.append(allColumns.get(i).name());
 					sbUpsert.append("=EXCLUDED.");
-					sbUpsert.append(allColumns.get(i).getColumnName());
+					sbUpsert.append(allColumns.get(i).name());
 					if (i < nonPkColumnCount - 1) {
 						sbUpsert.append(",");
 					}
 				} else if (dbType == DB_TYPE_MYSQL) {
-					sbUpsert.append(allColumns.get(i).getColumnName());
+					sbUpsert.append(allColumns.get(i).name());
 					sbUpsert.append("=VALUES(");
-					sbUpsert.append(allColumns.get(i).getColumnName());
+					sbUpsert.append(allColumns.get(i).name());
 					sbUpsert.append(")");
 					if (i < nonPkColumnCount - 1) {
 						sbUpsert.append(",");
 					}
 				} else if (dbType == DB_TYPE_ORACLE || dbType == DB_TYPE_MSSQL) {
 					sbUpsert.append("D.");
-					sbUpsert.append(allColumns.get(i).getColumnName());
+					sbUpsert.append(allColumns.get(i).name());
 					sbUpsert.append("=");
 					sbUpsert.append("ORACDC.");
-					sbUpsert.append(allColumns.get(i).getColumnName());
-					sbOraInsertList.append(allColumns.get(i).getColumnName());
+					sbUpsert.append(allColumns.get(i).name());
+					sbOraInsertList.append(allColumns.get(i).name());
 					sbOraValuesList.append("ORACDC.");
-					sbOraValuesList.append(allColumns.get(i).getColumnName());
+					sbOraValuesList.append(allColumns.get(i).name());
 					if (i < nonPkColumnCount - 1) {
 						sbUpsert.append(",");
 						sbOraInsertList.append(",");
@@ -583,7 +583,7 @@ public class TargetDbSqlUtils {
 						sbLobUpdate.append(tableName);
 						sbLobUpdate.append(" set ");
 						for (int i = 0; i < columnList.size(); i++) {
-							sbLobUpdate.append(columnList.get(i).getColumnName());
+							sbLobUpdate.append(columnList.get(i).name());
 							sbLobUpdate.append("=?");
 							if (i < columnList.size() - 1) {
 								sbLobUpdate.append(",");

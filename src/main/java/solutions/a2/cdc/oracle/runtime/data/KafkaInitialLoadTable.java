@@ -158,11 +158,11 @@ public class KafkaInitialLoadTable {
 		sb.append("select ");
 		for (int i = 0; i < allColumns.size(); i++) {
 			OraCdcColumn oraColumn = allColumns.get(i);
-			if (oraColumn.getColumnName().equals(OraCdcColumn.ROWID_KEY)) {
+			if (oraColumn.name().equals(OraCdcColumn.ROWID_KEY)) {
 				sb.append("ROWID as ");
 				sb.append(OraCdcColumn.ROWID_KEY);
 			} else {
-				sb.append(oraColumn.getColumnName());
+				sb.append(oraColumn.name());
 			}
 			if (i < allColumns.size() - 1) {
 				sb.append(",");
@@ -200,7 +200,7 @@ public class KafkaInitialLoadTable {
 		try {
 			for (var i = 0; i < allColumns.size(); i++) {
 				var oraColumn = allColumns.get(i);
-				var columnName = oraColumn.getColumnName();
+				var columnName = oraColumn.name();
 				switch (oraColumn.jdbcType()) {
 					case DATE, TIMESTAMP -> {
 						var timeStampValue = rsMaster.getTIMESTAMP(columnName);
@@ -430,7 +430,7 @@ public class KafkaInitialLoadTable {
 			var pos = 0;
 			for (int i = 0; i < allColumns.size(); i++) {
 				var oraColumn = allColumns.get(i);
-				var columnName = oraColumn.getColumnName();
+				var columnName = oraColumn.name();
 				Object columnValue = null;
 				byte sizeByte;
 				switch (oraColumn.jdbcType()) {
@@ -579,7 +579,7 @@ public class KafkaInitialLoadTable {
 								this.tableFqn, columnName, columnValue);
 						LOGGER.error("Primary key column(s) for table {}:", this.tableFqn);
 						pkColumns.forEach((k, v) -> {
-							LOGGER.error("\t" + v.getColumnName());
+							LOGGER.error("\t" + v.name());
 						});
 						LOGGER.error("Key schema elements for table {}:", this.tableFqn);
 						keySchema.fields().forEach((f) -> {

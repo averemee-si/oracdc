@@ -145,20 +145,20 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 			if (schemaType == SCHEMA_TYPE_INT_KAFKA_STD) {
 				if (column.isPartOfPk()) {
 					if (initial)
-						keySchemaBuilder.field(column.getColumnName(), schema);
+						keySchemaBuilder.field(column.name(), schema);
 				} else {
 					if (!column.largeObject())
-						valueSchemaBuilder.field(column.getColumnName(), schema);
+						valueSchemaBuilder.field(column.name(), schema);
 				}
 			} else {
 				if (schemaType == SCHEMA_TYPE_INT_DEBEZIUM) {
 					if (column.isPartOfPk()) {
 						if (initial)
-							keySchemaBuilder.field(column.getColumnName(), schema);
+							keySchemaBuilder.field(column.name(), schema);
 					}
 				}
 				if (!column.largeObject())
-					valueSchemaBuilder.field(column.getColumnName(), schema);
+					valueSchemaBuilder.field(column.name(), schema);
 			}
 		}
 		if (schemaType != SCHEMA_TYPE_INT_DEBEZIUM) {

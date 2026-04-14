@@ -265,20 +265,20 @@ public class KafkaSnapshotLogTable {
 					masterSelect.append(", ");
 				}
 				masterSelect.append("\"");
-				masterSelect.append(column.getColumnName());
+				masterSelect.append(column.name());
 				masterSelect.append("\"");
 
 				if (LOGGER.isDebugEnabled()) {
 					LOGGER.debug("New column {} added to table definition {}.",
-							column.getColumnName(), tableFqn);
+							column.name(), tableFqn);
 				}
 				var schema = kcs.get(column);
 				if (column.isPartOfPk()) {
-					pkColumns.put(column.getColumnName(), column);
+					pkColumns.put(column.name(), column);
 					// Schema addition
-					keySchemaBuilder.field(column.getColumnName(), schema);
+					keySchemaBuilder.field(column.name(), schema);
 					if (schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
-						valueSchemaBuilder.field(column.getColumnName(), schema);
+						valueSchemaBuilder.field(column.name(), schema);
 					}
 					if (mViewFirstColumn) {
 						mViewFirstColumn = false;
@@ -289,17 +289,17 @@ public class KafkaSnapshotLogTable {
 							masterWhere.append(" and ");
 					}
 					mViewSelect.append("\"");
-					mViewSelect.append(column.getColumnName());
+					mViewSelect.append(column.name());
 					mViewSelect.append("\"");
 					if (!logWithRowIds) {
 						// We need this only when snapshot log don't contains M_ROW$$ 
 						masterWhere.append("\"");
-						masterWhere.append(column.getColumnName());
+						masterWhere.append(column.name());
 						masterWhere.append("\"=?");
 					}
 				} else {
 					// Just add to value schema
-					valueSchemaBuilder.field(column.getColumnName(), schema);
+					valueSchemaBuilder.field(column.name(), schema);
 				}
 			}
 		}
@@ -491,7 +491,7 @@ public class KafkaSnapshotLogTable {
 		int bindNo = 1;
 		while (iterator.hasNext()) {
 			final OraCdcColumn oraColumn = iterator.next().getValue();
-			final String columnName = oraColumn.getColumnName();
+			final String columnName = oraColumn.name();
 			switch (oraColumn.jdbcType()) {
 			case Types.ROWID:
 				if (!this.logWithPrimaryKey)
@@ -584,7 +584,7 @@ public class KafkaSnapshotLogTable {
 		int i = 0;
 		while (iterator.hasNext()) {
 			final OraCdcColumn oraColumn = iterator.next().getValue();
-			final String columnName = oraColumn.getColumnName();
+			final String columnName = oraColumn.name();
 			if (i > 0)
 				sbPrimaryKey.append(" and ");
 			sbPrimaryKey.append(columnName);
@@ -658,7 +658,7 @@ public class KafkaSnapshotLogTable {
 			OracleResultSet rsMaster, final Struct keyStruct, final Struct valueStruct) throws SQLException {
 		for (int i = 0; i < allColumns.size(); i++) {
 			final OraCdcColumn oraColumn = allColumns.get(i);
-			final String columnName = oraColumn.getColumnName();
+			final String columnName = oraColumn.name();
 			Object columnValue = null; 
 			switch (oraColumn.jdbcType()) {
 				case Types.DATE:
@@ -815,10 +815,10 @@ public class KafkaSnapshotLogTable {
 		// Add ROWID (ORA$ROWID) - this column is not in dictionary!!!
 		OraCdcColumn rowIdColumn = OraCdcColumn.getRowIdKey();
 		allColumns.add(rowIdColumn);
-		pkColumns.put(rowIdColumn.getColumnName(), rowIdColumn);
-		keySchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
+		pkColumns.put(rowIdColumn.name(), rowIdColumn);
+		keySchemaBuilder.field(rowIdColumn.name(), Schema.STRING_SCHEMA);
 		if (this.schemaType == Parameters.SCHEMA_TYPE_INT_DEBEZIUM) {
-			valueSchemaBuilder.field(rowIdColumn.getColumnName(), Schema.STRING_SCHEMA);
+			valueSchemaBuilder.field(rowIdColumn.name(), Schema.STRING_SCHEMA);
 		}
 	}
 

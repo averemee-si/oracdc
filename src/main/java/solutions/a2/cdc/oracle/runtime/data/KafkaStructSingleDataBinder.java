@@ -38,7 +38,7 @@ public class KafkaStructSingleDataBinder extends KafkaStructDataBinder {
 	@Override
 	public void insert(OraCdcColumn column, Object value) {
 		try {
-			valueStruct.put(column.getColumnName(), value);
+			valueStruct.put(column.name(), value);
 			if (column.mandatory())
 				mandatoryColumnsProcessed++;
 		} catch (DataException de) {
@@ -49,7 +49,7 @@ public class KafkaStructSingleDataBinder extends KafkaStructDataBinder {
 	@Override
 	public void delete(OraCdcColumn column, Object value) {
 		try {
-			valueStruct.put(column.getColumnName(), value);
+			valueStruct.put(column.name(), value);
 			if (column.mandatory())
 				mandatoryColumnsProcessed++;
 		} catch (DataException de) {
@@ -60,7 +60,7 @@ public class KafkaStructSingleDataBinder extends KafkaStructDataBinder {
 	@Override
 	public void update(OraCdcColumn column, Object value, boolean after) {
 		try {
-			valueStruct.put(column.getColumnName(), value);
+			valueStruct.put(column.name(), value);
 			if (column.mandatory())
 				mandatoryColumnsProcessed++;
 		} catch (DataException de) {
