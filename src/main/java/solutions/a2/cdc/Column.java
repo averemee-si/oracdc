@@ -30,8 +30,8 @@ import org.slf4j.LoggerFactory;
 public abstract class Column {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(Column.class);
-	protected static final char CHAR_0 = (char)0;
 
+	public static final char CHAR_0 = (char)0;
 	public static final int JAVA_SQL_TYPE_INTERVALYM_STRING = -2_000_000_001;
 	public static final int JAVA_SQL_TYPE_INTERVALDS_STRING = -2_000_000_003;
 
