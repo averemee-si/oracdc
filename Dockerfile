@@ -235,6 +235,13 @@ RUN    cd ${KAFKA_HOME}/libs && rm -f jackson-*-2.19.2.jar && rm -f snakeyaml-2.
 # CVE-2025-67030 BEGIN
 RUN    cd ${KAFKA_HOME}/libs && rm -f plexus-utils-*.jar
 # CVE-2025-67030 END
+# CVE-2026-34477/CVE-2026-34478/CVE-2026-34479/CVE-2026-34480 BEGIN
+ARG    L4JV="2.25.4"
+RUN    cd ${KAFKA_HOME}/libs && rm -f log4j-api-*.jar && rm -f log4j-core-*.jar && rm -f log4j-slf4j-impl-*.jar && wget -q \
+       "${MVN_BASE}/org/apache/logging/log4j/log4j-api/${L4JV}/log4j-api-${L4JV}.jar" \
+       "${MVN_BASE}/org/apache/logging/log4j/log4j-core/${L4JV}/log4j-core-${L4JV}.jar" \
+       "${MVN_BASE}/org/apache/logging/log4j/log4j-slf4j-impl/${L4JV}/log4j-slf4j-impl-${L4JV}.jar"
+# CVE-2026-34477/CVE-2026-34478/CVE-2026-34479/CVE-2026-34480 END
 RUN    mkdir ${KAFKA_HOME}/logs
 RUN    touch ${KAFKA_HOME}/logs/connect.log
 COPY   LICENSE* ${BASEDIR}/oracdc
