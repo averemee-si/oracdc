@@ -157,7 +157,7 @@ public class OraCdcColumn extends Column {
 			flags |= FLG_NULLABLE;
 		else
 			flags |= FLG_MANDATORY;
-		this.setColumnId(resultSet.getInt("COLUMN_ID"));
+		this.setColumnId(resultSet.getInt("INTERNAL_COLUMN_ID"));
 		try {
 			defaultValue = trim(resultSet.getString(rdbmsInfo.noLongInDict() ? "DATA_DEFAULT_VC" : "DATA_DEFAULT"));
 		} catch (SQLException sqle) {
