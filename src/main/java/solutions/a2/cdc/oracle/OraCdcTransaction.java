@@ -516,23 +516,19 @@ public abstract class OraCdcTransaction {
 
 	public void setCommitScn(long commitScn, OraCdcPseudoColumnsProcessor pseudoColumns, ResultSet resultSet) throws SQLException {
 		setCommitScn(commitScn);
-		if (pseudoColumns.isAuditNeeded()) {
-			if (pseudoColumns.isUsername()) {
+		if (pseudoColumns.auditNeeded()) {
+			if (pseudoColumns.userName())
 				username = resultSet.getString("USERNAME");
-			}
-			if (pseudoColumns.isOsUsername()) {
+			if (pseudoColumns.osUserName())
 				osUsername = resultSet.getString("OS_USERNAME");
-			}
-			if (pseudoColumns.isHostname()) {
+			if (pseudoColumns.hostName())
 				hostname = resultSet.getString("MACHINE_NAME");
-			}
-			if (pseudoColumns.isAuditSessionId()) {
+			if (pseudoColumns.auditSessionId())
 				auditSessionId = resultSet.getLong("AUDIT_SESSIONID");
-			}
-			if (pseudoColumns.isSessionInfo()) {
+			if (pseudoColumns.sessionInfo())
 				sessionInfo = resultSet.getString("SESSION_INFO");
-			}
-			clientId = resultSet.getString("CLIENT_ID");
+			if (pseudoColumns.clientId())
+				clientId = resultSet.getString("CLIENT_ID");
 		}
 	}
 

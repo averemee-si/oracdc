@@ -92,7 +92,7 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 			String mineDataSql = null;
 			String initialLoadSql = null;
 			if (rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed()) {
-				mineDataSql = pseudoColumns.isAuditNeeded() ?
+				mineDataSql = pseudoColumns.auditNeeded() ?
 						OraDictSqlTexts.MINE_DATA_CDB_AUD :
 						OraDictSqlTexts.MINE_DATA_CDB;
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_CDB + OraDictSqlTexts.CHECK_TABLE_CDB_WHERE_PARAM;
@@ -100,7 +100,7 @@ public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 					initialLoadSql = OraDictSqlTexts.INITIAL_LOAD_LIST_CDB;
 				}
 			} else {
-				mineDataSql = pseudoColumns.isAuditNeeded() ? 
+				mineDataSql = pseudoColumns.auditNeeded() ? 
 						OraDictSqlTexts.MINE_DATA_NON_CDB_AUD :
 						OraDictSqlTexts.MINE_DATA_NON_CDB;
 				checkTableSql = OraDictSqlTexts.CHECK_TABLE_NON_CDB + OraDictSqlTexts.CHECK_TABLE_NON_CDB_WHERE_PARAM;
