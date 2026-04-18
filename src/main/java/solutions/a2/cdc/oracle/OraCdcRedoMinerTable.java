@@ -487,7 +487,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 	}
 
 	private void printUnableToMapColIdWarning(final int colId, final OraCdcTransaction transaction, final OraCdcRedoMinerStatement stmt) {
-		if ((flags & FLG_PRINT_UNABLE_MAP_COL_ID) > 0)
+		if (!hiddenColumns.contains(colId) && (flags & FLG_PRINT_UNABLE_MAP_COL_ID) > 0)
 			LOGGER.warn(
 					"""
 					

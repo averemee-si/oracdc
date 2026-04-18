@@ -72,6 +72,7 @@ public abstract class OraCdcTableBase {
 	final String tableFqn;
 	private OraCdcTdeColumnDecrypter decrypter;
 	DataBinder dataBinder;
+	final IntHashSet hiddenColumns = new IntHashSet();
 
 	public static final short FLG_TABLE_WITH_PK               = (short)0x0001; 
 	public static final short FLG_PROCESS_LOBS                = (short)0x0002;
@@ -172,6 +173,7 @@ public abstract class OraCdcTableBase {
 		final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
 		final boolean useRowIdAsKey;
 		final Set<String> pkColsSet;
+		hiddenColumns.clear();
 		switch (keyOverrideType.getKey()) {
 			case NONE -> {
 				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
@@ -311,10 +313,10 @@ public abstract class OraCdcTableBase {
 				} else {
 					final Matcher guardMatcher = GUARD_COLUMN.matcher(columnName);
 					if (guardMatcher.matches()) {
-						if (LOGGER.isDebugEnabled()) {
+						hiddenColumns.add(rsColumns.getInt("INTERNAL_COLUMN_ID"));
+						if (LOGGER.isDebugEnabled())
 							LOGGER.debug("Skipping guard column {} in tgable {}.{}",
 									columnName, this.tableOwner, this.tableName);
-						}
 					} else {
 						LOGGER.warn(
 								"""
