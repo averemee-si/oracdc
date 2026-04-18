@@ -69,6 +69,8 @@ import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_S
 import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_TIMESTAMP;
 import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_TIMESTAMPLTZ;
 import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_TIMESTAMPTZ;
+import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_UNIXTIME;
+import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_OPT_UNIXTIME;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
 import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
 
@@ -76,6 +78,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
@@ -902,6 +905,34 @@ public class JdbcSinkColumn extends Column {
 													handleNUMBERparseException(sqle, ba, statement, columnNo);
 												}
 											}											
+										}
+									}
+								};
+						}
+						case WRAPPED_UNIXTIME, WRAPPED_OPT_UNIXTIME -> {
+							flags |= FLG_WRAPPED;
+							jdbcType = TIMESTAMP;
+							if (Strings.CS.endsWith(field.schema().name(), ".opt")) flags |= FLG_NULLABLE;  
+							if (partOfPk)
+								binder = new JdbcSinkBinder() {
+									@Override
+									public void bind(int dbType, PreparedStatement statement, int columnNo, Struct keyStruct, Struct valueStruct) throws SQLException {
+										final var struct = (Struct) keyStruct.get(columnName);
+										statement.setTimestamp(columnNo,
+												java.sql.Timestamp.from(Instant.ofEpochMilli((long) struct.get("V"))));
+									}
+								};
+							else
+								binder = new JdbcSinkBinder() {
+									@Override
+									public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
+										final var struct = (Struct) valueStruct.get(columnName);
+										if (struct == null) statement.setNull(columnNo, jdbcType); 
+										else {
+											if (struct.get("V") == null) statement.setNull(columnNo, jdbcType);
+											else
+												statement.setTimestamp(columnNo,
+														java.sql.Timestamp.from(Instant.ofEpochMilli((long) struct.get("V"))));
 										}
 									}
 								};

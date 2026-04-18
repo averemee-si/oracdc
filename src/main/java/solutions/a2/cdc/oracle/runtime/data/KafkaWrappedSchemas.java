@@ -58,6 +58,7 @@ public class KafkaWrappedSchemas {
 	public static final String WRAPPED_BYTES        = WRAPPED_PREFIX + "bytes";
 	public static final String WRAPPED_DECIMAL      = WRAPPED_PREFIX + "DECIMAL";
 	public static final String WRAPPED_NUMBER       = WRAPPED_PREFIX + "NUMBER";
+	public static final String WRAPPED_UNIXTIME     = WRAPPED_PREFIX + "UnixTime";
 	public static final String WRAPPED_TIMESTAMP    = WRAPPED_PREFIX + "TIMESTAMP";
 	public static final String WRAPPED_TIMESTAMPTZ  = WRAPPED_PREFIX + "TIMESTAMPTZ";
 	public static final String WRAPPED_TIMESTAMPLTZ = WRAPPED_PREFIX + "TIMESTAMPLTZ";
@@ -75,6 +76,7 @@ public class KafkaWrappedSchemas {
 	public static final String WRAPPED_OPT_BYTES        = WRAPPED_PREFIX + "bytes.opt";
 	public static final String WRAPPED_OPT_DECIMAL      = WRAPPED_PREFIX + "DECIMAL.opt";
 	public static final String WRAPPED_OPT_NUMBER       = WRAPPED_PREFIX + "NUMBER.opt";
+	public static final String WRAPPED_OPT_UNIXTIME     = WRAPPED_PREFIX + "UnixTime.opt";
 	public static final String WRAPPED_OPT_TIMESTAMP    = WRAPPED_PREFIX + "TIMESTAMP.opt";
 	public static final String WRAPPED_OPT_TIMESTAMPTZ  = WRAPPED_PREFIX + "TIMESTAMPTZ.opt";
 	public static final String WRAPPED_OPT_TIMESTAMPLTZ = WRAPPED_PREFIX + "TIMESTAMPLTZ.opt";
@@ -171,6 +173,14 @@ public class KafkaWrappedSchemas {
 			.version(1)
 			.doc("Wrapped NUMBER schema")
 			.field("V", BYTES_SCHEMA)
+			.build();
+	public static final Schema WRAPPED_UNIXTIME_SCHEMA = SchemaBuilder
+			.struct()
+			.optional()
+			.name(WRAPPED_UNIXTIME)
+			.version(1)
+			.doc("Wrapped Unix Time (millis!) schema")
+			.field("V", INT64_SCHEMA)
 			.build();
 	public static final Schema WRAPPED_TIMESTAMP_SCHEMA = SchemaBuilder
 			.struct()
@@ -306,6 +316,14 @@ public class KafkaWrappedSchemas {
 			.version(1)
 			.doc("Wrapped optional NUMBER schema")
 			.field("V", OPTIONAL_BYTES_SCHEMA)
+			.build();
+	public static final Schema WRAPPED_OPT_UNIXTIME_SCHEMA = SchemaBuilder
+			.struct()
+			.optional()
+			.name(WRAPPED_OPT_UNIXTIME)
+			.version(1)
+			.doc("Wrapped optional Unix Time (millis!) schema")
+			.field("V", OPTIONAL_INT64_SCHEMA)
 			.build();
 	public static final Schema WRAPPED_OPT_TIMESTAMP_SCHEMA = SchemaBuilder
 			.struct()
