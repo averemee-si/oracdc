@@ -13,6 +13,10 @@
 
 package solutions.a2.cdc.oracle;
 
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.DELETE;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.INSERT;
+import static solutions.a2.cdc.oracle.OraCdcV$LogmnrContents.UPDATE;
+
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -108,6 +112,15 @@ public class OraCdcStatementBase extends OraCdcRawStatementBase {
 
 	public short getOperation() {
 		return operation;
+	}
+
+	public String opName() {
+		return switch (operation) {
+			case INSERT -> "INSERT";
+			case UPDATE -> "UPDATE";
+			case DELETE -> "DELETE";
+			default ->     "XML DOC BEGIN";
+		};
 	}
 
 	public String getSqlRedo() {
