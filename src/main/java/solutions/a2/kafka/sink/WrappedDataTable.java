@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.stream.Collectors;
 import java.util.Objects;
 import java.util.Set;
 
@@ -74,9 +75,9 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 	private static final Logger LOGGER = LoggerFactory.getLogger(WrappedDataTable.class);
 
 	private final WrappedTableInfo metrics;
-	private String sinkInsertSql = null;
+	private String sinkUpsertSql = null;
 	private String sinkDeleteSql = null;
-	private PreparedStatement sinkInsert = null;
+	private PreparedStatement sinkUpsert = null;
 	private PreparedStatement sinkDelete = null;
 	private int insertCount;
 	private int deleteCount;
@@ -354,10 +355,10 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 		final Map<String, String> sqlTexts = TargetDbSqlUtils.generateSinkSql(
 				tableName, dbType, pkColumns, allColumns, lobColumns,
 				connectorMode == CONNECTOR_AUDIT_TRAIL);
-		sinkInsertSql = sqlTexts.get(TargetDbSqlUtils.INSERT);
+		sinkUpsertSql = sqlTexts.get(TargetDbSqlUtils.UPSERT);
 
 		if (LOGGER.isDebugEnabled())
-			LOGGER.debug("Table name -> {}, INSERT statement ->\n{}", this.tableName, sinkInsertSql);
+			LOGGER.debug("Table name -> {}, UPSERT statement ->\n{}", this.tableName, sinkUpsertSql);
 		if (!onlyValue && connectorMode == CONNECTOR_REPLICATE) {
 			sinkDeleteSql = sqlTexts.get(TargetDbSqlUtils.DELETE);
 			updateStmtWhere = sqlTexts.get(TargetDbSqlUtils.WHERE);
@@ -374,7 +375,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 		final var nanosStart = System.nanoTime();
 		if (onlyValue ||
 				connectorMode == CONNECTOR_AUDIT_TRAIL) {
-			processInsert(connection, record);
+			processUpsert(connection, record);
 			insertTime += System.nanoTime() - nanosStart;
 		} else {
 			switch (opType) {
@@ -416,19 +417,19 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 				}
 				case 'c' -> {
 					try {
-						processInsert(connection, record);
+						processUpsert(connection, record);
 					} catch (Exception e) {
 						final Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
 						LOGGER.error(
 									"""
 									
 									=====================
-									Unable to execute INSERT statement:
+									Unable to execute UPSERT statement:
 									'{}'
 									keyStruct = {}
 									valueStruct = {}
 									=====================
-									""", sinkInsertSql, structs.getKey().toString(), structs.getValue().toString());
+									""", sinkUpsertSql, structs.getKey().toString(), structs.getValue().toString());
 						throw e;
 					}
 					insertTime += (System.nanoTime() - nanosStart);
@@ -441,9 +442,9 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 	void exec() throws SQLException {
 		LOGGER.debug("BEGIN: exec()");
 		final long nanosStart = System.nanoTime();
-		if (sinkInsert != null && insertCount > 0) {
-			execInsert();
-			sinkInsert.clearBatch();
+		if (sinkUpsert != null && insertCount > 0) {
+			execUpsert();
+			sinkUpsert.clearBatch();
 			pkInUpsertBatch.clear();
 			execLobUpdate(false);
 			insertTime += (System.nanoTime() - nanosStart);
@@ -465,16 +466,16 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 	void execAndCloseCursors() throws SQLException {
 		LOGGER.debug("BEGIN: closeCursors()");
 		final long nanosStart = System.nanoTime();
-		if (sinkInsert != null) {
+		if (sinkUpsert != null) {
 			if (insertCount > 0) {
-				execInsert();
+				execUpsert();
 				execLobUpdate(true);
 				insertTime += (System.nanoTime() - nanosStart);
 				metrics.addInsert(insertCount, insertTime);
 
 			}
-			sinkInsert.close();
-			sinkInsert = null;
+			sinkUpsert.close();
+			sinkUpsert = null;
 			insertCount = 0;
 			insertTime = 0;
 		}
@@ -492,9 +493,9 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 		LOGGER.debug("END: closeCursors()");
 	}
 
-	private void execInsert() throws SQLException {
+	private void execUpsert() throws SQLException {
 		try {
-			sinkInsert.executeBatch();
+			sinkUpsert.executeBatch();
 		} catch(SQLException sqle) {
 			if (printAndHandleInsertError(sqle)) {
 				LOGGER.error(
@@ -503,7 +504,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 						=====================
 						Error while executing INSERT (with {} statements in batch) statement '{}'
 						=====================
-						""", insertCount, sinkInsertSql);
+						""", insertCount, sinkUpsertSql);
 				throw sqle;
 			}
 		}
@@ -573,12 +574,12 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 		LOGGER.trace("END: processDelete()");
 	}
 
-	private void processInsert(
+	private void processUpsert(
 			final Connection connection, final SinkRecord record) throws SQLException {
 		LOGGER.debug("BEGIN: processInsert()");
 		final Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
-		if (sinkInsert == null) {
-			sinkInsert = connection.prepareStatement(sinkInsertSql);
+		if (sinkUpsert == null) {
+			sinkUpsert = connection.prepareStatement(sinkUpsertSql);
 			insertCount = 0;
 			insertTime = 0;
 		}
@@ -586,7 +587,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 		var iterator = pkColumns.entrySet().iterator();
 		while (iterator.hasNext()) {
 			final var column = iterator.next().getValue();
-			column.binder().bind(dbType, sinkInsert, columnNo, structs.getKey(), structs.getValue());
+			column.binder().bind(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 			columnNo++;
 		}
 		for (int i = 0; i < allColumns.size(); i++) {
@@ -595,12 +596,12 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 					schemaType == SCHEMA_TYPE_INT_SINGLE ||
 					(schemaType == SCHEMA_TYPE_INT_DEBEZIUM && !oraColumn.partOfPk())) {
 				try {
-					oraColumn.binder().bind(dbType, sinkInsert, columnNo, structs.getKey(), structs.getValue());
+					oraColumn.binder().bind(dbType, sinkUpsert, columnNo, structs.getKey(), structs.getValue());
 					columnNo++;
 				} catch (DataException | SQLException de) {
-					LOGGER.error("Data error while performing insert! Table={}, column={}, {}.",
+					LOGGER.error("Data error while performing upsert! Table={}, column={}, {}.",
 							tableName, oraColumn.name(), structValueAsString(oraColumn, structs.getValue()));
-					LOGGER.error("SQL statement:\n\t{}", sinkInsertSql);
+					LOGGER.error("SQL statement:\n\t{}", sinkUpsertSql);
 					LOGGER.error("PK value(s) for this row in table {} are", tableName);
 					int colNo = 1;
 					for (final var column : allColumns) {
@@ -612,7 +613,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 				}
 			}
 		}
-		sinkInsert.addBatch();
+		sinkUpsert.addBatch();
 		insertCount++;
 		LOGGER.debug("END: processInsert()");
 	}
@@ -684,12 +685,31 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 			for (var field : record.valueSchema().fields()) {
 				if (valueStruct.get(field) == null) continue;
 				else {
-					final var name = field.name();
-					setColumns.add(table.allColsMap.get(name));
+					var column = table.allColsMap.get(field.name());
+					if (column == null)
+						column = table.allColsMap.get(StringUtils.upperCase(field.name()));
+					if (column == null) {
+						LOGGER.error(
+								"""
+								
+								=====================
+								Unable to find binding to field named {}!
+								table.allColsMap content:
+								{}
+								=====================
+								
+								""", field.name(),
+									table.allColsMap.entrySet()
+										.stream()
+										.map(entry -> entry.getKey() + " (" + entry.getValue().name() + ")")
+										.collect(Collectors.joining("\n\t")));
+						throw new DataException("Unable to properly bind column " + field.name() + "!");
+					}
+					setColumns.add(column);
 					if (first) first = false;
 					else sb.append(",");
 					sb
-						.append(name)
+						.append(field.name())
 						.append("=?");
 				}
 			}
@@ -778,7 +798,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 				if (onlyPkColumns && sqle.getErrorCode() == 1) {
 					// ORA-00001: unique constraint %s violated
 					// ignore for tables with PK only column(s)
-					LOGGER.warn(DUP_ROW_MESSAGE, sqle.getMessage(), sinkInsertSql);
+					LOGGER.warn(DUP_ROW_MESSAGE, sqle.getMessage(), sinkUpsertSql);
 					return false;
 				}
 			}
@@ -786,13 +806,13 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 				if (onlyPkColumns && Strings.CS.startsWith(sqle.getMessage(), "Duplicate entry")) {
 					// Duplicate entry 'XXX' for key 'YYYYY'
 					// ignore for tables with PK only column(s)
-					LOGGER.warn(DUP_ROW_MESSAGE, sqle.getMessage(), sinkInsertSql);
+					LOGGER.warn(DUP_ROW_MESSAGE, sqle.getMessage(), sinkUpsertSql);
 					return false;
 				}
 			}
 			case DB_TYPE_POSTGRESQL -> {
 				if (Strings.CS.equals(sqle.getSQLState(), "23505")) {
-					LOGGER.warn(DUP_ROW_MESSAGE, sqle.getMessage(), sinkInsertSql);
+					LOGGER.warn(DUP_ROW_MESSAGE, sqle.getMessage(), sinkUpsertSql);
 					return false;
 				}
 			}
