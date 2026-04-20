@@ -74,6 +74,8 @@ import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_O
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
 import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
 
+import java.io.ByteArrayInputStream;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.sql.PreparedStatement;
@@ -561,33 +563,82 @@ public class JdbcSinkColumn extends Column {
 					switch (field.schema().name()) {
 						case OraBlob.LOGICAL_NAME -> {
 							jdbcType = BLOB;
-							//TODO
-							//TODO
-							//TODO
+							binder = new JdbcSinkBinder() {
+								@Override
+								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
+									final var value = ((Struct) valueStruct.get(columnName)).get("V");
+									final byte[] ba;
+									if (value instanceof ByteBuffer) ba = ((ByteBuffer) value).array();
+									else ba = (byte[]) value;
+									if (value == null) statement.setNull(columnNo, jdbcType); 
+									else 
+										statement.setBinaryStream(columnNo, new ByteArrayInputStream(ba));
+								}
+							};
 						}
 						case OraClob.LOGICAL_NAME -> {
 							jdbcType = CLOB;
-							//TODO
-							//TODO
-							//TODO
+							binder = new JdbcSinkBinder() {
+								@Override
+								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
+									final var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
+									if (value == null) statement.setNull(columnNo, jdbcType); 
+									else {
+										if (dbType == DB_TYPE_POSTGRESQL)
+											statement.setCharacterStream(columnNo, new StringReader(StringUtils.remove(value, CHAR_0)));
+										else
+											statement.setCharacterStream(columnNo, new StringReader(value));
+									}
+								}
+							};
 						}
 						case OraNClob.LOGICAL_NAME -> {
 							jdbcType = NCLOB;
-							//TODO
-							//TODO
-							//TODO
+							binder = new JdbcSinkBinder() {
+								@Override
+								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
+									final var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
+									if (value == null) statement.setNull(columnNo, jdbcType); 
+									else {
+										if (dbType == DB_TYPE_POSTGRESQL)
+											statement.setCharacterStream(columnNo, new StringReader(StringUtils.remove(value, CHAR_0)));
+										else
+											statement.setCharacterStream(columnNo, new StringReader(value));
+									}
+								}
+							};
 						}
 						case OraXml.LOGICAL_NAME -> {
 							jdbcType = SQLXML;
-							//TODO
-							//TODO
-							//TODO
+							binder = new JdbcSinkBinder() {
+								@Override
+								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
+									final var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
+									if (value == null) statement.setNull(columnNo, jdbcType); 
+									else {
+										if (dbType == DB_TYPE_POSTGRESQL)
+											statement.setCharacterStream(columnNo, new StringReader(StringUtils.remove(value, CHAR_0)));
+										else
+											statement.setCharacterStream(columnNo, new StringReader(value));
+									}
+								}
+							};
 						}
 						case OraJson.LOGICAL_NAME -> {
 							jdbcType = JSON;
-							//TODO
-							//TODO
-							//TODO
+							binder = new JdbcSinkBinder() {
+								@Override
+								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
+									final var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
+									if (value == null) statement.setNull(columnNo, jdbcType); 
+									else {
+										if (dbType == DB_TYPE_POSTGRESQL)
+											statement.setCharacterStream(columnNo, new StringReader(StringUtils.remove(value, CHAR_0)));
+										else
+											statement.setCharacterStream(columnNo, new StringReader(value));
+									}
+								}
+							};
 						}
 						case OraVector.LOGICAL_NAME -> {
 							jdbcType = VECTOR;
