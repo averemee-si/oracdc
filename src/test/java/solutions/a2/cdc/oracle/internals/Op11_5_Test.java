@@ -407,5 +407,45 @@ public class Op11_5_Test extends TestWithOutput {
 		} catch(IOException | SQLException e) {}
 	}
 
+	@Test
+	public void labWareSampleSupplLogPkOnly() {
+
+		var orl = OraCdcRedoLog.getLinux19c();
+
+		/*
+		 * SCN:419901189, RBA:0x000e45.00050386.00d0, OP:5.1 fb:--H-FL--, supp fb:---DFL--, OP:11.5 fb:--H-FL--
+		 */
+		var baUpdate1 = hexToRaw("E801000001850000052F0719510000000000000000000000050130000400FFFF470F0001052F0719000000003100FFFF000000000000000022001400180020001D000E00070001000100010001000100010014000200020004000100C80086072200000010000500FCED09002CF731AC718101007181010006000000000000000B0105300000FCED040D6F023C7F00000A000D0093540300770200011D91320000800080B2140719DF94A20272034001FA122501010000002C0000000100AF070000000000FC06193800A400A500A700A900AB00AD000000787E0410101C2B191F000000800000004600000054012C004600FFFF46040001011C01003A0039003900000000100000000000000100140004001000C35663050B0501000A000100DF94A202C718071900000000010271810000000000000000160046001D000E0007000100010001000100010001000300110D00000000000010000500FCED0900470F00012CF73100000000000000000000000000000000000000000002010D00052F07190080000002060080C71807190000000000001000DF94A20272034001FA120501010000002C0100000100AF0700000000000000003800A400A500A700A900AB00AD000000787E0410102C0A001F00FFFF8004000146130719540000004600FFFF46000000");
+		var rrUpdate1 = new OraCdcRedoRecord(orl, 0x0000000019072f05l, "0x000e45.00050386.00d0", baUpdate1);
+		assertTrue(rrUpdate1.has5_1());
+		assertTrue(rrUpdate1.change5_1().supplementalLogData());
+		assertTrue(rrUpdate1.change5_1().supplementalFb() != 0);
+		assertTrue(rrUpdate1.change5_1().fb() != 0);
+		assertFalse(rrUpdate1.has10_x());
+		assertTrue(rrUpdate1.has11_x());
+		assertEquals(rrUpdate1.change11_x().operation, _11_5_URP);
+		assertTrue(rrUpdate1.change11_x().fb() != 0);
+
+		var raw = new OraCdcRawTransaction(new Xid((short)0x10, (short)0x5, 0x9edfc), ZoneId.systemDefault(), 0x10, new OraCdcLobExtras());
+		try {
+			raw.add(rrUpdate1, oraRedoNow());
+			raw.commitScn(0x0000000019072f08l);
+			var transaction = new OraCdcTransactionArrayList(raw, orl.cdb(), REDOMINER, Path.of(System.getProperty("java.io.tmpdir")));
+			var stmt = new OraCdcRedoMinerStatement();
+
+			assertTrue(transaction.completed());
+
+			assertTrue(transaction.getStatement(stmt));
+			assertEquals(stmt.getOperation(), UPDATE);
+			assertEquals(stmt.getRba(), rrUpdate1.rba());
+			assertEquals(stmt.getRowId().toString(), "AAAYFxAAKAAIpTfAAB");
+			System.out.println(stmt);
+			final String lmUpd1 =
+					"update \"UNKNOWN\".\"OBJ# 98673\" set \"COL 57\" = HEXTORAW('787e0410102c0a'), \"COL 165\" = HEXTORAW('1f'), \"COL 166\" = HEXTORAW('80'), \"COL 168\" = HEXTORAW('46'), \"COL 170\" = HEXTORAW('54'), \"COL 172\" = HEXTORAW('46'), \"COL 174\" = HEXTORAW('46') where \"COL 1\" = HEXTORAW('c3566305') and \"COL 57\" = HEXTORAW('787e0410101c2b') and \"COL 165\" = HEXTORAW('1f') and \"COL 166\" = HEXTORAW('80') and \"COL 168\" = HEXTORAW('46') and \"COL 170\" = HEXTORAW('54') and \"COL 172\" = HEXTORAW('46') and \"COL 174\" = HEXTORAW('46')";
+			assertTrue(compareLogMinerText(lmUpd1, stmt.getSqlRedo()));
+
+
+		} catch(IOException | SQLException e) {}
+	}
 
 }

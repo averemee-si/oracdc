@@ -51,6 +51,7 @@ import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf;
 import solutions.a2.cdc.oracle.runtime.data.DataBinder;
+import solutions.a2.cdc.oracle.runtime.data.KafkaPseudoColumnsProcessor;
 import solutions.a2.cdc.oracle.runtime.data.KafkaStructDebeziumDataBinder;
 import solutions.a2.cdc.oracle.runtime.data.KafkaStructKafkaDataBinder;
 import solutions.a2.cdc.oracle.runtime.data.KafkaStructSingleDataBinder;
@@ -466,7 +467,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 	@Override
 	public OraCdcPseudoColumnsProcessor pseudoColumnsProcessor() {
 		if (pseudoColumns == null) {
-			pseudoColumns = new OraCdcPseudoColumnsProcessor(this);
+			pseudoColumns = new KafkaPseudoColumnsProcessor(this);
 		}
 		return pseudoColumns;
 	}

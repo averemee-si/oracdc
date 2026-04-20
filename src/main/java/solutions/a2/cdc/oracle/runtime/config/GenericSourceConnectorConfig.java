@@ -58,7 +58,6 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 
 	private final SourceConnectorConfig holder;
 	private String connectorName;
-	private OraCdcPseudoColumnsProcessor pseudoColumns = null;
 
 	public static Configuration config() {
 		return GenericSourceBaseConfig.config()
@@ -392,10 +391,7 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 
 	@Override
 	public OraCdcPseudoColumnsProcessor pseudoColumnsProcessor() {
-		if (pseudoColumns == null) {
-			pseudoColumns = new OraCdcPseudoColumnsProcessor(this);
-		}
-		return pseudoColumns;
+		return null;
 	}
 
 	@Override

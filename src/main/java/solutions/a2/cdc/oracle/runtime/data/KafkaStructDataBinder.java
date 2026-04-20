@@ -165,7 +165,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 			//TODO
 			//TODO Beter handling for 'debezium'-like schemas are required for this case...
 			//TODO
-			pseudoColumns.addToSchema(valueSchemaBuilder);
+			((KafkaPseudoColumnsProcessor) pseudoColumns).addToSchema(valueSchemaBuilder);
 		}
 		// Epilogue
 		if (keySchemaBuilder == null) {
@@ -307,7 +307,7 @@ public abstract class KafkaStructDataBinder implements DataBinder {
 					//TODO
 					//TODO Beter handling for 'debezium'-like schemas are required for this case...
 					//TODO
-					pseudoColumns.addToStruct(valueStruct, stmt, transaction);
+					((KafkaPseudoColumnsProcessor) pseudoColumns).addToStruct(valueStruct, stmt, transaction);
 				}
 				if ((table.flags() & FLG_ONLY_VALUE) > 0) {
 					sourceRecord = new SourceRecord(
