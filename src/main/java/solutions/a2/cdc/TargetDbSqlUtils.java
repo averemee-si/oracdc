@@ -36,6 +36,7 @@ import static java.sql.Types.DATE;
 import static java.sql.Types.TIMESTAMP;
 import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.Types.VARCHAR;
+import static java.sql.Types.ROWID;
 import static java.sql.Types.BINARY;
 import static java.sql.Types.BLOB;
 import static java.sql.Types.CLOB;
@@ -74,6 +75,7 @@ public class TargetDbSqlUtils {
 				put(TIMESTAMP, "timestamp");
 				put(TIMESTAMP_WITH_TIMEZONE, "varchar(127)");
 				put(VARCHAR, "varchar(255)");
+				put(ROWID, "varchar(18)");
 				put(BINARY, "varbinary(1000)");
 				put(BLOB, "longblob");
 				put(CLOB, "longtext");
@@ -95,6 +97,7 @@ public class TargetDbSqlUtils {
 				put(TIMESTAMP, "timestamp");
 				put(TIMESTAMP_WITH_TIMEZONE, "timestamp with time zone");
 				put(VARCHAR, "text");
+				put(ROWID, "varchar(18)");
 				put(BINARY, "bytea");			// https://www.postgresql.org/docs/current/lo.html
 				put(BLOB, "lo");
 				put(CLOB, "text");
@@ -116,6 +119,7 @@ public class TargetDbSqlUtils {
 				put(TIMESTAMP, "TIMESTAMP");
 				put(TIMESTAMP_WITH_TIMEZONE, "TIMESTAMP(9) WITH TIME ZONE");
 				put(VARCHAR, "VARCHAR2(4000)");
+				put(ROWID, "varchar(18)");
 				put(BINARY, "RAW(2000)");
 				put(BLOB, "BLOB");
 				put(CLOB, "CLOB");
@@ -137,6 +141,7 @@ public class TargetDbSqlUtils {
 				put(TIMESTAMP, "datetime2");
 				put(TIMESTAMP_WITH_TIMEZONE, "datetimeoffset");
 				put(VARCHAR, "nvarchar(4000)");
+				put(ROWID, "varchar(18)");
 				put(BINARY, "varbinary(8000)");
 				put(BLOB, "varbinary(max)");
 				put(CLOB, "nvarchar(max)");
