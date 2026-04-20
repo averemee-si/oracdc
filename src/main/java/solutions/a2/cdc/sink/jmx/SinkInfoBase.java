@@ -24,10 +24,10 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
-import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.oracle.OraCdcException;
 import solutions.a2.utils.ExceptionUtils;
 
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
@@ -79,7 +79,7 @@ public abstract class SinkInfoBase implements SinkInfoBaseMBean {
 				} catch (InstanceNotFoundException nfe) {
 					LOGGER.error("Unable to unregister MBean {}", name.getCanonicalName());
 					LOGGER.error(ExceptionUtils.getExceptionStackTrace(nfe));
-					throw new ConnectException(nfe);
+					throw new OraCdcException(nfe);
 				}
 			}
 			mbs.registerMBean(sib, name);
@@ -94,7 +94,7 @@ public abstract class SinkInfoBase implements SinkInfoBaseMBean {
 					=====================
 					
 					""", e.getMessage(), sb.toString());
-			throw new ConnectException(e);
+			throw new OraCdcException(e);
 		}
 	}
 
