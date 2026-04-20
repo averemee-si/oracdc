@@ -130,6 +130,24 @@ public class OffHeapMmf {
 		writeOffset += required;
 	}
 
+	public Locator writeAndRemember(byte[] data) throws IOException {
+		var required = Integer.BYTES + data.length;
+		MemorySegment current = segments.get(segments.size() - 1);
+		if (writeOffset + required > current.byteSize()) {
+			if (writeOffset + 4 <= current.byteSize()) {
+				current.set(JAVA_INT, writeOffset, END_OF_SEGMENT_MARKER);
+			}
+			addSegment();
+			current = segments.get(segments.size() - 1);
+			writeOffset = 0;
+		}
+		var locator = new Locator(segments.size() - 1, writeOffset);
+		current.set(JAVA_INT, writeOffset, data.length);
+		MemorySegment.copy(data, 0, current, JAVA_BYTE, writeOffset + 4, data.length);
+		writeOffset += required;
+		return locator;
+	}
+
 	public byte[] readNext() {
 		if (readIndex >= segments.size())
 			return null;
@@ -172,6 +190,61 @@ public class OffHeapMmf {
 			arenas.get(i).close();
 		}
 		Files.delete(file.toPath());
+	}
+
+	public record Locator(int index, long offset) {};
+
+	public Scanner scanner() {
+		return new Scanner(this);
+	}
+
+	public Scanner scanner(Locator locator) {
+		return new Scanner(this, locator);
+	}
+
+	public static class Scanner {
+
+		private long offset = 0;
+		private int index = 0;
+		private final OffHeapMmf mmf;
+
+		private Scanner(OffHeapMmf mmf) {
+			this.mmf = mmf;
+		}
+
+		private Scanner(OffHeapMmf mmf, Locator locator) {
+			this.mmf = mmf;
+			index = locator.index();
+			offset = locator.offset();
+		}
+
+		public byte[] readNext() {
+			if (index >= mmf.segments.size())
+				return null;
+			var current = mmf.segments.get(index);
+			if (offset + Integer.BYTES > current.byteSize()) {
+				index++;
+				offset = 0;
+				return readNext();
+			}
+			var length = current.get(JAVA_INT, offset);
+			if (length == END_OF_SEGMENT_MARKER) {
+				index++;
+				offset = 0;
+				return readNext();
+			}
+			if (offset + Integer.BYTES + length > current.byteSize()) {
+				index++;
+				offset = 0;
+				return readNext();
+			}
+			if (length == 0)
+				return null;
+			var data = new byte[length];
+			MemorySegment.copy(current, JAVA_BYTE, offset + Integer.BYTES, data, 0, length);
+			offset += (Integer.BYTES + length);
+			return data;
+		}
 	}
 
 }
