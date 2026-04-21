@@ -40,25 +40,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import solutions.a2.cdc.TargetDbSqlUtils;
-import solutions.a2.cdc.oracle.data.OraBlob;
-import solutions.a2.cdc.oracle.data.OraClob;
-import solutions.a2.cdc.oracle.data.OraJson;
-import solutions.a2.cdc.oracle.data.OraNClob;
-import solutions.a2.cdc.oracle.data.OraVector;
-import solutions.a2.cdc.oracle.data.OraXml;
 import solutions.a2.cdc.sink.jmx.WrappedTableInfo;
 
-import static java.sql.Types.BLOB;
-import static java.sql.Types.CLOB;
-import static java.sql.Types.NCLOB;
-import static java.sql.Types.SQLXML;
-import static oracle.jdbc.OracleTypes.JSON;
-import static oracle.jdbc.OracleTypes.VECTOR;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_DEBEZIUM;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_KAFKA_STD;
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.SCHEMA_TYPE_INT_SINGLE;
-import static solutions.a2.cdc.oracle.runtime.data.KafkaWrappedSchemas.WRAPPED_PREFIX;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_MYSQL;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_ORACLE;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
@@ -180,32 +167,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 		final Map<String, Field> topicKeys = new HashMap<>();
 		keyFields.forEach(f -> topicKeys.put(StringUtils.upperCase(f.name()), f));
 		final Map<String, Field> topicValues = new HashMap<>();
-		final Map<String, Field> unnestedValues = new HashMap<>();
-		final Map<String, String> unnestedParents = new HashMap<>();
-		final Map<String, List<Field>> unnestedColumns = new HashMap<>();
-		valueFields.forEach(f -> {
-			final var fieldName = StringUtils.upperCase(f.name());
-			final var fieldSchema = f.schema().type().getName();
-			if (Strings.CS.equals("struct", fieldSchema)) {
-				if (Strings.CS.startsWith(f.schema().name(), WRAPPED_PREFIX)) {
-					topicValues.put(fieldName, f);
-				} else if (!Strings.CS.startsWithAny(f.schema().name(),
-								OraBlob.LOGICAL_NAME,
-								OraClob.LOGICAL_NAME,
-								OraNClob.LOGICAL_NAME,
-								OraXml.LOGICAL_NAME,
-								OraJson.LOGICAL_NAME,
-								OraVector.LOGICAL_NAME)) {
-					for (Field unnestField : f.schema().fields()) {
-						final String unnestFieldName = StringUtils.upperCase(unnestField.name());
-						unnestedValues.put(unnestFieldName, unnestField);
-						unnestedParents.put(unnestFieldName, fieldName);
-					}
-				}
-			} else {
-				topicValues.put(fieldName, f);
-			}
-		});
+		valueFields.forEach(f -> topicValues.put(StringUtils.upperCase(f.name()), f));
 	
 		if (!onlyValue) {
 			// pkColumns may contain values
@@ -236,7 +198,6 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 			}
 		}
 
-		boolean unnestingRequired = false;
 		final ResultSet rsAllColumns = tableMetadata.getValue();
 		while (rsAllColumns.next()) {
 			final Field valueField;
@@ -248,20 +209,11 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 					LOGGER.warn("Unable to remove field {} from Map named allFields!", dbValueColumn);
 			}
 			if (!pkColumns.containsKey(dbValueColumn4M)) {
-				if (topicKeys.containsKey(dbValueColumn4M)) {
+				if (topicKeys.containsKey(dbValueColumn4M))
 					valueField = topicKeys.get(dbValueColumn4M);
-				} else if (topicValues.containsKey(dbValueColumn4M)) {
+				else if (topicValues.containsKey(dbValueColumn4M))
 					valueField = topicValues.get(dbValueColumn4M);
-				} else if (unnestedValues.containsKey(dbValueColumn4M)) {
-					unnestingRequired = true;
-					valueField = null;
-					final String parentField = unnestedParents.get(dbValueColumn4M);
-					if (!unnestedColumns.containsKey(parentField)) {
-						unnestedColumns.put(parentField, new ArrayList<>());
-					}
-					unnestedColumns.get(parentField)
-							.add(unnestedValues.get(dbValueColumn4M));
-				} else {
+				else {
 					LOGGER.warn(
 							"""
 							
@@ -276,28 +228,9 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 				}
 				if (valueField != null) {
 					final var column = new JdbcSinkColumn(valueField, false);
-					//TODO - currently JDBCType only from Kafka Topic!!!
-					if (column.jdbcType() == BLOB ||
-							column.jdbcType() == CLOB ||
-							column.jdbcType() == NCLOB ||
-							column.jdbcType() == SQLXML ||
-							column.jdbcType() == JSON ||
-							column.jdbcType() == VECTOR) {
-						lobColumns.put(column.name(), column);
-					} else {
-							allColumns.add(column);
-							allColsMap.put(dbValueColumn4M, column);
-					}
+					allColumns.add(column);
+					allColsMap.put(dbValueColumn4M, column);
 				}
-			}
-		}
-		if (unnestingRequired) {
-			for (final String parentName : unnestedColumns.keySet()) {
-				final List<JdbcSinkColumn> transformation = new ArrayList<>();
-				for (final Field unnestField : unnestedColumns.get(parentName)) {
-					transformation.add(new JdbcSinkColumn(unnestField, false));
-				}
-				lobColumns.put(parentName, transformation);
 			}
 		}
 
@@ -687,7 +620,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 				else {
 					var column = table.allColsMap.get(field.name());
 					if (column == null)
-						column = table.allColsMap.get(StringUtils.upperCase(field.name()));
+						column = table.allColsMap.get(StringUtils.upperCase(field.name()));					
 					if (column == null) {
 						LOGGER.error(
 								"""
@@ -746,9 +679,6 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 					throw de;
 				}
 			}
-			//TODO
-			//TODO LOBs
-			//TODO
 			if (statement.executeUpdate() != 1) {
 				LOGGER.error(
 						"""
