@@ -566,13 +566,14 @@ public class JdbcSinkColumn extends Column {
 							binder = new JdbcSinkBinder() {
 								@Override
 								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
-									final var value = ((Struct) valueStruct.get(columnName)).get("V");
-									final byte[] ba;
-									if (value instanceof ByteBuffer) ba = ((ByteBuffer) value).array();
-									else ba = (byte[]) value;
-									if (value == null) statement.setNull(columnNo, jdbcType); 
-									else 
+									if (valueStruct.get(columnName) == null) statement.setNull(columnNo, jdbcType);
+									else {
+										var value = ((Struct) valueStruct.get(columnName)).get("V");
+										var ba = (value instanceof ByteBuffer)
+												? ((ByteBuffer) value).array()
+												: (byte[]) value;
 										statement.setBinaryStream(columnNo, new ByteArrayInputStream(ba));
+									}									
 								}
 							};
 						}
@@ -581,9 +582,9 @@ public class JdbcSinkColumn extends Column {
 							binder = new JdbcSinkBinder() {
 								@Override
 								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
-									final var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
-									if (value == null) statement.setNull(columnNo, jdbcType); 
+									if (valueStruct.get(columnName) == null) statement.setNull(columnNo, jdbcType);
 									else {
+										var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
 										if (dbType == DB_TYPE_POSTGRESQL)
 											statement.setCharacterStream(columnNo, new StringReader(StringUtils.remove(value, CHAR_0)));
 										else
@@ -597,9 +598,9 @@ public class JdbcSinkColumn extends Column {
 							binder = new JdbcSinkBinder() {
 								@Override
 								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
-									final var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
-									if (value == null) statement.setNull(columnNo, jdbcType); 
+									if (valueStruct.get(columnName) == null) statement.setNull(columnNo, jdbcType);
 									else {
+										var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
 										if (dbType == DB_TYPE_POSTGRESQL)
 											statement.setCharacterStream(columnNo, new StringReader(StringUtils.remove(value, CHAR_0)));
 										else
@@ -613,9 +614,9 @@ public class JdbcSinkColumn extends Column {
 							binder = new JdbcSinkBinder() {
 								@Override
 								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
-									final var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
-									if (value == null) statement.setNull(columnNo, jdbcType); 
+									if (valueStruct.get(columnName) == null) statement.setNull(columnNo, jdbcType);
 									else {
+										var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
 										if (dbType == DB_TYPE_POSTGRESQL)
 											statement.setCharacterStream(columnNo, new StringReader(StringUtils.remove(value, CHAR_0)));
 										else
@@ -629,9 +630,9 @@ public class JdbcSinkColumn extends Column {
 							binder = new JdbcSinkBinder() {
 								@Override
 								public void bind(final int dbType, final PreparedStatement statement, final int columnNo, final Struct keyStruct, final Struct valueStruct) throws SQLException {
-									final var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
-									if (value == null) statement.setNull(columnNo, jdbcType); 
+									if (valueStruct.get(columnName) == null) statement.setNull(columnNo, jdbcType);
 									else {
+										var value = (String) ((Struct) valueStruct.get(columnName)).get("V");
 										if (dbType == DB_TYPE_POSTGRESQL)
 											statement.setCharacterStream(columnNo, new StringReader(StringUtils.remove(value, CHAR_0)));
 										else
