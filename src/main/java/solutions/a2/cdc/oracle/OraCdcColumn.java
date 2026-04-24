@@ -759,7 +759,7 @@ public class OraCdcColumn extends Column {
 		return (flags & FLG_LARGE_OBJECT) > 0;
 	}
 
-	OraCdcDecoder decoder() {
+	public OraCdcDecoder decoder() {
 		return decoder;
 	}
 
@@ -767,7 +767,7 @@ public class OraCdcColumn extends Column {
 		this.decoder = decoder;
 	}
 
-	boolean decodeWithoutTrans() {
+	public boolean decodeWithoutTrans() {
 		return (flags & FLG_DECODE_WITH_TRANS) == 0;
 	}
 
