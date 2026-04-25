@@ -26,6 +26,7 @@ import solutions.a2.cdc.oracle.OraCdcColumn;
  * 
  */
 public interface DataBinder {
+	default void init() {};
 	void init(OraCdcStatementBase stmt);
 	void insert(OraCdcColumn column, Object value);
 	void delete(OraCdcColumn column, Object value);
@@ -34,6 +35,10 @@ public interface DataBinder {
 	void afterBefore();
 	void buildSchema(boolean initial) throws SQLException;
 	Object changeVector(OraCdcTransaction transaction, Map<String, Object> offset, boolean skipRedoRecord) throws SQLException;
+	default void initialLoadSetLob(OraCdcColumn column, Object value) {};
+	default Object initialLoadRow() {
+		return null;
+	};
 
 	static final String TOLERANCE_ERR_MSG =
 			"""
