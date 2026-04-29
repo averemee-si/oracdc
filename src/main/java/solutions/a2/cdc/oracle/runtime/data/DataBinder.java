@@ -39,6 +39,9 @@ public interface DataBinder {
 	default Object initialLoadRow() {
 		return null;
 	};
+	default Object newInstance() {
+		return null;
+	}
 
 	static final String TOLERANCE_ERR_MSG =
 			"""
