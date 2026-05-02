@@ -25,6 +25,8 @@ import org.apache.kafka.connect.errors.ConnectException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import solutions.a2.cdc.TargetDbConfig;
+
 import static org.apache.kafka.common.config.ConfigDef.Importance.HIGH;
 import static org.apache.kafka.common.config.ConfigDef.Importance.LOW;
 import static org.apache.kafka.common.config.ConfigDef.Importance.MEDIUM;
@@ -62,22 +64,9 @@ import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class JdbcSinkConnectorConfig extends AbstractConfig {
+public class JdbcSinkConnectorConfig extends AbstractConfig implements TargetDbConfig {
 	
 	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkConnectorConfig.class);
-
-	private static final String AUTO_CREATE_PARAM = "a2.autocreate";
-	private static final String AUTO_CREATE_DOC =
-			"""
-			Automatically create the destination table if missed.
-			""";
-
-	private static final int PK_STRING_LENGTH_DEFAULT = 30;
-	private static final String PK_STRING_LENGTH_PARAM = "a2.pk.string.length";
-	private static final String PK_STRING_LENGTH_DOC =
-			"""
-			The length of the string by default when it is used as a part of primary key.
-			"Derfault - """ + PK_STRING_LENGTH_DEFAULT;
 
 	private static final String TABLE_NAME_PREFIX_PARAM = "a2.table.name.prefix";
 	private static final String TABLE_NAME_PREFIX_DOC =
@@ -103,18 +92,6 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 			If the values of the parameters 'a2.table.name.prefix' and/or 'a2.table.name.suffix' are specified, then the values of these parameters are added to the table name, respectively, either at the beginning or at the end.
 			Default - """ + TABLE_MAPPER_DEFAULT;
 
-	static final int CONNECTOR_REPLICATE = 1;
-	static final int CONNECTOR_AUDIT_TRAIL = 2;
-	private static final String CONN_TYPE_PARAM = "a2.sink.connector.mode";
-	private static final String CONN_TYPE_REPLICATE = "replicate";
-	private static final String CONN_TYPE_AUDIT_TRAIL = "audit_trail";
-	private static final String CONN_TYPE_DOC =
-			"""
-			Connector operating mode - 'replicate' or 'audit_trail'.
-			In 'replicate' mode, the connector sends INSERT/UPDATE/DELETE commands to the target database,
-			and in 'audit_trail' mode, it only sends INSERT commands to record the change history of the source table.
-			Default - """ + CONN_TYPE_REPLICATE;
-
 	private static final String INIT_SQL_PARAM = "a2.connection.init.sql";
 	private static final String INIT_SQL_DOC = 
 			"""
@@ -131,7 +108,6 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 			""";
 
 	private int schemaType = -1;
-	private int connectorMode = -1;
 
 	static ConfigDef config() {
 		return new ConfigDef()
@@ -161,12 +137,35 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 		super(config(), originals);
 	}
 
-	boolean autoCreateTable() {
+	@Override
+	public boolean autoCreateTable() {
 		return getBoolean(AUTO_CREATE_PARAM);
 	}
 
-	int getPkStringLength() {
+	@Override
+	public int pkStringLength() {
 		return getInt(PK_STRING_LENGTH_PARAM);
+	}
+
+	@Override
+	public int batchSize() {
+		return getInt(BATCH_SIZE_PARAM);
+	}
+
+
+	private int connectorMode = -1;
+
+	@Override
+	public int getConnectorMode() {
+		if (connectorMode == -1) {
+			if (Strings.CI.equals(CONN_TYPE_REPLICATE, getString(CONN_TYPE_PARAM))) {
+				connectorMode = CONNECTOR_REPLICATE;
+			} else {
+				// CONN_TYPE_AUDIT_TRAIL
+				connectorMode = CONNECTOR_AUDIT_TRAIL; 
+			}
+		}
+		return connectorMode;
 	}
 
 	boolean useAllColsOnDelete() {
@@ -245,18 +244,6 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 		return getString(TABLE_NAME_SUFFIX_PARAM);
 	}
 
-	int getConnectorMode() {
-		if (connectorMode == -1) {
-			if (Strings.CI.equals(CONN_TYPE_REPLICATE, getString(CONN_TYPE_PARAM))) {
-				connectorMode = CONNECTOR_REPLICATE;
-			} else {
-				// CONN_TYPE_AUDIT_TRAIL
-				connectorMode = CONNECTOR_AUDIT_TRAIL; 
-			}
-		}
-		return connectorMode;
-	}
-
 	String getJdbcUrl() {
 		return getString(CONNECTION_URL_PARAM);
 	}
@@ -271,10 +258,6 @@ public class JdbcSinkConnectorConfig extends AbstractConfig {
 
 	String getInitSql() {
 		return getString(INIT_SQL_PARAM);
-	}
-
-	int batchSize() {
-		return getInt(BATCH_SIZE_PARAM);
 	}
 
 	String topicPrefix() {

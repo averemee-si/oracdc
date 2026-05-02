@@ -310,9 +310,8 @@ public class TargetDbSqlUtils {
 			final Map<String, Object> lobColumns,
 			final boolean auditTrail) {
 
-		final int pkColCount = pkColumns.size();
-		final boolean onlyPkColumns = allColumns.size() == 0;
-		final boolean onlyValue = (pkColCount == 0) || auditTrail;
+		final var onlyPkColumns = allColumns.size() == 0;
+		final var onlyValue = (pkColumns.size() == 0) || auditTrail;
 		final Map<String, String> generatedSql = new HashMap<>();
 
 		if (onlyValue) {
@@ -428,7 +427,7 @@ public class TargetDbSqlUtils {
 						dbType == DB_TYPE_ORACLE || dbType == DB_TYPE_MSSQL) {
 					sbInsSql.append(columnName);
 				}
-				if (pkColumnNo < pkColCount - 1) {
+				if (pkColumnNo < pkColumns.size() - 1) {
 					if (!onlyPkColumns || 
 							dbType == DB_TYPE_ORACLE || dbType == DB_TYPE_MSSQL) {
 						sbInsSql.append(",");
@@ -442,7 +441,7 @@ public class TargetDbSqlUtils {
 				if (dbType == DB_TYPE_POSTGRESQL) {
 					if (!onlyPkColumns) {
 						sbUpsert.append(columnName);
-						if (pkColumnNo < pkColCount - 1) {
+						if (pkColumnNo < pkColumns.size() - 1) {
 							sbUpsert.append(",");
 						}
 					}
@@ -545,7 +544,7 @@ public class TargetDbSqlUtils {
 				}
 			} else {
 				sbInsSql.append(") values(");
-				final int totalColumns = nonPkColumnCount + pkColCount;
+				final int totalColumns = nonPkColumnCount + pkColumns.size();
 				for (int i = 0; i < totalColumns; i++) {
 					if (i < totalColumns - 1) {
 						sbInsSql.append("?,");
