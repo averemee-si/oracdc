@@ -310,24 +310,36 @@ public class TargetDbSqlUtils {
 			final Map<String, Object> lobColumns,
 			final boolean auditTrail) {
 
+		var sbInsertSql = new StringBuilder(0x200);
+		sbInsertSql
+			.append("insert into ")
+			.append(tableName)
+			.append("(");
+		var firstColumn = true;
 		final var onlyPkColumns = allColumns.size() == 0;
-		final var onlyValue = (pkColumns.size() == 0) || auditTrail;
 		final Map<String, String> generatedSql = new HashMap<>();
 
-		if (onlyValue) {
-			final var sbInsertSql = new StringBuilder(0x200);
-			sbInsertSql.append("insert into ");
-			sbInsertSql.append(tableName);
-			sbInsertSql.append("(");
-			boolean firstColumn = true;
-			for (final var column : allColumns) {
-				if (firstColumn) firstColumn = false;
-				else sbInsertSql.append(", ");
-				sbInsertSql.append(column.name());
+		if ((pkColumns.size() == 0) || auditTrail) {
+			var colCount = 0;
+			if (pkColumns.size() > 0) {
+				for (var column : pkColumns.values()) {
+					if (firstColumn) firstColumn = false;
+					else sbInsertSql.append(", ");
+					sbInsertSql.append(column.name());
+					colCount++;
+				}
+			}
+			for (var column : allColumns) {
+				if (!pkColumns.containsKey(column.name())) {
+					if (firstColumn) firstColumn = false;
+					else sbInsertSql.append(", ");
+					sbInsertSql.append(column.name());
+					colCount++;
+				}
 			}
 			sbInsertSql.append(")\nvalues(");
 			firstColumn = true;
-			for (int i = 0; i < allColumns.size(); i++) {
+			for (int i = 0; i < colCount; i++) {
 				if (firstColumn) firstColumn = false;
 				else sbInsertSql.append(", ");
 				sbInsertSql.append("?");
@@ -335,11 +347,6 @@ public class TargetDbSqlUtils {
 			sbInsertSql.append(")");
 			generatedSql.put(INSERT, sbInsertSql.toString());
 		} else {
-			final var sbInsertSql = new StringBuilder(0x200);
-			sbInsertSql.append("insert into ");
-			sbInsertSql.append(tableName);
-			sbInsertSql.append("(");
-			boolean firstColumn = true;
 			var iterator = pkColumns.entrySet().iterator();
 			while (iterator.hasNext()) {
 				if (firstColumn) firstColumn = false;
