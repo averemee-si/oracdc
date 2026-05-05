@@ -47,6 +47,7 @@ import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_MYSQL;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_MSSQL;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_ORACLE;
 import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
+import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_CLICKHOUSE;
 
 /**
  * 
@@ -141,7 +142,7 @@ public class TargetDbSqlUtils {
 				put(TIMESTAMP, "datetime2");
 				put(TIMESTAMP_WITH_TIMEZONE, "datetimeoffset");
 				put(VARCHAR, "nvarchar(4000)");
-				put(ROWID, "varchar(18)");
+				put(ROWID, "nvarchar(18)");
 				put(BINARY, "varbinary(8000)");
 				put(BLOB, "varbinary(max)");
 				put(CLOB, "nvarchar(max)");
@@ -149,11 +150,34 @@ public class TargetDbSqlUtils {
 				put(SQLXML, "xml");
 				put(JSON, "nvarchar(max)");
 			}};
+	private static final Int2ObjectHashMap<String> CLICKHOUSE_MAPPING = new Int2ObjectHashMap<>() {{
+				put(BOOLEAN, "Bool");
+				put(TINYINT, "Int8");
+				put(SMALLINT, "Int16");
+				put(INTEGER, "Int32");
+				put(BIGINT, "Int64");
+				put(FLOAT, "Float32");
+				put(DOUBLE, "Float64");
+				put(DECIMAL, "Decimal128(10)");
+				put(NUMERIC, "Decimal128(10)");
+				put(DATE, "Date");
+				put(TIMESTAMP, "DateTime");
+				put(TIMESTAMP_WITH_TIMEZONE, "DateTime");
+				put(VARCHAR, "String");
+				put(ROWID, "FixedString(18)");
+				put(BINARY, "FixedString(8000)");
+				put(BLOB, "String");
+				put(CLOB, "String");
+				put(NCLOB, "String");
+				put(SQLXML, "String");
+				put(JSON, "JSON");
+			}};
 	private static final Int2ObjectHashMap<String>  PK_STRING_MAPPING = new Int2ObjectHashMap<>() {{
 				put(DB_TYPE_MYSQL, "varchar($)");
 				put(DB_TYPE_POSTGRESQL, "varchar($)");
 				put(DB_TYPE_ORACLE, "VARCHAR2($)");
 				put(DB_TYPE_MSSQL, "nvarchar($)");
+				put(DB_TYPE_CLICKHOUSE, "FixedString($)");
 			}};
 
 	/**
@@ -189,18 +213,23 @@ public class TargetDbSqlUtils {
 		if (onlyValue) {
 			sbPrimaryKey = null;
 		} else {
-			sbPrimaryKey = new StringBuilder(64);
-			sbPrimaryKey.append(",\n  constraint ");
-			sbPrimaryKey.append(tableName);
-			sbPrimaryKey.append("_PK primary key(");
+			sbPrimaryKey = new StringBuilder(0x40);
+			if (dbType == DB_TYPE_CLICKHOUSE)
+				sbPrimaryKey.append("\nENGINE = ReplacingMergeTree\nORDER BY ");
+			else
+				sbPrimaryKey
+					.append(",\n  constraint ")
+					.append(tableName)
+					.append("_PK primary key(");
 			
 			var pkIterator = pkColumns.entrySet().iterator();
 			while (pkIterator.hasNext()) {
 				var column = pkIterator.next().getValue();
-				sbCreateTable.append("  ");
-				sbCreateTable.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column));
-				sbCreateTable.append(" not null");
-
+				sbCreateTable
+					.append("  ")
+					.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column));
+				if (dbType != DB_TYPE_CLICKHOUSE)
+					sbCreateTable.append(" not null");
 				sbPrimaryKey.append(column.name());
 
 				if (pkIterator.hasNext()) {
@@ -208,7 +237,8 @@ public class TargetDbSqlUtils {
 					sbPrimaryKey.append(",");
 				}
 			}
-			sbPrimaryKey.append(")");
+			if (dbType != DB_TYPE_CLICKHOUSE)
+				sbPrimaryKey.append(")");
 		}
 
 		boolean firstColumn = onlyValue;
@@ -221,7 +251,7 @@ public class TargetDbSqlUtils {
 				sbCreateTable.append(",\n  ");
 			}
 			sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
-			if (!column.nullable()) {
+			if (!column.nullable() && dbType != DB_TYPE_CLICKHOUSE) {
 				sbCreateTable.append(" not null");
 			}
 		}
@@ -238,7 +268,7 @@ public class TargetDbSqlUtils {
 
 					if (dbType == DB_TYPE_POSTGRESQL &&
 							column.jdbcType() == BLOB) {
-						final StringBuilder sbPostgresLoTriggers = new StringBuilder(128);
+						final StringBuilder sbPostgresLoTriggers = new StringBuilder(0x80);
 						sbPostgresLoTriggers.append("CREATE TRIGGER t_lo_");
 						sbPostgresLoTriggers.append(tableName);
 						sbPostgresLoTriggers.append("_");
@@ -258,21 +288,20 @@ public class TargetDbSqlUtils {
 						sbCreateTable.append("  ");
 						sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 
-						if (i < (columnList.size() -1)) {
+						if (i < (columnList.size() -1))
 							sbCreateTable.append(",\n");
-						}
 					}
 				}
-				if (lobIterator.hasNext()) {
+				if (lobIterator.hasNext())
 					sbCreateTable.append(",\n");
-				}
 			}
 		}
 
-		if (!onlyValue) {
+		if (!onlyValue && dbType != DB_TYPE_CLICKHOUSE)
 			sbCreateTable.append(sbPrimaryKey);
-		}
 		sbCreateTable.append("\n)");
+		if (dbType == DB_TYPE_CLICKHOUSE)
+			sbCreateTable.append(sbPrimaryKey);
 		sqlStrings.add(0, sbCreateTable.toString());
 		return sqlStrings;
 	}
@@ -626,15 +655,11 @@ public class TargetDbSqlUtils {
 
 	private static Int2ObjectHashMap<String> dataTypesMap(final int dbType) {
 		switch (dbType) {
-		case DB_TYPE_POSTGRESQL:
-			return POSTGRESQL_MAPPING;
-		case DB_TYPE_ORACLE:
-			return ORACLE_MAPPING;
-		case DB_TYPE_MSSQL:
-			return MSSQL_MAPPING;
-		default:
-			//TODO - more types required
-			return MYSQL_MAPPING;
+			case DB_TYPE_POSTGRESQL -> {return POSTGRESQL_MAPPING;}
+			case DB_TYPE_ORACLE -> {return ORACLE_MAPPING;}
+			case DB_TYPE_MSSQL -> {return MSSQL_MAPPING;}
+			case DB_TYPE_CLICKHOUSE -> {return CLICKHOUSE_MAPPING;}
+			default -> {return MYSQL_MAPPING;}
 		}
 	}
 

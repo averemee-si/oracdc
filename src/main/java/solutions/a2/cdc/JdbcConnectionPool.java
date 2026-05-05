@@ -44,6 +44,7 @@ public class JdbcConnectionPool {
 	public static final int DB_TYPE_POSTGRESQL = 2;
 	public static final int DB_TYPE_ORACLE = 3;
 	public static final int DB_TYPE_MSSQL = 4;
+	public static final int DB_TYPE_CLICKHOUSE = 5;
 
 	private HikariDataSource dataSource;
 	private int dbType = DB_TYPE_MYSQL;

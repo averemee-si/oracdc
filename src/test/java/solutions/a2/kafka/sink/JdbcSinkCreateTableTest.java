@@ -110,6 +110,11 @@ public class JdbcSinkCreateTableTest {
 				PK_STRING_LENGTH_DEFAULT,
 				pkColumns, allColumns, lobColumns);
 
+		List<String> createScottDeptClickhouse = TargetDbSqlUtils.createTableSql(
+				"DEPT", JdbcSinkConnectionPool.DB_TYPE_CLICKHOUSE,
+				PK_STRING_LENGTH_DEFAULT,
+				pkColumns, allColumns, lobColumns);
+
 		System.out.println("++++++++++ Oracle ++++++++++++++++++++++++");
 		System.out.println(createScottDeptOra.get(0));
 		System.out.println("++++++++++ PostgreSQL +++++++++++++++++++++");
@@ -123,11 +128,14 @@ public class JdbcSinkCreateTableTest {
 		System.out.println(createScottDeptMySql.get(0));
 		System.out.println("++++++++++ MsSQL ++++++++++++++++++++++++++");
 		System.out.println(createScottDeptMsSql.get(0));
+		System.out.println("++++++++++ Clickhouse +++++++++++++++++++++");
+		System.out.println(createScottDeptClickhouse.get(0));
 
 		assertTrue(createScottDeptOra.get(0).contains("DEPTNO NUMBER(3)"));
 		assertTrue(createScottDeptPg.get(0).contains("DEPTNO smallint"));
 		assertTrue(createScottDeptMySql.get(0).contains("DEPTNO tinyint"));
 		assertTrue(createScottDeptMsSql.get(0).contains("varbinary(max)"));
+		assertTrue(createScottDeptClickhouse.get(0).contains("ENGINE = ReplacingMergeTree"));
 
 	}
 
