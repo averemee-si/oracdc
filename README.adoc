@@ -72,11 +72,7 @@ All connectors use Oracle JDBC driver version 26ai to connect to the database an
 1. https://github.com/averemee-si/oracdc/[GitHub]
 2. https://www.confluent.io/hub/a2solutions/oracdc-kafka[Confluent Hub]
 3. https://hub.docker.com/r/a2solutions/oracdc[DockerHub]
-4. https://aws.amazon.com/marketplace/seller-profile?id=07173d1d-0e5c-4e97-8db7-5c701176865c[AWS Marketplace] - optimized for https://aws.amazon.com/msk/[Amazon MSK] and https://docs.aws.amazon.com/glue/latest/dg/schema-registry.html[AWS Glue Schema Registry]
-4.1. https://aws.amazon.com/marketplace/pp/prodview-cqki33xso6s6a[x86_64 CloudFormation Stack]
-4.2. https://aws.amazon.com/marketplace/pp/prodview-fn6bpplwp4m6y[AWS Graviton CloudFormation Stack]
-4.3. https://aws.amazon.com/marketplace/pp/prodview-me6ugntrriqeg[amd64 Container]
-5. https://mvnrepository.com/artifact/solutions.a2.oracle/oracdc-kafka[Maven Central]
+4. https://mvnrepository.com/artifact/solutions.a2.oracle/oracdc-kafka[Maven Central]
 
 === Installation from source code
 ==== Clone the repository
