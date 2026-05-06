@@ -70,7 +70,7 @@
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<commons.cli.version>1.11.0</commons.cli.version>
 		<ora.jdbc.version>23.26.1.0.0</ora.jdbc.version>
-		<pg.jdbc.version>42.7.10</pg.jdbc.version>
+		<pg.jdbc.version>42.7.11</pg.jdbc.version>
 		<HikariCP.version>7.0.2</HikariCP.version>
 		<slf4j.version>2.0.17</slf4j.version>
 		<ojdbc.types.version>0.9.9</ojdbc.types.version>
