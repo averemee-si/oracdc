@@ -1726,22 +1726,35 @@ public class OraCdcChange {
 		int diff = nullPos;
 		for (int i = 0; i < columnCount; i++) {
 			final int colDataIndex = index + i + (colNumIndex > 0 ? 2 : 1);
-			if (colDataIndex >= coords.length)  {
-				LOGGER.error(
-						"""
-						
-						=====================
-						Unable to execute writeColsWithNulls for OP:{} for change #{} at RBA {} in '{}'.
-						Actual number of elements {} is smaller than requested index {}!
-						Change contents:
-						{}
-						Redo record contents:
-						{}
-						=====================
-						
-						""", formatOpCode(operation), num, rba, redoLog.fileName(),
-							coords.length, colDataIndex, binaryDump(), rawToHex(record));
-				throw new ArrayIndexOutOfBoundsException(colDataIndex);
+			var isNull = false;
+			if (colDataIndex >= suppDataStartIndex)
+				isNull = true;
+			else {
+				if (colDataIndex >= coords.length)  {
+					LOGGER.error(
+							"""
+							
+							=====================
+							Unable to execute writeColsWithNulls for OP:{} for change #{} at RBA {} in '{}'.
+							Actual number of elements {} is smaller than requested index {}!
+							Change contents:
+							{}
+							Redo record contents:
+							{}
+							=====================
+							
+							""", formatOpCode(operation), num, rba, redoLog.fileName(),
+								coords.length, colDataIndex, binaryDump(), rawToHex(record));
+					throw new ArrayIndexOutOfBoundsException(colDataIndex);
+				}
+				if ((record[coords[index][0] + diff] & mask) != 0) {
+					isNull = true;
+				}
+				mask <<= 1;
+				if (mask == 0) {
+					mask = 1;
+					diff++;
+				}
 			}
 			final int colNum;
 			if (colNumIndex > 0) {
@@ -1750,15 +1763,6 @@ public class OraCdcChange {
 				colNum = i  + colNumOffset;
 			}
 			putU16(baos, colNum);
-			boolean isNull = false;
-			if ((record[coords[index][0] + diff] & mask) != 0) {
-				isNull = true;
-			}
-			mask <<= 1;
-			if (mask == 0) {
-				mask = 1;
-				diff++;
-			}
 			if (isNull) {
 				baos.write(0xFF);
 			} else {
