@@ -225,7 +225,6 @@ public class OraCdcChange {
 	byte flags;
 	private int dba;
 	final boolean encrypted;
-	private final int changeDataObj;
 	LobId lid;
 	short lobCol = -1;
 	int lobDataOffset = -1;
@@ -234,6 +233,7 @@ public class OraCdcChange {
 	static final byte FLG_LOB_SUPLOG = 2; 
 	private byte kdli_flg2;
 	boolean compressed = false;
+	int suppDataStartIndex = Integer.MAX_VALUE;
 
 	OraCdcChange(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		this.num = num;
@@ -244,23 +244,20 @@ public class OraCdcChange {
 		this.offset = offset;
 		dba = redoLog.bu().getU32(record, offset + 0x08);
 		encrypted = (record[offset + 0x15] & FLG_TDE_ENCRYPTION) != 0;
-		changeDataObj = (
-				Short.toUnsignedInt(redoLog.bu().getU16(record, offset + 0x06)) << 16) |
-				Short.toUnsignedInt(redoLog.bu().getU16(record, offset + 0x16));
 		if (redoLog.cdb()) {
 			flg = redoLog.bu().getU16(record, offset + 0x1C);
 			conId = redoLog.bu().getU16(record, offset + 0x18);
 		} else {
 			flg = conId = -1;
 		}
-		final int dataStart = offset + headerLength;
-		final int vectorSize = (Short.toUnsignedInt(redoLog.bu().getU16(record, dataStart)) - Short.BYTES) / Short.BYTES;
-		final int vectorLengthsSize = (Short.BYTES * (vectorSize + 1) + Short.BYTES) & 0xFFFC;
-		int curentStart = offset + headerLength + vectorLengthsSize;
+		var dataStart = offset + headerLength;
+		var vectorSize = (Short.toUnsignedInt(redoLog.bu().getU16(record, dataStart)) - Short.BYTES) / Short.BYTES;
+		var vectorLengthsSize = (Short.BYTES * (vectorSize + 1) + Short.BYTES) & 0xFFFC;
+		var curentStart = offset + headerLength + vectorLengthsSize;
 		length = 0;
 
 		coords = new int[vectorSize][2];
-		for (int i = 0; i < vectorSize; i++) {
+		for (var i = 0; i < vectorSize; i++) {
 			final int elementLength = Short.toUnsignedInt(redoLog.bu().getU16(record, dataStart + Short.BYTES * (i + 1)));
 			final int ceiledLength = (elementLength + Short.BYTES + 1) & 0xFFFC;
 			length +=  ceiledLength;
@@ -1437,17 +1434,20 @@ public class OraCdcChange {
 				.append(conId);
 		}
 		if (typ != 0x06) {
+			var changeDataObj = (
+					Short.toUnsignedInt(redoLog.bu().getU16(record, offset + 0x06)) << 16) |
+					Short.toUnsignedInt(redoLog.bu().getU16(record, offset + 0x16));
 			sb
-			.append(" TYP:")
-			.append(typ)
-			.append(" CLS:")
-			.append(redoLog.bu().getU16(record, offset + 0x02))
-			.append(" AFN:")
-			.append(redoLog.bu().getU16(record, offset + 0x04))
-			.append(" DBA:")
-			.append(String.format("0x%08x", Integer.toUnsignedLong(dba)))
-			.append(" OBJ:")
-			.append(Integer.toUnsignedLong(changeDataObj));
+				.append(" TYP:")
+				.append(typ)
+				.append(" CLS:")
+				.append(redoLog.bu().getU16(record, offset + 0x02))
+				.append(" AFN:")
+				.append(redoLog.bu().getU16(record, offset + 0x04))
+				.append(" DBA:")
+				.append(String.format("0x%08x", Integer.toUnsignedLong(dba)))
+				.append(" OBJ:")
+				.append(Integer.toUnsignedLong(changeDataObj));
 		}
 		sb.append(" SCN:0x");
 		FormattingUtils.leftPad(sb, redoLog.bu().getScn(record, offset + 0x0C), 16);

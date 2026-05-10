@@ -61,7 +61,6 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	private boolean supplementalLogData = false;
 	private int supplementalCc = 0;
 	private int supplementalCcNn = 0;
-	private int suppDataStartIndex = -1;
 	private int suppOffsetUndo = 0;
 	private int suppOffsetRedo = 0;
 	private byte kdilk = 0;
