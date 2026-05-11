@@ -708,7 +708,7 @@ public class OraCdcColumn extends Column {
 		this.typedDefaultValue = typedDefaultValue;
 	}
 
-	public String getOracleName() {
+	public String oracleName() {
 		return oracleName;
 	}
 
