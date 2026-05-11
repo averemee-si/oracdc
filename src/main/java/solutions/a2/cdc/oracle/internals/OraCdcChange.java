@@ -233,7 +233,7 @@ public class OraCdcChange {
 	static final byte FLG_LOB_SUPLOG = 2; 
 	private byte kdli_flg2;
 	boolean compressed = false;
-	int suppDataStartIndex = Integer.MAX_VALUE;
+	int suppDataStartIndex = -1;
 
 	OraCdcChange(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		this.num = num;
@@ -1727,7 +1727,7 @@ public class OraCdcChange {
 		for (int i = 0; i < columnCount; i++) {
 			final int colDataIndex = index + i + (colNumIndex > 0 ? 2 : 1);
 			var isNull = false;
-			if (colDataIndex >= suppDataStartIndex)
+			if (suppDataStartIndex > 0 && colDataIndex >= suppDataStartIndex)
 				isNull = true;
 			else {
 				if (colDataIndex >= coords.length)  {
