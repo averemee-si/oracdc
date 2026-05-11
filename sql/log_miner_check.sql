@@ -1,18 +1,27 @@
 REM +-------------------------------------------------------------------------+
 REM |
+REM | This file is part of the oracdc project.
 REM | Copyright (c) 2018-present, A2 Rešitve d.o.o.
+REM | Authors: Aleksei Veremeev
 REM |
-REM | Licensed under the Apache License, Version 2.0 (the "License");
-REM | you may not use this file except in compliance with the License.
-REM | You may obtain a copy of the License at
+REM | This program is offered under a commercial and under the AGPL license.
+REM | For commercial licensing, contact us at sales@a2.solutions.
+REM | For AGPL licensing, see below.
 REM |
-REM | http://www.apache.org/licenses/LICENSE-2.0
+REM | AGPL licensing:
+REM | This program is free software: you can redistribute it and/or modify
+REM | it under the terms of the GNU Affero General Public License as published by
+REM | the Free Software Foundation, either version 3 of the License, or
+REM | (at your option) any later version.
 REM |
-REM | Unless required by applicable law or agreed to in writing, software
-REM | distributed under the License is distributed on an "AS IS" BASIS,
-REM | WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-REM | See the License for the specific language governing permissions and
-REM | limitations under the License.
+REM | REM |his program is distributed in the hope that it will be useful,
+REM | but WITHOUT ANY WARRANTY; without even the implied warranty of
+REM | MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+REM | GNU Affero General Public License for more details.
+REM |
+REM | You should have received a copy of the GNU Affero General Public
+REM | License along with this program; see the file GNU-AGPL-v3.0.adoc.
+REM | If not, see <https://www.gnu.org/licenses/>.
 REM |
 REM +=======================================================================*+
 
