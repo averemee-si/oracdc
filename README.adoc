@@ -1,4 +1,4 @@
-image:https://img.shields.io/:license-apache-blue.svg[License,link=https://raw.githubusercontent.com/averemee-si/oracdc/refs/heads/main/LICENSE]
+image:https://img.shields.io/badge/License-AGPL_v3%2B-blue[License,link=https://raw.githubusercontent.com/averemee-si/oracdc/refs/heads/main/LICENSE]
 image:https://img.shields.io/maven-central/v/solutions.a2.oracle/oracdc-kafka.svg[link=https://central.sonatype.com/artifact/solutions.a2.oracle/oracdc-kafka]
 image:https://img.shields.io/docker/pulls/a2solutions/oracdc[link=https://hub.docker.com/r/a2solutions/oracdc/]
 
@@ -113,7 +113,7 @@ All connectors publish a number of metrics about the their activity that can be 
 
 == License
 
-This project is licensed under the Apache-2.0 License.
+This project is licensed under a commercial and under the AGPL license.
 
 == Future plans
 * better schema management including ideas from https://github.com/confluentinc/schema-registry/issues/1899[timestamp of creation of a schema version]
@@ -121,6 +121,13 @@ This project is licensed under the Apache-2.0 License.
 
 
 == Release history
+
+=== 2.15.2 (MAY-2026)
+
+1. The license has been changed to dual licensing: commercial and AGPL v3.0+
+
+2. Bug fixes
+
 
 === 2.15.1 (APR-2026)
 
