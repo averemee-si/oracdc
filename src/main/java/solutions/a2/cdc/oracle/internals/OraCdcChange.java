@@ -1,14 +1,26 @@
 /**
+ * This file is part of the oracdc project.
  * Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ * Authors: Aleksei Veremeev
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
+ * This program is offered under a commercial and under the AGPL license.
+ * For commercial licensing, contact us at sales@a2.solutions.
+ * For AGPL licensing, see below.
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ * AGPL licensing:
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
  *
- * Unless required by applicable law or agreed to in writing, software distributed under the License is
- * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
- * the License for the specific language governing permissions and limitations under the License.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public
+ * License along with this program; see the file GNU-AGPL-v3.0.adoc.
+ * If not, see <https://www.gnu.org/licenses/>.
  */
 
 package solutions.a2.cdc.oracle.internals;
@@ -233,7 +245,7 @@ public class OraCdcChange {
 	static final byte FLG_LOB_SUPLOG = 2; 
 	private byte kdli_flg2;
 	boolean compressed = false;
-	int suppDataStartIndex = Integer.MAX_VALUE;
+	int suppDataStartIndex = -1;
 
 	OraCdcChange(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		this.num = num;
@@ -1727,7 +1739,7 @@ public class OraCdcChange {
 		for (int i = 0; i < columnCount; i++) {
 			final int colDataIndex = index + i + (colNumIndex > 0 ? 2 : 1);
 			var isNull = false;
-			if (colDataIndex >= suppDataStartIndex)
+			if (suppDataStartIndex > 0 && colDataIndex >= suppDataStartIndex)
 				isNull = true;
 			else {
 				if (colDataIndex >= coords.length)  {

@@ -1,23 +1,9 @@
-# Contributing
+# Contributor License Agreement
 
-We're really happy to accept contributions from the community, that's the main reason why we open-sourced it! There are many ways to contribute, even if you're not a technical person.
+By contributing your code to **oracdc** you grant the A2 Rešitve d.o.o.(A2 Solutions LLC) a non-exclusive, irrevocable, worldwide, royalty-free, sublicensable, transferable license under all of Your relevant intellectual property rights (including copyright, patent, and any other rights), to use, copy, prepare derivative works of, distribute and publicly perform and display the Contributions on any licensing terms, including without limitation: (a) open source licenses; and (b) binary, proprietary, or commercial licenses. Except for the licenses granted herein, You reserve all right, title, and interest in and to the Contribution.
 
-We're using the simplified [Github workflow](http://scottchacon.com/2011/08/31/github-flow.html) to accept modifications, basically you'll have to:
+You confirm that you are able to grant us these rights. You represent that You are legally entitled to grant the above license. If Your employer has rights to intellectual property that You create, You represent that You have received permission to make the Contributions on behalf of that employer, or that Your employer has waived such rights for the Contributions.
 
-- create an issue related to the problem you want to fix or feature to add (good for traceability and cross-reference)
-- fork the repository
-- create a branch (optionally with the reference to the issue in the name)
-- make any change that you consider
-- commit incrementally with readable and detailed commit messages
-- submit a pull-request against the master branch of this repository
+You represent that the Contributions are Your original works of authorship, and to Your knowledge, no other person claims, or has the right to claim, any right in any invention or patent related to the Contributions. You also represent that You are not legally obligated, whether by entering into an agreement or otherwise, in any way that conflicts with the terms of this license.
 
-We'll take care of tagging your issue and answer as soon as possible to the problem you encounter or your feature, via the issue or PR.
-
-If you're not familiar with open-source workflows or our set of technologies, do not hesitate to ask for help!
-
-## Submitting bugs and code
-You can report issues directly on Github. 
-
-When submitting code, please make every effort to follow existing conventions and style in order to keep the code as readable as possible. Please also make sure your code compiles, passes the tests and the checkstyle configured for this repository.
-
-Describe the PR content and don't hesitate to add comments to explain us why you've added or changed something.
+A2 Rešitve d.o.o. acknowledges that, except as explicitly described in this Agreement, any Contribution which you provide is on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR CONDITIONS OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.

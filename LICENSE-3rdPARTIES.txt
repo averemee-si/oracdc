@@ -1,6 +1,10 @@
 ===============================================================================
-This project bundles some components that are also licensed under the Apache
-License Version 2.0:
+This product bundles various third-party components under other open source
+licenses. This file summarizes those components and their licenses.
+See licenses/ folder for text of these licenses.
+
+----------------------------------------
+Apache License Version 2.0
 
 - agrona-2.4.0
 - commons-cli-1.11.0
@@ -15,13 +19,6 @@ License Version 2.0:
 - jcl-over-slf4j-1.7.36
 - HikariCP-7.0.2
 - ojdbc-types-0.9.9
-
-
-===============================================================================
-This product bundles various third-party components under other open source
-licenses. This file summarizes those components and their licenses.
-See licenses/ folder for text of these licenses.
-
 
 ----------------------------------------
 Oracle Free Use Terms and Conditions
