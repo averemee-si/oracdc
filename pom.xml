@@ -84,7 +84,7 @@
 		<ora.jdbc.version>23.26.1.0.0</ora.jdbc.version>
 		<pg.jdbc.version>42.7.11</pg.jdbc.version>
 		<HikariCP.version>7.0.2</HikariCP.version>
-		<slf4j.version>2.0.17</slf4j.version>
+		<log4j.version>2.26.0</log4j.version>
 		<ojdbc.types.version>0.9.9</ojdbc.types.version>
 		<maverick.version>3.1.4</maverick.version>
 		<sshj.version>0.40.0</sshj.version>
@@ -163,6 +163,10 @@
 					<groupId>org.xerial.snappy</groupId>
 					<artifactId>snappy-java</artifactId>
 				</exclusion>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-api</artifactId>
+				</exclusion>
 			</exclusions>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
@@ -182,6 +186,20 @@
 			<groupId>commons-cli</groupId>
 			<artifactId>commons-cli</artifactId>
 			<version>${commons.cli.version}</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-core -->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<version>${log4j.version}</version>
+			<scope>provided</scope>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api -->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<version>${log4j.version}</version>
+			<scope>provided</scope>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc17 -->
 		<dependency>
@@ -224,18 +242,6 @@
 			<groupId>com.zaxxer</groupId>
 			<artifactId>HikariCP</artifactId>
 			<version>${HikariCP.version}</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
- 		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
-			<version>${slf4j.version}</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-reload4j -->
- 		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-reload4j</artifactId>
-			<version>${slf4j.version}</version>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/solutions.a2.oracle/ojdbc-types -->
 		<dependency>
