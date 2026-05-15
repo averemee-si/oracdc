@@ -68,9 +68,11 @@ import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.log4j.BasicConfigurator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
+import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.pool.OracleDataSource;
@@ -99,7 +101,6 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class OraRedoLogFile  {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraRedoLogFile.class);
 	private static final String ASM_URL = "asm-jdbc-url";
 	private static final String ASM_USER = "asm-username";
 	private static final String ASM_PASSWORD = "asm-password";
@@ -110,9 +111,23 @@ public class OraRedoLogFile  {
 	private static final String SMB_USER = "smb-user";
 	private static final String SMB_PASSWORD = "smb-password";
 	private static final String TEST_CLASS = "test-data";
+	
+	private static final Logger LOGGER;
+	static {
+		var builder = ConfigurationBuilderFactory.newConfigurationBuilder();
+		var console = builder.newAppender("stdout", "CONSOLE");
+		builder.add(console);
+		var layout = builder.newLayout("PatternLayout");
+		layout.addAttribute("pattern", "%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n");
+		console.add(layout);
+		var root = builder.newRootLogger(Level.INFO);
+		root.add(builder.newAppenderRef("stdout"));
+		builder.add(root);
+		Configurator.initialize(builder.build());
+		LOGGER = LogManager.getLogger(OraRedoLogFile.class);
+	}
 
 	public static void main(String[] argv) {
-		BasicConfigurator.configure();
 		var millis = System.currentTimeMillis();
 		LOGGER.info("Starting...");
 

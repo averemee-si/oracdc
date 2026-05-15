@@ -44,8 +44,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.Configuration;
 import solutions.a2.cdc.oracle.LastProcessedSeqNotifier;
@@ -66,7 +66,7 @@ import solutions.a2.cdc.oracle.utils.KafkaUtils;
  */
 public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implements OraCdcSourceConnectorConfig {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(GenericSourceConnectorConfig.class);
+	private static final Logger LOGGER = LogManager.getLogger(GenericSourceConnectorConfig.class);
 
 	private final SourceConnectorConfig holder;
 	private String connectorName;

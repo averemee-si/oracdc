@@ -27,8 +27,8 @@ package solutions.a2.cdc.oracle.internals;
 
 import java.sql.SQLException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleCallableStatement;
 import oracle.sql.NUMBER;
@@ -42,7 +42,7 @@ import static solutions.a2.cdc.oracle.internals.OraCdcRedoLog.BLOCK_SIZE_4096;
 
 public class OraCdcRedoAsmReader implements OraCdcRedoReader {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoAsmReader.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoAsmReader.class);
 	private static final int RA_BLK_0512 = 0x3F;
 	private static final int RA_BLK_1024 = 0x1F;
 	private static final int RA_BLK_4096 = 0x07;

@@ -37,8 +37,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcDictionaryChecker;
 import solutions.a2.cdc.oracle.OraCdcLargeObjectHolder;
@@ -61,7 +61,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class KafkaSourceLogMinerTask extends KafkaSourceTaskBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceLogMinerTask.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaSourceLogMinerTask.class);
 
 	private OraCdcSourceConnMgmt metrics;
 	private Map<String, OraCdcTransaction> activeTransactions;

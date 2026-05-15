@@ -40,9 +40,11 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.help.HelpFormatter;
-import org.apache.log4j.BasicConfigurator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
+import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcLobExtras;
 import solutions.a2.cdc.oracle.OraCdcRawTransaction;
@@ -62,7 +64,20 @@ import solutions.a2.oracle.internals.Xid;
  */
 public class OraCdcIncidentReader extends OraCdcIncidentBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcIncidentReader.class);
+	private static final Logger LOGGER;
+	static {
+		var builder = ConfigurationBuilderFactory.newConfigurationBuilder();
+		var console = builder.newAppender("stdout", "CONSOLE");
+		builder.add(console);
+		var layout = builder.newLayout("PatternLayout");
+		layout.addAttribute("pattern", "%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n");
+		console.add(layout);
+		var root = builder.newRootLogger(Level.INFO);
+		root.add(builder.newAppenderRef("stdout"));
+		builder.add(root);
+		Configurator.initialize(builder.build());
+		LOGGER = LogManager.getLogger(OraCdcIncidentReader.class);
+	}
 
 	private final Xid xid;
 	private final OraCdcRedoLog orl;
@@ -167,8 +182,6 @@ public class OraCdcIncidentReader extends OraCdcIncidentBase {
 	}
 
 	public static void main(String[] argv) {
-		BasicConfigurator.configure();
-
 		var millis = System.currentTimeMillis();
 		LOGGER.info("Starting...");
 

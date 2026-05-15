@@ -33,8 +33,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * 
@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
  */
 public class PgRdbmsInfo {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(PgRdbmsInfo.class);
+	private static final Logger LOGGER = LogManager.getLogger(PgRdbmsInfo.class);
 
 	/**
 	 * Returns set of column names for primary key or it equivalent (unique with all non-null)

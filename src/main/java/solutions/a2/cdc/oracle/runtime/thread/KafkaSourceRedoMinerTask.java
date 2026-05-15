@@ -40,8 +40,8 @@ import org.agrona.collections.IntHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcDictionaryChecker;
 import solutions.a2.cdc.oracle.OraCdcRawTransaction;
@@ -71,7 +71,7 @@ import static solutions.a2.cdc.oracle.runtime.config.Parameters.TABLE_LIST_STYLE
  */
 public class KafkaSourceRedoMinerTask extends KafkaSourceTaskBase implements OraCdcTaskBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceRedoMinerTask.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaSourceRedoMinerTask.class);
 
 	private OraCdcSourceConnMgmt metrics;
 	private Map<Xid, OraCdcRawTransaction> activeTransactions;

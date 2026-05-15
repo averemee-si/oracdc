@@ -45,8 +45,8 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.ucp.UniversalConnectionPoolException;
 import solutions.a2.cdc.oracle.OraCdcSourceBaseConfig;
@@ -65,7 +65,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class KafkaSourceSnapshotLogTask extends SourceTask {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceSnapshotLogTask.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaSourceSnapshotLogTask.class);
 	private static final String PARTITION_FIELD = "mvlog";
 
 	private KafkaSnapshotLogTable oraTable;

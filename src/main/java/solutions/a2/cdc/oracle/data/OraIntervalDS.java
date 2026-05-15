@@ -31,8 +31,8 @@ import java.time.Duration;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.jdbc.types.IntervalDayToSecond;
 
@@ -45,7 +45,7 @@ import solutions.a2.oracle.jdbc.types.IntervalDayToSecond;
  */
 public class OraIntervalDS {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraIntervalDS.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraIntervalDS.class);
 
 	public static final String LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraIntervalDS";
 

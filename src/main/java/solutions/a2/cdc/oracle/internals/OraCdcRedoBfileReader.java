@@ -29,8 +29,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleBfile;
 import oracle.jdbc.OracleCallableStatement;
@@ -42,7 +42,7 @@ import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_22288;
 
 public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoBfileReader.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoBfileReader.class);
 
 	private final OracleCallableStatement read;
 	private final String redoLog;

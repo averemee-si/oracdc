@@ -35,8 +35,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.utils.ExceptionUtils;
 
@@ -47,7 +47,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class OraCdcLastProcessedSeqFileNotifier implements LastProcessedSeqNotifier {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLastProcessedSeqFileNotifier.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcLastProcessedSeqFileNotifier.class);
 
 	private String fileName;
 	private ExecutorService executor;

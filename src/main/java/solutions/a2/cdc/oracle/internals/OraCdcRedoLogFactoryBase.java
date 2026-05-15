@@ -30,14 +30,14 @@ import static solutions.a2.cdc.oracle.internals.OraCdcRedoLog.redoFileTypeByte;
 import java.io.IOException;
 import java.io.InputStream;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.utils.BinaryUtils;
 
 public abstract class OraCdcRedoLogFactoryBase  {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLogFactoryBase.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoLogFactoryBase.class);
 	private static final int POS_BLOCK_SIZE = 0x0015;
 	private static final int POS_MAGIC_1 = 0x001C;
 	private static final int POS_MAGIC_2 = 0x001D;

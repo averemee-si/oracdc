@@ -69,8 +69,8 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.sql.NUMBER;
 import solutions.a2.cdc.Column;
@@ -84,7 +84,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class OraCdcColumn extends Column {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcColumn.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcColumn.class);
 
 	public static final String ROWID_KEY = "ORA_ROW_ID";
 	public static final String MVLOG_SEQUENCE = "SEQUENCE$$";

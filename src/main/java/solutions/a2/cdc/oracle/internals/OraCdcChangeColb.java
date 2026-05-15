@@ -27,8 +27,8 @@ package solutions.a2.cdc.oracle.internals;
 
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.UndoByteAddress;
@@ -52,7 +52,7 @@ public class OraCdcChangeColb extends OraCdcChange {
 
 	public static final int LONG_DUMP_SIZE = 0x24;
 	
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeColb.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcChangeColb.class);
 	private static final int BLOCK_DUMP_MIN_SIZE = 0x18;
 
 	private boolean longDump;

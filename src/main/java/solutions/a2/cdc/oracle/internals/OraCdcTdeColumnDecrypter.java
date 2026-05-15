@@ -45,8 +45,8 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import static javax.crypto.Cipher.DECRYPT_MODE;
 import static solutions.a2.cdc.oracle.OraDictSqlTexts.COLUMN_ENCRYPTION_INFO;
@@ -67,7 +67,7 @@ public class OraCdcTdeColumnDecrypter {
 	public static final byte NOMAC = 0x20;
 	public static final byte GCMTAG = 0x40;
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTdeColumnDecrypter.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcTdeColumnDecrypter.class);
 	private static final byte[] IV_CBC_NOSALT_AES = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 	private static final byte[] IV_CBC_NOSALT_3DES = {0, 0, 0, 0, 0, 0, 0, 0};
 

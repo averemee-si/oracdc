@@ -27,8 +27,8 @@ package solutions.a2.cdc.oracle.internals;
 
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.Xid;
@@ -48,7 +48,7 @@ import solutions.a2.oracle.internals.Xid;
 
 public class OraCdcChangeLlb extends OraCdcChange {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeLlb.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcChangeLlb.class);
 
 	public static final byte TYPE_1 = 0x1;
 	public static final byte TYPE_3 = 0x3;

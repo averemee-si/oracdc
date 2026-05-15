@@ -31,15 +31,15 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.oracle.utils.BinaryUtils;
 
 public class OraCdcRedoLogFileTransferFactory extends OraCdcRedoLogBfileFactory {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLogFileTransferFactory.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoLogFileTransferFactory.class);
 	private static final String COPY =
 			"""
 			begin

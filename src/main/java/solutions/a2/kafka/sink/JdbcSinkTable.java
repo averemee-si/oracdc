@@ -46,8 +46,8 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.TargetDbSqlUtils;
 import solutions.a2.cdc.oracle.data.OraBlob;
@@ -75,7 +75,7 @@ import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
  */
 public class JdbcSinkTable extends JdbcSinkTableBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkTable.class);
+	private static final Logger LOGGER = LogManager.getLogger(JdbcSinkTable.class);
 
 	private final SinkTableInfo metrics;
 	private String sinkUpsertSql = null;

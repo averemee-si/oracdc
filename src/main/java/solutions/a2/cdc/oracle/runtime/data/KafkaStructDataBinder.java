@@ -44,8 +44,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcDataException;
 import solutions.a2.cdc.oracle.OraCdcPseudoColumnsProcessor;
@@ -67,7 +67,7 @@ import solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper;
  */
 public abstract class KafkaStructDataBinder implements DataBinder {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaStructDataBinder.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaStructDataBinder.class);
 
 	private final KafkaSchemaNameMapper snm;
 	private final OraCdcPseudoColumnsProcessor pseudoColumns;

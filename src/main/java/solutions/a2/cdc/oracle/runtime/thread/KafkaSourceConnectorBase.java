@@ -55,8 +55,8 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.config.types.Password;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleConnection;
 import solutions.a2.cdc.oracle.OraConnectionObjects;
@@ -73,7 +73,7 @@ import solutions.a2.cdc.oracle.utils.Version;
  */
 public abstract class KafkaSourceConnectorBase extends SourceConnector {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceConnectorBase.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaSourceConnectorBase.class);
 	private static final String DB_PARAM_ERROR_GENERIC = "Database connection parameters are not properly set!";
 	private static final String DB_PARAM_MUST_SET_WHEN = 
 			"""

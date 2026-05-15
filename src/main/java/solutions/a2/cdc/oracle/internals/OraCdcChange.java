@@ -32,8 +32,8 @@ import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.LobId;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -194,7 +194,7 @@ public class OraCdcChange {
 	/** KDLIRBIMG: direct lob direct-load redo */
 	public static final short _26_6_BIMG = 0x1A06;
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChange.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcChange.class);
 	private static final int KTB_REDO_MIN_LENGTH = 0x00000008;
 	private  static final String[] KDO_XTYPES = {
 			"XA",	//Redo

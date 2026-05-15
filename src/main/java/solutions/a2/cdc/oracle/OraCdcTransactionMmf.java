@@ -43,8 +43,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.OffHeapMmf;
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -58,7 +58,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class OraCdcTransactionMmf extends OraCdcTransaction {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionMmf.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcTransactionMmf.class);
 
 	private String mmfStatements;
 	private OffHeapMmf statements;

@@ -46,8 +46,8 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.transforms.Transformation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.data.OraInterval;
 import solutions.a2.cdc.oracle.data.OraIntervalDS;
@@ -60,7 +60,7 @@ import solutions.a2.cdc.oracle.data.OraIntervalYM;
  */
 public abstract class OraIntervalConverter <R extends ConnectRecord<R>> implements Transformation<R>  {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraIntervalConverter.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraIntervalConverter.class);
 	private static final String PURPOSE = "convert solutions.a2.cdc.oracle.data.OraIntervalDS and solutions.a2.cdc.oracle.data.OraIntervalYM into ISO-8601 String";
 
 	private static final String FIELD_PARAM = "field";

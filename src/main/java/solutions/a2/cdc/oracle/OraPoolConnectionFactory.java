@@ -29,8 +29,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.ucp.UniversalConnectionPoolAdapter;
 import oracle.ucp.UniversalConnectionPoolException;
@@ -46,7 +46,7 @@ import oracle.ucp.jdbc.PoolDataSourceFactory;
  */
 public class OraPoolConnectionFactory {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraPoolConnectionFactory.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraPoolConnectionFactory.class);
 	private static final int INITIAL_SIZE = 4;
 	private static final int POOL_INIT_WAIT_MS = 100;
 	private static final String ORACDC_POOL_NAME = "oracdc-ucp-pool-1";

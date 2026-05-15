@@ -52,9 +52,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.runtime.data.DataBinder;
@@ -67,7 +67,7 @@ import solutions.a2.cdc.oracle.utils.OraSqlUtils;
  */
 public abstract class OraCdcTableBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTableBase.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcTableBase.class);
 
 	private final String pdbName;
 	private final String tableOwner;

@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 
-import org.apache.log4j.BasicConfigurator;
 import org.junit.jupiter.api.Test;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
@@ -44,9 +43,7 @@ import solutions.a2.oracle.internals.RowId;
  */
 public class OraCdcRollbackCQTest {
 	
-	OraCdcRollbackCQTest() {
-		BasicConfigurator.configure();
-	}
+	OraCdcRollbackCQTest() {}
 
 	@Test
 	public void test() throws IOException {

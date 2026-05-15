@@ -50,9 +50,9 @@ import org.agrona.collections.Long2ObjectHashMap;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.errors.DataException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * 
@@ -61,7 +61,7 @@ import org.slf4j.event.Level;
  */
 public class OraCdcLogMinerTable extends OraCdcTableBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerTable.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcLogMinerTable.class);
 
 	private static final String SQL_REDO_WHERE = " where ";
 	private static final String SQL_REDO_SET = " set ";

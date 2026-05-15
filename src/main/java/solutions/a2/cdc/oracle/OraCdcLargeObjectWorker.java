@@ -32,8 +32,8 @@ import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.sql.NUMBER;
@@ -49,7 +49,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
  */
 public class OraCdcLargeObjectWorker {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLargeObjectWorker.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcLargeObjectWorker.class);
 
 	private final OraLogMiner logMiner;
 	private final int pollInterval;

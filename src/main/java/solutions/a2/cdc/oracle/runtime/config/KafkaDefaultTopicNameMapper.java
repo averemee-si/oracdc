@@ -29,8 +29,8 @@ import static solutions.a2.cdc.oracle.runtime.config.Parameters.TOPIC_NAME_STYLE
 import static solutions.a2.cdc.oracle.runtime.config.Parameters.TOPIC_NAME_STYLE_INT_TABLE;
 
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
 import solutions.a2.cdc.oracle.utils.KafkaUtils;
@@ -42,7 +42,7 @@ import solutions.a2.cdc.oracle.utils.KafkaUtils;
  */
 public class KafkaDefaultTopicNameMapper implements KafkaTopicNameMapper {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaDefaultTopicNameMapper.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaDefaultTopicNameMapper.class);
 
 	private String topicParam;
 	private int topicNameStyle;

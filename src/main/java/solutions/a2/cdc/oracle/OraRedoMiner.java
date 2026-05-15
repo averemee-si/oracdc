@@ -37,8 +37,8 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
 import solutions.a2.cdc.oracle.internals.OraCdcRedoLog;
@@ -78,7 +78,7 @@ import static solutions.a2.cdc.oracle.OraRdbmsInfo.SQL_STATE_FILE_NOT_FOUND;
  */
 public class OraRedoMiner {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraRedoMiner.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraRedoMiner.class);
 	private static final int MAX_RETRIES = 63;
 
 	private final OraCdcSourceConnectorConfig config;

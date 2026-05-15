@@ -40,8 +40,8 @@ import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 import java.util.Arrays;
 
 import org.agrona.collections.IntHashSet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * Minimlistic presentation of V$LOGMNR_CONTENTS row for OPERATION_CODE = 1|2|3
@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
  */
 public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerStatement.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoMinerStatement.class);
 
 	/**
 	 * 
