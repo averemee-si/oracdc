@@ -47,8 +47,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.transforms.Transformation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  *
@@ -57,7 +57,7 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class ToLowerCaseNameConverter <R extends ConnectRecord<R>> implements Transformation<R>  {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(ToLowerCaseNameConverter.class);
+	private static final Logger LOGGER = LogManager.getLogger(ToLowerCaseNameConverter.class);
 	private static final String PURPOSE = "сhanges field name to lower case (Oracle Database to Apache Iceberg table case)";
 
 	private static final String FIELD_PARAM = "field";

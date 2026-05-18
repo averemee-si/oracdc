@@ -41,8 +41,8 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
 import org.apache.commons.math3.util.Precision;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcException;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
@@ -57,7 +57,7 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  */
 public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcSourceConnMgmt.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcSourceConnMgmt.class);
 
 	private List<String> tablesInProcessing = new ArrayList<>();
 	private List<String> nowProcessedRedologs;

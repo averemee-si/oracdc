@@ -48,8 +48,8 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.TargetDbSqlUtils;
 import solutions.a2.cdc.sink.jmx.WrappedTableInfo;
@@ -71,7 +71,7 @@ import static solutions.a2.kafka.sink.JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TR
  */
 public class WrappedDataTable extends JdbcSinkTableBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(WrappedDataTable.class);
+	private static final Logger LOGGER = LogManager.getLogger(WrappedDataTable.class);
 
 	private final WrappedTableInfo metrics;
 	private String sinkUpsertSql = null;

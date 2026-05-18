@@ -32,8 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * 
@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
 public class OraCdcTransactionArrayList extends OraCdcTransaction {
 
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransactionArrayList.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcTransactionArrayList.class);
 
 	private List<OraCdcStatementBase> statements;
 	private int queueSize;

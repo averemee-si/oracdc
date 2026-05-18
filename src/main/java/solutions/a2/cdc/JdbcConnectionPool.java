@@ -34,8 +34,8 @@ import java.util.Enumeration;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -46,7 +46,7 @@ import com.zaxxer.hikari.HikariDataSource;
  */
 public class JdbcConnectionPool {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcConnectionPool.class);
+	private static final Logger LOGGER = LogManager.getLogger(JdbcConnectionPool.class);
 	private static final String DRIVER_POSTGRESQL = "org.postgresql.Driver";
 	private static final String PREFIX_POSTGRESQL = "jdbc:postgresql:";
 	private static final String DRIVER_ORACLE = "oracle.jdbc.OracleDriver";

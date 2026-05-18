@@ -28,8 +28,8 @@ package solutions.a2.cdc.oracle;
 import java.util.Map;
 
 import org.apache.kafka.connect.connector.Task;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceLogMinerTask;
 import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceConnectorBase;
@@ -42,7 +42,7 @@ import solutions.a2.cdc.oracle.runtime.thread.KafkaSourceConnectorBase;
  */
 public class OraCdcLogMinerConnector extends KafkaSourceConnectorBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerConnector.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcLogMinerConnector.class);
 
 	@Override
 	public void start(Map<String, String> props) {

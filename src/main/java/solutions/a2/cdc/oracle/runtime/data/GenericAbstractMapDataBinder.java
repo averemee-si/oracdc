@@ -34,8 +34,8 @@ import java.util.Optional;
 
 import org.agrona.collections.Int2NullableObjectHashMap;
 import org.agrona.collections.Int2ObjectHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcColumn;
 import solutions.a2.cdc.oracle.OraCdcStatementBase;
@@ -50,7 +50,7 @@ import solutions.a2.cdc.oracle.OraRdbmsInfo;
  */
 public abstract class GenericAbstractMapDataBinder implements DataBinder {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(GenericAbstractMapDataBinder.class);
+	private static final Logger LOGGER = LogManager.getLogger(GenericAbstractMapDataBinder.class);
 
 	final OraCdcTableBase table;
 	final OraRdbmsInfo rdbmsInfo;

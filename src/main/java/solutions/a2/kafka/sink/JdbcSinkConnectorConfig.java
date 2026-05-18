@@ -34,8 +34,8 @@ import org.apache.commons.lang3.Strings;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.errors.ConnectException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.TargetDbConfig;
 
@@ -78,7 +78,7 @@ import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
  */
 public class JdbcSinkConnectorConfig extends AbstractConfig implements TargetDbConfig {
 	
-	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkConnectorConfig.class);
+	private static final Logger LOGGER = LogManager.getLogger(JdbcSinkConnectorConfig.class);
 
 	private static final String TABLE_NAME_PREFIX_PARAM = "a2.table.name.prefix";
 	private static final String TABLE_NAME_PREFIX_DOC =

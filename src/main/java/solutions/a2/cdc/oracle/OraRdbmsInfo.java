@@ -46,8 +46,8 @@ import org.agrona.collections.IntArrayList;
 import org.agrona.collections.IntHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleConnection;
 import oracle.sql.json.OracleJsonFactory;
@@ -133,7 +133,7 @@ public class OraRdbmsInfo {
 	private static final byte TDE_COLUMNS = 1;
 	private static final byte TDE_TABLESPACES = 2;
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraRdbmsInfo.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraRdbmsInfo.class);
 
 	public OraRdbmsInfo(final Connection connection) throws SQLException {
 		try (final PreparedStatement psInstance = connection.prepareStatement(OraDictSqlTexts.RDBMS_VERSION_AND_MORE,

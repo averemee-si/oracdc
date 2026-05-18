@@ -26,8 +26,8 @@
 package solutions.a2.cdc.oracle.internals;
 
 import java.util.Arrays;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * 
@@ -42,7 +42,7 @@ import org.slf4j.LoggerFactory;
 
 public class OraCdcChangeAudit extends OraCdcChange {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeAudit.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcChangeAudit.class);
 
 	private final short serialNumber;
 	private final int sessionNumber;

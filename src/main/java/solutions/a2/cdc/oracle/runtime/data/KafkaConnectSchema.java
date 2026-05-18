@@ -103,8 +103,8 @@ import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Timestamp;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.sql.NUMBER;
 import oracle.sql.json.OracleJsonFactory;
@@ -127,7 +127,7 @@ public class KafkaConnectSchema {
 
 	public static final String ORA_NUMBER_LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraNumber";
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaConnectSchema.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaConnectSchema.class);
 
 	private final OraRdbmsInfo rdbmsInfo;
 	private final boolean suppLogAll;

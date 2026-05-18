@@ -28,12 +28,12 @@ package solutions.a2.utils;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 public class ExceptionUtils {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(ExceptionUtils.class);
+	private static final Logger LOGGER = LogManager.getLogger(ExceptionUtils.class);
 
 	/**
 	 * Display the stacktrace contained in an exception.

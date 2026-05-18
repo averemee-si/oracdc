@@ -27,8 +27,8 @@ package solutions.a2.cdc.oracle.internals;
 
 import java.time.Instant;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.UndoByteAddress;
 
@@ -47,7 +47,7 @@ import solutions.a2.oracle.internals.UndoByteAddress;
 
 public class OraCdcChangeRcm extends OraCdcChange {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeRcm.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcChangeRcm.class);
 	private static final int KTUCM_MIN_LENGTH = 0x14;
 	private static final int KTUCF_MIN_LENGTH = 0x10;
 	private static final int ROLLBACK = 0x04;

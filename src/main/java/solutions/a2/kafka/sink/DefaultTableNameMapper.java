@@ -29,8 +29,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.runtime.config.Parameters;
 
@@ -41,7 +41,7 @@ import solutions.a2.cdc.oracle.runtime.config.Parameters;
  */
 public class DefaultTableNameMapper implements TableNameMapper {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(DefaultTableNameMapper.class);
+	private static final Logger LOGGER = LogManager.getLogger(DefaultTableNameMapper.class);
 
 	private String topicPrefix;
 	private String prefix;

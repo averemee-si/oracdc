@@ -38,8 +38,8 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 
@@ -52,7 +52,7 @@ import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
  */
 public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcV$ArchivedLogImpl.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcV$ArchivedLogImpl.class);
 
 	private long firstChange;
 	private long currentFirstChange;

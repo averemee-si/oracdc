@@ -37,8 +37,8 @@ import org.agrona.collections.Long2LongHashMap;
 import org.agrona.collections.Long2ObjectHashMap;
 import org.agrona.collections.LongHashSet;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.jmx.OraCdcSourceConnMgmt;
 
@@ -56,7 +56,7 @@ import static solutions.a2.cdc.oracle.OraRdbmsInfo.ORA_17410;
  */
 public class OraCdcDictionaryChecker {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcDictionaryChecker.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcDictionaryChecker.class);
 	private static final int MAX_RETRIES = 63;
 
 	private final OraCdcTaskBase task;

@@ -33,8 +33,8 @@ import java.io.InputStream;
 import java.sql.SQLException;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import java.io.IOException;
 
@@ -44,7 +44,7 @@ import com.sshtools.common.ssh.SshException;
 
 public class OraCdcRedoSshtoolsMaverickReader implements OraCdcRedoReader {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoSshtoolsMaverickReader.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoSshtoolsMaverickReader.class);
 
     private InputStream is;
     private final String redoLog;

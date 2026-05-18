@@ -42,8 +42,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleStatement;
@@ -64,7 +64,7 @@ import oracle.ucp.jdbc.ValidConnection;
  */
 public class OraConnectionObjects {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraConnectionObjects.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraConnectionObjects.class);
 	private static final int INITIAL_SIZE = 4;
 	private static final AtomicBoolean state = new AtomicBoolean(true);
 	private static final AtomicInteger taskId = new AtomicInteger(0);

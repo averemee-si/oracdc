@@ -39,8 +39,8 @@ import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
 import org.apache.commons.math3.util.Precision;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcException;
 import solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
@@ -54,7 +54,7 @@ import solutions.a2.utils.OraCdcMBeanUtils;
  */
 public class OraCdcRedoShipment implements OraCdcRedoShipmentMBean {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoShipment.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoShipment.class);
 
 	private long startTimeMillis;
 	private LocalDateTime startTime;

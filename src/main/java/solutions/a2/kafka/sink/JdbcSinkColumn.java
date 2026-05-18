@@ -105,8 +105,8 @@ import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.data.Timestamp;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.sql.NUMBER;
 import solutions.a2.cdc.Column;
@@ -129,7 +129,7 @@ import solutions.a2.oracle.jdbc.types.TimestampWithTimeZone;
  */
 public class JdbcSinkColumn extends Column {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkColumn.class);
+	private static final Logger LOGGER = LogManager.getLogger(JdbcSinkColumn.class);
 	private JdbcSinkBinder binder;
 
 	/**

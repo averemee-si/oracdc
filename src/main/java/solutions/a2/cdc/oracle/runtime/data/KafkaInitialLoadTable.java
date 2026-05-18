@@ -76,8 +76,8 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.BINARY_DOUBLE;
@@ -103,7 +103,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class KafkaInitialLoadTable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaInitialLoadTable.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaInitialLoadTable.class);
 	private static final byte NULL_LENGTH_BYTE = (byte) -1;
 	private static final short NULL_LENGTH_SHORT = (short) -1;
 	private static final byte NULL_LENGTH_INT = (int) -1;

@@ -32,8 +32,8 @@ import java.util.Map;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.utils.Version;
 
@@ -44,7 +44,7 @@ import solutions.a2.cdc.oracle.utils.Version;
  */
 public class JdbcSinkConnector extends SinkConnector {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(JdbcSinkConnector.class);
+	private static final Logger LOGGER = LogManager.getLogger(JdbcSinkConnector.class);
 
 	private Map<String, String> props;
 

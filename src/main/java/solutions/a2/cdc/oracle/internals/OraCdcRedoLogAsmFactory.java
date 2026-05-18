@@ -30,8 +30,8 @@ import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleCallableStatement;
 import solutions.a2.oracle.utils.BinaryUtils;
@@ -41,7 +41,7 @@ import static oracle.jdbc.OracleTypes.BIGINT;
 
 public class OraCdcRedoLogAsmFactory extends OraCdcRedoLogFactoryBase implements OraCdcRedoLogFactory {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLogAsmFactory.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoLogAsmFactory.class);
 	private static final String ASM_OPEN =
 			"declare\n" +
 			"  l_ASM_FILENAME varchar2(4000);\n" +

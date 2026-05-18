@@ -32,8 +32,8 @@ import java.sql.SQLException;
 import java.util.EnumSet;
 
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.DisconnectReason;
@@ -48,7 +48,7 @@ import solutions.a2.oracle.utils.BinaryUtils;
 public class OraCdcRedoLogSshjFactory extends OraCdcRedoLogFactoryBase
 		implements OraCdcRedoLogFactory, AutoCloseable, DisconnectListener {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLogSshjFactory.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoLogSshjFactory.class);
 	
 	private final String username;
 	private final String hostname;

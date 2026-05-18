@@ -65,8 +65,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
@@ -87,7 +87,7 @@ import solutions.a2.oracle.utils.FormattingUtils;
 
 public class OraCdcRedoRecord implements Comparable<OraCdcRedoRecord> {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoRecord.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoRecord.class);
 
 	/* VLD field constants */
 	/** The contents are not valid */

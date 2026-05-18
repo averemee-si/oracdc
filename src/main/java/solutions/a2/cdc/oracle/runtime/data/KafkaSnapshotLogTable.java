@@ -54,8 +54,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleResultSet;
 import oracle.sql.NUMBER;
@@ -78,7 +78,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class KafkaSnapshotLogTable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSnapshotLogTable.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaSnapshotLogTable.class);
 
 	private final String tableOwner;
 	private final String tableName;

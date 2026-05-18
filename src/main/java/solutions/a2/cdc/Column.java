@@ -32,8 +32,8 @@ import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * 
@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class Column {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(Column.class);
+	private static final Logger LOGGER = LogManager.getLogger(Column.class);
 
 	public static final char CHAR_0 = (char)0;
 	public static final int JAVA_SQL_TYPE_INTERVALYM_STRING = -2_000_000_001;

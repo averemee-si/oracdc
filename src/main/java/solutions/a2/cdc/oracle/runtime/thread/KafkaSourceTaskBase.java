@@ -53,8 +53,8 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcDictionaryChecker;
 import solutions.a2.cdc.oracle.OraCdcSourceConnectorConfig;
@@ -82,7 +82,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTaskBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceTaskBase.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaSourceTaskBase.class);
 	static final int WAIT_FOR_WORKER_MILLIS = 50;
 
 	static final AtomicBoolean state = new AtomicBoolean(true);

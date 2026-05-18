@@ -28,8 +28,8 @@ package solutions.a2.cdc.oracle.internals;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.Xid;
@@ -55,7 +55,7 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 	public static final int KEY_10_30_POS = 4;
 	public static final int COL_NUM_10_35_POS = 5;
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndoBlock.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcChangeUndoBlock.class);
 	private static final int SUPPL_LOG_MIN_LENGTH = 0x14;
 	private static final int KTUDB_MIN_LENGTH = 0x14;
 	private static final int KDILK_MIN_LENGTH = 0x14;

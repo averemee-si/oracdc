@@ -44,8 +44,8 @@ import java.util.concurrent.BlockingQueue;
 import org.agrona.collections.Int2IntHashMap;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcTaskBase.Coords;
 import solutions.a2.cdc.oracle.OraCdcTaskBase.XidCoords;
@@ -82,7 +82,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.parseTimestamp;
  */
 public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerWorkerThread.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoMinerWorkerThread.class);
 	private static final String SQL_STATE_REWIND = "RWND00";
 	private static final int SMALL_MAGIC_WAIT = 21;
 

@@ -58,8 +58,8 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.transforms.Transformation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.sql.NUMBER;
 
@@ -70,7 +70,7 @@ import oracle.sql.NUMBER;
  */
 public abstract class OraNumberConverter <R extends ConnectRecord<R>> implements Transformation<R>  {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraNumberConverter.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraNumberConverter.class);
 	private static final String PURPOSE = "convert solutions.a2.cdc.oracle.data.OraNumber into String/FLOAT32/FLOAT64/org.apache.kafka.connect.data.Decimal";
 
 	private static final String FIELD_PARAM = "field";

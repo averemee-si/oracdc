@@ -29,8 +29,8 @@ import java.sql.SQLException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
 
@@ -41,7 +41,7 @@ import solutions.a2.oracle.internals.RedoByteAddress;
  */
 public abstract class OraCdcWorkerThreadBase extends Thread {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcWorkerThreadBase.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcWorkerThreadBase.class);
 
 	final CountDownLatch runLatch;
 	final AtomicBoolean running;

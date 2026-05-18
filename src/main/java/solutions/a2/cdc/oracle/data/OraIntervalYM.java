@@ -31,8 +31,8 @@ import java.time.Period;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.jdbc.types.IntervalYearToMonth;
 
@@ -45,7 +45,7 @@ import solutions.a2.oracle.jdbc.types.IntervalYearToMonth;
  */
 public class OraIntervalYM {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraIntervalYM.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraIntervalYM.class);
 
 	public static final String LOGICAL_NAME = "solutions.a2.cdc.oracle.data.OraIntervalYM";
 

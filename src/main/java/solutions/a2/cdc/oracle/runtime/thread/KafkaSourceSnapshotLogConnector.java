@@ -41,8 +41,8 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceConnector;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcSourceBaseConfig;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
@@ -61,7 +61,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class KafkaSourceSnapshotLogConnector extends SourceConnector {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaSourceSnapshotLogConnector.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaSourceSnapshotLogConnector.class);
 	private static final int MAX_TABLES = 256;
 
 	static final String TASK_PARAM_MASTER = "master";

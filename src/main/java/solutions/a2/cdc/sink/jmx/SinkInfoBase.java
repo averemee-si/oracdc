@@ -36,8 +36,8 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcException;
 import solutions.a2.utils.ExceptionUtils;
@@ -53,7 +53,7 @@ import static solutions.a2.utils.OraCdcMBeanUtils.formatDuration;
  */
 public abstract class SinkInfoBase implements SinkInfoBaseMBean {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(SinkInfoBase.class);
+	private static final Logger LOGGER = LogManager.getLogger(SinkInfoBase.class);
 
 	private final long startTimeMillis;
 	private final LocalDateTime startTime;

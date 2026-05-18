@@ -43,8 +43,8 @@ import java.util.Arrays;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleBlob;
 import oracle.jdbc.OracleCallableStatement;
@@ -62,7 +62,7 @@ import solutions.a2.cdc.oracle.runtime.data.GenericAbstractMapDataBinder.KeyValu
  */
 public class GenericInitialLoadTable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(GenericInitialLoadTable.class);
+	private static final Logger LOGGER = LogManager.getLogger(GenericInitialLoadTable.class);
 	private static final int LOB_CHUNK_SIZE = 16384;
 
 	private final OraCdcTableBase oraTable;

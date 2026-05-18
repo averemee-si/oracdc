@@ -23,16 +23,30 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.PropertyConfigurator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
+import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.utils.ExceptionUtils;
 
 public class SourceDatabaseShipmentAgent {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(SourceDatabaseShipmentAgent.class);
+	private static final Logger LOGGER;
+	static {
+		var builder = ConfigurationBuilderFactory.newConfigurationBuilder();
+		var console = builder.newAppender("stdout", "CONSOLE");
+		builder.add(console);
+		var layout = builder.newLayout("PatternLayout");
+		layout.addAttribute("pattern", "%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n");
+		console.add(layout);
+		var root = builder.newRootLogger(Level.INFO);
+		root.add(builder.newAppenderRef("stdout"));
+		builder.add(root);
+		Configurator.initialize(builder.build());
+		LOGGER = LogManager.getLogger(SourceDatabaseShipmentAgent.class);
+	}
 	private static final int INPUT_COMMAND_LENGTH = 1024;
 	private static final int MAX_FILE_SIZE = Integer.MAX_VALUE - 4096 + 1;
 
@@ -109,22 +123,6 @@ public class SourceDatabaseShipmentAgent {
 	}
 
 	public static void main(String[] argv) {
-		// Check for valid log4j configuration
-		final String log4jConfig = System.getProperty("a2.log4j.configuration");
-		if (log4jConfig == null || "".equals(log4jConfig)) {
-			BasicConfigurator.configure();
-			LOGGER.error("JVM argument -Da2.log4j.configuration not set!");
-		} else {
-			// Check that log4j configuration file exist
-			Path path = Paths.get(log4jConfig);
-			if (!Files.exists(path) || Files.isDirectory(path)) {
-				BasicConfigurator.configure();
-				LOGGER.error("JVM argument -Da2.log4j.configuration points to unknown file {}.", log4jConfig);
-			} else {
-				// Initialize log4j
-				PropertyConfigurator.configure(log4jConfig);
-			}
-		}
 
 		final Options options = new Options();
 		final Option bindAddress = new Option("b", "bind-address", true,

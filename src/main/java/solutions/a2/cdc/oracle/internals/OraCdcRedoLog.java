@@ -32,8 +32,8 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Iterator;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.jdbc.types.UnsignedLong;
@@ -57,7 +57,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
 
 public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLog.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoLog.class);
 	private static final int POS_RDBMS_VERSION = 0x0014;
 	private static final int POS_INSTANCE_NAME = 0x001c;
 	private static final int RECORD_SIZE_THRESHOLD = 0x18;

@@ -40,10 +40,11 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.cli.help.HelpFormatter;
 import org.apache.commons.lang3.Strings;
-import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.Level;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
+import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraConnectionObjects;
 import solutions.a2.cdc.oracle.OraDictSqlTexts;
@@ -58,22 +59,33 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class OracleSetupCheck {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OracleSetupCheck.class);
+	private static final Logger LOGGER;
+	static {
+		var builder = ConfigurationBuilderFactory.newConfigurationBuilder();
+		var console = builder.newAppender("stdout", "CONSOLE");
+		builder.add(console);
+		var layout = builder.newLayout("PatternLayout");
+		layout.addAttribute("pattern", "%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n");
+		console.add(layout);
+		var root = builder.newRootLogger(Level.INFO);
+		root.add(builder.newAppenderRef("stdout"));
+		builder.add(root);
+		Configurator.initialize(builder.build());
+		LOGGER = LogManager.getLogger(OracleSetupCheck.class);
+	}
+
 	private static final String PRIV_CREATE_SESSION = "CREATE SESSION";
 	private static final String PRIV_SELECT_ANY_TRANSACTION = "SELECT ANY TRANSACTION";
 	private static final String PRIV_SELECT_ANY_DICTIONARY = "SELECT ANY DICTIONARY";
 	private static final String PRIV_LOGMINING = "LOGMINING";
 	private static final String PRIV_SET_CONTAINER = "SET CONTAINER";
 	private static final String ROLE_EXECUTE_CATALOG_ROLE = "EXECUTE_CATALOG_ROLE";
-
 	private static int errorCount = 0;
 	private static final StringBuilder sb = new StringBuilder(4096);
 	private static OraConnectionObjects dbPool = null;
 	private static OraRdbmsInfo rdbmsInfo = null;
 
 	public static void main(String[] argv) {
-		BasicConfigurator.configure();
-		org.apache.log4j.Logger.getRootLogger().setLevel(Level.INFO);
 
 		LOGGER.info("Starting...");
 

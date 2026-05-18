@@ -102,8 +102,8 @@ import java.util.zip.Inflater;
 import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.IntHashSet;
 import org.agrona.collections.Long2ObjectHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.internals.OraCdcChange;
 import solutions.a2.cdc.oracle.internals.OraCdcChangeColb;
@@ -133,7 +133,7 @@ public abstract class OraCdcTransaction {
 
 	public enum LobProcessingStatus {NOT_AT_ALL, LOGMINER, REDOMINER};
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTransaction.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcTransaction.class);
 
 	boolean firstRecord = true;
 	private final long firstChange;

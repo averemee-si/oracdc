@@ -43,8 +43,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.transforms.Transformation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  *
@@ -53,7 +53,7 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class HeaderToFieldConverter <R extends ConnectRecord<R>> implements Transformation<R>  {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(HeaderToFieldConverter.class);
+	private static final Logger LOGGER = LogManager.getLogger(HeaderToFieldConverter.class);
 	private static final String PURPOSE = "copies the header field into the key or value structure and replaces values of this field ​​if necessary";
 
 	private static final String HEADER_PARAM = "header";

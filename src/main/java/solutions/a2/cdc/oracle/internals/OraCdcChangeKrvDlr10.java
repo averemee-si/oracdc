@@ -25,8 +25,8 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.Xid;
 
@@ -45,7 +45,7 @@ import solutions.a2.oracle.internals.Xid;
 
 public class OraCdcChangeKrvDlr10 extends OraCdcChange {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeKrvDlr10.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcChangeKrvDlr10.class);
 
 	OraCdcChangeKrvDlr10(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, _24_6_DLR10, record, offset, headerLength);

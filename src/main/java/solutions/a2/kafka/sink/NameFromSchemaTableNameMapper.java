@@ -33,8 +33,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.runtime.config.Parameters;
 
@@ -45,7 +45,7 @@ import solutions.a2.cdc.oracle.runtime.config.Parameters;
  */
 public class NameFromSchemaTableNameMapper implements TableNameMapper {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(NameFromSchemaTableNameMapper.class);
+	private static final Logger LOGGER = LogManager.getLogger(NameFromSchemaTableNameMapper.class);
 
 	private final Map<String, String> preparedNames = new HashMap<>();
 	private List<String> schemaPrefixes;

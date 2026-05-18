@@ -47,8 +47,8 @@ import java.util.concurrent.CountDownLatch;
 import org.agrona.collections.LongHashSet;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleResultSet;
@@ -85,7 +85,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
  */
 public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcLogMinerWorkerThread.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcLogMinerWorkerThread.class);
 	private static final int MAX_RETRIES = 63;
 	// XIDUSN || XIDSLT
 	private static final int TRANS_PREFIX = 8;

@@ -30,8 +30,8 @@ import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleBfile;
 import oracle.jdbc.OracleCallableStatement;
@@ -43,7 +43,7 @@ import static oracle.jdbc.OracleTypes.BFILE;
 
 public class OraCdcRedoLogBfileFactory extends OraCdcRedoLogFactoryBase implements OraCdcRedoLogFactory {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoLogBfileFactory.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoLogBfileFactory.class);
 	private static final String GET_BFILE =
 			"""
 			begin

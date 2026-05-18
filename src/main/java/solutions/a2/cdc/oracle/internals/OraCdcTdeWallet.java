@@ -44,8 +44,8 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.security.pki.OracleSecretStoreException;
 import oracle.security.pki.OracleWallet;
@@ -69,7 +69,7 @@ public class OraCdcTdeWallet {
 	private final Map<String, Kek> secrets;
 	private String masterKeyId = null;
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcTdeWallet.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcTdeWallet.class);
 	private static final String KEY_PREFIX = "ORACLE.SECURITY.DB.ENCRYPTION.";
 
 	OraCdcTdeWallet(String path, String password) throws IOException {

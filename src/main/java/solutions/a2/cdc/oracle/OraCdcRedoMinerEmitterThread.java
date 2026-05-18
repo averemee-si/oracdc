@@ -34,8 +34,8 @@ import java.sql.SQLException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcTransaction.LobProcessingStatus;
 import solutions.a2.utils.ExceptionUtils;
@@ -47,7 +47,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class OraCdcRedoMinerEmitterThread extends Thread {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerEmitterThread.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoMinerEmitterThread.class);
 
 	private final OraCdcTaskBase task;
 	private final CountDownLatch runLatch;

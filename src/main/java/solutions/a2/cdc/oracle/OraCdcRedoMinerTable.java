@@ -38,9 +38,9 @@ import java.util.Map;
 
 import org.agrona.collections.Int2ObjectHashMap;
 import org.agrona.collections.IntHashSet;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.event.Level;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * 
@@ -49,7 +49,7 @@ import org.slf4j.event.Level;
  */
 public class OraCdcRedoMinerTable extends OraCdcTableBase {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcRedoMinerTable.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoMinerTable.class);
 
 	private final Int2ObjectHashMap<OraCdcColumn> pureIdMap = new Int2ObjectHashMap<>();
 	private final IntHashSet setColumns = new IntHashSet();

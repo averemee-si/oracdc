@@ -42,9 +42,11 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.apache.log4j.BasicConfigurator;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
+import org.apache.logging.log4j.core.config.builder.api.ConfigurationBuilderFactory;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.collect.MapDifference.ValueDifference;
 import com.google.common.collect.Maps;
@@ -62,15 +64,22 @@ public abstract class TestWithOutput {
 	private static final String SQL_REDO_IS = " IS";
 	private static final String SQL_REDO_VALUES = " values ";
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(TestWithOutput.class);
-	private static boolean initLogging = true;
-
-	TestWithOutput() {
-		if (initLogging) {
-			BasicConfigurator.configure();
-			initLogging = false;
-		}
+	private static final Logger LOGGER;
+	static {
+		var builder = ConfigurationBuilderFactory.newConfigurationBuilder();
+		var console = builder.newAppender("stdout", "CONSOLE");
+		builder.add(console);
+		var layout = builder.newLayout("PatternLayout");
+		layout.addAttribute("pattern", "%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n");
+		console.add(layout);
+		var root = builder.newRootLogger(Level.DEBUG);
+		root.add(builder.newAppenderRef("stdout"));
+		builder.add(root);
+		Configurator.initialize(builder.build());
+		LOGGER = LogManager.getLogger(TestWithOutput.class);
 	}
+
+	TestWithOutput() {}
 
 	boolean compareLogMinerText(final String logMinerSql, final String redoMinerSql) {
 		var squeezedSql = StringUtils.trim(Strings.CS.replace(

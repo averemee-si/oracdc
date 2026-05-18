@@ -71,8 +71,8 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import org.agrona.collections.Int2ObjectHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.driver.VectorData;
 import oracle.sql.BINARY_DOUBLE;
@@ -116,7 +116,7 @@ public class GenericDecoders {
 	private static final Int2ObjectHashMap<OraCdcDecoder> decoders = new Int2ObjectHashMap<>();
 	private static final Int2ObjectHashMap<OraCdcDecoder> wrappedDecoders = new Int2ObjectHashMap<>();
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(GenericDecoders.class);
+	private static final Logger LOGGER = LogManager.getLogger(GenericDecoders.class);
 
 	static final byte VECTOR_MAGIC_BYTE = (byte)0xDB;
 

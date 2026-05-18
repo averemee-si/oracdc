@@ -49,8 +49,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleConnection;
 import solutions.a2.cdc.oracle.jmx.OraCdcRedoShipment;
@@ -68,7 +68,7 @@ import solutions.a2.utils.ExceptionUtils;
  */
 public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcDistributedV$ArchivedLogImpl.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcDistributedV$ArchivedLogImpl.class);
 
 	private long sessionFirstChange;
 	private final boolean dictionaryAvailable;

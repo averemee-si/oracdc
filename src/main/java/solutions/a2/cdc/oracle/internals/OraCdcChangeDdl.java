@@ -27,8 +27,8 @@ package solutions.a2.cdc.oracle.internals;
 
 import java.util.Arrays;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.Xid;
 
@@ -47,7 +47,7 @@ import solutions.a2.oracle.internals.Xid;
 
 public class OraCdcChangeDdl extends OraCdcChange {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeDdl.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcChangeDdl.class);
 	private static final int DDLDEF_MIN_LENGTH = 0x12;
 	private static final int DDL_SQL_POS = 0x07;
 	private static final int DDL_OBJ_POS = 0x0B;

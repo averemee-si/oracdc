@@ -61,8 +61,8 @@ import java.util.List;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Struct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.driver.VectorData;
 import oracle.sql.BINARY_DOUBLE;
@@ -104,7 +104,7 @@ import solutions.a2.oracle.internals.LobLocator;
  */
 public class KafkaConnectDecoders extends GenericDecoders {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(KafkaConnectDecoders.class);
+	private static final Logger LOGGER = LogManager.getLogger(KafkaConnectDecoders.class);
 	
 	static OraCdcDecoder get(final Schema schema) {
 		return new OraCdcDecoder() {

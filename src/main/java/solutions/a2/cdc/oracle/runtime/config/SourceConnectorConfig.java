@@ -81,8 +81,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.LastProcessedSeqNotifier;
 import solutions.a2.cdc.oracle.OraCdcKeyOverrideTypes;
@@ -102,7 +102,7 @@ public class SourceConnectorConfig {
 		LINUX = Strings.CI.endsWith(System.getProperty("os.name"), "inux");
 	}
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(SourceConnectorConfig.class);
+	private static final Logger LOGGER = LogManager.getLogger(SourceConnectorConfig.class);
 
 	private final Map<String, Triple<List<Pair<String, OraCdcColumn>>, Map<String, OraCdcColumn>, List<Pair<String, OraCdcColumn>>>> numberColumnsMap = new LinkedHashMap<>();
 	private final int topicNameStyle;

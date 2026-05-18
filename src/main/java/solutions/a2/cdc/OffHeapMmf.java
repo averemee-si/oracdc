@@ -44,8 +44,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /**
  * 
@@ -57,7 +57,7 @@ public class OffHeapMmf {
 
 	private static final int END_OF_SEGMENT_MARKER = 0xFFFFFFFF;
 	private static final int MADV_HUGEPAGE = 14;
-	private static final Logger LOGGER = LoggerFactory.getLogger(OffHeapMmf.class);
+	private static final Logger LOGGER = LogManager.getLogger(OffHeapMmf.class);
 
 	public static final boolean LINUX;
 	static {

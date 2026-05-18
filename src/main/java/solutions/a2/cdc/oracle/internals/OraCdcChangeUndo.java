@@ -25,8 +25,8 @@
 
 package solutions.a2.cdc.oracle.internals;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.oracle.internals.RowId;
 import solutions.a2.oracle.internals.UndoByteAddress;
@@ -56,7 +56,7 @@ public class OraCdcChangeUndo extends OraCdcChange {
 	static final short FLG_TBS_UNDO = 0x0080;
 	static final short FLG_USER_ONLY = 0x0040;
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(OraCdcChangeUndo.class);
+	private static final Logger LOGGER = LogManager.getLogger(OraCdcChangeUndo.class);
 	private static final int KTUVXOFF_MIN_LENGTH = 0x08;
 	private static final int KTUDH_MIN_LENGTH = 0x20;
 	private static final int KTUB_MIN_LENGTH = 0x18;
