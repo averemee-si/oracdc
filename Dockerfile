@@ -173,7 +173,7 @@ RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka
 ENV    JAVA_HOME=/opt/java/openjdk 
 ARG    BASEDIR=/opt
 
-ARG    KAFKA_VERSION=4.2.0
+ARG    KAFKA_VERSION=4.3.0
 ARG    SCALA_VERSION=2.13
 ARG    KAFKA_FILENAME=kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz
 ENV    KAFKA_HOME=${BASEDIR}/kafka
@@ -213,48 +213,6 @@ RUN    mkdir -p ${BASEDIR}/oracdc/licenses \
        && chown -R kafka:kafka ${BASEDIR}/oracdc
 
 USER   kafka
-# CVE-2026-1605 BEGIN
-ARG    JV="12.0.33"
-RUN    cd ${KAFKA_HOME}/libs && rm -f jetty-*-12.0.22.jar && wget -q \
-       "${MVN_BASE}/org/eclipse/jetty/jetty-http/${JV}/jetty-http-${JV}.jar" \
-       "${MVN_BASE}/org/eclipse/jetty/jetty-security/${JV}/jetty-security-${JV}.jar" \
-       "${MVN_BASE}/org/eclipse/jetty/jetty-session/${JV}/jetty-session-${JV}.jar" \
-       "${MVN_BASE}/org/eclipse/jetty/jetty-client/${JV}/jetty-client-${JV}.jar" \
-       "${MVN_BASE}/org/eclipse/jetty/jetty-io/${JV}/jetty-io-${JV}.jar" \
-       "${MVN_BASE}/org/eclipse/jetty/jetty-server/${JV}/jetty-server-${JV}.jar" \
-       "${MVN_BASE}/org/eclipse/jetty/jetty-util/${JV}/jetty-util-${JV}.jar" \
-       "${MVN_BASE}/org/eclipse/jetty/ee10/jetty-ee10-servlet/${JV}/jetty-ee10-servlet-${JV}.jar" \
-       "${MVN_BASE}/org/eclipse/jetty/ee10/jetty-ee10-servlets/${JV}/jetty-ee10-servlets-${JV}.jar" \
-       "${MVN_BASE}/org/eclipse/jetty/jetty-alpn-client/${JV}/jetty-alpn-client-${JV}.jar"
-# CVE-2026-1605 END
-# GHSA-72hv-8253-57qq BEGIN
-ARG    XV="2.21.1"
-ARG    XVA="2.21"
-ARG    SV="2.5"
-RUN    cd ${KAFKA_HOME}/libs && rm -f jackson-*-2.19.2.jar && rm -f snakeyaml-2.4.jar && wget -q \
-       "${MVN_BASE}/org/yaml/snakeyaml/${SV}/snakeyaml-${SV}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/core/jackson-annotations/${XVA}/jackson-annotations-${XVA}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/core/jackson-core/${XV}/jackson-core-${XV}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/core/jackson-databind/${XV}/jackson-databind-${XV}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-csv/${XV}/jackson-dataformat-csv-${XV}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/${XV}/jackson-dataformat-yaml-${XV}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-jdk8/${XV}/jackson-datatype-jdk8-${XV}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/jakarta/rs/jackson-jakarta-rs-base/${XV}/jackson-jakarta-rs-base-${XV}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/jakarta/rs/jackson-jakarta-rs-json-provider/${XV}/jackson-jakarta-rs-json-provider-${XV}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-jakarta-xmlbind-annotations/${XV}/jackson-module-jakarta-xmlbind-annotations-${XV}.jar" \
-       "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-blackbird/${XV}/jackson-module-blackbird-${XV}.jar"
-# GHSA-72hv-8253-57qq END
-# CVE-2025-67030 BEGIN
-RUN    cd ${KAFKA_HOME}/libs && rm -f plexus-utils-*.jar
-# CVE-2025-67030 END
-# CVE-2026-34477/CVE-2026-34478/CVE-2026-34479/CVE-2026-34480 BEGIN
-ARG    L4JV="2.25.4"
-RUN    cd ${KAFKA_HOME}/libs && rm -f log4j-api-*.jar && rm -f log4j-core-*.jar && rm -f log4j-slf4j-impl-*.jar && rm -f log4j-1.2-api-*.jar && wget -q \
-       "${MVN_BASE}/org/apache/logging/log4j/log4j-api/${L4JV}/log4j-api-${L4JV}.jar" \
-       "${MVN_BASE}/org/apache/logging/log4j/log4j-core/${L4JV}/log4j-core-${L4JV}.jar" \
-       "${MVN_BASE}/org/apache/logging/log4j/log4j-slf4j-impl/${L4JV}/log4j-slf4j-impl-${L4JV}.jar" \
-       "${MVN_BASE}/org/apache/logging/log4j/log4j-1.2-api/${L4JV}/log4j-1.2-api-${L4JV}.jar"
-# CVE-2026-34477/CVE-2026-34478/CVE-2026-34479/CVE-2026-34480 END
 RUN    mkdir ${KAFKA_HOME}/logs
 RUN    touch ${KAFKA_HOME}/logs/connect.log
 COPY   LICENSE* ${BASEDIR}/oracdc
