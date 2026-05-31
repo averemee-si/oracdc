@@ -24,6 +24,7 @@
 #
 
 ARG    CONFLUENT_VERSION=8.1.1
+ARG    APICURIO_VERSION=3.2.4
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
 
 FROM   eclipse-temurin:25-jdk AS build-sr-client
@@ -31,6 +32,7 @@ RUN    set -eux && apt-get update && apt-get --yes install wget
 
 # Add schema registry dependencies
 ARG    CONFLUENT_VERSION
+ARG    APICURIO_VERSION
 ARG    MVN_BASE
 ARG    CONFLUENT_BASE="https://packages.confluent.io/maven/io/confluent"
 ARG    GUAVA_VERSION=33.5.0-jre
@@ -52,7 +54,7 @@ ARG    HTTP_CLI_VERSION=5.6.1
 ARG    HTTP_CORE_VERSION=5.4.2
 
 #
-# Confluent AVRO support uber-jar
+# Confluent Schema Registry AVRO support uber-jar
 #
 ARG    AVRO_VERSION=1.12.1
 ARG    C_COMPRESS_VERSION=1.28.0
@@ -97,7 +99,7 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && cd / && rm -rf WORKDIR
 
 #
-# Confluent PROTOBUF support uber-jar
+# Confluent Schema Registry PROTOBUF support uber-jar
 #
 ARG    SQUP_WIRE_VERSION=5.4.0
 ARG    SQUP_OKIO_VERSION=3.16.4
@@ -156,6 +158,19 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && mv "confluent-protobuf-schema-client-${CONFLUENT_VERSION}.jar" / \
        && cd / && rm -rf WORKDIR
 
+#
+# Apicurio Schema Registry AVRO support uber-jar
+#
+ARG    ASC_FILENAME=apicurio-registry-distro-connect-converter-${APICURIO_VERSION}.zip
+RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
+       && wget -q \
+          "${MVN_BASE}/io/apicurio/apicurio-registry-distro-connect-converter/${APICURIO_VERSION}/${ASC_FILENAME}" \
+       && jar xvf ${ASC_FILENAME} && rm ${ASC_FILENAME} \
+       && for file in $(ls *.jar); do jar xvf $file; done \
+       && rm -f *.jar \
+       && jar cvf "apicurio-avro-schema-client-${APICURIO_VERSION}.jar" [A-Z]* [a-z]* \
+       && mv "apicurio-avro-schema-client-${APICURIO_VERSION}.jar" / \
+       && cd / && rm -rf WORKDIR
 
 FROM   eclipse-temurin:25-jre
 LABEL  maintainer="oracle@a2.solutions"
@@ -166,6 +181,7 @@ LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
 ARG    CONFLUENT_VERSION
+ARG    APICURIO_VERSION
 ARG    MVN_BASE
 
 RUN    set -eux && apt-get update && apt-get --yes dist-upgrade && apt-get --yes install netcat-traditional tzdata bash wget adduser 
@@ -233,6 +249,7 @@ RUN    echo "" > ${PROPS_FILE} \
 
 COPY   --from=build-sr-client /confluent-avro-schema-client-${CONFLUENT_VERSION}.jar ${KAFKA_HOME}/connect/lib
 COPY   --from=build-sr-client /confluent-protobuf-schema-client-${CONFLUENT_VERSION}.jar ${KAFKA_HOME}/connect/lib
+COPY   --from=build-sr-client /apicurio-avro-schema-client-${APICURIO_VERSION}.jar ${KAFKA_HOME}/connect/lib
 
 ARG    CHECKER_CMD=${KAFKA_HOME}/connect/bin/oraCheck.sh
 RUN    echo "#! /bin/sh" > ${CHECKER_CMD} \
