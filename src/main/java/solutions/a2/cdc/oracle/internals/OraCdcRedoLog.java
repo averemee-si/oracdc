@@ -60,6 +60,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	private static final Logger LOGGER = LogManager.getLogger(OraCdcRedoLog.class);
 	private static final int POS_RDBMS_VERSION = 0x0014;
 	private static final int POS_INSTANCE_NAME = 0x001c;
+	private static final int POS_CHECKSUM      = 0x000e;
 	private static final int RECORD_SIZE_THRESHOLD = 0x18;
 	private static final byte AES_128 = 0x10; 
 	private static final byte AES_256 = 0x70; 
@@ -145,9 +146,12 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 			reader.close();
 			throw new IOException("Invalid Oracle RDBMS redo block signature!");
 		}
-		if (validateChecksum && checksum(block) != 0x00) {
-			reader.close();
-			throw new IOException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
+		if (validateChecksum) {
+			var checkSum = bu.getU16(block, POS_CHECKSUM);
+			if (checkSum != checkSum(checkSum)) {
+				reader.close();
+				throw new IOException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
+			}
 		}
 		sequence = this.bu.getU32(block, 0x08);
 		controlSeq = this.bu.getU32(block, 0x24);
@@ -256,44 +260,15 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 		return sequence;
 	}
 
-	private static final int CHKSUM_BLK = 0x10;
-	private final static byte[] block1 = new byte[CHKSUM_BLK];
-	private final static byte[] block2 = new byte[CHKSUM_BLK];
-	private final static byte[] block3 = new byte[CHKSUM_BLK];
-	private final static byte[] block4 = new byte[CHKSUM_BLK];
-	private final static byte[] out = new byte[CHKSUM_BLK];
-	private final static byte[] res = new byte[CHKSUM_BLK];
-	private final static byte[] nul = new byte[CHKSUM_BLK];
-	private static int checksum(final byte[] buffer) {
-		for (int i = 0; i < CHKSUM_BLK; i++)
-			nul[i] = 0;
-		int r0 = 0, r1 = 0, r2 = 0, r3 = 0, r4 = 0;
-		for (int index = 0; index < buffer.length; index += 0x40) {
-			System.arraycopy(buffer, index, block1, 0, CHKSUM_BLK);
-			System.arraycopy(buffer, index + CHKSUM_BLK, block2, 0, CHKSUM_BLK);
-			System.arraycopy(buffer, index + 2 * CHKSUM_BLK, block3, 0, CHKSUM_BLK);
-			System.arraycopy(buffer, index + 3 * CHKSUM_BLK, block4, 0, CHKSUM_BLK);
-			for (int i = 0; i < CHKSUM_BLK; i++) {
-				out[i] = (byte) (block3[i] ^ block4[i]);
-				res[i] = (byte) (nul[i] ^ ((byte) (block1[i] ^ block2[i])));
-			}
-			System.arraycopy(res, 0, nul, 0, CHKSUM_BLK);
-			for (int i = 0; i < CHKSUM_BLK; i++)
-				res[i] = (byte) (nul[i] ^ out[i]);
-			System.arraycopy(res, 0, nul, 0, CHKSUM_BLK);
+	private short checkSum(final short blockCheckSum) {
+		var checkSum = 0L;
+		for (var i = 0; i < blockSize / Long.BYTES; ++i) {
+			checkSum ^= bu.getU64(block, i * Long.BYTES);
 		}
-		r1 = ((res[3] & 0xFF) << 24) | ((res[2] & 0xFF) << 16) | ((res[1] & 0xFF) << 8) | (res[0] & 0xFF);
-		r2 = ((res[7] & 0xFF) << 24) | ((res[6] & 0xFF) << 16) | ((res[5] & 0xFF) << 8) | (res[4] & 0xFF);
-		r3 = ((res[11] & 0xFF) << 24) | ((res[10] & 0xFF) << 16) | ((res[9] & 0xFF) << 8) | (res[8] & 0xFF);
-		r4 = ((res[15] & 0xFF) << 24) | ((res[14] & 0xFF) << 16) | ((res[13] & 0xFF) << 8) | (res[12] & 0xFF);
-
-		r0 = r0 ^ r1 ^ r2 ^ r3 ^ r4;
-		r1 = r0;
-		r0 = r0 >>> 16;
-		r0 = r0 ^ r1;
-		r0 = r0 & 0xFFFF;
-
-		return r0;
+		checkSum ^= (checkSum >>> 32);
+		checkSum ^= (checkSum >>> 16);
+		checkSum ^= Short.toUnsignedInt(blockCheckSum);
+        return (short) (checkSum & 0xFFFF);
 	}
 
 	@Override
@@ -772,10 +747,6 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 	private boolean nextBlock() throws SQLException {
 		final int bytesRead = reader.read(block, 0, blockSize);
 		if (blockSize == bytesRead) {
-			if (validateChecksum && checksum(block) != 0x00) {
-				reader.close();
-				throw new SQLException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
-			}
 			if (block[0] != 0x01 || block[1] != redoFileTypeByte) {
 				LOGGER.error(
 						"\n=====================\n" +
@@ -786,6 +757,13 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 						fileName, currentBlock, blockSize);
 				reader.close();
 				throw new SQLException("Invalid Oracle RDBMS redo file block signature!");
+			}
+			if (validateChecksum) {
+				var checkSum = bu.getU16(block, POS_CHECKSUM);
+				if (checkSum != checkSum(checkSum)) {
+					reader.close();
+					throw new SQLException("Invalid Oracle RDBMS redo file'" + fileName + "' checksum!");
+				}
 			}
 			currentBlock++;
 		} else if (bytesRead == Integer.MIN_VALUE) {
