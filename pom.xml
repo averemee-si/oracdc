@@ -81,7 +81,7 @@
 		<commons.lang3.version>3.20.0</commons.lang3.version>
 		<commons.math3.version>3.6.1</commons.math3.version>
 		<commons.cli.version>1.11.0</commons.cli.version>
-		<ora.jdbc.version>23.26.1.0.0</ora.jdbc.version>
+		<ora.jdbc.version>23.26.2.0.0</ora.jdbc.version>
 		<pg.jdbc.version>42.7.11</pg.jdbc.version>
 		<HikariCP.version>7.0.2</HikariCP.version>
 		<log4j.version>2.26.0</log4j.version>
