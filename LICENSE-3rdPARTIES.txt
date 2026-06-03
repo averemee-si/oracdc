@@ -15,9 +15,9 @@ Apache License Version 2.0
 - sshj-0.40.0
 - asn-one-0.6.0
 - smbj-0.14.0
-- sshd-core-2.17.1
-- sshd-common-2.17.1
-- sshd-sftp-2.17.1
+- sshd-core-2.18.0
+- sshd-common-2.18.0
+- sshd-sftp-2.18.0
 - jcl-over-slf4j-1.7.36
 - HikariCP-7.0.2
 - ojdbc-types-0.9.9
@@ -25,11 +25,11 @@ Apache License Version 2.0
 ----------------------------------------
 Oracle Free Use Terms and Conditions
 
-- ojdbc17-23.26.1.0.0, see: licenses/oracle-FUTC
-- ucp17-23.26.1.0.0, see: licenses/oracle-FUTC
-- oraclepki-23.26.1.0.0, see: licenses/oracle-FUTC
-- xmlparserv2-23.26.1.0.0, see: licenses/oracle-FUTC
-- xdb-23.26.1.0.0, see: licenses/oracle-FUTC
+- ojdbc17-23.26.2.0.0, see: licenses/oracle-FUTC
+- ucp17-23.26.2.0.0, see: licenses/oracle-FUTC
+- oraclepki-23.26.2.0.0, see: licenses/oracle-FUTC
+- xmlparserv2-23.26.2.0.0, see: licenses/oracle-FUTC
+- xdb-23.26.2.0.0, see: licenses/oracle-FUTC
 
 
 ----------------------------------------
