@@ -28,6 +28,9 @@ package solutions.a2.cdc.oracle;
 import java.util.Comparator;
 import java.util.concurrent.CountDownLatch;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import solutions.a2.oracle.internals.RedoByteAddress;
 import solutions.a2.oracle.internals.Xid;
 
@@ -79,9 +82,50 @@ public interface OraCdcTaskBase {
 	};
 
 	record XidCoords(Xid xid, Coords coords) {
+
+		private static final Logger LOGGER = LogManager.getLogger(XidCoords.class);
+
 		static final Comparator<XidCoords> COMPARATOR = new Comparator<>() {
 			@Override
 			public int compare(XidCoords first, XidCoords second) {
+				if (first == null || second == null) {
+					String what = null;
+					String xid = null;
+					String scn = null;
+					String rba = null;
+					String subscn = null;
+					if (first == null && second == null) {
+						what = "BOTH";
+						xid = "N/A";
+						scn = "N/A";
+						rba = "N/A";
+						subscn = "N/A";
+					} else if (first == null) {
+						what = "FIRST";
+						xid = second.xid().toString();
+						scn = Long.toUnsignedString(second.coords().scn());
+						rba = second.coords().rba().toString();
+						subscn = Long.toUnsignedString(second.coords().subScn());
+					} else {
+						what = "SECOND";
+						xid = first.xid().toString();
+						scn = Long.toUnsignedString(first.coords().scn());
+						rba = first.coords().rba().toString();
+						subscn = Long.toUnsignedString(first.coords().subScn());
+					}
+					LOGGER.warn(
+							"""
+							
+							=====================
+							{} operand(s) is(are) NULL!
+							Non-NULL operand (if present):
+							XID={}, SCN={}, RBA={}, SUBSCN={}
+							=====================
+							
+							""",
+								what, xid, scn, rba, subscn);
+					return 0;
+				}
 				var scnComparision = Long.compareUnsigned(first.coords.scn(), second.coords.scn());
 				return scnComparision == 0
 					? Long.compare(first.coords.subScn(), second.coords.subScn())
