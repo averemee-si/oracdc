@@ -152,19 +152,19 @@ public class GenericInitialLoadTable {
 			LOGGER.debug("{} will be used for initial data load.", sqlSelect);
 	}
 
-	int rowCount()  {
+	public int rowCount()  {
 		return rowIdStore == null ? 0 : rowIdStore.size();
 	}
 
-	Array getRowIdArray(final OracleConnection connection, final int rowNumStart, final int rowNumEnd) throws SQLException {
+	public Array getRowIdArray(final OracleConnection connection, final int rowNumStart, final int rowNumEnd) throws SQLException {
 		return rowIdStore.getRowIdArray(connection, rowNumStart, rowNumEnd);
 	}
 
-	OracleCallableStatement prepareSource(final OracleConnection connection) throws SQLException {
+	public OracleCallableStatement prepareSource(final OracleConnection connection) throws SQLException {
 		return (OracleCallableStatement) connection.prepareCall(sqlSelect);
 	}
 
-	OracleResultSet serialModeRs(OracleConnection connection) throws SQLException {
+	public OracleResultSet serialModeRs(OracleConnection connection) throws SQLException {
 		var ps = connection.prepareStatement(sqlSelect, TYPE_FORWARD_ONLY, CONCUR_READ_ONLY);
 		if (oraTable.rowLevelScn()) {
 			//TODO
@@ -174,13 +174,13 @@ public class GenericInitialLoadTable {
 		return (OracleResultSet) ps.executeQuery();
 	}
 
-	DataBinder dataBinder(boolean parallel) {
+	public DataBinder dataBinder(boolean parallel) {
 		return parallel
 				? (DataBinder) oraTable.dataBinder().newInstance()
 				: oraTable.dataBinder();
 	}
 
-	KeyValuePair getSourceRecord(OracleResultSet rs, DataBinder dataBinder) throws SQLException {
+	public KeyValuePair getSourceRecord(OracleResultSet rs, DataBinder dataBinder) throws SQLException {
 		if (rs.next()) {
 			dataBinder.init();
 			try {
@@ -291,7 +291,7 @@ public class GenericInitialLoadTable {
 			return null;
 	}
 
-	String fqn() {
+	public String fqn() {
 		return oraTable.fqn();
 	}
 

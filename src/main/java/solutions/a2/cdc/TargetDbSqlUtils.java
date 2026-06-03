@@ -55,11 +55,11 @@ import static java.sql.Types.CLOB;
 import static java.sql.Types.NCLOB;
 import static java.sql.Types.SQLXML;
 import static oracle.jdbc.OracleTypes.JSON;
-import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_MYSQL;
-import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_MSSQL;
-import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_ORACLE;
-import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_POSTGRESQL;
-import static solutions.a2.kafka.sink.JdbcSinkConnectionPool.DB_TYPE_CLICKHOUSE;
+import static solutions.a2.cdc.JdbcConnectionPool.DB_TYPE_MYSQL;
+import static solutions.a2.cdc.JdbcConnectionPool.DB_TYPE_MSSQL;
+import static solutions.a2.cdc.JdbcConnectionPool.DB_TYPE_ORACLE;
+import static solutions.a2.cdc.JdbcConnectionPool.DB_TYPE_POSTGRESQL;
+import static solutions.a2.cdc.JdbcConnectionPool.DB_TYPE_CLICKHOUSE;
 
 /**
  * 
@@ -172,9 +172,9 @@ public class TargetDbSqlUtils {
 				put(DOUBLE, "Float64");
 				put(DECIMAL, "Decimal128(10)");
 				put(NUMERIC, "Decimal128(10)");
-				put(DATE, "Date");
-				put(TIMESTAMP, "DateTime");
-				put(TIMESTAMP_WITH_TIMEZONE, "DateTime");
+				put(DATE, "DateTime");
+				put(TIMESTAMP, "DateTime64(9)");
+				put(TIMESTAMP_WITH_TIMEZONE, "DateTime64(9)");
 				put(VARCHAR, "String");
 				put(ROWID, "FixedString(18)");
 				put(BINARY, "FixedString(8000)");
@@ -237,11 +237,16 @@ public class TargetDbSqlUtils {
 			var pkIterator = pkColumns.entrySet().iterator();
 			while (pkIterator.hasNext()) {
 				var column = pkIterator.next().getValue();
-				sbCreateTable
-					.append("  ")
-					.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column));
-				if (dbType != DB_TYPE_CLICKHOUSE)
-					sbCreateTable.append(" not null");
+				sbCreateTable.append("  ");
+				if (dbType == DB_TYPE_CLICKHOUSE)
+					sbCreateTable
+						.append(column.name())
+						.append(' ')
+						.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column));
+				else
+					sbCreateTable
+						.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column))
+						.append(" not null");
 				sbPrimaryKey.append(column.name());
 
 				if (pkIterator.hasNext()) {
@@ -257,14 +262,23 @@ public class TargetDbSqlUtils {
 		final int nonPkColumnCount = allColumns.size();
 		for (int i = 0; i < nonPkColumnCount; i++) {
 			var column = allColumns.get(i);
-			if (firstColumn) {
+			if (firstColumn)
 				firstColumn = false;
-			} else {
+			else
 				sbCreateTable.append(",\n  ");
-			}
-			sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
-			if (!column.nullable() && dbType != DB_TYPE_CLICKHOUSE) {
-				sbCreateTable.append(" not null");
+			if (dbType == DB_TYPE_CLICKHOUSE) {
+				sbCreateTable
+					.append(column.name())
+					.append(' ');
+				if (column.nullable())
+					sbCreateTable.append("Nullable(");
+				sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
+				if (column.nullable())
+					sbCreateTable.append(")");
+			} else {
+				sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
+				if (!column.nullable())
+					sbCreateTable.append(" not null");
 			}
 		}
 
@@ -319,27 +333,29 @@ public class TargetDbSqlUtils {
 	}
 
 	private static String getTargetDbColumn(final int dbType, final int pkStringLength, final Int2ObjectHashMap<String> dataTypesMap, final Column column) {
-		final StringBuilder sb = new StringBuilder(64);
-		sb.append(column.name());
-		sb.append(" ");
-		if (column.jdbcType() != DECIMAL)
-			if (column.jdbcType() == VARCHAR && pkStringLength > -1) {
+		var sb = new StringBuilder(0x50);
+		if (dbType != DB_TYPE_CLICKHOUSE)
+			sb
+				.append(column.name())
+				.append(" ");
+		if (column.jdbcType() != DECIMAL) {
+			if (column.jdbcType() == VARCHAR && pkStringLength > -1)
 				sb.append(
 						Strings.CS.replace(PK_STRING_MAPPING.get(dbType), "$", Integer.toString(pkStringLength)));
-			} else {
+			else
 				sb.append(dataTypesMap.get(column.jdbcType()));
-			}
-		else {
+		} else {
 			if (dbType == DB_TYPE_POSTGRESQL || 
 					dbType == DB_TYPE_ORACLE ||
-					dbType == DB_TYPE_MSSQL) {
+					dbType == DB_TYPE_MSSQL  ||
+					dbType == DB_TYPE_CLICKHOUSE)
 				sb.append(dataTypesMap.get(column.jdbcType()));
-			} else if (dbType == DB_TYPE_MYSQL) {
-				sb.append(dataTypesMap.get(column.jdbcType()));
-				sb.append("(38,");
-				sb.append(column.dataScale());
-				sb.append(")");
-			}
+			else if (dbType == DB_TYPE_MYSQL)
+				sb
+					.append(dataTypesMap.get(column.jdbcType()))
+					.append("(38,")
+					.append(column.dataScale())
+					.append(")");
 		}
 		return sb.toString();
 	}
