@@ -26,8 +26,8 @@
 FROM   averemee/oracdc:latest
 LABEL  maintainer="oracle@a2.solutions"
 LABEL  vendor="A2 Rešitve d.o.o."
-LABEL  version="2.15.2"
-LABEL  release="2.15.2"
+LABEL  version="2.15.3"
+LABEL  release="2.15.3"
 LABEL  name="oracdc with SnowFlake Sink Connector"
 LABEL  summary="oracle to SnowFlake pipeline."
 

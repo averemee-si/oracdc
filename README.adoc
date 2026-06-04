@@ -122,6 +122,12 @@ This project is licensed under a commercial and under the AGPL license.
 
 == Release history
 
+=== 2.15.3 (JUN-2026)
+
+1. Docker image enhancements
+
+2. Bug fixes
+
 === 2.15.2 (MAY-2026)
 
 1. The license has been changed to dual licensing: commercial and AGPL v3.0+
