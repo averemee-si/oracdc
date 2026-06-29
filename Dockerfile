@@ -209,7 +209,9 @@ ARG    BC_VERSION="jdk18on-1.84"
 COPY   target/lib/bcprov-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 COPY   target/lib/bcpkix-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 COPY   target/lib/bcutil-${BC_VERSION}.jar ${KAFKA_HOME}/libs
-
+# GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 BEGIN
+RUN    rm -f ${KAFKA_HOME}/libs/jline-*.jar
+# GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 END
 ARG    ORACDC_VERSION=2.15.3
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
 COPY   target/${ORACDC_FILENAME} ${KAFKA_HOME}/connect/lib
