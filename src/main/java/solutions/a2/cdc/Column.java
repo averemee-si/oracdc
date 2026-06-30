@@ -52,20 +52,20 @@ public abstract class Column {
 	protected int dataScale;
 	protected short flags = 0;
 
-	protected static final short FLG_NULLABLE            = (short)0x0001;
-	protected static final short FLG_PART_OF_PK          = (short)0x0002;
-	protected static final short FLG_MANDATORY           = (short)0x0004;
-	protected static final short FLG_LARGE_OBJECT        = (short)0x0008;
-	protected static final short FLG_SECURE_FILE         = (short)0x0010;
-	protected static final short FLG_SALT                = (short)0x0020;
-	protected static final short FLG_ENCRYPTED           = (short)0x0040;
-	protected static final short FLG_NUMBER              = (short)0x0080;
-	protected static final short FLG_BINARY_FLOAT_DOUBLE = (short)0x0100;
-	protected static final short FLG_LOCAL_TIME_ZONE     = (short)0x0200;
-	protected static final short FLG_DEFAULT_VALUE       = (short)0x0400;
-	protected static final short FLG_LOB_TRANSFORM       = (short)0x0800;
-	protected static final short FLG_WRAPPED             = (short)0x1000;
-	protected static final short FLG_DECODE_WITH_TRANS   = (short) (FLG_LARGE_OBJECT | FLG_SECURE_FILE);
+	public static final short FLG_NULLABLE            = (short)0x0001;
+	public static final short FLG_PART_OF_PK          = (short)0x0002;
+	public static final short FLG_MANDATORY           = (short)0x0004;
+	public static final short FLG_LARGE_OBJECT        = (short)0x0008;
+	public static final short FLG_SECURE_FILE         = (short)0x0010;
+	public static final short FLG_SALT                = (short)0x0020;
+	public static final short FLG_ENCRYPTED           = (short)0x0040;
+	public static final short FLG_NUMBER              = (short)0x0080;
+	public static final short FLG_BINARY_FLOAT_DOUBLE = (short)0x0100;
+	public static final short FLG_LOCAL_TIME_ZONE     = (short)0x0200;
+	public static final short FLG_DEFAULT_VALUE       = (short)0x0400;
+	public static final short FLG_LOB_TRANSFORM       = (short)0x0800;
+	public static final short FLG_WRAPPED             = (short)0x1000;
+	public static final short FLG_DECODE_WITH_TRANS   = (short) (FLG_LARGE_OBJECT | FLG_SECURE_FILE);
 	private Object extension;
 
 	public String name() {
