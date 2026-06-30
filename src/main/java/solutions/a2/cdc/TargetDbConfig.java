@@ -36,6 +36,8 @@ public interface TargetDbConfig {
 	int pkStringLength();
 	int getConnectorMode();
 	int batchSize();
+	String tableNamePrefix();
+	String tableNameSuffix();
 
 	public static final String AUTO_CREATE_PARAM = "a2.autocreate";
 	public static final String AUTO_CREATE_DOC =
@@ -62,6 +64,18 @@ public interface TargetDbConfig {
 			and in 'audit_trail' mode, it only sends INSERT commands to record the change history of the source table.
 			Default - """ + CONN_TYPE_REPLICATE;
 
+	public static final String TABLE_NAME_PREFIX_PARAM = "a2.table.name.prefix";
+	public static final String TABLE_NAME_PREFIX_DOC =
+			"""
+			Prefix to prepend to table name.
+			Default - "" (Empty string - no prefix)
+			""";
 
+	public static final String TABLE_NAME_SUFFIX_PARAM = "a2.table.name.suffix";
+	public static final String TABLE_NAME_SUFFIX_DOC =
+			"""
+			Suffix to append to table name.
+			Default - "" (Empty string - no suffix)
+			""";
 
 }

@@ -91,8 +91,8 @@ public class JdbcSinkTask extends SinkTask {
 		}
 
 		batchSize = config.batchSize();
-		schemaType = config.getSchemaType();
-		tableNameMapper = config.getTableNameMapper();
+		schemaType = config.schemaType();
+		tableNameMapper = config.tableNameMapper();
 		tableNameMapper.configure(config);
 	}
 

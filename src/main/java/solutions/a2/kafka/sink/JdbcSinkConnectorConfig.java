@@ -76,33 +76,9 @@ import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class JdbcSinkConnectorConfig extends AbstractConfig implements TargetDbConfig {
+public class JdbcSinkConnectorConfig extends AbstractConfig implements TargetDbConfig, KafkaSinkConfig {
 	
 	private static final Logger LOGGER = LogManager.getLogger(JdbcSinkConnectorConfig.class);
-
-	private static final String TABLE_NAME_PREFIX_PARAM = "a2.table.name.prefix";
-	private static final String TABLE_NAME_PREFIX_DOC =
-			"""
-			Prefix to prepend to table name.
-			Default - "" (Empty string - no prefix)
-			""";
-
-	private static final String TABLE_NAME_SUFFIX_PARAM = "a2.table.name.suffix";
-	private static final String TABLE_NAME_SUFFIX_DOC =
-			"""
-			Suffix to append to table name.
-			Default - "" (Empty string - no suffix)
-			""";
-
-	private static final String TABLE_MAPPER_DEFAULT = "solutions.a2.kafka.sink.DefaultTableNameMapper";
-	private static final String TABLE_MAPPER_PARAM = "a2.table.mapper";
-	private static final String TABLE_MAPPER_DOC =
-			"""
-			The fully-qualified class name of the class that specifies which table in which to sink the data.
-			If value of thee parameter 'a2.shema.type' is set to 'debezium', the default DefaultTableNameMapper uses the 'source'.'table' field value from Sinkrecord,
-			otherwise it constructs the table name as the Kafka topic name without the prefix specified by the 'a2.topic.prefix' parameter.
-			If the values of the parameters 'a2.table.name.prefix' and/or 'a2.table.name.suffix' are specified, then the values of these parameters are added to the table name, respectively, either at the beginning or at the end.
-			Default - """ + TABLE_MAPPER_DEFAULT;
 
 	private static final String INIT_SQL_PARAM = "a2.connection.init.sql";
 	private static final String INIT_SQL_DOC = 
@@ -110,13 +86,6 @@ public class JdbcSinkConnectorConfig extends AbstractConfig implements TargetDbC
 			Set the SQL statement that will be executed on all new connections when they are created.
 			For example, to override the PostgreSQL server setting for the work_mem parameter, use
 				"a2.connection.init.sql" : "SET work_mem = '16MB'"
-			""";
-
-	private static final String SCHEMA_NAME_PREFIX_PARAM = "a2.schema.name.prefix";
-	private static final String SCHEMA_NAME_PREFIX_DOC =
-			"""
-			Prefix of existing Kafka Connect schema.
-			Default - "" (Empty string - no prefix)
 			""";
 
 	private int schemaType = -1;
@@ -184,7 +153,8 @@ public class JdbcSinkConnectorConfig extends AbstractConfig implements TargetDbC
 		return getBoolean(USE_ALL_COLUMNS_ON_DELETE_PARAM);
 	}
 
-	int getSchemaType() {
+	@Override
+	public int schemaType() {
 		if (schemaType == -1) {
 			switch (getString(SCHEMA_TYPE_PARAM)) {
 				case SCHEMA_TYPE_KAFKA -> schemaType = SCHEMA_TYPE_INT_KAFKA_STD;
@@ -195,7 +165,8 @@ public class JdbcSinkConnectorConfig extends AbstractConfig implements TargetDbC
 		return schemaType;
 	}
 
-	TableNameMapper getTableNameMapper() {
+	@Override
+	public TableNameMapper tableNameMapper() {
 		final TableNameMapper tnm;
 		final Class<?> clazz;
 		final Constructor<?> constructor;
@@ -248,11 +219,13 @@ public class JdbcSinkConnectorConfig extends AbstractConfig implements TargetDbC
 		return tnm;
 	}
 
-	String getTableNamePrefix() {
+	@Override
+	public String tableNamePrefix() {
 		return getString(TABLE_NAME_PREFIX_PARAM);
 	}
 
-	String getTableNameSuffix() {
+	@Override
+	public String tableNameSuffix() {
 		return getString(TABLE_NAME_SUFFIX_PARAM);
 	}
 
@@ -272,11 +245,13 @@ public class JdbcSinkConnectorConfig extends AbstractConfig implements TargetDbC
 		return getString(INIT_SQL_PARAM);
 	}
 
-	String topicPrefix() {
+	@Override
+	public String topicPrefix() {
 		return getString(TOPIC_PREFIX_PARAM);
 	}
 
-	List<String> schemaPrefix() {
+	@Override
+	public List<String> schemaPrefix() {
 		return getList(SCHEMA_NAME_PREFIX_PARAM);
 	}
 

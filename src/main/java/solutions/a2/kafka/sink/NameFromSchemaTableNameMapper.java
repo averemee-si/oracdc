@@ -54,11 +54,11 @@ public class NameFromSchemaTableNameMapper implements TableNameMapper {
 	private int schemaType;
 
 	@Override
-	public void configure(final JdbcSinkConnectorConfig config) {
+	public void configure(final KafkaSinkConfig config) {
 		schemaPrefixes = config.schemaPrefix();
-		prefix = StringUtils.trim(config.getTableNamePrefix());
-		suffix = StringUtils.trim(config.getTableNameSuffix());
-		schemaType = config.getSchemaType();
+		prefix = StringUtils.trim(config.tableNamePrefix());
+		suffix = StringUtils.trim(config.tableNameSuffix());
+		schemaType = config.schemaType();
 	}
 
 	@Override

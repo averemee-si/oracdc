@@ -90,7 +90,7 @@ public class WrappedDataJdbcSinkTask extends SinkTask {
 		}
 
 		batchSize = config.batchSize();
-		tableNameMapper = config.getTableNameMapper();
+		tableNameMapper = config.tableNameMapper();
 		tableNameMapper.configure(config);
 	}
 

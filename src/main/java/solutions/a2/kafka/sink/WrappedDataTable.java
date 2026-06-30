@@ -92,7 +92,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 	public WrappedDataTable(final JdbcSinkConnectionPool sinkPool,
 			final String tableName, final SinkRecord record,
 			final JdbcSinkConnectorConfig config) throws SQLException {
-		super(config.getSchemaType(), sinkPool.dbType());
+		super(config.schemaType(), sinkPool.dbType());
 		LOGGER.trace("Creating WrappedDataTable object from Kafka connect SinkRecord...");
 		pkStringLength = config.pkStringLength();
 		connectorMode = config.getConnectorMode();

@@ -34,7 +34,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
  */
 public interface TableNameMapper {
 
-	default void configure(JdbcSinkConnectorConfig config) {};
+	default void configure(KafkaSinkConfig config) {};
 	String getTableName(SinkRecord record);
 
 }
