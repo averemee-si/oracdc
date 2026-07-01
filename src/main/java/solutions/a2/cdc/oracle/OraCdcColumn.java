@@ -576,6 +576,22 @@ public class OraCdcColumn extends Column {
 		
 	}
 
+	/**
+	 * Used internally for Gearacles
+	 * 
+	 * @param columnName
+	 * @param jdbcType
+	 * @param flags
+	 */
+	public OraCdcColumn(
+			final String columnName,
+			final int jdbcType,
+			final short flags) {
+		this.columnName = columnName;
+		this.jdbcType = jdbcType;
+		this.flags = flags;
+	}
+
 	public void remap(final OraCdcColumn newDef, final OraCdcTdeColumnDecrypter decrypter, final boolean suppLogAll) {
 		if ((newDef.jdbcType != NULL && jdbcType != newDef.jdbcType) ||
 				(newDef.jdbcType != NULL && jdbcType == newDef.jdbcType && jdbcType == DECIMAL && dataScale != newDef.dataScale)) {
