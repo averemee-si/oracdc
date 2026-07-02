@@ -42,6 +42,8 @@ import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
+import solutions.a2.cdc.oracle.runtime.data.DataBinder;
+import solutions.a2.cdc.oracle.runtime.data.GenericAbstractMapDataBinder;
 
 /**
  *
@@ -115,7 +117,7 @@ public abstract class GenericAbstractMapDataBinder implements DataBinder {
 
 	@Override
 	public KeyValuePair initialLoadRow() {
-		return new KeyValuePair(INSERT, keyData, valueData);
+		return new KeyValuePair(INSERT, new Int2ObjectHashMap<>(keyData), new Int2NullableObjectHashMap<>(valueData));
 	}
 
 	@Override
@@ -123,5 +125,29 @@ public abstract class GenericAbstractMapDataBinder implements DataBinder {
 		valueData.put(column.getColumnId(), Optional.ofNullable(value));
 	}
 
+	public static class Batch {
+		private KeyValuePair[] rows;
+		private int processed;
+		private Batch() {
+			processed = 0;
+		}
+		public Batch(int size) {
+			this();
+			rows = new KeyValuePair[size];
+		}
+		public void add(KeyValuePair row) {
+			rows[processed] = row;
+			processed++;
+		}
+		public int processed() {
+			return processed;
+		}
+		public static Batch END() {
+			return new Batch();
+		}
+		KeyValuePair[] rows() {
+			return rows;
+		}
+	}
 
 }
