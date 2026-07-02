@@ -33,7 +33,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.agrona.collections.Int2ObjectHashMap;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
+
+import solutions.a2.cdc.oracle.OraCdcColumn;
 
 import static java.sql.Types.BOOLEAN;
 import static java.sql.Types.TINYINT;
@@ -192,6 +195,8 @@ public class TargetDbSqlUtils {
 				put(DB_TYPE_CLICKHOUSE, "FixedString($)");
 			}};
 
+	private static final double CH_LOW_CARDINALITY_THRESHOLD = .00001d;
+
 	/**
 	 * 
 	 * @param tableName
@@ -211,24 +216,80 @@ public class TargetDbSqlUtils {
 			final Map<String, ? extends Column> pkColumns,
 			final List<? extends Column> allColumns,
 			final Map<String, Object> lobColumns) {
+		return createTableSql(tableName, dbType, pkStringLength, pkColumns, allColumns, lobColumns, false, null);
+	}
+
+	/**
+	 * 
+	 * @param tableName
+	 * @param dbType
+	 * @param pkStringLength
+	 * @param pkColumns
+	 * @param allColumns
+	 * @param lobColumns
+	 * @param useCardinality
+	 * @param chVersionDelete
+	 * @return List with at least one element for PostgreSQL and exactly one element for others RDBMS
+	 *         Element at index 0 is always CREATE TABLE, at other indexes (PostgreSQL only) SQL text 
+	 *         script for creation of lo trigger (Ref.: https://www.postgresql.org/docs/current/lo.html)
+	 */
+	public static List<String> createTableSql(
+			final String tableName,
+			final int dbType,
+			final int pkStringLength,
+			final Map<String, ? extends Column> pkColumns,
+			final List<? extends Column> allColumns,
+			final Map<String, Object> lobColumns,
+			final boolean useCardinality,
+			final ClickhouseVersionDelete chVersionDelete) {
 		var dataTypesMap = dataTypesMap(dbType);
 
 		var onlyValue = pkColumns.size() == 0;
 		final List<String> sqlStrings = new ArrayList<>();
 		var sbCreateTable = new StringBuilder(0x100);
 
-		sbCreateTable.append("create table ");
-		sbCreateTable.append(tableName);
-		sbCreateTable.append("(\n");
+		sbCreateTable
+			.append("create table ")
+			.append(tableName)
+			.append("(\n");
 
 		final StringBuilder sbPrimaryKey;
 		if (onlyValue) {
 			sbPrimaryKey = null;
 		} else {
 			sbPrimaryKey = new StringBuilder(0x40);
-			if (dbType == DB_TYPE_CLICKHOUSE)
-				sbPrimaryKey.append("\nENGINE = ReplacingMergeTree\nORDER BY ");
-			else
+			if (dbType == DB_TYPE_CLICKHOUSE) {
+				if (chVersionDelete == null)
+					sbPrimaryKey.append("\nENGINE = ReplacingMergeTree\nORDER BY ");
+				else {
+					sbPrimaryKey
+						.append("\nENGINE = ReplacingMergeTree(")
+						.append(chVersionDelete.version())
+						.append(", ")
+						.append(chVersionDelete.deleted())
+						.append(")")
+						.append("\nORDER BY ");
+					sbCreateTable
+						.append("  ")
+						.append(chVersionDelete.version());
+					switch (chVersionDelete.versionStyle()) {
+						case ClickhouseVersionDelete.INGESTION_TIMESTAMP ->
+							sbCreateTable.append(" UInt32,\n");
+						case ClickhouseVersionDelete.INGESTION_TS_NANOS ->
+							sbCreateTable.append(" UInt64,\n");
+						case ClickhouseVersionDelete.VERSION_UINT8 ->
+							sbCreateTable.append(" UInt8,\n");
+						case ClickhouseVersionDelete.VERSION_UINT16 ->
+							sbCreateTable.append(" UInt16,\n");
+						case ClickhouseVersionDelete.VERSION_UINT32 ->
+							sbCreateTable.append(" UInt32,\n");
+					}
+					sbCreateTable
+						.append("  ")
+						.append(chVersionDelete.deleted())
+						.append(" UInt8,\n");
+				}
+			} else
 				sbPrimaryKey
 					.append(",\n  constraint ")
 					.append(tableName)
@@ -238,16 +299,18 @@ public class TargetDbSqlUtils {
 			while (pkIterator.hasNext()) {
 				var column = pkIterator.next().getValue();
 				sbCreateTable.append("  ");
-				if (dbType == DB_TYPE_CLICKHOUSE)
+				if (dbType == DB_TYPE_CLICKHOUSE) {
 					sbCreateTable
-						.append(column.name())
+						.append(StringUtils.lowerCase(column.name()))
 						.append(' ')
 						.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column));
-				else
+					sbPrimaryKey.append(StringUtils.lowerCase(column.name()));
+				} else {
 					sbCreateTable
 						.append(getTargetDbColumn(dbType, pkStringLength, dataTypesMap, column))
 						.append(" not null");
-				sbPrimaryKey.append(column.name());
+					sbPrimaryKey.append(column.name());
+				}
 
 				if (pkIterator.hasNext()) {
 					sbCreateTable.append(",\n");
@@ -268,12 +331,27 @@ public class TargetDbSqlUtils {
 				sbCreateTable.append(",\n  ");
 			if (dbType == DB_TYPE_CLICKHOUSE) {
 				sbCreateTable
-					.append(column.name())
+					.append(StringUtils.lowerCase(column.name()))
 					.append(' ');
+				var lowCardinality = false;
+				if (useCardinality && column.jdbcType() == VARCHAR) {
+					var cardinality = ((OraCdcColumn) column).extension();
+					if (cardinality != null) {
+						if (cardinality instanceof Double &&
+							(double) cardinality > 0.0d &&
+							(double) cardinality <= CH_LOW_CARDINALITY_THRESHOLD) {
+							sbCreateTable.append("LowCardinality(");
+							lowCardinality = true;
+						}
+						((OraCdcColumn) column).extension(null);
+					}
+				}
 				if (column.nullable())
 					sbCreateTable.append("Nullable(");
 				sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
 				if (column.nullable())
+					sbCreateTable.append(")");
+				if (lowCardinality)
 					sbCreateTable.append(")");
 			} else {
 				sbCreateTable.append(getTargetDbColumn(dbType, -1, dataTypesMap, column));
@@ -689,6 +767,17 @@ public class TargetDbSqlUtils {
 			case DB_TYPE_CLICKHOUSE -> {return CLICKHOUSE_MAPPING;}
 			default -> {return MYSQL_MAPPING;}
 		}
+	}
+
+	public record ClickhouseVersionDelete(
+			String version,
+			String deleted,
+			int versionStyle) {
+		public static final int INGESTION_TIMESTAMP = 1;
+		public static final int INGESTION_TS_NANOS = 2;
+		public static final int VERSION_UINT8 = 3;
+		public static final int VERSION_UINT16 = 4;
+		public static final int VERSION_UINT32 = 5;
 	}
 
 }
