@@ -24,7 +24,7 @@
 #
 
 ARG    CONFLUENT_VERSION=8.1.1
-ARG    APICURIO_VERSION=3.2.4
+ARG    APICURIO_VERSION=3.3.0
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
 
 FROM   eclipse-temurin:25-jdk AS build-sr-client
