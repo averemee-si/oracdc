@@ -25,6 +25,7 @@
 
 ARG    CONFLUENT_VERSION=8.1.1
 ARG    APICURIO_VERSION=3.3.0
+ARG    K8S_CFG_VERSION=1.2.2
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
 
 FROM   eclipse-temurin:25-jdk AS build-sr-client
@@ -33,6 +34,7 @@ RUN    set -eux && apt-get update && apt-get --yes install wget
 # Add schema registry dependencies
 ARG    CONFLUENT_VERSION
 ARG    APICURIO_VERSION
+ARG    K8S_CFG_VERSION
 ARG    MVN_BASE
 ARG    CONFLUENT_BASE="https://packages.confluent.io/maven/io/confluent"
 ARG    GUAVA_VERSION=33.5.0-jre
@@ -172,6 +174,21 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && mv "apicurio-avro-schema-client-${APICURIO_VERSION}.jar" / \
        && cd / && rm -rf WORKDIR
 
+#
+# Kafka Kubernetes Config Provider uber-jar
+#
+ARG    K8S_FILENAME=kafka-kubernetes-config-provider-${K8S_CFG_VERSION}.zip
+RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
+       && wget -q \
+          "${MVN_BASE}/io/strimzi/kafka-kubernetes-config-provider/${K8S_CFG_VERSION}/${K8S_FILENAME}" \
+       && jar xvf ${K8S_FILENAME} && rm ${K8S_FILENAME} \
+       && cd kafka-kubernetes-config-provider-${K8S_CFG_VERSION}/libs \
+       && for file in $(ls *.jar); do jar xvf $file; done \
+       && rm -f *.jar \
+       && jar cvf "k8s-config-provider-${K8S_CFG_VERSION}.jar" [A-Z]* [a-z]* \
+       && mv "k8s-config-provider-${K8S_CFG_VERSION}.jar" / \
+       && cd / && rm -rf WORKDIR
+
 FROM   eclipse-temurin:25-jre
 LABEL  maintainer="oracle@a2.solutions"
 LABEL  vendor="A2 Rešitve d.o.o."
@@ -182,6 +199,7 @@ LABEL  summary="oracdc and all dependencies for optimal work. When started, it w
 
 ARG    CONFLUENT_VERSION
 ARG    APICURIO_VERSION
+ARG    K8S_CFG_VERSION
 ARG    MVN_BASE
 
 RUN    set -eux && apt-get update && apt-get --yes dist-upgrade && apt-get --yes install netcat-traditional tzdata bash wget adduser 
@@ -252,6 +270,7 @@ RUN    echo "" > ${PROPS_FILE} \
 COPY   --from=build-sr-client /confluent-avro-schema-client-${CONFLUENT_VERSION}.jar ${KAFKA_HOME}/connect/lib
 COPY   --from=build-sr-client /confluent-protobuf-schema-client-${CONFLUENT_VERSION}.jar ${KAFKA_HOME}/connect/lib
 COPY   --from=build-sr-client /apicurio-avro-schema-client-${APICURIO_VERSION}.jar ${KAFKA_HOME}/connect/lib
+COPY   --from=build-sr-client /k8s-config-provider-${K8S_CFG_VERSION}.jar ${KAFKA_HOME}/connect/lib
 
 ARG    CHECKER_CMD=${KAFKA_HOME}/connect/bin/oraCheck.sh
 RUN    echo "#! /bin/sh" > ${CHECKER_CMD} \
