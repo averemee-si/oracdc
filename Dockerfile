@@ -192,8 +192,8 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
 FROM   eclipse-temurin:25-jre
 LABEL  maintainer="oracle@a2.solutions"
 LABEL  vendor="A2 Rešitve d.o.o."
-LABEL  version="2.15.3"
-LABEL  release="2.15.3"
+LABEL  version="2.15.4"
+LABEL  release="2.15.4"
 LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
@@ -230,7 +230,7 @@ COPY   target/lib/bcutil-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 # GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 BEGIN
 RUN    rm -f ${KAFKA_HOME}/libs/jline-*.jar
 # GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 END
-ARG    ORACDC_VERSION=2.15.3
+ARG    ORACDC_VERSION=2.15.4
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
 COPY   target/${ORACDC_FILENAME} ${KAFKA_HOME}/connect/lib
 COPY   config/connect-log4j.properties ${KAFKA_HOME}/config
