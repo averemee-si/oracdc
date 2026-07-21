@@ -1220,17 +1220,22 @@ public abstract class OraCdcTransaction {
 				}
 				break;
 			case _11_2_IRP:
-			case _11_6_ORP:
 				if (setlmOp) {
-					if (row.operation == _11_2_IRP)
-						row.lmOp = INSERT;
-					else
-						row.lmOp = UPDATE;
+					row.lmOp = INSERT;
 				}
 				if (flgHeadPart(rowChange.fb()) && flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
 					row.complete = true;
 				else if (!flgHeadPart(rowChange.fb()))
 					row.flags |= FLG_OPPOSITE_ORDER;
+				break;
+			case _11_6_ORP:
+				if (setlmOp) {
+					row.lmOp = UPDATE;
+					if (flgHeadPart(rowChange.fb()) && flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+						row.complete = true;
+					else if (!flgHeadPart(rowChange.fb()))
+						row.flags |= FLG_OPPOSITE_ORDER;
+				}
 				break;
 			case _11_3_DRP:
 				if (setlmOp) {
