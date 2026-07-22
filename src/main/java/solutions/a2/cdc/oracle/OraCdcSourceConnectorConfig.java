@@ -165,5 +165,5 @@ public interface OraCdcSourceConnectorConfig extends OraCdcSourceBaseConfig {
 	String fileTransferStageDir();
 	DataBinder dataBinder(OraCdcTableBase table, OraRdbmsInfo rdbmsInfo);
 	boolean beforeDataImage();
-
+	int logArchiveDest();
 }
