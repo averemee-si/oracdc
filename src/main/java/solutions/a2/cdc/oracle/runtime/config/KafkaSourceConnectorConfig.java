@@ -246,7 +246,7 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 								OFFHEAP_SIZE_FULL, OFFHEAP_SIZE_HALF, OFFHEAP_SIZE_QUARTER, OFFHEAP_SIZE_HALFQUARTER),
 						LOW, OFFHEAP_SIZE_DOC)
 				.define(TRANSFER_DIR_STAGE_PARAM, STRING, "", LOW, TRANSFER_DIR_STAGE_DOC)
-				.define(LOG_ARCHIVE_DEST_PARAM, INT, 0, Range.between(0, 0x1F), LOW, LOG_ARCHIVE_DEST_DOC);
+				.define(LOG_ARCHIVE_DEST_PARAM, INT, 1, Range.between(1, 0x1F), LOW, LOG_ARCHIVE_DEST_DOC);
 	}
 
 	public KafkaSourceConnectorConfig(Map<String, String> originals) {

@@ -175,7 +175,7 @@ public class GenericSourceConnectorConfig extends GenericSourceBaseConfig implem
 				.define(EMITTER_TIMEOUT_MS_PARAM, INT, EMITTER_TIMEOUT_MS_DEFAULT)
 				.define(OFFHEAP_SIZE_PARAM, STRING, OFFHEAP_SIZE_DEFAULT)
 				.define(TRANSFER_DIR_STAGE_PARAM, STRING, "")
-				.define(LOG_ARCHIVE_DEST_PARAM, INT, 0);
+				.define(LOG_ARCHIVE_DEST_PARAM, INT, 1);
 	}
 
 	public GenericSourceConnectorConfig(Map<String, String> originals) {
