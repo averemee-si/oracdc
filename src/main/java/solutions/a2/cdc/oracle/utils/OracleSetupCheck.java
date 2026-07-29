@@ -231,18 +231,16 @@ public class OracleSetupCheck {
 			LOGGER.error(sb.toString());
 		} else {
 			try (final Connection connection = dbPool.getConnection()) {
-				final long startScn = rdbmsInfo.firstScnFromArchivedLogs(connection, !rdbmsInfo.isStandby());
+				final long startScn = rdbmsInfo.firstScnFromArchivedLogs(connection, 1, !rdbmsInfo.isStandby());
 				LOGGER.info("Minimum available SCN = {}", startScn);
 				final String fileName;
 				final long firstChange;
 				final long nextChange;
 				PreparedStatement statement = connection.prepareStatement(OraDictSqlTexts.ARCHIVED_LOGS,
 						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-				statement.setLong(1, startScn);
-				statement.setLong(2, startScn);
+				statement.setInt(1, 1);
+				statement.setInt(2, rdbmsInfo.getRedoThread());
 				statement.setLong(3, startScn);
-				statement.setInt(4, rdbmsInfo.getRedoThread());
-				statement.setInt(5, rdbmsInfo.getRedoThread());
 				ResultSet rs = statement.executeQuery();
 				if (rs.next()) {
 					firstChange = rs.getLong("FIRST_CHANGE#");

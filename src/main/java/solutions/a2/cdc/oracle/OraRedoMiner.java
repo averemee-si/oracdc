@@ -123,6 +123,7 @@ public class OraRedoMiner {
 	private static final short FLG1_STOP_ON_MISSED_FILE     = (short)0x0040;
 	private static final short FLG1_PHYSICAL_STANDBY        = (short)0x0080;
 	private short flags1 = FLG1_WAIT_ON_ERROR | FLG1_INITED;
+	private final int destId;
 
 	public OraRedoMiner(
 			final OraCdcSourceConnMgmt metrics,
@@ -198,6 +199,7 @@ public class OraRedoMiner {
 			flags1 &= (~FLG1_INITED);
 			firstRba = startFrom.rba();
 		}
+		destId = config.logArchiveDest();
 		var connection = this.oraConnections.getConnection();
 		createStatements(connection);
 
@@ -234,11 +236,9 @@ public class OraRedoMiner {
 		var rsReady = false;
 		while (!rsReady && runLatch.getCount() > 0) {
 			try {
-				psGetArchivedLogs.setLong(1, firstChange);
-				psGetArchivedLogs.setLong(2, firstChange);
+				psGetArchivedLogs.setInt(1, destId);
+				psGetArchivedLogs.setInt(2, rdbmsInfo.getRedoThread());
 				psGetArchivedLogs.setLong(3, firstChange);
-				psGetArchivedLogs.setInt(4, rdbmsInfo.getRedoThread());
-				psGetArchivedLogs.setInt(5, rdbmsInfo.getRedoThread());
 				rs = psGetArchivedLogs.executeQuery();
 				rsReady = true;
 			} catch (SQLException sqle) {

@@ -444,6 +444,7 @@ public abstract class KafkaSourceTaskBase extends SourceTask implements OraCdcTa
 		boolean rewind = false;
 		final long firstAvailableScn = rdbmsInfo.firstScnFromArchivedLogs(
 				oraConnections.getLogMinerConnection(),
+				config.logArchiveDest(),
 				!(config.activateStandby() ||  rdbmsInfo.isStandby()));
 		long firstScn = firstAvailableScn;
 		RedoByteAddress firstRba = null;

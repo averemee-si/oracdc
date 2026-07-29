@@ -265,6 +265,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 		private long lastSequence = -1;
 		private long nextChange = 0;
 		private final OraRdbmsInfo rdbmsInfo;
+		private final int destId;
 
 		RedoTransportThread(
 				final long firstChange,
@@ -290,6 +291,7 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			final int targetPort = config.distributedTargetPort();
 			metrics = new OraCdcRedoShipment(targetHost, targetPort);
 			targetServerAddress = new InetSocketAddress(targetHost, targetPort);
+			destId = config.logArchiveDest();
 		}
 
 		@Override
@@ -297,11 +299,9 @@ public class OraCdcDistributedV$ArchivedLogImpl implements OraLogMiner {
 			LOGGER.info("BEGIN: RedoTransportThread.run()");
 			while (runLatch.getCount() > 0) {
 				try {
-					psGetArchivedLogs.setLong(1, firstChange);
-					psGetArchivedLogs.setLong(2, firstChange);
+					psGetArchivedLogs.setInt(1, destId);
+					psGetArchivedLogs.setInt(2, rdbmsInfo.getRedoThread());
 					psGetArchivedLogs.setLong(3, firstChange);
-					psGetArchivedLogs.setInt(4, rdbmsInfo.getRedoThread());
-					psGetArchivedLogs.setInt(5, rdbmsInfo.getRedoThread());
 					final ResultSet rsArchivedLogFiles = psGetArchivedLogs.executeQuery();
 					while (rsArchivedLogFiles.next()) {
 						final long sequence = rsArchivedLogFiles.getLong("SEQUENCE#");

@@ -726,13 +726,43 @@ public class OraRdbmsInfo {
 	 * Returns first available SCN from V$ARCHIVED_LOG/V$LOG
 	 * 
 	 * @param connection         - Connection to mining database
+	 * @param destId			 - V$ARCHIVE_DEST.DEST_ID
 	 * @param primary            - primary or standby?
 	 * @return                   - first available SCN
 	 * @throws SQLException
 	 */
 	public long firstScnFromArchivedLogs(
-			final Connection connection, final boolean primary) throws SQLException {
+			final Connection connection, final int destId, final boolean primary) throws SQLException {
 		PreparedStatement ps = null;
+		ResultSet rs = null;
+		ps = connection.prepareStatement(OraDictSqlTexts.ARCHIVE_DEST_CHECK,
+				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+		ps.setInt(1, destId);
+		rs = ps.executeQuery();
+		if (rs.next())
+			LOGGER.info(
+					"""
+					
+					=====================
+					The archived log files will be read from the destination {} with name '{}' and ID={} 
+					=====================
+					
+					""", rs.getString("DESTINATION"), rs.getString("DEST_NAME"), destId);
+		else {
+			LOGGER.error(
+					"""
+					
+					=====================
+					A valid archive destination with ID {} ​​does not exist! 
+					=====================
+					
+					""", destId);
+			throw new SQLException("Invalid V$ARCHIVE_DEST.DEST_ID = " + destId);
+		}
+		rs.close();
+		rs = null;
+		ps.close();
+		ps = null;
 		if (primary ) {
 			ps = connection.prepareStatement(OraDictSqlTexts.FIRST_AVAILABLE_SCN_IN_ARCHIVE,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
@@ -740,12 +770,14 @@ public class OraRdbmsInfo {
 			ps = connection.prepareStatement(OraDictSqlTexts.FIRST_AVAILABLE_SCN_IN_ARCHIVE_STBY,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 		}
-		ps.setInt(1, redoThread);
+		ps.setInt(1, destId);
 		ps.setInt(2, redoThread);
+		ps.setInt(3, redoThread);
 		long firstScn = -1;
-		ResultSet rs = ps.executeQuery();
+		rs = ps.executeQuery();
 		if (rs.next()) {
-			firstScn = rs.getLong(1);
+			firstScn = Long.parseUnsignedLong(
+					rs.getBigDecimal(1).toBigInteger().toString());
 		}
 		rs.close();
 		rs = null;
@@ -1090,12 +1122,14 @@ public class OraRdbmsInfo {
 			return ora.getNegotiatedSDU();
 		} catch (SQLException sqle) {
 			LOGGER.error(
-					"\n" +
-					"=====================\n" +
-					"Unable to obtain negotiated SDU!\n" +
-					ExceptionUtils.getExceptionStackTrace(sqle) + 
-					"\n" +
-					"=====================\n");
+					"""
+					
+					=====================
+					Unable to obtain negotiated SDU!
+					{}
+					=====================
+					
+					""", ExceptionUtils.getExceptionStackTrace(sqle));
 		}
 		return 0;
 	}

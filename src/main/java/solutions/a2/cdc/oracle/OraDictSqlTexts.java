@@ -392,90 +392,108 @@ from   V$INSTANCE;
 			"(select nvl(CPU_CORE_COUNT_CURRENT, CPU_COUNT_CURRENT) from V$LICENSE) CPU_CORE_COUNT_CURRENT\n" +
 			"from   V$INSTANCE";
 
-/*
+	/*
 select PRODUCT, VERSION_FULL
 from   PRODUCT_COMPONENT_VERSION
 where  (PRODUCT like '%Database%Edition%' or upper(PRODUCT) like '%ORACLE%DATABASE%') and rownum=1;
- */
+	 */
 	public static final String RDBMS_PRODUCT_VERSION =
 			"select PRODUCT, VERSION_FULL\n" +
 			"from   PRODUCT_COMPONENT_VERSION\n" +
 			"where  (PRODUCT like '%Database%Edition%' or upper(PRODUCT) like '%ORACLE%DATABASE%') and rownum=1";
-/*
+	/*
 select PRODUCT
 from   PRODUCT_COMPONENT_VERSION
 where  PRODUCT like '%Database%Edition%' and rownum=1;
- */
+	 */
 	public static final String RDBMS_PRODUCT_VERSION_PRE18_1 =
 			"select PRODUCT\n" +
 			"from   PRODUCT_COMPONENT_VERSION\n" +
 			"where  upper(PRODUCT) like '%DATABASE%' and rownum=1";
 
 	/*
+select DEST_NAME, DESTINATION
+from   V$ARCHIVE_DEST
+where  STATUS='VALID' and DEST_ID=1
+	 */
+	public static final String ARCHIVE_DEST_CHECK =
+"""
+select DEST_NAME, DESTINATION
+from   V$ARCHIVE_DEST
+where  STATUS='VALID' and DEST_ID=?
+""";
+
+	/*
 select nvl(A.SCN, O.SCN) SCN
 from (select min(FIRST_CHANGE#) SCN
       from   V$ARCHIVED_LOG
       where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A'
-      and    THREAD#=1) A,
+        and  DEST_ID=1
+        and  THREAD#=1) A,
      (select min(FIRST_CHANGE#) SCN
-      from  V$LOG
-      where STATUS = 'CURRENT'
-        and THREAD#=1) O
+      from   V$LOG
+      where  STATUS = 'CURRENT'
+        and  THREAD#=1) O
 	 */
 	public static final String FIRST_AVAILABLE_SCN_IN_ARCHIVE =
-			"select nvl(A.SCN, O.SCN) SCN\n" +
-			"from (select min(FIRST_CHANGE#) SCN\n" +
-			"      from   V$ARCHIVED_LOG\n" +
-			"      where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A'\n" +
-			"      and    THREAD#=?) A,\n" +
-			"     (select min(FIRST_CHANGE#) SCN\n" +
-			"      from  V$LOG\n" +
-			"      where STATUS = 'CURRENT'\n" +
-			"        and THREAD#=?) O";
+"""
+select nvl(A.SCN, O.SCN) SCN
+from (select min(FIRST_CHANGE#) SCN
+      from   V$ARCHIVED_LOG
+      where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A'
+        and  DEST_ID=?
+        and  THREAD#=?) A,
+     (select min(FIRST_CHANGE#) SCN
+      from   V$LOG
+      where  STATUS = 'CURRENT'
+        and  THREAD#=?) O
+""";
 
 	/*
 select least(nvl(A.SCN, 18446744073709551615), nvl(O.SCN, 18446744073709551615)) SCN
 from (select min(FIRST_CHANGE#) SCN
       from   V$ARCHIVED_LOG
       where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A'
-      and    THREAD#=1) A,
+        and  DEST_ID=1
+        and  THREAD#=1) A,
+     (select min(FIRST_CHANGE#) SCN
+      from   V$STANDBY_LOG
+      where  STATUS = 'ACTIVE'
+        and  THREAD#=1) O
+	 */
+	public static final String FIRST_AVAILABLE_SCN_IN_ARCHIVE_STBY =
+"""
+select least(nvl(A.SCN, 18446744073709551615), nvl(O.SCN, 18446744073709551615)) SCN
+from (select min(FIRST_CHANGE#) SCN
+      from   V$ARCHIVED_LOG
+      where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A'
+        and  DEST_ID=?
+        and  THREAD#=?) A,
      (select min(FIRST_CHANGE#) SCN
       from  V$STANDBY_LOG
       where STATUS = 'ACTIVE'
-        and THREAD#=1) O
-	 */
-	public static final String FIRST_AVAILABLE_SCN_IN_ARCHIVE_STBY =
-			"select least(nvl(A.SCN, 18446744073709551615), nvl(O.SCN, 18446744073709551615)) SCN\n" +
-			"from (select min(FIRST_CHANGE#) SCN\n" +
-			"      from   V$ARCHIVED_LOG\n" +
-			"      where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A'\n" +
-			"      and    THREAD#=?) A,\n" +
-			"     (select min(FIRST_CHANGE#) SCN\n" +
-			"      from  V$STANDBY_LOG\n" +
-			"      where STATUS = 'ACTIVE'\n" +
-			"        and THREAD#=?) O";
+        and THREAD#=?) O
+""";
 
 	/*
-select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS, BLOCK_SIZE, FIRST_TIME, (SYSDATE-FIRST_TIME)*86400 ACTUAL_LAG_SECONDS
+select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS,
+         BLOCK_SIZE, FIRST_TIME, (SYSDATE-FIRST_TIME)*86400 ACTUAL_LAG_SECONDS
 from     V$ARCHIVED_LOG
-where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A' and (? >= FIRST_CHANGE# or ? <= NEXT_CHANGE#)
-  and    SEQUENCE# >= 
-          (select min(SEQUENCE#)
-           from   V$ARCHIVED_LOG
-           where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A' and ? between FIRST_CHANGE# and NEXT_CHANGE# and THREAD#=?)
-  and    THREAD#=?
-order by SEQUENCE#;
-	 */
+where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A'
+  and    DEST_ID   = 1
+  and    THREAD#   = 1
+  and    NEXT_CHANGE# > 6111563237535
+order by SEQUENCE#;	 */
 	public static final String ARCHIVED_LOGS =
-			"select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS, BLOCK_SIZE, FIRST_TIME, (SYSDATE-FIRST_TIME)*86400 ACTUAL_LAG_SECONDS\n" + 
-			"from     V$ARCHIVED_LOG\n" + 
-			"where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A' and (? >= FIRST_CHANGE# or ? <= NEXT_CHANGE#)\n" + 
-			"  and    SEQUENCE# >= \n" +
-			"          (select min(SEQUENCE#)\n" + 
-			"           from   V$ARCHIVED_LOG\n" +
-			"           where  ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A' and ? between FIRST_CHANGE# and NEXT_CHANGE# and THREAD#=?)\n" +
-			"  and    THREAD#=?\n" +
-			"order by SEQUENCE#";
+"""
+select   NAME, THREAD#, SEQUENCE#, FIRST_CHANGE#, NEXT_CHANGE#, BLOCKS,
+         BLOCK_SIZE, FIRST_TIME, (SYSDATE-FIRST_TIME)*86400 ACTUAL_LAG_SECONDS
+from     V$ARCHIVED_LOG
+where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A'
+  and    DEST_ID   = ?
+  and    THREAD#   = ?
+  and    NEXT_CHANGE# > ?
+order by SEQUENCE#""";
 
 	/*
 
