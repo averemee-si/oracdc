@@ -19,7 +19,7 @@ Apache License Version 2.0
 - sshd-common-2.18.0
 - sshd-sftp-2.18.0
 - jcl-over-slf4j-1.7.36
-- HikariCP-7.0.2
+- HikariCP-7.1.0
 - ojdbc-types-0.9.9
 
 ----------------------------------------
