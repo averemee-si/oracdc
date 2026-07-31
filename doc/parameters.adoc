@@ -193,6 +193,7 @@ Default - false.
 
 `a2.standby.privilege` - The privilege used to connect to the physical standby database with https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE = MOUNTED]. Can be https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-5798F976-85B2-4973-92F7-DB3F6BC9D497[sysdg] or https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-BF12E37F-4606-42BB-B8B6-4CDC5A870EE7[sysbackup] or https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-BD5D39D1-DBFF-400A-8645-355F8FB9CD31[sysdba]. Default - https://docs.oracle.com/en/database/oracle/oracle-database/26/dbseg/configuring-privilege-and-role-authorization.html#GUID-5798F976-85B2-4973-92F7-DB3F6BC9D497[sysdg].
 
+`a2.archive.log.dest.id` - The archive log destination ID to use. Default - 0.
 
 == solutions.a2.cdc.oracle.OraCdcLogMinerConnector specific parameters
 

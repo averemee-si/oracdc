@@ -509,6 +509,9 @@ public class Parameters {
 
 	public static final String NUMBER_MAP_PREFIX = "a2.map.number.";
 
+	public static final String LOG_ARCHIVE_DEST_PARAM = "a2.archive.log.dest.id";
+	public static final String LOG_ARCHIVE_DEST_DOC = "The archive log destination ID to use. Default - 0.";
+
 	/*
 	 * BEGIN LogMiner only parameters
 	 */

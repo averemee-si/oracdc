@@ -50,6 +50,7 @@ import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigDef.Range;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -244,7 +245,8 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 						ConfigDef.ValidString.in(
 								OFFHEAP_SIZE_FULL, OFFHEAP_SIZE_HALF, OFFHEAP_SIZE_QUARTER, OFFHEAP_SIZE_HALFQUARTER),
 						LOW, OFFHEAP_SIZE_DOC)
-				.define(TRANSFER_DIR_STAGE_PARAM, STRING, "", LOW, TRANSFER_DIR_STAGE_DOC);
+				.define(TRANSFER_DIR_STAGE_PARAM, STRING, "", LOW, TRANSFER_DIR_STAGE_DOC)
+				.define(LOG_ARCHIVE_DEST_PARAM, INT, 1, Range.between(1, 0x1F), LOW, LOG_ARCHIVE_DEST_DOC);
 	}
 
 	public KafkaSourceConnectorConfig(Map<String, String> originals) {
@@ -908,6 +910,10 @@ public class KafkaSourceConnectorConfig extends KafkaSourceBaseConfig implements
 		return schemaType() == SCHEMA_TYPE_INT_DEBEZIUM;
 	}
 
+	@Override
+	public int logArchiveDest() {
+		return getInt(LOG_ARCHIVE_DEST_PARAM);
+	}
 
 	// Kafka only
 	public KafkaTopicNameMapper getTopicNameMapper() {

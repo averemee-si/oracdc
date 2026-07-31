@@ -81,6 +81,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 	private final boolean stopOnOra1284;
 	private final boolean useNotifier;
 	private final LastProcessedSeqNotifier notifier;
+	private final int destId;
 
 	public OraCdcV$ArchivedLogImpl(
 			final Connection connLogMiner,
@@ -135,6 +136,7 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 			printAllOnlineScnRanges = false;
 		}
 
+		this.destId = config.logArchiveDest();
 		this.firstChange = firstChange;
 		createStatements(connLogMiner);
 
@@ -208,11 +210,9 @@ public class OraCdcV$ArchivedLogImpl implements OraLogMiner {
 
 		boolean archLogAvailable = false;
 
-		psGetArchivedLogs.setLong(1, firstChange);
-		psGetArchivedLogs.setLong(2, firstChange);
+		psGetArchivedLogs.setInt(1, destId);
+		psGetArchivedLogs.setInt(2, rdbmsInfo.getRedoThread());
 		psGetArchivedLogs.setLong(3, firstChange);
-		psGetArchivedLogs.setInt(4, rdbmsInfo.getRedoThread());
-		psGetArchivedLogs.setInt(5, rdbmsInfo.getRedoThread());
 		ResultSet rs = psGetArchivedLogs.executeQuery();
 		int lagSeconds = 0;
 		while (rs.next()) {
