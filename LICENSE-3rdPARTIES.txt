@@ -6,7 +6,7 @@ See licenses/ folder for text of these licenses.
 ----------------------------------------
 Apache License Version 2.0
 
-- agrona-2.4.1
+- agrona-2.5.0
 - commons-cli-1.11.0
 - commons-lang3-3.20.0
 - commons-math3-3.6.1
