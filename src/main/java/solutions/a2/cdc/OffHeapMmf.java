@@ -52,7 +52,6 @@ import org.apache.logging.log4j.LogManager;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-@SuppressWarnings("preview")
 public class OffHeapMmf {
 
 	private static final int END_OF_SEGMENT_MARKER = 0xFFFFFFFF;
