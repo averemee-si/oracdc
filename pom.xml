@@ -67,14 +67,14 @@
 			<name>Aleksei Veremeev</name>
 			<email>averemee@a2.solutions</email>
 			<timezone>Europe/Ljubljana</timezone>
-			<organization>A2 Rešitve, d.o.o.</organization>
-			<organizationUrl>https://a2-solutions.eu/</organizationUrl>
+			<organization>A2 Rešitve, d.o.o./A2 Solutions LLC</organization>
+			<organizationUrl>https://a2.solutions/</organizationUrl>
 		</developer>
 	</developers>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.release>21</maven.compiler.release>
+		<maven.compiler.release>25</maven.compiler.release>
 		<junit.version>5.14.0</junit.version>
 		<guava.version>33.5.0-jre</guava.version>
 		<kafka.version>4.3.1</kafka.version>
@@ -404,8 +404,8 @@
 
 							<ownerUsername>a2solutions</ownerUsername>
 							<ownerType>organization</ownerType>
-							<ownerName>A2 Rešitve, d.o.o.</ownerName>
-							<ownerUrl>https://a2-solutions.eu/</ownerUrl>
+							<ownerName>A2 Rešitve, d.o.o./A2 Solutions LLC</ownerName>
+							<ownerUrl>https://a2.solutions/</ownerUrl>
 							<ownerLogo>logos/a2-solutions.png</ownerLogo>
 
 							<dockerNamespace></dockerNamespace>
