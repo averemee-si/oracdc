@@ -114,6 +114,14 @@ This project is licensed under a commercial and under the AGPL license.
 
 == Release history
 
+=== 2.15.5 (AUG-2026)
+
+1. `a2.archive.log.dest.id` parameter
+
+2. Transition to JDK25
+
+3. Bug fixes
+
 === 2.15.4 (JUL-2026)
 
 1. Docker image enhancements
