@@ -83,7 +83,7 @@ import static solutions.a2.oracle.utils.BinaryUtils.hexToRaw;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
+public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase implements Comparator<String> {
 
 	private static final Logger LOGGER = LogManager.getLogger(OraCdcLogMinerWorkerThread.class);
 	private static final int MAX_RETRIES = 63;
@@ -106,7 +106,6 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 	private final Map<String, OraCdcTransaction> activeTransactions;
 	private final Map<String, String> prefixedTransactions;
 	private final TreeMap<String, Coords> sortedByFirstScn;
-	private final ActiveTransComparator activeTransComparator;
 	private OraCdcLargeObjectWorker lobWorker;
 	private final int connectionRetryBackoff;
 	private final int fetchSize;
@@ -148,8 +147,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.fetchSize = config.fetchSize();
 		this.traceSession = config.logMinerTrace();
 		this.committedTransactions = committedTransactions;
-		activeTransComparator = new ActiveTransComparator(activeTransactions);
-		sortedByFirstScn = new TreeMap<>(activeTransComparator);
+		sortedByFirstScn = new TreeMap<>(this);
 		prefixedTransactions = new HashMap<>();
 		this.logMinerReconnectIntervalMs = config.logMinerReconnectIntervalMs();
 		useChronicleQueue = config.useOffHeapMemory();
@@ -1207,31 +1205,18 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 	}
 
-	private static class ActiveTransComparator implements Comparator<String> {
-
-		private final Map<String, OraCdcTransaction> activeTransactions;
-
-		ActiveTransComparator(final Map<String, OraCdcTransaction> activeTransactions) {
-			this.activeTransactions = activeTransactions;
+	@Override
+	public int compare(String first, String second) {
+		if (Strings.CS.equals(first, second))
+			return 0;
+		else {
+			var firstTran = activeTransactions.get(first);
+			var secondTran = activeTransactions.get(second);
+			if (firstTran != null && secondTran != null)
+				return Long.compareUnsigned(firstTran.getFirstChange(), secondTran.getFirstChange()) ;
+			else
+				return -1;
 		}
-
-		@Override
-		public int compare(String first, String second) {
-			if (Strings.CS.equals(first, second)) {
-				// A transaction ID is unique to a transaction and represents the undo segment number, slot, and sequence number.
-				// https://docs.oracle.com/en/database/oracle/oracle-database/21/cncpt/transactions.html#GUID-E3FB3DC3-3317-4589-BADD-D89A3547F87D
-				return 0;
-			}
-
-			OraCdcTransaction firstOraTran = activeTransactions.get(first);
-			OraCdcTransaction secondOraTran = activeTransactions.get(second);
-			if (firstOraTran != null && secondOraTran != null && firstOraTran.getFirstChange() >= secondOraTran.getFirstChange()) {
-				return 1;
-			}
-
-			return -1;
-		}
-
 	}
 
 	private void createTransactionPrefix(final String xid) {
