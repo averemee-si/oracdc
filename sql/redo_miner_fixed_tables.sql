@@ -49,5 +49,6 @@ grant select on SYS.V_$TRANSPORTABLE_PLATFORM to &cdcUserName;
 grant select on SYS.V_$NLS_PARAMETERS to &cdcUserName;
 grant select on SYS.V_$STANDBY_LOG to &cdcUserName;
 grant select on SYS.V_$LICENSE to &cdcUserName;
+grant select on SYS.V_$ARCHIVE_DEST to &cdcUserName;
 grant select on SYS.GV_$INSTANCE to &cdcUserName;
 

@@ -65,4 +65,6 @@ grant select on SYS.GV_$INSTANCE to &cdcUserName
     container=&cdcContainer;
 grant select on SYS.V_$CONTAINERS to &cdcUserName
     container=&cdcContainer;
+grant select on SYS.V_$ARCHIVE_DEST to &cdcUserName
+    container=&cdcContainer;
 
