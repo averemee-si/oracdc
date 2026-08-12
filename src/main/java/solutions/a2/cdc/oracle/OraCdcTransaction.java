@@ -129,7 +129,7 @@ import solutions.a2.oracle.internals.RowId;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public abstract class OraCdcTransaction {
+public abstract class OraCdcTransaction implements OraCdcLengthSize {
 
 	public enum LobProcessingStatus {NOT_AT_ALL, LOGMINER, REDOMINER};
 
@@ -609,8 +609,6 @@ public abstract class OraCdcTransaction {
 
 	abstract void addStatement(final OraCdcStatementBase oraSql) throws IOException;
 	public abstract boolean getStatement(OraCdcStatementBase oraSql);
-	abstract long size();
-	abstract int length();
 	public abstract void close();
 
 	static class PartialRollbackEntry{
