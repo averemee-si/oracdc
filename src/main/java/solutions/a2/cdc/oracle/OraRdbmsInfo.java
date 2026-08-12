@@ -50,6 +50,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleConnection;
+import oracle.jdbc.OraclePreparedStatement;
 import oracle.sql.json.OracleJsonFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeWallet;
 import solutions.a2.oracle.utils.BinaryUtils;
@@ -385,35 +386,43 @@ public class OraRdbmsInfo {
 			final String tableOwner,
 			final String tableName,
 			final int pkType) throws SQLException {
-		final boolean isCdb = (conId > -1);
-		Set<String> result = null;
-		PreparedStatement ps = connection.prepareStatement(
-				(isCdb) ?
-						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_CDB :
-						OraDictSqlTexts.WELL_DEFINED_PK_COLUMNS_NON_CDB,
+		var isCdb = (conId > -1);
+		var ps = (OraclePreparedStatement) connection.prepareStatement(
+				isCdb ?
+						OraDictSqlTexts.PK_COLUMNS_CDB :
+						OraDictSqlTexts.PK_COLUMNS_NON_CDB,
 				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		ps.setString(1, tableOwner);
-		ps.setString(2, tableName);
-		if (isCdb) {
-			ps.setShort(3, conId);			
-		}
-
-		ResultSet rs = ps.executeQuery();
+		ps.setStringAtName("OWNER", tableOwner);
+		ps.setStringAtName("TABLE_NAME", tableName);
+		if (isCdb)
+			ps.setShortAtName("CON_ID", conId);
+		String indexOwner = null;
+		String indexName = null;
+		Set<String> result = null;
+		var pk = true;
+		var rs = ps.executeQuery();
 		while (rs.next()) {
-			if (result == null)
+			if (result == null) {
 				result = new HashSet<>();
+				pk = Strings.CS.equals(rs.getString("CONSTRAINT_TYPE"), "P");
+				if (!pk) {
+					indexOwner = rs.getString("OWNER");
+					indexName = rs.getString("CONSTRAINT_NAME");
+				}
+			}
 			result.add(rs.getString("COLUMN_NAME"));
 		}
 		rs.close();
 		rs = null;
 		ps.close();
 		ps = null;
-		if (result == null) {
-			// Try to find unique index with non-null columns only
-			ps = connection.prepareStatement(
+		if (result != null && !pk)
+			printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName, false);
+		if (result == null && pkType == PK_TYPE_INT_ANY_UNIQUE) {
+			ps = (OraclePreparedStatement) connection.prepareStatement(
 					(isCdb) ?
-							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_CDB :
-							OraDictSqlTexts.LEGACY_DEFINED_PK_COLUMNS_NON_CDB,
+							OraDictSqlTexts.UNIQUE_COLUMNS_CDB :
+							OraDictSqlTexts.UNIQUE_COLUMNS_NON_CDB,
 					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 			ps.setString(1, tableOwner);
 			ps.setString(2, tableName);
@@ -421,13 +430,13 @@ public class OraRdbmsInfo {
 				ps.setShort(3, conId);			
 			}
 			rs = ps.executeQuery();
-			String indexOwner = null;
-			String indexName = null;
 			while (rs.next()) {
 				if (result == null) {
 					result = new HashSet<>();
-					indexOwner = rs.getString("INDEX_OWNER");
+					indexOwner = rs.getString("OWNER");
 					indexName = rs.getString("INDEX_NAME");
+				} else if (!Strings.CS.equals(indexName, rs.getString("INDEX_NAME"))) {
+					break;
 				}
 				result.add(rs.getString("COLUMN_NAME"));
 			}
@@ -436,36 +445,7 @@ public class OraRdbmsInfo {
 			ps.close();
 			ps = null;
 			if (result != null) {
-				printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName, false);
-			} else if (pkType == PK_TYPE_INT_ANY_UNIQUE) {
-				ps = connection.prepareStatement(
-						(isCdb) ?
-								OraDictSqlTexts.WELL_DEFINED_UNIQUE_COLUMNS_CDB :
-								OraDictSqlTexts.WELL_DEFINED_UNIQUE_COLUMNS_NON_CDB,
-						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-				ps.setString(1, tableOwner);
-				ps.setString(2, tableName);
-				if (isCdb) {
-					ps.setShort(3, conId);			
-				}
-				rs = ps.executeQuery();
-				while (rs.next()) {
-					if (result == null) {
-						result = new HashSet<>();
-						indexOwner = rs.getString("OWNER");
-						indexName = rs.getString("INDEX_NAME");
-					} else if (!Strings.CS.equals(indexName, rs.getString("INDEX_NAME"))) {
-						break;
-					}
-					result.add(rs.getString("COLUMN_NAME"));
-				}
-				rs.close();
-				rs = null;
-				ps.close();
-				ps = null;
-				if (result != null) {
-					printPkWarning(result, false, tableOwner, tableName, indexOwner, indexName, false);
-				}
+				printPkWarning(result, false, tableOwner, tableName, indexOwner, indexName, false);
 			}
 		}
 		return result;

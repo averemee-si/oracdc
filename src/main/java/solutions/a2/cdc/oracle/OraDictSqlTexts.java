@@ -118,20 +118,19 @@ where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'
 order by C.COLUMN_ID;
 	 */
 	public static final String COLUMN_LIST_PLAIN =
-			"""
-			select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,
-			       C.NULLABLE, C.COLUMN_ID, C.HIDDEN_COLUMN, C.INTERNAL_COLUMN_ID,
-			       decode(E.SALT, NULL, 'NO', 'YES') ENCRYPTED, E.SALT, C.DATA_DEFAULT
-			from   DBA_TAB_COLS C
-			left join DBA_ENCRYPTED_COLUMNS E on (C.OWNER=E.OWNER and C.TABLE_NAME=E.TABLE_NAME and C.COLUMN_NAME=E.COLUMN_NAME)
-			where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))
-			  and  C.OWNER=? and C.TABLE_NAME=?
-			  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON', 'BOOLEAN', 'VECTOR')
-			       or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'
-			       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))
-			order by C.COLUMN_ID
-			
-			""";
+"""
+select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,
+       C.NULLABLE, C.COLUMN_ID, C.HIDDEN_COLUMN, C.INTERNAL_COLUMN_ID,
+       decode(E.SALT, NULL, 'NO', 'YES') ENCRYPTED, E.SALT, C.DATA_DEFAULT
+from   DBA_TAB_COLS C
+left join DBA_ENCRYPTED_COLUMNS E on (C.OWNER=E.OWNER and C.TABLE_NAME=E.TABLE_NAME and C.COLUMN_NAME=E.COLUMN_NAME)
+where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))
+  and  C.OWNER=? and C.TABLE_NAME=?
+  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON', 'BOOLEAN', 'VECTOR')
+       or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'
+       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))
+order by C.COLUMN_ID
+""";
 
 	/*
 select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,
@@ -147,20 +146,20 @@ where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'
 order by C.COLUMN_ID;
 	 */
 	public static final String COLUMN_LIST_PLAIN_CDB =
-			"""
-			select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,
-			       C.NULLABLE, C.COLUMN_ID, C.HIDDEN_COLUMN, C.INTERNAL_COLUMN_ID,
-			       decode(E.SALT, NULL, 'NO', 'YES') ENCRYPTED, E.SALT, C.DATA_DEFAULT_VC
-			from   CDB_TAB_COLS C
-			left join CDB_ENCRYPTED_COLUMNS E on (C.CON_ID=E.CON_ID and C.OWNER=E.OWNER and C.TABLE_NAME=E.TABLE_NAME and C.COLUMN_NAME=E.COLUMN_NAME)
-			where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))
-			  and  C.OWNER=? and C.TABLE_NAME=? and C.CON_ID=?
-			  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON', 'BOOLEAN', 'VECTOR')
-			       or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'
-			       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))
-			order by C.COLUMN_ID
-			
-			""";
+"""
+select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,
+       C.NULLABLE, C.COLUMN_ID, C.HIDDEN_COLUMN, C.INTERNAL_COLUMN_ID,
+       decode(E.SALT, NULL, 'NO', 'YES') ENCRYPTED, E.SALT, C.DATA_DEFAULT_VC
+from   CDB_TAB_COLS C
+left join CDB_ENCRYPTED_COLUMNS E on (C.CON_ID=E.CON_ID and C.OWNER=E.OWNER and C.TABLE_NAME=E.TABLE_NAME and C.COLUMN_NAME=E.COLUMN_NAME)
+where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))
+  and  C.OWNER=? and C.TABLE_NAME=? and C.CON_ID=?
+  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON', 'BOOLEAN', 'VECTOR')
+       or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'
+       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))
+order by C.COLUMN_ID
+""";
+
 	/*
 select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,
        C.NULLABLE, C.COLUMN_ID, C.HIDDEN_COLUMN, C.INTERNAL_COLUMN_ID,
@@ -175,20 +174,20 @@ where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'
 order by C.COLUMN_ID;
 	 */
 	public static final String COLUMN_LIST_PLAIN_PDB =
-			"""
-			select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,
-			       C.NULLABLE, C.COLUMN_ID, C.HIDDEN_COLUMN, C.INTERNAL_COLUMN_ID,
-			       decode(E.SALT, NULL, 'NO', 'YES') ENCRYPTED, E.SALT, C.DATA_DEFAULT_VC
-			from   DBA_TAB_COLS C
-			left join DBA_ENCRYPTED_COLUMNS E on (C.OWNER=E.OWNER and C.TABLE_NAME=E.TABLE_NAME and C.COLUMN_NAME=E.COLUMN_NAME)
-			where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))
-			  and  C.OWNER=? and C.TABLE_NAME=?
-			  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON', 'BOOLEAN', 'VECTOR')
-			       or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'
-			       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))
-			order by C.COLUMN_ID
-			
-			""";
+"""
+select C.COLUMN_NAME, C.DATA_TYPE, C.DATA_LENGTH, C.DATA_PRECISION, C.DATA_SCALE,
+       C.NULLABLE, C.COLUMN_ID, C.HIDDEN_COLUMN, C.INTERNAL_COLUMN_ID,
+       decode(E.SALT, NULL, 'NO', 'YES') ENCRYPTED, E.SALT, C.DATA_DEFAULT_VC
+from   DBA_TAB_COLS C
+left join DBA_ENCRYPTED_COLUMNS E on (C.OWNER=E.OWNER and C.TABLE_NAME=E.TABLE_NAME and C.COLUMN_NAME=E.COLUMN_NAME)
+where  (C.HIDDEN_COLUMN='NO' or (C.HIDDEN_COLUMN='YES' and C.VIRTUAL_COLUMN='NO'))
+  and  C.OWNER=? and C.TABLE_NAME=?
+  and  (C.DATA_TYPE in ('DATE', 'FLOAT', 'NUMBER', 'INTEGER', 'INT', 'SMALLINT', 'BINARY_FLOAT', 'BINARY_DOUBLE', 'RAW', 'CHAR', 'NCHAR', 'VARCHAR2', 'NVARCHAR2', 'BLOB', 'CLOB', 'NCLOB', 'JSON', 'BOOLEAN', 'VECTOR')
+       or C.DATA_TYPE like 'TIMESTAMP%' or C.DATA_TYPE like 'INTERVAL%'
+       or (C.DATA_TYPE='XMLTYPE' and C.DATA_TYPE_OWNER in ('SYS','PUBLIC')))
+order by C.COLUMN_ID
+""";
+
 	/*
 select C.COLUMN_NAME, L.SECUREFILE
 from   DBA_LOBS L, DBA_OBJECTS O, DBA_TAB_COLS AC, DBA_TAB_COLS C
@@ -234,117 +233,317 @@ select ALWAYS from CDB_LOG_GROUPS where LOG_GROUP_TYPE='ALL COLUMN LOGGING' and 
 			"select ALWAYS from CDB_LOG_GROUPS where LOG_GROUP_TYPE='ALL COLUMN LOGGING' and OWNER=? and TABLE_NAME=? and CON_ID=?";
 
 	/*
-select DCC.COLUMN_NAME
-from   DBA_CONSTRAINTS C, DBA_CONS_COLUMNS DCC
-where  C.OWNER=DCC.OWNER AND C.TABLE_NAME=DCC.TABLE_NAME and C.CONSTRAINT_NAME=DCC.CONSTRAINT_NAME and C.CONSTRAINT_TYPE='P'
-  and  C.OWNER='SCOTT' and C.TABLE_NAME='DEPT';
+with
+    PK as (
+        select C.CONSTRAINT_TYPE, DCC.COLUMN_NAME, DCC.POSITION,
+               C.OWNER, C.CONSTRAINT_NAME
+        from   DBA_CONSTRAINTS C, DBA_CONS_COLUMNS DCC
+        where  C.OWNER = DCC.OWNER
+          and  C.TABLE_NAME = DCC.TABLE_NAME
+          and  C.CONSTRAINT_NAME = DCC.CONSTRAINT_NAME
+          and  C.CONSTRAINT_TYPE = 'P'
+          and  C.OWNER = :OWNER
+          and  C.TABLE_NAME = :TABLE_NAME
+    ),
+    IDX as (
+        select I.OWNER, I.INDEX_NAME
+        from   DBA_INDEXES I
+        where  I.TABLE_OWNER = :OWNER
+          and  I.TABLE_NAME  = :TABLE_NAME
+          and  I.INDEX_TYPE  = 'NORMAL'
+          and  I.UNIQUENESS  = 'UNIQUE'
+          and  (I.STATUS = 'VALID'
+                or (I.PARTITIONED = 'YES'
+                    and not exists (select 1 from DBA_IND_PARTITIONS IP
+                                    where  IP.INDEX_OWNER = I.OWNER
+                                      and  IP.INDEX_NAME  = I.INDEX_NAME
+                                      and  IP.STATUS <> 'USABLE')))
+    ),
+    SCORED as (
+        select I.OWNER, I.INDEX_NAME, count(*) TOTAL_COLS
+        from   IDX I, DBA_IND_COLUMNS IC, DBA_TAB_COLUMNS TC
+        where  IC.INDEX_OWNER = I.OWNER
+          and  IC.INDEX_NAME  = I.INDEX_NAME
+          and  TC.OWNER = :OWNER
+          and  TC.TABLE_NAME = :TABLE_NAME
+          and  TC.COLUMN_NAME = IC.COLUMN_NAME
+        group by I.OWNER, I.INDEX_NAME
+        having count(case when TC.NULLABLE <> 'N' then 1 end) = 0
+    ),
+    BEST as (
+        select 'U' CONSTRAINT_TYPE, OWNER, INDEX_NAME
+        from   (select OWNER, INDEX_NAME
+                from   SCORED
+                order  by TOTAL_COLS, INDEX_NAME)
+        where  rownum = 1
+    )
+select CONSTRAINT_TYPE, COLUMN_NAME, OWNER, CONSTRAINT_NAME
+from (
+  select CONSTRAINT_TYPE, COLUMN_NAME, POSITION, OWNER, CONSTRAINT_NAME
+  from   PK
+  union all
+  select B.CONSTRAINT_TYPE, IC.COLUMN_NAME, IC.COLUMN_POSITION,
+         B.OWNER, B.INDEX_NAME
+  from   BEST B, DBA_IND_COLUMNS IC
+  where  IC.INDEX_OWNER = B.OWNER
+    and  IC.INDEX_NAME  = B.INDEX_NAME
+    and  not exists (select 1 from PK)
+)
+order by CONSTRAINT_TYPE, POSITION;
 	 */
-	public static final String WELL_DEFINED_PK_COLUMNS_NON_CDB =
-			"select DCC.COLUMN_NAME\n" +
-			"from   DBA_CONSTRAINTS C, DBA_CONS_COLUMNS DCC\n" +
-			"where  C.OWNER=DCC.OWNER AND C.TABLE_NAME=DCC.TABLE_NAME and C.CONSTRAINT_NAME=DCC.CONSTRAINT_NAME and C.CONSTRAINT_TYPE='P'\n" +
-			"  and  C.OWNER=? and C.TABLE_NAME=?\n";
+	public static final String PK_COLUMNS_NON_CDB =
+"""
+with
+    PK as (
+        select C.CONSTRAINT_TYPE, DCC.COLUMN_NAME, DCC.POSITION,
+               C.OWNER, C.CONSTRAINT_NAME
+        from   DBA_CONSTRAINTS C, DBA_CONS_COLUMNS DCC
+        where  C.OWNER = DCC.OWNER
+          and  C.TABLE_NAME = DCC.TABLE_NAME
+          and  C.CONSTRAINT_NAME = DCC.CONSTRAINT_NAME
+          and  C.CONSTRAINT_TYPE = 'P'
+          and  C.OWNER = :OWNER
+          and  C.TABLE_NAME = :TABLE_NAME
+    ),
+    IDX as (
+        select I.OWNER, I.INDEX_NAME
+        from   DBA_INDEXES I
+        where  I.TABLE_OWNER = :OWNER
+          and  I.TABLE_NAME  = :TABLE_NAME
+          and  I.INDEX_TYPE  = 'NORMAL'
+          and  I.UNIQUENESS  = 'UNIQUE'
+          and  (I.STATUS = 'VALID'
+                or (I.PARTITIONED = 'YES'
+                    and not exists (select 1 from DBA_IND_PARTITIONS IP
+                                    where  IP.INDEX_OWNER = I.OWNER
+                                      and  IP.INDEX_NAME  = I.INDEX_NAME
+                                      and  IP.STATUS <> 'USABLE')))
+    ),
+    SCORED as (
+        select I.OWNER, I.INDEX_NAME, count(*) TOTAL_COLS
+        from   IDX I, DBA_IND_COLUMNS IC, DBA_TAB_COLUMNS TC
+        where  IC.INDEX_OWNER = I.OWNER
+          and  IC.INDEX_NAME  = I.INDEX_NAME
+          and  TC.OWNER = :OWNER
+          and  TC.TABLE_NAME = :TABLE_NAME
+          and  TC.COLUMN_NAME = IC.COLUMN_NAME
+        group by I.OWNER, I.INDEX_NAME
+        having count(case when TC.NULLABLE <> 'N' then 1 end) = 0
+    ),
+    BEST as (
+        select 'U' CONSTRAINT_TYPE, OWNER, INDEX_NAME
+        from   (select OWNER, INDEX_NAME
+                from   SCORED
+                order  by TOTAL_COLS, INDEX_NAME)
+        where  rownum = 1
+    )
+select CONSTRAINT_TYPE, COLUMN_NAME, OWNER, CONSTRAINT_NAME
+from (
+  select CONSTRAINT_TYPE, COLUMN_NAME, POSITION, OWNER, CONSTRAINT_NAME
+  from   PK
+  union all
+  select B.CONSTRAINT_TYPE, IC.COLUMN_NAME, IC.COLUMN_POSITION,
+         B.OWNER, B.INDEX_NAME
+  from   BEST B, DBA_IND_COLUMNS IC
+  where  IC.INDEX_OWNER = B.OWNER
+    and  IC.INDEX_NAME  = B.INDEX_NAME
+    and  not exists (select 1 from PK)
+)
+order by CONSTRAINT_TYPE, POSITION
+""";
 
 	/*
-select DCC.COLUMN_NAME
-from   CDB_CONSTRAINTS C, CDB_CONS_COLUMNS DCC
-where  C.OWNER=DCC.OWNER AND C.TABLE_NAME=DCC.TABLE_NAME and C.CONSTRAINT_NAME=DCC.CONSTRAINT_NAME and C.CONSTRAINT_TYPE='P'
-  and  C.CON_ID=DCC.CON_ID and C.OWNER='SCOTT' and C.TABLE_NAME='DEPT' and C.CON_ID=0;
+with
+    PK as (
+        select C.CONSTRAINT_TYPE, DCC.COLUMN_NAME, DCC.POSITION,
+               C.OWNER, C.CONSTRAINT_NAME
+        from   CDB_CONSTRAINTS C, CDB_CONS_COLUMNS DCC
+        where  C.OWNER = DCC.OWNER
+          and  C.TABLE_NAME = DCC.TABLE_NAME
+          and  C.CONSTRAINT_NAME = DCC.CONSTRAINT_NAME
+          and  C.CONSTRAINT_TYPE = 'P'
+          and  C.OWNER = :OWNER
+          and  C.TABLE_NAME = :TABLE_NAME
+          and  C.CON_ID = :CON_ID
+    ),
+    IDX as (
+        select I.OWNER, I.CON_ID, I.INDEX_NAME
+        from   CDB_INDEXES I
+        where  I.TABLE_OWNER = :OWNER
+          and  I.TABLE_NAME  = :TABLE_NAME
+          and  I.CON_ID = :CON_ID
+          and  I.INDEX_TYPE  = 'NORMAL'
+          and  I.UNIQUENESS  = 'UNIQUE'
+          and  (I.STATUS = 'VALID'
+                or (I.PARTITIONED = 'YES'
+                    and not exists (select 1 from CDB_IND_PARTITIONS IP
+                                    where  IP.INDEX_OWNER = I.OWNER
+                                      and  IP.INDEX_NAME  = I.INDEX_NAME
+                                      and  IP.CON_ID = I.CON_ID
+                                      and  IP.STATUS <> 'USABLE')))
+    ),
+    SCORED as (
+        select I.OWNER, I.INDEX_NAME, I.CON_ID, count(*) TOTAL_COLS
+        from   IDX I, CDB_IND_COLUMNS IC, CDB_TAB_COLUMNS TC
+        where  IC.INDEX_OWNER = I.OWNER
+          and  IC.INDEX_NAME  = I.INDEX_NAME
+          and  IC.CON_ID  = I.CON_ID
+          and  TC.OWNER = :OWNER
+          and  TC.TABLE_NAME = :TABLE_NAME
+          and  TC.CON_ID = :CON_ID
+          and  TC.COLUMN_NAME = IC.COLUMN_NAME
+        group by I.OWNER, I.INDEX_NAME, I.CON_ID
+        having count(case when TC.NULLABLE <> 'N' then 1 end) = 0
+    ),
+    BEST as (
+        select 'U' CONSTRAINT_TYPE, OWNER, CON_ID, INDEX_NAME
+        from   (select OWNER, CON_ID, INDEX_NAME
+                from   SCORED
+                order  by TOTAL_COLS, INDEX_NAME)
+        where  rownum = 1
+    )
+select CONSTRAINT_TYPE, COLUMN_NAME, OWNER, CONSTRAINT_NAME
+from (
+  select CONSTRAINT_TYPE, COLUMN_NAME, POSITION, OWNER, CONSTRAINT_NAME
+  from   PK
+  union all
+  select B.CONSTRAINT_TYPE, IC.COLUMN_NAME, IC.COLUMN_POSITION,
+         B.OWNER, B.INDEX_NAME
+  from   BEST B, CDB_IND_COLUMNS IC
+  where  IC.INDEX_OWNER = B.OWNER
+    and  IC.INDEX_NAME  = B.INDEX_NAME
+    and  IC.CON_ID  = B.CON_ID
+    and  not exists (select 1 from PK)
+)
+order by CONSTRAINT_TYPE, POSITION;
 	 */
-	public static final String WELL_DEFINED_PK_COLUMNS_CDB =
-			"select DCC.COLUMN_NAME\n" + 
-			"from   CDB_CONSTRAINTS C, CDB_CONS_COLUMNS DCC\n" + 
-			"where  C.OWNER=DCC.OWNER AND C.TABLE_NAME=DCC.TABLE_NAME and C.CONSTRAINT_NAME=DCC.CONSTRAINT_NAME and C.CONSTRAINT_TYPE='P'\n" + 
-			"  and  C.CON_ID=DCC.CON_ID and C.OWNER=? and C.TABLE_NAME=? and C.CON_ID=?\n";
+	public static final String PK_COLUMNS_CDB =
+"""
+with
+    PK as (
+        select C.CONSTRAINT_TYPE, DCC.COLUMN_NAME, DCC.POSITION,
+               C.OWNER, C.CONSTRAINT_NAME
+        from   CDB_CONSTRAINTS C, CDB_CONS_COLUMNS DCC
+        where  C.OWNER = DCC.OWNER
+          and  C.TABLE_NAME = DCC.TABLE_NAME
+          and  C.CONSTRAINT_NAME = DCC.CONSTRAINT_NAME
+          and  C.CONSTRAINT_TYPE = 'P'
+          and  C.OWNER = :OWNER
+          and  C.TABLE_NAME = :TABLE_NAME
+          and  C.CON_ID = :CON_ID
+    ),
+    IDX as (
+        select I.OWNER, I.CON_ID, I.INDEX_NAME
+        from   CDB_INDEXES I
+        where  I.TABLE_OWNER = :OWNER
+          and  I.TABLE_NAME  = :TABLE_NAME
+          and  I.CON_ID = :CON_ID
+          and  I.INDEX_TYPE  = 'NORMAL'
+          and  I.UNIQUENESS  = 'UNIQUE'
+          and  (I.STATUS = 'VALID'
+                or (I.PARTITIONED = 'YES'
+                    and not exists (select 1 from CDB_IND_PARTITIONS IP
+                                    where  IP.INDEX_OWNER = I.OWNER
+                                      and  IP.INDEX_NAME  = I.INDEX_NAME
+                                      and  IP.CON_ID = I.CON_ID
+                                      and  IP.STATUS <> 'USABLE')))
+    ),
+    SCORED as (
+        select I.OWNER, I.INDEX_NAME, I.CON_ID, count(*) TOTAL_COLS
+        from   IDX I, CDB_IND_COLUMNS IC, CDB_TAB_COLUMNS TC
+        where  IC.INDEX_OWNER = I.OWNER
+          and  IC.INDEX_NAME  = I.INDEX_NAME
+          and  IC.CON_ID  = I.CON_ID
+          and  TC.OWNER = :OWNER
+          and  TC.TABLE_NAME = :TABLE_NAME
+          and  TC.CON_ID = :CON_ID
+          and  TC.COLUMN_NAME = IC.COLUMN_NAME
+        group by I.OWNER, I.INDEX_NAME, I.CON_ID
+        having count(case when TC.NULLABLE <> 'N' then 1 end) = 0
+    ),
+    BEST as (
+        select 'U' CONSTRAINT_TYPE, OWNER, CON_ID, INDEX_NAME
+        from   (select OWNER, CON_ID, INDEX_NAME
+                from   SCORED
+                order  by TOTAL_COLS, INDEX_NAME)
+        where  rownum = 1
+    )
+select CONSTRAINT_TYPE, COLUMN_NAME, OWNER, CONSTRAINT_NAME
+from (
+  select CONSTRAINT_TYPE, COLUMN_NAME, POSITION, OWNER, CONSTRAINT_NAME
+  from   PK
+  union all
+  select B.CONSTRAINT_TYPE, IC.COLUMN_NAME, IC.COLUMN_POSITION,
+         B.OWNER, B.INDEX_NAME
+  from   BEST B, CDB_IND_COLUMNS IC
+  where  IC.INDEX_OWNER = B.OWNER
+    and  IC.INDEX_NAME  = B.INDEX_NAME
+    and  IC.CON_ID  = B.CON_ID
+    and  not exists (select 1 from PK)
+)
+order by CONSTRAINT_TYPE, POSITION
+""";
 
 	/*
-select TC.COLUMN_NAME, IC.INDEX_OWNER, IC.INDEX_NAME
-from   DBA_IND_COLUMNS IC, DBA_TAB_COLUMNS TC, (
-	select RI.OWNER, RI.INDEX_NAME
-	from (
-    	select I.OWNER, I.INDEX_NAME, count(*) TOTAL, sum(case when TC.NULLABLE='N' then 1 else 0 end) NON_NULL
-	    from   DBA_INDEXES I, DBA_IND_COLUMNS IC, DBA_TAB_COLUMNS TC
-    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE'
-          and  (I.STATUS='VALID'
-               or (I.PARTITIONED='YES' and
-                   (select count(distinct STATUS) from DBA_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME) = 1 and
-                   (select count(distinct STATUS) from DBA_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME and IP.STATUS='USABLE') = 1 ))
-	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME
-    	  and  TC.OWNER=I.TABLE_OWNER and TC.TABLE_NAME=I.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME
-	      and  I.TABLE_OWNER='INV' and I.TABLE_NAME='MTL_MATERIAL_TRANSACTIONS'
-    	group by I.OWNER, I.INDEX_NAME
-		order by TOTAL asc, INDEX_NAME) RI
-	where RI.TOTAL=RI.NON_NULL
-	and rownum=1) FL
-where TC.OWNER=IC.TABLE_OWNER and TC.TABLE_NAME=IC.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME
-  and IC.INDEX_OWNER=FL.OWNER and IC.INDEX_NAME=FL.INDEX_NAME;
+select   I.OWNER, I.INDEX_NAME, IC.COLUMN_NAME
+from     DBA_INDEXES I, DBA_IND_COLUMNS IC
+where    I.OWNER = IC.INDEX_OWNER and I.INDEX_NAME = IC.INDEX_NAME 
+  and    I.UNIQUENESS = 'UNIQUE' and I.OWNER = 'SCOTT' and I.TABLE_NAME = 'DEPT'
+order by I.INDEX_NAME, IC.COLUMN_POSITION;
 	 */
-	public static final String LEGACY_DEFINED_PK_COLUMNS_NON_CDB =
-			"select TC.COLUMN_NAME, IC.INDEX_OWNER, IC.INDEX_NAME\n" + 
-			"from   DBA_IND_COLUMNS IC, DBA_TAB_COLUMNS TC, (\n" + 
-			"	select RI.OWNER, RI.INDEX_NAME\n" + 
-			"	from (\n" + 
-			"    	select I.OWNER, I.INDEX_NAME, count(*) TOTAL, sum(case when TC.NULLABLE='N' then 1 else 0 end) NON_NULL\n" + 
-			"	    from   DBA_INDEXES I, DBA_IND_COLUMNS IC, DBA_TAB_COLUMNS TC\n" + 
-			"    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE'\n" +
-			"          and  (I.STATUS='VALID'\n" +
-			"               or (I.PARTITIONED='YES' and\n" +
-			"                   (select count(distinct STATUS) from DBA_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME) = 1 and\n" +
-			"                   (select count(distinct STATUS) from DBA_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME and IP.STATUS='USABLE') = 1 ))\n" +
-			"	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME\n" +
-			"    	  and  TC.OWNER=I.TABLE_OWNER and TC.TABLE_NAME=I.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME\n" + 
-			"	      and  I.TABLE_OWNER=? and I.TABLE_NAME=?\n" + 
-			"    	group by I.OWNER, I.INDEX_NAME\n" + 
-			"		order by TOTAL asc, INDEX_NAME) RI\n" + 
-			"	where RI.TOTAL=RI.NON_NULL\n" + 
-			"	and rownum=1) FL\n" + 
-			"where TC.OWNER=IC.TABLE_OWNER and TC.TABLE_NAME=IC.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME\n" + 
-			"  and IC.INDEX_OWNER=FL.OWNER and IC.INDEX_NAME=FL.INDEX_NAME";
+	public static final String UNIQUE_COLUMNS_NON_CDB =
+"""
+select   I.OWNER, I.INDEX_NAME, IC.COLUMN_NAME
+from     DBA_INDEXES I, DBA_IND_COLUMNS IC
+where    I.OWNER = IC.INDEX_OWNER and I.INDEX_NAME = IC.INDEX_NAME
+  and    I.UNIQUENESS = 'UNIQUE' and I.OWNER = ? and I.TABLE_NAME = ?
+order by I.INDEX_NAME, IC.COLUMN_POSITION
+""";
+
 	/*
-select TC.COLUMN_NAME, IC.INDEX_OWNER, IC.INDEX_NAME
-from   CDB_IND_COLUMNS IC, CDB_TAB_COLUMNS TC, (
-	select RI.OWNER, RI.INDEX_NAME, RI.CON_ID
-	from (
-    	select I.OWNER, I.INDEX_NAME, I.CON_ID, count(*) TOTAL, sum(case when TC.NULLABLE='N' then 1 else 0 end) NON_NULL
-	    from   CDB_INDEXES I, CDB_IND_COLUMNS IC, CDB_TAB_COLUMNS TC
-    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE'
-          and  (I.STATUS='VALID'
-               or (I.PARTITIONED='YES' and
-                   (select count(distinct STATUS) from CDB_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME) = 1 and
-                   (select count(distinct STATUS) from CDB_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME and IP.STATUS='USABLE') = 1 ))
-	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME
-	      and  I.CON_ID=IC.CON_ID and IC.CON_ID=TC.CON_ID
-    	  and  TC.OWNER=I.TABLE_OWNER and TC.TABLE_NAME=I.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME
-	      and  I.TABLE_OWNER='INV' and I.TABLE_NAME='MTL_MATERIAL_TRANSACTIONS' and I.CON_ID=0
-    	group by I.OWNER, I.INDEX_NAME, I.CON_ID
-		order by TOTAL asc, INDEX_NAME) RI
-	where RI.TOTAL=RI.NON_NULL
-	and rownum=1) FL
-where TC.OWNER=IC.TABLE_OWNER and TC.TABLE_NAME=IC.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME
-  and IC.INDEX_OWNER=FL.OWNER and IC.INDEX_NAME=FL.INDEX_NAME and IC.CON_ID=TC.CON_ID and IC.CON_ID=FL.CON_ID;
+select   I.OWNER, I.INDEX_NAME, IC.COLUMN_NAME
+from     CDB_INDEXES I, CDB_IND_COLUMNS IC
+where    I.OWNER = IC.INDEX_OWNER and I.INDEX_NAME = IC.INDEX_NAME and I.CON_ID = IC.CON_ID  
+  and    I.UNIQUENESS = 'UNIQUE' and I.OWNER = 'SCOTT' and I.TABLE_NAME = 'DEPT' and I.CON_ID = 4
+order by I.INDEX_NAME, IC.COLUMN_POSITION;
 	 */
-	public static final String LEGACY_DEFINED_PK_COLUMNS_CDB =
-			"select TC.COLUMN_NAME, IC.INDEX_OWNER, IC.INDEX_NAME\n" + 
-			"from   CDB_IND_COLUMNS IC, CDB_TAB_COLUMNS TC, (\n" + 
-			"	select RI.OWNER, RI.INDEX_NAME, RI.CON_ID\n" + 
-			"	from (\n" + 
-			"    	select I.OWNER, I.INDEX_NAME, I.CON_ID, count(*) TOTAL, sum(case when TC.NULLABLE='N' then 1 else 0 end) NON_NULL\n" + 
-			"	    from   CDB_INDEXES I, CDB_IND_COLUMNS IC, CDB_TAB_COLUMNS TC\n" + 
-			"    	where  I.INDEX_TYPE='NORMAL' and I.UNIQUENESS='UNIQUE'\n" +
-			"          and  (I.STATUS='VALID'\n" +
-			"               or (I.PARTITIONED='YES' and\n" +
-			"                   (select count(distinct STATUS) from CDB_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME) = 1 and\n" +
-			"                   (select count(distinct STATUS) from CDB_IND_PARTITIONS IP where I.OWNER=IP.INDEX_OWNER and I.INDEX_NAME=IP.INDEX_NAME and IP.STATUS='USABLE') = 1 ))\n" +
-			"	      and  I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME\n" +
-			"	      and  I.CON_ID=IC.CON_ID and IC.CON_ID=TC.CON_ID\n" + 
-			"    	  and  TC.OWNER=I.TABLE_OWNER and TC.TABLE_NAME=I.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME\n" + 
-			"	      and  I.TABLE_OWNER=? and I.TABLE_NAME=? and I.CON_ID=?\n" + 
-			"    	group by I.OWNER, I.INDEX_NAME, I.CON_ID\n" + 
-			"		order by TOTAL asc, INDEX_NAME) RI\n" + 
-			"	where RI.TOTAL=RI.NON_NULL\n" + 
-			"	and rownum=1) FL\n" + 
-			"where TC.OWNER=IC.TABLE_OWNER and TC.TABLE_NAME=IC.TABLE_NAME and IC.COLUMN_NAME=TC.COLUMN_NAME\n" + 
-			"  and IC.INDEX_OWNER=FL.OWNER and IC.INDEX_NAME=FL.INDEX_NAME and IC.CON_ID=TC.CON_ID and IC.CON_ID=FL.CON_ID";
+	public static final String UNIQUE_COLUMNS_CDB =
+"""
+select   I.OWNER, I.INDEX_NAME, IC.COLUMN_NAME 
+from     CDB_INDEXES I, CDB_IND_COLUMNS IC 
+where    I.OWNER = IC.INDEX_OWNER and I.INDEX_NAME = IC.INDEX_NAME and I.CON_ID = IC.CON_ID 
+  and    I.UNIQUENESS = 'UNIQUE' and I.OWNER = ? and I.TABLE_NAME = ? and I.CON_ID = ?
+order by I.INDEX_NAME, IC.COLUMN_POSITION
+""";
+
+	/*
+select   INDEX_OWNER, COLUMN_NAME
+from     DBA_IND_COLUMNS
+where    TABLE_OWNER='SCOTT' and TABLE_NAME='DEPT' and INDEX_NAME='PK_DEPT'
+order by COLUMN_POSITION;
+	 */
+	public static final String INDEX_COLUMNS_NON_CDB =
+"""
+select   INDEX_OWNER, COLUMN_NAME
+from     DBA_IND_COLUMNS
+where    TABLE_OWNER=? and TABLE_NAME=? and INDEX_NAME=?
+order by COLUMN_POSITION
+""";
+
+	/*
+select   INDEX_OWNER, COLUMN_NAME
+from     CDB_IND_COLUMNS
+where    TABLE_OWNER='SCOTT' and TABLE_NAME='DEPT' and INDEX_NAME='PK_DEPT' and CON_ID=4
+order by COLUMN_POSITION;
+	 */
+	public static final String INDEX_COLUMNS_CDB =
+"""
+select   INDEX_OWNER, COLUMN_NAME
+from     CDB_IND_COLUMNS
+where    TABLE_OWNER=? and TABLE_NAME=? and INDEX_NAME=? and CON_ID=?
+order by COLUMN_POSITION
+""";
+
 
 	/*
 select D.DBID, D.NAME, D.DB_UNIQUE_NAME, D.PLATFORM_NAME, D.OPEN_MODE, D.CONTROLFILE_TYPE,
@@ -493,7 +692,8 @@ where    ARCHIVED='YES' and STANDBY_DEST='NO' and DELETED='NO' and STATUS='A'
   and    DEST_ID   = ?
   and    THREAD#   = ?
   and    NEXT_CHANGE# > ?
-order by SEQUENCE#""";
+order by SEQUENCE#
+""";
 
 	/*
 
@@ -828,58 +1028,6 @@ where  L.STATUS = 'ACTIVE'
   and  F.STATUS is null
   and  rownum = 1			
 """;
-
-	/*
-select   I.OWNER, I.INDEX_NAME, IC.COLUMN_NAME
-from     DBA_INDEXES I, DBA_IND_COLUMNS IC
-where    I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME 
-  and    I.UNIQUENESS='UNIQUE' and I.OWNER='SCOTT' and I.TABLE_NAME='DEPT'
-order by I.INDEX_NAME, IC.COLUMN_POSITION;
-	 */
-	public static final String WELL_DEFINED_UNIQUE_COLUMNS_NON_CDB =
-			"select   I.OWNER, I.INDEX_NAME, IC.COLUMN_NAME\n" +
-			"from     DBA_INDEXES I, DBA_IND_COLUMNS IC\n" +
-			"where    I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME \n" +
-			"  and    I.UNIQUENESS='UNIQUE' and I.OWNER=? and I.TABLE_NAME=?\n" +
-			"order by I.INDEX_NAME, IC.COLUMN_POSITION\n";
-
-	/*
-select   I.OWNER, I.INDEX_NAME, IC.COLUMN_NAME
-from     CDB_INDEXES I, CDB_IND_COLUMNS IC
-where    I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME and I.CON_ID=IC.CON_ID  
-  and    I.UNIQUENESS='UNIQUE' and I.OWNER='SCOTT' and I.TABLE_NAME='DEPT' and I.CON_ID=4
-order by I.INDEX_NAME, IC.COLUMN_POSITION;
-	 */
-	public static final String WELL_DEFINED_UNIQUE_COLUMNS_CDB =
-			"select   I.OWNER, I.INDEX_NAME, IC.COLUMN_NAME\n" + 
-			"from     CDB_INDEXES I, CDB_IND_COLUMNS IC\n" + 
-			"where    I.OWNER=IC.INDEX_OWNER and I.INDEX_NAME=IC.INDEX_NAME and I.CON_ID=IC.CON_ID\n" + 
-			"  and    I.UNIQUENESS='UNIQUE' and I.OWNER=? and I.TABLE_NAME=? and I.CON_ID=?\n" +
-			"order by I.INDEX_NAME, IC.COLUMN_POSITION\n";
-
-	/*
-select   INDEX_OWNER, COLUMN_NAME
-from     DBA_IND_COLUMNS
-where    TABLE_OWNER='SCOTT' and TABLE_NAME='DEPT' and INDEX_NAME='PK_DEPT'
-order by COLUMN_POSITION;
-	 */
-	public static final String INDEX_COLUMNS_NON_CDB =
-			"select   INDEX_OWNER, COLUMN_NAME\n" +
-			"from     DBA_IND_COLUMNS\n" +
-			"where    TABLE_OWNER=? and TABLE_NAME=? and INDEX_NAME=?\n" +
-			"order by COLUMN_POSITION";
-
-	/*
-select   INDEX_OWNER, COLUMN_NAME
-from     CDB_IND_COLUMNS
-where    TABLE_OWNER='SCOTT' and TABLE_NAME='DEPT' and INDEX_NAME='PK_DEPT' and CON_ID=4
-order by COLUMN_POSITION;
-	 */
-	public static final String INDEX_COLUMNS_CDB =
-			"select   INDEX_OWNER, COLUMN_NAME\n" +
-			"from     CDB_IND_COLUMNS\n" +
-			"where    TABLE_OWNER=? and TABLE_NAME=? and INDEX_NAME=? and CON_ID=?\n" +
-			"order by COLUMN_POSITION";
 
 	/*
 select case
