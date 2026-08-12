@@ -2215,10 +2215,9 @@ public abstract class OraCdcTransaction {
 							if (holder.cmap) {
 								CMapInflater.inflate(ba, baos);
 							} else if (ll.dataCompressed() && !holder.binaryXml) {
-								Inflater inflater = new Inflater();
-								inflater.setInput(ba);
-								final byte[] buffer = new byte[0x2000];
-								try {
+								try (var inflater = new Inflater()) {
+									inflater.setInput(ba);
+									var buffer = new byte[0x2000];
 									while (!inflater.finished()) {
 										int processed = inflater.inflate(buffer);
 										baos.write(buffer, 0, processed);
