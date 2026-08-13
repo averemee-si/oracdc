@@ -99,5 +99,7 @@ public abstract class OraCdcWorkerThreadBase extends Thread {
 	}
 
 	public abstract void rewind(final long firstScn, final RedoByteAddress firstRba, final long firstSubScn) throws SQLException;
+	public abstract int commitQueueSize();
+	public abstract int activeQueueSize();
 
 }

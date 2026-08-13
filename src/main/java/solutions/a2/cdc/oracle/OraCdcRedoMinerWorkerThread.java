@@ -132,6 +132,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.activeTransactions = activeTransactions;
 		this.rawTransactions = rawTransactions;
 		this.metrics = metrics;
+		this.metrics.worker(this);
 		this.conUids = conUids;
 		if (conUids == null || conUids.length == 0)
 			conFilter = false;
@@ -654,17 +655,17 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					LOGGER.debug(
 							"Rolling back transaction {} at SCN/RBA {}/{}, LWN SCN/RBA={}/{}, FIRST_CHANGE#={} with {} changes and size {} bytes",
 							xid, record.scn(), record.rba(), lastScn, lastRba, raw.firstChange(), raw.length(), raw.size());
-				metrics.addRolledBackRecords(raw.length(), raw.size(), activeTransactions.size());
+				metrics.addRolledBackRecords(raw);
 			} else {
 				final var commitScn = record.scn();
 				if (raw.hasRows()) {
-					raw.commitScn(commitScn);
-					rawTransactions.add(raw);
-					metrics.addCommittedRecords(raw.length(), raw.size(), rawTransactions.size(), activeTransactions.size());
+					metrics.addCommittedRecords(raw);
 					if (LOGGER.isDebugEnabled())
 						LOGGER.debug(
 								"Committing transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
 								xid, record.scn(), record.rba(), raw.firstChange(), raw.length(), raw.size());
+					raw.commitScn(commitScn);
+					rawTransactions.add(raw);
 				} else {
 					rollback = true;
 					if (LOGGER.isDebugEnabled())
@@ -931,5 +932,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 			}
 		}
 	}
+
+	public int commitQueueSize() {
+		return rawTransactions.size();
+	}
+
+	public int activeQueueSize() {
+		return activeTransactions.size();
+	}
+
 
 }
