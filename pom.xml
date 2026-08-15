@@ -254,6 +254,7 @@
 			<groupId>com.sshtools</groupId>
 			<artifactId>maverick-synergy-client</artifactId>
 			<version>${maverick.version}</version>
+			<scope>provided</scope>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/com.hierynomus/sshj --> 
 		<dependency>

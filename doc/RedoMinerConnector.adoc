@@ -150,7 +150,7 @@ To stream redo log files from a database server using the SSH protocol, you need
 
 |a2.storage.media | SSH | Mandatory setting
 
-|a2.ssh.provider | sshj or maverick | Optional, library that provides SSH connection: `maverick` for https://jadaptive.com/[Maverick Synergy] or `sshj` for https://github.com/hierynomus/sshj[Hierynomus sshj] or `mina` for https://mina.apache.org/sshd-project/[Apache Mina SSHD]. Default - `sshj`
+|a2.ssh.provider | sshj, mina, or maverick | Optional, library that provides SSH connection: `maverick` for https://jadaptive.com/[Maverick Synergy] or `sshj` for https://github.com/hierynomus/sshj[Hierynomus sshj] or `mina` for https://mina.apache.org/sshd-project/[Apache Mina SSHD]. Default - `sshj`
 
 |a2.ssh.hostname | String | Mandatory, FQDN or IP address of the remote server with redo log files
 
@@ -176,6 +176,19 @@ Default - 86,400,000 (24 hours)
 |===
 
 *IMPORTANT* You must specify a value for one of the parameters a2.ssh.private.key or a2.ssh.password
+
+*IMPORTANT* The libraries required to work with https://jadaptive.com/[Maverick Synergy] when `a2.ssh.provider`=`maverick` are not provided. For a commercial license for https://jadaptive.com/[Maverick Synergy], please contact https://jadaptive.com/[Jadaptive Limited]. To use https://jadaptive.com/[Maverick Synergy] licensed under https://www.gnu.org/licenses/lgpl-3.0.html[LGPL-3.0], use the commands below to download and then add these libraries to the Java virtual machine's CLASSPATH
+
+----
+SSH_VERSION=3.1.4
+wget https://repo1.maven.org/maven2/com/sshtools/maverick-base/${SSH_VERSION}/maverick-base-${SSH_VERSION}.jar
+wget https://repo1.maven.org/maven2/com/sshtools/maverick-logging/${SSH_VERSION}/maverick-logging-${SSH_VERSION}.jar
+wget https://repo1.maven.org/maven2/com/sshtools/maverick-utils/${SSH_VERSION}/maverick-utils-${SSH_VERSION}.jar
+wget https://repo1.maven.org/maven2/com/sshtools/maverick-synergy-client/${SSH_VERSION}/maverick-synergy-client-${SSH_VERSION}.jar
+wget https://repo1.maven.org/maven2/com/sshtools/maverick-synergy-common/${SSH_VERSION}/maverick-synergy-common-${SSH_VERSION}.jar
+----
+
+
 
 === Reading using BFILENAME() function
 
