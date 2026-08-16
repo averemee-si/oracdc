@@ -38,7 +38,7 @@ Additional converters
 
 == Support
 
-*oracdc* is open-source software that is developed by a commercial organization. Whilst we strive to provide support to the open-source edition whenever we can; for immediate help, please consider purchasing a support subscription from A2 Rešitve d.o.o./A2 Solutions LLC. Subscribers receive priority support, security hotfixes, and new features in advance of the open-source release. Community developers should raise issues or PR directly in github. Please ensure you have read our Contribution Agreement(CONTRIBUTING.md) before submitting any PR requests.
+*oracdc* is open-source software that is developed by a commercial organization. Whilst we strive to provide support to the open-source edition whenever we can; for immediate help, please consider purchasing a support subscription from A2 Rešitve d.o.o./A2 Solutions LLC. Subscribers receive priority support, security hotfixes, and new features in advance of the open-source release. Community developers should raise issues or PR directly in github. Please ensure you have read and accepted our link:CLA.md[Contributor License Agreement] before submitting any pull requests; see link:CONTRIBUTING.md[CONTRIBUTING.md] for how to contribute.
 
 == Which source connector should I choose?
 
