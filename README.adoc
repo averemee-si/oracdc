@@ -1,0 +1,10 @@
+= CLA signatures
+
+Ledger branch for the oracdc Contributor License Agreement.
+
+The file `signatures/version1/cla.json` is generated and updated automatically by
+`.github/workflows/cla.yml` on the `master` branch — *do not edit it by hand*, and do not
+put project code on this branch.
+
+The agreement itself is in link:https://github.com/averemee-si/oracdc/blob/master/CLA.md[CLA.md]
+on `master`.
