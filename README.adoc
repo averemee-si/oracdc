@@ -4,7 +4,7 @@ image:https://img.shields.io/docker/pulls/a2solutions/oracdc[link=https://hub.do
 
 = oracdc
 
-*oracdc* is a set of software solutions for the Apache Kafka Connect ecosystem designed  to transfer information about changes in the source Oracle database (versions 9i, 10g, 11c, 12c, 18c, 19c, 21c, 23ai, and 26ai ) for further processing. This processing usually involves reacting to changes in the source system using event-driven architecture principles or performing data integration and replication to heterogeneous systems.
+*oracdc* is a set of software solutions for the Apache Kafka Connect ecosystem designed to transfer information about changes in the source Oracle database (versions 9i, 10g, 11c, 12c, 18c, 19c, 21c, 23ai, and 26ai) for further processing. This processing usually involves reacting to changes in the source system using event-driven architecture principles or performing data integration and replication to heterogeneous systems.
 
 *oracdc* supports the following Oracle Database Editions
 
@@ -16,7 +16,7 @@ image:https://img.shields.io/docker/pulls/a2solutions/oracdc[link=https://hub.do
 
 *oracdc* includes
 
-*  three connectors for Apache Kafka Connect ecosystem that implement CDC
+* three connectors for Apache Kafka Connect ecosystem that implement CDC
 . *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* which directly reads changes from Oracle Database redo log files
 . *solutions.a2.cdc.oracle.OraCdcLogMinerConnector* which reads changes from Oracle Database using Oracle LogMiner
 . *solutions.a2.cdc.oracle.runtime.thread.KafkaSourceSnapshotLogConnector* which reads changes from Oracle Database materialized view logs
@@ -250,7 +250,7 @@ Bug fixes and enhancements
 
 === 2.11.0 (AUG-2025)
 
-1.  This version supports https://docs.oracle.com/en/database/oracle/oracle-database/21/asoag/encrypting-columns-tables2.html[Oracle TDE column encryption] for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. To decrypt encrypted columns, you need to set the `a2.tde.wallet.path` and `a2.tde.wallet.password` parameters
+1. This version supports https://docs.oracle.com/en/database/oracle/oracle-database/21/asoag/encrypting-columns-tables2.html[Oracle TDE column encryption] for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. To decrypt encrypted columns, you need to set the `a2.tde.wallet.path` and `a2.tde.wallet.password` parameters
 
 2. Java17 is used for compilation
 
@@ -294,7 +294,7 @@ Fix https://nvd.nist.gov/vuln/detail/CVE-2020-36843[CVE-2020-36843] from depende
 
 ==== 2.8.1 (MAR-2025)
 
-1. Additional https://en.wikipedia.org/wiki/Secure_Shell[SSH] provider  for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
+1. Additional https://en.wikipedia.org/wiki/Secure_Shell[SSH] provider for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
 
 2. This version supports redo files located in https://en.wikipedia.org/wiki/Server_Message_Block[SMB] file shares for the **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
 
@@ -316,7 +316,7 @@ Fix https://nvd.nist.gov/vuln/detail/CVE-2020-36843[CVE-2020-36843] from depende
 === 2.6.0 (JAN-2025)
 
 1. This version includes a **solutions.a2.cdc.oracle.OraCdcRedoMinerConnector** connector (in addition to LogMiner based connector **solutions.a2.cdc.oracle.OraCdcLogMinerConnector** and materialized view based **solutions.a2.cdc.oracle.OraCdcSourceConnector**) that reads redo files directly and does not use a LogMiner. For more information, please send us an email at oracle@a2.solutions or request a meeting on https://a2.solutions/
-2. improved **solutions.a2.cdc.oracle.utils.file.OraRedoLogFile** CLI utility which produces output similar to the http://www.juliandyke.com/Diagnostics/Dumps/RedoLogs.php[ALTER SYSTEM DUMP LOGFILE] command (currently only for changes Layer 5 and http://www.juliandyke.com/Internals/Redo/Redo11.php[11]) and includes additional supplemental logging  information
+2. improved **solutions.a2.cdc.oracle.utils.file.OraRedoLogFile** CLI utility which produces output similar to the http://www.juliandyke.com/Diagnostics/Dumps/RedoLogs.php[ALTER SYSTEM DUMP LOGFILE] command (currently only for changes Layer 5 and http://www.juliandyke.com/Internals/Redo/Redo11.php[11]) and includes additional supplemental logging information
 3. Checking for the presence of columns in the table that have not been dropped completely and printing recommendations to the log
 
 
@@ -324,7 +324,7 @@ Fix https://nvd.nist.gov/vuln/detail/CVE-2020-36843[CVE-2020-36843] from depende
 ==== 2.5.2 (SEP-2024)
 
 1. SMT converters for
-    solutions.a2.cdc.oracle.data.OraNumber/solutions.a2.cdc.oracle.data.OraIntervalYM/solutions.a2.cdc.oracle.data.OraIntervalDS (oracle.sql.NUMBER/oracle.sql.INTERVALYM/oracle.sql.INTERVALDS)
+ solutions.a2.cdc.oracle.data.OraNumber/solutions.a2.cdc.oracle.data.OraIntervalYM/solutions.a2.cdc.oracle.data.OraIntervalDS (oracle.sql.NUMBER/oracle.sql.INTERVALYM/oracle.sql.INTERVALDS)
 2. Dockerfile enhancements (Schema registry client updated to Confluent 7.7.1), Dockerfile.snowflake to quickly create a data delivery pipeline between transactional Oracle and analytical Snowflake
 
 ==== 2.5.1 (AUG-2024)
@@ -342,7 +342,7 @@ Fix https://nvd.nist.gov/vuln/detail/CVE-2020-36843[CVE-2020-36843] from depende
 2. JMX: LastProcessedSequence metric. For more information please refer to https://github.com/averemee-si/oracdc/blob/master/doc/JMX-METRICS.adoc[JMX-METRICS.adoc]
 3. Obsoleted and removed parameters: `a2.resiliency.type`, `a2.persistent.state.file`, `a2.redo.count`, `a2.redo.size`
 4. New parameter to control the selection of database table columns to create key fields of a Kafka Connect record `a2.key.override`. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
-5. New parameter to add notifications about last processed redo sequence `a2.last.sequence.notifier`.  For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+5. New parameter to add notifications about last processed redo sequence `a2.last.sequence.notifier`. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
 
 ====== Sink Connector
 
@@ -406,8 +406,8 @@ ServiceLoader manifest files, for more information please read https://cwiki.apa
 `a2.incomplete.redo.tolerance` - to manage connector behavior when processing an incomplete redo record. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
 `a2.print.all.online.scn.ranges` - to control output when processing online redo logs. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
 `a2.log.miner.reconnect.ms` - to manage reconnect interval for LogMiner for Unix/Linux. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
-`a2.pk.type` - to manage behavior when choosing key fields in schema for table.  For more information please refer to link:doc/parameters.adoc[parameters.adoc].
-`a2.use.rowid.as.key` - to manage behavior when the table does not have appropriate PK/unique columns for key fields.  For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+`a2.pk.type` - to manage behavior when choosing key fields in schema for table. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
+`a2.use.rowid.as.key` - to manage behavior when the table does not have appropriate PK/unique columns for key fields. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
 `a2.use.all.columns.on.delete` - to manage behavior when reading and processing a redo record for DELETE. For more information please refer to link:doc/parameters.adoc[parameters.adoc].
 
 ====== Sink Connector
