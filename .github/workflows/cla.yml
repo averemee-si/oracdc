@@ -1,0 +1,62 @@
+name: "CLA Assistant"
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+# Explicit, in case the default GITHUB_TOKEN permissions are read-only for the repository.
+permissions:
+  actions: write
+  contents: write         # the action commits the signature file
+  pull-requests: write    # comment on, and lock, the pull request
+  statuses: write         # publish the license/cla commit status
+
+concurrency:
+  group: cla-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  CLAAssistant:
+    name: "CLA"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request_target' || github.event.issue.pull_request
+    steps:
+      - name: "CLA Assistant"
+        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the oracdc Contributor License Agreement and I hereby sign the CLA') || github.event_name == 'pull_request_target'
+        # Fork of the archived contributor-assistant/github-action, pinned to a SHA.
+        uses: averemee-si/cla-assistant-action@ca4a40a7d1004f18d9960b404b97e5f30a505a08
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          branch: 'cla-signatures'
+          path-to-signatures: 'signatures/version1/cla.json'
+
+          path-to-document: 'https://github.com/averemee-si/oracdc/blob/07dcaf1f6cbf80021196441e8fa032c80119d050/CLA.md'
+
+          allowlist: averemee-si,dependabot[bot],*[bot]
+
+          lock-pullrequest-aftermerge: true
+
+          suggest-recheck: true
+
+          create-file-commit-message: 'chore(cla): create signature file for CLA version 1.0'
+          signed-commit-message: 'chore(cla): $contributorName has signed the CLA in $owner/$repo#$pullRequestNo'
+
+          custom-notsigned-prcomment: |
+            Thank you for your contribution to **oracdc**!
+
+            oracdc is dual-licensed (AGPLv3 and commercial), so before this pull request
+            can be merged we need you to accept the
+            [oracdc Contributor License Agreement](https://github.com/averemee-si/oracdc/blob/master/CLA.md).
+            You keep the copyright to your work - the agreement grants A2 Rešitve d.o.o.
+            the licence needed to ship it under both licences.
+
+            If you agree, please post the sentence below as a **new comment** in this pull
+            request. You only need to do this once; later pull requests are recognised
+            automatically. If you are contributing on behalf of an employer, please read
+            [this section](https://github.com/averemee-si/oracdc/blob/master/CLA.md#contributing-on-behalf-of-an-employer)
+            first.
+          custom-pr-sign-comment: 'I have read the oracdc Contributor License Agreement and I hereby sign the CLA'
+          custom-allsigned-prcomment: 'All contributors have accepted the oracdc CLA. Thank you!'
