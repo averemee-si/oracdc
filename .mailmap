@@ -1,0 +1,24 @@
+# Canonical author identities for the oracdc repository.
+#
+# The "alessio" and "averemee" local-machine identities below are all
+# Aleksei Veremeev (A2 Rešitve d.o.o. / A2 Solutions LLC) committing from
+# development machines whose OS usernames were "alessio" or "averemee".
+# Confirmed by A2 Solutions, 2026-08-19.
+Aleksei Veremeev <averemee@a2.solutions>
+Aleksei Veremeev <averemee@a2.solutions> <alessio@localhost>
+Aleksei Veremeev <averemee@a2.solutions> <alessio@10.0.0.2>
+Aleksei Veremeev <averemee@a2.solutions> <alessio@10.0.0.3>
+Aleksei Veremeev <averemee@a2.solutions> <alessio@10.0.0.4>
+Aleksei Veremeev <averemee@a2.solutions> <alessio@10.0.0.8>
+Aleksei Veremeev <averemee@a2.solutions> <alessio@172.16.214.1>
+Aleksei Veremeev <averemee@a2.solutions> <alessio@192.168.56.1>
+Aleksei Veremeev <averemee@a2.solutions> <alessio@192.168.7.3>
+Aleksei Veremeev <averemee@a2.solutions> <alessio@192.168.7.6>
+Aleksei Veremeev <averemee@a2.solutions> <averemee@localhost>
+Aleksei Veremeev <averemee@a2.solutions> <averemee@10.0.0.14>
+Aleksei Veremeev <averemee@a2.solutions> <averemee@10.5.52.84>
+Aleksei Veremeev <averemee@a2.solutions> <averemee@mbp-m1-01.local>
+Aleksei Veremeev <averemee@a2.solutions> <Aleksej.Veremeev@a2-solutions.eu>
+Aleksei Veremeev <averemee@a2.solutions> <34545875+averemee-si@users.noreply.github.com>
+# Unify the two display names used by the same outside contributor.
+Wuyue <540114289@qq.com>
