@@ -45,6 +45,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import solutions.a2.cdc.oracle.OraCdcException;
+import solutions.a2.cdc.oracle.OraCdcLengthSize;
+import solutions.a2.cdc.oracle.OraCdcWorkerThreadBase;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
 import solutions.a2.cdc.oracle.utils.LimitedSizeQueue;
 import solutions.a2.utils.ExceptionUtils;
@@ -96,6 +98,7 @@ public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 	private int currentTransProcessingCount = 0;
 	private int maxTransProcessingCount = 0;
 	private long lastProcessedSequence = 0;
+	private OraCdcWorkerThreadBase worker;
 
 	public OraCdcSourceConnMgmt(
 			final OraRdbmsInfo rdbmsInfo, final String connectorName, final String jmxTypeName) {
@@ -127,6 +130,10 @@ public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 			LOGGER.error(ExceptionUtils.getExceptionStackTrace(e));
 			throw new OraCdcException(e);
 		}
+	}
+
+	public void worker(OraCdcWorkerThreadBase worker) {
+		this.worker = worker;
 	}
 
 	public void start(long startScn) {
@@ -220,21 +227,19 @@ public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 		return totalRecordsCount;
 	}
 
-	public void addCommittedRecords(
-			final int committedRecords, final long transSize,
-			final int currentSentSize, final int currentProcessingSize) {
-		recordsCommittedCount += committedRecords;
-		totalRecordsCount += committedRecords;
+	public void addCommittedRecords(final OraCdcLengthSize transaction) {
+		recordsCommittedCount += transaction.length();
+		totalRecordsCount += transaction.length();
 		transactionsCommittedCount++;
-		bytesWrittenCQ += transSize;
-		if (transSize > maxTransSizeBytes) {
-			maxTransSizeBytes = transSize;
+		bytesWrittenCQ += transaction.size();
+		if (transaction.size() > maxTransSizeBytes) {
+			maxTransSizeBytes = transaction.size();
 		}
-		currentTransSendCount = currentSentSize;
+		currentTransSendCount = worker.commitQueueSize();
 		if (currentTransSendCount > maxTransSendCount) {
 			maxTransSendCount = currentTransSendCount;
 		}
-		currentTransProcessingCount = currentProcessingSize;
+		currentTransProcessingCount = worker.activeQueueSize();
 		if (currentTransProcessingCount > maxTransProcessingCount) {
 			maxTransProcessingCount = currentTransProcessingCount;
 		}
@@ -248,16 +253,15 @@ public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 		return transactionsCommittedCount;
 	}
 
-	public void addRolledBackRecords(
-			final int rolledBackRecords, final long transSize, final int currentProcessingSize) {
-		recordsRolledBackCount += rolledBackRecords;
-		totalRecordsCount += rolledBackRecords;
+	public void addRolledBackRecords(final OraCdcLengthSize transaction) {
+		recordsRolledBackCount += transaction.length();
+		totalRecordsCount += transaction.length();
 		transactionsRolledBackCount++;
-		bytesWrittenCQ += transSize;
-		if (transSize > maxTransSizeBytes) {
-			maxTransSizeBytes = transSize;
+		bytesWrittenCQ += transaction.size();
+		if (transaction.size() > maxTransSizeBytes) {
+			maxTransSizeBytes = transaction.size();
 		}
-		currentTransProcessingCount = currentProcessingSize;
+		currentTransProcessingCount = worker.activeQueueSize();
 		if (currentTransProcessingCount > maxTransProcessingCount) {
 			maxTransProcessingCount = currentTransProcessingCount;
 		}

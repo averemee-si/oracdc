@@ -143,6 +143,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase implement
 		this.mineDataSql = mineDataSql;
 		this.activeTransactions = activeTransactions;
 		this.metrics = metrics;
+		this.metrics.worker(this);
 		this.connectionRetryBackoff = config.connectionRetryBackoff();
 		this.fetchSize = config.fetchSize();
 		this.traceSession = config.logMinerTrace();
@@ -355,8 +356,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase implement
 								} else {
 									firstTransaction = true;
 								}
-								metrics.addCommittedRecords(transaction.length(), transaction.size(),
-										committedTransactions.size(), activeTransactions.size());
+								metrics.addCommittedRecords(transaction);
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Performing commit at SCN {} for transaction XID {}", lastScn, xid);
 								}
@@ -381,8 +381,7 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase implement
 								} else {
 									firstTransaction = true;
 								}
-								metrics.addRolledBackRecords(transaction.length(), transaction.size(),
-										activeTransactions.size() - 1);
+								metrics.addRolledBackRecords(transaction);
 							} else {
 								if (LOGGER.isDebugEnabled()) {
 									LOGGER.debug("Skipping rollback at SCN {} for transaction XID {}", lastScn, xid);
@@ -1315,6 +1314,14 @@ public class OraCdcLogMinerWorkerThread extends OraCdcWorkerThreadBase implement
 			throw new IllegalArgumentException(lastException);
 		else
 			throw new IllegalArgumentException("Unable to create Chronicle Queue!");
+	}
+
+	public int commitQueueSize() {
+		return committedTransactions.size();
+	}
+
+	public int activeQueueSize() {
+		return activeTransactions.size();
 	}
 
 }

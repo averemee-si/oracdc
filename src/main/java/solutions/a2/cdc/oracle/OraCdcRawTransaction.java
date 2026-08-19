@@ -42,7 +42,7 @@ import solutions.a2.oracle.internals.Xid;
  * 
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  */
-public class OraCdcRawTransaction {
+public class OraCdcRawTransaction implements OraCdcLengthSize {
 
 	private final Xid xid;
 	private final ZoneId dbZoneId;
@@ -103,11 +103,13 @@ public class OraCdcRawTransaction {
 		return  (records.size() > 0) ? records.get(records.size() - 1).scn() : 0; 
 	}
 
-	long size() {
+	@Override
+	public long size() {
 		return size;
 	}
 	
-	int length() {
+	@Override
+	public int length() {
 		return records.size();
 	}
 

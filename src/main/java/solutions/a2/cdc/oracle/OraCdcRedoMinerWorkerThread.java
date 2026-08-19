@@ -132,6 +132,7 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		this.activeTransactions = activeTransactions;
 		this.rawTransactions = rawTransactions;
 		this.metrics = metrics;
+		this.metrics.worker(this);
 		this.conUids = conUids;
 		if (conUids == null || conUids.length == 0)
 			conFilter = false;
@@ -626,9 +627,9 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 		}
 	}
 
-	private void emitRcm(final OraCdcRedoRecord record, final Xid xid) {
+	private void emitRcm(final OraCdcRedoRecord rcm, final Xid xid) {
 		var raw = activeTransactions.get(xid);
-		var rollback = record.change5_4().rollback();
+		var rollback = rcm.change5_4().rollback();
 		if (raw == null) {
 			if (LOGGER.isDebugEnabled())
 				LOGGER.debug("Skipping {} at SCN={}, RBA={} for transaction XID {}",
@@ -647,35 +648,6 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 					}
 					lobIds = null;
 					lobIdFromTrans.remove(xid);
-				}
-			}
-			if (rollback) {
-				if (LOGGER.isDebugEnabled())
-					LOGGER.debug(
-							"Rolling back transaction {} at SCN/RBA {}/{}, LWN SCN/RBA={}/{}, FIRST_CHANGE#={} with {} changes and size {} bytes",
-							xid, record.scn(), record.rba(), lastScn, lastRba, raw.firstChange(), raw.length(), raw.size());
-				metrics.addRolledBackRecords(raw.length(), raw.size(), activeTransactions.size());
-			} else {
-				final var commitScn = record.scn();
-				if (raw.hasRows()) {
-					raw.commitScn(commitScn);
-					rawTransactions.add(raw);
-					metrics.addCommittedRecords(raw.length(), raw.size(), rawTransactions.size(), activeTransactions.size());
-					if (LOGGER.isDebugEnabled())
-						LOGGER.debug(
-								"Committing transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
-								xid, record.scn(), record.rba(), raw.firstChange(), raw.length(), raw.size());
-				} else {
-					rollback = true;
-					if (LOGGER.isDebugEnabled())
-						LOGGER.debug("Skipping empty transaction {} at COMMIT_SCN={}",
-								xid, commitScn);
-				}
-				if (Long.compareUnsigned(commitScn, lastCommitScn) < 0) {
-					LOGGER.warn("Committing transaction {} with a commit SCN {} lower than the previous one {}!",
-							xid, commitScn, lastCommitScn);
-				} else {
-					lastCommitScn = commitScn;
 				}
 			}
 			activeTransactions.remove(xid);
@@ -726,6 +698,34 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				firstTransaction = true;
 			}
 			if (rollback) {
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug(
+							"Rolling back transaction {} at SCN/RBA {}/{}, LWN SCN/RBA={}/{}, FIRST_CHANGE#={} with {} changes and size {} bytes",
+							xid, rcm.scn(), rcm.rba(), lastScn, lastRba, raw.firstChange(), raw.length(), raw.size());
+				metrics.addRolledBackRecords(raw);
+			} else {
+				if (raw.hasRows()) {
+					if (LOGGER.isDebugEnabled())
+						LOGGER.debug(
+								"Committing transaction {} at SCN={}, RBA={}, FIRST_CHANGE#={} with {} changes and size {} bytes",
+								xid, rcm.scn(), rcm.rba(), raw.firstChange(), raw.length(), raw.size());
+					metrics.addCommittedRecords(raw);
+					raw.commitScn(rcm.scn());
+					rawTransactions.add(raw);
+				} else {
+					rollback = true;
+					if (LOGGER.isDebugEnabled())
+						LOGGER.debug("Skipping empty transaction {} at COMMIT_SCN={}",
+								xid, rcm.scn());
+				}
+				if (Long.compareUnsigned(rcm.scn(), lastCommitScn) < 0) {
+					LOGGER.warn("Committing transaction {} with a commit SCN {} lower than the previous one {}!",
+							xid, rcm.scn(), lastCommitScn);
+				} else {
+					lastCommitScn = rcm.scn();
+				}
+			}
+			if (rollback) {
 				raw.close();
 				raw = null;
 			}
@@ -735,21 +735,29 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 	@Override
 	public void shutdown() {
 		if (halfDoneRcm.size() > 0) {
-			final StringBuilder sb = new StringBuilder(halfDoneRcm.size() * 0x40 + 0x10);
-			sb
-				.append("\n=====================\n")
-				.append(printHalfDoneRcmContents(0xFFFFFFFF))
-				.append("\n=====================\n");
-			LOGGER.warn(sb.toString());
+			LOGGER.warn(
+					"""
+					
+					=====================
+					{}
+					=====================
+					
+					""",
+					printHalfDoneRcmContents(0xFFFFFFFF));
 		}
 		if (redoMiner != null) {
 			try {
 				redoMiner.stop(lastRba, lastScn);
 			} catch (IOException | SQLException e) {
 				LOGGER.error(
-						"\n=====================\n" +
-						"{} while stopping RedoMiner. Stack trace:\n{}" +
-						"\n=====================\n",
+						"""
+						
+						=====================
+						{} while stopping RedoMiner.
+						{}
+						=====================
+						
+						""",
 						e.getMessage(), ExceptionUtils.getExceptionStackTrace(e));
 			}
 		}
@@ -930,6 +938,14 @@ public class OraCdcRedoMinerWorkerThread extends OraCdcWorkerThreadBase {
 				record.change10_x().dataObj(iotObjId);
 			}
 		}
+	}
+
+	public int commitQueueSize() {
+		return rawTransactions.size();
+	}
+
+	public int activeQueueSize() {
+		return activeTransactions.size();
 	}
 
 }

@@ -129,7 +129,7 @@ import solutions.a2.oracle.internals.RowId;
  * @author <a href="mailto:averemee@a2.solutions">Aleksei Veremeev</a>
  *
  */
-public abstract class OraCdcTransaction {
+public abstract class OraCdcTransaction implements OraCdcLengthSize {
 
 	public enum LobProcessingStatus {NOT_AT_ALL, LOGMINER, REDOMINER};
 
@@ -609,8 +609,6 @@ public abstract class OraCdcTransaction {
 
 	abstract void addStatement(final OraCdcStatementBase oraSql) throws IOException;
 	public abstract boolean getStatement(OraCdcStatementBase oraSql);
-	abstract long size();
-	abstract int length();
 	public abstract void close();
 
 	static class PartialRollbackEntry{
@@ -2215,10 +2213,9 @@ public abstract class OraCdcTransaction {
 							if (holder.cmap) {
 								CMapInflater.inflate(ba, baos);
 							} else if (ll.dataCompressed() && !holder.binaryXml) {
-								Inflater inflater = new Inflater();
-								inflater.setInput(ba);
-								final byte[] buffer = new byte[0x2000];
-								try {
+								try (var inflater = new Inflater()) {
+									inflater.setInput(ba);
+									var buffer = new byte[0x2000];
 									while (!inflater.finished()) {
 										int processed = inflater.inflate(buffer);
 										baos.write(buffer, 0, processed);

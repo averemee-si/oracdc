@@ -25,52 +25,113 @@
 
 package solutions.a2.cdc.oracle.utils;
 
+import java.util.AbstractCollection;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.Objects;
 
-/**
- * Based on https://stackoverflow.com/questions/1963806/is-there-a-fixed-sized-queue-which-removes-excessive-elements
- * 
- *
- * @param <T>
- */
-public class LimitedSizeQueue<T> extends ArrayList<T> {
+public class LimitedSizeQueue<T> extends AbstractCollection<T> {
 
-	private static final long serialVersionUID = 5399403217937862057L;
 	private int maxSize;
+	private final ArrayDeque<T> elements;
 
-	public LimitedSizeQueue(int size) {
-		super();
+	public LimitedSizeQueue(final int size) {
+		if (size < 1)
+			throw new IllegalArgumentException("The size of LimitedSizeQueue must be greater than zero!");
 		this.maxSize = size;
+		this.elements = new ArrayDeque<>(size);
 	}
 
 	@Override
-	public boolean add(T listMember) {
-		boolean result = false;
+	public boolean add(final T element) {
+		Objects.requireNonNull(element, "LimitedSizeQueue does not permit null elements!");
 		synchronized (this) {
-			result = super.add(listMember);
+			elements.addLast(element);
+			while (elements.size() > maxSize)
+				elements.pollFirst();
 		}
-		if (this.size() > maxSize) {
-			synchronized (this) {
-				this.removeRange(0, size() - maxSize);
-			}
-		}
-		return result;
+		return true;
 	}
 
 	public T getOldest() {
-		if (this.size() > 0) {
-			return this.get(0);
-		} else {
-			return null;
+		synchronized (this) {
+			return elements.peekFirst();
 		}
 	}
 
 	public T getYoungest() {
-		if (this.size() > 0) {
-			return this.get(this.size() - 1);
-		} else {
-			return null;
+		synchronized (this) {
+			return elements.peekLast();
 		}
 	}
 
+	public T pollOldest() {
+		synchronized (this) {
+			return elements.pollFirst();
+		}
+	}
+
+	public int maxSize() {
+		return maxSize;
+	}
+
+	@Override
+	public int size() {
+		synchronized (this) {
+			return elements.size();
+		}
+	}
+
+	@Override
+	public boolean isEmpty() {
+		synchronized (this) {
+			return elements.isEmpty();
+		}
+	}
+
+	@Override
+	public boolean contains(final Object o) {
+		synchronized (this) {
+			return elements.contains(o);
+		}
+	}
+
+	@Override
+	public void clear() {
+		synchronized (this) {
+			elements.clear();
+		}
+	}
+
+	@Override
+	public Iterator<T> iterator() {
+		final Collection<T> snapshot;
+		synchronized (this) {
+			snapshot = new ArrayList<>(elements);
+		}
+		return snapshot.iterator();
+	}
+
+	@Override
+	public Object[] toArray() {
+		synchronized (this) {
+			return elements.toArray();
+		}
+	}
+
+	@Override
+	public <E> E[] toArray(final E[] a) {
+		synchronized (this) {
+			return elements.toArray(a);
+		}
+	}
+
+	@Override
+	public String toString() {
+		synchronized (this) {
+			return elements.toString();
+		}
+	}
 }

@@ -42,7 +42,6 @@ import solutions.a2.cdc.oracle.OraCdcStatementBase;
 import solutions.a2.cdc.oracle.OraCdcTableBase;
 import solutions.a2.cdc.oracle.OraCdcTransaction;
 import solutions.a2.cdc.oracle.OraRdbmsInfo;
-import solutions.a2.cdc.oracle.runtime.data.DataBinder;
 import solutions.a2.cdc.oracle.runtime.data.GenericAbstractMapDataBinder;
 
 /**
