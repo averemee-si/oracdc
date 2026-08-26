@@ -651,7 +651,7 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 				}
 			}
 			int recordLength = 0;
-			while ((!chainedRecord) && (recordLength = bu.getU32(block, offset)) > 0 && offset > 0) {
+			while ((!chainedRecord) && offset > 0 && (recordLength = bu.getU32(block, offset)) > 0) {
 				if (seq != sequence) {
 					if (LOGGER.isTraceEnabled()) {
 						LOGGER.trace(
