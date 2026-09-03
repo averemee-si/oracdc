@@ -114,6 +114,10 @@ This project is licensed under a commercial and under the AGPL license.
 
 == Release history
 
+=== 2.15.6 (SEP-2026)
+
+1. Bug fixes and enhancements
+
 === 2.15.5 (AUG-2026)
 
 1. `a2.archive.log.dest.id` parameter
