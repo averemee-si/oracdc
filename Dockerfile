@@ -24,9 +24,10 @@
 #
 
 ARG    CONFLUENT_VERSION=8.1.1
-ARG    APICURIO_VERSION=3.3.0
+ARG    APICURIO_VERSION=3.3.3
 ARG    K8S_CFG_VERSION=1.2.2
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
+ARG    JACKSON_VERSION=2.21.6
 
 FROM   eclipse-temurin:25-jdk AS build-sr-client
 RUN    set -eux && apt-get update && apt-get --yes install wget 
@@ -36,6 +37,7 @@ ARG    CONFLUENT_VERSION
 ARG    APICURIO_VERSION
 ARG    K8S_CFG_VERSION
 ARG    MVN_BASE
+ARG    JACKSON_VERSION
 ARG    CONFLUENT_BASE="https://packages.confluent.io/maven/io/confluent"
 ARG    GUAVA_VERSION=33.5.0-jre
 ARG    FA_VERSION=1.0.3
@@ -46,7 +48,6 @@ ARG    JSR305_VERSION=3.0.2
 ARG    GSON_VERSION=2.13.2
 ARG    EPA_VERSION=2.46.0
 ARG    ANTLR4_VERSION=4.13.2
-ARG    JACKSON_VERSION=2.19.2
 ARG    PROTOP_VERSION=4.0.3
 ARG    NESSIE_VERSION=0.6.0
 ARG    WOODSTOX_VERSION=7.1.1
@@ -168,6 +169,11 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && wget -q \
           "${MVN_BASE}/io/apicurio/apicurio-registry-distro-connect-converter/${APICURIO_VERSION}/${ASC_FILENAME}" \
        && jar xvf ${ASC_FILENAME} && rm ${ASC_FILENAME} \
+       && rm -f jackson-core-*.jar jackson-databind-*.jar jackson-dataformat-yaml-*.jar jackson-datatype-jdk8-*.jar jackson-datatype-jsr310-*.jar \
+                jackson-datatype-json-org-*.jar jackson-module-parameter-names-*.jar \
+       && wget -q \
+          "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-json-org/${JACKSON_VERSION}/jackson-datatype-json-org-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-parameter-names/${JACKSON_VERSION}/jackson-module-parameter-names-${JACKSON_VERSION}.jar" \
        && for file in $(ls *.jar); do jar xvf $file; done \
        && rm -f *.jar \
        && jar cvf "apicurio-avro-schema-client-${APICURIO_VERSION}.jar" [A-Z]* [a-z]* \
@@ -183,6 +189,7 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
           "${MVN_BASE}/io/strimzi/kafka-kubernetes-config-provider/${K8S_CFG_VERSION}/${K8S_FILENAME}" \
        && jar xvf ${K8S_FILENAME} && rm ${K8S_FILENAME} \
        && cd kafka-kubernetes-config-provider-${K8S_CFG_VERSION}/libs \
+       && rm -f jackson-*.jar \ 
        && for file in $(ls *.jar); do jar xvf $file; done \
        && rm -f *.jar \
        && jar cvf "k8s-config-provider-${K8S_CFG_VERSION}.jar" [A-Z]* [a-z]* \
@@ -192,8 +199,8 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
 FROM   eclipse-temurin:25-jre
 LABEL  maintainer="oracle@a2.solutions"
 LABEL  vendor="A2 Rešitve d.o.o."
-LABEL  version="2.15.6"
-LABEL  release="2.15.6"
+LABEL  version="2.15.6.1"
+LABEL  release="2.15.6.1"
 LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
@@ -201,6 +208,7 @@ ARG    CONFLUENT_VERSION
 ARG    APICURIO_VERSION
 ARG    K8S_CFG_VERSION
 ARG    MVN_BASE
+ARG    JACKSON_VERSION
 
 RUN    set -eux && apt-get update && apt-get --yes dist-upgrade && apt-get --yes install netcat-traditional tzdata bash wget adduser 
 RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka
@@ -227,10 +235,7 @@ ARG    BC_VERSION="jdk18on-1.85"
 COPY   target/lib/bcprov-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 COPY   target/lib/bcpkix-${BC_VERSION}.jar ${KAFKA_HOME}/libs
 COPY   target/lib/bcutil-${BC_VERSION}.jar ${KAFKA_HOME}/libs
-# GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 BEGIN
-RUN    rm -f ${KAFKA_HOME}/libs/jline-*.jar
-# GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 END
-ARG    ORACDC_VERSION=2.15.6
+ARG    ORACDC_VERSION=2.15.6.1
 ARG    ORACDC_FILENAME=oracdc-kafka-${ORACDC_VERSION}-standalone.jar
 COPY   target/${ORACDC_FILENAME} ${KAFKA_HOME}/connect/lib
 COPY   config/connect-log4j.properties ${KAFKA_HOME}/config
@@ -253,7 +258,26 @@ RUN    mkdir ${KAFKA_HOME}/logs
 RUN    touch ${KAFKA_HOME}/logs/connect.log
 COPY   LICENSE* ${BASEDIR}/oracdc
 COPY   licenses/* ${BASEDIR}/oracdc/licenses
-
+# GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 BEGIN
+RUN    rm -f ${KAFKA_HOME}/libs/jline-*.jar
+# GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 END
+# GHSA-r7wm-3cxj-wff9 BEGIN
+RUN    cd ${KAFKA_HOME}/libs \
+       && rm -f jackson-core-*.jar jackson-databind-*.jar jackson-dataformat-csv-*.jar jackson-dataformat-yaml-*.jar \
+                jackson-datatype-jdk8-*.jar jackson-jakarta-rs-base-*.jar jackson-jakarta-rs-json-provider-*.jar \
+                jackson-module-blackbird-*.jar jackson-module-jakarta-xmlbind-annotations-*.jar \
+       && wget -q \
+          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-core/${JACKSON_VERSION}/jackson-core-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-databind/${JACKSON_VERSION}/jackson-databind-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-csv/${JACKSON_VERSION}/jackson-dataformat-csv-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/${JACKSON_VERSION}/jackson-dataformat-yaml-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-jdk8/${JACKSON_VERSION}/jackson-datatype-jdk8-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/${JACKSON_VERSION}/jackson-datatype-jsr310-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/jakarta/rs/jackson-jakarta-rs-base/${JACKSON_VERSION}/jackson-jakarta-rs-base-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/jakarta/rs/jackson-jakarta-rs-json-provider/${JACKSON_VERSION}/jackson-jakarta-rs-json-provider-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-blackbird/${JACKSON_VERSION}/jackson-module-blackbird-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-jakarta-xmlbind-annotations/${JACKSON_VERSION}/jackson-module-jakarta-xmlbind-annotations-${JACKSON_VERSION}.jar"
+# GHSA-r7wm-3cxj-wff9 END
 RUN    echo "" > ${PROPS_FILE} \
        && echo "offset.flush.interval.ms=10000" >> ${PROPS_FILE} \
        && echo "offset.flush.timeout.ms=5000" >> ${PROPS_FILE} \
