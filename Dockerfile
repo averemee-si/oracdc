@@ -24,9 +24,10 @@
 #
 
 ARG    CONFLUENT_VERSION=8.1.1
-ARG    APICURIO_VERSION=3.3.0
+ARG    APICURIO_VERSION=3.3.3
 ARG    K8S_CFG_VERSION=1.2.2
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
+ARG    JACKSON_VERSION=2.21.6
 
 FROM   eclipse-temurin:25-jdk AS build-sr-client
 RUN    set -eux && apt-get update && apt-get --yes install wget 
@@ -36,6 +37,7 @@ ARG    CONFLUENT_VERSION
 ARG    APICURIO_VERSION
 ARG    K8S_CFG_VERSION
 ARG    MVN_BASE
+ARG    JACKSON_VERSION
 ARG    CONFLUENT_BASE="https://packages.confluent.io/maven/io/confluent"
 ARG    GUAVA_VERSION=33.5.0-jre
 ARG    FA_VERSION=1.0.3
@@ -46,7 +48,6 @@ ARG    JSR305_VERSION=3.0.2
 ARG    GSON_VERSION=2.13.2
 ARG    EPA_VERSION=2.46.0
 ARG    ANTLR4_VERSION=4.13.2
-ARG    JACKSON_VERSION=2.19.2
 ARG    PROTOP_VERSION=4.0.3
 ARG    NESSIE_VERSION=0.6.0
 ARG    WOODSTOX_VERSION=7.1.1
@@ -201,6 +202,7 @@ ARG    CONFLUENT_VERSION
 ARG    APICURIO_VERSION
 ARG    K8S_CFG_VERSION
 ARG    MVN_BASE
+ARG    JACKSON_VERSION
 
 RUN    set -eux && apt-get update && apt-get --yes dist-upgrade && apt-get --yes install netcat-traditional tzdata bash wget adduser 
 RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka
