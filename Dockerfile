@@ -189,6 +189,7 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
           "${MVN_BASE}/io/strimzi/kafka-kubernetes-config-provider/${K8S_CFG_VERSION}/${K8S_FILENAME}" \
        && jar xvf ${K8S_FILENAME} && rm ${K8S_FILENAME} \
        && cd kafka-kubernetes-config-provider-${K8S_CFG_VERSION}/libs \
+       && rm -f jackson-*.jar \ 
        && for file in $(ls *.jar); do jar xvf $file; done \
        && rm -f *.jar \
        && jar cvf "k8s-config-provider-${K8S_CFG_VERSION}.jar" [A-Z]* [a-z]* \
@@ -270,6 +271,7 @@ RUN    cd ${KAFKA_HOME}/libs \
           "${MVN_BASE}/com/fasterxml/jackson/core/jackson-databind/${JACKSON_VERSION}/jackson-databind-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-csv/${JACKSON_VERSION}/jackson-dataformat-csv-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/${JACKSON_VERSION}/jackson-dataformat-yaml-${JACKSON_VERSION}.jar" \
+          "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-jdk8/${JACKSON_VERSION}/jackson-datatype-jdk8-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/${JACKSON_VERSION}/jackson-datatype-jsr310-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/jakarta/rs/jackson-jakarta-rs-base/${JACKSON_VERSION}/jackson-jakarta-rs-base-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/jakarta/rs/jackson-jakarta-rs-json-provider/${JACKSON_VERSION}/jackson-jakarta-rs-json-provider-${JACKSON_VERSION}.jar" \
