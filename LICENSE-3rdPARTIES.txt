@@ -6,30 +6,30 @@ See licenses/ folder for text of these licenses.
 ----------------------------------------
 Apache License Version 2.0
 
-- agrona-2.5.0
-- commons-cli-1.11.0
-- commons-lang3-3.20.0
-- commons-math3-3.6.1
-- log4j-core-2.26.1
-- log4j-api-2.26.1
-- sshj-0.40.0
-- asn-one-0.6.0
-- smbj-0.14.0
-- sshd-core-2.18.0
-- sshd-common-2.18.0
-- sshd-sftp-2.18.0
-- jcl-over-slf4j-1.7.36
-- HikariCP-7.1.0
-- ojdbc-types-0.9.9
+- agrona-2.6.1, see: licenses/Apache_License
+- commons-cli-1.11.0, see: licenses/Apache_License
+- commons-lang3-3.20.0, see: licenses/Apache_License
+- commons-math3-3.6.1, see: licenses/Apache_License
+- log4j-core-2.26.1, see: licenses/Apache_License
+- log4j-api-2.26.1, see: licenses/Apache_License
+- sshj-0.41.1, see: licenses/Apache_License
+- asn-one-0.6.0, see: licenses/Apache_License
+- smbj-0.15.0, see: licenses/Apache_License
+- sshd-core-2.19.0, see: licenses/Apache_License
+- sshd-common-2.19.0, see: licenses/Apache_License
+- sshd-sftp-2.19.0, see: licenses/Apache_License
+- jcl-over-slf4j-1.7.36, see: licenses/Apache_License
+- HikariCP-7.1.0, see: licenses/Apache_License
+- ojdbc-types-0.9.9, see: licenses/Apache_License
 
 ----------------------------------------
 Oracle Free Use Terms and Conditions
 
-- ojdbc17-23.26.2.0.0, see: licenses/oracle-FUTC
-- ucp17-23.26.2.0.0, see: licenses/oracle-FUTC
-- oraclepki-23.26.2.0.0, see: licenses/oracle-FUTC
-- xmlparserv2-23.26.2.0.0, see: licenses/oracle-FUTC
-- xdb-23.26.2.0.0, see: licenses/oracle-FUTC
+- ojdbc17-23.26.3.0.0, see: licenses/oracle-FUTC
+- ucp17-23.26.3.0.0, see: licenses/oracle-FUTC
+- oraclepki-23.26.3.0.0, see: licenses/oracle-FUTC
+- xmlparserv2-23.26.3.0.0, see: licenses/oracle-FUTC
+- xdb-23.26.3.0.0, see: licenses/oracle-FUTC
 
 ----------------------------------------
 MIT License
@@ -40,13 +40,17 @@ MIT License
 ----------------------------------------
 Bouncy Castle License
 
-- bcprov-jdk18on-1.85, see: licenses/bouncycastle
-- bcpkix-jdk18on-1.85, see: licenses/bouncycastle
-- bcutil-jdk18on-1.85, see: licenses/bouncycastle
+- bcprov-jdk18on-1.86, see: licenses/bouncycastle
+- bcpkix-jdk18on-1.86, see: licenses/bouncycastle
+- bcutil-jdk18on-1.86, see: licenses/bouncycastle
 
 
 ----------------------------------------
 BSD-2-Clause
 
 - postgresql-42.7.13, see: licenses/BSD-2-Clause-postgresql
+- scram-common-3.2, see licenses/BSD-2-Clause-ongres
+- scram-client-3.2, see licenses/BSD-2-Clause-ongres
+- saslprep-2.2, see licenses/BSD-2-Clause-ongres
+- stringprep-2.2, see licenses/BSD-2-Clause-ongres
 
