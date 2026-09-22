@@ -49,4 +49,8 @@ Bouncy Castle License
 BSD-2-Clause
 
 - postgresql-42.7.13, see: licenses/BSD-2-Clause-postgresql
+- scram-common-3.2, see licenses/BSD-2-Clause-ongres
+- scram-client-3.2, see licenses/BSD-2-Clause-ongres
+- saslprep-2.2, see licenses/BSD-2-Clause-ongres
+- stringprep-2.2, see licenses/BSD-2-Clause-ongres
 
