@@ -15,9 +15,9 @@ Apache License Version 2.0
 - sshj-0.40.0
 - asn-one-0.6.0
 - smbj-0.14.0
-- sshd-core-2.18.0
-- sshd-common-2.18.0
-- sshd-sftp-2.18.0
+- sshd-core-2.19.0
+- sshd-common-2.19.0
+- sshd-sftp-2.19.0
 - jcl-over-slf4j-1.7.36
 - HikariCP-7.1.0
 - ojdbc-types-0.9.9
