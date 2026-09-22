@@ -14,7 +14,7 @@ Apache License Version 2.0
 - log4j-api-2.26.1, see: licenses/Apache_License
 - sshj-0.41.1, see: licenses/Apache_License
 - asn-one-0.6.0, see: licenses/Apache_License
-- smbj-0.14.0, see: licenses/Apache_License
+- smbj-0.15.0, see: licenses/Apache_License
 - sshd-core-2.19.0, see: licenses/Apache_License
 - sshd-common-2.19.0, see: licenses/Apache_License
 - sshd-sftp-2.19.0, see: licenses/Apache_License
