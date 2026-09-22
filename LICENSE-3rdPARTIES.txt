@@ -40,9 +40,9 @@ MIT License
 ----------------------------------------
 Bouncy Castle License
 
-- bcprov-jdk18on-1.85, see: licenses/bouncycastle
-- bcpkix-jdk18on-1.85, see: licenses/bouncycastle
-- bcutil-jdk18on-1.85, see: licenses/bouncycastle
+- bcprov-jdk18on-1.86, see: licenses/bouncycastle
+- bcpkix-jdk18on-1.86, see: licenses/bouncycastle
+- bcutil-jdk18on-1.86, see: licenses/bouncycastle
 
 
 ----------------------------------------
