@@ -87,11 +87,11 @@
 		<log4j.version>2.26.1</log4j.version>
 		<ojdbc.types.version>0.9.9</ojdbc.types.version>
 		<maverick.version>3.1.4</maverick.version>
-		<sshj.version>0.40.0</sshj.version>
+		<sshj.version>0.41.1</sshj.version>
 		<smbj.version>0.14.0</smbj.version>
 		<bouncycastle.version>1.86</bouncycastle.version>
 		<mbassador.version>1.3.2</mbassador.version>
-		<agrona.version>2.5.0</agrona.version>
+		<agrona.version>2.6.1</agrona.version>
 		<mina.version>2.19.0</mina.version>
 		<kafka.connect.maven.plugin.version>0.12.0</kafka.connect.maven.plugin.version>
 		<jar.plugin.version>3.4.2</jar.plugin.version>
