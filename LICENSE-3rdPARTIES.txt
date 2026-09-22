@@ -25,11 +25,11 @@ Apache License Version 2.0
 ----------------------------------------
 Oracle Free Use Terms and Conditions
 
-- ojdbc17-23.26.2.0.0, see: licenses/oracle-FUTC
-- ucp17-23.26.2.0.0, see: licenses/oracle-FUTC
-- oraclepki-23.26.2.0.0, see: licenses/oracle-FUTC
-- xmlparserv2-23.26.2.0.0, see: licenses/oracle-FUTC
-- xdb-23.26.2.0.0, see: licenses/oracle-FUTC
+- ojdbc17-23.26.3.0.0, see: licenses/oracle-FUTC
+- ucp17-23.26.3.0.0, see: licenses/oracle-FUTC
+- oraclepki-23.26.3.0.0, see: licenses/oracle-FUTC
+- xmlparserv2-23.26.3.0.0, see: licenses/oracle-FUTC
+- xdb-23.26.3.0.0, see: licenses/oracle-FUTC
 
 ----------------------------------------
 MIT License
