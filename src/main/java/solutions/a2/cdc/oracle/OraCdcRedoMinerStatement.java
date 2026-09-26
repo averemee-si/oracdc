@@ -285,6 +285,9 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 
 	int readColDefs(final int[][] colDefs, int pos) {
 		final var colCount = colDefs.length;
+		if (colCount == 0) {
+			return pos;
+		}
 		var i = 0;
 		try {
 			for (; i < colCount; i++) {
