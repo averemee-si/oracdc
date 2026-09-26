@@ -53,6 +53,7 @@ public class OraCdcUpdateWithoutChangesTest {
 
 	private static int REAL_UPDATE = 0;
 	private static int FAKE_UPDATE = 1;
+	private static int EMPTY_UPDATE = 2;
 	
 	private List<OraCdcRedoMinerStatement> testData() {
 		final List<OraCdcRedoMinerStatement> testData = new ArrayList<>();
@@ -115,6 +116,31 @@ public class OraCdcUpdateWithoutChangesTest {
 						1l,
 						RowId.ZERO,
 						false));
+
+		// Reproduces java.lang.ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 0
+		// which occurs when UPDATE statement has 0 columns in SET clause (setColCount == 0).
+		// Byte array structure below is modeled after real redo log output from the crash.
+		baos = null;
+		baos = new ByteArrayOutputStream(0x100);
+		try {
+			putU16(baos, 0);	// Column count in set clause
+			putU24(baos, 0);	// length of before data
+			putU16(baos, 1);	// Column count in where clause
+			putU16(baos, 1);	// Column #
+			baos.write(2);		// Column length
+			baos.writeBytes(hexToRaw("c102"));
+		} catch (IOException ioe) {}
+		testData.add(EMPTY_UPDATE,
+				new OraCdcRedoMinerStatement(
+						77845l,
+						UPDATE,
+						baos.toByteArray(),
+						System.currentTimeMillis(),
+						System.nanoTime(),
+						RedoByteAddress.MIN_VALUE,
+						1l,
+						RowId.ZERO,
+						false));
 		return testData;
 	}
 
@@ -125,5 +151,11 @@ public class OraCdcUpdateWithoutChangesTest {
 		System.out.println(testData.get(FAKE_UPDATE));
 		assertFalse(testData.get(REAL_UPDATE).updateWithoutChanges());
 		assertTrue(testData.get(FAKE_UPDATE).updateWithoutChanges());
+	}
+
+	@Test
+	public void testEmptySetClause() {
+		final List<OraCdcRedoMinerStatement> testData = testData();
+		System.out.println(testData.get(EMPTY_UPDATE));
 	}
 }
