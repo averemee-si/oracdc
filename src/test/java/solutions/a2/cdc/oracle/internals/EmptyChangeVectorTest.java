@@ -1,7 +1,7 @@
 /**
  * This file is part of the oracdc project.
  * Copyright (c) 2018-present, A2 Rešitve d.o.o.
- * Authors: Aleksei Veremeev
+ * Authors: Andrey Katamanov
  *
  * This program is offered under a commercial and under the AGPL license.
  * For commercial licensing, contact us at sales@a2.solutions.
