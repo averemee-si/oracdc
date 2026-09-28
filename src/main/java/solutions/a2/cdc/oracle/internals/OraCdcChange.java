@@ -263,6 +263,15 @@ public class OraCdcChange {
 			flg = conId = -1;
 		}
 		var dataStart = offset + headerLength;
+		if (dataStart + Short.BYTES > record.length) {
+			if (LOGGER.isTraceEnabled()) {
+				LOGGER.trace("Empty change vector (no payload) for OP:{} skipped at RBA {} in '{}'",
+						formatOpCode(operation), rba, redoLog.fileName());
+			}
+			length = headerLength;
+			coords = new int[0][2];
+			return;
+		}
 		var vectorSize = (Short.toUnsignedInt(redoLog.bu().getU16(record, dataStart)) - Short.BYTES) / Short.BYTES;
 		var vectorLengthsSize = (Short.BYTES * (vectorSize + 1) + Short.BYTES) & 0xFFFC;
 		var curentStart = offset + headerLength + vectorLengthsSize;
