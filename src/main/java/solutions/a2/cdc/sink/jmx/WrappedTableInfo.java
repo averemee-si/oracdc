@@ -27,7 +27,7 @@ package solutions.a2.cdc.sink.jmx;
 
 import java.time.Duration;
 
-import static org.apache.commons.math3.util.Precision.round;
+import static solutions.a2.utils.MathUtils.round;
 import static solutions.a2.utils.OraCdcMBeanUtils.formatDuration;
 
 /**
