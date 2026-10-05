@@ -25,6 +25,8 @@
 
 package solutions.a2.cdc.oracle.jmx;
 
+import static solutions.a2.utils.MathUtils.round;
+
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -40,7 +42,6 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
-import org.apache.commons.math3.util.Precision;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
@@ -187,7 +188,7 @@ public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 		redoReadTimeElapsed += redoReadMillis;
 		if (redoReadTimeElapsed != 0) {
 			float seconds = redoReadTimeElapsed / 1000;
-			redoReadMbPerSec = Precision.round((processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
+			redoReadMbPerSec = round((processedArchivedRedoSize / (1024 * 1024)) / seconds, 3);
 		}
 	}
 	@Override
@@ -200,7 +201,7 @@ public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 	}
 	@Override
 	public float getProcessedRedoLogsSizeGb() {
-		return Precision.round((float)((float)processedArchivedRedoSize / (float)(1024*1024*1024)), 3);
+		return round((float)((float)processedArchivedRedoSize / (float)(1024*1024*1024)), 3);
 	}
 	@Override
 	public String getLastProcessedRedoLog() {
@@ -410,7 +411,7 @@ public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 		if (bytesWrittenCQ == 0) {
 			return 0;
 		} else {
-			return Precision.round((bytesWrittenCQ / (1024 * 1024 * 1024)), 3);
+			return round((bytesWrittenCQ / (1024 * 1024 * 1024)), 3);
 		}
 	}
 	@Override
@@ -422,7 +423,7 @@ public class OraCdcSourceConnMgmt implements OraCdcSourceConnMgmtMBean {
 		if (maxTransSizeBytes == 0) {
 			return 0;
 		} else {
-			return Precision.round((maxTransSizeBytes / (1024 * 1024)), 3);
+			return round((maxTransSizeBytes / (1024 * 1024)), 3);
 		}
 	}
 

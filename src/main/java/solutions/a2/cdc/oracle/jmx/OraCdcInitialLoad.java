@@ -25,6 +25,8 @@
 
 package solutions.a2.cdc.oracle.jmx;
 
+import static solutions.a2.utils.MathUtils.round;
+
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -41,7 +43,6 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
-import org.apache.commons.math3.util.Precision;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
@@ -228,7 +229,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 		if (sendRows.get() == 0 || sendNanos.get() == 0) {
 			return 0;
 		} else {
-			return Precision.round(((double)(sendRows.get() * 1_000_000_000)) / ((double) (sqlSelectNanos.get() + sendNanos.get())), 2);
+			return round(((double)(sendRows.get() * 1_000_000_000)) / ((double) (sqlSelectNanos.get() + sendNanos.get())), 2);
 		}
 	}
 	@Override
@@ -236,7 +237,7 @@ public class OraCdcInitialLoad implements OraCdcInitialLoadMBean {
 		if (sendRowsColumns.get() == 0 || sendNanos.get() == 0) {
 			return 0;
 		} else {
-			return Precision.round(((double)(sendRowsColumns.get() * 1_000_000_000)) / ((double) (sqlSelectNanos.get() + sendNanos.get())), 2);
+			return round(((double)(sendRowsColumns.get() * 1_000_000_000)) / ((double) (sqlSelectNanos.get() + sendNanos.get())), 2);
 		}
 	}
 

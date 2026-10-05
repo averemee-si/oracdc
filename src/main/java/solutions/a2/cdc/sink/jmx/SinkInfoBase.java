@@ -43,7 +43,7 @@ import solutions.a2.cdc.oracle.OraCdcException;
 import solutions.a2.utils.ExceptionUtils;
 
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
-import static org.apache.commons.math3.util.Precision.round;
+import static solutions.a2.utils.MathUtils.round;
 import static solutions.a2.utils.OraCdcMBeanUtils.formatDuration;
 
 /**

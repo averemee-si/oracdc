@@ -25,6 +25,8 @@
 
 package solutions.a2.cdc.oracle.jmx;
 
+import static solutions.a2.utils.MathUtils.round;
+
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -38,7 +40,6 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
-import org.apache.commons.math3.util.Precision;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
@@ -158,7 +159,7 @@ public class OraCdcRedoShipment implements OraCdcRedoShipmentMBean {
 		if (totalNanos == 0) {
 			return 0;
 		} else {
-			return Precision.round(
+			return round(
 					(float) (getProcessedMiB() * 1_000_000_000) / totalNanos, 3);
 		}
 	}
@@ -167,7 +168,7 @@ public class OraCdcRedoShipment implements OraCdcRedoShipmentMBean {
 		if (totalNanos == 0) {
 			return 0;
 		} else {
-			return Precision.round(
+			return round(
 					(float) (getProcessedGiB() * 1_000_000_000) / totalNanos, 3);
 		}
 	}
