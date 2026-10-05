@@ -304,42 +304,25 @@
 			<artifactId>agrona</artifactId>
 			<version>${agrona.version}</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.apache.sshd/sshd-common -->
+		<!-- https://mvnrepository.com/artifact/org.apache.sshd/sshd-osgi -->
 		<dependency>
 			<groupId>org.apache.sshd</groupId>
-			<artifactId>sshd-common</artifactId>
+			<artifactId>sshd-osgi</artifactId>
 			<version>${mina.version}</version>
-		</dependency>
-		<!-- https://mvnrepository.com/artifact/org.apache.sshd/sshd-core -->
-		<dependency>
-			<groupId>org.apache.sshd</groupId>
-			<artifactId>sshd-core</artifactId>
-			<version>${mina.version}</version>
-		</dependency>
+		</dependency>		
 		<!-- https://mvnrepository.com/artifact/org.apache.sshd/sshd-sftp -->
 		<dependency>
 			<groupId>org.apache.sshd</groupId>
 			<artifactId>sshd-sftp</artifactId>
 			<version>${mina.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.sshd</groupId>
+					<artifactId>sshd-core</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>	
-
-	<dependencyManagement>
-		<dependencies>
-			<!-- https://mvnrepository.com/artifact/com.hierynomus/sshj
-			<dependency>
-				<groupId>com.hierynomus</groupId>
-				<artifactId>sshj</artifactId>
-				<version>${sshj.version}</version>
-				<exclusions>
-					<exclusion>
-						<groupId>org.bouncycastle</groupId>
-						<artifactId>bcprov-jdk18on</artifactId>
-					</exclusion>
-				</exclusions>
-			</dependency> -->
-		</dependencies>
-	</dependencyManagement>
 
 	<build>
 		<plugins>
