@@ -15,8 +15,8 @@ Apache License Version 2.0
 - sshj-0.41.1, see: licenses/Apache_License
 - asn-one-0.6.0, see: licenses/Apache_License
 - smbj-0.15.0, see: licenses/Apache_License
-- sshd-osgi-2.19.0, see: licenses/Apache_License
-- sshd-sftp-2.19.0, see: licenses/Apache_License
+- sshd-osgi-2.20.0, see: licenses/Apache_License
+- sshd-sftp-2.20.0, see: licenses/Apache_License
 - jcl-over-slf4j-1.7.36, see: licenses/Apache_License
 - HikariCP-7.1.0, see: licenses/Apache_License
 - ojdbc-types-0.9.9, see: licenses/Apache_License
