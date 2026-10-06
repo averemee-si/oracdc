@@ -604,6 +604,20 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 							lastStatus = false;
 							return lastStatus;
 						}
+					} else if (bu.getU32(block, 0x08) != seq) {
+						if (LOGGER.isTraceEnabled()) {
+							LOGGER.trace(
+									"Sync problem in file {}, normal for online redo log processing, record {} continues in a block with sequence {}, expected {}.",
+									fileName, recordRba, bu.getU32(block, 0x08), seq);
+						}
+						createRedoRecord = false;
+						chainedRecord = false;
+						bytesRemaining = 0;
+						bytesCopied = 0;
+						recordBytes = null;
+						iteratorAlreadyAtNext = false;
+						lastStatus = false;
+						return lastStatus;
 					}
 				} catch (SQLException e) {
 					LOGGER.error(
