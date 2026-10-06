@@ -167,7 +167,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 				LOGGER.debug("parseRedoRecord() processing INSERT");
 			}
 			final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
-			final int[][] colDefs = new int[colCount][3];
+			final int[][] colDefs = new int[colCount][];
 			stmt.readColDefs(colDefs, Short.BYTES);
 			for (int i = 0; i < colCount; i++) {
 				final OraCdcColumn oraColumn = pureIdMap.get(colDefs[i][0]);
@@ -235,7 +235,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 				LOGGER.debug("parseRedoRecord() processing DELETE");
 			}
 			final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
-			final int[][] colDefs = new int[colCount][3];
+			final int[][] colDefs = new int[colCount][];
 			stmt.readColDefs(colDefs, Short.BYTES);
 			if ((flags & FLG_TABLE_WITH_PK) > 0 || (flags & FLG_PSEUDO_KEY) > 0) {
 				for (int i = 0; i < colCount; i++) {
@@ -306,7 +306,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 			}
 			setColumns.clear();
 			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
-			final int[][] setColDefs = new int[setColCount][3];
+			final int[][] setColDefs = new int[setColCount][];
 			int pos = stmt.readColDefs(setColDefs, Short.BYTES);
 			for (int i = 0; i < setColCount; i++) {
 				final int colSize = setColDefs[i][1];
@@ -355,7 +355,7 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 			//BEGIN: where clause processing...
 			final int whereColCount = redoData[pos++] << 8 | (redoData[pos++] & 0xFF);
 			if (whereColCount > 0) {
-				final int[][] whereColDefs = new int[whereColCount][3];
+				final int[][] whereColDefs = new int[whereColCount][];
 				stmt.readColDefs(whereColDefs, pos);
 				for (int i = 0; i < whereColCount; i++) {
 					if (!setColumns.contains(whereColDefs[i][0])) {
