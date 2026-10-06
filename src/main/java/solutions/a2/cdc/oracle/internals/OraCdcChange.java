@@ -196,6 +196,7 @@ public class OraCdcChange {
 	public static final short _26_6_BIMG = 0x1A06;
 
 	private static final Logger LOGGER = LogManager.getLogger(OraCdcChange.class);
+	private static final int[][] EMPTY_COORDS = new int[0][];
 	private static final int KTB_REDO_MIN_LENGTH = 0x00000008;
 	private  static final String[] KDO_XTYPES = {
 			"XA",	//Redo
@@ -278,14 +279,13 @@ public class OraCdcChange {
 		var curentStart = offset + headerLength + vectorLengthsSize;
 		length = 0;
 
-		coords = new int[vectorSize][2];
+		coords = EMPTY_COORDS;
 		for (var i = 0; i < vectorSize; i++) {
 			try {
 				final int elementLength = Short.toUnsignedInt(redoLog.bu().getU16(record, dataStart + Short.BYTES * (i + 1)));
 				final int ceiledLength = (elementLength + Short.BYTES + 1) & 0xFFFC;
 				length += ceiledLength;
-				coords[i][0] = curentStart;
-				coords[i][1] = elementLength;
+				coords[i] = new int[] {curentStart, elementLength};
 				curentStart += ceiledLength;
 			} catch (Exception e) {
 				LOGGER.error(
