@@ -271,7 +271,7 @@ public class OraCdcChange {
 						formatOpCode(operation), rba, redoLog.fileName());
 			}
 			length = headerLength;
-			coords = new int[0][2];
+			coords = EMPTY_COORDS;
 			return;
 		}
 		var vectorSize = (Short.toUnsignedInt(redoLog.bu().getU16(record, dataStart)) - Short.BYTES) / Short.BYTES;
@@ -279,7 +279,7 @@ public class OraCdcChange {
 		var curentStart = offset + headerLength + vectorLengthsSize;
 		length = 0;
 
-		coords = EMPTY_COORDS;
+		coords = new int[vectorSize][];
 		for (var i = 0; i < vectorSize; i++) {
 			try {
 				final int elementLength = Short.toUnsignedInt(redoLog.bu().getU16(record, dataStart + Short.BYTES * (i + 1)));
