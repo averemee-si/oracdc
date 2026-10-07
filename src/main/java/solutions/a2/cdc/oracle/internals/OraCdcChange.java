@@ -28,6 +28,7 @@ package solutions.a2.cdc.oracle.internals;
 import static solutions.a2.oracle.utils.BinaryUtils.putOraColSize;
 import static solutions.a2.oracle.utils.BinaryUtils.putU16;
 import static solutions.a2.oracle.utils.BinaryUtils.rawToHex;
+import static solutions.a2.utils.ExceptionUtils.getExceptionStackTrace;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -195,6 +196,7 @@ public class OraCdcChange {
 	public static final short _26_6_BIMG = 0x1A06;
 
 	private static final Logger LOGGER = LogManager.getLogger(OraCdcChange.class);
+	private static final int[][] EMPTY_COORDS = new int[0][];
 	private static final int KTB_REDO_MIN_LENGTH = 0x00000008;
 	private  static final String[] KDO_XTYPES = {
 			"XA",	//Redo
@@ -277,14 +279,32 @@ public class OraCdcChange {
 		var curentStart = offset + headerLength + vectorLengthsSize;
 		length = 0;
 
-		coords = new int[vectorSize][2];
+		coords = EMPTY_COORDS;
 		for (var i = 0; i < vectorSize; i++) {
-			final int elementLength = Short.toUnsignedInt(redoLog.bu().getU16(record, dataStart + Short.BYTES * (i + 1)));
-			final int ceiledLength = (elementLength + Short.BYTES + 1) & 0xFFFC;
-			length +=  ceiledLength;
-			coords[i][0] = curentStart;
-			coords[i][1] = elementLength;
-			curentStart += ceiledLength;
+			try {
+				final int elementLength = Short.toUnsignedInt(redoLog.bu().getU16(record, dataStart + Short.BYTES * (i + 1)));
+				final int ceiledLength = (elementLength + Short.BYTES + 1) & 0xFFFC;
+				length += ceiledLength;
+				coords[i] = new int[] {curentStart, elementLength};
+				curentStart += ceiledLength;
+			} catch (Exception e) {
+				LOGGER.error(
+						"""
+						
+						=====================
+						'{}' while parsing vector# {}/{} OP:{} at RBA={}, SCN={}, SUBSCN={} in '{}'
+						Record content:
+						{}
+						Erorstack:
+						{}
+						=====================
+						
+						""", e.getMessage(), i, vectorSize, formatOpCode(operation), rba,
+							Long.toUnsignedString(redoRecord.scn()), Short.toUnsignedInt(redoRecord.subScn()),
+							redoLog.fileName(), rawToHex(record), getExceptionStackTrace(e));
+				throw e;
+			}
+
 		}
 		length += (headerLength + vectorLengthsSize);
 	}

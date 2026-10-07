@@ -103,7 +103,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 					.append('\'');
 			} else {
 				final int colCount = (redoData[0] << 8) | (redoData[1] & 0xFF);
-				final int[][] colDefs = new int[colCount][3];
+				final int[][] colDefs = new int[colCount][];
 				readAndSortColDefs(colDefs, Short.BYTES);
 				if (operation == INSERT) {
 					sql.append('(');
@@ -160,7 +160,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 		} else if (operation == UPDATE) {
 			final int setColCount = redoData[0] << 8 | (redoData[1] & 0xFF);
 			var changedCols = new IntHashSet((int) (setColCount * 1.2), 0.9f);
-			int[][] setColDefs = new int[setColCount][3];
+			int[][] setColDefs = new int[setColCount][];
 			int pos = readAndSortColDefs(setColDefs, Short.BYTES);
 
 			sql
@@ -215,7 +215,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 			if (beforeColCount > 0) {
 				if (beforeColCount != setColCount) {
 					setColDefs = null;
-					setColDefs = new int[beforeColCount][3];
+					setColDefs = new int[beforeColCount][];
 					if (LOGGER.isDebugEnabled())
 						LOGGER.debug("Changing setColDefs array dimension from {} to {}", setColCount, beforeColCount);
 				}
@@ -246,7 +246,7 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 
 			final int whereColCount = redoData[pos++] << 8 | (redoData[pos++] & 0xFF);
 			if (whereColCount > 0) {
-				final int[][] whereColDefs = new int[whereColCount][3];
+				final int[][] whereColDefs = new int[whereColCount][];
 				readAndSortColDefs(whereColDefs, pos);
 				
 				for (int i = 0; i < whereColCount; i++) {
@@ -291,15 +291,14 @@ public class OraCdcRedoMinerStatement extends OraCdcStatementBase {
 		var i = 0;
 		try {
 			for (; i < colCount; i++) {
-				colDefs[i][0] = redoData[pos++] << 8 | redoData[pos++] & 0xFF;
+				final var colNum = redoData[pos++] << 8 | redoData[pos++] & 0xFF;
 				var colSize = Byte.toUnsignedInt(redoData[pos++]);
 				if (colSize ==  0xFE) {
 					colSize = (redoData[pos++] << 8 | (redoData[pos++] & 0xFF));
 				} else if (colSize == 0xFF) {
 					colSize = -1;
 				}
-				colDefs[i][1] = colSize;
-				colDefs[i][2] = pos;
+				colDefs[i] = new int[] {colNum, colSize, pos};
 				if (colSize > 0) {
 					pos += colSize;
 				}

@@ -596,13 +596,20 @@ public class OraCdcRedoLog implements Iterator<OraCdcRedoRecord>, Closeable {
 					if (!nextBlock()) {
 						lastStatus = false;
 						return lastStatus;
-					} else if (!chainedRecord) {
+					} else {
 						seq = bu.getU32(block, 0x08);
-						blk = bu.getU32(block, 0x04);
-						offset = bu.getU16Special(block, 0x0C);
-						if (currentBlock > blockCount) {
+						if (seq != sequence || currentBlock > blockCount) {
 							lastStatus = false;
 							return lastStatus;
+						}
+						if (!chainedRecord) {
+							blk = bu.getU32(block, 0x04);
+							offset = bu.getU16Special(block, 0x0C);
+							if (currentBlock > blockCount) {
+								lastStatus = false;
+								iteratorAlreadyAtNext = false;
+								return lastStatus;
+							}
 						}
 					}
 				} catch (SQLException e) {
