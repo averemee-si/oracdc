@@ -77,6 +77,7 @@ public class ChainedRecordSequenceTest {
 		final var iterator = orl.iterator();
 
 		assertDoesNotThrow(() -> assertFalse(iterator.hasNext()));
+		orl.close();
 	}
 
 	private static void blockHeader(final byte[] file, final int index, final int blk, final int seq, final int firstRecord) {
