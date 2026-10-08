@@ -1,4 +1,4 @@
-*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* reads changes from redo log files directly without using any additional software installed on the database server or in the Oracle database itself.
+*solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* reads changes from redo log files directly without using any additional software installed on the database server or in the Oracle database itself.
 
 = Oracle Database connections
 The connector requires a connection to an Oracle database. This connection is used for two purposes:
@@ -23,7 +23,7 @@ To define this connection you need to set the following parameters
 = Selecting the operating mode
 
 == Online redo log processing
-With default settings, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* processes only archived redo log files.
+With default settings, *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* processes only archived redo log files.
 To process online redo log files and achieve minimal lag between the time a transaction is committed to the database and its processing, you need to set the following parameters:
 [width="100%",cols="<20%,<10%,<70%",options="header",]
 |===
@@ -36,7 +36,7 @@ To process online redo log files and achieve minimal lag between the time a tran
 
 
 == Memory management
-*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* supports both https://docs.oracle.com/en/java/javase/25/core/heap-and-heap-memory.html[On-Heap and Off-Heap memory] (the latter is the default mode). To specify the type of memory used, you need to set *a2.transaction.implementation* parameter to the appropriate value:
+*solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* supports both https://docs.oracle.com/en/java/javase/25/core/heap-and-heap-memory.html[On-Heap and Off-Heap memory] (the latter is the default mode). To specify the type of memory used, you need to set *a2.transaction.implementation* parameter to the appropriate value:
 
 * *OffHeap* - default value, this mode uses https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/foreign/MemorySegment.html[MemorySegment] to store Oracle Database transactions in Off-Heap memory.
 * *ArrayList* - this mode uses https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/ArrayList.html[ArrayList] to store Oracle Database transactions in Heap memory.
@@ -81,7 +81,7 @@ Please remember to set Apache Kafka parameters according to the required large o
 We plan to provide large object support for Oracle Database transactions stored in https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/ArrayList.html[ArrayList] in CY2026.
 
 == Oracle RAC
-With default settings, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* works with single Oracle Database instance.
+With default settings, *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* works with single Oracle Database instance.
 To change this and work with https://www.oracle.com/database/real-application-clusters/[Oracle RAC], you need to set the following parameters:
 [width="100%",cols="<20%,<10%,<70%",options="header",]
 |===
@@ -90,7 +90,7 @@ To change this and work with https://www.oracle.com/database/real-application-cl
 |a2.use.rac | true | Mandatory setting
 
 |===
-When *a2.use.rac* is set to true *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* first attempts to determine whether this is an https://www.oracle.com/database/real-application-clusters/[Oracle RAC] connection by querying the fixed table https://docs.oracle.com/en/database/oracle/oracle-database/26/refrn/V-ACTIVE_INSTANCES.html[V$ACTIVE_INSTANCES]. If database is not https://www.oracle.com/database/real-application-clusters/[Oracle RAC], only the warning message is printed. Otherwise, additional checks are performed, and *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* starts a separate Kafka Connect task for each redo thread/RAC instance. Changes for the same table from different redo threads/RAC instances are delivered to the same topic but to different partition where
+When *a2.use.rac* is set to true *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* first attempts to determine whether this is an https://www.oracle.com/database/real-application-clusters/[Oracle RAC] connection by querying the fixed table https://docs.oracle.com/en/database/oracle/oracle-database/26/refrn/V-ACTIVE_INSTANCES.html[V$ACTIVE_INSTANCES]. If database is not https://www.oracle.com/database/real-application-clusters/[Oracle RAC], only the warning message is printed. Otherwise, additional checks are performed, and *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* starts a separate Kafka Connect task for each redo thread/RAC instance. Changes for the same table from different redo threads/RAC instances are delivered to the same topic but to different partition where
 
 ----
  <KAFKA_PARTITION_NUMBER> = <THREAD#> - 1
@@ -98,7 +98,7 @@ When *a2.use.rac* is set to true *solutions.a2.cdc.oracle.OraCdcRedoMinerConnect
 
 == Using a physical standby database as a source of change information.
 
-With default settings, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* works with primary Oracle Database instance in the *READ WRITE* state (https://docs.oracle.com/en/database/oracle/oracle-database/26/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE='READ WRITE']). If you are using https://www.oracle.com/database/data-guard/[Oracle Data Guard] and need to avoid any additional load on the primary database, you can use a standby database in the https://docs.oracle.com/en/database/oracle/oracle-database/26/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE in ('MOUNTED', 'READ ONLY', 'READ ONLY WITH APPLY')] state to capture change information. In this case, the connection to the primary database is used only to read information about table column data types, and an additional connection to the standby database is used to query the current database SCN. It's important to understand that eliminating the additional load on the primary database when reading changes from the standby database increases the latency during change processing, as the system receives these changes indirectly, only after they are transferred from the primary server to the standby.  Using asynchronous redo transport https://docs.oracle.com/en/database/oracle/oracle-database/26/dgbkr/logxptmode.html[LogXptMode=ASYNC](https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/oracle-data-guard-protection-modes.html[Maximum Performance protection mode]) makes this latency unpredictable, while using https://docs.oracle.com/en/database/oracle/oracle-database/26/dgbkr/logxptmode.html[LogXptMode=FASTSYNC](https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/oracle-data-guard-protection-modes.html[Maximum Availability protection mode]) or https://docs.oracle.com/en/database/oracle/oracle-database/26/dgbkr/logxptmode.html[LogXptMode=SYNC] redo transport (https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/oracle-data-guard-protection-modes.html[Maximum Protection protection mode]) minimizes processing latency.
+With default settings, *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* works with primary Oracle Database instance in the *READ WRITE* state (https://docs.oracle.com/en/database/oracle/oracle-database/26/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE='READ WRITE']). If you are using https://www.oracle.com/database/data-guard/[Oracle Data Guard] and need to avoid any additional load on the primary database, you can use a standby database in the https://docs.oracle.com/en/database/oracle/oracle-database/26/refrn/V-DATABASE.html[V$DATABASE.OPEN_MODE in ('MOUNTED', 'READ ONLY', 'READ ONLY WITH APPLY')] state to capture change information. In this case, the connection to the primary database is used only to read information about table column data types, and an additional connection to the standby database is used to query the current database SCN. It's important to understand that eliminating the additional load on the primary database when reading changes from the standby database increases the latency during change processing, as the system receives these changes indirectly, only after they are transferred from the primary server to the standby.  Using asynchronous redo transport https://docs.oracle.com/en/database/oracle/oracle-database/26/dgbkr/logxptmode.html[LogXptMode=ASYNC](https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/oracle-data-guard-protection-modes.html[Maximum Performance protection mode]) makes this latency unpredictable, while using https://docs.oracle.com/en/database/oracle/oracle-database/26/dgbkr/logxptmode.html[LogXptMode=FASTSYNC](https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/oracle-data-guard-protection-modes.html[Maximum Availability protection mode]) or https://docs.oracle.com/en/database/oracle/oracle-database/26/dgbkr/logxptmode.html[LogXptMode=SYNC] redo transport (https://docs.oracle.com/en/database/oracle/oracle-database/26/sbydb/oracle-data-guard-protection-modes.html[Maximum Protection protection mode]) minimizes processing latency.
 
 To use reading changes from a standby database, you need to set the following parameters
 
@@ -119,7 +119,7 @@ To use reading changes from a standby database, you need to set the following pa
 
 = Methods for reading redo log files
 
-*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* can read files located both on the file system and on the Oracle ASM.
+*solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* can read files located both on the file system and on the Oracle ASM.
 The reading method is managed by the *a2.storage.media* parameter. The table below shows its possible values
 
 [width="100%",cols="<30%,<70%",options="header",]
@@ -192,7 +192,7 @@ wget https://repo1.maven.org/maven2/com/sshtools/maverick-synergy-common/${SSH_V
 
 === Reading using BFILENAME() function
 
-With this reading method, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* reads files using https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects]. To transfer changes, the connection described by parameters *a2.jdbc.url*,  *a2.jdbc.username*, and *a2.jdbc.password* is used.
+With this reading method, *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* reads files using https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects]. To transfer changes, the connection described by parameters *a2.jdbc.url*,  *a2.jdbc.username*, and *a2.jdbc.password* is used.
 To use https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/CREATE-DIRECTORY.html[directory objects] correctly, you must disable the use of https://docs.oracle.com/en/database/oracle/oracle-database/26/admin/using-oracle-managed-files.html[Oracle Managed Files]. Consult the Oracle Database documentation or simply run the command
 ----
 alter system set "_omf" = disabled scope=spfile;
@@ -269,8 +269,8 @@ To stream redo log files from a database server running a Windows family OS usin
 
 === Direct file access
 Although this redo log file access method is the default and seemingly requires no additional configuration, it assumes that:
-* or *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* is installed on the database server
-* or the file system containing the redo log files is mounted on the server where *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* is running.
+* or *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* is installed on the database server
+* or the file system containing the redo log files is mounted on the server where *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* is running.
 Both cases, in our opinion, represent significant changes to the system landscape and are not recommended for production work.
 To work in this mode you need to set the following parameters
 
@@ -288,7 +288,7 @@ To work in this mode you need to set the following parameters
 
 === Direct ASM access
 
-*solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* calls DBMS_DISKGROUP internal https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] API to read redo logs in https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM]. *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* does not create, update, or delete any objects during the https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] access.
+*solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* calls DBMS_DISKGROUP internal https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] API to read redo logs in https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM]. *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* does not create, update, or delete any objects during the https://www.oracle.com/database/technologies/rac/asm.html[Oracle ASM] access.
 
 To work in this mode you need to set the following parameters
 
@@ -385,7 +385,7 @@ The list of tables whose changes are tracked is controlled by the following para
 
 |a2.exclude |String |Comma separated list of tables to exclude from processing
 
-|a2.table.list.style |`static` or `dynamic` |When set to `static` (default) *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* reads tables and partition list to process only at startup according to values of `a2.include` and `a2.exclude` parameters. When set to `dynamic` *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* builds list of objects to process on the fly
+|a2.table.list.style |`static` or `dynamic` |When set to `static` (default) *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* reads tables and partition list to process only at startup according to values of `a2.include` and `a2.exclude` parameters. When set to `dynamic` *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* builds list of objects to process on the fly
 |===
 
 The *%* wildcard character can be used for *a2.include* and *a2.exclude*.
@@ -397,10 +397,10 @@ The selection of a key for a table is controlled using the parameters listed bel
 [width="100%",cols="<20%,<10%,<70%",options="header",]
 |===
 |Parameter Name |Value |Description
-|a2.pk.type |String |When set to `well_defined` the key fields are the table's https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] columns or, if the table does not have a https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key], the table's https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key] columns in which all columns are https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-CF2E06A6-6A35-46CE-808E-305A459457CC[NOT NULL].  If there are no appropriate keys in the table, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* uses the `a2.use.rowid.as.key` parameter and generates a pseudo key based on the row's https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/ROWID-Pseudocolumn.html[ROWID], or generates a schema without any key fields.
-When set to `_any_unique_` and the table does not have a https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] or a https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key] with all https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-CF2E06A6-6A35-46CE-808E-305A459457CC[NOT NULL] columns, then the key fields will be the https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key] columns which may have https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/glossary.html#GUID-8854502F-2B8F-4ABC-98FA-BBFC3695A964l[NULL] columns. If there are no appropriate keys in the table, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* uses the `a2.use.rowid.as.key` parameter and generates a pseudo key based on the row's https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/ROWID-Pseudocolumn.html[ROWID], or generates a schema without any key fields.
+|a2.pk.type |String |When set to `well_defined` the key fields are the table's https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] columns or, if the table does not have a https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key], the table's https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key] columns in which all columns are https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-CF2E06A6-6A35-46CE-808E-305A459457CC[NOT NULL].  If there are no appropriate keys in the table, *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* uses the `a2.use.rowid.as.key` parameter and generates a pseudo key based on the row's https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/ROWID-Pseudocolumn.html[ROWID], or generates a schema without any key fields.
+When set to `_any_unique_` and the table does not have a https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] or a https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key] with all https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-CF2E06A6-6A35-46CE-808E-305A459457CC[NOT NULL] columns, then the key fields will be the https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key] columns which may have https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/glossary.html#GUID-8854502F-2B8F-4ABC-98FA-BBFC3695A964l[NULL] columns. If there are no appropriate keys in the table, *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* uses the `a2.use.rowid.as.key` parameter and generates a pseudo key based on the row's https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/ROWID-Pseudocolumn.html[ROWID], or generates a schema without any key fields.
 
-|a2.use.rowid.as.key |Boolean |When set to `true` and the table does not have a appropriate https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] or https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key], *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* adds surrogate key using the https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/ROWID-Pseudocolumn.html[ROWID]. When set to `false` and the table does not have a appropriate https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] or https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key], *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* generates schema for the table without any key fields and key schema. Default - `true`.
+|a2.use.rowid.as.key |Boolean |When set to `true` and the table does not have a appropriate https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] or https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key], *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* adds surrogate key using the https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/ROWID-Pseudocolumn.html[ROWID]. When set to `false` and the table does not have a appropriate https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary key] or https://docs.oracle.com/en/database/oracle/oracle-database/26/cncpt/data-integrity.html#GUID-077C26A1-49C3-4E72-AE1D-7CEDD997917A[unique key], *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* generates schema for the table without any key fields and key schema. Default - `true`.
 
 |===
 
@@ -409,16 +409,17 @@ These settings can be overridden for specific tables using
 [width="100%",cols="<20%,<10%,<70%",options="header",]
 |===
 |Parameter Name |Value |Description
-|a2.key.override |String |A comma separated list of elements in the format `TABLE_OWNER.TABLE_NAME=NOKEY\|ROWID\|INDEX(INDEX_NAME)`. If there is a table in this list, then the value of the `a2.pk.type` and `a2.use.rowid.as.key` parameters for it are ignored and the value of the key columns are set in accordance with this parameter:
+|a2.key.override |String |A comma separated list of elements in the format `TABLE_OWNER.TABLE_NAME=NOKEY\|ROWID\|INDEX(INDEX_NAME)\|COLUMN(COLUMN_LIST)`. If there is a table in this list, then the value of the `a2.pk.type` and `a2.use.rowid.as.key` parameters for it are ignored and the value of the key columns are set in accordance with this parameter:
  `NONE` - do not create key fields in the Kafka topic for this table
  `ROWID` - use ROWID as a key field in the Kafka topic with the name ORA_ROW_ID and type STRING
  `INDEX(INDEX_NAME)` use the index columns of index named INDEX_NAME as key fields of the Kafka topic
+ `COLUMN(COLUMN_LIST)` use the columns list as key fields of the Kafka topic
 |===
 
 
 = Supplemental logging requirements
 
-By default, *solutions.a2.cdc.oracle.OraCdcRedoMinerConnector* operates with a minimum supplemental logging level at the database and supplemental log data(all columns) in the tables being processed. These settings are checked when the connector starts and are controlled by the parameter below
+By default, *solutions.a2.kafka.source.oracle.KafkaSourceRedoMinerConnector* operates with a minimum supplemental logging level at the database and supplemental log data(all columns) in the tables being processed. These settings are checked when the connector starts and are controlled by the parameter below
 
 [width="100%",cols="<20%,<10%,<70%",options="header",]
 |===
@@ -440,9 +441,9 @@ If `a2.supplemental.logging` is set to `ALL`, the following data types mapping i
 
 |TIMESTAMP% | int64 | `org.apache.kafka.connect.data.Timestamp`
 
-|INTERVALYM | bytes | `solutions.a2.cdc.oracle.data.OraIntervalYM`
+|INTERVALYM | bytes | `solutions.a2.OraIntervalYM`
 
-|INTERVALDS | bytes | `solutions.a2.cdc.oracle.data.OraIntervalDS`
+|INTERVALDS | bytes | `solutions.a2.OraIntervalDS`
 
 |NUMBER | int8 | *NUMBER(1,0)* & *NUMBER(2,0)*
 
@@ -606,13 +607,13 @@ To select a Kafka topic to publish changes to, you must set the parameter
 |===
 |Parameter Name |Value |Description
 
-|a2.topic.mapper | String | The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent. The class must implement the https://github.com/averemee-si/oracdc/blob/feature/advanced-compression/src/main/java/solutions/a2/cdc/oracle/runtime/config/KafkaTopicNameMapper.java[solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper] interface.
+|a2.topic.mapper | String | The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent. The class must implement the https://github.com/averemee-si/oracdc/blob/feature/advanced-compression/src/main/java/solutions/a2/cdc/oracle/runtime/config/KafkaTopicNameMapper.java[solutions.a2.kafka.source.oracle.KafkaTopicNameMapper] interface.
 
 |===
 
-The connector comes with three predefined mappers: `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper`, `solutions.a2.cdc.oracle.runtime.config.KafkaSingleTopicNameMapper`, and `solutions.a2.cdc.oracle.runtime.config.KafkaFlexibleTopicNameMapper`.
+The connector comes with three predefined mappers: `solutions.a2.kafka.source.oracle.KafkaDefaultTopicNameMapper`, `solutions.a2.kafka.source.oracle.KafkaSingleTopicNameMapper`, and `solutions.a2.kafka.source.oracle.KafkaFlexibleTopicNameMapper`.
 
-== a2.topic.mapper=solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper
+== a2.topic.mapper=solutions.a2.kafka.source.oracle.KafkaDefaultTopicNameMapper
 
 This is the default value for the `a2.topic.mapper` parameter. In this mode, a unique name is generated for each processed table based on the table's PDB name, table's owner(schema name), and the table name itself. Additional parameters listed below are used to customize the topic name
 
@@ -630,7 +631,7 @@ This is the default value for the `a2.topic.mapper` parameter. In this mode, a u
 |===
 
 
-== a2.topic.mapper=solutions.a2.cdc.oracle.runtime.config.KafkaSingleTopicNameMapper
+== a2.topic.mapper=solutions.a2.kafka.source.oracle.KafkaSingleTopicNameMapper
 
 In this mode, all change events for all tables are written to a single Kafka topic specified by the parameter
 
@@ -643,9 +644,9 @@ In this mode, all change events for all tables are written to a single Kafka top
 |===
 
 
-== a2.topic.mapper=solutions.a2.cdc.oracle.runtime.config.KafkaFlexibleTopicNameMapper
+== a2.topic.mapper=solutions.a2.kafka.source.oracle.KafkaFlexibleTopicNameMapper
 
-This mode extends `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper`, providing the ability to put data for tables defined by the parameter `a2.map.topic.<TOPIC_NAME>=<LIST_OF_TABLES>` into a single topic `<TOPIC_NAME>`. Table names in the comma-separated list of tables must be in the format <OWNER>.<TABLE_NAME> or <PDB_NAME>.<OWNER>.<TABLE_NAME>. Additional parameters listed below are used to customize the topic name
+This mode extends `solutions.a2.kafka.source.oracle.KafkaDefaultTopicNameMapper`, providing the ability to put data for tables defined by the parameter `a2.map.topic.<TOPIC_NAME>=<LIST_OF_TABLES>` into a single topic `<TOPIC_NAME>`. Table names in the comma-separated list of tables must be in the format <OWNER>.<TABLE_NAME> or <PDB_NAME>.<OWNER>.<TABLE_NAME>. Additional parameters listed below are used to customize the topic name
 
 [width="100%",cols="<20%,<10%,<70%",options="header",]
 |===

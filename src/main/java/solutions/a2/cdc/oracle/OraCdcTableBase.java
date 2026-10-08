@@ -262,6 +262,32 @@ public abstract class OraCdcTableBase {
 				pkColsSet = null;
 				useRowIdAsKey = false;
 			}
+			case COLUMN -> {
+				var columnArray = StringUtils.split(keyOverrideType.getValue(), ',');
+				if (columnArray == null || columnArray.length == 0) {
+					pkColsSet = null;
+					useRowIdAsKey = config.useRowidAsKey();
+					LOGGER.error(
+							"""
+							
+							=====================
+							Unable to use COLUMN key override for table {}.{}! 
+							=====================
+							
+							""", tableOwner, tableName);
+				} else {
+					pkColsSet = Set.of(columnArray);
+					useRowIdAsKey = false;
+					LOGGER.info(
+							"""
+							
+							=====================
+							Value of columns {} will be used as key for table {}.{}! 
+							=====================
+							
+							""", columnArray, tableOwner, tableName);
+				}
+			}
 			default -> {
 				//INDEX
 				indexName = keyOverrideType.getValue();

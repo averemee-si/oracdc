@@ -301,6 +301,10 @@ public class SourceConnectorConfig {
 					keyOverrideMap.put(fullTableName, OraCdcKeyOverrideTypes.INDEX);
 					keyOverrideIndexMap.put(fullTableName,
 							StringUtils.substringBetween(overrideValue, "(", ")"));
+				} else if (Strings.CI.startsWith(overrideValue, "COLUMN")) {
+					keyOverrideMap.put(fullTableName, OraCdcKeyOverrideTypes.COLUMN);
+					keyOverrideIndexMap.put(fullTableName,
+							StringUtils.substringBetween(overrideValue, "(", ")"));
 				} else {
 					LOGGER.error(
 							"""
