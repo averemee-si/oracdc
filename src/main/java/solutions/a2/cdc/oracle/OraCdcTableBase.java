@@ -31,6 +31,7 @@ import static solutions.a2.cdc.oracle.OraDictSqlTexts.COLUMN_LIST_PLAIN;
 import static solutions.a2.cdc.oracle.OraDictSqlTexts.COLUMN_LIST_PLAIN_CDB;
 import static solutions.a2.cdc.oracle.OraDictSqlTexts.COLUMN_LIST_PLAIN_PDB;
 import static solutions.a2.cdc.oracle.data.JdbcTypes.getTypeName;
+import static solutions.a2.cdc.oracle.runtime.config.Parameters.PK_TYPE_INT_ANY_UNIQUE;
 import static solutions.a2.cdc.oracle.utils.OraSqlUtils.alterTablePreProcessor;
 
 import java.sql.Connection;
@@ -40,6 +41,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +57,8 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+
+import oracle.jdbc.OraclePreparedStatement;
 
 import solutions.a2.cdc.oracle.internals.OraCdcTdeColumnDecrypter;
 import solutions.a2.cdc.oracle.runtime.data.DataBinder;
@@ -72,6 +76,8 @@ public abstract class OraCdcTableBase {
 	private final String pdbName;
 	private final String tableOwner;
 	private final String tableName;
+	private String indexOwner = null;
+	private String indexName = null;
 	private final List<OraCdcColumn> allColumns;
 	private final Map<String, OraCdcColumn> pkColumns;
 	private final OraRdbmsInfo rdbmsInfo;
@@ -184,12 +190,68 @@ public abstract class OraCdcTableBase {
 		final var isCdb = rdbmsInfo.isCdb() && !rdbmsInfo.isPdbConnectionAllowed();
 		final Entry<OraCdcKeyOverrideTypes, String> keyOverrideType = config.getKeyOverrideType(this.tableOwner + "." + this.tableName);
 		final boolean useRowIdAsKey;
-		final Set<String> pkColsSet;
+		Set<String> pkColsSet = null;
 		hiddenColumns.clear();
 		switch (keyOverrideType.getKey()) {
 			case NONE -> {
-				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
-					isCdb ? conId : -1, this.tableOwner, this.tableName, config.getPkType());
+				var ps = (OraclePreparedStatement) connection.prepareStatement(
+						isCdb ?
+								OraDictSqlTexts.PK_COLUMNS_CDB :
+								OraDictSqlTexts.PK_COLUMNS_NON_CDB,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				ps.setStringAtName("OWNER", tableOwner);
+				ps.setStringAtName("TABLE_NAME", tableName);
+				if (isCdb)
+					ps.setShortAtName("CON_ID", conId);
+				var pk = true;
+				var rs = ps.executeQuery();
+				while (rs.next()) {
+					if (pkColsSet == null) {
+						pkColsSet = new HashSet<>();
+						pk = Strings.CS.equals(rs.getString("CONSTRAINT_TYPE"), "P");
+						if (!pk) {
+							indexOwner = rs.getString("OWNER");
+							indexName = rs.getString("CONSTRAINT_NAME");
+						}
+					}
+					pkColsSet.add(rs.getString("COLUMN_NAME"));
+				}
+				rs.close();
+				rs = null;
+				ps.close();
+				ps = null;
+				if (pkColsSet != null && !pk)
+					printPkWarning(pkColsSet, true, false);
+				if (pkColsSet == null && config.getPkType() == PK_TYPE_INT_ANY_UNIQUE) {
+					ps = (OraclePreparedStatement) connection.prepareStatement(
+							(isCdb) ?
+									OraDictSqlTexts.UNIQUE_COLUMNS_CDB :
+									OraDictSqlTexts.UNIQUE_COLUMNS_NON_CDB,
+							ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+					ps.setString(1, tableOwner);
+					ps.setString(2, tableName);
+					if (isCdb) {
+						ps.setShort(3, conId);			
+					}
+					rs = ps.executeQuery();
+					while (rs.next()) {
+						if (pkColsSet == null) {
+							pkColsSet = new HashSet<>();
+							indexOwner = rs.getString("OWNER");
+							indexName = rs.getString("INDEX_NAME");
+						} else if (!Strings.CS.equals(indexName, rs.getString("INDEX_NAME"))) {
+							break;
+						}
+						pkColsSet.add(rs.getString("COLUMN_NAME"));
+					}
+					rs.close();
+					rs = null;
+					ps.close();
+					ps = null;
+					if (pkColsSet != null) {
+						printPkWarning(pkColsSet, false, false);
+					}
+				}
 				useRowIdAsKey = config.useRowidAsKey();
 			}
 			case ROWID -> {
@@ -200,10 +262,70 @@ public abstract class OraCdcTableBase {
 				pkColsSet = null;
 				useRowIdAsKey = false;
 			}
+			case COLUMN -> {
+				var columnArray = StringUtils.split(keyOverrideType.getValue(), ',');
+				if (columnArray == null || columnArray.length == 0) {
+					pkColsSet = null;
+					useRowIdAsKey = config.useRowidAsKey();
+					LOGGER.error(
+							"""
+							
+							=====================
+							Unable to use COLUMN key override for table {}.{}! 
+							=====================
+							
+							""", tableOwner, tableName);
+				} else {
+					pkColsSet = Set.of(columnArray);
+					useRowIdAsKey = false;
+					LOGGER.info(
+							"""
+							
+							=====================
+							Value of columns {} will be used as key for table {}.{}! 
+							=====================
+							
+							""", columnArray, tableOwner, tableName);
+				}
+			}
 			default -> {
 				//INDEX
-				pkColsSet = OraRdbmsInfo.getPkColumnsFromDict(connection,
-					isCdb ? conId : -1, this.tableOwner, this.tableName, keyOverrideType.getValue());
+				indexName = keyOverrideType.getValue();
+				var ps = connection.prepareStatement(
+						(isCdb) ?
+								OraDictSqlTexts.INDEX_COLUMNS_CDB :
+								OraDictSqlTexts.INDEX_COLUMNS_NON_CDB,
+						ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
+				ps.setString(1, tableOwner);
+				ps.setString(2, tableName);
+				ps.setString(3, indexName);
+				if (isCdb)
+					ps.setShort(4, conId);			
+				ResultSet rs = ps.executeQuery();
+				while (rs.next()) {
+					if (pkColsSet == null) {
+						pkColsSet = new HashSet<>();
+						indexOwner = rs.getString("INDEX_OWNER");
+					}
+					pkColsSet.add(rs.getString("COLUMN_NAME"));
+				}
+				rs.close();
+				rs = null;
+				ps.close();
+				ps = null;
+				if (pkColsSet == null) {
+					LOGGER.error(
+							"""
+							
+							=====================
+							Data for index {} (on table {}.{}) not found!
+							=====================
+							
+							""",
+							indexName, tableOwner, tableName);
+				} else {
+					printPkWarning(pkColsSet, false, true);
+				}
 				useRowIdAsKey = config.useRowidAsKey();
 			}
 		}
@@ -828,6 +950,15 @@ public abstract class OraCdcTableBase {
 		return tableName;
 	}
 
+	public String indexOwner() {
+		return indexOwner;
+	}
+
+	public String indexName() {
+		return indexName;
+	}
+
+
 	public short flags() {
 		return flags;
 	}
@@ -850,6 +981,43 @@ public abstract class OraCdcTableBase {
 
 	public OraCdcTdeColumnDecrypter decrypter() {
 		return decrypter;
+	}
+
+	private void printPkWarning(
+			final Set<String> pkColsSet, final boolean notNull, final boolean override) {
+		final var sb = new StringBuilder(0x100);
+		var firstCol = true;
+		for (var columnName : pkColsSet) {
+			if (firstCol) {
+				firstCol = false;
+			} else {
+				sb.append(",");
+			}
+			sb.append(columnName);
+		}
+		if (override) {
+			LOGGER.info(
+					"""
+					
+					=====================
+					Columns of index {}.{}({}) will be used as key fields for table {}.{}.
+					=====================
+					
+					""",
+					 indexOwner, indexName, sb.toString(), tableOwner, tableName);
+		} else {
+			LOGGER.info(
+					"""
+					
+					=====================
+					Table {}.{} does not have a primary key constraint.
+					Unique index {}.{} with {}column(s) '{}' will be used instead of the missing primary key.
+					=====================
+					
+					""",
+					tableOwner, tableName, indexOwner, indexName, 
+					(notNull ? "NOT NULL " : ""), sb.toString());
+		}
 	}
 
 }

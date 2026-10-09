@@ -29,5 +29,6 @@ public enum OraCdcKeyOverrideTypes {
 	NONE,
 	NOKEY,
 	ROWID,
-	INDEX
+	INDEX,
+	COLUMN
 }

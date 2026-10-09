@@ -58,7 +58,7 @@ When set to _debezium_  **oracdc** produces messages similar to Debezium with be
 
 `a2.tmpdir` - Temporary directory for off-heap storage. Default - value of _java.io.tmpdir_ JVM property
 
-`a2.oracdc.schemas` - Use oracdc schemas (**solutions.a2.cdc.oracle.data.OraNumber** and **solutions.a2.cdc.oracle.data.OraTimestamp**) for Oracle datatypes (NUMBER, TIMESTAMP WITH [LOCAL] TIMEZONE). Default false.
+`a2.oracdc.schemas` - Use oracdc schemas (**solutions.a2.OraNumber** and **solutions.a2.OraTimestamp**) for Oracle datatypes (NUMBER, TIMESTAMP WITH [LOCAL] TIMEZONE). Default false.
 
 `a2.initial.load` - A mode for performing initial load of data from tables when set to `EXECUTE`. Record the successful completion of the initial load in the offset file. Default value - `IGNORE`. 
 
@@ -70,7 +70,7 @@ When set to _debezium_  **oracdc** produces messages similar to Debezium with be
 
 `a2.process.lobs` - process Oracle BLOB, CLOB, NCLOB, and https://docs.oracle.com/en/database/oracle/oracle-database/23/adxdb/intro-to-XML-DB.html#GUID-02592188-AC38-4D00-A2FD-9E53604065C8[XMLType] columns. Default - _false_
 
-`a2.lob.transformation.class` - name of class which implements _solutions.a2.cdc.oracle.data.OraCdcLobTransformationsIntf_ interface. Default - _solutions.a2.cdc.oracle.data.OraCdcDefaultLobTransformationsImpl_ which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation
+`a2.lob.transformation.class` - name of class which implements _solutions.a2.kafka.source.oracle.OraCdcLobTransformationsIntf_ interface. Default - _solutions.a2.kafka.source.oracle.OraCdcDefaultLobTransformationsImpl_ which just passes information about and values of BLOB/CLOB/NCLOB/XMLTYPE columns to Kafka Connect without performing any additional transformation
 
 `a2.connection.backoff` - Backoff time in milliseconds between reconnectoion attempts. Default - _30000ms_
 
@@ -104,11 +104,11 @@ When set to _any_unique_ and the table does not have a https://docs.oracle.com/e
 
 `a2.use.all.columns.on.delete` - When set to _false_ (default) **oracdc** reads and processes only the https://docs.oracle.com/en/database/oracle/oracle-database/23/cncpt/data-integrity.html#GUID-E1033BB9-0F67-4E59-82AC-B8B572FD82BB[primary] key columns from the redo record for *DELETE* operation  and sends only the key fields to the Apache Kafka topic. When set to _true_ **oracdc** reads and processes all table columns from the redo record. Default - *false*.
 
-`a2.topic.mapper` - The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent. The class must implement the solutions.a2.cdc.oracle.runtime.config.KafkaTopicNameMapper interface. The connector comes with three predefined mappers:
- 1) `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper`, which generates a unique name for each table based on the PDB name, schema name, and table name using the values ​​of the `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter` parameters.
-2) Second predefined mapper, `solutions.a2.cdc.oracle.runtime.config.KafkaSingleTopicNameMapper`, uses the value of the `a2.kafka.topic` parameter as the Kafka topic name, and all change events for all tables are written to a single Kafka topic.
-3) The third predefined mapper, `solutions.a2.cdc.oracle.runtime.config.KafkaFlexibleTopicNameMapper`, extends `solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper`, providing the ability to put data for tables defined by the parameter `a2.map.topic.<TOPIC_NAME>=<LIST_OF_TABLES>` into a single topic `<TOPIC_NAME>`. Table names in the comma-separated list of tables must be in the format <OWNER>.<TABLE_NAME> or <PDB_NAME>.<OWNER>.<TABLE_NAME>
-Default - *solutions.a2.cdc.oracle.runtime.config.KafkaDefaultTopicNameMapper*
+`a2.topic.mapper` - The fully qualified name of the class that defines the Kafka topic to which data from the tables should be sent. The class must implement the solutions.a2.kafka.source.oracle.KafkaTopicNameMapper interface. The connector comes with three predefined mappers:
+ 1) `solutions.a2.kafka.source.oracle.KafkaDefaultTopicNameMapper`, which generates a unique name for each table based on the PDB name, schema name, and table name using the values ​​of the `a2.topic.prefix`, `a2.topic.name.style`, and `a2.topic.name.delimiter` parameters.
+2) Second predefined mapper, `solutions.a2.kafka.source.oracle.KafkaSingleTopicNameMapper`, uses the value of the `a2.kafka.topic` parameter as the Kafka topic name, and all change events for all tables are written to a single Kafka topic.
+3) The third predefined mapper, `solutions.a2.kafka.source.oracle.KafkaFlexibleTopicNameMapper`, extends `solutions.a2.kafka.source.oracle.KafkaDefaultTopicNameMapper`, providing the ability to put data for tables defined by the parameter `a2.map.topic.<TOPIC_NAME>=<LIST_OF_TABLES>` into a single topic `<TOPIC_NAME>`. Table names in the comma-separated list of tables must be in the format <OWNER>.<TABLE_NAME> or <PDB_NAME>.<OWNER>.<TABLE_NAME>
+Default - *solutions.a2.kafka.source.oracle.KafkaDefaultTopicNameMapper*
 
 `a2.stop.on.ora.1284` - If set to true, the connector stops on an Oracle database error 'ORA-01284: file <Absolute-Path-To-Log-File> cannot be opened'. If set to false, the connector prints an error message and continues processing.
 Default - *true*.
@@ -117,7 +117,7 @@ Default - *true*.
 Default - *false*.
 
 `a2.schema.name.mapper` - The fully-qualified class name of the class that constructs schema name from the Oracle PDB name (if present), the table owner, and the table name.
-Default - *solutions.a2.cdc.oracle.runtime.config.KafkaDefaultSchemaNameMapper* 
+Default - *solutions.a2.kafka.source.oracle.KafkaDefaultSchemaNameMapper* 
 
 `a2.pseudocolumn.ora_rowscn` - The name of the field in the Kafka Connect record that contains the SCN where the row change was made. If the value is empty, the SCN field is not included in the Kafka Connect records.
 Default - *<EMPTY_STRING>*, i.e. do not include SCN field in Kafka Connect record.
@@ -152,14 +152,15 @@ Default - *<EMPTY_STRING>*, i.e. do not include session info field in Kafka Conn
 `a2.pseudocolumn.ora_client_id` - The name of the field in the Kafka Connect record that contains the client identifier in the session that executed the transaction (if available). If the value is empty, the client identifier field is not included in the Kafka Connect records.
 Default - *<EMPTY_STRING>*, i.e. do not include client identifier field in Kafka Connect record
 
-`a2.key.override` - 	A comma separated list of elements in the format TABLE_OWNER.TABLE_NAME=NOKEY|ROWID|INDEX(INDEX_NAME). If there is a table in this list, then the values ​​of the `a2.pk.type` and `a2.use.rowid.as.key` parameters for it are ignored and the values ​​of the key columns are set in accordance with this parameter:
+`a2.key.override` - 	A comma separated list of elements in the format TABLE_OWNER.TABLE_NAME=NOKEY|ROWID|INDEX(INDEX_NAME)|COLUMN(COLUMN_LIST). If there is a table in this list, then the values ​​of the `a2.pk.type` and `a2.use.rowid.as.key` parameters for it are ignored and the values ​​of the key columns are set in accordance with this parameter:
  `NONE` - do not create key fields in the Kafka topic for this table
  `ROWID` - use ROWID as a key field in the Kafka topic with the name ORA_ROW_ID and type STRING
  `INDEX(INDEX_NAME)` use the index columns of index named INDEX_NAME as key fields of the Kafka topic
-Default - *<EMPTY_STRING>*
+ `COLUMN(COLUMN_LIST)` use the columns list as key fields of the Kafka topic
+DDefault - *<EMPTY_STRING>*
 
 
-`a2.last.sequence.notifier` - The fully-qualified class name of the class that implements LastProcessedSeqNotifier interface to send notifications about the last processed log sequence. Currently there is only a notifier that writes a last processed sequence number to a file. To configure it, you need to set the value of the parameter `a2.last.sequence.notifier` to `solutions.a2.cdc.oracle.OraCdcLastProcessedSeqFileNotifier` and the value of the parameter `a2.last.sequence.notifier.file` to the name of the file in which the last processed number will be written.
+`a2.last.sequence.notifier` - The fully-qualified class name of the class that implements LastProcessedSeqNotifier interface to send notifications about the last processed log sequence. Currently there is only a notifier that writes a last processed sequence number to a file. To configure it, you need to set the value of the parameter `a2.last.sequence.notifier` to `solutions.a2.cdc.oracle.api.OraCdcLastProcessedSeqFileNotifier` and the value of the parameter `a2.last.sequence.notifier.file` to the name of the file in which the last processed number will be written.
 
 `a2.last.sequence.notifier.file` - The name of the file in which the last processed number will be written.
 Default - *${connectorName}.seq*
@@ -195,9 +196,9 @@ Default - false.
 
 `a2.archive.log.dest.id` - The archive log destination ID to use. Default - 0.
 
-== solutions.a2.cdc.oracle.OraCdcLogMinerConnector specific parameters
+== solutions.a2.kafka.source.oracle.KafkaSourceLogMinerConnector specific parameters
 
-`a2.archived.log.catalog` - name of class which implements _solutions.a2.cdc.oracle.OraLogMiner_ interface. Default - _solutions.a2.cdc.oracle.OraCdcV$ArchivedLogImpl_ which reads archived log information and information about next available archived redo log from https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-ARCHIVED_LOG.html[V$ARCHIVED_LOG] fixed view
+`a2.archived.log.catalog` - name of class which implements _solutions.a2.cdc.oracle.api.OraLogMiner_ interface. Default - _solutions.a2.cdc.oracle.api.OraCdcV$ArchivedLogImpl_ which reads archived log information and information about next available archived redo log from https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-ARCHIVED_LOG.html[V$ARCHIVED_LOG] fixed view
 
 `a2.fetch.size` - number of rows fetched with each RDBMS round trip for accessing https://docs.oracle.com/en/database/oracle/oracle-database/23/refrn/V-LOGMNR_CONTENTS.html[V$LOGMNR_CONTENTS] fixed view. Default 32
 
@@ -212,7 +213,7 @@ alter session set events '10046 trace name context forever, level 8';
 
 `a2.log.miner.reconnect.ms` - The time interval in milliseconds after which a reconnection to LogMiner occurs, including the re-creation of the Oracle connection. Unix/Linux only, on Windows **oracdc** creates new LogMiner session and re-creation of database connection every time DBMS_LOGMNR.START_LOGMNR is called. Default - https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Long.html#MAX_VALUE[Long.MAX_VALUE]
 
-=== solutions.a2.cdc.oracle.OraCdcLogMinerConnector distributed mode parameters
+=== solutions.a2.kafka.source.oracle.KafkaSourceLogMinerConnector distributed mode parameters
 
 `a2.distributed.activate` - Use **oracdc** in distributed configuration (redo logs are generated at source RDBMS server and then transferred to compatible target RDBMS server for processing with LogMiner. For description of this configuration please look at _Figure 25-1_ at [Using LogMiner to Analyze Redo Log Files](https://docs.oracle.com/en/database/oracle/oracle-database/23/sutil/oracle-logminer-utility.html). Default - _false_
 

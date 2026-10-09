@@ -25,8 +25,6 @@
 
 package solutions.a2.cdc.oracle;
 
-import static solutions.a2.cdc.oracle.runtime.config.Parameters.PK_TYPE_INT_ANY_UNIQUE;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -35,11 +33,9 @@ import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.agrona.collections.Int2IntHashMap;
 import org.agrona.collections.IntArrayList;
@@ -50,7 +46,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
 import oracle.jdbc.OracleConnection;
-import oracle.jdbc.OraclePreparedStatement;
 import oracle.sql.json.OracleJsonFactory;
 import solutions.a2.cdc.oracle.internals.OraCdcTdeWallet;
 import solutions.a2.oracle.utils.BinaryUtils;
@@ -367,178 +362,6 @@ public class OraRdbmsInfo {
 		rs.close(); rs = null;
 		ps.close(); ps = null;
 		return result;
-	}
-
-	/**
-	 * Returns set of column names for primary key or it equivalent (unique with all non-null)
-	 * 
-	 * @param connection         - Connection to data dictionary (db in 'OPEN' state)
-	 * @param conId              - CON_ID, if -1 we working with non CDB or pre-12c Oracle Database
-	 * @param tableOwner         - Table owner
-	 * @param tableName          - Table name
-	 * @param pkType             - use any unique as PK when PK or unique key with NOT NULL not found
-	 * @return                   - Set with names of primary key columns. null if nothing found
-	 * @throws SQLException
-	 */
-	public static Set<String> getPkColumnsFromDict(
-			final Connection connection,
-			final short conId,
-			final String tableOwner,
-			final String tableName,
-			final int pkType) throws SQLException {
-		var isCdb = (conId > -1);
-		var ps = (OraclePreparedStatement) connection.prepareStatement(
-				isCdb ?
-						OraDictSqlTexts.PK_COLUMNS_CDB :
-						OraDictSqlTexts.PK_COLUMNS_NON_CDB,
-				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		ps.setStringAtName("OWNER", tableOwner);
-		ps.setStringAtName("TABLE_NAME", tableName);
-		if (isCdb)
-			ps.setShortAtName("CON_ID", conId);
-		String indexOwner = null;
-		String indexName = null;
-		Set<String> result = null;
-		var pk = true;
-		var rs = ps.executeQuery();
-		while (rs.next()) {
-			if (result == null) {
-				result = new HashSet<>();
-				pk = Strings.CS.equals(rs.getString("CONSTRAINT_TYPE"), "P");
-				if (!pk) {
-					indexOwner = rs.getString("OWNER");
-					indexName = rs.getString("CONSTRAINT_NAME");
-				}
-			}
-			result.add(rs.getString("COLUMN_NAME"));
-		}
-		rs.close();
-		rs = null;
-		ps.close();
-		ps = null;
-		if (result != null && !pk)
-			printPkWarning(result, true, tableOwner, tableName,indexOwner, indexName, false);
-		if (result == null && pkType == PK_TYPE_INT_ANY_UNIQUE) {
-			ps = (OraclePreparedStatement) connection.prepareStatement(
-					(isCdb) ?
-							OraDictSqlTexts.UNIQUE_COLUMNS_CDB :
-							OraDictSqlTexts.UNIQUE_COLUMNS_NON_CDB,
-					ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-			ps.setString(1, tableOwner);
-			ps.setString(2, tableName);
-			if (isCdb) {
-				ps.setShort(3, conId);			
-			}
-			rs = ps.executeQuery();
-			while (rs.next()) {
-				if (result == null) {
-					result = new HashSet<>();
-					indexOwner = rs.getString("OWNER");
-					indexName = rs.getString("INDEX_NAME");
-				} else if (!Strings.CS.equals(indexName, rs.getString("INDEX_NAME"))) {
-					break;
-				}
-				result.add(rs.getString("COLUMN_NAME"));
-			}
-			rs.close();
-			rs = null;
-			ps.close();
-			ps = null;
-			if (result != null) {
-				printPkWarning(result, false, tableOwner, tableName, indexOwner, indexName, false);
-			}
-		}
-		return result;
-	}
-
-	/**
-	 * Returns columns of index
-	 * 
-	 * @param connection         - Connection to data dictionary (db in 'OPEN' state)
-	 * @param conId              - CON_ID, if -1 we working with non CDB or pre-12c Oracle Database
-	 * @param tableOwner         - Table owner
-	 * @param tableName          - Table name
-	 * @param indexName          - Index name
-	 * @return                   - Set with names of columns. null if nothing found
-	 * @throws SQLException
-	 */
-	public static Set<String> getPkColumnsFromDict(
-			final Connection connection,
-			final short conId,
-			final String tableOwner,
-			final String tableName,
-			final String indexName) throws SQLException {
-		final boolean isCdb = (conId > -1);
-		Set<String> result = null;
-		PreparedStatement ps = connection.prepareStatement(
-				(isCdb) ?
-						OraDictSqlTexts.INDEX_COLUMNS_CDB :
-						OraDictSqlTexts.INDEX_COLUMNS_NON_CDB,
-				ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
-		ps.setString(1, tableOwner);
-		ps.setString(2, tableName);
-		ps.setString(3, indexName);
-		if (isCdb) {
-			ps.setShort(4, conId);			
-		}
-
-		String indexOwner = null;
-		ResultSet rs = ps.executeQuery();
-		while (rs.next()) {
-			if (result == null) {
-				result = new HashSet<>();
-				indexOwner = rs.getString("INDEX_OWNER");
-			}
-			result.add(rs.getString("COLUMN_NAME"));
-		}
-		rs.close();
-		rs = null;
-		ps.close();
-		ps = null;
-		if (result == null) {
-			LOGGER.error(
-					"\n" +
-					"=====================\n" +
-					"Data for index {} (on table {}.{}) not found!\n" +
-					"=====================\n",
-					indexName, tableOwner, tableName);
-		} else {
-			printPkWarning(result, false, tableOwner, tableName, indexOwner, indexName, true);
-		}
-		return result;
-	}
-
-	private static void printPkWarning(final Set<String> result, final boolean notNull,
-			final String tableOwner, final String tableName,
-			final String indexOwner, final String indexName,
-			final boolean override) {
-		final StringBuilder sb = new StringBuilder(128);
-		boolean firstCol = true;
-		for (String columnName : result) {
-			if (firstCol) {
-				firstCol = false;
-			} else {
-				sb.append(",");
-			}
-			sb.append(columnName);
-		}
-		if (override) {
-			LOGGER.info(
-					"\n" +
-					"=====================\n" +
-					"Columns of index {}.{}({}) will be used as key fields for table {}.{}.\n" +
-					"=====================\n",
-					 indexOwner, indexName, sb.toString(), tableOwner, tableName);
-		} else {
-			LOGGER.info(
-					"\n" +
-					"=====================\n" +
-					"Table {}.{} does not have a primary key constraint.\n" +
-					"Unique index {}.{} with {}column(s) '{}' will be used instead of the missing primary key.\n" +
-					"=====================\n",
-					tableOwner, tableName, indexOwner, indexName, 
-					(notNull ? "NOT NULL " : ""), sb.toString());
-		}
 	}
 
 	/**
