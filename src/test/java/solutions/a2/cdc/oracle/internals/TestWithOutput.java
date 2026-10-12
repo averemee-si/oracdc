@@ -62,7 +62,7 @@ public abstract class TestWithOutput {
 	private static final String SQL_REDO_SET = " set ";
 	private static final String SQL_REDO_AND = " and ";
 	private static final String SQL_REDO_IS = " IS";
-	private static final String SQL_REDO_VALUES = " values ";
+	private static final String SQL_REDO_VALUES = " values";
 
 	private static final Logger LOGGER;
 	static {
@@ -109,7 +109,7 @@ public abstract class TestWithOutput {
 			}
 			case INSERT -> {
 				var diffWhere = Maps.difference(
-						insertStmt(squeezedSql), whereClause(redoMinerSql));
+						insertStmt(squeezedSql), insertStmt(redoMinerSql));
 				if (!diffWhere.areEqual()) {
 					printOneStmtOnly(diffWhere.entriesOnlyOnLeft(),
 							"A list of columns and their values ​​that are only available in LogMiner INSERT stmt:");
