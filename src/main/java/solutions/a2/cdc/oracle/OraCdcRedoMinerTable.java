@@ -314,7 +314,9 @@ public class OraCdcRedoMinerTable extends OraCdcTableBase {
 				if (oraColumn != null) {
 					setColumns.add(setColDefs[i][0]);
 					if (colSize < 0) {
-						if (oraColumn.mandatory()) {
+						if ((flags & FLG_SUPPLEMENTAL_LOG_ALL) == 0) {
+							dataBinder.update(oraColumn, null, true);
+						} else if (oraColumn.mandatory()) {
 							if (!oraColumn.defaultValuePresent()) {
 								// throw error only if we don't expect to get value from WHERE clause
 								printInvalidFieldValue(oraColumn, stmt, transaction);
