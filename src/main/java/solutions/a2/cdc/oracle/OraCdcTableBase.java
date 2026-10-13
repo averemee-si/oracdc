@@ -378,6 +378,7 @@ public abstract class OraCdcTableBase {
 		List<Pair<Integer, String>> undroppedColumns = null;
 		int minUndroppedId = Integer.MAX_VALUE;
 		var hasEncryptedColumns = false;
+		var precedingVirtual = 0;
 		while (rsColumns.next()) {
 			if (LOGGER.isTraceEnabled()) {
 				LOGGER.trace(
@@ -391,6 +392,13 @@ public abstract class OraCdcTableBase {
 								rsColumns.getInt("DATA_SCALE"), rsColumns.getString("NULLABLE"),
 						rsColumns.getInt("COLUMN_ID"), rsColumns.getString("HIDDEN_COLUMN"), rsColumns.getInt("INTERNAL_COLUMN_ID"));
 			}
+			if (Strings.CI.equals(rsColumns.getString("VIRTUAL_COLUMN"), "YES")) {
+				precedingVirtual++;
+				if (LOGGER.isDebugEnabled())
+					LOGGER.debug("Skipping virtual column {} in table {}", rsColumns.getString("COLUMN_NAME"), tableFqn);
+				continue;
+			}
+				
 			var columnAdded = false;
 			OraCdcColumn column = null;
 			if (Strings.CI.equals(rsColumns.getString("HIDDEN_COLUMN"), "NO")) {
@@ -415,7 +423,8 @@ public abstract class OraCdcTableBase {
 					}
 					column = new OraCdcColumn(
 							false, (flags & FLG_ORACDC_SCHEMAS) > 0, (flags & FLG_PROCESS_LOBS) > 0,
-							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0);
+							rsColumns, pkColsSet, decrypter, rdbmsInfo, (flags & FLG_SUPPLEMENTAL_LOG_ALL) > 0,
+							precedingVirtual);
 					if (column.isNumber() && numberRemap != null) {
 						final OraCdcColumn newDefinition = config.columnNumberMapping(numberRemap, column.name());
 						if (newDefinition != null) {
@@ -426,12 +435,15 @@ public abstract class OraCdcTableBase {
 				} catch (UnsupportedColumnDataTypeException ucdte) {
 					LOGGER.warn("Column {} not added to definition of table {}.{}",
 							ucdte.getColumnName(), this.tableOwner, this.tableName);
+					hiddenColumns.add(rsColumns.getInt("INTERNAL_COLUMN_ID") - precedingVirtual);
 				}
 			} else if (rsColumns.getInt("COLUMN_ID") > 0) {
 				if (LOGGER.isDebugEnabled())
 					LOGGER.debug("Skipping shadow BLOB column {} in table {}",
 							rsColumns.getString("COLUMN_NAME"), tableFqn);
+				hiddenColumns.add(rsColumns.getInt("INTERNAL_COLUMN_ID") - precedingVirtual);
 			} else {
+				hiddenColumns.add(rsColumns.getInt("INTERNAL_COLUMN_ID") - precedingVirtual);
 				final String columnName = rsColumns.getString("COLUMN_NAME");
 				final Matcher unusedMatcher = UNUSED_COLUMN.matcher(columnName);
 				if (unusedMatcher.matches()) {
@@ -447,7 +459,6 @@ public abstract class OraCdcTableBase {
 				} else {
 					final Matcher guardMatcher = GUARD_COLUMN.matcher(columnName);
 					if (guardMatcher.matches()) {
-						hiddenColumns.add(rsColumns.getInt("INTERNAL_COLUMN_ID"));
 						if (LOGGER.isDebugEnabled())
 							LOGGER.debug("Skipping guard column {} in tgable {}.{}",
 									columnName, this.tableOwner, this.tableName);

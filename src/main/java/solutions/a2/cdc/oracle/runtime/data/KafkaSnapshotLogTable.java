@@ -262,7 +262,7 @@ public class KafkaSnapshotLogTable {
 			boolean columnAdded = false;
 			OraCdcColumn column = null;
 			try {
-				column = new OraCdcColumn(true, false, false, rsColumns, null, null, rdbmsInfo, true);
+				column = new OraCdcColumn(true, false, false, rsColumns, null, null, rdbmsInfo, true, 0);
 				columnAdded = true;
 			} catch (UnsupportedColumnDataTypeException ucdte) {
 				LOGGER.warn("Column {} not added to definition of table {}.{}",
