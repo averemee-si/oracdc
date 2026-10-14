@@ -72,6 +72,7 @@ import static solutions.a2.kafka.sink.JdbcSinkConnectorConfig.CONNECTOR_AUDIT_TR
 public class WrappedDataTable extends JdbcSinkTableBase {
 
 	private static final Logger LOGGER = LogManager.getLogger(WrappedDataTable.class);
+	private static final String EMPTY_UPDATE_STATE = "E";
 
 	private final WrappedTableInfo metrics;
 	private String sinkUpsertSql = null;
@@ -476,7 +477,15 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 		final var updateStmtHash = updateStatementHashCode(record);
 		var updateStatement = updateStatements.get(updateStmtHash);
 		if (updateStatement == null) {
-			updateStatement = new UpdateStatement(updateStmtHash, this, connection, record);
+			try {
+				updateStatement = new UpdateStatement(updateStmtHash, this, connection, record);
+			} catch (SQLException sqle) {
+				if (sqle.getErrorCode() == Integer.MIN_VALUE &&
+						Strings.CS.equals(sqle.getSQLState(), EMPTY_UPDATE_STATE))
+					return;
+				else
+					throw sqle;
+			}
 			updateStatements.put(updateStmtHash, updateStatement);
 		} else {
 			updateStatement.exec(connection, record);
@@ -627,6 +636,7 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 			boolean first = true;
 			sb.append(table.updateStmtStart);
 			final var valueStruct = (Struct) record.value();
+			var setColumnCount = 0;
 			for (var field : record.valueSchema().fields()) {
 				if (valueStruct.get(field) == null) continue;
 				else {
@@ -651,12 +661,24 @@ public class WrappedDataTable extends JdbcSinkTableBase {
 						throw new DataException("Unable to properly bind column " + field.name() + "!");
 					}
 					setColumns.add(column);
+					setColumnCount++;
 					if (first) first = false;
 					else sb.append(",");
 					sb
 						.append(field.name())
 						.append("=?");
 				}
+			}
+			if (setColumnCount == 0) {
+				LOGGER.warn(
+						"""
+						
+						=====================
+						Sink record from topic {}:{} at offset {} does not change any data!
+						=====================
+						
+						""", record.topic(), record.kafkaPartition(), record.kafkaOffset());
+				throw new SQLException("", EMPTY_UPDATE_STATE,Integer.MIN_VALUE);
 			}
 			sb.append(table.updateStmtWhere);
 			sqlText = sb.toString();
