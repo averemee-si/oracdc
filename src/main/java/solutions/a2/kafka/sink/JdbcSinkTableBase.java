@@ -453,7 +453,7 @@ public abstract class JdbcSinkTableBase {
 			return false;
 		}
 		if (recOpType != batchOpType) {
-			batchOpType = '-';
+			batchOpType = recOpType;
 			return true;
 		} else if (onlyValue || recOpType == 'd') {
 			// No keys at all...
