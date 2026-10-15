@@ -126,7 +126,7 @@ public class WrappedDataJdbcSinkTask extends SinkTask {
 					LOGGER.debug("Adding {} to current batch set.", tableName);
 					tablesInProcess.add(tableName);
 				}
-				if (oraTable.duplicatedKeyInBatch(record)) {
+				if (oraTable.needNewBatch(record)) {
 					// Prevent from "ON CONFLICT DO UPDATE command cannot affect row a second time"
 					if (LOGGER.isDebugEnabled()) {
 						LOGGER.debug("Executing batch due to duplicate key for table {} .", oraTable.tableName());
