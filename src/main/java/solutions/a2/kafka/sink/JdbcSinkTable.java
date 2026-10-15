@@ -33,7 +33,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -82,13 +81,11 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 	private String sinkDeleteSql = null;
 	private PreparedStatement sinkUpsert = null;
 	private PreparedStatement sinkDelete = null;
-	private int upsertCount;
 	private int deleteCount;
 	private long upsertTime;
 	private long deleteTime;
 	private boolean delayedObjectsCreation = false;
 	private final int pkStringLength;
-	private final Set<String> pkInUpsertBatch = new HashSet<>();
 	private boolean ready4Delete = false;
 
 	/**
@@ -215,7 +212,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		}
 
 		metrics = new SinkTableInfo(this.tableName);
-		upsertCount = 0;
+		insertUpsertCount = 0;
 		deleteCount = 0;
 		upsertTime = 0;
 		deleteTime = 0;
@@ -520,14 +517,14 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 	public void exec() throws SQLException {
 		LOGGER.debug("BEGIN: exec()");
 		final long nanosStart = System.nanoTime();
-		if (sinkUpsert != null && upsertCount > 0) {
+		if (sinkUpsert != null && insertUpsertCount > 0) {
 			execUpsert();
 			sinkUpsert.clearBatch();
 			pkInUpsertBatch.clear();
 			execLobUpdate(false);
 			upsertTime += System.nanoTime() - nanosStart;
-			metrics.addUpsert(upsertCount, upsertTime);
-			upsertCount = 0;
+			metrics.addUpsert(insertUpsertCount, upsertTime);
+			insertUpsertCount = 0;
 			upsertTime = 0;
 		}
 		if (sinkDelete != null && deleteCount > 0) {
@@ -545,16 +542,16 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		LOGGER.debug("BEGIN: closeCursors()");
 		final long nanosStart = System.nanoTime();
 		if (sinkUpsert != null) {
-			if (upsertCount > 0) {
+			if (insertUpsertCount > 0) {
 				execUpsert();
 				execLobUpdate(true);
 				upsertTime += System.nanoTime() - nanosStart;
-				metrics.addUpsert(upsertCount, upsertTime);
+				metrics.addUpsert(insertUpsertCount, upsertTime);
 
 			}
 			sinkUpsert.close();
 			sinkUpsert = null;
-			upsertCount = 0;
+			insertUpsertCount = 0;
 			upsertTime = 0;
 		}
 		if (sinkDelete != null) {
@@ -599,7 +596,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 						Error while executing UPSERT (with {} statements in batch) statement '{}'
 						=====================
 						""",
-							upsertCount, sinkUpsertSql);
+							insertUpsertCount, sinkUpsertSql);
 				throw sqle;
 			}
 		}
@@ -627,7 +624,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		final Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
 		if (sinkUpsert == null) {
 			sinkUpsert = connection.prepareStatement(sinkUpsertSql);
-			upsertCount = 0;
+			insertUpsertCount = 0;
 			upsertTime = 0;
 		}
 		int columnNo = 1;
@@ -674,7 +671,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 			}
 		}
 		sinkUpsert.addBatch();
-		upsertCount++;
+		insertUpsertCount++;
 
 		if (lobColumns.size() > 0) {
 			var lobIterator = lobColsSqlMap.entrySet().iterator();
@@ -783,7 +780,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		final Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
 		if (sinkUpsert == null) {
 			sinkUpsert = connection.prepareStatement(sinkUpsertSql);
-			upsertCount = 0;
+			insertUpsertCount = 0;
 			upsertTime = 0;
 		}
 		int columnNo = 1;
@@ -811,7 +808,7 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 			}
 		}
 		sinkUpsert.addBatch();
-		upsertCount++;
+		insertUpsertCount++;
 		LOGGER.debug("END: processInsert()");
 	}
 
@@ -824,36 +821,6 @@ public class JdbcSinkTable extends JdbcSinkTableBase {
 		sb.append(this.tableName);
 		sb.append("\"");
 		return sb.toString();
-	}
-
-	public boolean duplicatedKeyInBatch(final SinkRecord record) {
-		if (onlyValue || getOpType(record) == 'd') {
-			// No keys at all...
-			return false;
-		} else {
-			if (dbType == DB_TYPE_POSTGRESQL) {
-				final StringBuilder keyString = new StringBuilder(256);
-				Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
-				boolean firstColumn = true;
-				var iterator = pkColumns.entrySet().iterator();
-				while (iterator.hasNext()) {
-					final var oraColumn = iterator.next().getValue();
-					if (firstColumn) {
-						firstColumn = false;
-					} else {
-						keyString.append("-");
-					}
-					keyString.append(oraColumn.getValueAsString(structs.getKey(), structs.getValue()));
-				}
-				if (LOGGER.isDebugEnabled()) {
-					LOGGER.debug("Checking key {} for table {} with upsertCount={}",
-							keyString.toString(), tableName, upsertCount);
-				}
-				return !pkInUpsertBatch.add(keyString.toString());
-			} else {
-				return false;
-			}
-		}
 	}
 
 }

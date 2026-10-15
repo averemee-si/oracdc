@@ -94,6 +94,9 @@ public abstract class JdbcSinkTableBase {
 	String tableOwner;
 	String tableName;
 	final int schemaType;
+	final Set<String> pkInUpsertBatch = new HashSet<>();
+	int insertUpsertCount;
+	private char batchOpType = '-';
 	final int dbType;
 	int version;
 	List<JdbcSinkColumn> allColumns;
@@ -443,5 +446,45 @@ public abstract class JdbcSinkTableBase {
 		int EXEC_COUNT;
 	}
 
+	boolean needNewBatch(final SinkRecord record) {
+		var recOpType = getOpType(record);
+		if (batchOpType == '-') {
+			batchOpType = recOpType;
+			return false;
+		}
+		if (recOpType != batchOpType) {
+			batchOpType = '-';
+			return true;
+		} else if (onlyValue || recOpType == 'd') {
+			// No keys at all...
+			return false;
+		} else {
+			if (dbType == DB_TYPE_POSTGRESQL) {
+				final StringBuilder keyString = new StringBuilder(0x100);
+				Entry<Struct, Struct> structs = getStructsFromSinkRecord(record);
+				boolean firstColumn = true;
+				var iterator = pkColumns.entrySet().iterator();
+				while (iterator.hasNext()) {
+					final var oraColumn = iterator.next().getValue();
+					if (firstColumn) {
+						firstColumn = false;
+					} else {
+						keyString.append("-");
+					}
+					keyString.append(oraColumn.getValueAsString(structs.getKey(), structs.getValue()));
+				}
+				if (LOGGER.isDebugEnabled()) {
+					LOGGER.debug("Checking key {} for table {} with upsertCount={}",
+							keyString.toString(), tableName, insertUpsertCount);
+				}
+				var retValue = !pkInUpsertBatch.add(keyString.toString());
+				if (retValue)
+					batchOpType = '-';
+				return retValue;
+			} else {
+				return false;
+			}
+		}
+	}
 
 }
