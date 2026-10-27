@@ -314,7 +314,7 @@ public class KafkaWrappedSchemas {
 			return SchemaBuilder
 			.struct()
 			.optional()
-			.name(WRAPPED_DECIMAL)
+			.name(WRAPPED_OPT_DECIMAL)
 			.version(1)
 			.doc("Wrapped DECIMAL schema")
 			.field("V", OPTIONAL_BYTES_SCHEMA)
