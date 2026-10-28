@@ -27,7 +27,7 @@ ARG    CONFLUENT_VERSION=8.1.1
 ARG    APICURIO_VERSION=3.3.3
 ARG    K8S_CFG_VERSION=1.2.2
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
-ARG    JACKSON_VERSION=2.21.6
+ARG    JACKSON_VERSION=2.21.7
 
 FROM   eclipse-temurin:25-jdk AS build-sr-client
 RUN    set -eux && apt-get update && apt-get --yes install wget 
@@ -215,7 +215,7 @@ RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka
 ENV    JAVA_HOME=/opt/java/openjdk 
 ARG    BASEDIR=/opt
 
-ARG    KAFKA_VERSION=4.3.1
+ARG    KAFKA_VERSION=4.4.0
 ARG    SCALA_VERSION=2.13
 ARG    KAFKA_FILENAME=kafka_${SCALA_VERSION}-${KAFKA_VERSION}.tgz
 ENV    KAFKA_HOME=${BASEDIR}/kafka
@@ -261,23 +261,6 @@ COPY   licenses/* ${BASEDIR}/oracdc/licenses
 # GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 BEGIN
 RUN    rm -f ${KAFKA_HOME}/libs/jline-*.jar
 # GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 END
-# GHSA-r7wm-3cxj-wff9 BEGIN
-RUN    cd ${KAFKA_HOME}/libs \
-       && rm -f jackson-core-*.jar jackson-databind-*.jar jackson-dataformat-csv-*.jar jackson-dataformat-yaml-*.jar \
-                jackson-datatype-jdk8-*.jar jackson-jakarta-rs-base-*.jar jackson-jakarta-rs-json-provider-*.jar \
-                jackson-module-blackbird-*.jar jackson-module-jakarta-xmlbind-annotations-*.jar \
-       && wget -q \
-          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-core/${JACKSON_VERSION}/jackson-core-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/core/jackson-databind/${JACKSON_VERSION}/jackson-databind-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-csv/${JACKSON_VERSION}/jackson-dataformat-csv-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/${JACKSON_VERSION}/jackson-dataformat-yaml-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-jdk8/${JACKSON_VERSION}/jackson-datatype-jdk8-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/${JACKSON_VERSION}/jackson-datatype-jsr310-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/jakarta/rs/jackson-jakarta-rs-base/${JACKSON_VERSION}/jackson-jakarta-rs-base-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/jakarta/rs/jackson-jakarta-rs-json-provider/${JACKSON_VERSION}/jackson-jakarta-rs-json-provider-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-blackbird/${JACKSON_VERSION}/jackson-module-blackbird-${JACKSON_VERSION}.jar" \
-          "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-jakarta-xmlbind-annotations/${JACKSON_VERSION}/jackson-module-jakarta-xmlbind-annotations-${JACKSON_VERSION}.jar"
-# GHSA-r7wm-3cxj-wff9 END
 RUN    echo "" > ${PROPS_FILE} \
        && echo "offset.flush.interval.ms=10000" >> ${PROPS_FILE} \
        && echo "offset.flush.timeout.ms=5000" >> ${PROPS_FILE} \
