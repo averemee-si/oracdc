@@ -23,21 +23,23 @@
 # If not, see <https://www.gnu.org/licenses/>.
 #
 
+ARG    MVN_BASE="https://repo1.maven.org/maven2"
 ARG    CONFLUENT_VERSION=8.1.1
 ARG    APICURIO_VERSION=3.3.3
 ARG    K8S_CFG_VERSION=1.2.2
-ARG    MVN_BASE="https://repo1.maven.org/maven2"
 ARG    JACKSON_VERSION=2.21.7
+ARG    LZ4_VERSION=1.11.4
 
 FROM   eclipse-temurin:25-jdk AS build-sr-client
 RUN    set -eux && apt-get update && apt-get --yes install wget 
 
 # Add schema registry dependencies
+ARG    MVN_BASE
 ARG    CONFLUENT_VERSION
 ARG    APICURIO_VERSION
 ARG    K8S_CFG_VERSION
-ARG    MVN_BASE
 ARG    JACKSON_VERSION
+ARG    LZ4_VERSION
 ARG    CONFLUENT_BASE="https://packages.confluent.io/maven/io/confluent"
 ARG    GUAVA_VERSION=33.7.2-jre
 ARG    FA_VERSION=1.0.3
@@ -174,6 +176,8 @@ RUN    WORKDIR=/tmp/$RANDOM && mkdir -p $WORKDIR && cd $WORKDIR \
        && wget -q \
           "${MVN_BASE}/com/fasterxml/jackson/datatype/jackson-datatype-json-org/${JACKSON_VERSION}/jackson-datatype-json-org-${JACKSON_VERSION}.jar" \
           "${MVN_BASE}/com/fasterxml/jackson/module/jackson-module-parameter-names/${JACKSON_VERSION}/jackson-module-parameter-names-${JACKSON_VERSION}.jar" \
+       && rm -f lz4-java*.jar \
+       && wget -q "${MVN_BASE}/at/yawk/lz4/lz4-java/${LZ4_VERSION}/lz4-java-${LZ4_VERSION}.jar" \
        && for file in $(ls *.jar); do jar xvf $file; done \
        && rm -f *.jar \
        && jar cvf "apicurio-avro-schema-client-${APICURIO_VERSION}.jar" [A-Z]* [a-z]* \
@@ -204,11 +208,12 @@ LABEL  release="2.15.6.1"
 LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
+ARG    MVN_BASE
 ARG    CONFLUENT_VERSION
 ARG    APICURIO_VERSION
 ARG    K8S_CFG_VERSION
-ARG    MVN_BASE
 ARG    JACKSON_VERSION
+ARG    LZ4_VERSION
 
 RUN    set -eux && apt-get update && apt-get --yes dist-upgrade && apt-get --yes install netcat-traditional tzdata bash wget adduser 
 RUN    addgroup kafka && adduser --uid 1001 --ingroup kafka kafka
@@ -264,9 +269,14 @@ RUN    rm -f ${KAFKA_HOME}/libs/jline-*.jar
 # CVE-2026-93451/CVE-2026-108106 BEGIN
 ARG    SNAPPY=1.1.10.10
 RUN    cd ${KAFKA_HOME}/libs \
-       rm -f snappy-java*.jar \
-       wget -q "${MVN_BASE}/org/xerial/snappy/snappy-java/${SNAPPY}/snappy-java-${SNAPPY}.jar"
+       && rm -f snappy-java*.jar \
+       && wget -q "${MVN_BASE}/org/xerial/snappy/snappy-java/${SNAPPY}/snappy-java-${SNAPPY}.jar"
 # CVE-2026-93451/CVE-2026-108106 END
+# CVE-2026-106451/CVE-2026-59949/CVE-2026-106452/CVE-2026-106450/CVE-2026-106453 BEGIN
+RUN    cd ${KAFKA_HOME}/libs \
+       && rm -f lz4-java*.jar \
+       && wget -q "${MVN_BASE}/at/yawk/lz4/lz4-java/${LZ4_VERSION}/lz4-java-${LZ4_VERSION}.jar"
+# CVE-2026-106451/CVE-2026-59949/CVE-2026-106452/CVE-2026-106450/CVE-2026-106453 END
 RUN    echo "" > ${PROPS_FILE} \
        && echo "offset.flush.interval.ms=10000" >> ${PROPS_FILE} \
        && echo "offset.flush.timeout.ms=5000" >> ${PROPS_FILE} \
