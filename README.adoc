@@ -114,6 +114,11 @@ This project is licensed under a commercial and under the AGPL license.
 
 == Release history
 
+=== 2.15.7 (OCT-2026)
+
+1. Definition of a virtual key using parameter `a2.key.override=COLUMN(COLUMN_LIST)`
+2. Performance improvements and bug fixes
+
 === 2.15.6.1 (SEP-2026)
 
 1. Confluent Hub and Dockerfile security fixes 
