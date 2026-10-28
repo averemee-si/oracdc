@@ -261,6 +261,12 @@ COPY   licenses/* ${BASEDIR}/oracdc/licenses
 # GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 BEGIN
 RUN    rm -f ${KAFKA_HOME}/libs/jline-*.jar
 # GHSA-47qp-hqvx-6r3f/GHSA-2r2c-cx56-8933 END
+# CVE-2026-93451/CVE-2026-108106 BEGIN
+ARG    SNAPPY=1.1.10.10
+RUN    cd ${KAFKA_HOME}/libs \
+       rm -f snappy-java*.jar \
+       wget -q "${MVN_BASE}/org/xerial/snappy/snappy-java/${SNAPPY}/snappy-java-${SNAPPY}.jar"
+# CVE-2026-93451/CVE-2026-108106 END
 RUN    echo "" > ${PROPS_FILE} \
        && echo "offset.flush.interval.ms=10000" >> ${PROPS_FILE} \
        && echo "offset.flush.timeout.ms=5000" >> ${PROPS_FILE} \
