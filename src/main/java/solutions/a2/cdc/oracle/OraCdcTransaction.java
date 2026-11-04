@@ -744,7 +744,9 @@ public abstract class OraCdcTransaction implements OraCdcLengthSize {
 				final var supplementalFb = record.change5_1().supplementalFb();
 				final var rowOp = record.has11_x();
 				final var fb11_x = rowOp 
-						? record.change11_x().fb()
+						? record.change11_x().fb() == 0
+								? supplementalFb
+								: record.change11_x().fb()
 						: record.change10_x().fb() == 0
 								? supplementalFb
 								: record.change10_x().fb();
@@ -781,9 +783,15 @@ public abstract class OraCdcTransaction implements OraCdcLengthSize {
 				switch (lmOp) {
 				case UPDATE:
 					if ((flags & FLG_HOMOGENEOUS) > 0) {
-						if (flgFirstPart(fb5_1) && flgFirstPart(fb11_x)) indexFirst = index;
-						if (flgLastPart(fb5_1) && flgLastPart(fb11_x)) indexLast = index;	
-						if (flgHeadPart(fb5_1) && flgHeadPart(fb11_x)) indexHead = index;
+						if (fb5_1 != 0) {
+							if (flgFirstPart(fb5_1) && flgFirstPart(fb11_x)) indexFirst = index;
+							if (flgLastPart(fb5_1) && flgLastPart(fb11_x)) indexLast = index;	
+							if (flgHeadPart(fb5_1) && flgHeadPart(fb11_x)) indexHead = index;
+						} else {
+							if (flgFirstPart(supplementalFb)) indexFirst = index;
+							if (flgLastPart(supplementalFb)) indexLast = index;	
+							if (flgHeadPart(supplementalFb)) indexHead = index;
+						}
 					} else {
 						if (rowOp) {
 							if (flgFirstPart(fb5_1) ||
