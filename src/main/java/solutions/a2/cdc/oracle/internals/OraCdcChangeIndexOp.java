@@ -45,8 +45,10 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 
 	public static final int NON_KEY_10_30_POS = 2;
 	public static final int COL_NUM_10_35_POS = 2;
+	private static final byte ARRAY_FLAG = 0x20;
 
-	private boolean nonKeyData = false; 
+	private boolean nonKeyData = false;
+	private int keys = 1;
 
 	OraCdcChangeIndexOp(final short num, final OraCdcRedoRecord redoRecord, final short operation, final byte[] record, final int offset, final int headerLength) {
 		super(num, redoRecord, operation, record, offset, headerLength);
@@ -56,12 +58,16 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 
 		// Element 1: KTB Redo
 		ktbRedo(0);
-		// Element 2: Index info
-		elementLengthCheck("index info", formatOpCode(operation), 1, 6, "");
 		if (coords.length > 1) {
+			// Element 2: Index info
+			elementLengthCheck("index info", formatOpCode(operation), 1, 6, "");
 			if (operation == _10_35_LCU) {
 				nonKeyData = true;
 				columnCount = coords[2][1] / Short.BYTES;
+			} else if (operation == _10_2_LIN) {
+				if (record[coords[1][0] + 1] == ARRAY_FLAG) {
+					keys = Short.toUnsignedInt(redoLog.bu().getU16(record, coords[1][0] + 8));
+				}
 			} else {
 				if (coords.length > 3) {
 					nonKeyData = true;
@@ -193,6 +199,10 @@ public class OraCdcChangeIndexOp extends OraCdcChange {
 				sb.append('\n');
 			sb.append(String.format(" %02x", Byte.toUnsignedInt(record[coords[index][0] + i])));
 		}
+	}
+
+	public int keys() {
+		return keys;
 	}
 
 }

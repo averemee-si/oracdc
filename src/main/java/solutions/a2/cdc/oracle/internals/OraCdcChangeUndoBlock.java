@@ -129,6 +129,8 @@ public class OraCdcChangeUndoBlock extends OraCdcChangeUndo {
 							if (coords.length > suppDataStartIndex + 1) {
 								supplementalCc = coords[suppDataStartIndex + 1][1]/Short.BYTES;
 							}
+						} else if (kdilkType == KDICLPU) {
+							suppDataStartIndex = 5 + columnCount;
 						} else {
 							suppDataStartIndex = coords.length - 1;
 						}
