@@ -210,7 +210,10 @@ public abstract class OraCdcTransaction implements OraCdcLengthSize {
 					}
 					continue;
 				} else if (rr.has10_x()) {
-					processRowChange(rr, false, lwnUnixMillis);
+					if (rr.change10_x().keys() > 1)
+						emitIotArrayChange(rr, false, lwnUnixMillis);
+					else
+						processRowChange(rr, false, lwnUnixMillis);
 					continue;
 				} else if (rr.has26_x()) {
 					writeLobChunk(rr.change5_1(), rr.change26_x());
@@ -1124,6 +1127,70 @@ public abstract class OraCdcTransaction implements OraCdcLengthSize {
 		}
 	}
 
+	private void emitIotArrayChange(final OraCdcRedoRecord rr,
+			final boolean partialRollback,
+			final long lwnUnixMillis) throws IOException {
+		if (LOGGER.isDebugEnabled())
+			LOGGER.debug("emitArrayIotChange(partialRollback={}) in XID {} at SCN/RBA {}/{} for OP:{}",
+					partialRollback, rr.xid(), Long.toUnsignedString(rr.scn()), rr.rba(),
+					formatOpCode(rr.change10_x().operation()));
+		final short lmOp = INSERT;
+		final var rowChange = rr.change10_x();
+		final OraCdcChangeUndo change;
+		if (partialRollback) {
+			change = rr.changePrb();
+			//TODO
+			//TODO
+			//TODO
+			//TODO
+			//TODO
+		} else {
+			change = rr.change5_1();
+			var pos = rowChange.coords()[2][0];
+			for (var row = 0; row < rowChange.keys(); row++) {
+				var len = Short.toUnsignedInt(rr.redoLog().bu().getU16(
+						rowChange.record(), rowChange.coords()[3][0] + (row * Short.BYTES)));
+				var baos = new ByteArrayOutputStream(len * 2);
+				var colNum = 0;
+				for (var i = 0; i < len;) {
+					colNum++;
+					putU16(baos, colNum);
+					var colSize = Byte.toUnsignedInt(rowChange.record()[pos]);
+					pos += Byte.BYTES;
+					i += Byte.BYTES;
+					if (colSize ==  0xFE) {
+						colSize = Short.toUnsignedInt(rr.redoLog().bu().getU16(rowChange.record(), pos));
+						pos += Short.BYTES;
+						i += Short.BYTES;
+						putU16(baos, colSize);
+					} else  if (colSize == 0xFF) {
+						colSize = 0;
+						baos.write(0xFF);
+					} else {
+						baos.write(colSize);
+					}
+					if (colSize != 0) {
+						baos.write(rowChange.record(), pos, colSize);
+						pos += colSize;
+						i += colSize;
+					}
+					continue;
+				}
+				var ba = new byte[baos.size() + Short.BYTES];
+				ba[0] = (byte) (colNum >> 8);
+				ba[1] = (byte) (colNum);
+				System.arraycopy(baos.toByteArray(), 0, ba, Short.BYTES, baos.size());
+				var rowId = new RowId(
+						change.dataObj(),
+						change.bdba(),
+						(short) row);
+				final OraCdcRedoMinerStatement orm = new OraCdcRedoMinerStatement(
+						isCdb ? (((long) change.conId()) << 32) |  (change.obj() & 0xFFFFFFFFL): change.obj(),
+						lmOp, ba, lwnUnixMillis, rr.scn(), rr.rba(), (long) rr.subScn(), rowId, partialRollback);
+				addStatement(orm);
+			}
+		}
+	}
 
 	private RowChangeHolder createRowChangeHolder(final OraCdcRedoRecord record, final boolean partialRollback) {
 		final var rowChange = record.rowChange();
@@ -1254,11 +1321,10 @@ public abstract class OraCdcTransaction implements OraCdcLengthSize {
 				break;
 			case _10_2_LIN:
 				if (setlmOp) row.lmOp = INSERT;
-				if (flgHeadPart(rowChange.fb()) && flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+				if (flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
 					row.complete = true;
-				else if (rowChange.fb() == 0 &&
-						flgFirstPart(undoChange.supplementalFb()) && flgLastPart(undoChange.supplementalFb()))
-					row.complete = true;					
+				else if (flgHeadPart(rowChange.fb()) && flgFirstPart(rowChange.fb()) && flgLastPart(rowChange.fb()))
+					row.complete = true;
 				else if (!flgHeadPart(rowChange.fb()))
 					row.flags |= FLG_OPPOSITE_ORDER;
 				break;
