@@ -1,0 +1,2 @@
+io.apicurio.registry.utils.converter.ProtobufConverter
+io.apicurio.registry.utils.converter.SerdeBasedConverter

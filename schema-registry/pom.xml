@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ ~ This file is part of the oracdc project.
+ ~ Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ ~ Authors: Aleksei Veremeev
+ ~
+ ~ This program is offered under a commercial and under the AGPL license.
+ ~ For commercial licensing, contact us at sales@a2.solutions.
+ ~ For AGPL licensing, see below.
+ ~
+ ~ AGPL licensing:
+ ~ This program is free software: you can redistribute it and/or modify
+ ~ it under the terms of the GNU Affero General Public License as published by
+ ~ the Free Software Foundation, either version 3 of the License, or
+ ~ (at your option) any later version.
+ ~
+ ~ This program is distributed in the hope that it will be useful,
+ ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ~ GNU Affero General Public License for more details.
+ ~
+ ~ You should have received a copy of the GNU Affero General Public
+ ~ License along with this program; see the file GNU-AGPL-v3.0.adoc.
+ ~ If not, see <https://www.gnu.org/licenses/>.
+  -->
+<!--
+ ~ Schema registry converters for the Kafka Connect image, one plugin jar per registry and format:
+ ~   apicurio/avro, apicurio/protobuf, confluent/avro, confluent/protobuf
+ ~ Build: mvn -B package; each jar is <registry>/<format>/target/<artifactId>-<registry version>.jar
+ ~
+ ~ Allowlist build: every dependency is managed here with <exclusion>*:*</exclusion>, so nothing
+ ~ enters a jar transitively; a jar holds exactly the artifacts its poms list. The lists are the
+ ~ static (jdeps) closure of the converters, minus what Kafka Connect already has.
+ ~
+ ~ Not bundled, taken from $KAFKA_HOME/libs: kafka-clients, connect-api, Jackson core/databind/
+ ~ annotations/jdk8/yaml/csv, slf4j-api, swagger-annotations, jakarta.* APIs, jspecify,
+ ~ commons-validator/logging/beanutils/digester/collections, lz4/snappy/zstd. The Connect
+ ~ PluginClassLoader is child-first and falls back to the worker classpath for anything the plugin
+ ~ lacks; org.apache.kafka.* and org.slf4j.* always come from the worker.
+ ~ Not bundled at all: annotation-only jars (jsr305, findbugs annotations, error_prone, j2objc,
+ ~ checker-qual, jetbrains annotations).
+ ~
+ ~ One version per library for both registries. Versions are the registries' own, raised only to
+ ~ fix a CVE (marked) or to align the two registries on the newer one.
+ ~
+ ~ tools/PomProperties.java writes META-INF/maven/**/pom.properties for bundled jars built without
+ ~ Maven (Gradle, Bazel), so vulnerability scanners can identify them inside the uber jar.
+ ~ tools/ThirdPartyLicenses.java writes the plugin jars' part of LICENSE-3rdPARTIES.txt: run it
+ ~ after any change of a version or a dependency list (usage in its class comment).
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>solutions.a2.oracle</groupId>
+	<artifactId>schema-registry-clients</artifactId>
+	<version>1.0.0</version>
+	<packaging>pom</packaging>
+	<name>Schema registry converters for Kafka Connect</name>
+
+	<modules>
+		<module>apicurio</module>
+		<module>confluent</module>
+	</modules>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<!-- registries -->
+		<apicurio.version>3.3.5</apicurio.version>
+		<!-- 8.4.x: built on kafka-clients 4.4 (8.1.x calls org.apache.kafka.common.utils.ByteUtils, gone in Kafka 4.4) -->
+		<confluent.version>8.4.1</confluent.version>
+		<!-- Apicurio REST client -->
+		<kiota.version>1.9.3</kiota.version>
+		<kiota.http.version>0.0.39</kiota.http.version>
+		<uritemplate.version>2.0.0</uritemplate.version>
+		<!-- Apicurio 3.3.5: 1.57.0, CVE-2026-45292, CVE-2026-118259 -->
+		<otel.version>1.68.0</otel.version>
+		<!-- Confluent REST client -->
+		<httpclient5.version>5.6.4</httpclient5.version>
+		<!-- 5.4.2: CVE-2026-54399, CVE-2026-54428 -->
+		<httpcore5.version>5.4.3</httpcore5.version>
+		<!-- Confluent data contract rules and field encryption -->
+		<cel.version>0.13.1</cel.version>
+		<antlr4.version>4.13.2</antlr4.version>
+		<re2j.version>1.8</re2j.version>
+		<threeten.extra.version>1.8.0</threeten.extra.version>
+		<jsonata4java.version>2.6.4</jsonata4java.version>
+		<commons.text.version>1.15.0</commons.text.version>
+		<jackson.protobuf.version>0.9.18</jackson.protobuf.version>
+		<!-- jackson-databind itself comes from $KAFKA_HOME/libs: Jackson modules must match its version -->
+		<jackson.version>2.21.7</jackson.version>
+		<tink.version>1.24.0</tink.version>
+		<!-- Avro -->
+		<avro.version>1.12.2</avro.version>
+		<commons.compress.version>1.28.0</commons.compress.version>
+		<commons.codec.version>1.22.1</commons.codec.version>
+		<commons.io.version>2.21.0</commons.io.version>
+		<commons.lang3.version>3.20.0</commons.lang3.version>
+		<!-- Protobuf -->
+		<protobuf.version>4.36.2</protobuf.version>
+		<proto.common.version>2.75.0</proto.common.version>
+		<wire.version>6.4.7</wire.version>
+		<okio.version>3.18.2</okio.version>
+		<kotlin.version>2.4.21</kotlin.version>
+		<kotlinx.datetime.version>0.8.0-0.6.x-compat</kotlinx.datetime.version>
+		<kotlinpoet.version>2.2.0</kotlinpoet.version>
+		<javapoet.version>0.12.0</javapoet.version>
+		<gson.version>2.13.2</gson.version>
+		<!-- Apicurio 3.3.5: 33.5.0-jre, Confluent 8.4.1: 32.0.1-jre; CVE-2026-102554 -->
+		<guava.version>33.7.2-jre</guava.version>
+		<failureaccess.version>1.0.3</failureaccess.version>
+		<!-- build -->
+		<dependency.plugin.version>3.11.0</dependency.plugin.version>
+		<exec.plugin.version>3.7.0</exec.plugin.version>
+		<shade.plugin.version>3.6.2</shade.plugin.version>
+		<license.plugin.version>2.5.0</license.plugin.version>
+	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<!-- Apicurio -->
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-utils-converter</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-serde-kafka-common</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-serde-common</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-schema-resolver</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-common</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-java-sdk</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-v2-java-sdk</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-java-sdk-common</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-java-sdk-adapter-jdk</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-avro-serde-kafka</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-serde-common-avro</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-protobuf-serde-kafka</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-serde-common-protobuf</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-schema-util-protobuf</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-protobuf-schema-utilities</artifactId><version>${apicurio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.kiota</groupId><artifactId>kiota-http-jdk</artifactId><version>${kiota.http.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.kiota</groupId><artifactId>kiota-serialization-jackson</artifactId><version>${kiota.http.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.microsoft.kiota</groupId><artifactId>microsoft-kiota-abstractions</artifactId><version>${kiota.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.microsoft.kiota</groupId><artifactId>microsoft-kiota-serialization-text</artifactId><version>${kiota.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.microsoft.kiota</groupId><artifactId>microsoft-kiota-serialization-form</artifactId><version>${kiota.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.microsoft.kiota</groupId><artifactId>microsoft-kiota-serialization-multipart</artifactId><version>${kiota.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.github.std-uritemplate</groupId><artifactId>std-uritemplate</artifactId><version>${uritemplate.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-api</artifactId><version>${otel.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-context</artifactId><version>${otel.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-common</artifactId><version>${otel.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<!-- Confluent -->
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-registry-client</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-serializer</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-converter</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-rules</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-registry-client-encryption</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-registry-client-encryption-tink</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>dek-registry-client</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-types</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-avro-types</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-connect-schema-backup-api</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-connect-schema-backup-core</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-connect-avro-converter</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-connect-avro-data</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-avro-serializer</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-connect-protobuf-converter</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-protobuf-provider</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-protobuf-serializer</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>io.confluent</groupId><artifactId>kafka-protobuf-types</artifactId><version>${confluent.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId><version>${httpclient5.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.apache.httpcomponents.core5</groupId><artifactId>httpcore5</artifactId><version>${httpcore5.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.apache.httpcomponents.core5</groupId><artifactId>httpcore5-h2</artifactId><version>${httpcore5.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>dev.cel</groupId><artifactId>cel</artifactId><version>${cel.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>dev.cel</groupId><artifactId>common</artifactId><version>${cel.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>dev.cel</groupId><artifactId>compiler</artifactId><version>${cel.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>dev.cel</groupId><artifactId>runtime</artifactId><version>${cel.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>dev.cel</groupId><artifactId>protobuf</artifactId><version>${cel.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.google.re2j</groupId><artifactId>re2j</artifactId><version>${re2j.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.threeten</groupId><artifactId>threeten-extra</artifactId><version>${threeten.extra.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.antlr</groupId><artifactId>antlr4-runtime</artifactId><version>${antlr4.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.ibm.jsonata4java</groupId><artifactId>JSONata4Java</artifactId><version>${jsonata4java.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.apache.commons</groupId><artifactId>commons-text</artifactId><version>${commons.text.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.hubspot.jackson</groupId><artifactId>jackson-datatype-protobuf</artifactId><version>${jackson.protobuf.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.fasterxml.jackson.datatype</groupId><artifactId>jackson-datatype-jsr310</artifactId><version>${jackson.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.google.crypto.tink</groupId><artifactId>tink</artifactId><version>${tink.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<!-- Avro -->
+			<dependency><groupId>org.apache.avro</groupId><artifactId>avro</artifactId><version>${avro.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.apache.commons</groupId><artifactId>commons-compress</artifactId><version>${commons.compress.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>commons-codec</groupId><artifactId>commons-codec</artifactId><version>${commons.codec.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>commons-io</groupId><artifactId>commons-io</artifactId><version>${commons.io.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.apache.commons</groupId><artifactId>commons-lang3</artifactId><version>${commons.lang3.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<!-- Protobuf -->
+			<dependency><groupId>com.google.protobuf</groupId><artifactId>protobuf-java</artifactId><version>${protobuf.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.google.protobuf</groupId><artifactId>protobuf-java-util</artifactId><version>${protobuf.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.google.api.grpc</groupId><artifactId>proto-google-common-protos</artifactId><version>${proto.common.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.squareup.wire</groupId><artifactId>wire-schema-jvm</artifactId><version>${wire.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.squareup.wire</groupId><artifactId>wire-runtime-jvm</artifactId><version>${wire.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.squareup.okio</groupId><artifactId>okio-jvm</artifactId><version>${okio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.squareup.okio</groupId><artifactId>okio-fakefilesystem-jvm</artifactId><version>${okio.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.jetbrains.kotlin</groupId><artifactId>kotlin-stdlib</artifactId><version>${kotlin.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>org.jetbrains.kotlinx</groupId><artifactId>kotlinx-datetime-jvm</artifactId><version>${kotlinx.datetime.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.squareup</groupId><artifactId>kotlinpoet-jvm</artifactId><version>${kotlinpoet.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.palantir.javapoet</groupId><artifactId>javapoet</artifactId><version>${javapoet.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.google.code.gson</groupId><artifactId>gson</artifactId><version>${gson.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<!-- Guava -->
+			<dependency><groupId>com.google.guava</groupId><artifactId>guava</artifactId><version>${guava.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+			<dependency><groupId>com.google.guava</groupId><artifactId>failureaccess</artifactId><version>${failureaccess.version}</version><exclusions><exclusion><groupId>*</groupId><artifactId>*</artifactId></exclusion></exclusions></dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<!-- converter.version: set by apicurio/pom.xml and confluent/pom.xml -->
+		<finalName>${project.artifactId}-${converter.version}</finalName>
+		<pluginManagement>
+			<plugins>
+				<!-- every plugin jar module lists these three, in this order -->
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-dependency-plugin</artifactId>
+					<version>${dependency.plugin.version}</version>
+					<executions>
+						<execution>
+							<id>bundle-classpath</id>
+							<phase>prepare-package</phase>
+							<goals><goal>build-classpath</goal></goals>
+							<configuration>
+								<includeScope>runtime</includeScope>
+								<outputProperty>bundle.classpath</outputProperty>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>exec-maven-plugin</artifactId>
+					<version>${exec.plugin.version}</version>
+					<executions>
+						<execution>
+							<id>pom-properties</id>
+							<phase>prepare-package</phase>
+							<goals><goal>exec</goal></goals>
+							<configuration>
+								<executable>${java.home}/bin/java</executable>
+								<arguments>
+									<argument>${project.basedir}/../../tools/PomProperties.java</argument>
+									<argument>${settings.localRepository}</argument>
+									<argument>${project.build.outputDirectory}</argument>
+									<argument>${bundle.classpath}</argument>
+								</arguments>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-shade-plugin</artifactId>
+					<version>${shade.plugin.version}</version>
+					<executions>
+						<execution>
+							<id>uber-jar</id>
+							<phase>package</phase>
+							<goals><goal>shade</goal></goals>
+							<configuration>
+								<createDependencyReducedPom>false</createDependencyReducedPom>
+								<filters>
+									<filter>
+										<artifact>*:*</artifact>
+										<excludes>
+											<exclude>module-info.class</exclude>
+											<exclude>META-INF/versions/*/module-info.class</exclude>
+											<exclude>META-INF/*.SF</exclude>
+											<exclude>META-INF/*.DSA</exclude>
+											<exclude>META-INF/*.RSA</exclude>
+											<exclude>META-INF/*.EC</exclude>
+										</excludes>
+									</filter>
+								</filters>
+								<transformers>
+									<transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+									<transformer implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+									<transformer implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
+									<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+										<manifestEntries>
+											<Multi-Release>true</Multi-Release>
+											<Implementation-Title>${project.name}</Implementation-Title>
+											<Implementation-Version>${converter.version}</Implementation-Version>
+											<Implementation-Vendor>A2 Rešitve d.o.o.</Implementation-Vendor>
+										</manifestEntries>
+									</transformer>
+								</transformers>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<!-- mvn license:aggregate-add-third-party, input of tools/ThirdPartyLicenses.java -->
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>license-maven-plugin</artifactId>
+					<version>${license.plugin.version}</version>
+					<configuration>
+						<excludedScopes>test,provided</excludedScopes>
+						<thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+</project>

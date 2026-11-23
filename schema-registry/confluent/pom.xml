@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ ~ This file is part of the oracdc project.
+ ~ Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ ~ Authors: Aleksei Veremeev
+ ~
+ ~ This program is offered under a commercial and under the AGPL license.
+ ~ For commercial licensing, contact us at sales@a2.solutions.
+ ~ For AGPL licensing, see below.
+ ~
+ ~ AGPL licensing:
+ ~ This program is free software: you can redistribute it and/or modify
+ ~ it under the terms of the GNU Affero General Public License as published by
+ ~ the Free Software Foundation, either version 3 of the License, or
+ ~ (at your option) any later version.
+ ~
+ ~ This program is distributed in the hope that it will be useful,
+ ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ~ GNU Affero General Public License for more details.
+ ~
+ ~ You should have received a copy of the GNU Affero General Public
+ ~ License along with this program; see the file GNU-AGPL-v3.0.adoc.
+ ~ If not, see <https://www.gnu.org/licenses/>.
+  -->
+<!--
+ ~ Confluent Schema Registry converters, one plugin jar per format, each with data contract
+ ~ rules (CEL, JSONata) and client-side field encryption (Tink, local KMS).
+ ~
+ ~ Licenses (per module LICENSE in confluentinc/schema-registry): Apache License 2.0, except
+ ~ kafka-protobuf-provider and kafka-connect-protobuf-converter: Confluent Community License 1.0
+ ~ (licenses/Confluent-Community-License, shipped inside the Protobuf jar).
+ ~
+ ~ The Confluent converter jars carry no META-INF/services/org.apache.kafka.connect.storage.Converter:
+ ~ each module supplies it, so plugin.discovery=service_load finds them.
+ ~ Not bundled: the KMS drivers for AWS, Azure, GCP and HashiCorp Vault (separate artifacts).
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>solutions.a2.oracle</groupId>
+		<artifactId>schema-registry-clients</artifactId>
+		<version>1.0.0</version>
+	</parent>
+	<artifactId>confluent-schema-client</artifactId>
+	<packaging>pom</packaging>
+	<name>Confluent Schema Registry converters for Kafka Connect</name>
+
+	<modules>
+		<module>avro</module>
+		<module>protobuf</module>
+	</modules>
+
+	<properties>
+		<converter.version>${confluent.version}</converter.version>
+	</properties>
+
+	<repositories>
+		<repository>
+			<id>confluent</id>
+			<url>https://packages.confluent.io/maven/</url>
+			<snapshots><enabled>false</enabled></snapshots>
+		</repository>
+	</repositories>
+
+	<!-- Registry client, serde, rules and field encryption: in every jar -->
+	<dependencies>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-registry-client</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-serializer</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-converter</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-types</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-avro-types</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-connect-schema-backup-api</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-connect-schema-backup-core</artifactId></dependency>
+		<dependency><groupId>org.apache.httpcomponents.client5</groupId><artifactId>httpclient5</artifactId></dependency>
+		<dependency><groupId>org.apache.httpcomponents.core5</groupId><artifactId>httpcore5</artifactId></dependency>
+		<dependency><groupId>org.apache.httpcomponents.core5</groupId><artifactId>httpcore5-h2</artifactId></dependency>
+		<dependency><groupId>org.apache.avro</groupId><artifactId>avro</artifactId></dependency>
+		<dependency><groupId>org.apache.commons</groupId><artifactId>commons-compress</artifactId></dependency>
+		<dependency><groupId>commons-codec</groupId><artifactId>commons-codec</artifactId></dependency>
+		<dependency><groupId>commons-io</groupId><artifactId>commons-io</artifactId></dependency>
+		<dependency><groupId>com.google.guava</groupId><artifactId>guava</artifactId></dependency>
+		<dependency><groupId>com.google.guava</groupId><artifactId>failureaccess</artifactId></dependency>
+		<dependency><groupId>com.google.re2j</groupId><artifactId>re2j</artifactId></dependency>
+		<!-- data contract rules -->
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-rules</artifactId></dependency>
+		<dependency><groupId>dev.cel</groupId><artifactId>cel</artifactId></dependency>
+		<dependency><groupId>dev.cel</groupId><artifactId>common</artifactId></dependency>
+		<dependency><groupId>dev.cel</groupId><artifactId>compiler</artifactId></dependency>
+		<dependency><groupId>dev.cel</groupId><artifactId>runtime</artifactId></dependency>
+		<dependency><groupId>dev.cel</groupId><artifactId>protobuf</artifactId></dependency>
+		<dependency><groupId>org.threeten</groupId><artifactId>threeten-extra</artifactId></dependency>
+		<dependency><groupId>org.antlr</groupId><artifactId>antlr4-runtime</artifactId></dependency>
+		<dependency><groupId>com.ibm.jsonata4java</groupId><artifactId>JSONata4Java</artifactId></dependency>
+		<dependency><groupId>org.apache.commons</groupId><artifactId>commons-text</artifactId></dependency>
+		<dependency><groupId>org.apache.commons</groupId><artifactId>commons-lang3</artifactId></dependency>
+		<dependency><groupId>com.hubspot.jackson</groupId><artifactId>jackson-datatype-protobuf</artifactId></dependency>
+		<dependency><groupId>com.fasterxml.jackson.datatype</groupId><artifactId>jackson-datatype-jsr310</artifactId></dependency>
+		<dependency><groupId>com.google.protobuf</groupId><artifactId>protobuf-java</artifactId></dependency>
+		<dependency><groupId>com.google.protobuf</groupId><artifactId>protobuf-java-util</artifactId></dependency>
+		<dependency><groupId>com.google.code.gson</groupId><artifactId>gson</artifactId></dependency>
+		<!-- field encryption -->
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-registry-client-encryption</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-schema-registry-client-encryption-tink</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>dek-registry-client</artifactId></dependency>
+		<dependency><groupId>com.google.crypto.tink</groupId><artifactId>tink</artifactId></dependency>
+	</dependencies>
+</project>

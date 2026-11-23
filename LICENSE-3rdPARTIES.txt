@@ -52,3 +52,112 @@ BSD-2-Clause
 - saslprep-2.2, see licenses/BSD-2-Clause-ongres
 - stringprep-2.2, see licenses/BSD-2-Clause-ongres
 
+
+===============================================================================
+The Docker image (Dockerfile) also bundles four Kafka Connect plugins built from
+schema-registry/ (one uber jar per registry and format, in $KAFKA_HOME/connect/lib):
+  apicurio-avro-schema-client-3.3.5.jar
+  apicurio-protobuf-schema-client-3.3.5.jar
+  confluent-avro-schema-client-8.4.1.jar
+  confluent-protobuf-schema-client-8.4.1.jar
+Each entry below lists the plugin jars that contain the component.
+
+----------------------------------------
+Apache License Version 2.0
+
+- apicurio-registry-avro-serde-kafka-3.3.5 [apicurio-avro], see: licenses/Apache_License
+- apicurio-registry-common-3.3.5 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-java-sdk-3.3.5 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-java-sdk-adapter-jdk-3.3.5 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-java-sdk-common-3.3.5 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-protobuf-schema-utilities-3.3.5 [apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-protobuf-serde-kafka-3.3.5 [apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-schema-resolver-3.3.5 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-schema-util-protobuf-3.3.5 [apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-serde-common-3.3.5 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-serde-common-avro-3.3.5 [apicurio-avro], see: licenses/Apache_License
+- apicurio-registry-serde-common-protobuf-3.3.5 [apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-serde-kafka-common-3.3.5 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-utils-converter-3.3.5 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- apicurio-registry-v2-java-sdk-3.3.5 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- avro-1.12.2 [apicurio-avro, confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- dev.cel:cel-0.13.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- dev.cel:common-0.13.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- commons-codec-1.22.1 [apicurio-avro, confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- commons-compress-1.28.0 [apicurio-avro, confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- commons-io-2.21.0 [apicurio-avro, confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- commons-lang3-3.20.0 [apicurio-avro, confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- commons-text-1.15.0 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- dev.cel:compiler-0.13.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- dek-registry-client-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- failureaccess-1.0.3 [apicurio-protobuf, confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- gson-2.13.2 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- guava-33.7.2-jre [apicurio-protobuf, confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- httpclient5-5.6.4 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- httpcore5-5.4.3 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- httpcore5-h2-5.4.3 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- jackson-datatype-jsr310-2.21.7 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- jackson-datatype-protobuf-0.9.18 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- javapoet-0.12.0 [apicurio-protobuf], see: licenses/Apache_License
+- JSONata4Java-2.6.4 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-avro-serializer-8.4.1 [confluent-avro], see: licenses/Apache_License
+- kafka-avro-types-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-connect-avro-converter-8.4.1 [confluent-avro], see: licenses/Apache_License
+- kafka-connect-avro-data-8.4.1 [confluent-avro], see: licenses/Apache_License
+- kafka-connect-schema-backup-api-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-connect-schema-backup-core-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-protobuf-serializer-8.4.1 [confluent-protobuf], see: licenses/Apache_License
+- kafka-protobuf-types-8.4.1 [confluent-protobuf], see: licenses/Apache_License
+- kafka-schema-converter-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-schema-registry-client-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-schema-registry-client-encryption-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-schema-registry-client-encryption-tink-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-schema-rules-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-schema-serializer-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-schema-types-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kiota-http-jdk-0.0.39 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- kiota-serialization-jackson-0.0.39 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- kotlin-stdlib-2.4.21 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
+- kotlinpoet-jvm-2.2.0 [apicurio-protobuf], see: licenses/Apache_License
+- kotlinx-datetime-jvm-0.8.0-0.6.x-compat [apicurio-protobuf], see: licenses/Apache_License
+- okio-fakefilesystem-jvm-3.18.2 [apicurio-protobuf], see: licenses/Apache_License
+- okio-jvm-3.18.2 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
+- opentelemetry-api-1.68.0 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- opentelemetry-common-1.68.0 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- opentelemetry-context-1.68.0 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- proto-google-common-protos-2.75.0 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
+- dev.cel:protobuf-0.13.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- dev.cel:runtime-0.13.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- std-uritemplate-2.0.0 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
+- tink-1.24.0 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- wire-runtime-jvm-6.4.7 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
+- wire-schema-jvm-6.4.7 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
+
+----------------------------------------
+MIT License
+
+- microsoft-kiota-abstractions-1.9.3 [apicurio-avro, apicurio-protobuf], see: licenses/MIT-kiota
+- microsoft-kiota-serialization-form-1.9.3 [apicurio-avro, apicurio-protobuf], see: licenses/MIT-kiota
+- microsoft-kiota-serialization-multipart-1.9.3 [apicurio-avro, apicurio-protobuf], see: licenses/MIT-kiota
+- microsoft-kiota-serialization-text-1.9.3 [apicurio-avro, apicurio-protobuf], see: licenses/MIT-kiota
+
+----------------------------------------
+BSD-3-Clause
+
+- antlr4-runtime-4.13.2 [confluent-avro, confluent-protobuf], see: licenses/BSD-3-Clause-antlr
+- protobuf-java-4.36.2 [apicurio-protobuf, confluent-avro, confluent-protobuf], see: licenses/BSD-3-Clause-protobuf
+- protobuf-java-util-4.36.2 [confluent-avro, confluent-protobuf], see: licenses/BSD-3-Clause-protobuf
+- re2j-1.8 [confluent-avro, confluent-protobuf], see: licenses/BSD-3-Clause-re2j
+- threeten-extra-1.8.0 [confluent-avro, confluent-protobuf], see: licenses/BSD-3-Clause-threeten-extra
+
+----------------------------------------
+Confluent Community License 1.0
+
+This software is made available by Confluent, Inc., under the terms of the
+Confluent Community License Agreement, Version 1.0 located at
+http://www.confluent.io/confluent-community-license.  BY INSTALLING,
+DOWNLOADING, ACCESSING, USING OR DISTRIBUTING ANY OF THE SOFTWARE, YOU AGREE
+TO THE TERMS OF SUCH LICENSE AGREEMENT.
+
+- kafka-connect-protobuf-converter-8.4.1 [confluent-protobuf], see: licenses/Confluent-Community-License
+- kafka-protobuf-provider-8.4.1 [confluent-protobuf], see: licenses/Confluent-Community-License
