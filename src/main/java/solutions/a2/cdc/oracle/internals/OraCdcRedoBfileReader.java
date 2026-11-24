@@ -115,6 +115,8 @@ public class OraCdcRedoBfileReader implements OraCdcRedoReader {
 			currentBlock = 2;
 			startPos = currentBlock;
 		} else {
+			if (currentBlock > blockCount)
+				return Integer.MIN_VALUE;
 			if (needToreadAhead) {
 				final int bytesToRead;
 				if ((currentBlock + bufferBlocks) <= blockCount)  {

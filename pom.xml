@@ -97,6 +97,8 @@
 		<compiler.plugin.version>3.15.0</compiler.plugin.version>
 		<assembly.plugin.version>3.8.0</assembly.plugin.version>
 		<surefire.plugin.version>3.5.4</surefire.plugin.version>
+		<failsafe.plugin.version>3.5.4</failsafe.plugin.version>
+		<testcontainers.version>2.0.5</testcontainers.version>
 		<source.plugin.version>3.4.0</source.plugin.version>
 		<javadoc.plugin.version>3.12.0</javadoc.plugin.version>
 		<gpg.plugin.version>3.2.8</gpg.plugin.version>
@@ -121,6 +123,19 @@
 		</repository>
 	</repositories>
 
+	<dependencyManagement>
+		<dependencies>
+			<!-- https://mvnrepository.com/artifact/org.testcontainers/testcontainers-bom -->
+			<dependency>
+				<groupId>org.testcontainers</groupId>
+				<artifactId>testcontainers-bom</artifactId>
+				<version>${testcontainers.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<dependencies>
 		<!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
 		<dependency>
@@ -142,6 +157,18 @@
 			<groupId>com.google.guava</groupId>
 			<artifactId>guava</artifactId>
 			<version>${guava.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.testcontainers/testcontainers -->
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.testcontainers/testcontainers-oracle-free -->
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-oracle-free</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<!-- https://mvnrepository.com/artifact/org.apache.kafka/connect-api -->
@@ -542,4 +569,33 @@
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<!-- Integration tests (*IT) against Oracle Database Free in Docker: ./mvnw -Pdocker verify -->
+		<profile>
+			<id>docker</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-failsafe-plugin</artifactId>
+						<version>${failsafe.plugin.version}</version>
+						<configuration>
+							<argLine>
+								--enable-preview
+							</argLine>
+						</configuration>
+						<executions>
+							<execution>
+								<goals>
+									<goal>integration-test</goal>
+									<goal>verify</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 </project>

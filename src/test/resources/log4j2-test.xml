@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tests and integration tests: oracdc at INFO, everything else at WARN -->
+<Configuration status="WARN">
+	<Appenders>
+		<Console name="Console" target="SYSTEM_OUT">
+			<PatternLayout pattern="%d{HH:mm:ss.SSS} %-5level [%t] %c{1} - %msg%n"/>
+		</Console>
+	</Appenders>
+	<Loggers>
+		<Logger name="solutions.a2" level="INFO"/>
+		<Root level="WARN">
+			<AppenderRef ref="Console"/>
+		</Root>
+	</Loggers>
+</Configuration>
