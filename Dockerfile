@@ -24,44 +24,20 @@
 #
 
 ARG    MVN_BASE="https://repo1.maven.org/maven2"
-ARG    K8S_CFG_VERSION=1.2.2
 ARG    LZ4_VERSION=1.11.4
 
 #
-# Schema registry converters, one uber-jar per registry and format:
-# apicurio-avro, apicurio-protobuf, confluent-avro, confluent-protobuf.
-# Versions and contents: schema-registry/pom.xml
+# Kafka Connect plugins, one uber jar each: schema registry converters (Apicurio, Confluent;
+# Avro, Protobuf) and the Strimzi Kubernetes config providers.
+# Versions and contents: connect-plugins/pom.xml
 #
-FROM   maven:3.9.11-eclipse-temurin-25 AS build-schema-registry
-COPY   schema-registry /build
+FROM   maven:3.9.11-eclipse-temurin-25 AS build-connect-plugins
+COPY   connect-plugins /build
 COPY   licenses/Confluent-Community-License /licenses/
 RUN    cd /build \
        && mvn -B -q -C clean package \
        && mkdir /out \
-       && cp apicurio/avro/target/apicurio-avro-schema-client-*.jar \
-             apicurio/protobuf/target/apicurio-protobuf-schema-client-*.jar \
-             confluent/avro/target/confluent-avro-schema-client-*.jar \
-             confluent/protobuf/target/confluent-protobuf-schema-client-*.jar /out
-
-#
-# Kafka Kubernetes Config Provider uber-jar
-#
-FROM   eclipse-temurin:25-jdk AS build-k8s-config-provider
-RUN    set -eux && apt-get update && apt-get --yes install wget
-ARG    MVN_BASE
-ARG    K8S_CFG_VERSION
-ARG    K8S_FILENAME=kafka-kubernetes-config-provider-${K8S_CFG_VERSION}.zip
-RUN    WORKDIR=$(mktemp -d) && cd $WORKDIR \
-       && wget -q \
-          "${MVN_BASE}/io/strimzi/kafka-kubernetes-config-provider/${K8S_CFG_VERSION}/${K8S_FILENAME}" \
-       && jar xvf ${K8S_FILENAME} && rm ${K8S_FILENAME} \
-       && cd kafka-kubernetes-config-provider-${K8S_CFG_VERSION}/libs \
-       && rm -f jackson-*.jar \
-       && for file in $(ls *.jar); do jar xvf $file; done \
-       && rm -f *.jar \
-       && jar cvf "k8s-config-provider-${K8S_CFG_VERSION}.jar" [A-Z]* [a-z]* \
-       && mv "k8s-config-provider-${K8S_CFG_VERSION}.jar" / \
-       && cd / && rm -rf $WORKDIR
+       && find . -path './*/*/target/*.jar' ! -name 'original-*' -exec cp {} /out \;
 
 FROM   eclipse-temurin:25-jre
 LABEL  maintainer="oracle@a2.solutions"
@@ -72,7 +48,6 @@ LABEL  name="oracdc: Oracle RDBMS CDC and data streaming"
 LABEL  summary="oracdc and all dependencies for optimal work. When started, it will run the Kafka Connect framework in distributed mode."
 
 ARG    MVN_BASE
-ARG    K8S_CFG_VERSION
 ARG    LZ4_VERSION
 
 RUN    set -eux && apt-get update && apt-get --yes dist-upgrade && apt-get --yes install netcat-traditional tzdata bash wget adduser 
@@ -150,8 +125,7 @@ RUN    echo "" > ${PROPS_FILE} \
        && echo "value.converter.schemas.enable=true" >> ${PROPS_FILE} \
        && echo "plugin.path=/opt/kafka/connect/lib" >> ${PROPS_FILE}
 
-COPY   --from=build-schema-registry /out/ ${KAFKA_HOME}/connect/lib/
-COPY   --from=build-k8s-config-provider /k8s-config-provider-${K8S_CFG_VERSION}.jar ${KAFKA_HOME}/connect/lib
+COPY   --from=build-connect-plugins /out/ ${KAFKA_HOME}/connect/lib/
 
 ARG    CHECKER_CMD=${KAFKA_HOME}/connect/bin/oraCheck.sh
 RUN    echo "#! /bin/sh" > ${CHECKER_CMD} \

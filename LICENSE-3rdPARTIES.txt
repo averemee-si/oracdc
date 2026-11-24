@@ -54,12 +54,13 @@ BSD-2-Clause
 
 
 ===============================================================================
-The Docker image (Dockerfile) also bundles four Kafka Connect plugins built from
-schema-registry/ (one uber jar per registry and format, in $KAFKA_HOME/connect/lib):
+The Docker image (Dockerfile) also bundles these Kafka Connect plugins, built from
+connect-plugins/ (one uber jar each, in $KAFKA_HOME/connect/lib):
   apicurio-avro-schema-client-3.3.5.jar
   apicurio-protobuf-schema-client-3.3.5.jar
   confluent-avro-schema-client-8.4.1.jar
   confluent-protobuf-schema-client-8.4.1.jar
+  strimzi-kubernetes-config-provider-1.3.1.jar
 Each entry below lists the plugin jars that contain the component.
 
 ----------------------------------------
@@ -96,6 +97,10 @@ Apache License Version 2.0
 - httpclient5-5.6.4 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
 - httpcore5-5.4.3 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
 - httpcore5-h2-5.4.3 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- jackson-annotations-2.22 [strimzi-kubernetes], see: licenses/Apache_License
+- jackson-core-3.2.3 [strimzi-kubernetes], see: licenses/Apache_License
+- jackson-databind-3.2.3 [strimzi-kubernetes], see: licenses/Apache_License
+- jackson-dataformat-yaml-3.2.3 [strimzi-kubernetes], see: licenses/Apache_License
 - jackson-datatype-jsr310-2.21.7 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
 - jackson-datatype-protobuf-0.9.18 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
 - javapoet-0.12.0 [apicurio-protobuf], see: licenses/Apache_License
@@ -106,6 +111,7 @@ Apache License Version 2.0
 - kafka-connect-avro-data-8.4.1 [confluent-avro], see: licenses/Apache_License
 - kafka-connect-schema-backup-api-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
 - kafka-connect-schema-backup-core-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- kafka-kubernetes-config-provider-1.3.1 [strimzi-kubernetes], see: licenses/Apache_License
 - kafka-protobuf-serializer-8.4.1 [confluent-protobuf], see: licenses/Apache_License
 - kafka-protobuf-types-8.4.1 [confluent-protobuf], see: licenses/Apache_License
 - kafka-schema-converter-8.4.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
@@ -120,6 +126,30 @@ Apache License Version 2.0
 - kotlin-stdlib-2.4.21 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
 - kotlinpoet-jvm-2.2.0 [apicurio-protobuf], see: licenses/Apache_License
 - kotlinx-datetime-jvm-0.8.0-0.6.x-compat [apicurio-protobuf], see: licenses/Apache_License
+- kubernetes-client-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-client-api-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-httpclient-jdk-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-admissionregistration-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-apiextensions-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-apps-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-autoscaling-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-batch-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-certificates-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-common-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-coordination-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-core-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-discovery-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-events-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-extensions-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-flowcontrol-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-metrics-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-networking-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-node-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-policy-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-rbac-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-resource-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-scheduling-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
+- kubernetes-model-storageclass-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
 - okio-fakefilesystem-jvm-3.18.2 [apicurio-protobuf], see: licenses/Apache_License
 - okio-jvm-3.18.2 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
 - opentelemetry-api-1.68.0 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
@@ -128,10 +158,12 @@ Apache License Version 2.0
 - proto-google-common-protos-2.75.0 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
 - dev.cel:protobuf-0.13.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
 - dev.cel:runtime-0.13.1 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
+- snakeyaml-engine-3.1.1 [strimzi-kubernetes], see: licenses/Apache_License
 - std-uritemplate-2.0.0 [apicurio-avro, apicurio-protobuf], see: licenses/Apache_License
 - tink-1.24.0 [confluent-avro, confluent-protobuf], see: licenses/Apache_License
 - wire-runtime-jvm-6.4.7 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
 - wire-schema-jvm-6.4.7 [apicurio-protobuf, confluent-protobuf], see: licenses/Apache_License
+- zjsonpatch-8.0.0 [strimzi-kubernetes], see: licenses/Apache_License
 
 ----------------------------------------
 MIT License

@@ -2,4 +2,4 @@
 /lib/
 .classpath
 .settings/
-/schema-registry/**/target/
+/connect-plugins/**/target/

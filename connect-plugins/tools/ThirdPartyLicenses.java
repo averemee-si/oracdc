@@ -50,17 +50,18 @@ import java.util.zip.ZipFile;
  * other than Apache 2.0 must have a file in LICENSE_FILES below, otherwise the tool stops:
  * a new component under a new license needs a decision and a text in licenses/.
  *
- * Usage, from schema-registry/:
+ * Usage, from connect-plugins/:
  *   mvn -B package license:aggregate-add-third-party
  *   java tools/ThirdPartyLicenses.java [--update ../LICENSE-3rdPARTIES.txt]
  * Without --update the section is printed; with it, the section replaces the one in the file
- * (from its SECTION_TITLE block to the end) or is appended.
+ * (from its SECTION_MARKER block to the end) or is appended.
  */
 public class ThirdPartyLicenses {
 
 	private static final String THIRD_PARTY = "target/generated-sources/license/THIRD-PARTY.txt";
 	private static final String SEPARATOR = "===============================================================================";
-	private static final String SECTION_TITLE = "The Docker image (Dockerfile) also bundles four Kafka Connect plugins built from";
+	/** first words of the section title: the section runs from this block to the end of the file */
+	private static final String SECTION_MARKER = "The Docker image (Dockerfile) also bundles";
 
 	private static final String APACHE = "Apache License Version 2.0";
 	private static final String MIT = "MIT License";
@@ -79,7 +80,9 @@ public class ThirdPartyLicenses {
 
 	private static final Pattern COORDINATES = Pattern.compile("\\(([^()\\s]+):([^()\\s]+):([^()\\s]+) - [^()]*\\)\\s*$");
 	private static final Pattern LEADING_LICENSE = Pattern.compile("^\\s*\\(([^()]+)\\)");
-	private static final Pattern PLUGIN_JAR = Pattern.compile("(.+)-schema-client-[0-9.]+\\.jar");
+	private static final Pattern PLUGIN_JAR = Pattern.compile("(.+)-[0-9][0-9.]*\\.jar");
+	/** suffixes dropped from an artifactId to name its jar in the list: apicurio-avro, strimzi-kubernetes */
+	private static final Pattern PLUGIN_SUFFIX = Pattern.compile("-(schema-client|config-provider)$");
 
 	public static void main(String[] args) throws IOException {
 		final Map<String, List<String>> licenses = readLicenses(Path.of(THIRD_PARTY));
@@ -100,7 +103,7 @@ public class ThirdPartyLicenses {
 		for (final Path jar : jars) {
 			final Matcher m = PLUGIN_JAR.matcher(jar.getFileName().toString());
 			m.matches();
-			final String plugin = m.group(1);
+			final String plugin = PLUGIN_SUFFIX.matcher(m.group(1)).replaceFirst("");
 			try (ZipFile zip = new ZipFile(jar.toFile())) {
 				for (final ZipEntry e : zip.stream().toList()) {
 					if (!e.getName().startsWith("META-INF/maven/") || !e.getName().endsWith("/pom.properties"))
@@ -136,8 +139,8 @@ public class ThirdPartyLicenses {
 
 		final StringBuilder sb = new StringBuilder();
 		sb.append(SEPARATOR).append('\n')
-			.append(SECTION_TITLE).append('\n')
-			.append("schema-registry/ (one uber jar per registry and format, in $KAFKA_HOME/connect/lib):\n");
+			.append(SECTION_MARKER).append(" these Kafka Connect plugins, built from\n")
+			.append("connect-plugins/ (one uber jar each, in $KAFKA_HOME/connect/lib):\n");
 		for (final Path jar : jars)
 			sb.append("  ").append(jar.getFileName()).append('\n');
 		sb.append("Each entry below lists the plugin jars that contain the component.\n");
@@ -163,7 +166,7 @@ public class ThirdPartyLicenses {
 		if (args.length == 2 && "--update".equals(args[0])) {
 			final Path target = Path.of(args[1]);
 			final String text = Files.readString(target);
-			final int title = text.indexOf(SEPARATOR + "\n" + SECTION_TITLE);
+			final int title = text.indexOf(SEPARATOR + "\n" + SECTION_MARKER);
 			final String head = title < 0 ? text.stripTrailing() + "\n\n" : text.substring(0, title);
 			Files.writeString(target, head + section);
 			System.out.println((title < 0 ? "appended to " : "updated ") + target + ": " + where.size() + " components in " + jars.size() + " jars");

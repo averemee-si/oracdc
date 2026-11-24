@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ ~ This file is part of the oracdc project.
+ ~ Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ ~ Authors: Aleksei Veremeev
+ ~
+ ~ This program is offered under a commercial and under the AGPL license.
+ ~ For commercial licensing, contact us at sales@a2.solutions.
+ ~ For AGPL licensing, see below.
+ ~
+ ~ AGPL licensing:
+ ~ This program is free software: you can redistribute it and/or modify
+ ~ it under the terms of the GNU Affero General Public License as published by
+ ~ the Free Software Foundation, either version 3 of the License, or
+ ~ (at your option) any later version.
+ ~
+ ~ This program is distributed in the hope that it will be useful,
+ ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ~ GNU Affero General Public License for more details.
+ ~
+ ~ You should have received a copy of the GNU Affero General Public
+ ~ License along with this program; see the file GNU-AGPL-v3.0.adoc.
+ ~ If not, see <https://www.gnu.org/licenses/>.
+  -->
+<!--
+ ~ io.strimzi.kafka.KubernetesSecretConfigProvider, io.strimzi.kafka.KubernetesConfigMapConfigProvider
+ ~
+ ~ fabric8 kubernetes-client 8.x is Jackson 3 (tools.jackson), bundled with the jackson-annotations
+ ~ it is built on; $KAFKA_HOME/libs has Jackson 2 only. kubernetes-client (the implementation),
+ ~ kubernetes-httpclient-jdk and Jackson 3 are loaded by reflection and ServiceLoader, so a static
+ ~ closure misses them. Not bundled: kubernetes-model-gatewayapi (not referenced),
+ ~ commons-compress (only for copying files into pods).
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>solutions.a2.oracle</groupId>
+		<artifactId>strimzi-plugins</artifactId>
+		<version>1.0.0</version>
+	</parent>
+	<artifactId>strimzi-kubernetes-config-provider</artifactId>
+	<name>Strimzi Kubernetes config providers for Kafka</name>
+
+	<dependencies>
+		<dependency><groupId>io.strimzi</groupId><artifactId>kafka-kubernetes-config-provider</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-client</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-client-api</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-httpclient-jdk</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>zjsonpatch</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-admissionregistration</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-apiextensions</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-apps</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-autoscaling</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-batch</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-certificates</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-common</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-coordination</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-core</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-discovery</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-events</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-extensions</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-flowcontrol</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-metrics</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-networking</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-node</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-policy</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-rbac</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-resource</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-scheduling</artifactId></dependency>
+		<dependency><groupId>io.fabric8</groupId><artifactId>kubernetes-model-storageclass</artifactId></dependency>
+		<dependency><groupId>tools.jackson.core</groupId><artifactId>jackson-core</artifactId></dependency>
+		<dependency><groupId>tools.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>
+		<dependency><groupId>tools.jackson.dataformat</groupId><artifactId>jackson-dataformat-yaml</artifactId></dependency>
+		<dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-annotations</artifactId></dependency>
+		<dependency><groupId>org.snakeyaml</groupId><artifactId>snakeyaml-engine</artifactId></dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+</project>
