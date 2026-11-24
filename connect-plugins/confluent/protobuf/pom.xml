@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ ~ This file is part of the oracdc project.
+ ~ Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ ~ Authors: Aleksei Veremeev
+ ~
+ ~ This program is offered under a commercial and under the AGPL license.
+ ~ For commercial licensing, contact us at sales@a2.solutions.
+ ~ For AGPL licensing, see below.
+ ~
+ ~ AGPL licensing:
+ ~ This program is free software: you can redistribute it and/or modify
+ ~ it under the terms of the GNU Affero General Public License as published by
+ ~ the Free Software Foundation, either version 3 of the License, or
+ ~ (at your option) any later version.
+ ~
+ ~ This program is distributed in the hope that it will be useful,
+ ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ~ GNU Affero General Public License for more details.
+ ~
+ ~ You should have received a copy of the GNU Affero General Public
+ ~ License along with this program; see the file GNU-AGPL-v3.0.adoc.
+ ~ If not, see <https://www.gnu.org/licenses/>.
+  -->
+<!--
+ ~ io.confluent.connect.protobuf.ProtobufConverter
+ ~ kafka-protobuf-provider and kafka-connect-protobuf-converter are under the Confluent Community
+ ~ License 1.0: its text and the notice it requires go into the jar as META-INF/Confluent-Community-License
+ ~ (from the repository's licenses/, the Docker build stage copies it next to connect-plugins/).
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>solutions.a2.oracle</groupId>
+		<artifactId>confluent-schema-client</artifactId>
+		<version>1.0.0</version>
+	</parent>
+	<artifactId>confluent-protobuf-schema-client</artifactId>
+	<name>Confluent Schema Registry Protobuf converter for Kafka Connect</name>
+
+	<dependencies>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-connect-protobuf-converter</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-protobuf-provider</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-protobuf-serializer</artifactId></dependency>
+		<dependency><groupId>io.confluent</groupId><artifactId>kafka-protobuf-types</artifactId></dependency>
+		<dependency><groupId>com.google.api.grpc</groupId><artifactId>proto-google-common-protos</artifactId></dependency>
+		<dependency><groupId>com.squareup.wire</groupId><artifactId>wire-schema-jvm</artifactId></dependency>
+		<dependency><groupId>com.squareup.wire</groupId><artifactId>wire-runtime-jvm</artifactId></dependency>
+		<dependency><groupId>com.squareup.okio</groupId><artifactId>okio-jvm</artifactId></dependency>
+		<dependency><groupId>org.jetbrains.kotlin</groupId><artifactId>kotlin-stdlib</artifactId></dependency>
+	</dependencies>
+
+	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<resource>
+				<directory>${project.basedir}/../../../licenses</directory>
+				<targetPath>META-INF</targetPath>
+				<includes><include>Confluent-Community-License</include></includes>
+			</resource>
+		</resources>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+</project>

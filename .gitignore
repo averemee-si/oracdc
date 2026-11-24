@@ -2,3 +2,4 @@
 /lib/
 .classpath
 .settings/
+/connect-plugins/**/target/

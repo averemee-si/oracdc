@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ ~ This file is part of the oracdc project.
+ ~ Copyright (c) 2018-present, A2 Rešitve d.o.o.
+ ~ Authors: Aleksei Veremeev
+ ~
+ ~ This program is offered under a commercial and under the AGPL license.
+ ~ For commercial licensing, contact us at sales@a2.solutions.
+ ~ For AGPL licensing, see below.
+ ~
+ ~ AGPL licensing:
+ ~ This program is free software: you can redistribute it and/or modify
+ ~ it under the terms of the GNU Affero General Public License as published by
+ ~ the Free Software Foundation, either version 3 of the License, or
+ ~ (at your option) any later version.
+ ~
+ ~ This program is distributed in the hope that it will be useful,
+ ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ ~ GNU Affero General Public License for more details.
+ ~
+ ~ You should have received a copy of the GNU Affero General Public
+ ~ License along with this program; see the file GNU-AGPL-v3.0.adoc.
+ ~ If not, see <https://www.gnu.org/licenses/>.
+  -->
+<!--
+ ~ Apicurio Registry converters (Apache License 2.0), one plugin jar per format.
+ ~
+ ~ Not bundled:
+ ~  - Vert.x/Netty: with kiota-http-vertx absent the SDK uses kiota-http-jdk (java.net.http);
+ ~  - apicurio-registry-contracts-rules (CEL, JSONata): CDI beans, unusable without a CDI container;
+ ~  - JSON Schema serde.
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>solutions.a2.oracle</groupId>
+		<artifactId>connect-plugins</artifactId>
+		<version>1.0.0</version>
+	</parent>
+	<artifactId>apicurio-schema-client</artifactId>
+	<packaging>pom</packaging>
+	<name>Apicurio Registry converters for Kafka Connect</name>
+
+	<modules>
+		<module>avro</module>
+		<module>protobuf</module>
+	</modules>
+
+	<properties>
+		<plugin.version>${apicurio.version}</plugin.version>
+	</properties>
+
+	<!-- Converter base, serde, resolver and the SDK with the JDK HTTP adapter: in every jar -->
+	<dependencies>
+		<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-utils-converter</artifactId></dependency>
+		<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-serde-kafka-common</artifactId></dependency>
+		<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-serde-common</artifactId></dependency>
+		<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-schema-resolver</artifactId></dependency>
+		<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-common</artifactId></dependency>
+		<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-java-sdk</artifactId></dependency>
+		<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-v2-java-sdk</artifactId></dependency>
+		<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-java-sdk-common</artifactId></dependency>
+		<dependency><groupId>io.apicurio</groupId><artifactId>apicurio-registry-java-sdk-adapter-jdk</artifactId></dependency>
+		<dependency><groupId>io.kiota</groupId><artifactId>kiota-http-jdk</artifactId></dependency>
+		<dependency><groupId>io.kiota</groupId><artifactId>kiota-serialization-jackson</artifactId></dependency>
+		<dependency><groupId>com.microsoft.kiota</groupId><artifactId>microsoft-kiota-abstractions</artifactId></dependency>
+		<dependency><groupId>com.microsoft.kiota</groupId><artifactId>microsoft-kiota-serialization-text</artifactId></dependency>
+		<dependency><groupId>com.microsoft.kiota</groupId><artifactId>microsoft-kiota-serialization-form</artifactId></dependency>
+		<dependency><groupId>com.microsoft.kiota</groupId><artifactId>microsoft-kiota-serialization-multipart</artifactId></dependency>
+		<dependency><groupId>io.github.std-uritemplate</groupId><artifactId>std-uritemplate</artifactId></dependency>
+		<dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-api</artifactId></dependency>
+		<dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-context</artifactId></dependency>
+		<dependency><groupId>io.opentelemetry</groupId><artifactId>opentelemetry-common</artifactId></dependency>
+	</dependencies>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-shade-plugin</artifactId>
+					<executions>
+						<execution>
+							<id>uber-jar</id>
+							<configuration>
+								<filters combine.children="append">
+									<filter>
+										<!-- each module lists its own converters -->
+										<artifact>io.apicurio:apicurio-registry-utils-converter</artifact>
+										<excludes>
+											<exclude>META-INF/services/org.apache.kafka.connect.storage.Converter</exclude>
+										</excludes>
+									</filter>
+								</filters>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+</project>
