@@ -724,7 +724,6 @@ public class KafkaInitialLoadTable {
 						0L, ts,
 						"", 0L, "");
 				struct.put("source", source);
-				struct.put("before", keyStruct);
 				struct.put("after", valueStruct);
 				struct.put("op", "c");
 				struct.put("ts_ms", ts);
@@ -732,6 +731,9 @@ public class KafkaInitialLoadTable {
 						sourcePartition,
 						offset,
 						kafkaTopic,
+						null,
+						keySchema,
+						keyStruct,
 						schema,
 						struct);
 			} else {

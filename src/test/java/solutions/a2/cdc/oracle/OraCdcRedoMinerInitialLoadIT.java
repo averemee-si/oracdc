@@ -27,6 +27,7 @@ package solutions.a2.cdc.oracle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -89,10 +90,23 @@ public class OraCdcRedoMinerInitialLoadIT {
 		oracle.close();
 	}
 
-	/** Issue 200: the Debezium envelope of every row, op "c", the row in "after" */
+	/** Issue 200: the Debezium envelope of every row, op "c", no "before", the row in "after" */
 	@Test
 	void testDebeziumInitialLoad() throws Exception {
-		try (var runner = runner("il-debezium-it", "debezium")) {
+		assertDebeziumInitialLoad("il-debezium-it", Map.of());
+	}
+
+	/**
+	 * Issue 200 with all the columns of a DELETE: the value schema of the other schema types is
+	 * then required, in the envelope it has to stay optional for the "before" of every row
+	 */
+	@Test
+	void testDebeziumInitialLoadAllColumnsOnDelete() throws Exception {
+		assertDebeziumInitialLoad("il-debezium-all-cols-it", Map.of("a2.use.all.columns.on.delete", "true"));
+	}
+
+	private void assertDebeziumInitialLoad(final String name, final Map<String, String> extra) throws Exception {
+		try (var runner = runner(name, "debezium", extra)) {
 			final var records = runner.poll(OraCdcRedoMinerInitialLoadIT::isEmpDebezium, OracleFree.EMP_ROWS, POLL_TIMEOUT_MS);
 			assertEquals(OracleFree.EMP_ROWS, records.size(), "Initial load records of SCOTT.EMP: " + records);
 			final Set<Integer> empNos = new TreeSet<>();
@@ -104,8 +118,15 @@ public class OraCdcRedoMinerInitialLoadIT {
 				final var source = envelope.getStruct("source");
 				assertNotNull(source, "Envelope without source: " + envelope);
 				assertEquals(OracleFree.USER, source.getString("owner"));
+				// a row the initial load reads has no previous image, not even its key
+				assertNull(envelope.get("before"), "Envelope with before: " + envelope);
+				// the key goes to the key of the record, as for the changes from the redo
+				final var key = (Struct) record.key();
+				assertNotNull(key, "Record without key: " + record);
+				key.validate();
 				final var after = envelope.getStruct("after");
 				assertNotNull(after, "Envelope without after: " + envelope);
+				assertEquals(empNo(key), empNo(after));
 				empNos.add(empNo(after));
 				assertNotNull(after.get("ENAME"), "Row without ENAME: " + after);
 			}
@@ -116,7 +137,7 @@ public class OraCdcRedoMinerInitialLoadIT {
 	/** The control: with the default schema type, key and value of every row, header op=c */
 	@Test
 	void testKafkaInitialLoad() throws Exception {
-		try (var runner = runner("il-kafka-it", "kafka")) {
+		try (var runner = runner("il-kafka-it", "kafka", Map.of())) {
 			final var records = runner.poll(OraCdcRedoMinerInitialLoadIT::isEmpKafka, OracleFree.EMP_ROWS, POLL_TIMEOUT_MS);
 			assertEquals(OracleFree.EMP_ROWS, records.size(), "Initial load records of SCOTT.EMP: " + records);
 			final Set<Integer> empNos = new TreeSet<>();
@@ -135,7 +156,8 @@ public class OraCdcRedoMinerInitialLoadIT {
 		}
 	}
 
-	private SourceTaskRunner runner(final String name, final String schemaType) throws Exception {
+	private SourceTaskRunner runner(final String name, final String schemaType,
+			final Map<String, String> extra) throws Exception {
 		final var props = new HashMap<String, String>(Map.of(
 				"a2.storage.media", "BFILE",
 				"a2.bfile.directory.online", OracleFree4Mining.ONLINE_DIR,
@@ -149,6 +171,7 @@ public class OraCdcRedoMinerInitialLoadIT {
 				"a2.topic.name.delimiter", "."));
 		props.put("a2.topic.prefix", "oraredocdc.");
 		props.put("a2.schema.type", schemaType);
+		props.putAll(extra);
 		return new SourceTaskRunner(new OraCdcRedoMinerConnector(), oracle, name,
 				OracleFree.USER + "." + TABLE, firstChange, props);
 	}
